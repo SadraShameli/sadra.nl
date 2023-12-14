@@ -5,6 +5,16 @@ import YoutubeIcon from '~/components/Icons/Youtube';
 import LinkedinIcon from '~/components/Icons/Linkedin';
 import GmailIcon from '~/components/Icons/Gmail';
 
+function calculate_age(dob: Date) {
+    var diff_ms = Date.now() - dob.getTime();
+    var age_dt = new Date(diff_ms);
+
+    return Math.abs(age_dt.getUTCFullYear() - 1970);
+}
+
+const birthday = new Date('2003-12-11');
+const age = calculate_age(birthday);
+
 const Resume: IResume = {
     title: 'Sadra Shameli • Resume',
     description: 'Full-Stack & Embedded Engineer',
@@ -13,8 +23,7 @@ const Resume: IResume = {
         role: 'Full-Stack & Embedded Engineer',
         email: 'sadra.shameli1@gmail.com',
         phone: '+31685156033',
-        summary:
-            'I am Sadra Shameli. 19 y/o full-stack & embedded engineer with two years of working experience, based in Rotterdam, the Netherlands. My tech stack consists of TypeScript, React and Next.js together with Tailwind CSS, tRPC, Prisma and NextAuth.js to develop intuitive web applications. I am also experienced in developing robots and IoT devices.',
+        summary: `I am Sadra Shameli. ${age} y/o full-stack & embedded engineer with two years of working experience, based in Rotterdam, the Netherlands. My tech stack consists of TypeScript, React and Next.js together with Tailwind CSS, tRPC, Prisma and NextAuth.js to develop intuitive web applications. I am also experienced in developing robots and IoT devices.`,
         location: {
             title: 'Rotterdam - South Holland, The Netherlands',
             url: 'https://goo.gl/maps/v9asMxGqgKwcvwQw5',
