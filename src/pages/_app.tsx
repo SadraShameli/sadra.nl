@@ -1,6 +1,7 @@
 import Script from 'next/script';
 import { useEffect } from 'react';
 import { type AppProps } from 'next/app';
+import { Analytics } from '@vercel/analytics/react';
 
 import '~/styles/main.css';
 
@@ -66,6 +67,7 @@ export default function MyApp({ Component, pageProps }: AppProps) {
             </Script>
 
             <Component {...pageProps} />
+            <Analytics />
         </>
     );
 }
