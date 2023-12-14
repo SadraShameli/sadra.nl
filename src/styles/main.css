@@ -1,0 +1,25 @@
+@import 'base.css';
+@import 'fonts.css';
+@import 'utilities.css';
+@import 'components.css';
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        color-scheme: dark;
+    }
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
+
+path {
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
