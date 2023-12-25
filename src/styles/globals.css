@@ -1,7 +1,6 @@
 @import 'base.css';
-@import 'fonts.css';
-@import 'utilities.css';
 @import 'components.css';
+@import 'utilities.css';
 
 @media (prefers-color-scheme: dark) {
     :root {

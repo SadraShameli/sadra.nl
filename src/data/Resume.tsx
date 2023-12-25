@@ -108,7 +108,15 @@ const Resume: IResume = {
             skills: ['TypeScript, React, Next.js, Tailwind CSS, tRPC, Prisma, NextAuth.js, PostgreSQL'],
         },
     ],
-    educations: [{ title: 'Grotius College', date: 'Sep 2020, Aug 2023', url: 'https://www.grotiuscollege.nl', role: 'VWO - N&T', summary: '' }],
+    educations: [
+        {
+            title: 'Grotius College',
+            date: 'Sep 2020, Aug 2023',
+            url: 'https://www.grotiuscollege.nl',
+            role: 'VWO - N&T',
+            summary: '',
+        },
+    ],
     languages: [
         {
             language: 'English',

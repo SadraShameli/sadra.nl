@@ -1,13 +1,8 @@
-import Script from 'next/script';
-import { useEffect } from 'react';
-import { type AppProps } from 'next/app';
-import { Analytics } from '@vercel/analytics/react';
+'use client';
 
-import '~/styles/main.css';
+import { useEffect } from 'react';
 
 let reloadInterval: NodeJS.Timeout;
-
-const GOOGLE_ANALYTICS_ID = 'G-RC2BS5NY0W';
 
 function lazyReload() {
     clearInterval(reloadInterval);
@@ -53,21 +48,10 @@ async function registerServiceWorker() {
     }
 }
 
-export default function MyApp({ Component, pageProps }: AppProps) {
+export default function ClientApplication({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         void registerServiceWorker();
     }, []);
 
-    return (
-        <>
-            <Script src={`https://www.googletagmanager.com/gtag/js?id=${GOOGLE_ANALYTICS_ID}`} strategy='afterInteractive' />
-            <Script id='google-analytics' strategy='afterInteractive'>
-                {`window.dataLayer = window.dataLayer || [];function gtag(){window.dataLayer.push(arguments);}
-                    gtag('js', new Date());gtag('config', '${GOOGLE_ANALYTICS_ID}');`}
-            </Script>
-
-            <Component {...pageProps} />
-            <Analytics />
-        </>
-    );
+    return children;
 }

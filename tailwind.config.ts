@@ -1,20 +1,16 @@
-/* eslint-disable @typescript-eslint/no-var-requires */
-const defaultTheme = require('tailwindcss/defaultTheme');
-const colors = require('tailwindcss/colors');
+import { type Config } from 'tailwindcss';
+import colors from 'tailwindcss/colors';
+import { fontFamily } from 'tailwindcss/defaultTheme';
 
-/** @type {import('tailwindcss').Config} */
-const config = {
-    experimental: {
-        optimizeUniversalDefaults: true,
-    },
-    content: ['./src/**/*.{ts,tsx}'],
+export default {
+    content: ['./src/**/*.tsx'],
     theme: {
         borderRadius: {
             DEFAULT: '0.5rem',
         },
         extend: {
             fontFamily: {
-                sans: ['Inter var', ...defaultTheme.fontFamily.sans],
+                sans: ['var(--font-sans)', ...fontFamily.sans],
             },
             borderColor: {
                 light: colors.gray[200],
@@ -47,7 +43,8 @@ const config = {
     future: {
         hoverOnlyWhenSupported: true,
     },
+    experimental: {
+        optimizeUniversalDefaults: true,
+    },
     plugins: [require('@tailwindcss/typography')],
-};
-
-module.exports = config;
+} satisfies Config;

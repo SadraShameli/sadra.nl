@@ -1,4 +1,4 @@
-/** @type {import("prettier").Config} */
+/** @type {import('prettier').Config & import('prettier-plugin-tailwindcss').PluginOptions} */
 const config = {
     printWidth: 160,
     singleQuote: true,
@@ -8,7 +8,7 @@ const config = {
     bracketSpacing: true,
     tabWidth: 4,
     semi: true,
-    plugins: [require.resolve('prettier-plugin-tailwindcss')],
+    plugins: ['prettier-plugin-tailwindcss'],
 };
 
-module.exports = config;
+export default config;
