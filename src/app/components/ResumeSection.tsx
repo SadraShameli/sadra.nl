@@ -1,14 +1,14 @@
 import Link from 'next/link';
-import Image, { StaticImageData } from 'next/image';
+import Image, { type StaticImageData } from 'next/image';
 
 import CalendarIcon from '~/components/Icons/Calendar';
 import MapIcon from '~/components/Icons/Map';
 
-import { IResumeSection } from '~/types/Resume';
+import { type IResumeSection } from '~/types/Resume';
 
 export default function ResumeSection({ title, sections, img }: { title: string; sections: IResumeSection[]; img: StaticImageData }) {
     return (
-        <div className='max-w-main rounded-2xl mx-auto grid grid-cols-1 border p-5 xl:grid-flow-col xl:grid-cols-2 xl:space-x-10 xl:p-10' id={title}>
+        <div className='mx-auto grid max-w-main grid-cols-1 rounded-2xl border p-5 xl:grid-flow-col xl:grid-cols-2 xl:space-x-10 xl:p-10' id={title}>
             <Image className='rounded-2xl' src={img} alt={`${title} picture`} quality={100} priority />
 
             <div className='space-y-10'>
