@@ -2,7 +2,7 @@ import { type SVGProps } from 'react';
 
 export default function GoogleIcon(props: SVGProps<SVGSVGElement>) {
     return (
-        <svg viewBox='0 0 16 16' {...props}>
+        <svg viewBox='0 0 16 16' strokeLinejoin='round' strokeLinecap='round' {...props}>
             <path
                 fill='#4285F4'
                 d='M14.9 8.161c0-.476-.039-.954-.121-1.422h-6.64v2.695h3.802a3.24 3.24 0 01-1.407 2.127v1.75h2.269c1.332-1.22 2.097-3.02 2.097-5.15z'

@@ -2,7 +2,7 @@ import { type SVGProps } from 'react';
 
 export default function CalendarIcon(props: SVGProps<SVGSVGElement>) {
     return (
-        <svg fill='none' stroke='currentColor' viewBox='0 0 24 24' {...props}>
+        <svg fill='none' stroke='currentColor' viewBox='0 0 24 24' strokeLinejoin='round' strokeLinecap='round' {...props}>
             <path strokeWidth={1.5} d='M8 2V5' />
             <path strokeWidth={1.5} d='M16 2V5' />
             <path strokeWidth={1.5} d='M3.5 9.08997H20.5' />

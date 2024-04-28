@@ -2,8 +2,8 @@ import { type IResume } from '~/types/Resume';
 
 import GithubIcon from '~/components/Icons/Github';
 import YoutubeIcon from '~/components/Icons/Youtube';
-import LinkedinIcon from '~/components/Icons/Linkedin';
-import GmailIcon from '~/components/Icons/Gmail';
+import WhatsAppIcon from '~/components/Icons/WhatsApp';
+import InstagramIcon from '~/components/Icons/Instagram';
 
 function calculate_age(dob: Date) {
     const diff_ms = Date.now() - dob.getTime();
@@ -16,23 +16,22 @@ const birthday = new Date('2003-12-11');
 const age = calculate_age(birthday);
 
 const Resume: IResume = {
-    title: 'Sadra Shameli • Resume',
-    description: 'Full-Stack & Embedded Engineer',
+    title: 'Sadra • Resume',
+    description: 'Full-Stack & Embedded',
     basics: {
         title: 'Sadra Shameli',
-        role: 'Full-Stack & Embedded Engineer',
+        role: 'Full-Stack & Embedded',
         email: 'sadra.shameli1@gmail.com',
         phone: '+31685156033',
-        summary: `I am Sadra Shameli. ${age} y/o full-stack & embedded engineer with two years of working experience, based in Rotterdam, the Netherlands. My tech stack consists of TypeScript, React and Next.js together with Tailwind CSS, tRPC, Prisma and NextAuth.js to develop intuitive web applications. I am also experienced in developing robots and IoT devices.`,
         location: {
             title: 'Rotterdam - South Holland, The Netherlands',
             url: 'https://goo.gl/maps/v9asMxGqgKwcvwQw5',
         },
         profiles: [
             {
-                title: 'Github',
-                url: 'https://github.com/SadraShameli',
-                icon: <GithubIcon />,
+                title: 'Instagram',
+                url: 'https://instagram.com/sadra_shml',
+                icon: <InstagramIcon />,
             },
             {
                 title: 'Youtube',
@@ -40,22 +39,37 @@ const Resume: IResume = {
                 icon: <YoutubeIcon />,
             },
             {
-                title: 'Linkedin',
-                url: 'https://www.linkedin.com/in/sadrashameli/',
-                icon: <LinkedinIcon />,
+                title: 'WhatsApp',
+                url: 'https://wa.me/+31685156033',
+                icon: <WhatsAppIcon />,
             },
             {
-                title: 'Gmail',
-                url: 'mailto:sadra.shameli1@gmail.com',
-                icon: <GmailIcon />,
+                title: 'Github',
+                url: 'https://github.com/SadraShameli',
+                icon: <GithubIcon />,
             },
+            // {
+            //     title: 'Gmail',
+            //     url: 'mailto:sadra.shameli1@gmail.com',
+            //     icon: <GmailIcon />,
+            // },
+            // {
+            //     title: 'Linkedin',
+            //     url: 'https://www.linkedin.com/in/sadrashameli/',
+            //     icon: <LinkedinIcon />,
+            // },
         ],
     },
-    skills: [
+    keypoints: [
+        {
+            title: 'About',
+            summary: `I am Sadra Shameli. ${age} y/o full-stack & embedded engineer with two years of working experience, based in Rotterdam, the Netherlands. My tech stack consists of TypeScript, React and Next.js together with Tailwind CSS, tRPC, Prisma and NextAuth.js to develop intuitive web applications. I am also experienced in developing robots and IoT devices.`,
+            keywords: [],
+        },
         {
             title: 'Skills',
             keywords: [
-                'TypeScript, React and Next.js. Familiar with SSR, SSG and CSR.',
+                'TypeScript, React and Next.js',
                 'tRPC, Prisma, NextAuth.js',
                 'Tailwind CSS, Daisy UI and Material UI',
                 'ASP.NET, Unit testing. Familiar with REST API, Web API and MVC.',
@@ -67,10 +81,14 @@ const Resume: IResume = {
             title: 'Interests',
             keywords: ['Robotics', 'Programming', 'Photography', 'Guitar', 'Cars'],
         },
+        {
+            title: 'Languages',
+            keywords: ['English & Dutch • Full Professional Proficiency', 'Persian • Native Speaker'],
+        },
     ],
     works: [
         {
-            role: 'Software Engineer',
+            role: 'Full-Stack & Embedded Developer',
             date: 'Jan 2022 - Jan 2023',
             title: 'Blue Star Planning',
             url: 'https://bluestarplanning.com',
@@ -92,6 +110,7 @@ const Resume: IResume = {
             date: 'Sep 2022 - Dec 2022',
             url: 'https://github.com/SadraShameli/ProjectAI',
             summary: 'Autonomous self-driving robot based on camera vision and lidar.',
+            role: 'Robot',
             highlights: [
                 'Fully autonomous driving without any input from the user',
                 'Ability to manually control using a PS4 or PS5 controller',
@@ -102,6 +121,7 @@ const Resume: IResume = {
         },
         {
             title: 'Partify',
+            role: 'Website',
             date: 'Jan 2023 - Present',
             url: 'https://github.com/SadraShameli/Partify',
             summary: 'Online e-commerce store',

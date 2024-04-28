@@ -5,24 +5,10 @@ import { fontFamily } from 'tailwindcss/defaultTheme';
 export default {
     content: ['./src/**/*.tsx'],
     theme: {
-        borderRadius: {
-            DEFAULT: '0.5rem',
-        },
         extend: {
             fontFamily: {
-                sans: ['var(--font-sans)', ...fontFamily.sans],
-            },
-            borderColor: {
-                light: colors.gray[200],
-                DEFAULT: colors.gray[200],
-                dark: colors.zinc[900],
-            },
-            colors: {
-                hover: {
-                    light: '#8b939b',
-                    DEFAULT: '#8b939b',
-                    dark: '#8b939b',
-                },
+                sans: ['var(--font-default)', ...fontFamily.sans],
+                orbitron: 'var(--font-orbitron)',
             },
             container: {
                 center: true,
@@ -37,14 +23,12 @@ export default {
             maxWidth: {
                 '8xl': '90rem',
                 '9xl': '98rem',
+                main: '80rem',
+            },
+            borderColor: {
+                DEFAULT: 'rgb(35,35,35)',
             },
         },
-    },
-    future: {
-        hoverOnlyWhenSupported: true,
-    },
-    experimental: {
-        optimizeUniversalDefaults: true,
     },
     plugins: [require('@tailwindcss/typography')],
 } satisfies Config;

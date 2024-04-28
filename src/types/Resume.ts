@@ -14,13 +14,13 @@ export interface IResumeBasics {
     role: string;
     email: string;
     phone: string;
-    summary: string;
     location: ILocation;
     profiles: IProfile[];
 }
 
-export interface IResumeSkill {
+export interface IResumeKeyPoint {
     title: string;
+    summary?: string;
     keywords: string[];
 }
 
@@ -28,9 +28,9 @@ export interface IResumeSection {
     title: string;
     date: string;
     url: string;
-    role?: string;
-    location?: ILocation;
     summary: string;
+    role: string;
+    location?: ILocation;
     highlights?: string[];
     skills?: string[];
 }
@@ -44,7 +44,7 @@ export interface IResume {
     title: string;
     description: string;
     basics: IResumeBasics;
-    skills: IResumeSkill[];
+    keypoints: IResumeKeyPoint[];
     works: IResumeSection[];
     projects: IResumeSection[];
     educations: IResumeSection[];

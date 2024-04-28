@@ -2,14 +2,18 @@
 
 @layer base {
     * {
-        @apply dark:border-dark;
+        color-scheme: dark;
     }
 
     body {
-        @apply dark:bg-black dark:text-slate-200;
+        @apply dark:text-[hsla(0,0%,100%,0.82)];
     }
 
-    body * {
-        @apply transition-all duration-100 ease-out;
+    .bg-gradient-indigo {
+        @apply bg-gradient-to-r from-indigo-100 to-indigo-950 bg-clip-text text-transparent;
+    }
+
+    .bg-gradient-teal {
+        @apply bg-gradient-to-br from-teal-50 to-teal-900 bg-clip-text text-transparent;
     }
 }

@@ -1,18 +1,9 @@
 import { type Metadata } from 'next';
-import Script from 'next/script';
-import { Inter } from 'next/font/google';
-import { Analytics } from '@vercel/analytics/react';
-
-import Resume from '~/data/Resume';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 
 import '~/styles/globals.css';
-
-const GOOGLE_ANALYTICS_ID = 'G-RC2BS5NY0W';
-
-const inter = Inter({
-    subsets: ['latin'],
-    variable: '--font-sans',
-});
+import { defaultFont, orbitron } from '~/assets/fonts';
+import Resume from '~/data/Resume';
 
 export const metadata: Metadata = {
     title: Resume.title,
@@ -37,15 +28,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
     return (
-        <html lang='en'>
-            <Script src={`https://www.googletagmanager.com/gtag/js?id=${GOOGLE_ANALYTICS_ID}`} strategy='afterInteractive' />
-            <Script id='google-analytics' strategy='afterInteractive'>
-                {`window.dataLayer = window.dataLayer || [];function gtag(){window.dataLayer.push(arguments);}
-                    gtag('js', new Date());gtag('config', '${GOOGLE_ANALYTICS_ID}');`}
-            </Script>
-            <body className={`font-sans ${inter.variable}`}>
+        <html lang='en' className='scroll-smooth bg-black antialiased'>
+            <body className={`${orbitron.variable} ${defaultFont.variable} font-sans`}>
                 {children}
-                <Analytics />
+                <SpeedInsights />
             </body>
         </html>
     );
