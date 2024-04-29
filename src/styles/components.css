@@ -18,7 +18,7 @@
     }
 
     .bg-gradient-indigo {
-        @apply bg-gradient-to-r from-indigo-100 to-indigo-950 bg-clip-text text-transparent;
+        @apply bg-gradient-to-br from-indigo-50 to-indigo-500 bg-clip-text text-transparent;
     }
 
     .bg-gradient-teal {

@@ -21,19 +21,19 @@ export default function ResumeSection({ id, title, sections, img }: { id: string
                                         {section.title}
                                     </Link>
 
-                                    {<span className='text-base xl:ml-5 xl:border-l xl:pl-5'>{section.role}</span>}
+                                    {<span className='bg-gradient-indigo text-base tracking-tight xl:ml-5 xl:border-l xl:pl-5 max-w-fit'>{section.role}</span>}
 
                                     <div className='mt-3 grid gap-y-2 text-[#888]'>
                                         {section.location && (
                                             <Link className='flex items-center' href={section.location.url}>
                                                 <MapIcon className='h-5 w-5' />
-                                                <span className='ml-1'>{section.location.title}</span>
+                                                <span className='ml-1 tracking-tight'>{section.location.title}</span>
                                             </Link>
                                         )}
 
                                         <div className='flex items-center'>
                                             <CalendarIcon className='h-5 w-5' />
-                                            <span className='ml-1'>{section.date}</span>
+                                            <span className='ml-1 tracking-tight'>{section.date}</span>
                                         </div>
                                     </div>
                                 </div>

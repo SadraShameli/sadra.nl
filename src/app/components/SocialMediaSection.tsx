@@ -6,7 +6,7 @@ export default function SocialMediaSection() {
         <div className='mx-auto max-w-main'>
             {/* <h2 className='text-center text-5xl font-semibold text-white'>Follow me on Social Media</h2> */}
 
-            <div className='grid gap-5 sm:grid-cols-2 lg:grid-cols-4'>
+            <div className='grid gap-3 lg:gap-10 sm:grid-cols-2 lg:grid-cols-4'>
                 {Resume.basics.profiles.map((profile, index) => {
                     return (
                         <div className='bg-gradient-card2 flex rounded-2xl px-5 text-white' key={index}>
@@ -18,9 +18,9 @@ export default function SocialMediaSection() {
                                 </Link>
                             </div>
 
-                            <div className='mx-auto py-8 md:py-14'>
+                            <div className='mx-auto py-8 md:py-12'>
                                 <Link href={profile.url}>
-                                    <div className='h-14 w-14'>{profile.icon}</div>
+                                    <div className='h-10 w-10'>{profile.icon}</div>
                                 </Link>
                             </div>
                         </div>
