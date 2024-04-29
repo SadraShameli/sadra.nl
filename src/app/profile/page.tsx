@@ -1,5 +1,5 @@
 import Resume from '~/data/Resume';
-import Sidebar from '../components/Sidebar';
+import Navbar from '../components/Navbar';
 import ResumeSection from '../components/ResumeSection';
 
 import workImg from '~/assets/images/units.jpg';
@@ -8,15 +8,15 @@ import projectAiImg from '~/assets/images/projectai.jpg';
 
 export default function ProfilePage() {
     return (
-        <main className='my-56 px-6 xl:px-0'>
-            <Sidebar />
+        <main className='px-6 xl:px-0'>
+            <Navbar />
 
-            <div className='space-y-4'>
-                <ResumeSection title='Work' img={workImg} sections={Resume.works} />
+            <div className='space-y-4 my-20'>
+                <ResumeSection title='Work' id='work' img={workImg} sections={Resume.works} />
 
-                <ResumeSection title='Projects' img={projectAiImg} sections={Resume.projects} />
+                <ResumeSection title='Projects' id='projects' img={projectAiImg} sections={Resume.projects} />
 
-                <ResumeSection title='Education' img={diplomaImg} sections={Resume.educations} />
+                <ResumeSection title='Education' id='education' img={diplomaImg} sections={Resume.educations} />
             </div>
         </main>
     );

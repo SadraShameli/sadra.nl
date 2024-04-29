@@ -1,12 +1,12 @@
 import Resume from '~/data/Resume';
-import Sidebar from '../components/Sidebar';
+import Navbar from '../components/Navbar';
 
 export default function AboutPage() {
     return (
-        <main className='my-56 px-6 xl:px-0'>
-            <Sidebar />
+        <main className='px-6 xl:px-0'>
+            <Navbar />
 
-            <div className='rounded-2xl max-w-main mx-auto space-y-10 border p-10'>
+            <div className='my-20 mx-auto max-w-main space-y-10 rounded-2xl border p-10'>
                 {Resume.keypoints.map((skills, index) => {
                     return (
                         <div key={index}>

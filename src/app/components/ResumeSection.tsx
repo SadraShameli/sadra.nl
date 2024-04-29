@@ -6,10 +6,10 @@ import MapIcon from '~/components/Icons/Map';
 
 import { type IResumeSection } from '~/types/Resume';
 
-export default function ResumeSection({ title, sections, img }: { title: string; sections: IResumeSection[]; img: StaticImageData }) {
+export default function ResumeSection({ id, title, sections, img }: { id: string; title: string; sections: IResumeSection[]; img: StaticImageData }) {
     return (
-        <div className='mx-auto grid max-w-main grid-cols-1 rounded-2xl border p-5 xl:grid-flow-col xl:grid-cols-2 xl:space-x-10 xl:p-10' id={title}>
-            <Image className='rounded-2xl' src={img} alt={`${title} picture`} quality={100} priority />
+        <div className='mx-auto grid max-w-main grid-cols-1 rounded-2xl border p-5 xl:grid-flow-col xl:grid-cols-2 xl:space-x-10 xl:p-10' id={id}>
+            <Image className='rounded-2xl' src={img} alt={`${title} picture`} priority />
 
             <div className='space-y-10'>
                 {sections.map((section, index) => {

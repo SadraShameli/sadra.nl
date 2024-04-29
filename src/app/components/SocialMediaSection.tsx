@@ -3,13 +3,13 @@ import Resume from '~/data/Resume';
 
 export default function SocialMediaSection() {
     return (
-        <div className='max-w-main mx-auto mt-56'>
+        <div className='max-w-main mx-auto'>
             {/* <h2 className='text-center text-5xl font-semibold text-white'>Follow me on Social Media</h2> */}
 
-            <div className='grid gap-5 px-6 sm:grid-cols-2 sm:gap-10 lg:grid-cols-4 xl:px-0'>
+            <div className='grid gap-5 sm:grid-cols-2 lg:grid-cols-4'>
                 {Resume.basics.profiles.map((profile, index) => {
                     return (
-                        <div className='bg-gradient-card2 rounded-2xl flex px-5 text-white lg:my-14' key={index}>
+                        <div className='bg-gradient-card2 rounded-2xl flex px-5 text-white' key={index}>
                             <div className='pt-5'>
                                 <Link href={profile.url}>
                                     <button className='rounded-lg absolute bg-indigo-950 px-3 py-2 text-xs font-semibold tracking-wider text-indigo-300'>
