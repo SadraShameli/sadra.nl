@@ -8,10 +8,10 @@ import projectAiImg from '~/assets/images/projectai.jpg';
 
 export default function ProfilePage() {
     return (
-        <main className='px-6 xl:px-0'>
+        <main className='mx-auto max-w-main px-6 xl:px-0'>
             <Navbar />
 
-            <div className='space-y-4 my-20'>
+            <div className='my-20 space-y-4'>
                 <ResumeSection title='Work' id='work' img={workImg} sections={Resume.works} />
 
                 <ResumeSection title='Projects' id='projects' img={projectAiImg} sections={Resume.projects} />

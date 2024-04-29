@@ -17,11 +17,19 @@
         @apply bg-gradient-to-tl from-[rgba(29,161,242,0.5)-225%] via-[rgba(10,10,10,1)45%] to-[rgba(29,161,242,0.5)225%];
     }
 
-    .vertical-rl {
-        writing-mode: 'vertical-rl';
+    .bg-gradient-indigo {
+        @apply bg-gradient-to-r from-indigo-100 to-indigo-950 bg-clip-text text-transparent;
     }
 
-    .vertical-lr {
-        writing-mode: 'vertical-lr';
+    .bg-gradient-teal {
+        @apply bg-gradient-to-br from-teal-50 to-teal-900 bg-clip-text text-transparent;
+    }
+
+    .btn-transition {
+        @apply transition-all duration-300;
+    }
+
+    .btn-scale {
+        @apply scale-105;
     }
 }

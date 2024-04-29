@@ -1,1 +1,11 @@
 @tailwind utilities;
+
+@layer utilities {
+    .btn-transition {
+        @apply transition-all duration-300;
+    }
+
+    .btn-scale {
+        @apply scale-105;
+    }
+}
