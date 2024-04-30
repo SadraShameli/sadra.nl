@@ -1,5 +1,5 @@
 import { type Config } from 'tailwindcss';
-import { fontFamily } from 'tailwindcss/defaultTheme';
+import { backgroundPosition, fontFamily } from 'tailwindcss/defaultTheme';
 
 export default {
     content: ['./src/**/*.tsx'],
@@ -26,6 +26,15 @@ export default {
             },
             borderColor: {
                 DEFAULT: 'rgb(35,35,35)',
+            },
+            keyframes: {
+                gradient: {
+                    'O%': { backgroundPosition: '0% 50%' },
+                    '100%': { backgroundPosition: '100% 50%' },
+                },
+            },
+            animation: {
+                gradient: 'gradient 6s ease-out infinite',
             },
         },
     },

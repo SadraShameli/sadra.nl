@@ -13,7 +13,7 @@ export default function AboutPage() {
                     {Resume.keypoints.map((skills, index) => {
                         return (
                             <div key={index}>
-                                <h2 className='bg-gradient-indigo text-2xl font-light tracking-tight max-w-fit'>{skills.title}</h2>
+                                <h2 className='bg-gradient-indigo-anim text-2xl font-light tracking-tight max-w-fit'>{skills.title}</h2>
                                 <p className='mt-3 whitespace-pre-line text-justify tracking-tight'>{skills.summary}</p>
                                 <ul className='mt-3 space-y-3'>
                                     {skills.keywords.map((skill, index) => {

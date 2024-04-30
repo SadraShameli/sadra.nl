@@ -21,7 +21,7 @@ export default function ResumeSection({ id, title, sections, img }: { id: string
                                         {section.title}
                                     </Link>
 
-                                    {<span className='bg-gradient-indigo text-base tracking-tight xl:ml-5 xl:border-l xl:pl-5 max-w-fit'>{section.role}</span>}
+                                    {<span className='bg-gradient-indigo-anim text-base tracking-tight xl:ml-5 xl:border-l xl:pl-5 max-w-fit'>{section.role}</span>}
 
                                     <div className='mt-3 grid gap-y-2 text-[#888]'>
                                         {section.location && (

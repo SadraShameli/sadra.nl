@@ -1,11 +1,17 @@
 @tailwind utilities;
 
 @layer utilities {
-    .btn-transition {
-        @apply transition-all duration-300;
+    .bg-gradient-indigo {
+        @apply bg-gradient-to-br from-indigo-50 to-indigo-500 bg-clip-text text-transparent;
     }
 
-    .btn-scale {
-        @apply scale-105;
+    .bg-gradient-indigo-anim {
+        background: linear-gradient(to right, theme('colors.indigo.500'), theme('colors.indigo.100'), theme('colors.indigo.500'), theme('colors.indigo.100'));
+        background-size: 300% 300%;
+        @apply animate-gradient bg-clip-text text-transparent;
+    }
+
+    .bg-gradient-teal {
+        @apply bg-gradient-to-br from-teal-50 to-teal-900 bg-clip-text text-transparent;
     }
 }

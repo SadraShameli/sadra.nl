@@ -13,9 +13,11 @@ export default function HomePage() {
             </div>
 
             <div className='flex flex-col-reverse justify-between xl:flex-row'>
-                <div className='my-auto mt-10 grid justify-center space-y-3 xl:mt-auto'>
-                    <h1 className='text-center text-4xl font-semibold text-white tracking-tight lg:text-6xl xl:text-7xl'>{Resume.basics.title}</h1>
-                    <span className='bg-gradient-indigo mx-auto max-w-fit text-center text-xl font-semibold xl:mx-0 xl:text-start tracking-tight'>{Resume.basics.role}</span>
+                <div className='my-auto mt-10 grid justify-center space-y-3 xl:mt-auto xl:border-l xl:pl-10'>
+                    <h1 className='text-center text-4xl tracking-tighter text-white lg:text-6xl xl:text-7xl'>{Resume.basics.title}</h1>
+                    <span className='bg-gradient-indigo-anim mx-auto max-w-fit text-center text-xl tracking-tight xl:mx-0 xl:text-start'>
+                        {Resume.basics.role}
+                    </span>
                 </div>
 
                 <Image className='self-center rounded-2xl object-cover sm:max-w-lg xl:mx-0 xl:self-auto' src={ProfilePicture} alt='Profile picture' priority />
