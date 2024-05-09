@@ -32,7 +32,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <html lang='en' className='scroll-smooth bg-black antialiased'>
             <body className={`${orbitron.variable} ${defaultFont.variable} font-sans`}>
                 <TRPCReactProvider>{children}</TRPCReactProvider>
-                {children}
                 <SpeedInsights />
             </body>
         </html>
