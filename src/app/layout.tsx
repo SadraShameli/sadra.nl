@@ -1,5 +1,6 @@
 import { type Metadata } from 'next';
 import { SpeedInsights } from '@vercel/speed-insights/next';
+import { TRPCReactProvider } from '~/trpc/react';
 
 import '~/styles/globals.css';
 import { defaultFont, orbitron } from '~/assets/fonts';
@@ -30,6 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     return (
         <html lang='en' className='scroll-smooth bg-black antialiased'>
             <body className={`${orbitron.variable} ${defaultFont.variable} font-sans`}>
+                {/* <TRPCReactProvider>{children}</TRPCReactProvider> */}
                 {children}
                 <SpeedInsights />
             </body>

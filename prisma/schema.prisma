@@ -1,0 +1,74 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DB_URL")
+  directUrl = env("DB_URL_NON_POOLING")
+}
+
+enum SensorTypes {
+  Temperature
+  Humidity
+  GasResistance
+  AirPressure
+  Altitude
+  Sound
+  RPM
+}
+
+enum DeviceTypes {
+  Sound
+  Sensor
+}
+
+model Sensor {
+  id            Int             @id @default(autoincrement())
+  createdAt     DateTime        @default(now())
+  type          SensorTypes     @unique
+  unit          String
+  sensor_id     Int             @unique
+  readingRecord ReadingRecord[]
+}
+
+model Location {
+  id            Int      @id @default(autoincrement())
+  createdAt     DateTime @default(now())
+  name          String
+  location_name String   @unique
+  location_id   Int      @unique
+  device        Device[]
+}
+
+model Device {
+  id                 Int             @id @default(autoincrement())
+  createdAt          DateTime        @default(now())
+  name               String
+  type               DeviceTypes
+  device_id          Int             @unique
+  register_interval  Int
+  loudness_threshold Int
+  locationId         Int
+  location           Location        @relation(fields: [locationId], references: [id])
+  readingRecord      ReadingRecord[]
+  soundRecord        SoundRecord[]
+}
+
+model ReadingRecord {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  value     Int
+  sensorId  Int
+  deviceId  Int
+  sensor    Sensor   @relation(fields: [sensorId], references: [id])
+  device    Device   @relation(fields: [deviceId], references: [id])
+}
+
+model SoundRecord {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  deviceId  Int
+  file      Bytes
+  device    Device   @relation(fields: [deviceId], references: [id])
+}
