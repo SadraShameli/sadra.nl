@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { Prisma, PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { Prisma } from '@prisma/client';
+import { db } from '~/server/db';
 
 interface RequestProps {
     id: string;
@@ -9,7 +8,7 @@ interface RequestProps {
 
 export async function GET(request: NextRequest, { params }: { params: RequestProps }) {
     try {
-        const location = await prisma.location.findUniqueOrThrow({ where: { id: +params.id } });
+        const location = await db.location.findUniqueOrThrow({ where: { id: +params.id } });
 
         return NextResponse.json(location);
     } catch (e) {

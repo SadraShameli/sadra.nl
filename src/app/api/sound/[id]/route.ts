@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { Prisma, PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { Prisma } from '@prisma/client';
+import { db } from '~/server/db';
 
 interface RequestProps {
     id: string;
@@ -9,7 +8,7 @@ interface RequestProps {
 
 export async function GET(request: NextRequest, { params }: { params: RequestProps }) {
     try {
-        const sound = await prisma.soundRecord.findUniqueOrThrow({ where: { id: +params.id } });
+        const sound = await db.soundRecord.findUniqueOrThrow({ where: { id: +params.id } });
 
         return new Response(sound.file, { headers: { 'content-type': 'audio/wav' } });
     } catch (e) {
@@ -29,11 +28,11 @@ export async function POST(request: NextRequest, { params }: { params: RequestPr
             return NextResponse.json({ error: 'No device id provided' }, { status: 400 });
         }
 
-        const device = await prisma.device.findUniqueOrThrow({ where: { device_id: +params.id } });
+        const device = await db.device.findUniqueOrThrow({ where: { device_id: +params.id } });
 
         const blob = await (await request.blob()).arrayBuffer();
 
-        await prisma.soundRecord.create({ data: { deviceId: device.id, file: Buffer.from(blob) } });
+        await db.soundRecord.create({ data: { deviceId: device.id, file: Buffer.from(blob) } });
 
         return NextResponse.json(device, { status: 201 });
     } catch (e) {

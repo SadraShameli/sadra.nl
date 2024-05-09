@@ -1,22 +1,16 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-
-import { PrismaClient } from '@prisma/client';
 import { sensors } from './seed/sensors';
 import { devices } from './seed/devices';
-
-const prisma = new PrismaClient();
+import { db } from '~/server/db';
 
 async function main() {
     for (const sensor of sensors) {
-        await prisma.sensor.create({
+        await db.sensor.create({
             data: sensor,
         });
     }
 
     for (const device of devices) {
-        await prisma.device.create({
+        await db.device.create({
             data: device,
         });
     }
@@ -24,10 +18,10 @@ async function main() {
 
 main()
     .then(async () => {
-        await prisma.$disconnect();
+        await db.$disconnect();
     })
     .catch(async (e) => {
         console.error(e);
-        await prisma.$disconnect();
+        await db.$disconnect();
         process.exit(1);
     });

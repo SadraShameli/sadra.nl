@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { Prisma, PrismaClient, type ReadingRecord } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { Prisma, type ReadingRecord } from '@prisma/client';
+import { db } from '~/server/db';
 
 interface RequestProps {
     device_id: string;
@@ -9,7 +8,7 @@ interface RequestProps {
 }
 
 export async function GET() {
-    const readings = await prisma.readingRecord.findMany();
+    const readings = await db.readingRecord.findMany();
 
     return NextResponse.json(readings);
 }
@@ -31,9 +30,9 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ error: `No value provided for sensor ${sensor}` }, { status: 400 });
             }
 
-            const device = await prisma.device.findFirstOrThrow({ where: { device_id: +body.device_id } });
+            const device = await db.device.findFirstOrThrow({ where: { device_id: +body.device_id } });
 
-            readings.push(await prisma.readingRecord.create({ data: { deviceId: device.id, sensorId: +sensor, value: +value } }));
+            readings.push(await db.readingRecord.create({ data: { deviceId: device.id, sensorId: +sensor, value: +value } }));
         }
 
         return NextResponse.json(readings, { status: 201 });

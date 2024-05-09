@@ -31,7 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     return (
         <html lang='en' className='scroll-smooth bg-black antialiased'>
             <body className={`${orbitron.variable} ${defaultFont.variable} font-sans`}>
-                {/* <TRPCReactProvider>{children}</TRPCReactProvider> */}
+                <TRPCReactProvider>{children}</TRPCReactProvider>
                 {children}
                 <SpeedInsights />
             </body>

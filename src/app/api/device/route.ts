@@ -1,10 +1,8 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { db } from '~/server/db';
 
 export async function GET() {
-    const devices = await prisma.device.findMany();
+    const devices = await db.device.findMany();
 
     return NextResponse.json(devices);
 }
