@@ -4,16 +4,16 @@ import { z } from 'zod';
 export const env = createEnv({
     server: {
         NODE_ENV: z.enum(['development', 'test', 'production']),
-        DB_URL: z.string().url(),
-        DB_URL_NON_POOLING: z.string().url(),
+        POSTGRES_PRISMA_URL: z.string().url(),
+        POSTGRES_URL_NON_POOLING: z.string().url(),
     },
 
     client: {},
 
     runtimeEnv: {
         NODE_ENV: process.env.NODE_ENV,
-        DB_URL: process.env.DB_URL,
-        DB_URL_NON_POOLING: process.env.DB_URL_NON_POOLING,
+        POSTGRES_PRISMA_URL: process.env.POSTGRES_PRISMA_URL,
+        POSTGRES_URL_NON_POOLING: process.env.POSTGRES_URL_NON_POOLING,
     },
 
     skipValidation: !!process.env.SKIP_ENV_VALIDATION,
