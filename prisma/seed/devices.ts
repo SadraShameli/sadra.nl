@@ -7,7 +7,7 @@ export const devices: Prisma.DeviceCreateInput[] = [
         device_id: 20001,
         register_interval: 30,
         loudness_threshold: 70,
-        location: { create: { name: 'Rijswijk', location_name: 'Test Location', location_id: 10001 } },
+        location: { connect: { id: 1 } },
     },
     {
         name: 'Test Device 2',
@@ -15,6 +15,6 @@ export const devices: Prisma.DeviceCreateInput[] = [
         device_id: 20002,
         register_interval: 30,
         loudness_threshold: 70,
-        location: { create: { name: 'Rotterdam', location_name: 'Test Location 2', location_id: 10002 } },
+        location: { connect: { id: 2 } },
     },
 ];
