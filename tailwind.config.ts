@@ -1,5 +1,5 @@
 import { type Config } from 'tailwindcss';
-import { backgroundPosition, fontFamily } from 'tailwindcss/defaultTheme';
+import { fontFamily } from 'tailwindcss/defaultTheme';
 
 export default {
     content: ['./src/**/*.tsx'],

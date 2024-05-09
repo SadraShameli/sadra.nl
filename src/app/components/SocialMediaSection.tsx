@@ -6,7 +6,7 @@ export default function SocialMediaSection() {
         <div className='mx-auto max-w-main'>
             {/* <h2 className='text-center text-5xl font-semibold text-white'>Follow me on Social Media</h2> */}
 
-            <div className='grid gap-3 lg:gap-10 sm:grid-cols-2 lg:grid-cols-4'>
+            <div className='grid gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:gap-10'>
                 {Resume.basics.profiles.map((profile, index) => {
                     return (
                         <div className='bg-gradient-card2 flex rounded-2xl px-5 text-white' key={index}>
