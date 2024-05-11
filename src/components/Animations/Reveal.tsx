@@ -16,7 +16,7 @@ export default function RevealAnimation({ children }: RevealProps) {
     const defaultTransition: Transition = { duration: 0.5, ease: 'easeOut' };
 
     const ref = useRef(null);
-    const isInView = useInView(ref, { once: true, amount: 0.25 });
+    const isInView = useInView(ref, { once: true });
 
     return (
         <motion.div ref={ref} variants={defaultVariants} initial='hidden' animate={isInView ? 'visible' : 'hidden'} transition={defaultTransition}>

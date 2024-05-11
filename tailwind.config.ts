@@ -1,5 +1,4 @@
 import { type Config } from 'tailwindcss';
-import type { PluginAPI } from 'tailwindcss/types/config';
 
 export default {
     content: ['./src/**/*.tsx', './src/**/*.ts'],

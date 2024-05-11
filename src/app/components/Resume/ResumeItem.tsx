@@ -1,6 +1,7 @@
 import Image, { type StaticImageData } from 'next/image';
 import Link from 'next/link';
 
+import StaggerAnimation from '~/components/Animations/Stagger';
 import Card from '~/components/Card';
 import CalendarIcon from '~/components/Icons/Calendar';
 import LinkIcon from '~/components/Icons/Link';
@@ -16,7 +17,7 @@ interface ResumeProps {
 export default function ResumeItem({ title, sections, img }: ResumeProps) {
     return (
         <Card>
-            <div className='mx-auto grid grid-cols-1 xl:grid-flow-col xl:grid-cols-2 xl:space-x-10'>
+            <StaggerAnimation className='mx-auto grid grid-cols-1 xl:grid-flow-col xl:grid-cols-2 xl:space-x-10'>
                 <Image className='rounded-2xl' src={img} alt={`${title} picture`} />
 
                 <div className='space-y-10'>
@@ -78,7 +79,7 @@ export default function ResumeItem({ title, sections, img }: ResumeProps) {
                         );
                     })}
                 </div>
-            </div>
+            </StaggerAnimation>
         </Card>
     );
 }
