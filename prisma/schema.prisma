@@ -58,7 +58,7 @@ model Device {
 model ReadingRecord {
   id        Int      @id @default(autoincrement())
   createdAt DateTime @default(now())
-  value     Int
+  value     Float
   sensorId  Int
   deviceId  Int
   sensor    Sensor   @relation(fields: [sensorId], references: [id])
