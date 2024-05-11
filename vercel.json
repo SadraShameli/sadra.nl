@@ -1,4 +1,3 @@
 {
-    "trailingSlash": false,
-    "skipTrailingSlashRedirect": true
+    "trailingSlash": "undefined"
 }
