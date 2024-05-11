@@ -1,34 +1,23 @@
 import Link from 'next/link';
-import HomeIcon from '~/components/Icons/Home';
-import StackIcon from '~/components/Icons/Stack';
-import WorkBagIcon from '~/components/Icons/WorkBag';
-import ProfileIcon from '~/components/Icons/Profile';
-import EducationIcon from '~/components/Icons/Education';
+
+import Resume from '~/data/Resume';
 
 export default function Navbar() {
     return (
-        <nav className='relative'>
-            <div className='absolute -inset-0.5 rounded-bl-lg rounded-br-lg bg-gradient-to-br from-indigo-200 to-indigo-900 opacity-50 blur'></div>
-            <span className='relative grid divide-x rounded-bl-xl rounded-br-xl bg-black px-6 py-3'>
-                <div className='my-3 grid grid-flow-col justify-between'>
-                    <NavButton title='Home' url='/' icon={<HomeIcon />} />
-                    <NavButton title='Work' url='profile' icon={<WorkBagIcon />} />
-                    <NavButton title='Projects' url='profile#projects' icon={<StackIcon />} />
-                    <NavButton title='Education' url='profile#education' icon={<EducationIcon />} />
-                    <NavButton title='About' url='about' icon={<ProfileIcon />} />
-                </div>
-            </span>
-        </nav>
-    );
-}
+        <nav className='fixed left-0 right-0 top-0 z-50 bg-black bg-opacity-75 shadow-2xl backdrop-blur-2xl backdrop-saturate-200'>
+            <div className='mx-auto flex max-w-content items-center justify-between px-6 py-5'>
+                <h2 className='font-orbitron text-lg font-semibold tracking-widest text-white'>&gt;_{Resume.basics.firstName.toLowerCase()}.</h2>
 
-function NavButton({ title, url, icon }: { title: string; url: string; icon: JSX.Element }) {
-    return (
-        <Link href={url}>
-            <button className='hover:btn-scale btn-transition flex h-12 items-center rounded-lg border border-indigo-950 border-opacity-75 bg-gradient-to-br from-indigo-950 from-[-50%] to-black px-4 font-medium text-white'>
-                <div className='h-5 w-5'>{icon}</div>
-                <h2 className='ml-5 hidden border-l border-white border-opacity-15 pl-5 font-orbitron leading-none tracking-widest lg:inline'>{title}</h2>
-            </button>
-        </Link>
+                <div className='flex items-center justify-between space-x-4 text-white sm:space-x-6'>
+                    {Resume.basics.profiles.map((profile, index) => {
+                        return (
+                            <Link className='size-5 transition hover:opacity-50' href={profile.url} key={index}>
+                                {profile.icon}
+                            </Link>
+                        );
+                    })}
+                </div>
+            </div>
+        </nav>
     );
 }

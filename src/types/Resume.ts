@@ -10,8 +10,9 @@ export interface ILocation {
 }
 
 export interface IResumeBasics {
+    firstName: string;
+    lastName: string;
     title: string;
-    role: string;
     email: string;
     phone: string;
     location: ILocation;

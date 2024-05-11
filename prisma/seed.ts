@@ -1,8 +1,9 @@
 import { db } from '~/server/db';
-import { sensors } from './seed/sensors';
-import { locations } from './seed/locations';
+
 import { devices } from './seed/devices';
+import { locations } from './seed/locations';
 import { readings } from './seed/reading';
+import { sensors } from './seed/sensors';
 import { sounds } from './seed/sound';
 
 async function main() {

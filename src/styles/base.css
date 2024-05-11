@@ -4,8 +4,4 @@
     * {
         color-scheme: dark;
     }
-
-    body {
-        @apply dark:text-[hsla(0,0%,100%,0.82)];
-    }
 }

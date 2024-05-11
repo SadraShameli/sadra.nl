@@ -1,5 +1,6 @@
-import { NextResponse, type NextRequest } from 'next/server';
 import { Prisma } from '@prisma/client';
+import { type NextRequest, NextResponse } from 'next/server';
+
 import { db } from '~/server/db';
 
 interface RequestProps {

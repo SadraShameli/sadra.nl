@@ -1,9 +1,8 @@
-import { type IResume } from '~/types/Resume';
-
 import GithubIcon from '~/components/Icons/Github';
-import YoutubeIcon from '~/components/Icons/Youtube';
-import WhatsAppIcon from '~/components/Icons/WhatsApp';
 import InstagramIcon from '~/components/Icons/Instagram';
+import WhatsAppIcon from '~/components/Icons/WhatsApp';
+import YoutubeIcon from '~/components/Icons/Youtube';
+import { type IResume } from '~/types/Resume';
 
 function calculate_age(dob: Date) {
     const diff_ms = Date.now() - dob.getTime();
@@ -16,11 +15,12 @@ const birthday = new Date('2003-12-11');
 const age = calculate_age(birthday);
 
 const Resume: IResume = {
-    title: 'Sadra • Resume',
-    description: 'Full-Stack & Embedded',
+    title: 'Sadra',
+    description: 'Futures trader // Software Developer',
     basics: {
+        firstName: 'Sadra',
+        lastName: 'Shameli',
         title: 'Sadra Shameli',
-        role: 'Full-Stack & Embedded',
         email: 'sadra.shameli1@gmail.com',
         phone: '+31685156033',
         location: {
@@ -29,14 +29,14 @@ const Resume: IResume = {
         },
         profiles: [
             {
-                title: 'Instagram',
-                url: 'https://instagram.com/sadra_shml',
-                icon: <InstagramIcon />,
-            },
-            {
                 title: 'Youtube',
                 url: 'https://youtube.com/@sadrashameli',
                 icon: <YoutubeIcon />,
+            },
+            {
+                title: 'Github',
+                url: 'https://github.com/SadraShameli',
+                icon: <GithubIcon />,
             },
             {
                 title: 'WhatsApp',
@@ -44,9 +44,9 @@ const Resume: IResume = {
                 icon: <WhatsAppIcon />,
             },
             {
-                title: 'Github',
-                url: 'https://github.com/SadraShameli',
-                icon: <GithubIcon />,
+                title: 'Instagram',
+                url: 'https://instagram.com/sadra_shml',
+                icon: <InstagramIcon />,
             },
             // {
             //     title: 'Gmail',
@@ -88,7 +88,7 @@ const Resume: IResume = {
     ],
     works: [
         {
-            role: 'Full-Stack & Embedded Developer',
+            role: 'Full-Stack & Embedded',
             date: 'Jan 2022 - Jan 2023',
             title: 'Blue Star Planning',
             url: 'https://bluestarplanning.com',
@@ -98,7 +98,7 @@ const Resume: IResume = {
             },
             summary: 'Blue Star Planning is specialized in the development and realization of Advanced Planning and Scheduling systems.',
             highlights: [
-                'Developed various IoT devices and 3D printing the casing. Intended to gather various data, such as sound recordings, loudness, temperature and humidity, air quality and RPM values. The sound recording go through IIR second-order section filtering and A-Weighting before saving. The devices are placed at different locations in Rotterdam.',
+                'Developed various IoT devices and 3D printing the casing. Intended to gather various data, such as sound recordings, loudness, temperature and humidity, air quality and RPM values. The sound recordings go through IIR second-order section filtering and A-Weighting before saving. The devices are placed at different locations in Rotterdam.',
                 'Developed the back-end to process the data gathered by the devices and developed the front-end at https://geluidsvervuiling.eu, where the sound recordings and loudness values are available depending on the device and the location.',
             ],
             skills: ['TypeScript, React, Material UI, ASP.NET, SQL Server'],
@@ -119,14 +119,14 @@ const Resume: IResume = {
             ],
             skills: ['C++, Python, 3D Printing'],
         },
-        {
-            title: 'Partify',
-            role: 'Website',
-            date: 'Jan 2023 - Present',
-            url: 'https://github.com/SadraShameli/Partify',
-            summary: 'Online e-commerce store',
-            skills: ['TypeScript, React, Next.js, Tailwind CSS, tRPC, Prisma, NextAuth.js, PostgreSQL'],
-        },
+        // {
+        //     title: 'Partify',
+        //     role: 'Website',
+        //     date: 'Jan 2023 - Present',
+        //     url: 'https://github.com/SadraShameli/Partify',
+        //     summary: 'Online e-commerce store',
+        //     skills: ['TypeScript, React, Next.js, Tailwind CSS, tRPC, Prisma, NextAuth.js, PostgreSQL'],
+        // },
     ],
     educations: [
         {

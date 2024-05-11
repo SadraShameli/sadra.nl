@@ -1,6 +1,10 @@
 @tailwind components;
 
 @layer components {
+    .bg-grid {
+        @apply bg-[radial-gradient(#ffffff33_1px,#000_1px)] bg-[size:25px_25px] opacity-65;
+    }
+
     .bg-gradient-card1 {
         @apply bg-gradient-to-tl from-[rgba(101,179,174,0.5)-225%] via-[rgba(10,10,10,1)45%] to-[rgba(101,179,174,0.5)225%];
     }

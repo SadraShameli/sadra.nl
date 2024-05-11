@@ -1,12 +1,11 @@
 import { type Config } from 'tailwindcss';
-import { fontFamily } from 'tailwindcss/defaultTheme';
+import type { PluginAPI } from 'tailwindcss/types/config';
 
 export default {
-    content: ['./src/**/*.tsx'],
+    content: ['./src/**/*.tsx', './src/**/*.ts'],
     theme: {
         extend: {
             fontFamily: {
-                sans: ['var(--font-default)', ...fontFamily.sans],
                 orbitron: 'var(--font-orbitron)',
             },
             container: {
@@ -22,7 +21,10 @@ export default {
             maxWidth: {
                 '8xl': '90rem',
                 '9xl': '98rem',
-                main: '80rem',
+                content: '80rem',
+            },
+            margin: {
+                content: '10.25rem',
             },
             borderColor: {
                 DEFAULT: 'rgb(35,35,35)',
@@ -33,9 +35,10 @@ export default {
                     '100%': { backgroundPosition: '100% 50%' },
                 },
             },
-            animation: {
-                gradient: 'gradient 6s ease-out infinite',
-            },
+        },
+        animation: {
+            gradient: 'gradient 6s ease-out infinite',
+            pulse: 'pulse 15s ease-in 0s infinite normal none',
         },
     },
     plugins: [require('@tailwindcss/typography')],
