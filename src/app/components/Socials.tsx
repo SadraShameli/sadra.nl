@@ -31,7 +31,7 @@ function GenerateItems() {
                         </div>
 
                         <div className='md:py-18 mx-auto py-16'>
-                            <Link href={profile.url}>
+                            <Link href={profile.url} aria-label={profile.title}>
                                 <div className='size-12 transition hover:opacity-50'>{profile.icon}</div>
                             </Link>
                         </div>

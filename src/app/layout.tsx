@@ -12,12 +12,14 @@ import Navbar from './components/Navbar';
 
 export const metadata: Metadata = {
     title: Resume.title,
+    description: Resume.description,
     icons: { icon: '/favicon.ico', apple: '/apple-icon.png' },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
     return (
         <html lang='en' className='scroll-smooth bg-black antialiased'>
+            <meta name='theme-color' content='#000' />
             <body className={`dark:text-neutral-300 ${orbitron.variable} ${GeistSans.className}`}>
                 <TRPCReactProvider>
                     <Overlays />

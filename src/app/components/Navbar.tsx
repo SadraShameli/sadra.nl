@@ -11,7 +11,7 @@ export default function Navbar() {
                 <div className='flex items-center justify-between space-x-4 text-white sm:space-x-6'>
                     {Resume.basics.profiles.map((profile, index) => {
                         return (
-                            <Link className='size-5 transition hover:opacity-50' href={profile.url} key={index}>
+                            <Link className='size-5 transition hover:opacity-50' href={profile.url} key={index} aria-label={profile.title}>
                                 {profile.icon}
                             </Link>
                         );

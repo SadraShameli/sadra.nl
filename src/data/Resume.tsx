@@ -16,7 +16,7 @@ const age = calculate_age(birthday);
 
 const Resume: IResume = {
     title: 'Sadra',
-    description: 'Futures trader // Software Developer',
+    description: 'Futures trader  //  Software Developer',
     basics: {
         firstName: 'Sadra',
         lastName: 'Shameli',
