@@ -30,6 +30,7 @@ export default function StaggerAnimation({ className, children }: MoveAround) {
     const defaultTransition: Transition = {
         duration: 0.2,
         staggerChildren: 0.1,
+        delay: 0.25,
     };
 
     return (

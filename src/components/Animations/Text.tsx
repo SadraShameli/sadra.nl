@@ -14,7 +14,7 @@ export default function TextAnimation({ className, text, el: Wrapper = 'p', spli
     const defaultVariants: Variants = {
         hidden: {
             opacity: 0,
-            y: 7,
+            y: -10,
         },
         visible: {
             opacity: 1,
