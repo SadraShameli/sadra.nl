@@ -9,7 +9,7 @@ interface RequestProps {
 
 export async function GET(request: NextRequest, { params }: { params: RequestProps }) {
     try {
-        const reading = await db.readingRecord.findUniqueOrThrow({ where: { id: +params.id } });
+        const reading = await db.reading.findUniqueOrThrow({ where: { id: +params.id } });
 
         return NextResponse.json(reading);
     } catch (e) {

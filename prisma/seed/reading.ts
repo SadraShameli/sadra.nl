@@ -1,6 +1,6 @@
 import { type Prisma } from '@prisma/client';
 
-export const readings: Prisma.ReadingRecordCreateInput[] = [
+export const readings: Prisma.ReadingCreateInput[] = [
     {
         value: 29.17,
         sensor: {
@@ -70,7 +70,7 @@ export const readings: Prisma.ReadingRecordCreateInput[] = [
         value: 74,
         sensor: {
             connect: {
-                type: 'Sound',
+                type: 'Loudness',
             },
         },
         device: {

@@ -2,7 +2,7 @@ import fs from 'fs';
 
 import { type Prisma } from '@prisma/client';
 
-export const sounds: Prisma.SoundRecordCreateInput[] = [
+export const recordings: Prisma.RecordingCreateInput[] = [
     {
         device: {
             connect: {

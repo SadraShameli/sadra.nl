@@ -1,10 +1,10 @@
 import { db } from '~/server/db';
 
-import { devices } from './seed/devices';
-import { locations } from './seed/locations';
+import { devices } from './seed/device';
+import { locations } from './seed/location';
 import { readings } from './seed/reading';
-import { sensors } from './seed/sensors';
-import { sounds } from './seed/sound';
+import { recordings } from './seed/recording';
+import { sensors } from './seed/sensor';
 
 async function main() {
     for (const sensor of sensors) {
@@ -26,14 +26,14 @@ async function main() {
     }
 
     for (const reading of readings) {
-        await db.readingRecord.create({
+        await db.reading.create({
             data: reading,
         });
     }
 
-    for (const sound of sounds) {
-        await db.soundRecord.create({
-            data: sound,
+    for (const recording of recordings) {
+        await db.recording.create({
+            data: recording,
         });
     }
 }

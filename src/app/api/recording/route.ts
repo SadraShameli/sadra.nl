@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 const prisma = new PrismaClient();
 
 export async function GET() {
-    const sounds = await prisma.soundRecord.findMany({ select: { id: true, createdAt: true, deviceId: true } });
+    const recordings = await prisma.recording.findMany({ select: { id: true, createdAt: true, deviceId: true } });
 
-    return NextResponse.json(sounds);
+    return NextResponse.json(recordings);
 }

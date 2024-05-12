@@ -1,4 +1,4 @@
-import { Prisma, type ReadingRecord } from '@prisma/client';
+import { Prisma, type Reading } from '@prisma/client';
 import { type NextRequest, NextResponse } from 'next/server';
 
 import { db } from '~/server/db';
@@ -9,7 +9,7 @@ interface RequestProps {
 }
 
 export async function GET() {
-    const readings = await db.readingRecord.findMany();
+    const readings = await db.reading.findMany();
 
     return NextResponse.json(readings);
 }
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-        const readings: ReadingRecord[] = [];
+        const readings: Reading[] = [];
 
         for (const sensor in body.sensors) {
             const value = body.sensors[sensor];
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
 
             const device = await db.device.findFirstOrThrow({ where: { device_id: +body.device_id } });
 
-            readings.push(await db.readingRecord.create({ data: { deviceId: device.id, sensorId: +sensor, value: +value } }));
+            readings.push(await db.reading.create({ data: { deviceId: device.id, sensorId: +sensor, value: +value } }));
         }
 
         return NextResponse.json(readings, { status: 201 });

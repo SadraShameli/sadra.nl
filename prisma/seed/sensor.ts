@@ -27,7 +27,7 @@ export const sensors: Prisma.SensorCreateInput[] = [
         sensor_id: 5,
     },
     {
-        type: 'Sound',
+        type: 'Loudness',
         unit: 'dB',
         sensor_id: 6,
     },

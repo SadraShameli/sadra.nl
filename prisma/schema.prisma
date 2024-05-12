@@ -14,13 +14,13 @@ enum SensorTypes {
   GasResistance
   AirPressure
   Altitude
-  Sound
+  Loudness
   RPM
 }
 
 enum DeviceTypes {
-  Sound
-  Sensor
+  Recording
+  Reading
 }
 
 model Sensor {
@@ -29,7 +29,7 @@ model Sensor {
   type          SensorTypes     @unique
   unit          String
   sensor_id     Int             @unique
-  readingRecord ReadingRecord[]
+  readings Reading[]
 }
 
 model Location {
@@ -38,24 +38,24 @@ model Location {
   name          String
   location_name String   @unique
   location_id   Int      @unique
-  device        Device[]
+  devices        Device[]
 }
 
 model Device {
-  id                 Int             @id @default(autoincrement())
-  createdAt          DateTime        @default(now())
+  id                 Int         @id @default(autoincrement())
+  createdAt          DateTime    @default(now())
   name               String
   type               DeviceTypes
-  device_id          Int             @unique
+  device_id          Int         @unique
   register_interval  Int
   loudness_threshold Int
   locationId         Int
-  location           Location        @relation(fields: [locationId], references: [id])
-  readingRecord      ReadingRecord[]
-  soundRecord        SoundRecord[]
+  location           Location    @relation(fields: [locationId], references: [id])
+  readings           Reading[]
+  recordings         Recording[]
 }
 
-model ReadingRecord {
+model Reading {
   id        Int      @id @default(autoincrement())
   createdAt DateTime @default(now())
   value     Float
@@ -65,7 +65,7 @@ model ReadingRecord {
   device    Device   @relation(fields: [deviceId], references: [id])
 }
 
-model SoundRecord {
+model Recording {
   id        Int      @id @default(autoincrement())
   createdAt DateTime @default(now())
   deviceId  Int

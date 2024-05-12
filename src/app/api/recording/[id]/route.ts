@@ -9,13 +9,13 @@ interface RequestProps {
 
 export async function GET(request: NextRequest, { params }: { params: RequestProps }) {
     try {
-        const sound = await db.soundRecord.findUniqueOrThrow({ where: { id: +params.id } });
+        const recording = await db.recording.findUniqueOrThrow({ where: { id: +params.id } });
 
-        return new Response(sound.file, { headers: { 'content-type': 'audio/wav' } });
+        return new Response(recording.file, { headers: { 'content-type': 'audio/wav' } });
     } catch (e) {
         if (e instanceof Prisma.PrismaClientKnownRequestError) {
             if (e.code === 'P2025') {
-                return NextResponse.json({ error: `Sound id ${params.id} not found` }, { status: 404 });
+                return NextResponse.json({ error: `Recording id ${params.id} not found` }, { status: 404 });
             }
 
             return NextResponse.json({ error: `Prisma returned error: ${e.code}` }, { status: 500 });
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest, { params }: { params: RequestPr
 
         const blob = await (await request.blob()).arrayBuffer();
 
-        await db.soundRecord.create({ data: { deviceId: device.id, file: Buffer.from(blob) } });
+        await db.recording.create({ data: { deviceId: device.id, file: Buffer.from(blob) } });
 
         return NextResponse.json(device, { status: 201 });
     } catch (e) {
