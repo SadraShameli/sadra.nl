@@ -1,4 +1,4 @@
-import { Prisma, type Reading } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { type NextRequest, NextResponse } from 'next/server';
 
 import { db } from '~/server/db';
@@ -22,8 +22,6 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-        const readings: Reading[] = [];
-
         for (const sensor in body.sensors) {
             const value = body.sensors[sensor];
 
@@ -33,10 +31,10 @@ export async function POST(request: NextRequest) {
 
             const device = await db.device.findFirstOrThrow({ where: { device_id: +body.device_id } });
 
-            readings.push(await db.reading.create({ data: { deviceId: device.id, sensorId: +sensor, value: +value } }));
+            await db.reading.create({ data: { deviceId: device.id, sensorId: +sensor, value: +value } });
         }
 
-        return NextResponse.json(readings, { status: 201 });
+        return NextResponse.json({}, { status: 201 });
     } catch (e) {
         console.log(e);
         if (e instanceof Prisma.PrismaClientKnownRequestError) {

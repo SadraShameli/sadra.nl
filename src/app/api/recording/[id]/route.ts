@@ -29,13 +29,16 @@ export async function POST(request: NextRequest, { params }: { params: RequestPr
             return NextResponse.json({ error: 'No device id provided' }, { status: 400 });
         }
 
-        const device = await db.device.findUniqueOrThrow({ where: { device_id: +params.id } });
-
         const blob = await (await request.blob()).arrayBuffer();
+        if (!blob.byteLength) {
+            return NextResponse.json({ error: 'No recording provided' }, { status: 400 });
+        }
+
+        const device = await db.device.findUniqueOrThrow({ where: { device_id: +params.id } });
 
         await db.recording.create({ data: { deviceId: device.id, file: Buffer.from(blob) } });
 
-        return NextResponse.json(device, { status: 201 });
+        return NextResponse.json({}, { status: 201 });
     } catch (e) {
         if (e instanceof Prisma.PrismaClientKnownRequestError) {
             if (e.code === 'P2025') {
@@ -44,5 +47,7 @@ export async function POST(request: NextRequest, { params }: { params: RequestPr
 
             return NextResponse.json({ error: `Prisma returned error: ${e.code}` }, { status: 500 });
         }
+
+        return NextResponse.json({ error: (e as Error).message }, { status: 500 });
     }
 }
