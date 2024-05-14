@@ -4,9 +4,11 @@ import { z } from 'zod';
 import { createTRPCRouter, publicProcedure } from '~/server/api/trpc';
 import { db } from '~/server/db';
 
+import { getSensor } from './sensor';
 import type Result from '../result';
 
 export const getLocationProps = z.object({ location_id: z.string() });
+export const getLocationReadingsProps = z.object({ locationProps: getLocationProps, sensor_id: z.string().optional() });
 
 export async function getLocation(input: z.infer<typeof getLocationProps>): Promise<Result<Location>> {
     try {
@@ -38,24 +40,53 @@ export const locationRouter = createTRPCRouter({
         const devices = await db.device.findMany({ where: { locationId: location.data.id } });
         return { data: devices } as Result<Device[]>;
     }),
-    getLocationReadings: publicProcedure.input(getLocationProps).query(async ({ input }) => {
-        const location = await getLocation(input);
+    getLocationReadings: publicProcedure.input(getLocationReadingsProps).query(async ({ input }) => {
+        const location = await getLocation({ location_id: input.locationProps.location_id });
         if (!location.data) {
             return location;
         }
 
         const devices = await db.device.findMany({ where: { locationId: location.data.id } });
+        const readings: Reading[] = [];
+        const readingsRecord: [string, number][] = [];
+
+        if (input.sensor_id) {
+            const sensor = await getSensor({ sensor_id: input.sensor_id });
+            if (!sensor.data) {
+                return sensor;
+            }
+
+            const readingsPromises = devices.map((device) => {
+                return db.reading.findMany({ where: { deviceId: device.id, sensorId: sensor.data?.id } });
+            });
+
+            (await Promise.all(readingsPromises)).map((readingsPromise) => {
+                readingsPromise.map((reading) => readings.push(reading));
+            });
+
+            readings.map((reading) => {
+                readingsRecord.push([`${reading.createdAt.getHours()}:${reading.createdAt.getMinutes()}`, reading.value]);
+            });
+
+            return { data: readingsRecord } as Result<typeof readingsRecord>;
+        }
+
         const readingsPromises = devices.map((device) => {
             return db.reading.findMany({ where: { deviceId: device.id } });
         });
-        const readings: Reading[] = [];
-        (await Promise.all(readingsPromises)).map((devices) => {
-            devices.map((recording) => readings.push(recording));
+
+        (await Promise.all(readingsPromises)).map((readingsPromise) => {
+            readingsPromise.map((reading) => readings.push(reading));
         });
-        return { data: readings } as Result<Reading[]>;
+
+        readings.map((reading) => {
+            readingsRecord.push([`${reading.createdAt.getHours()}:${reading.createdAt.getMinutes()}`, reading.value]);
+        });
+
+        return { data: readingsRecord } as Result<typeof readingsRecord>;
     }),
-    getLocationRecordings: publicProcedure.input(getLocationProps).query(async ({ input }) => {
-        const location = await getLocation(input);
+    getLocationRecordings: publicProcedure.input(getLocationReadingsProps).query(async ({ input }) => {
+        const location = await getLocation({ location_id: input.locationProps.location_id });
         if (!location.data) {
             return location;
         }

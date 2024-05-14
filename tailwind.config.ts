@@ -37,7 +37,7 @@ export default {
         },
         animation: {
             gradient: 'gradient 6s ease-out infinite',
-            pulse: 'pulse 15s ease-in 0s infinite normal none',
+            pulse: 'pulse 1s ease-in 0s infinite normal none',
         },
     },
     plugins: [require('@tailwindcss/typography')],

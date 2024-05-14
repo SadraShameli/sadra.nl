@@ -6,16 +6,16 @@ import { db } from '~/server/db';
 
 import type Result from '../result';
 
-export const getSensorProps = z.object({ id: z.string() });
+export const getSensorProps = z.object({ sensor_id: z.string() });
 
 export async function getSensor(input: z.infer<typeof getSensorProps>): Promise<Result<Sensor>> {
     try {
-        const device = await db.sensor.findUniqueOrThrow({ where: { id: +input.id } });
+        const device = await db.sensor.findUniqueOrThrow({ where: { sensor_id: +input.sensor_id } });
         return { data: device };
     } catch (e) {
         if (e instanceof Prisma.PrismaClientKnownRequestError) {
             if (e.code === 'P2025') {
-                return { error: `Sensor id ${input.id} not found`, status: 404 };
+                return { error: `Sensor id ${input.sensor_id} not found`, status: 404 };
             }
         }
         return { error: e, status: 500 };

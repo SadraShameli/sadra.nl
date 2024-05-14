@@ -8,7 +8,7 @@ interface RequestProps {
 }
 
 export async function GET(request: NextRequest, { params }: { params: RequestProps }) {
-    const result = await api.device.getDeviceRecordings({ deviceProps: { device_id: params.id }, sensor_id: params.sensor_id });
+    const result = await api.device.getDeviceReadings({ deviceProps: { device_id: params.id }, sensor_id: params.sensor_id });
     if (result.data) {
         return NextResponse.json(result.data, { status: result.status });
     }

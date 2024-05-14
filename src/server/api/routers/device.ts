@@ -1,11 +1,15 @@
-import { type Device, Prisma } from '@prisma/client';
+import { type Device, Prisma, type Reading, type Recording } from '@prisma/client';
 import { z } from 'zod';
 
 import type Result from '~/server/api/result';
 import { createTRPCRouter, publicProcedure } from '~/server/api/trpc';
 import { db } from '~/server/db';
 
+import { getSensor } from './sensor';
+
 export const getDeviceProps = z.object({ device_id: z.string() });
+export const getDeviceReadingsProps = z.object({ deviceProps: getDeviceProps, sensor_id: z.string().optional() });
+export const getDeviceRecordingsProps = z.object({ deviceProps: getDeviceProps, sensor_id: z.string().optional() });
 
 export async function getDevice(input: z.infer<typeof getDeviceProps>): Promise<Result<Device>> {
     try {
@@ -27,5 +31,36 @@ export const deviceRouter = createTRPCRouter({
     }),
     getDevice: publicProcedure.input(getDeviceProps).query(async ({ input }) => {
         return getDevice(input);
+    }),
+    getDeviceReadings: publicProcedure.input(getDeviceReadingsProps).query(async ({ input }) => {
+        const device = await getDevice({ device_id: input.deviceProps.device_id });
+        if (!device.data) {
+            return device;
+        }
+
+        if (input.sensor_id) {
+            const sensor = await getSensor({ sensor_id: input.sensor_id });
+            if (!sensor.data) {
+                return sensor;
+            }
+            const readings = await db.reading.findMany({ where: { deviceId: device.data.id, sensorId: sensor.data.id } });
+            const readingsRecord: [string, number][] = [];
+            readings.map((reading) => {
+                readingsRecord.push([`${reading.createdAt.getHours()}:${reading.createdAt.getMinutes()}`, reading.value]);
+            });
+
+            return { data: readingsRecord } as Result<typeof readingsRecord>;
+        }
+
+        const readings = await db.reading.findMany({ where: { deviceId: device.data.id } });
+        return { data: readings } as Result<Reading[]>;
+    }),
+    getDeviceRecordings: publicProcedure.input(getDeviceRecordingsProps).query(async ({ input }) => {
+        const device = await getDevice({ device_id: input.deviceProps.device_id });
+        if (!device.data) {
+            return device;
+        }
+        const recordings = await db.recording.findMany({ where: { deviceId: device.data.id }, select: { id: true, createdAt: true, deviceId: true } });
+        return { data: recordings } as Result<Recording[]>;
     }),
 });

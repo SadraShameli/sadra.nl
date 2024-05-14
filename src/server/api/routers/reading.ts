@@ -4,14 +4,14 @@ import { z } from 'zod';
 import { createTRPCRouter, publicProcedure } from '~/server/api/trpc';
 import { db } from '~/server/db';
 
-import { getDevice, getDeviceProps } from './device';
+import { getDevice } from './device';
 import type Result from '../result';
 
 export const getReadingProps = z.object({ id: z.string() });
 
 export const createReadingProps = z.object({
     device_id: z.number(),
-    sensors: z.record(z.string(), z.number()).refine((rec) => !rec.length, { message: 'No sensor provided' }),
+    sensors: z.record(z.string(), z.number()).refine((rec) => Object.keys(rec).length, { message: 'No sensor provided' }),
 });
 
 export async function getReading(input: z.infer<typeof getReadingProps>): Promise<Result<Reading>> {
@@ -35,7 +35,7 @@ export const readingRouter = createTRPCRouter({
     getReading: publicProcedure.input(z.object({ id: z.string() })).query(async ({ input }) => {
         return getReading(input);
     }),
-    createReading: publicProcedure.input(createReadingProps).query(async ({ input }) => {
+    createReading: publicProcedure.input(createReadingProps).mutation(async ({ input }) => {
         const readings: Reading[] = [];
         for (const sensor in input.sensors) {
             const value = input.sensors[sensor];
@@ -50,15 +50,6 @@ export const readingRouter = createTRPCRouter({
 
             readings.push(await db.reading.create({ data: { deviceId: device.data.id, sensorId: +sensor, value: +value } }));
         }
-        return {};
-    }),
-    getDeviceReadings: publicProcedure.input(getDeviceProps).query(async ({ input }) => {
-        const device = await getDevice(input);
-        if (!device.data) {
-            return device;
-        }
-
-        const readings = await db.reading.findMany({ where: { deviceId: device.data.id } });
         return { data: readings } as Result<Reading[]>;
     }),
 });

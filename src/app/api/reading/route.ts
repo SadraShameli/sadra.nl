@@ -13,10 +13,14 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-    const body = (await request.json()) as z.infer<typeof createReadingProps>;
-    const result = await api.reading.createReading({ device_id: body.device_id, sensors: body.sensors });
-    if (result.data) {
-        return NextResponse.json(result.data, { status: result.status });
+    try {
+        const body = (await request.json()) as z.infer<typeof createReadingProps>;
+        const result = await api.reading.createReading({ device_id: body.device_id, sensors: body.sensors });
+        if (result.data) {
+            return NextResponse.json(result.data, { status: result.status });
+        }
+        return NextResponse.json(result, { status: result.status });
+    } catch (e) {
+        return NextResponse.json(e, { status: 500 });
     }
-    return NextResponse.json(result, { status: result.status });
 }

@@ -7,7 +7,7 @@ interface RequestProps {
 }
 
 export async function GET(request: NextRequest, { params }: { params: RequestProps }) {
-    const result = await api.location.getLocationReadings({ location_id: params.id });
+    const result = await api.location.getLocationReadings({ locationProps: { location_id: params.id } });
     if (result.data) {
         return NextResponse.json(result.data, { status: result.status });
     }
