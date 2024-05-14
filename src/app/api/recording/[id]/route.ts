@@ -1,53 +1,34 @@
-import { Prisma } from '@prisma/client';
 import { type NextRequest, NextResponse } from 'next/server';
 
-import { db } from '~/server/db';
+import { api } from '~/trpc/server';
 
 interface RequestProps {
     id: string;
 }
 
 export async function GET(request: NextRequest, { params }: { params: RequestProps }) {
-    try {
-        const recording = await db.recording.findUniqueOrThrow({ where: { id: +params.id } });
-
-        return new Response(recording.file, { headers: { 'content-type': 'audio/wav' } });
-    } catch (e) {
-        if (e instanceof Prisma.PrismaClientKnownRequestError) {
-            if (e.code === 'P2025') {
-                return NextResponse.json({ error: `Recording id ${params.id} not found` }, { status: 404 });
-            }
-
-            return NextResponse.json({ error: `Prisma returned error: ${e.code}` }, { status: 500 });
-        }
+    const result = await api.recording.getRecording({ id: params.id });
+    if (result.data) {
+        const filename = `${result.data.createdAt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })}`;
+        return new Response(result.data.file, {
+            status: result.status,
+            headers: { 'Content-Type': 'audio/wav', 'Content-Disposition': `attachment; filename=Recording ${result.data.id} - ${filename}.wav` },
+        });
     }
+    return NextResponse.json(result, { status: result.status });
 }
 
 export async function POST(request: NextRequest, { params }: { params: RequestProps }) {
-    try {
-        if (!params?.id) {
-            return NextResponse.json({ error: 'No device id provided' }, { status: 400 });
-        }
-
-        const blob = await (await request.blob()).arrayBuffer();
-        if (!blob.byteLength) {
-            return NextResponse.json({ error: 'No recording provided' }, { status: 400 });
-        }
-
-        const device = await db.device.findUniqueOrThrow({ where: { device_id: +params.id } });
-
-        await db.recording.create({ data: { deviceId: device.id, file: Buffer.from(blob) } });
-
-        return NextResponse.json({}, { status: 201 });
-    } catch (e) {
-        if (e instanceof Prisma.PrismaClientKnownRequestError) {
-            if (e.code === 'P2025') {
-                return NextResponse.json({ error: `Device id ${params.id} not found` }, { status: 404 });
-            }
-
-            return NextResponse.json({ error: `Prisma returned error: ${e.code}` }, { status: 500 });
-        }
-
-        return NextResponse.json({ error: (e as Error).message }, { status: 500 });
+    const deviceResult = await api.device.getDevice({ device_id: params.id });
+    if (!deviceResult.data) {
+        return NextResponse.json(deviceResult, { status: deviceResult.status });
     }
+
+    const buffer = Buffer.from(await (await request.blob()).arrayBuffer());
+    const recordingResult = await api.recording.createRecording({ device: { device_id: deviceResult.data.device_id.toString() }, recording: buffer });
+
+    if (recordingResult.data) {
+        return NextResponse.json(recordingResult.data, { status: recordingResult.status });
+    }
+    return NextResponse.json(recordingResult, { status: recordingResult.status });
 }

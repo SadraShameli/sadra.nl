@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 
-import { db } from '~/server/db';
+import { api } from '~/trpc/server';
 
 export async function GET() {
-    const devices = await db.device.findMany();
-
-    return NextResponse.json(devices);
+    const result = await api.device.getDevices();
+    if (result.data) {
+        return NextResponse.json(result.data, { status: result.status });
+    }
+    return NextResponse.json(result, { status: result.status });
 }

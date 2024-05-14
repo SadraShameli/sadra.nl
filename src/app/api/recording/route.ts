@@ -1,10 +1,11 @@
-import { PrismaClient } from '@prisma/client';
 import { NextResponse } from 'next/server';
 
-const prisma = new PrismaClient();
+import { api } from '~/trpc/server';
 
 export async function GET() {
-    const recordings = await prisma.recording.findMany({ select: { id: true, createdAt: true, deviceId: true } });
-
-    return NextResponse.json(recordings);
+    const result = await api.recording.getRecordings();
+    if (result.data) {
+        return NextResponse.json(result.data, { status: result.status });
+    }
+    return NextResponse.json(result, { status: result.status });
 }

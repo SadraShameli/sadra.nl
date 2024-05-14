@@ -1,48 +1,22 @@
-import { Prisma } from '@prisma/client';
 import { type NextRequest, NextResponse } from 'next/server';
+import { type z } from 'zod';
 
-import { db } from '~/server/db';
-
-interface RequestProps {
-    device_id: string;
-    sensors: Record<string, string>;
-}
+import { type createReadingProps } from '~/server/api/routers/reading';
+import { api } from '~/trpc/server';
 
 export async function GET() {
-    const readings = await db.reading.findMany();
-
-    return NextResponse.json(readings);
+    const result = await api.reading.getReadings();
+    if (result.data) {
+        return NextResponse.json(result.data, { status: result.status });
+    }
+    return NextResponse.json(result, { status: result.status });
 }
 
 export async function POST(request: NextRequest) {
-    const body = (await request.json()) as RequestProps;
-
-    if (!body.sensors || !Object.keys(body.sensors).length) {
-        return NextResponse.json({ error: 'No sensor provided' }, { status: 400 });
+    const body = (await request.json()) as z.infer<typeof createReadingProps>;
+    const result = await api.reading.createReading({ device_id: body.device_id, sensors: body.sensors });
+    if (result.data) {
+        return NextResponse.json(result.data, { status: result.status });
     }
-
-    try {
-        for (const sensor in body.sensors) {
-            const value = body.sensors[sensor];
-
-            if (!value) {
-                return NextResponse.json({ error: `No value provided for sensor ${sensor}` }, { status: 400 });
-            }
-
-            const device = await db.device.findFirstOrThrow({ where: { device_id: +body.device_id } });
-
-            await db.reading.create({ data: { deviceId: device.id, sensorId: +sensor, value: +value } });
-        }
-
-        return NextResponse.json({}, { status: 201 });
-    } catch (e) {
-        console.log(e);
-        if (e instanceof Prisma.PrismaClientKnownRequestError) {
-            if (e.code === 'P2025') {
-                return NextResponse.json({ error: `Device id ${body.device_id} not found` }, { status: 404 });
-            }
-
-            return NextResponse.json({ error: `Prisma returned error: ${e.code}` }, { status: 500 });
-        }
-    }
+    return NextResponse.json(result, { status: result.status });
 }

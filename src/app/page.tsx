@@ -5,8 +5,9 @@ import TextAnimation from '~/components/Animations/Text';
 import TypeWriterAnimation from '~/components/Animations/TypeWriter';
 import Resume from '~/data/Resume';
 
-import About from './components/About';
-import ResumeSection from './components/Resume';
+import AboutSection from './components/About';
+import ReadingSection from './components/Reading/Reading';
+import ResumeSection from './components/Resume/Resume';
 import SocialsSection from './components/Socials';
 
 export default function HomePage() {
@@ -25,11 +26,15 @@ export default function HomePage() {
             </div>
 
             <div className='mx-auto my-content max-w-content space-y-10'>
+                <ReadingSection />
+            </div>
+
+            <div className='mx-auto my-content max-w-content space-y-10'>
                 <ResumeSection />
             </div>
 
             <div className='mx-auto my-content max-w-content'>
-                <About />
+                <AboutSection />
             </div>
 
             <div className='mx-auto mb-32 mt-content w-full max-w-content'>

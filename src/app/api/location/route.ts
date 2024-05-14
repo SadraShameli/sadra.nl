@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 
-import { db } from '~/server/db';
+import { api } from '~/trpc/server';
 
 export async function GET() {
-    const locations = await db.location.findMany();
-
-    return NextResponse.json(locations);
+    const result = await api.location.getLocations();
+    if (result.data) {
+        return NextResponse.json(result.data, { status: result.status });
+    }
+    return NextResponse.json(result, { status: result.status });
 }
