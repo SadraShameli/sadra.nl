@@ -52,4 +52,13 @@ export const recordingsRouter = createTRPCRouter({
 
         return { data: recording, status: 201 } as Result<Recording>;
     }),
+    getDeviceRecordings: publicProcedure.input(getDeviceProps).query(async ({ input }) => {
+        const device = await getDevice(input);
+        if (!device.data) {
+            return device;
+        }
+
+        const recordings = await db.recording.findMany({ where: { deviceId: device.data.id }, select: { id: true, createdAt: true, deviceId: true } });
+        return { data: recordings } as Result<Recording[]>;
+    }),
 });

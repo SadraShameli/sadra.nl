@@ -35,15 +35,6 @@ export const readingRouter = createTRPCRouter({
     getReading: publicProcedure.input(z.object({ id: z.string() })).query(async ({ input }) => {
         return getReading(input);
     }),
-    getDeviceReadings: publicProcedure.input(getDeviceProps).query(async ({ input }) => {
-        const device = await getDevice(input);
-        if (!device.data) {
-            return device;
-        }
-
-        const readings = await db.reading.findMany({ where: { deviceId: device.data.id } });
-        return { data: readings } as Result<Reading[]>;
-    }),
     createReading: publicProcedure.input(createReadingProps).query(async ({ input }) => {
         const readings: Reading[] = [];
         for (const sensor in input.sensors) {
@@ -60,5 +51,14 @@ export const readingRouter = createTRPCRouter({
             readings.push(await db.reading.create({ data: { deviceId: device.data.id, sensorId: +sensor, value: +value } }));
         }
         return {};
+    }),
+    getDeviceReadings: publicProcedure.input(getDeviceProps).query(async ({ input }) => {
+        const device = await getDevice(input);
+        if (!device.data) {
+            return device;
+        }
+
+        const readings = await db.reading.findMany({ where: { deviceId: device.data.id } });
+        return { data: readings } as Result<Reading[]>;
     }),
 });

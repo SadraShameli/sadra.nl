@@ -6,7 +6,6 @@ import TypeWriterAnimation from '~/components/Animations/TypeWriter';
 import Resume from '~/data/Resume';
 
 import AboutSection from './components/About';
-import ReadingSection from './components/Reading/Reading';
 import ResumeSection from './components/Resume/Resume';
 import SocialsSection from './components/Socials';
 
@@ -23,10 +22,6 @@ export default function HomePage() {
                 <div className='mt-content h-fit lg:my-auto'>
                     <Image className='rounded-2xl object-cover sm:max-w-lg xl:mx-0 xl:self-auto' src={ProfilePicture} alt='Profile picture' priority />
                 </div>
-            </div>
-
-            <div className='mx-auto my-content max-w-content space-y-10'>
-                <ReadingSection />
             </div>
 
             <div className='mx-auto my-content max-w-content space-y-10'>
