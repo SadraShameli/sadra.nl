@@ -3,12 +3,11 @@ import { z } from 'zod';
 
 import { createTRPCRouter, publicProcedure } from '~/server/api/trpc';
 import { db } from '~/server/db';
+import { getRecordingsNoFileSelect } from '~/types/db';
+import { getLocationProps, getLocationReadingsProps } from '~/types/zod';
 
 import { getSensor } from './sensor';
 import type Result from '../result';
-
-export const getLocationProps = z.object({ location_id: z.string() });
-export const getLocationReadingsProps = z.object({ locationProps: getLocationProps, sensor_id: z.string().optional() });
 
 export async function getLocation(input: z.infer<typeof getLocationProps>): Promise<Result<Location>> {
     try {
@@ -29,7 +28,7 @@ export const locationRouter = createTRPCRouter({
         return { data: await db.location.findMany() } as Result<Location[]>;
     }),
     getLocation: publicProcedure.input(z.object({ location_id: z.string() })).query(async ({ input }) => {
-        return getLocation(input);
+        return await getLocation(input);
     }),
     getLocationDevices: publicProcedure.input(getLocationProps).query(async ({ input }) => {
         const location = await getLocation(input);
@@ -93,7 +92,7 @@ export const locationRouter = createTRPCRouter({
 
         const devices = await db.device.findMany({ where: { locationId: location.data.id } });
         const recordingsPromises = devices.map((device) => {
-            return db.recording.findMany({ where: { deviceId: device.id }, select: { id: true, createdAt: true, deviceId: true } });
+            return db.recording.findMany({ where: { deviceId: device.id }, select: getRecordingsNoFileSelect });
         });
         const recordings: { id: number; createdAt: Date; deviceId: number }[] = [];
         (await Promise.all(recordingsPromises)).map((devices) => {

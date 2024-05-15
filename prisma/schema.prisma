@@ -42,16 +42,16 @@ model Location {
 }
 
 model Device {
-  id                 Int           @id @default(autoincrement())
-  createdAt          DateTime      @default(now())
+  id                 Int         @id @default(autoincrement())
+  createdAt          DateTime    @default(now())
   name               String
   type               DeviceTypes
-  device_id          Int           @unique
+  device_id          Int         @unique
   register_interval  Int
   loudness_threshold Int
   locationId         Int
   sensors            Int[]
-  location           Location      @relation(fields: [locationId], references: [id])
+  location           Location    @relation(fields: [locationId], references: [id])
   readings           Reading[]
   recordings         Recording[]
 }
@@ -71,5 +71,6 @@ model Recording {
   createdAt DateTime @default(now())
   deviceId  Int
   file      Bytes
+  file_name String
   device    Device   @relation(fields: [deviceId], references: [id])
 }

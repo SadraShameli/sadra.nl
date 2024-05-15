@@ -2,6 +2,8 @@ import fs from 'fs';
 
 import { type Prisma } from '@prisma/client';
 
+import { getRecordingFileName } from '~/server/api/routers/recording';
+
 export const recordings: Prisma.RecordingCreateInput[] = [
     {
         device: {
@@ -10,5 +12,6 @@ export const recordings: Prisma.RecordingCreateInput[] = [
             },
         },
         file: Buffer.from(fs.readFileSync('src/assets/wav/1.wav')),
+        file_name: getRecordingFileName(new Date()),
     },
 ];

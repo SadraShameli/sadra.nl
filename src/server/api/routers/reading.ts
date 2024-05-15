@@ -3,16 +3,10 @@ import { z } from 'zod';
 
 import { createTRPCRouter, publicProcedure } from '~/server/api/trpc';
 import { db } from '~/server/db';
+import { createReadingProps, type getReadingProps } from '~/types/zod';
 
 import { getDevice } from './device';
 import type Result from '../result';
-
-export const getReadingProps = z.object({ id: z.string() });
-
-export const createReadingProps = z.object({
-    device_id: z.number(),
-    sensors: z.record(z.string(), z.number()).refine((rec) => Object.keys(rec).length, { message: 'No sensor provided' }),
-});
 
 export async function getReading(input: z.infer<typeof getReadingProps>): Promise<Result<Reading>> {
     try {
@@ -33,7 +27,7 @@ export const readingRouter = createTRPCRouter({
         return { data: await db.reading.findMany() } as Result<Reading[]>;
     }),
     getReading: publicProcedure.input(z.object({ id: z.string() })).query(async ({ input }) => {
-        return getReading(input);
+        return await getReading(input);
     }),
     createReading: publicProcedure.input(createReadingProps).mutation(async ({ input }) => {
         const readings: Reading[] = [];

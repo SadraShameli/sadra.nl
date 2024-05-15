@@ -1,15 +1,13 @@
 import { type Device, Prisma, type Reading, type Recording } from '@prisma/client';
-import { z } from 'zod';
+import { type z } from 'zod';
 
 import type Result from '~/server/api/result';
 import { createTRPCRouter, publicProcedure } from '~/server/api/trpc';
 import { db } from '~/server/db';
+import { getRecordingsNoFileSelect } from '~/types/db';
+import { getDeviceProps, getDeviceReadingsProps, getDeviceRecordingsProps } from '~/types/zod';
 
 import { getSensor } from './sensor';
-
-export const getDeviceProps = z.object({ device_id: z.string() });
-export const getDeviceReadingsProps = z.object({ deviceProps: getDeviceProps, sensor_id: z.string().optional() });
-export const getDeviceRecordingsProps = z.object({ deviceProps: getDeviceProps, sensor_id: z.string().optional() });
 
 export async function getDevice(input: z.infer<typeof getDeviceProps>): Promise<Result<Device>> {
     try {
@@ -30,7 +28,7 @@ export const deviceRouter = createTRPCRouter({
         return { data: await db.device.findMany() } as Result<Device[]>;
     }),
     getDevice: publicProcedure.input(getDeviceProps).query(async ({ input }) => {
-        return getDevice(input);
+        return await getDevice(input);
     }),
     getDeviceReadings: publicProcedure.input(getDeviceReadingsProps).query(async ({ input }) => {
         const device = await getDevice({ device_id: input.deviceProps.device_id });
@@ -60,7 +58,10 @@ export const deviceRouter = createTRPCRouter({
         if (!device.data) {
             return device;
         }
-        const recordings = await db.recording.findMany({ where: { deviceId: device.data.id }, select: { id: true, createdAt: true, deviceId: true } });
+        const recordings = await db.recording.findMany({
+            where: { deviceId: device.data.id },
+            select: getRecordingsNoFileSelect,
+        });
         return { data: recordings } as Result<Recording[]>;
     }),
 });

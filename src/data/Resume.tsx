@@ -1,7 +1,7 @@
-import GithubIcon from '~/components/Icons/Github';
-import InstagramIcon from '~/components/Icons/Instagram';
-import WhatsAppIcon from '~/components/Icons/WhatsApp';
-import YoutubeIcon from '~/components/Icons/Youtube';
+import GithubIcon from '~/components/ui/Icons/Github';
+import InstagramIcon from '~/components/ui/Icons/Instagram';
+import WhatsAppIcon from '~/components/ui/Icons/WhatsApp';
+import YoutubeIcon from '~/components/ui/Icons/Youtube';
 import { type IResume } from '~/types/Resume';
 
 function calculate_age(dob: Date) {
@@ -98,10 +98,10 @@ const Resume: IResume = {
             },
             summary: 'Blue Star Planning is specialized in the development and realization of Advanced Planning and Scheduling systems.',
             highlights: [
-                'Developed various IoT devices and 3D printing the casing. Intended to gather various data, such as sound recordings, loudness, temperature and humidity, air quality and RPM values. The sound recordings go through IIR second-order section filtering and A-Weighting before saving. The devices are placed at different locations in Rotterdam.',
-                'Developed the back-end to process the data gathered by the devices and developed the front-end at https://geluidsvervuiling.eu, where the sound recordings and loudness values are available depending on the device and the location.',
+                'Developed various IoT devices including 3D printing. Intended to gather various data, such as sound recordings, loudness, temperature and humidity, air quality and RPM values. The devices are placed at different locations in The Netherlands.',
+                'Developed the back-end to process the data gathered by the devices as well as the front-end, where the sound recordings and loudness values are available.',
             ],
-            skills: ['TypeScript, React, Material UI, ASP.NET, SQL Server'],
+            skills: ['React ··· TypeScript ··· Material UI ··· ASP.NET ··· SQL'],
         },
     ],
     projects: [
@@ -115,9 +115,9 @@ const Resume: IResume = {
                 'Fully autonomous driving without any input from the user',
                 'Ability to manually control using a PS4 or PS5 controller',
                 'Making use of the well-proven machine learning library TensorFlow',
-                'Using threads and thread pooling for every core functionality',
+                'Using multithreading for every core functionality',
             ],
-            skills: ['C++, Python, 3D Printing'],
+            skills: ['3D Printing ··· Machine Learning ··· C++ ··· Python'],
         },
         // {
         //     title: 'Partify',

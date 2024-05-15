@@ -15,9 +15,9 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
     return (
-        <html lang='en' className='scroll-smooth bg-black antialiased'>
+        <html lang='en' className='dark scroll-smooth antialiased'>
             <meta name='theme-color' content='#000' />
-            <body className={`dark:text-neutral-300 ${orbitron.variable} ${GeistSans.className}`}>
+            <body className={`${orbitron.variable} ${GeistSans.className}`}>
                 <TRPCReactProvider>{children}</TRPCReactProvider>
                 <SpeedInsights />
             </body>
