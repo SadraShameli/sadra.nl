@@ -13,7 +13,7 @@ export default function RevealAnimation({ children }: RevealProps) {
         visible: { opacity: 1, y: 0 },
     };
 
-    const defaultTransition: Transition = { duration: 1, ease: [0, 0, 0, 1], delay: 0.2 };
+    const defaultTransition: Transition = { duration: 1, ease: [0, 0, 0, 1], delay: 0.1 };
 
     const ref = useRef(null);
     const isInView = useInView(ref, { once: true, amount: 0.1 });

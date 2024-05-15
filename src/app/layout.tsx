@@ -3,12 +3,9 @@ import { GeistSans } from 'geist/font/sans';
 import { type Metadata } from 'next';
 
 import '~/styles/globals.css';
-import BackgroundSnipper from '~/components/BackgroundSnippet';
 import { orbitron } from '~/data/Fonts';
 import Resume from '~/data/Resume';
 import { TRPCReactProvider } from '~/trpc/react';
-
-import Navbar from './components/Navbar';
 
 export const metadata: Metadata = {
     title: Resume.title,
@@ -21,21 +18,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <html lang='en' className='scroll-smooth bg-black antialiased'>
             <meta name='theme-color' content='#000' />
             <body className={`dark:text-neutral-300 ${orbitron.variable} ${GeistSans.className}`}>
-                <TRPCReactProvider>
-                    <Overlays />
-                    {children}
-                </TRPCReactProvider>
+                <TRPCReactProvider>{children}</TRPCReactProvider>
                 <SpeedInsights />
             </body>
         </html>
-    );
-}
-
-function Overlays() {
-    return (
-        <>
-            <Navbar />
-            <BackgroundSnipper />
-        </>
     );
 }
