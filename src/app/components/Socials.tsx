@@ -9,7 +9,7 @@ import SectionTitle from './SectionTitle';
 export default function SocialsSection() {
     return (
         <>
-            <SectionTitle text='More about me' />
+            <SectionTitle text='Follow my socials' />
             <GenerateItems />
         </>
     );

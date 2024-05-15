@@ -19,13 +19,8 @@ export async function GET(request: NextRequest, { params }: { params: RequestPro
 }
 
 export async function POST(request: NextRequest, { params }: { params: RequestProps }) {
-    const deviceResult = await api.device.getDevice({ device_id: params.id });
-    if (!deviceResult.data) {
-        return NextResponse.json(deviceResult, { status: deviceResult.status });
-    }
-
     const buffer = Buffer.from(await (await request.blob()).arrayBuffer());
-    const recordingResult = await api.recording.createRecording({ device: { device_id: deviceResult.data.device_id.toString() }, recording: buffer });
+    const recordingResult = await api.recording.createRecording({ device: { device_id: params.id }, recording: buffer });
 
     if (recordingResult.data) {
         return NextResponse.json(recordingResult.data, { status: recordingResult.status });
