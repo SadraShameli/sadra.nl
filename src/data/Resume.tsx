@@ -16,13 +16,14 @@ const age = calculate_age(birthday);
 
 const Resume: IResume = {
     title: 'Sadra',
-    description: 'Futures trader  //  Software Developer',
+    description: 'Building cool stuff',
     basics: {
         firstName: 'Sadra',
         lastName: 'Shameli',
         title: 'Sadra Shameli',
         email: 'sadra.shameli1@gmail.com',
         phone: '+31685156033',
+        summary: `I am Sadra Shameli, ${age} years old, living in Rijswijk, The Netherlands. I trade index futures and crypto, and I build cool things and love photography.`,
         location: {
             title: 'Rotterdam - South Holland, The Netherlands',
             url: 'https://goo.gl/maps/v9asMxGqgKwcvwQw5',
@@ -63,7 +64,6 @@ const Resume: IResume = {
     keypoints: [
         {
             title: 'About',
-            summary: `I am Sadra Shameli. ${age} y/o full-stack & embedded engineer with two years of working experience, based in Rotterdam, the Netherlands. My tech stack consists of TypeScript, React and Next.js together with Tailwind CSS, tRPC, Prisma and NextAuth.js to develop intuitive web applications. I am also experienced in developing robots and IoT devices.`,
             keywords: [],
         },
         {

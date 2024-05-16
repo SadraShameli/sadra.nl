@@ -1,35 +1,36 @@
+import Image from 'next/image';
+
+import ProfilePicture from '~/assets/images/me.jpg';
 import RevealAnimation from '~/components/ui/Animations/Reveal';
-import StaggerAnimation from '~/components/ui/Animations/Stagger';
 import Card from '~/components/ui/Card';
 import Resume from '~/data/Resume';
+
+import GallerySection from './GallerySection';
 
 export default function AboutSection() {
     return (
         <RevealAnimation>
-            <Card>
-                <div className='grid gap-y-20'>
-                    {Resume.keypoints.map((skills, index) => {
-                        return (
-                            <StaggerAnimation key={index}>
-                                <h2 className='bg-gradient-emerald-anim max-w-fit text-2xl font-semibold'>{skills.title}</h2>
-
-                                <p className='mt-3 whitespace-pre-line text-justify tracking-tight'>{skills.summary}</p>
-
-                                <ul className='mt-3 grid gap-y-3'>
+            <>
+                <Card>
+                    <div className='grid gap-y-10'>
+                        <GallerySection />
+                        <div className='flex items-center gap-x-5'>
+                            <Image className='hidden size-8 rounded-full sm:inline' src={ProfilePicture} alt={'Profile picture'} />
+                            <h2 className='text-justify sm:border-l sm:pl-6'>{Resume.basics.summary}</h2>
+                        </div>
+                        {/* <ul className='mt-3 grid gap-y-3'>
                                     {skills.keywords.map((skill, index) => {
                                         return (
                                             <li key={index}>
-                                                <span className='mr-2'>+</span>
-                                                {skill}
+                                            <span className='mr-2'>+</span>
+                                            {skill}
                                             </li>
                                         );
                                     })}
-                                </ul>
-                            </StaggerAnimation>
-                        );
-                    })}
-                </div>
-            </Card>
+                                </ul> */}
+                    </div>
+                </Card>
+            </>
         </RevealAnimation>
     );
 }

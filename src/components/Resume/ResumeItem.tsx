@@ -37,7 +37,7 @@ export default function ResumeItem({ title, sections, img }: ResumeProps) {
                                             <LinkIcon className='ml-1 size-6' />
                                         </Link>
 
-                                        <span className='bg-gradient-emerald-anim mt-1 text-lg font-semibold md:mt-auto'>{section.role}</span>
+                                        <span className='bg-gradient-purple-anim mt-1 text-lg font-semibold md:mt-auto'>{section.role}</span>
                                     </div>
 
                                     <div className='mt-5 grid gap-y-1 text-neutral-400'>

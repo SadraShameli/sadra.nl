@@ -15,6 +15,7 @@ export interface IResumeBasics {
     title: string;
     email: string;
     phone: string;
+    summary: string;
     location: ILocation;
     profiles: IProfile[];
 }

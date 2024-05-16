@@ -9,8 +9,8 @@
         @apply bg-gradient-to-br from-emerald-50 to-emerald-900 bg-clip-text text-transparent;
     }
 
-    .bg-gradient-indigo-anim {
-        background: linear-gradient(to right, theme('colors.indigo.400'), theme('colors.white'), theme('colors.indigo.400'), theme('colors.white'));
+    .bg-gradient-purple-anim {
+        background: linear-gradient(to right, theme('colors.purple.400'), theme('colors.white'), theme('colors.purple.400'), theme('colors.white'));
         background-size: 300% 300%;
         @apply animate-gradient bg-clip-text text-transparent;
     }

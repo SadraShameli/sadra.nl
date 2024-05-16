@@ -30,7 +30,7 @@ export default async function HomePage() {
                 <div className='mx-auto flex h-screen max-w-content flex-col-reverse justify-between xl:w-screen xl:flex-row'>
                     <div className='my-auto mt-10 flex flex-col justify-center gap-y-3 xl:mt-auto'>
                         <TextAnimation className='text-3xl font-semibold text-white md:text-6xl xl:text-7xl' text={Resume.basics.title} el='h1' />
-                        <TypeWriterAnimation className='bg-gradient-emerald-anim mx-auto text-xl font-semibold xl:mx-0' text={Resume.description} />
+                        <TypeWriterAnimation className='bg-gradient-purple-anim mx-auto text-xl font-semibold xl:mx-0' text={Resume.description} />
                     </div>
 
                     <div className='mt-content h-fit lg:my-auto'>
@@ -45,7 +45,7 @@ export default async function HomePage() {
                 {recordings.length ? (
                     <div className='mx-auto my-content w-full max-w-content'>
                         <SectionTitle text='Noise recordings' />
-                        <SectionDescription text='Here you will find a list of noise recordings done by my devices, placed at various locations in Rotterdam & Rijswijk - The Netherlands which are gathering climate and noise levels.' />
+                        <SectionDescription text='Here you will find a list of noise recordings made by my devices, which are placed at various locations in Rotterdam & Rijswijk - The Netherlands, gathering climate and noise levels.' />
                         <RecordingSection recordings={recordings} />
                     </div>
                 ) : null}
