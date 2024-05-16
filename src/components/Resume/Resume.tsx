@@ -7,7 +7,7 @@ import ResumeItem from './ResumeItem';
 
 export default function ResumeSection() {
     return (
-        <div className='space-y-10'>
+        <div className='grid gap-y-10'>
             <ResumeItem title='Work' img={workImg} sections={Resume.works} />
 
             <ResumeItem title='Projects' img={projectAiImg} sections={Resume.projects} />

@@ -7,7 +7,7 @@ export default function AboutSection() {
     return (
         <RevealAnimation>
             <Card>
-                <div className='space-y-20'>
+                <div className='grid gap-y-20'>
                     {Resume.keypoints.map((skills, index) => {
                         return (
                             <StaggerAnimation key={index}>
@@ -15,7 +15,7 @@ export default function AboutSection() {
 
                                 <p className='mt-3 whitespace-pre-line text-justify tracking-tight'>{skills.summary}</p>
 
-                                <ul className='mt-3 space-y-3'>
+                                <ul className='mt-3 grid gap-y-3'>
                                     {skills.keywords.map((skill, index) => {
                                         return (
                                             <li key={index}>

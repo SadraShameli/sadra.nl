@@ -35,19 +35,36 @@ export default function RecordingSection({ recordings }: RecordingSectionProps) 
     return (
         <RevealAnimation>
             <Card>
-                <StaggerAnimation>
-                    <div className='grid grid-flow-col grid-cols-3 items-center'>
-                        <video className='col-span-2 size-full' loop autoPlay muted>
-                            <source src='/headphone.mp4' type='video/mp4' />
-                        </video>
-                        <div className='rounded-xl bg-neutral-950 p-5'>
+                <StaggerAnimation className='grid-cols-2 items-center lg:grid'>
+                    <video loop autoPlay muted>
+                        <source src='/headphone.mp4' type='video/mp4' />
+                    </video>
+                    <div>
+                        <div className='w-full rounded-xl bg-neutral-950 p-5'>
                             <div className='mx-3 mb-6 flex items-center justify-between'>
                                 <h4 className='font-semibold'>Recordings</h4>
+                                <button
+                                    className='flex items-center gap-x-1 rounded-lg bg-white px-2 py-1 text-sm font-semibold text-black transition duration-300 ease-out hover:scale-105'
+                                    onClick={async () => {
+                                        if (currentRecording) {
+                                            if (currentRecording.file_name) {
+                                                const a = document.createElement('a');
+                                                a.href = `/api/recording/${currentRecording.id}`;
+                                                document.body.appendChild(a);
+                                                a.onclick = () => document.body.removeChild(a);
+                                                a.click();
+                                            }
+                                        }
+                                    }}
+                                >
+                                    <DownloadIcon className='size-5' />
+                                    Download
+                                </button>
                             </div>
                             <ScrollArea className='h-80'>
                                 {recordings?.map((recording) => (
                                     <button
-                                        className='flex w-11/12 rounded-lg py-3 pl-3 font-semibold transition hover:bg-neutral-900'
+                                        className='flex rounded-lg px-3 py-3 font-semibold transition hover:bg-neutral-900 sm:w-11/12'
                                         onClick={() => {
                                             // eslint-disable-next-line react-hooks/rules-of-hooks
                                             setCurrentRecording(recording);
@@ -61,81 +78,63 @@ export default function RecordingSection({ recordings }: RecordingSectionProps) 
                                     </button>
                                 ))}
                             </ScrollArea>
-                        </div>
-                    </div>
 
-                    <div className='mt-20 grid grid-flow-col grid-cols-3'>
-                        <button
-                            className='flex w-fit items-center justify-center rounded-lg bg-white px-4 py-3 font-semibold text-black transition duration-300 ease-out hover:scale-105'
-                            onClick={async () => {
-                                if (currentRecording) {
-                                    if (currentRecording.file_name) {
-                                        const a = document.createElement('a');
-                                        a.href = `/api/recording/${currentRecording.id}`;
-                                        document.body.appendChild(a);
-                                        a.onclick = () => document.body.removeChild(a);
-                                        a.click();
-                                    }
-                                }
-                            }}
-                        >
-                            <DownloadIcon className='mr-3 size-6' />
-                            Download
-                        </button>
+                            <div className='mt-8 grid xl:grid-cols-2'>
+                                <div className='flex items-center justify-center gap-x-7'>
+                                    <button
+                                        onClick={() => {
+                                            // eslint-disable-next-line react-hooks/rules-of-hooks
+                                            setIsShuffle((state) => !state);
+                                        }}
+                                    >
+                                        <ShuffleIcon className={`size-6 text-neutral-400 transition hover:text-white ${isShuffle && 'text-white'}`} />
+                                    </button>
+                                    <button>
+                                        <PlayBackIcon className='size-6 text-neutral-400 transition hover:text-white' />
+                                    </button>
+                                    <button
+                                        className='size-12 text-white'
+                                        onClick={() => {
+                                            // eslint-disable-next-line react-hooks/rules-of-hooks
+                                            setIsPlaying((state) => !state);
+                                        }}
+                                    >
+                                        {isPlaying ? <PauseIcon /> : <PlayIcon />}
+                                    </button>
+                                    <button>
+                                        <PlayForwardIcon className='size-6 text-neutral-400 transition hover:text-white' />
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            // eslint-disable-next-line react-hooks/rules-of-hooks
+                                            setIsRepeat((state) => !state);
+                                        }}
+                                    >
+                                        <RepeatIcon className={`size-6 text-neutral-400 transition hover:text-white ${isRepeat && 'text-white'}`} />
+                                    </button>
+                                </div>
 
-                        <div className='mx-auto flex items-center justify-center space-x-7'>
-                            <button
-                                onClick={() => {
-                                    // eslint-disable-next-line react-hooks/rules-of-hooks
-                                    setIsShuffle((state) => !state);
-                                }}
-                            >
-                                <ShuffleIcon className={`size-6 text-neutral-400 transition hover:text-white ${isShuffle && 'text-white'}`} />
-                            </button>
-                            <button>
-                                <PlayBackIcon className='size-6 text-neutral-400 transition hover:text-white' />
-                            </button>
-                            <button
-                                className='size-12 text-white'
-                                onClick={() => {
-                                    // eslint-disable-next-line react-hooks/rules-of-hooks
-                                    setIsPlaying((state) => !state);
-                                }}
-                            >
-                                {isPlaying ? <PauseIcon /> : <PlayIcon />}
-                            </button>
-                            <button>
-                                <PlayForwardIcon className='size-6 text-neutral-400 transition hover:text-white' />
-                            </button>
-                            <button
-                                onClick={() => {
-                                    // eslint-disable-next-line react-hooks/rules-of-hooks
-                                    setIsRepeat((state) => !state);
-                                }}
-                            >
-                                <RepeatIcon className={`size-6 text-neutral-400 transition hover:text-white ${isRepeat && 'text-white'}`} />
-                            </button>
-                        </div>
-
-                        <div className='flex items-center justify-end space-x-3 self-center text-neutral-400'>
-                            <button
-                                onClick={() => {
-                                    // eslint-disable-next-line react-hooks/rules-of-hooks
-                                    setAutoPlay((state) => !state);
-                                }}
-                            >
-                                <ContinueIcon className={`size-6 transition hover:text-white ${autoPlay && 'text-white'}`} />
-                            </button>
-                            <button
-                                className='size-6 transition hover:text-white'
-                                onClick={() => {
-                                    // eslint-disable-next-line react-hooks/rules-of-hooks
-                                    setIsMute((state) => !state);
-                                }}
-                            >
-                                {isMute ? <VolumeMuteIcon className='text-white' /> : <VolumeUpIcon />}
-                            </button>
-                            <Progress className='ml-3 h-2 w-2/5' value={33} />
+                                <div className='mt-5 flex items-center justify-center gap-x-3 text-neutral-400 xl:mt-0 xl:justify-end'>
+                                    <button
+                                        onClick={() => {
+                                            // eslint-disable-next-line react-hooks/rules-of-hooks
+                                            setAutoPlay((state) => !state);
+                                        }}
+                                    >
+                                        <ContinueIcon className={`size-6 transition hover:text-white ${autoPlay && 'text-white'}`} />
+                                    </button>
+                                    <button
+                                        className='size-6 transition hover:text-white'
+                                        onClick={() => {
+                                            // eslint-disable-next-line react-hooks/rules-of-hooks
+                                            setIsMute((state) => !state);
+                                        }}
+                                    >
+                                        {isMute ? <VolumeMuteIcon className='text-white' /> : <VolumeUpIcon />}
+                                    </button>
+                                    <Progress className='h-2 w-2/5' value={33} />
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </StaggerAnimation>

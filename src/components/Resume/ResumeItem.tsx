@@ -21,10 +21,10 @@ export default function ResumeItem({ title, sections, img }: ResumeProps) {
     return (
         <RevealAnimation>
             <Card>
-                <StaggerAnimation className='mx-auto grid grid-cols-1 xl:grid-flow-col xl:grid-cols-2 xl:space-x-10'>
+                <StaggerAnimation className='mx-auto grid grid-cols-1 xl:grid-cols-2 xl:gap-x-10'>
                     <Image className='rounded-2xl' src={img} alt={`${title} picture`} />
 
-                    <div className='space-y-10'>
+                    <div className='grid gap-y-10'>
                         {sections.map((section, index) => {
                             return (
                                 <div key={index}>
@@ -57,7 +57,7 @@ export default function ResumeItem({ title, sections, img }: ResumeProps) {
                                     {section.summary && <p className='mt-7 border-t pt-7'>{section.summary}</p>}
 
                                     {section.highlights && (
-                                        <ul className='mt-2 space-y-3'>
+                                        <ul className='mt-2 grid gap-y-3'>
                                             {section.highlights.map((highlight, index) => {
                                                 return (
                                                     <li className='flex text-justify' key={index}>

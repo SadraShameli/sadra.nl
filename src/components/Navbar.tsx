@@ -8,7 +8,7 @@ export default function Navbar() {
             <div className='mx-auto flex max-w-content items-center justify-between px-6 py-5'>
                 <h2 className='font-orbitron text-lg font-semibold tracking-widest text-white'>&gt;_{Resume.basics.firstName.toLowerCase()}.</h2>
 
-                <div className='flex items-center justify-between space-x-4 text-white sm:space-x-6'>
+                <div className='flex items-center justify-between gap-x-4 text-white sm:gap-x-6'>
                     {Resume.basics.profiles.map((profile, index) => {
                         return (
                             <Link className='size-5 transition hover:opacity-50' href={profile.url} key={index} aria-label={profile.title}>
