@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
 
-import { getRecordingFileName } from '~/server/api/routers/recording';
 import { api } from '~/trpc/server';
 
 interface RequestProps {
@@ -12,7 +11,7 @@ export async function GET(request: NextRequest, { params }: { params: RequestPro
     if (result.data) {
         return new Response(result.data.file, {
             status: result.status,
-            headers: { 'Content-Type': 'audio/wav', 'Content-Disposition': `attachment; filename=${getRecordingFileName(result.data.createdAt)}` },
+            headers: { 'Content-Type': 'audio/wav', 'Content-Disposition': `attachment; filename="${result.data.file_name}"` },
         });
     }
     return NextResponse.json(result, { status: result.status });
