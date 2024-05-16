@@ -41,7 +41,7 @@ export const deviceRouter = createTRPCRouter({
             if (!sensor.data) {
                 return sensor;
             }
-            const readings = await db.reading.findMany({ where: { deviceId: device.data.id, sensorId: sensor.data.id } });
+            const readings = await db.reading.findMany({ where: { device_id: device.data.id, sensor_id: sensor.data.id } });
             const readingsRecord: [string, number][] = [];
             readings.map((reading) => {
                 readingsRecord.push([`${reading.createdAt.getHours()}:${reading.createdAt.getMinutes()}`, reading.value]);
@@ -50,7 +50,7 @@ export const deviceRouter = createTRPCRouter({
             return { data: readingsRecord } as Result<typeof readingsRecord>;
         }
 
-        const readings = await db.reading.findMany({ where: { deviceId: device.data.id } });
+        const readings = await db.reading.findMany({ where: { device_id: device.data.id } });
         return { data: readings } as Result<Reading[]>;
     }),
     getDeviceRecordings: publicProcedure.input(getDeviceRecordingsProps).query(async ({ input }) => {
@@ -59,7 +59,7 @@ export const deviceRouter = createTRPCRouter({
             return device;
         }
         const recordings = await db.recording.findMany({
-            where: { deviceId: device.data.id },
+            where: { device_id: device.data.id },
             select: getRecordingsNoFileSelect,
         });
         return { data: recordings } as Result<Recording[]>;

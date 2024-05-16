@@ -9,7 +9,7 @@ import type Result from '../result';
 
 export async function getSensor(input: z.infer<typeof getSensorProps>): Promise<Result<Sensor>> {
     try {
-        const device = await db.sensor.findUniqueOrThrow({ where: { sensor_id: +input.sensor_id } });
+        const device = await db.sensor.findUniqueOrThrow({ where: { id: +input.sensor_id } });
         return { data: device };
     } catch (e) {
         if (e instanceof Prisma.PrismaClientKnownRequestError) {

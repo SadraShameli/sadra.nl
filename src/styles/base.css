@@ -68,8 +68,8 @@
 
 @layer base {
     * {
-      @apply border-border;
-      color-scheme: dark;
+        @apply border-border;
+        color-scheme: dark;
     }
 
     body {

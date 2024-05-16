@@ -5,7 +5,7 @@ export const readings: Prisma.ReadingCreateInput[] = [
         value: 29.17,
         sensor: {
             connect: {
-                type: 'Temperature',
+                id: 1,
             },
         },
         device: {
@@ -18,7 +18,7 @@ export const readings: Prisma.ReadingCreateInput[] = [
         value: 57.64,
         sensor: {
             connect: {
-                type: 'Humidity',
+                id: 2,
             },
         },
         device: {
@@ -31,7 +31,7 @@ export const readings: Prisma.ReadingCreateInput[] = [
         value: 66.06,
         sensor: {
             connect: {
-                type: 'GasResistance',
+                id: 3,
             },
         },
         device: {
@@ -44,7 +44,7 @@ export const readings: Prisma.ReadingCreateInput[] = [
         value: 1004.46,
         sensor: {
             connect: {
-                type: 'AirPressure',
+                id: 4,
             },
         },
         device: {
@@ -57,7 +57,7 @@ export const readings: Prisma.ReadingCreateInput[] = [
         value: 73.27,
         sensor: {
             connect: {
-                type: 'Altitude',
+                id: 5,
             },
         },
         device: {
@@ -70,7 +70,7 @@ export const readings: Prisma.ReadingCreateInput[] = [
         value: 74,
         sensor: {
             connect: {
-                type: 'Loudness',
+                id: 6,
             },
         },
         device: {
@@ -83,7 +83,7 @@ export const readings: Prisma.ReadingCreateInput[] = [
         value: 2731,
         sensor: {
             connect: {
-                type: 'RPM',
+                id: 7,
             },
         },
         device: {

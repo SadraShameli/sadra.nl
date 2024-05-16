@@ -36,7 +36,7 @@ export const locationRouter = createTRPCRouter({
             return location;
         }
 
-        const devices = await db.device.findMany({ where: { locationId: location.data.id } });
+        const devices = await db.device.findMany({ where: { location_id: location.data.id } });
         return { data: devices } as Result<Device[]>;
     }),
     getLocationReadings: publicProcedure.input(getLocationReadingsProps).query(async ({ input }) => {
@@ -45,7 +45,7 @@ export const locationRouter = createTRPCRouter({
             return location;
         }
 
-        const devices = await db.device.findMany({ where: { locationId: location.data.id } });
+        const devices = await db.device.findMany({ where: { location_id: location.data.id } });
         const readings: Reading[] = [];
         const readingsRecord: [string, number][] = [];
 
@@ -56,7 +56,7 @@ export const locationRouter = createTRPCRouter({
             }
 
             const readingsPromises = devices.map((device) => {
-                return db.reading.findMany({ where: { deviceId: device.id, sensorId: sensor.data?.id } });
+                return db.reading.findMany({ where: { device_id: device.id, sensor_id: sensor.data?.id } });
             });
 
             (await Promise.all(readingsPromises)).map((readingsPromise) => {
@@ -71,7 +71,7 @@ export const locationRouter = createTRPCRouter({
         }
 
         const readingsPromises = devices.map((device) => {
-            return db.reading.findMany({ where: { deviceId: device.id } });
+            return db.reading.findMany({ where: { device_id: device.id } });
         });
 
         (await Promise.all(readingsPromises)).map((readingsPromise) => {
@@ -90,11 +90,11 @@ export const locationRouter = createTRPCRouter({
             return location;
         }
 
-        const devices = await db.device.findMany({ where: { locationId: location.data.id } });
+        const devices = await db.device.findMany({ where: { location_id: location.data.id } });
         const recordingsPromises = devices.map((device) => {
-            return db.recording.findMany({ where: { deviceId: device.id }, select: getRecordingsNoFileSelect });
+            return db.recording.findMany({ where: { device_id: device.id }, select: getRecordingsNoFileSelect });
         });
-        const recordings: { id: number; createdAt: Date; deviceId: number }[] = [];
+        const recordings: { id: number; createdAt: Date; device_id: number }[] = [];
         (await Promise.all(recordingsPromises)).map((devices) => {
             devices.map((recording) => recordings.push(recording));
         });

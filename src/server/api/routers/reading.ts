@@ -42,7 +42,7 @@ export const readingRouter = createTRPCRouter({
                 return device;
             }
 
-            readings.push(await db.reading.create({ data: { deviceId: device.data.id, sensorId: +sensor, value: +value } }));
+            readings.push(await db.reading.create({ data: { device_id: device.data.id, sensor_id: +sensor, value: +value } }));
         }
         return { data: readings, status: 201 } as Result<Reading[]>;
     }),

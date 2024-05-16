@@ -2,38 +2,31 @@ import { type Prisma } from '@prisma/client';
 
 export const sensors: Prisma.SensorCreateInput[] = [
     {
-        type: 'Temperature',
         unit: 'C',
-        sensor_id: 1,
+        type: { create: { name: 'Temperature' } },
     },
     {
-        type: 'Humidity',
         unit: '%',
-        sensor_id: 2,
+        type: { create: { name: 'Humidity' } },
     },
     {
-        type: 'GasResistance',
         unit: 'kOhms',
-        sensor_id: 3,
+        type: { create: { name: 'GasResistance' } },
     },
     {
-        type: 'AirPressure',
         unit: 'hPa',
-        sensor_id: 4,
+        type: { create: { name: 'AirPressure' } },
     },
     {
-        type: 'Altitude',
         unit: 'm',
-        sensor_id: 5,
+        type: { create: { name: 'Altitude' } },
     },
     {
-        type: 'Loudness',
         unit: 'dB',
-        sensor_id: 6,
+        type: { create: { name: 'Loudness' } },
     },
     {
-        type: 'RPM',
         unit: 'rpm/min',
-        sensor_id: 7,
+        type: { create: { name: 'RPM' } },
     },
 ];

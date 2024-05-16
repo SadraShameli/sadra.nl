@@ -8,28 +8,26 @@ datasource db {
   directUrl = env("POSTGRES_URL_NON_POOLING")
 }
 
-enum SensorTypes {
-  Temperature
-  Humidity
-  GasResistance
-  AirPressure
-  Altitude
-  Loudness
-  RPM
+model SensorType {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  name      String   @unique
+  sensors   Sensor[]
 }
 
-enum DeviceTypes {
-  Recording
-  Reading
+model DeviceType {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  name      String   @unique
+  Device    Device[]
 }
 
 model Sensor {
-  id        Int         @id @default(autoincrement())
-  createdAt DateTime    @default(now())
-  type      SensorTypes @unique
+  id        Int        @id @default(autoincrement())
+  createdAt DateTime   @default(now())
   unit      String
-  sensor_id Int         @unique
   readings  Reading[]
+  type      SensorType @relation(fields: [id], references: [id])
 }
 
 model Location {
@@ -45,32 +43,33 @@ model Device {
   id                 Int         @id @default(autoincrement())
   createdAt          DateTime    @default(now())
   name               String
-  type               DeviceTypes
-  device_id          Int         @unique
   register_interval  Int
   loudness_threshold Int
-  locationId         Int
+  type_id            Int
+  location_id        Int
+  device_id          Int         @unique
   sensors            Int[]
-  location           Location    @relation(fields: [locationId], references: [id])
   readings           Reading[]
   recordings         Recording[]
+  type               DeviceType  @relation(fields: [type_id], references: [id])
+  location           Location    @relation(fields: [location_id], references: [id])
 }
 
 model Reading {
   id        Int      @id @default(autoincrement())
   createdAt DateTime @default(now())
   value     Float
-  sensorId  Int
-  deviceId  Int
-  sensor    Sensor   @relation(fields: [sensorId], references: [id])
-  device    Device   @relation(fields: [deviceId], references: [id])
+  sensor_id Int
+  device_id Int
+  sensor    Sensor   @relation(fields: [sensor_id], references: [id])
+  device    Device   @relation(fields: [device_id], references: [id])
 }
 
 model Recording {
   id        Int      @id @default(autoincrement())
   createdAt DateTime @default(now())
-  deviceId  Int
   file      Bytes
   file_name String
-  device    Device   @relation(fields: [deviceId], references: [id])
+  device_id Int
+  device    Device   @relation(fields: [device_id], references: [id])
 }
