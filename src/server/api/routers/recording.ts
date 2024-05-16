@@ -1,18 +1,25 @@
 import { Prisma, type Recording } from '@prisma/client';
-import { z } from 'zod';
+import { type z } from 'zod';
 
 import { createTRPCRouter, publicProcedure } from '~/server/api/trpc';
 import { db } from '~/server/db';
+import { getRecordingsNoFileSelect } from '~/types/db';
+import { createRecordingProps, getRecordingProps } from '~/types/zod';
 
-import { getDevice, getDeviceProps } from './device';
+import { getDevice } from './device';
 import type Result from '../result';
 
-export const getRecordingProps = z.object({ id: z.string() });
+export function getRecordingFileName(date: Date) {
+    return `${date.toLocaleDateString('default', { year: 'numeric', month: 'long', day: 'numeric' })} - ${date.getHours()}.${date.getMinutes()}.wav`;
+}
 
-export const createRecordingProps = z.object({
-    device: getDeviceProps,
-    recording: z.instanceof(Buffer).refine((buffer) => buffer.length, { message: 'No recording provided' }),
-});
+export async function getRecordingNoFile(input: z.infer<typeof getRecordingProps>) {
+    return await db.recording.findUniqueOrThrow({ where: { id: +input.id }, select: getRecordingsNoFileSelect });
+}
+
+export async function getRecordingsNoFile() {
+    return await db.recording.findMany({ select: getRecordingsNoFileSelect });
+}
 
 export async function getRecording(input: z.infer<typeof getRecordingProps>): Promise<Result<Recording>> {
     try {
@@ -30,10 +37,16 @@ export async function getRecording(input: z.infer<typeof getRecordingProps>): Pr
 
 export const recordingsRouter = createTRPCRouter({
     getRecordings: publicProcedure.query(async () => {
-        return { data: await db.recording.findMany({ select: { id: true, createdAt: true, deviceId: true } }) } as Result<Recording[]>;
+        return { data: await db.recording.findMany({ select: getRecordingsNoFileSelect }) } as Result<Recording[]>;
+    }),
+    getRecordingsNoFile: publicProcedure.query(async () => {
+        return await getRecordingsNoFile();
     }),
     getRecording: publicProcedure.input(getRecordingProps).query(async ({ input }) => {
-        return getRecording(input);
+        return await getRecording(input);
+    }),
+    getRecordingNoFile: publicProcedure.input(getRecordingProps).query(async ({ input }) => {
+        return await getRecordingNoFile(input);
     }),
     createRecording: publicProcedure.input(createRecordingProps).mutation(async ({ input }) => {
         const device = await getDevice(input.device);
@@ -42,12 +55,8 @@ export const recordingsRouter = createTRPCRouter({
         }
 
         const recording = await db.recording.create({
-            data: { deviceId: device.data.id, file: input.recording },
-            select: {
-                id: true,
-                createdAt: true,
-                deviceId: true,
-            },
+            data: { device_id: device.data.id, file: input.recording, file_name: getRecordingFileName(new Date()) },
+            select: getRecordingsNoFileSelect,
         });
 
         return { data: recording, status: 201 } as Result<Recording>;

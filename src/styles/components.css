@@ -2,7 +2,7 @@
 
 @layer components {
     .bg-grid {
-        @apply bg-[radial-gradient(#ffffff33_1px,#000_1px)] bg-[size:25px_25px] opacity-65;
+        @apply bg-[radial-gradient(#ffffff33_1px,#000_1px)] bg-[size:25px_25px] opacity-50;
     }
 
     .bg-gradient-card1 {

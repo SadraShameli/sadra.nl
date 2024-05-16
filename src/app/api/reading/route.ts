@@ -1,8 +1,8 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { type z } from 'zod';
 
-import { type createReadingProps } from '~/server/api/routers/reading';
 import { api } from '~/trpc/server';
+import { type createReadingProps } from '~/types/zod';
 
 export async function GET() {
     const result = await api.reading.getReadings();
