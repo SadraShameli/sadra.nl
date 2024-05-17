@@ -23,7 +23,7 @@ const Resume: IResume = {
         title: 'Sadra Shameli',
         email: 'sadra.shameli1@gmail.com',
         phone: '+31685156033',
-        summary: `I am Sadra Shameli, ${age} years old, living in Rijswijk, The Netherlands. I trade index futures and crypto, and I build cool things and love photography.`,
+        summary: `I am Sadra Shameli, ${age} years old, living in Rijswijk, The Netherlands. I trade index futures and crypto, I build cool things and love photography.`,
         location: {
             title: 'Rotterdam - South Holland, The Netherlands',
             url: 'https://goo.gl/maps/v9asMxGqgKwcvwQw5',

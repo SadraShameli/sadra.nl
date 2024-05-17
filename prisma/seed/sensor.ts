@@ -10,12 +10,12 @@ export const sensors: Prisma.SensorCreateInput[] = [
         type: { create: { name: 'Humidity' } },
     },
     {
-        unit: 'kOhms',
-        type: { create: { name: 'GasResistance' } },
+        unit: 'hPa',
+        type: { create: { name: 'Air Pressure' } },
     },
     {
-        unit: 'hPa',
-        type: { create: { name: 'AirPressure' } },
+        unit: 'Ohms',
+        type: { create: { name: 'Gas Resistance' } },
     },
     {
         unit: 'm',

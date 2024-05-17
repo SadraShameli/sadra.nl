@@ -28,7 +28,7 @@ export const readings: Prisma.ReadingCreateInput[] = [
         },
     },
     {
-        value: 66.06,
+        value: 1004.46,
         sensor: {
             connect: {
                 id: 3,
@@ -41,7 +41,7 @@ export const readings: Prisma.ReadingCreateInput[] = [
         },
     },
     {
-        value: 1004.46,
+        value: 66.06,
         sensor: {
             connect: {
                 id: 4,

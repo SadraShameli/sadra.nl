@@ -22,7 +22,7 @@ export async function POST(request: NextRequest, { params }: { params: RequestPr
     const recordingResult = await api.recording.createRecording({ device: { device_id: params.id }, recording: buffer });
 
     if (recordingResult.data) {
-        return NextResponse.json(recordingResult.data, { status: recordingResult.status });
+        return NextResponse.json({}, { status: recordingResult.status });
     }
     return NextResponse.json(recordingResult, { status: recordingResult.status });
 }
