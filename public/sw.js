@@ -15,7 +15,15 @@ importScripts('js/dependencies/cache-polyfill.js');
 // flow and the old cache(s) will be purged as part of the activate event handler when the
 // updated service worker is activated.
 
-var urlsToPrefetch = ['/', '/page', '/styles/common.css', '/js/dependencies/autolinker.js', '/template.js', '/images/icon.png', '/images/icon.svg'];
+var urlsToPrefetch = [
+    '/',
+    '/page',
+    '/styles/common.css',
+    '/js/dependencies/autolinker.js',
+    '/template.js',
+    '/images/icon.png',
+    '/images/icon.svg',
+];
 
 var version = '1.0.0';
 
@@ -54,7 +62,11 @@ self.addEventListener('fetch', function (event) {
         /* If we don't block the event as shown below, then the request will go to
        the network as usual.
     */
-        console.log('WORKER: fetch event ignored.', event.request.method, event.request.url);
+        console.log(
+            'WORKER: fetch event ignored.',
+            event.request.method,
+            event.request.url,
+        );
         return;
     }
     /* Similar to event.waitUntil in that it blocks the fetch event on a promise.
@@ -85,7 +97,11 @@ self.addEventListener('fetch', function (event) {
                 /* We return the cached response immediately if there is one, and fall
            back to waiting on the network as usual.
         */
-                console.log('WORKER: fetch event', cached ? '(cached)' : '(network)', event.request.url);
+                console.log(
+                    'WORKER: fetch event',
+                    cached ? '(cached)' : '(network)',
+                    event.request.url,
+                );
                 return cached || networked;
 
                 function fetchedFromNetwork(response) {
@@ -94,7 +110,10 @@ self.addEventListener('fetch', function (event) {
           */
                     var cacheCopy = response.clone();
 
-                    console.log('WORKER: fetch response from network.', event.request.url);
+                    console.log(
+                        'WORKER: fetch response from network.',
+                        event.request.url,
+                    );
 
                     caches
                         // We open a cache to store the response for this request.
@@ -107,7 +126,10 @@ self.addEventListener('fetch', function (event) {
                             cache.put(event.request, cacheCopy);
                         })
                         .then(function () {
-                            console.log('WORKER: fetch response stored in cache.', event.request.url);
+                            console.log(
+                                'WORKER: fetch response stored in cache.',
+                                event.request.url,
+                            );
                         });
 
                     // Return the response so that the promise is settled in fulfillment.
@@ -130,7 +152,9 @@ self.addEventListener('fetch', function (event) {
              - Generate a Response programmaticaly, as shown below, and return that
           */
 
-                    console.log('WORKER: fetch request failed in both cache and network.');
+                    console.log(
+                        'WORKER: fetch request failed in both cache and network.',
+                    );
 
                     /* Here we're creating a response programmatically. The first parameter is the
              response body, and the second one defines the options for the response.

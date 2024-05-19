@@ -22,6 +22,7 @@ const getQueryClient = () => {
 export const api = createTRPCReact<AppRouter>();
 
 export type RouterInputs = inferRouterInputs<AppRouter>;
+
 export type RouterOutputs = inferRouterOutputs<AppRouter>;
 
 export function TRPCReactProvider(props: { children: React.ReactNode }) {
@@ -31,11 +32,13 @@ export function TRPCReactProvider(props: { children: React.ReactNode }) {
         api.createClient({
             links: [
                 loggerLink({
-                    enabled: (op) => process.env.NODE_ENV === 'development' || (op.direction === 'down' && op.result instanceof Error),
+                    enabled: (op) =>
+                        process.env.NODE_ENV === 'development' ||
+                        (op.direction === 'down' && op.result instanceof Error),
                 }),
                 unstable_httpBatchStreamLink({
                     transformer: SuperJSON,
-                    url: getBaseUrl() + '/api',
+                    url: getBaseUrl() + '/api/trpc',
                     headers: () => {
                         const headers = new Headers();
                         headers.set('x-trpc-source', 'nextjs-react');

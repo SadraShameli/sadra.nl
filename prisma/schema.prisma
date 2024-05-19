@@ -8,35 +8,24 @@ datasource db {
   directUrl = env("POSTGRES_URL_NON_POOLING")
 }
 
-model SensorType {
-  id        Int      @id @default(autoincrement())
-  createdAt DateTime @default(now())
-  name      String   @unique
-  sensors   Sensor[]
-}
-
-model DeviceType {
-  id        Int      @id @default(autoincrement())
-  createdAt DateTime @default(now())
-  name      String   @unique
-  Device    Device[]
-}
-
 model Sensor {
-  id        Int        @id @default(autoincrement())
-  createdAt DateTime   @default(now())
+  id        Int         @id @default(autoincrement())
+  createdAt DateTime    @default(now())
+  name      String      @unique
   unit      String
+  enabled   Boolean
   readings  Reading[]
-  type      SensorType @relation(fields: [id], references: [id])
 }
 
 model Location {
-  id            Int      @id @default(autoincrement())
-  createdAt     DateTime @default(now())
+  id            Int         @id @default(autoincrement())
+  createdAt     DateTime    @default(now())
   name          String
-  location_name String   @unique
-  location_id   Int      @unique
+  location_name String      @unique
+  location_id   Int         @unique
   devices       Device[]
+  reading       Reading[]
+  recording     Recording[]
 }
 
 model Device {
@@ -45,31 +34,33 @@ model Device {
   name               String
   register_interval  Int
   loudness_threshold Int
-  type_id            Int
   location_id        Int
   device_id          Int         @unique
   sensors            Int[]
   readings           Reading[]
   recordings         Recording[]
-  type               DeviceType  @relation(fields: [type_id], references: [id])
   location           Location    @relation(fields: [location_id], references: [id])
 }
 
 model Reading {
-  id        Int      @id @default(autoincrement())
-  createdAt DateTime @default(now())
-  value     Float
-  sensor_id Int
-  device_id Int
-  sensor    Sensor   @relation(fields: [sensor_id], references: [id])
-  device    Device   @relation(fields: [device_id], references: [id])
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  value       Float
+  device_id   Int
+  sensor_id   Int
+  location_id Int
+  device      Device   @relation(fields: [device_id], references: [id])
+  sensor      Sensor   @relation(fields: [sensor_id], references: [id])
+  location    Location @relation(fields: [location_id], references: [id])
 }
 
 model Recording {
-  id        Int      @id @default(autoincrement())
-  createdAt DateTime @default(now())
-  file      Bytes
-  file_name String
-  device_id Int
-  device    Device   @relation(fields: [device_id], references: [id])
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  file        Bytes
+  file_name   String
+  device_id   Int
+  location_id Int
+  device      Device   @relation(fields: [device_id], references: [id])
+  location    Location @relation(fields: [location_id], references: [id])
 }

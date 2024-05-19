@@ -12,11 +12,17 @@ export default function AboutSection() {
         <RevealAnimation>
             <>
                 <Card>
-                    <div className='grid gap-y-10'>
+                    <div className="grid gap-y-10">
                         <GallerySection />
-                        <div className='flex items-center gap-x-5'>
-                            <Image className='hidden size-8 rounded-full sm:inline' src={ProfilePicture} alt={'Profile picture'} />
-                            <h2 className='text-justify sm:border-l sm:pl-6'>{Resume.basics.summary}</h2>
+                        <div className="flex items-center gap-x-5">
+                            <Image
+                                className="hidden size-10 rounded-full sm:inline"
+                                src={ProfilePicture}
+                                alt={'Profile picture'}
+                            />
+                            <h2 className="text-justify sm:border-l sm:pl-6">
+                                {Resume.basics.summary}
+                            </h2>
                         </div>
                         {/* <ul className='mt-3 grid gap-y-3'>
                                     {skills.keywords.map((skill, index) => {

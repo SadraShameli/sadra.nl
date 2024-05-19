@@ -45,7 +45,14 @@ const config = {
         'import/order': [
             'error',
             {
-                groups: ['builtin', 'external', 'internal', ['sibling', 'parent'], 'index', 'unknown'],
+                groups: [
+                    'builtin',
+                    'external',
+                    'internal',
+                    ['sibling', 'parent'],
+                    'index',
+                    'unknown',
+                ],
                 'newlines-between': 'always',
                 alphabetize: {
                     order: 'asc',

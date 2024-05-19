@@ -1,6 +1,12 @@
 'use client';
 
-import { type Transition, type Variants, easeOut, motion, useInView } from 'framer-motion';
+import {
+    type Transition,
+    type Variants,
+    easeOut,
+    motion,
+    useInView,
+} from 'framer-motion';
 import { useRef } from 'react';
 
 interface MoveAround {
@@ -37,7 +43,13 @@ export default function StaggerAnimation({ className, children }: MoveAround) {
         <motion.ul className={className} ref={ref}>
             {children?.map((child, index) => {
                 return (
-                    <motion.li variants={defaultVariants} animate={isInView ? 'visible' : 'hidden'} transition={defaultTransition} custom={index} key={index}>
+                    <motion.li
+                        variants={defaultVariants}
+                        animate={isInView ? 'visible' : 'hidden'}
+                        transition={defaultTransition}
+                        custom={index}
+                        key={index}
+                    >
                         {child}
                     </motion.li>
                 );

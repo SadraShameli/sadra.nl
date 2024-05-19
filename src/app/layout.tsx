@@ -13,10 +13,14 @@ export const metadata: Metadata = {
     icons: { icon: '/favicon.ico', apple: '/apple-icon.png' },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+    children,
+}: {
+    children: React.ReactNode;
+}) {
     return (
-        <html lang='en' className='dark scroll-smooth antialiased'>
-            <meta name='theme-color' content='#000' />
+        <html lang="en" className="dark scroll-smooth antialiased">
+            <meta name="theme-color" content="#000" />
             <body className={`${orbitron.variable} ${GeistSans.className}`}>
                 <TRPCReactProvider>{children}</TRPCReactProvider>
                 <SpeedInsights />

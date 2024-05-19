@@ -1,6 +1,12 @@
 'use client';
 
-import { type Transition, type Variants, easeOut, motion, useInView } from 'framer-motion';
+import {
+    type Transition,
+    type Variants,
+    easeOut,
+    motion,
+    useInView,
+} from 'framer-motion';
 import { useRef } from 'react';
 
 interface AnimatedTextProps {
@@ -10,7 +16,12 @@ interface AnimatedTextProps {
     el?: keyof JSX.IntrinsicElements;
 }
 
-export default function TextAnimation({ className, text, el: Wrapper = 'p', splitChar }: AnimatedTextProps) {
+export default function TextAnimation({
+    className,
+    text,
+    el: Wrapper = 'p',
+    splitChar,
+}: AnimatedTextProps) {
     const defaultVariants: Variants = {
         hidden: {
             opacity: 0,
@@ -32,23 +43,37 @@ export default function TextAnimation({ className, text, el: Wrapper = 'p', spli
 
     return (
         <Wrapper className={className}>
-            <span className='sr-only'>{text}</span>
+            <span className="sr-only">{text}</span>
 
-            <motion.span ref={ref} initial='hidden' animate={isInView ? 'visible' : 'hidden'} transition={defaultTransition} aria-hidden>
+            <motion.span
+                ref={ref}
+                initial="hidden"
+                animate={isInView ? 'visible' : 'hidden'}
+                transition={defaultTransition}
+                aria-hidden
+            >
                 {text.split(' ').map((word, index) =>
                     splitChar ? (
-                        <span className='inline-block' key={index}>
+                        <span className="inline-block" key={index}>
                             {word.split('').map((char, index) => (
-                                <motion.span className='inline-block' variants={defaultVariants} key={index}>
+                                <motion.span
+                                    className="inline-block"
+                                    variants={defaultVariants}
+                                    key={index}
+                                >
                                     {char}
                                 </motion.span>
                             ))}
-                            <span className='inline-block'>&nbsp;</span>
+                            <span className="inline-block">&nbsp;</span>
                         </span>
                     ) : (
-                        <motion.span className='inline-block' variants={defaultVariants} key={index}>
+                        <motion.span
+                            className="inline-block"
+                            variants={defaultVariants}
+                            key={index}
+                        >
                             {word}
-                            <span className='inline-block'>&nbsp;</span>
+                            <span className="inline-block">&nbsp;</span>
                         </motion.span>
                     ),
                 )}

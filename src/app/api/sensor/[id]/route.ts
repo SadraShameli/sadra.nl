@@ -6,8 +6,11 @@ interface RequestProps {
     id: string;
 }
 
-export async function GET(request: NextRequest, { params }: { params: RequestProps }) {
-    const result = await api.sensor.getSensor({ sensor_id: params.id });
+export async function GET(
+    request: NextRequest,
+    { params }: { params: RequestProps },
+) {
+    const result = await api.sensor.getSensor({ id: params.id });
     if (result.data) {
         return NextResponse.json(result.data, { status: result.status });
     }

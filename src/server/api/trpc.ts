@@ -11,6 +11,8 @@ export const createTRPCContext = async (opts: { headers: Headers }) => {
     };
 };
 
+export type ContextType = Awaited<ReturnType<typeof createTRPCContext>>;
+
 const t = initTRPC.context<typeof createTRPCContext>().create({
     transformer: superjson,
     errorFormatter({ shape, error }) {
@@ -18,8 +20,10 @@ const t = initTRPC.context<typeof createTRPCContext>().create({
             ...shape,
             data: {
                 ...shape.data,
-
-                zodError: error.cause instanceof ZodError ? error.cause.flatten() : null,
+                zodError:
+                    error.cause instanceof ZodError
+                        ? error.cause.flatten()
+                        : null,
             },
         };
     },

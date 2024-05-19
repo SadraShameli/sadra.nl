@@ -8,6 +8,11 @@ export const readings: Prisma.ReadingCreateInput[] = [
                 id: 1,
             },
         },
+        location: {
+            connect: {
+                id: 1,
+            },
+        },
         device: {
             connect: {
                 id: 1,
@@ -19,6 +24,11 @@ export const readings: Prisma.ReadingCreateInput[] = [
         sensor: {
             connect: {
                 id: 2,
+            },
+        },
+        location: {
+            connect: {
+                id: 1,
             },
         },
         device: {
@@ -34,6 +44,11 @@ export const readings: Prisma.ReadingCreateInput[] = [
                 id: 3,
             },
         },
+        location: {
+            connect: {
+                id: 1,
+            },
+        },
         device: {
             connect: {
                 id: 1,
@@ -45,6 +60,11 @@ export const readings: Prisma.ReadingCreateInput[] = [
         sensor: {
             connect: {
                 id: 4,
+            },
+        },
+        location: {
+            connect: {
+                id: 1,
             },
         },
         device: {
@@ -60,6 +80,11 @@ export const readings: Prisma.ReadingCreateInput[] = [
                 id: 5,
             },
         },
+        location: {
+            connect: {
+                id: 1,
+            },
+        },
         device: {
             connect: {
                 id: 1,
@@ -73,6 +98,11 @@ export const readings: Prisma.ReadingCreateInput[] = [
                 id: 6,
             },
         },
+        location: {
+            connect: {
+                id: 1,
+            },
+        },
         device: {
             connect: {
                 id: 1,
@@ -84,6 +114,11 @@ export const readings: Prisma.ReadingCreateInput[] = [
         sensor: {
             connect: {
                 id: 7,
+            },
+        },
+        location: {
+            connect: {
+                id: 1,
             },
         },
         device: {
