@@ -1,7 +1,7 @@
 'use client';
 
 import { type Location, type Sensor } from '@prisma/client';
-import { useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import SectionDescription from '~/components/SectionDescription';
 import SectionTitle from '~/components/SectionTitle';
@@ -17,35 +17,29 @@ import {
 } from '~/components/ui/DropDown';
 import LocationIcon from '~/components/ui/Icons/Location';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
-import { type GetSensorReadings } from '~/server/api/types/types';
 import { api } from '~/trpc/react';
 
 type ReadingSectionProps = {
     sensors: Sensor[];
     locations: Location[];
-    readings: GetSensorReadings[];
 };
 
 export default function ReadingSection({
     locations,
     sensors,
-    readings,
 }: ReadingSectionProps) {
     const [currentLocation, setCurrentLocation] = useState(locations[0]);
     const [currentSensor, setCurrentSensor] = useState(sensors[0]);
-    const [currentReadings, setCurrentReadings] = useState<
-        GetSensorReadings[] | undefined
-    >(readings.filter((reading) => reading.sensor.id == currentSensor.id));
-
-    useEffect(
+    const currentReadings = api.sensor.getSensorReadings.useQuery({
+        location_id: currentLocation?.id.toString(),
+        sensor_id: currentSensor?.id.toString(),
+    });
+    const currentReading = useMemo(
         () =>
-            setCurrentReadings(
-                api.sensor.getSensorReadings.useQuery({
-                    location_id: currentLocation?.id.toString(),
-                    sensor_id: currentSensor?.id.toString(),
-                }),
+            currentReadings.data?.data?.find(
+                (reading) => reading.sensor.id == currentSensor?.id,
             ),
-        [currentSensor, currentLocation],
+        [currentReadings.data?.data, currentSensor?.id],
     );
 
     return (
@@ -123,8 +117,8 @@ export default function ReadingSection({
                                                             Latest
                                                         </span>
                                                         <span className="m-auto whitespace-nowrap text-5xl">
-                                                            {currentReadings?.readings
-                                                                ? `${currentReadings.readings[0]?.[1]} ${sensor.unit}`
+                                                            {currentReading
+                                                                ? `${currentReading.readings[0]?.[1]} ${sensor.unit}`
                                                                 : null}
                                                         </span>
                                                     </div>
@@ -132,13 +126,13 @@ export default function ReadingSection({
                                                         <div className="flex rounded-xl bg-muted p-5">
                                                             <span className="absolute">
                                                                 {
-                                                                    currentReadings?.period
+                                                                    currentReading?.period
                                                                 }
                                                                 h High
                                                             </span>
                                                             <span className="m-auto whitespace-nowrap text-2xl">
                                                                 {
-                                                                    currentReadings?.highest
+                                                                    currentReading?.highest
                                                                 }{' '}
                                                                 {sensor.unit}
                                                             </span>
@@ -146,13 +140,13 @@ export default function ReadingSection({
                                                         <div className="flex rounded-xl bg-muted p-5">
                                                             <span className="absolute">
                                                                 {
-                                                                    currentReadings?.period
+                                                                    currentReading?.period
                                                                 }
                                                                 h Low
                                                             </span>
                                                             <span className="m-auto whitespace-nowrap text-2xl">
                                                                 {
-                                                                    currentReadings?.lowest
+                                                                    currentReading?.lowest
                                                                 }{' '}
                                                                 {sensor.unit}
                                                             </span>

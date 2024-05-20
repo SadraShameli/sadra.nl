@@ -23,7 +23,6 @@ export default async function HomePage() {
             return result;
         },
     );
-    const readings = (await api.sensor.getSensorReadings({})).data;
     const sensors = (await api.sensor.getEnabledSensors()).data;
     const locations = (await api.location.getLocations()).data;
 
@@ -63,12 +62,8 @@ export default async function HomePage() {
                     </div>
                 ) : null}
 
-                {readings && locations && sensors ? (
-                    <ReadingSection
-                        readings={readings}
-                        locations={locations}
-                        sensors={sensors}
-                    />
+                {locations && sensors ? (
+                    <ReadingSection locations={locations} sensors={sensors} />
                 ) : null}
 
                 <div className="mx-auto my-content max-w-content">

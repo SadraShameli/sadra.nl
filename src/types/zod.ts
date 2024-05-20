@@ -7,7 +7,7 @@ export const getSensorProps = z.object({
 export const getLocationProps = z.object({ location_id: z.string() });
 export const getLocationReadingsProps = z.object({
     location: getLocationProps,
-    sensor_id: z.string(),
+    sensor_id: z.string().optional(),
 });
 
 export const getSensorReadingsProps = z.object({

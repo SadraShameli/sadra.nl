@@ -4,8 +4,7 @@ import Porsche from '~/assets/images/gallery/porsche.jpg';
 import Setup from '~/assets/images/gallery/setup.jpg';
 import SpainChurch from '~/assets/images/gallery/spain-church.jpg';
 import SpainPool from '~/assets/images/gallery/spain-pool.jpg';
-
-import StaggerAnimation from '../../components/ui/Animations/Stagger';
+import StaggerAnimation from '~/components/ui/Animations/Stagger';
 
 export default function GallerySection() {
     return (

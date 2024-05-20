@@ -5,11 +5,11 @@ import RevealAnimation from '~/components/ui/Animations/Reveal';
 import StaggerAnimation from '~/components/ui/Animations/Stagger';
 import Card from '~/components/ui/Card';
 import CalendarIcon from '~/components/ui/Icons/Calendar';
+import GearIcon from '~/components/ui/Icons/Gear';
 import LinkIcon from '~/components/ui/Icons/Link';
 import MapIcon from '~/components/ui/Icons/Map';
 
 import { type IResumeSection } from './ResumeTypes';
-import GearIcon from '../../../components/ui/Icons/Gear';
 
 interface ResumeProps {
     title: string;

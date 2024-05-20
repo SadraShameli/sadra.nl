@@ -4,27 +4,26 @@ import { useEffect, useRef, useState } from 'react';
 
 import RevealAnimation from '~/components/ui/Animations/Reveal';
 import StaggerAnimation from '~/components/ui/Animations/Stagger';
+import { Button } from '~/components/ui/Button';
 import Card from '~/components/ui/Card';
+import ArrowRightIcon from '~/components/ui/Icons/ArrowRight';
+import ContinueIcon from '~/components/ui/Icons/Continue';
+import DownloadIcon from '~/components/ui/Icons/Download';
+import MusicIcon from '~/components/ui/Icons/Music';
+import PauseIcon from '~/components/ui/Icons/Pause';
 import PlayIcon from '~/components/ui/Icons/Play';
 import PlayBackIcon from '~/components/ui/Icons/PlayBack';
 import PlayForwardIcon from '~/components/ui/Icons/PlayForward';
 import RepeatIcon from '~/components/ui/Icons/Repeat';
 import ShuffleIcon from '~/components/ui/Icons/Shuffle';
+import VolumeMuteIcon from '~/components/ui/Icons/VolumeMute';
+import VolumeUpIcon from '~/components/ui/Icons/VolumeUp';
+import { ScrollArea } from '~/components/ui/ScrollArea';
+import { Slider } from '~/components/ui/Slider';
 import {
     type getRecordingNoFileReturn,
     type getRecordingsNoFileReturn,
 } from '~/types/db';
-
-import { Button } from '../../../components/ui/Button';
-import ArrowRightIcon from '../../../components/ui/Icons/ArrowRight';
-import ContinueIcon from '../../../components/ui/Icons/Continue';
-import DownloadIcon from '../../../components/ui/Icons/Download';
-import MusicIcon from '../../../components/ui/Icons/Music';
-import PauseIcon from '../../../components/ui/Icons/Pause';
-import VolumeMuteIcon from '../../../components/ui/Icons/VolumeMute';
-import VolumeUpIcon from '../../../components/ui/Icons/VolumeUp';
-import { ScrollArea } from '../../../components/ui/ScrollArea';
-import { Slider } from '../../../components/ui/Slider';
 
 type RecordingSectionProps = {
     recordings: getRecordingsNoFileReturn;

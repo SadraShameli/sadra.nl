@@ -1,8 +1,8 @@
+import { type IResume } from '~/app/_components/Resume/ResumeTypes';
 import GithubIcon from '~/components/ui/Icons/Github';
 import InstagramIcon from '~/components/ui/Icons/Instagram';
 import WhatsAppIcon from '~/components/ui/Icons/WhatsApp';
 import YoutubeIcon from '~/components/ui/Icons/Youtube';
-import { type IResume } from '~/types/Resume';
 
 function calculate_age(dob: Date) {
     const diff_ms = Date.now() - dob.getTime();

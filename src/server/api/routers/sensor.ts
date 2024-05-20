@@ -6,9 +6,9 @@ import {
     createTRPCRouter,
     publicProcedure,
 } from '~/server/api/trpc';
+import type Result from '~/types/result';
 import { getSensorProps, getSensorReadingsProps } from '~/types/zod';
 
-import type Result from '../../../types/result';
 import { type GetSensorReadings, type ReadingsRecord } from '../types/types';
 
 export async function getSensor(

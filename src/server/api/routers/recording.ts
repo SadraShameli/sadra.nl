@@ -7,10 +7,10 @@ import {
     publicProcedure,
 } from '~/server/api/trpc';
 import { getRecordingsNoFileSelect } from '~/types/db';
+import type Result from '~/types/result';
 import { createRecordingProps, getRecordingProps } from '~/types/zod';
 
 import { getDevice } from './device';
-import type Result from '../../../types/result';
 
 export function getRecordingFileName(date: Date) {
     return `${date.toLocaleDateString('default', { year: 'numeric', month: 'long', day: 'numeric' })} - ${date.getHours()}.${date.getMinutes()}.wav`;
