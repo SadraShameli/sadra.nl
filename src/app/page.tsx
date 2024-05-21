@@ -4,7 +4,7 @@ import ProfilePicture from '~/assets/images/me.jpg';
 import SectionDescription from '~/components/SectionDescription';
 import SectionText from '~/components/SectionText';
 import SectionTitle from '~/components/SectionTitle';
-import TextAnimation from '~/components/ui/Animations/Text';
+import RevealAnimation from '~/components/ui/Animations/Reveal';
 import TypeWriterAnimation from '~/components/ui/Animations/TypeWriter';
 import GridBackground from '~/components/ui/GridBg';
 import Resume from '~/data/Resume';
@@ -23,8 +23,8 @@ export default async function HomePage() {
             return result;
         },
     );
+    const locations = (await api.location.getLocationsWithReading()).data;
     const sensors = (await api.sensor.getEnabledSensors()).data;
-    const locations = (await api.location.getLocations()).data;
 
     return (
         <>
@@ -32,18 +32,19 @@ export default async function HomePage() {
             <GridBackground />
             <main className="grid w-full px-6 xl:px-0">
                 <div className="mx-auto flex h-screen max-w-content flex-col-reverse justify-between xl:w-screen xl:flex-row">
-                    <div className="my-auto mt-10 flex flex-col justify-center gap-y-3 xl:mt-auto">
-                        <TextAnimation
-                            className="text-3xl font-semibold text-white md:text-6xl xl:text-7xl"
-                            text={Resume.basics.title}
-                            el="h1"
-                        />
-                        <TypeWriterAnimation
-                            className="bg-gradient-purple-anim mx-auto text-xl font-semibold xl:mx-0"
-                            text={Resume.description}
-                        />
+                    <div className="my-auto mt-14 flex flex-col justify-center xl:mt-auto">
+                        <RevealAnimation>
+                            <div className="flex flex-col gap-y-3">
+                                <h1 className="text-3xl font-semibold text-white md:text-6xl xl:text-7xl">
+                                    {Resume.basics.title}
+                                </h1>
+                                <TypeWriterAnimation
+                                    className="bg-gradient-purple-anim text-lg font-semibold md:text-xl"
+                                    text={Resume.description}
+                                />
+                            </div>
+                        </RevealAnimation>
                     </div>
-
                     <div className="mt-content h-fit lg:my-auto">
                         <Image
                             className="rounded-2xl object-cover sm:max-w-lg xl:mx-0 xl:self-auto"
@@ -62,8 +63,12 @@ export default async function HomePage() {
                     </div>
                 ) : null}
 
-                {locations && sensors ? (
-                    <ReadingSection locations={locations} sensors={sensors} />
+                {locations?.[0] && sensors?.[0] ? (
+                    <ReadingSection
+                        sensors={sensors}
+                        locations={locations}
+                        location={locations[0]}
+                    />
                 ) : null}
 
                 <div className="mx-auto my-content max-w-content">
@@ -75,12 +80,14 @@ export default async function HomePage() {
                     <SectionText text="More about me" />
                     <AboutSection />
                 </div>
+            </main>
 
-                <div className="mx-auto mb-32 mt-content w-full max-w-content">
+            <div className="mx-auto mt-content w-full border-t py-56">
+                <div className="mx-auto max-w-content px-6 xl:px-0">
                     <SectionText text="Follow my socials" />
                     <SocialsSection />
                 </div>
-            </main>
+            </div>
         </>
     );
 }

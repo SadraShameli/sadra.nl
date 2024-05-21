@@ -8,7 +8,7 @@ import StaggerAnimation from '~/components/ui/Animations/Stagger';
 
 export default function GallerySection() {
     return (
-        <div className="px-4 py-6 md:px-12 lg:py-24">
+        <div className="px-4 py-6 md:px-12 lg:py-28">
             <StaggerAnimation className="grid grid-cols-2 lg:grid-cols-4">
                 <Image
                     className="size-full origin-bottom rotate-6 transform rounded-xl object-cover shadow-2xl duration-500 ease-out hover:z-50 hover:-translate-y-12 hover:rotate-0 hover:scale-125"

@@ -15,6 +15,7 @@ export async function GET(
         return new Response(result.data.file, {
             status: result.status,
             headers: {
+                'Content-Length': result.data.file.length.toString(),
                 'Content-Type': 'audio/wav',
                 'Content-Disposition': `attachment; filename="${result.data.file_name}"`,
             },

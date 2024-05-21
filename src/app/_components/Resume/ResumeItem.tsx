@@ -1,13 +1,10 @@
+import { CalendarDays, Cog, ExternalLink, MapPin } from 'lucide-react';
 import Image, { type StaticImageData } from 'next/image';
 import Link from 'next/link';
 
 import RevealAnimation from '~/components/ui/Animations/Reveal';
 import StaggerAnimation from '~/components/ui/Animations/Stagger';
 import Card from '~/components/ui/Card';
-import CalendarIcon from '~/components/ui/Icons/Calendar';
-import GearIcon from '~/components/ui/Icons/Gear';
-import LinkIcon from '~/components/ui/Icons/Link';
-import MapIcon from '~/components/ui/Icons/Map';
 
 import { type IResumeSection } from './ResumeTypes';
 
@@ -37,8 +34,10 @@ export default function ResumeItem({ title, sections, img }: ResumeProps) {
                                             className="flex w-fit items-center border-b border-dashed border-transparent text-2xl font-semibold leading-none text-white transition hover:border-current"
                                             href={section.url}
                                         >
-                                            <span>{section.title}</span>
-                                            <LinkIcon className="ml-1 size-6" />
+                                            <ExternalLink />
+                                            <span className="pl-2">
+                                                {section.title}
+                                            </span>
                                         </Link>
 
                                         <span className="bg-gradient-purple-anim mt-1 text-lg font-semibold md:mt-auto">
@@ -46,13 +45,13 @@ export default function ResumeItem({ title, sections, img }: ResumeProps) {
                                         </span>
                                     </div>
 
-                                    <div className="mt-5 grid gap-y-1 text-neutral-400">
+                                    <div className="mt-5 grid gap-y-2 text-neutral-400">
                                         {section.location && (
                                             <Link
-                                                className="flex items-center transition hover:text-white"
+                                                className="flex w-fit items-center transition hover:text-white"
                                                 href={section.location.url}
                                             >
-                                                <MapIcon className="size-5" />
+                                                <MapPin className="size-5" />
                                                 <span className="ml-1 tracking-tight">
                                                     {section.location.title}
                                                 </span>
@@ -60,8 +59,8 @@ export default function ResumeItem({ title, sections, img }: ResumeProps) {
                                         )}
 
                                         <div className="flex items-center">
-                                            <CalendarIcon className="size-5" />
-                                            <span className="ml-1 tracking-tight">
+                                            <CalendarDays className="size-5" />
+                                            <span className="ml-1 leading-none tracking-tight">
                                                 {section.date}
                                             </span>
                                         </div>
@@ -95,7 +94,7 @@ export default function ResumeItem({ title, sections, img }: ResumeProps) {
 
                                     {section.skills && (
                                         <div className="mt-5 flex items-center">
-                                            <GearIcon className="size-5" />
+                                            <Cog className="size-5" />
                                             <ul className="ml-2 flex">
                                                 {section.skills.map(
                                                     (skill, index) => {

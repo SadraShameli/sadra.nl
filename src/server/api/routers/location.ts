@@ -49,6 +49,31 @@ export const locationRouter = createTRPCRouter({
         .query(async ({ input, ctx }) => {
             return await getLocation(input, ctx);
         }),
+    getLocationsWithReading: publicProcedure.query(async ({ ctx }) => {
+        const period = 24;
+        return {
+            data: await ctx.db.location.findMany({
+                where: {
+                    readings: {
+                        some: {
+                            createdAt: {
+                                gte: new Date(
+                                    Date.now() - period * 60 * 60 * 1000,
+                                ),
+                            },
+                        },
+                    },
+                },
+            }),
+        } as Result<Location[]>;
+    }),
+    getLocationFirstWithReading: publicProcedure.query(async ({ ctx }) => {
+        return {
+            data: await ctx.db.location.findFirst({
+                where: { readings: { some: {} } },
+            }),
+        } as Result<Location>;
+    }),
     getLocationDevices: publicProcedure
         .input(getLocationProps)
         .query(async ({ input, ctx }) => {

@@ -1,4 +1,4 @@
-import { Prisma, type Reading } from '@prisma/client';
+import { Prisma, type Reading, type Sensor } from '@prisma/client';
 import { z } from 'zod';
 
 import {
@@ -7,9 +7,15 @@ import {
     publicProcedure,
 } from '~/server/api/trpc';
 import type Result from '~/types/result';
-import { createReadingProps, type getReadingProps } from '~/types/zod';
+import {
+    createReadingProps,
+    getLocationProps,
+    type getReadingProps,
+} from '~/types/zod';
 
 import { getDevice } from './device';
+import { getEnabledSensors } from './sensor';
+import { type GetReadingsRecord, type ReadingsRecord } from '../types/types';
 
 export async function getReading(
     input: z.infer<typeof getReadingProps>,
@@ -58,7 +64,7 @@ export const readingRouter = createTRPCRouter({
 
             for (const sensor in input.sensors) {
                 const value = input.sensors[sensor];
-                if (!value) {
+                if (value == undefined) {
                     return {
                         error: `No value provided for sensor ${sensor}`,
                         status: 400,
@@ -79,24 +85,195 @@ export const readingRouter = createTRPCRouter({
 
             return { data: readings, status: 201 } as Result<Reading[]>;
         }),
-    getReadingsLatest: publicProcedure.query(async ({ ctx }) => {
-        const period = 24;
-        const readings = await ctx.db.reading.findMany({
-            where: {
-                createdAt: {
-                    gte: new Date(Date.now() - period * 60 * 60 * 1000),
-                },
-            },
-            select: {
-                createdAt: true,
-                value: true,
-            },
-        });
+    getReadingsLatest: publicProcedure
+        .input(getLocationProps)
+        .query(async ({ input, ctx }): Promise<Result<GetReadingsRecord[]>> => {
+            const sensors = await getEnabledSensors(ctx);
+            if (!sensors.data) {
+                return {};
+            }
 
-        return {
-            data: {
-                readings: readings,
-            } as Result<Reading[]>,
-        };
-    }),
+            const period = 24;
+            // const readings = await ctx.db.reading.findMany({
+            //     where: {
+            //         // createdAt: {
+            //         //     gte: new Date(
+            //         //         Date.now() - period * 60 * 60 * 1000,
+            //         //     ).toISOString(),
+            //         // },
+            //         location_id: input.location_id
+            //             ? +input.location_id
+            //             : undefined,
+            //         sensor_id: { in: sensors.data.map((sensor) => sensor.id) },
+            //     },
+            //     select: {
+            //         createdAt: true,
+            //         value: true,
+            //         sensor_id: true,
+            //     },
+            //     orderBy: {
+            //         id: 'desc',
+            //     },
+            // });
+
+            const readings = await ctx.db.reading.findMany({
+                where: {
+                    createdAt: {
+                        gte: new Date(Date.now() - period * 60 * 60 * 1000),
+                    },
+                    location_id: input.location_id
+                        ? +input.location_id
+                        : undefined,
+                    sensor_id: { in: sensors.data.map((sensor) => sensor.id) },
+                },
+                select: {
+                    createdAt: true,
+                    value: true,
+                    sensor_id: true,
+                },
+                orderBy: {
+                    id: 'desc',
+                },
+            });
+
+            if (readings.length === 0) {
+                return {
+                    error: 'No readings could be found',
+                };
+            }
+
+            const readingsRecord: GetReadingsRecord[] = [];
+            sensors.data.map((sensor) => {
+                const sensorReadings = readings.filter((reading) => {
+                    return reading.sensor_id === sensor.id;
+                });
+
+                const readingRecords = sensorReadings.map((reading) => [
+                    `${reading.createdAt.getHours()}:${reading.createdAt.getMinutes()}`,
+                    reading.value,
+                ]) as ReadingsRecord;
+
+                return readingsRecord.push({
+                    sensor: sensor,
+                    readings: readingRecords,
+                    highest: Math.max(
+                        ...readingRecords.map((record) => record[1]),
+                    ),
+                    lowest: Math.min(
+                        ...readingRecords.map((record) => record[1]),
+                    ),
+                    period: period,
+                });
+            });
+
+            return {
+                data: readingsRecord,
+            };
+        }),
+    getReadingsLatest2: publicProcedure
+        .input(getLocationProps)
+        .query(async ({ input, ctx }): Promise<Result<GetReadingsRecord[]>> => {
+            const sensors = await getEnabledSensors(ctx);
+            if (!sensors.data) {
+                return {};
+            }
+
+            const period = 24;
+            const periodInMs = period * 60 * 60 * 1000;
+
+            const fetchReadings = async (
+                sensors: Sensor[],
+                startTime: Date,
+                endTime?: Date,
+            ) => {
+                return await ctx.db.reading.findMany({
+                    where: {
+                        createdAt: {
+                            gte: startTime,
+                            ...(endTime ? { lte: endTime } : {}),
+                        },
+                        location_id: input.location_id
+                            ? +input.location_id
+                            : undefined,
+                        sensor_id: {
+                            in: sensors.map((sensor) => sensor.id),
+                        },
+                    },
+                    select: {
+                        createdAt: true,
+                        value: true,
+                        sensor_id: true,
+                    },
+                    orderBy: {
+                        id: 'desc',
+                    },
+                });
+            };
+
+            let readings = await fetchReadings(
+                sensors.data,
+                new Date(Date.now() - periodInMs),
+            );
+
+            if (readings.length === 0) {
+                const latestReading = await ctx.db.reading.findFirst({
+                    where: {
+                        location_id: input.location_id
+                            ? +input.location_id
+                            : undefined,
+                        sensor_id: {
+                            in: sensors.data.map((sensor) => sensor.id),
+                        },
+                    },
+                    select: {
+                        createdAt: true,
+                    },
+                    orderBy: {
+                        createdAt: 'desc',
+                    },
+                });
+
+                if (latestReading) {
+                    readings = await fetchReadings(
+                        sensors.data,
+                        new Date(
+                            latestReading.createdAt.getTime() - periodInMs,
+                        ),
+                        latestReading.createdAt,
+                    );
+                } else {
+                    return {
+                        error: 'No readings could be found',
+                    };
+                }
+            }
+
+            const readingsRecord: GetReadingsRecord[] = [];
+            sensors.data.map((sensor) => {
+                const sensorReadings = readings.filter((reading) => {
+                    return reading.sensor_id === sensor.id;
+                });
+
+                const readingRecords = sensorReadings.map((reading) => [
+                    `${reading.createdAt.getHours()}:${reading.createdAt.getMinutes()}`,
+                    reading.value,
+                ]) as ReadingsRecord;
+
+                return readingsRecord.push({
+                    sensor: sensor,
+                    readings: readingRecords,
+                    highest: Math.max(
+                        ...readingRecords.map((record) => record[1]),
+                    ),
+                    lowest: Math.min(
+                        ...readingRecords.map((record) => record[1]),
+                    ),
+                    period: period,
+                });
+            });
+
+            return {
+                data: readingsRecord,
+            };
+        }),
 });

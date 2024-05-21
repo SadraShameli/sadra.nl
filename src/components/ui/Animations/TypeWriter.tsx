@@ -35,9 +35,9 @@ export default function TypeWriterAnimation({
     }, [count, delay, text.length]);
 
     return (
-        <span>
+        <>
             <motion.span className={className}>{displayText}</motion.span>
             {cursor && <CursorBlinkerAnimation />}
-        </span>
+        </>
     );
 }

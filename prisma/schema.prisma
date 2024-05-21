@@ -24,8 +24,8 @@ model Location {
   location_name String      @unique
   location_id   Int         @unique
   devices       Device[]
-  reading       Reading[]
-  recording     Recording[]
+  readings       Reading[]
+  recordings     Recording[]
 }
 
 model Device {

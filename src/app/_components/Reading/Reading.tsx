@@ -1,7 +1,12 @@
 'use client';
-
 import { type Location, type Sensor } from '@prisma/client';
-import { useMemo, useState } from 'react';
+import {
+    AreaChart as ChartLIcon,
+    Map,
+    MapPin,
+    ThermometerSnowflake,
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 import SectionDescription from '~/components/SectionDescription';
 import SectionTitle from '~/components/SectionTitle';
@@ -15,48 +20,46 @@ import {
     DropdownMenuRadioItem,
     DropdownMenuTrigger,
 } from '~/components/ui/DropDown';
-import LocationIcon from '~/components/ui/Icons/Location';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
 import { api } from '~/trpc/react';
 
 type ReadingSectionProps = {
     sensors: Sensor[];
     locations: Location[];
+    location: Location;
 };
 
 export default function ReadingSection({
-    locations,
     sensors,
+    locations,
+    location,
 }: ReadingSectionProps) {
-    const [currentLocation, setCurrentLocation] = useState(locations[0]);
-    const [currentSensor, setCurrentSensor] = useState(sensors[0]);
-    const currentReadings = api.sensor.getSensorReadings.useQuery({
-        location_id: currentLocation?.id.toString(),
-        sensor_id: currentSensor?.id.toString(),
+    const [currentLocation, setCurrentLocation] = useState(location);
+    const currentReadingResponse = api.reading.getReadingsLatest.useQuery({
+        location_id: currentLocation.id.toString(),
     });
-    const currentReading = useMemo(
-        () =>
-            currentReadings.data?.data?.find(
-                (reading) => reading.sensor.id == currentSensor?.id,
-            ),
-        [currentReadings.data?.data, currentSensor?.id],
+    const [currentReading, setCurrentReading] = useState(
+        currentReadingResponse.data?.data,
     );
+
+    useEffect(() => {
+        if (currentReadingResponse.data?.data) {
+            setCurrentReading(currentReadingResponse.data.data);
+        }
+    }, [currentReadingResponse]);
 
     return (
         <div className="mx-auto my-content w-full max-w-content">
             <SectionTitle text="Live readings" />
-            <SectionDescription text="Ever been curious about the loudness, temperature, humidity, and air pressure at various locations in real time?" />
+            <SectionDescription text="Ever been curious about the loudness, temperature, humidity and air pressure at various locations in real time?" />
 
             <RevealAnimation>
                 <Card>
                     <Tabs
-                        defaultValue={sensors[0]?.name}
-                        onValueChange={(name) => {
-                            const sensor = sensors.find((s) => s.name == name);
-                            setCurrentSensor(sensor);
-                        }}
+                        className="grid gap-y-3"
+                        defaultValue={sensors?.[0]?.name}
                     >
-                        <div className="flex justify-between">
+                        <div className="flex flex-col items-center justify-between gap-y-5 md:flex-row">
                             <TabsList>
                                 {sensors.map((sensor, index) => {
                                     return (
@@ -69,23 +72,24 @@ export default function ReadingSection({
                                     );
                                 })}
                             </TabsList>
-
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="outline">
-                                        <LocationIcon className="mr-1 size-5" />
+                                        <MapPin className="mr-1 size-5" />
                                         Locations
                                     </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent className="w-56">
+                                <DropdownMenuContent>
                                     <DropdownMenuRadioGroup
                                         value={currentLocation?.name}
                                         onValueChange={(value) => {
-                                            const location = locations.filter(
+                                            const location = locations.find(
                                                 (location) =>
                                                     location.name == value,
-                                            )[0];
-                                            setCurrentLocation(location);
+                                            );
+                                            if (location) {
+                                                setCurrentLocation(location);
+                                            }
                                         }}
                                     >
                                         {locations.map((location, index) => {
@@ -102,69 +106,71 @@ export default function ReadingSection({
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         </div>
-                        {currentSensor && currentLocation ? (
-                            <div className="mt-10">
-                                {sensors.map((sensor, index) => {
+                        {currentReading && (
+                            <>
+                                {currentReading.map((reading, index) => {
                                     return (
                                         <TabsContent
-                                            value={sensor.name}
+                                            className={
+                                                currentReadingResponse.isLoading
+                                                    ? 'shimmer'
+                                                    : ''
+                                            }
+                                            value={reading.sensor.name}
                                             key={index}
                                         >
-                                            <div className="grid min-h-[40rem] grid-rows-5 gap-5 font-semibold leading-none ">
-                                                <div className="row-span-2 grid grid-cols-12 gap-5">
-                                                    <div className="col-span-4 flex rounded-xl bg-muted p-5">
-                                                        <span className="absolute">
-                                                            Latest
-                                                        </span>
-                                                        <span className="m-auto whitespace-nowrap text-5xl">
-                                                            {currentReading
-                                                                ? `${currentReading.readings[0]?.[1]} ${sensor.unit}`
-                                                                : null}
-                                                        </span>
-                                                    </div>
-                                                    <div className="col-span-3 grid gap-5 rounded-xl">
+                                            <div className="grid-row-3 grid min-h-[40rem] gap-5 text-sm font-semibold leading-none">
+                                                <div className="row-span-1 grid gap-5 md:grid-cols-2">
+                                                    <div className="grid grid-cols-2 gap-5">
                                                         <div className="flex rounded-xl bg-muted p-5">
-                                                            <span className="absolute">
-                                                                {
-                                                                    currentReading?.period
-                                                                }
-                                                                h High
-                                                            </span>
-                                                            <span className="m-auto whitespace-nowrap text-2xl">
-                                                                {
-                                                                    currentReading?.highest
-                                                                }{' '}
-                                                                {sensor.unit}
-                                                            </span>
+                                                            <div className="absolute flex items-center gap-x-2">
+                                                                <ThermometerSnowflake />
+                                                                Latest
+                                                            </div>
+                                                            <div className="m-auto whitespace-nowrap text-2xl lg:text-4xl">
+                                                                {`${reading.readings[0]?.[1]} ${reading.sensor.unit}`}
+                                                            </div>
                                                         </div>
-                                                        <div className="flex rounded-xl bg-muted p-5">
-                                                            <span className="absolute">
-                                                                {
-                                                                    currentReading?.period
-                                                                }
-                                                                h Low
-                                                            </span>
-                                                            <span className="m-auto whitespace-nowrap text-2xl">
-                                                                {
-                                                                    currentReading?.lowest
-                                                                }{' '}
-                                                                {sensor.unit}
-                                                            </span>
+                                                        <div className="grid min-h-72 gap-5 md:h-auto">
+                                                            <div className="flex rounded-xl bg-muted p-5">
+                                                                <div className="absolute">
+                                                                    {`${reading.period}h high`}
+                                                                </div>
+                                                                <div className="m-auto whitespace-nowrap text-xl lg:text-2xl">
+                                                                    {`${reading.highest} ${reading.sensor.unit}`}
+                                                                </div>
+                                                            </div>
+                                                            <div className="rounded-xl bg-muted p-5">
+                                                                <div className="flex h-full">
+                                                                    <div className="absolute">
+                                                                        {`${reading.period}h low`}
+                                                                    </div>
+                                                                    <div className="m-auto whitespace-nowrap text-xl lg:text-2xl">
+                                                                        {`${reading.lowest} ${reading.sensor.unit}`}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                    <span className="col-span-5 rounded-xl bg-muted p-5">
-                                                        Other Locations
-                                                    </span>
+                                                    <div className="rounded-xl bg-muted p-5">
+                                                        <div className="absolute flex items-center justify-between gap-x-2">
+                                                            <Map />
+                                                            Other locations
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <span className="row-span-3 rounded-xl bg-muted p-5">
-                                                    Chart
-                                                </span>
+                                                <div className="row-span-2 rounded-xl bg-muted p-5">
+                                                    <div className="absolute flex items-center justify-between gap-x-2">
+                                                        <ChartLIcon />
+                                                        Live Chart
+                                                    </div>
+                                                </div>
                                             </div>
                                         </TabsContent>
                                     );
                                 })}
-                            </div>
-                        ) : null}
+                            </>
+                        )}
                     </Tabs>
                 </Card>
             </RevealAnimation>

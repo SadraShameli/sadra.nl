@@ -7,9 +7,12 @@ import {
     publicProcedure,
 } from '~/server/api/trpc';
 import type Result from '~/types/result';
-import { getSensorProps, getSensorReadingsProps } from '~/types/zod';
+import { getSensorProps } from '~/types/zod';
 
-import { type GetSensorReadings, type ReadingsRecord } from '../types/types';
+export async function getSensors(ctx: ContextType): Promise<Result<Sensor[]>> {
+    const sensors = await ctx.db.sensor.findMany();
+    return { data: sensors };
+}
 
 export async function getSensor(
     input: z.infer<typeof getSensorProps>,
@@ -33,9 +36,25 @@ export async function getSensor(
     }
 }
 
+export async function getEnabledSensors(
+    ctx: ContextType,
+): Promise<Result<Sensor[]>> {
+    return {
+        data: await ctx.db.sensor.findMany({
+            where: {
+                enabled: true,
+                readings: { some: {} },
+            },
+            orderBy: {
+                id: 'asc',
+            },
+        }),
+    } as Result<Sensor[]>;
+}
+
 export const sensorRouter = createTRPCRouter({
     getSensors: publicProcedure.query(async ({ ctx }) => {
-        return { data: await ctx.db.sensor.findMany() } as Result<Sensor[]>;
+        return getSensors(ctx);
     }),
     getSensor: publicProcedure
         .input(getSensorProps)
@@ -43,64 +62,6 @@ export const sensorRouter = createTRPCRouter({
             return await getSensor(input, ctx);
         }),
     getEnabledSensors: publicProcedure.query(async ({ ctx }) => {
-        return {
-            data: await ctx.db.sensor.findMany({
-                where: { enabled: true },
-                orderBy: {
-                    id: 'asc',
-                },
-            }),
-        } as Result<Sensor[]>;
+        return getEnabledSensors(ctx);
     }),
-    getSensorReadings: publicProcedure
-        .input(getSensorReadingsProps)
-        .query(async ({ input, ctx }): Promise<Result<GetSensorReadings[]>> => {
-            const period = 24;
-            const sensors = await ctx.db.sensor.findMany({
-                include: {
-                    readings: true,
-                },
-                where: {
-                    readings: {
-                        every: {
-                            createdAt: {
-                                gte: new Date(
-                                    Date.now() - period * 60 * 60 * 1000,
-                                ),
-                            },
-                            location_id: input.location_id
-                                ? +input.location_id
-                                : undefined,
-                            sensor_id: input.sensor_id
-                                ? +input.sensor_id
-                                : undefined,
-                        },
-                    },
-                },
-            });
-
-            const sensorReadings: GetSensorReadings[] = [];
-            sensors.map((sensor) => {
-                const readingRecords = sensor.readings.map((reading) => [
-                    `${reading.createdAt.getHours()}:${reading.createdAt.getMinutes()}`,
-                    reading.value,
-                ]) as ReadingsRecord;
-
-                return sensorReadings.push({
-                    sensor: sensor,
-                    readings: readingRecords,
-                    highest: Math.max(
-                        ...readingRecords.map((record) => record[1]),
-                    ),
-                    lowest: Math.min(
-                        ...readingRecords.map((record) => record[1]),
-                    ),
-                    period: period,
-                });
-            });
-
-            return {
-                data: sensorReadings,
-            };
-        }),
 });

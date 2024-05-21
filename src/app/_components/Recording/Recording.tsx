@@ -1,4 +1,17 @@
 'use client';
+import {
+    ArrowRight,
+    Download,
+    ListEnd,
+    Music2,
+    Repeat,
+    ShuffleIcon,
+    SkipBack,
+    SkipForward,
+    Volume,
+    Volume1,
+    Volume2,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
@@ -6,18 +19,8 @@ import RevealAnimation from '~/components/ui/Animations/Reveal';
 import StaggerAnimation from '~/components/ui/Animations/Stagger';
 import { Button } from '~/components/ui/Button';
 import Card from '~/components/ui/Card';
-import ArrowRightIcon from '~/components/ui/Icons/ArrowRight';
-import ContinueIcon from '~/components/ui/Icons/Continue';
-import DownloadIcon from '~/components/ui/Icons/Download';
-import MusicIcon from '~/components/ui/Icons/Music';
 import PauseIcon from '~/components/ui/Icons/Pause';
 import PlayIcon from '~/components/ui/Icons/Play';
-import PlayBackIcon from '~/components/ui/Icons/PlayBack';
-import PlayForwardIcon from '~/components/ui/Icons/PlayForward';
-import RepeatIcon from '~/components/ui/Icons/Repeat';
-import ShuffleIcon from '~/components/ui/Icons/Shuffle';
-import VolumeMuteIcon from '~/components/ui/Icons/VolumeMute';
-import VolumeUpIcon from '~/components/ui/Icons/VolumeUp';
 import { ScrollArea } from '~/components/ui/ScrollArea';
 import { Slider } from '~/components/ui/Slider';
 import {
@@ -37,6 +40,19 @@ const GetRandom = (min: number, max: number | undefined) => {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 };
 
+const ConvertSecondsToString = (sec: number | undefined) => {
+    if (sec == undefined || Number.isNaN(sec) || !Number.isFinite(sec)) {
+        return;
+    }
+
+    const m = Math.floor((sec % 3600) / 60);
+    const s = Math.round(sec % 60);
+
+    const mS = m > 9 ? m : m || '0';
+    const sS = s > 9 ? s : '0' + s;
+    return `${mS}:${sS}`;
+};
+
 function GetRecordingURL(recording: getRecordingNoFileReturn) {
     return `/api/recording/${recording.id}`;
 }
@@ -46,6 +62,8 @@ export default function RecordingSection({
 }: RecordingSectionProps) {
     const router = useRouter();
     const audio = useRef<HTMLAudioElement>(null);
+    const [currentTime, setCurrentTime] = useState(0);
+    const [duration, setDuration] = useState(0);
     const [volume, setVolume] = useState(1);
     const [prevVolume, setPrevVolume] = useState(volume);
     const [isMute, setIsMute] = useState(false);
@@ -84,12 +102,24 @@ export default function RecordingSection({
             audio.current.src = GetRecordingURL(currentRecording);
             audio.current?.load();
             void audio.current.play();
+            setCurrentTime(0);
         }
     }
 
     function PlayAudio() {
         void audio.current?.play();
         setIsPlaying(true);
+    }
+
+    function UpdateAudioTime(value: number) {
+        audio.current!.currentTime = value;
+        setCurrentTime(value);
+    }
+
+    function OnAudioTimeUpdate() {
+        if (audio.current!.currentTime != 0) {
+            setCurrentTime(audio.current!.currentTime);
+        }
     }
 
     function OnAudioPrevious() {
@@ -156,6 +186,8 @@ export default function RecordingSection({
                             <div className="mx-3 mb-6 flex items-center justify-between">
                                 <h4 className="font-semibold">Recordings</h4>
                                 <Button
+                                    className="font-semibold"
+                                    size={'sm'}
                                     onClick={() =>
                                         currentRecording &&
                                         router.push(
@@ -163,11 +195,11 @@ export default function RecordingSection({
                                         )
                                     }
                                 >
-                                    <DownloadIcon className="mr-2 size-5" />
+                                    <Download className="mr-2 size-5" />
                                     Download
                                 </Button>
                             </div>
-                            <ScrollArea className="h-64 sm:h-80">
+                            <ScrollArea className="h-64">
                                 {recordings?.map((recording) => (
                                     <button
                                         className="flex rounded-lg px-3 py-3 font-semibold transition hover:bg-accent sm:w-11/12"
@@ -183,9 +215,9 @@ export default function RecordingSection({
                                     >
                                         <div className="flex items-center gap-x-2 text-sm">
                                             {currentRecording === recording ? (
-                                                <ArrowRightIcon className="size-7" />
+                                                <ArrowRight className="size-5" />
                                             ) : (
-                                                <MusicIcon className="size-7" />
+                                                <Music2 className="size-5" />
                                             )}
                                             {recording.file_name}
                                         </div>
@@ -193,7 +225,7 @@ export default function RecordingSection({
                                 ))}
                             </ScrollArea>
 
-                            <div className="mt-8 grid xl:grid-cols-2">
+                            <div className="mb-3 mt-10 grid-flow-row gap-5 xl:grid xl:grid-cols-2">
                                 <div className="flex items-center justify-center gap-x-7">
                                     <button onClick={OnAudioShuffle}>
                                         <ShuffleIcon
@@ -209,10 +241,10 @@ export default function RecordingSection({
                                             ) === 0
                                         }
                                     >
-                                        <PlayBackIcon className="size-6 transition" />
+                                        <SkipBack className="size-6 transition" />
                                     </button>
                                     <button
-                                        className="size-12 text-white"
+                                        className="size-12"
                                         onClick={OnAudioPlause}
                                     >
                                         {isPlaying ? (
@@ -231,35 +263,38 @@ export default function RecordingSection({
                                             recordings.length - 1
                                         }
                                     >
-                                        <PlayForwardIcon className="size-6 transition" />
+                                        <SkipForward className="size-6 transition" />
                                     </button>
                                     <button onClick={OnAudioRepeat}>
-                                        <RepeatIcon
+                                        <Repeat
                                             className={`size-6 text-neutral-400 transition hover:text-white ${isRepeat && 'text-white'}`}
                                         />
                                     </button>
                                 </div>
-
                                 <div className="mt-5 flex items-center justify-center gap-x-3 text-neutral-400 xl:mt-0 xl:justify-end">
                                     <button
                                         onClick={() =>
                                             setIsAutoPlay((state) => !state)
                                         }
                                     >
-                                        <ContinueIcon
+                                        <ListEnd
                                             className={`size-6 transition hover:text-white ${isAutoPlay && 'text-white'}`}
                                         />
                                     </button>
                                     <button
                                         className="size-6 transition hover:text-white"
-                                        onClick={() =>
-                                            setIsMute((state) => !state)
-                                        }
+                                        onClick={() => {
+                                            if (volume != 0) {
+                                                setIsMute((state) => !state);
+                                            }
+                                        }}
                                     >
-                                        {isMute ? (
-                                            <VolumeMuteIcon className="text-white" />
+                                        {isMute || volume == 0 ? (
+                                            <Volume className="text-white" />
+                                        ) : volume >= 0.6 ? (
+                                            <Volume2 />
                                         ) : (
-                                            <VolumeUpIcon />
+                                            <Volume1 />
                                         )}
                                     </button>
                                     <Slider
@@ -269,28 +304,57 @@ export default function RecordingSection({
                                         min={0}
                                         max={1}
                                         step={0.1}
-                                        onValueChange={(e) =>
-                                            setVolume(e as unknown as number)
-                                        }
+                                        onValueChange={(values: number[]) => {
+                                            if (values[0] != undefined) {
+                                                setVolume(values[0]);
+                                            }
+                                        }}
                                         disabled={isMute}
                                     />
                                 </div>
-                                {currentRecording ? (
-                                    <audio
-                                        ref={audio}
-                                        onEnded={() => OnAudioEnd()}
-                                        loop={isRepeat}
-                                        preload="none"
-                                    >
-                                        <source
-                                            src={GetRecordingURL(
-                                                currentRecording,
-                                            )}
-                                            type="audio/wav"
-                                        ></source>
-                                    </audio>
-                                ) : null}
+                                <div className="col-span-2 mt-5 grid grid-cols-6 items-center gap-x-3 font-semibold leading-none">
+                                    <span className="col-span-1 text-right text-sm">
+                                        {ConvertSecondsToString(currentTime)}
+                                    </span>
+                                    <Slider
+                                        className="col-span-4 h-1/3"
+                                        defaultValue={[0]}
+                                        min={0}
+                                        max={
+                                            currentTime
+                                                ? duration
+                                                : duration + 1
+                                        }
+                                        step={1}
+                                        value={[currentTime]}
+                                        onValueChange={(values: number[]) => {
+                                            if (values[0] != undefined) {
+                                                UpdateAudioTime(values[0]);
+                                            }
+                                        }}
+                                    />
+                                    <span className="col-span-1 text-sm">
+                                        {ConvertSecondsToString(duration)}
+                                    </span>
+                                </div>
                             </div>
+                            {currentRecording ? (
+                                <audio
+                                    preload="none"
+                                    ref={audio}
+                                    loop={isRepeat}
+                                    onEnded={() => OnAudioEnd()}
+                                    onTimeUpdate={OnAudioTimeUpdate}
+                                    onLoadedMetadata={() =>
+                                        setDuration(audio.current!.duration)
+                                    }
+                                >
+                                    <source
+                                        type="audio/wav"
+                                        src={GetRecordingURL(currentRecording)}
+                                    />
+                                </audio>
+                            ) : null}
                         </div>
                     </div>
                 </StaggerAnimation>
