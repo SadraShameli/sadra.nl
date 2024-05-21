@@ -1,4 +1,5 @@
 import { Prisma, type Reading, type Sensor } from '@prisma/client';
+import { format } from 'date-fns';
 import { z } from 'zod';
 
 import {
@@ -15,7 +16,7 @@ import {
 
 import { getDevice } from './device';
 import { getEnabledSensors } from './sensor';
-import { type GetReadingsRecord, type ReadingsRecord } from '../types/types';
+import { type GetReadingsRecord, type ReadingRecord } from '../types/types';
 
 export async function getReading(
     input: z.infer<typeof getReadingProps>,
@@ -94,28 +95,6 @@ export const readingRouter = createTRPCRouter({
             }
 
             const period = 24;
-            // const readings = await ctx.db.reading.findMany({
-            //     where: {
-            //         // createdAt: {
-            //         //     gte: new Date(
-            //         //         Date.now() - period * 60 * 60 * 1000,
-            //         //     ).toISOString(),
-            //         // },
-            //         location_id: input.location_id
-            //             ? +input.location_id
-            //             : undefined,
-            //         sensor_id: { in: sensors.data.map((sensor) => sensor.id) },
-            //     },
-            //     select: {
-            //         createdAt: true,
-            //         value: true,
-            //         sensor_id: true,
-            //     },
-            //     orderBy: {
-            //         id: 'desc',
-            //     },
-            // });
-
             const readings = await ctx.db.reading.findMany({
                 where: {
                     createdAt: {
@@ -132,7 +111,7 @@ export const readingRouter = createTRPCRouter({
                     sensor_id: true,
                 },
                 orderBy: {
-                    id: 'desc',
+                    id: 'asc',
                 },
             });
 
@@ -144,26 +123,30 @@ export const readingRouter = createTRPCRouter({
 
             const readingsRecord: GetReadingsRecord[] = [];
             sensors.data.map((sensor) => {
-                const sensorReadings = readings.filter((reading) => {
-                    return reading.sensor_id === sensor.id;
-                });
+                const filteredReadings: ReadingRecord[] = readings
+                    .filter((reading) => {
+                        return reading.sensor_id === sensor.id;
+                    })
+                    .map((reading) => [
+                        format(reading.createdAt, 'H:mm'),
+                        reading.value,
+                    ]);
 
-                const readingRecords = sensorReadings.map((reading) => [
-                    `${reading.createdAt.getHours()}:${reading.createdAt.getMinutes()}`,
-                    reading.value,
-                ]) as ReadingsRecord;
-
-                return readingsRecord.push({
-                    sensor: sensor,
-                    readings: readingRecords,
-                    highest: Math.max(
-                        ...readingRecords.map((record) => record[1]),
-                    ),
-                    lowest: Math.min(
-                        ...readingRecords.map((record) => record[1]),
-                    ),
-                    period: period,
-                });
+                const lastReading = filteredReadings.at(-1);
+                if (lastReading) {
+                    return readingsRecord.push({
+                        readings: filteredReadings,
+                        latestReading: lastReading,
+                        sensor: sensor,
+                        highest: Math.max(
+                            ...filteredReadings.map((reading) => reading[1]),
+                        ),
+                        lowest: Math.min(
+                            ...filteredReadings.map((reading) => reading[1]),
+                        ),
+                        period: period,
+                    });
+                }
             });
 
             return {
@@ -250,26 +233,30 @@ export const readingRouter = createTRPCRouter({
 
             const readingsRecord: GetReadingsRecord[] = [];
             sensors.data.map((sensor) => {
-                const sensorReadings = readings.filter((reading) => {
-                    return reading.sensor_id === sensor.id;
-                });
+                const filteredReadings: ReadingRecord[] = readings
+                    .filter((reading) => {
+                        return reading.sensor_id === sensor.id;
+                    })
+                    .map((reading) => [
+                        format(reading.createdAt, 'H:mm'),
+                        reading.value,
+                    ]);
 
-                const readingRecords = sensorReadings.map((reading) => [
-                    `${reading.createdAt.getHours()}:${reading.createdAt.getMinutes()}`,
-                    reading.value,
-                ]) as ReadingsRecord;
-
-                return readingsRecord.push({
-                    sensor: sensor,
-                    readings: readingRecords,
-                    highest: Math.max(
-                        ...readingRecords.map((record) => record[1]),
-                    ),
-                    lowest: Math.min(
-                        ...readingRecords.map((record) => record[1]),
-                    ),
-                    period: period,
-                });
+                const lastReading = filteredReadings.at(-1);
+                if (lastReading) {
+                    return readingsRecord.push({
+                        readings: filteredReadings,
+                        latestReading: lastReading,
+                        sensor: sensor,
+                        highest: Math.max(
+                            ...filteredReadings.map((reading) => reading[1]),
+                        ),
+                        lowest: Math.min(
+                            ...filteredReadings.map((reading) => reading[1]),
+                        ),
+                        period: period,
+                    });
+                }
             });
 
             return {

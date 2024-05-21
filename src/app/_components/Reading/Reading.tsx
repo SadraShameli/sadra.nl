@@ -23,6 +23,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
 import { api } from '~/trpc/react';
 
+import { ReadingChart } from './ReadingChart';
+
 type ReadingSectionProps = {
     sensors: Sensor[];
     locations: Location[];
@@ -128,7 +130,7 @@ export default function ReadingSection({
                                                                 Latest
                                                             </div>
                                                             <div className="m-auto whitespace-nowrap text-2xl lg:text-4xl">
-                                                                {`${reading.readings[0]?.[1]} ${reading.sensor.unit}`}
+                                                                {`${reading.latestReading[1]} ${reading.sensor.unit}`}
                                                             </div>
                                                         </div>
                                                         <div className="grid min-h-72 gap-5 md:h-auto">
@@ -164,6 +166,16 @@ export default function ReadingSection({
                                                         <ChartLIcon />
                                                         Live Chart
                                                     </div>
+                                                    <ReadingChart
+                                                        xAxis={Object.keys(
+                                                            reading.readings,
+                                                        )}
+                                                        yAxis={reading.readings.map(
+                                                            (reading) =>
+                                                                reading[1],
+                                                        )}
+                                                        data={reading.readings}
+                                                    />
                                                 </div>
                                             </div>
                                         </TabsContent>
