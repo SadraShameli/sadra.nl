@@ -15,6 +15,7 @@ const config = {
         extend: {
             fontFamily: {
                 orbitron: 'var(--font-orbitron)',
+                geist: 'var(--font-geist-sans)',
             },
             colors: {
                 border: 'hsl(var(--border))',

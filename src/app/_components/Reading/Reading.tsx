@@ -23,8 +23,6 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
 import { api } from '~/trpc/react';
 
-import { ReadingChart } from './ReadingChart';
-
 type ReadingSectionProps = {
     sensors: Sensor[];
     locations: Location[];
@@ -161,21 +159,22 @@ export default function ReadingSection({
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div className="row-span-2 rounded-xl bg-muted p-5">
-                                                    <div className="absolute flex items-center justify-between gap-x-2">
+                                                <div className="row-span-2 max-h-96 rounded-xl bg-muted p-5">
+                                                    <div className="flex items-center gap-x-2 pb-5">
                                                         <ChartLIcon />
                                                         Live Chart
                                                     </div>
-                                                    <ReadingChart
-                                                        xAxis={Object.keys(
-                                                            reading.readings,
+                                                    {/* <ReadingChart
+                                                        xAxis={reading.readings.map(
+                                                            (reading) =>
+                                                                reading[0],
                                                         )}
                                                         yAxis={reading.readings.map(
                                                             (reading) =>
                                                                 reading[1],
                                                         )}
                                                         data={reading.readings}
-                                                    />
+                                                    /> */}
                                                 </div>
                                             </div>
                                         </TabsContent>

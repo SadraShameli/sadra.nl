@@ -1,97 +1,82 @@
-'use client';
+// 'use client';
 
-import * as d3 from 'd3';
-import { useEffect, useId, useMemo, useRef } from 'react';
+// import * as d3 from 'd3';
+// import { useEffect, useRef } from 'react';
 
-const MARGIN = { top: 30, right: 30, bottom: 50, left: 50 };
+// type ReadingChartProps = {
+//     xAxis: number[];
+//     yAxis: number[];
+//     data: [number, number][];
+// };
 
-type ReadingChartProps = {
-    xAxis: string[];
-    yAxis: number[];
-    data: [string, number][];
-};
+// export function ReadingChart({ xAxis, yAxis, data }: ReadingChartProps) {
+//     const svgRef = useRef(null),
+//         xAxisRef = useRef(null),
+//         yAxisRef = useRef(null);
 
-export function ReadingChart({ xAxis, yAxis, data }: ReadingChartProps) {
-    const width = 460,
-        height = 350;
+//     const margin = { top: 20, right: 30, bottom: 30, left: 60 };
+//     const width = 600,
+//         height = 400;
+//     const yMax = Math.max(...yAxis),
+//         yMin = Math.min(...yAxis);
 
-    const axesRef = useRef(null);
-    const boundsWidth = width - MARGIN.right - MARGIN.left;
-    const boundsHeight = height - MARGIN.top - MARGIN.bottom;
+//     const xExtent = d3.extent(xAxis, (d) => new Date(d));
+//     const x = d3
+//         .scaleTime()
+//         .range([margin.left, width - margin.right])
+//         .domain(
+//             xExtent[0] !== undefined && xExtent[1] !== undefined ? xExtent : [],
+//         );
 
-    const yMax = Math.max(...yAxis);
-    const yScale = useMemo(() => {
-        return d3
-            .scaleLinear()
-            .domain([0, yMax || 0])
-            .range([boundsHeight, 0]);
-    }, [boundsHeight, yMax]);
+//     const y = d3
+//         .scaleLinear()
+//         .range([height - margin.bottom, margin.top])
+//         .domain([yMin, yMax]);
 
-    const xScale = useMemo(() => {
-        return d3.scaleBand().domain(xAxis).range([0, boundsWidth]);
-    }, [boundsWidth, xAxis]);
+//     const area = d3
+//         .area()
+//         .x((d) => x(d[0]))
+//         .y0(y(yMin))
+//         .y1((d) => y(d[1]));
 
-    useEffect(() => {
-        const svgElement = d3.select(axesRef.current);
-        svgElement.selectAll('*').remove();
-        const xAxisGenerator = d3.axisBottom(xScale);
-        svgElement
-            .append('g')
-            .attr('transform', 'translate(0,' + boundsHeight + ')')
-            .call(xAxisGenerator);
+//     useEffect(() => {
+//         if (xAxisRef.current && x)
+//             d3.select(xAxisRef.current)
+//                 .call(
+//                     d3
+//                         .axisBottom(x)
+//                         .tickSizeOuter(0)
+//                         .tickSize(0)
+//                         .tickPadding(10),
+//                 )
+//                 .call((g) => g.select('.domain').remove());
+//     }, [xAxisRef, x]);
+//     useEffect(() => {
+//         d3.select(yAxisRef.current)
+//             .call(d3.axisLeft(y).tickSize(0).tickPadding(10))
+//             .call((g) => g.select('.domain').remove());
+//     }, [yAxisRef, y]);
 
-        const yAxisGenerator = d3.axisLeft(yScale);
-        svgElement.append('g').call(yAxisGenerator);
-    }, [xScale, yScale, boundsHeight]);
-
-    const areaBuilder = d3
-        .area<[string, number]>()
-        .x((d) => xScale(d[0]))
-        .y1((d) => yScale(d[1]))
-        .y0(yScale(0));
-    const areaPath = areaBuilder(data);
-
-    // Build the line
-    const lineBuilder = d3
-        .line<[string, number]>()
-        .x((d) => xScale(d[0]))
-        .y((d) => yScale(d[1]));
-    const linePath = lineBuilder(data);
-
-    if (!linePath || !areaPath) {
-        return null;
-    }
-
-    return (
-        <div>
-            <svg width={width} height={height}>
-                <g
-                    width={boundsWidth}
-                    height={boundsHeight}
-                    transform={`translate(${[MARGIN.left, MARGIN.top].join(',')})`}
-                >
-                    <path
-                        d={areaPath}
-                        opacity={1}
-                        stroke="none"
-                        fill="#9a6fb0"
-                        fillOpacity={0.4}
-                    />
-                    <path
-                        d={linePath}
-                        opacity={1}
-                        stroke="#9a6fb0"
-                        fill="none"
-                        strokeWidth={2}
-                    />
-                </g>
-                <g
-                    width={boundsWidth}
-                    height={boundsHeight}
-                    ref={axesRef}
-                    transform={`translate(${[MARGIN.left, MARGIN.top].join(',')})`}
-                />
-            </svg>
-        </div>
-    );
-}
+//     return (
+//         <svg
+//             className="text-muted-foreground"
+//             viewBox="0 0 1500 1500"
+//             ref={svgRef}
+//         >
+//             <g
+//                 className="font-geist text-xs"
+//                 transform={`translate(0,${height - margin.bottom})`}
+//                 ref={xAxisRef}
+//             />
+//             <g
+//                 className="font-geist text-xs"
+//                 transform={`translate(${margin.left},0)`}
+//                 ref={yAxisRef}
+//             />
+//             <path
+//                 className="fill-muted-foreground/20 stroke-muted-foreground"
+//                 d={area(data) as string | undefined}
+//             />
+//         </svg>
+//     );
+// }
