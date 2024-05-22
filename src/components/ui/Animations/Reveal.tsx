@@ -1,6 +1,11 @@
 'use client';
 
-import { type Transition, type Variants, motion, useInView } from 'framer-motion';
+import {
+    type Transition,
+    type Variants,
+    motion,
+    useInView,
+} from 'framer-motion';
 import { useRef } from 'react';
 
 interface RevealProps {
@@ -13,13 +18,23 @@ export default function RevealAnimation({ children }: RevealProps) {
         visible: { opacity: 1, y: 0 },
     };
 
-    const defaultTransition: Transition = { duration: 1, ease: [0, 0, 0, 1], delay: 0.1 };
+    const defaultTransition: Transition = {
+        duration: 1,
+        ease: [0, 0, 0, 1],
+        delay: 0.1,
+    };
 
     const ref = useRef(null);
     const isInView = useInView(ref, { once: true, amount: 0.1 });
 
     return (
-        <motion.div ref={ref} variants={defaultVariants} initial='hidden' animate={isInView ? 'visible' : 'hidden'} transition={defaultTransition}>
+        <motion.div
+            ref={ref}
+            variants={defaultVariants}
+            initial="hidden"
+            animate={isInView ? 'visible' : 'hidden'}
+            transition={defaultTransition}
+        >
             {children}
         </motion.div>
     );

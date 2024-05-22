@@ -1,8 +1,8 @@
+import { type IResume } from '~/app/_components/Resume/ResumeTypes';
 import GithubIcon from '~/components/ui/Icons/Github';
 import InstagramIcon from '~/components/ui/Icons/Instagram';
 import WhatsAppIcon from '~/components/ui/Icons/WhatsApp';
 import YoutubeIcon from '~/components/ui/Icons/Youtube';
-import { type IResume } from '~/types/Resume';
 
 function calculate_age(dob: Date) {
     const diff_ms = Date.now() - dob.getTime();
@@ -16,7 +16,7 @@ const age = calculate_age(birthday);
 
 const Resume: IResume = {
     title: 'Sadra',
-    description: 'Building cool stuff',
+    description: 'Futures & crypto trader, software dev',
     basics: {
         firstName: 'Sadra',
         lastName: 'Shameli',
@@ -79,11 +79,20 @@ const Resume: IResume = {
         },
         {
             title: 'Interests',
-            keywords: ['Robotics', 'Programming', 'Photography', 'Guitar', 'Cars'],
+            keywords: [
+                'Robotics',
+                'Programming',
+                'Photography',
+                'Guitar',
+                'Cars',
+            ],
         },
         {
             title: 'Languages',
-            keywords: ['English & Dutch • Full Professional Proficiency', 'Persian • Native Speaker'],
+            keywords: [
+                'English & Dutch • Full Professional Proficiency',
+                'Persian • Native Speaker',
+            ],
         },
     ],
     works: [
@@ -96,12 +105,15 @@ const Resume: IResume = {
                 title: 'Rotterdam, The Netherlands',
                 url: 'https://goo.gl/maps/v9asMxGqgKwcvwQw5',
             },
-            summary: 'Blue Star Planning is specialized in the development and realization of Advanced Planning and Scheduling systems.',
+            summary:
+                'Blue Star Planning is specialized in the development and realization of Advanced Planning and Scheduling systems.',
             highlights: [
                 'Developed various IoT devices including 3D printing. Intended to gather various data, such as sound recordings, loudness, temperature and humidity, air quality and RPM values. The devices are placed at different locations in The Netherlands.',
                 'Developed the back-end to process the data gathered by the devices as well as the front-end, where the sound recordings and loudness values are available.',
             ],
-            skills: ['React ··· TypeScript ··· Material UI ··· ASP.NET ··· SQL'],
+            skills: [
+                'React ··· TypeScript ··· Material UI ··· ASP.NET ··· SQL',
+            ],
         },
     ],
     projects: [
@@ -109,7 +121,8 @@ const Resume: IResume = {
             title: 'Project A.I.',
             date: 'Sep 2022 - Dec 2022',
             url: 'https://github.com/SadraShameli/ProjectAI',
-            summary: 'Autonomous self-driving robot based on camera vision and lidar.',
+            summary:
+                'Autonomous self-driving robot based on camera vision and lidar.',
             role: 'Self Driving Robot',
             highlights: [
                 'Fully autonomous driving without any input from the user',

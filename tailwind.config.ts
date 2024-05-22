@@ -2,7 +2,7 @@ import type { Config } from 'tailwindcss';
 
 const config = {
     darkMode: 'class',
-    content: ['./src/**/*.tsx', './src/**/*.ts'],
+    content: ['./src/**/*.tsx'],
     prefix: '',
     theme: {
         container: {
@@ -15,6 +15,7 @@ const config = {
         extend: {
             fontFamily: {
                 orbitron: 'var(--font-orbitron)',
+                geist: 'var(--font-geist-sans)',
             },
             colors: {
                 border: 'hsl(var(--border))',
@@ -77,6 +78,11 @@ const config = {
                     'O%': { backgroundPosition: '0% 50%' },
                     '100%': { backgroundPosition: '100% 50%' },
                 },
+                shimmer: {
+                    '100%': {
+                        transform: 'translateX(100%)',
+                    },
+                },
             },
             animation: {
                 'accordion-down': 'accordion-down 0.2s ease-out',
@@ -86,7 +92,10 @@ const config = {
             },
         },
     },
-    plugins: [require('@tailwindcss/typography'), require('tailwindcss-animate')],
+    plugins: [
+        require('@tailwindcss/typography'),
+        require('tailwindcss-animate'),
+    ],
 } satisfies Config;
 
 export default config;

@@ -6,8 +6,13 @@ interface RequestProps {
     id: string;
 }
 
-export async function GET(request: NextRequest, { params }: { params: RequestProps }) {
-    const result = await api.device.getDeviceReadings({ deviceProps: { device_id: params.id } });
+export async function GET(
+    request: NextRequest,
+    { params }: { params: RequestProps },
+) {
+    const result = await api.device.getDeviceReadings({
+        device: { device_id: params.id },
+    });
     if (result.data) {
         return NextResponse.json(result.data, { status: result.status });
     }

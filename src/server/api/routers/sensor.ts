@@ -1,31 +1,67 @@
 import { Prisma, type Sensor } from '@prisma/client';
 import { type z } from 'zod';
 
-import { createTRPCRouter, publicProcedure } from '~/server/api/trpc';
-import { db } from '~/server/db';
+import {
+    type ContextType,
+    createTRPCRouter,
+    publicProcedure,
+} from '~/server/api/trpc';
+import type Result from '~/types/result';
 import { getSensorProps } from '~/types/zod';
 
-import type Result from '../result';
+export async function getSensors(ctx: ContextType): Promise<Result<Sensor[]>> {
+    const sensors = await ctx.db.sensor.findMany();
+    return { data: sensors };
+}
 
-export async function getSensor(input: z.infer<typeof getSensorProps>): Promise<Result<Sensor>> {
+export async function getSensor(
+    input: z.infer<typeof getSensorProps>,
+    ctx: ContextType,
+): Promise<Result<Sensor>> {
     try {
-        const device = await db.sensor.findUniqueOrThrow({ where: { id: +input.sensor_id } });
+        const device = await ctx.db.sensor.findUniqueOrThrow({
+            where: { id: +input.id },
+        });
         return { data: device };
     } catch (e) {
         if (e instanceof Prisma.PrismaClientKnownRequestError) {
             if (e.code === 'P2025') {
-                return { error: `Sensor id ${input.sensor_id} not found`, status: 404 };
+                return {
+                    error: `Sensor id ${input.id} not found`,
+                    status: 404,
+                };
             }
         }
         return { error: e, status: 500 };
     }
 }
 
+export async function getEnabledSensors(
+    ctx: ContextType,
+): Promise<Result<Sensor[]>> {
+    return {
+        data: await ctx.db.sensor.findMany({
+            where: {
+                enabled: true,
+                readings: { some: {} },
+            },
+            orderBy: {
+                id: 'asc',
+            },
+        }),
+    } as Result<Sensor[]>;
+}
+
 export const sensorRouter = createTRPCRouter({
-    getSensors: publicProcedure.query(async () => {
-        return { data: await db.sensor.findMany() } as Result<Sensor[]>;
+    getSensors: publicProcedure.query(async ({ ctx }) => {
+        return getSensors(ctx);
     }),
-    getSensor: publicProcedure.input(getSensorProps).query(async ({ input }) => {
-        return await getSensor(input);
+    getSensor: publicProcedure
+        .input(getSensorProps)
+        .query(async ({ input, ctx }) => {
+            return await getSensor(input, ctx);
+        }),
+    getEnabledSensors: publicProcedure.query(async ({ ctx }) => {
+        return getEnabledSensors(ctx);
     }),
 });

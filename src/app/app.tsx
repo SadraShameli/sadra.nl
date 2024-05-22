@@ -48,7 +48,11 @@ async function registerServiceWorker() {
     }
 }
 
-export default function ClientApplication({ children }: { children: React.ReactNode }) {
+export default function ClientApplication({
+    children,
+}: {
+    children: React.ReactNode;
+}) {
     useEffect(() => {
         void registerServiceWorker();
     }, []);

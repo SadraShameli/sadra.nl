@@ -13,5 +13,11 @@ const defaultVariants = {
 };
 
 export default function CursorBlinkerAnimation() {
-    return <motion.div variants={defaultVariants} animate='blinking' className='ml-2 inline-block h-3/4 w-[1.5px] translate-y-1 bg-white opacity-0' />;
+    return (
+        <motion.div
+            variants={defaultVariants}
+            animate="blinking"
+            className="ml-2 inline-block h-3/4 w-[1.5px] translate-y-1 bg-white opacity-0"
+        />
+    );
 }

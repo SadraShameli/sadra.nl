@@ -6,6 +6,11 @@ import { getRecordingFileName } from '~/server/api/routers/recording';
 
 export const recordings: Prisma.RecordingCreateInput[] = [
     {
+        location: {
+            connect: {
+                id: 1,
+            },
+        },
         device: {
             connect: {
                 id: 1,
@@ -15,6 +20,11 @@ export const recordings: Prisma.RecordingCreateInput[] = [
         file_name: getRecordingFileName(new Date()),
     },
     {
+        location: {
+            connect: {
+                id: 1,
+            },
+        },
         device: {
             connect: {
                 id: 1,
@@ -24,6 +34,11 @@ export const recordings: Prisma.RecordingCreateInput[] = [
         file_name: getRecordingFileName(new Date()),
     },
     {
+        location: {
+            connect: {
+                id: 1,
+            },
+        },
         device: {
             connect: {
                 id: 1,
@@ -33,6 +48,11 @@ export const recordings: Prisma.RecordingCreateInput[] = [
         file_name: getRecordingFileName(new Date()),
     },
     {
+        location: {
+            connect: {
+                id: 1,
+            },
+        },
         device: {
             connect: {
                 id: 1,
