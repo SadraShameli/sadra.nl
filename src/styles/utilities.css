@@ -34,6 +34,6 @@
     }
 
     .shimmer {
-        @apply relative before:absolute before:inset-0 before:-translate-x-full rounded-xl before:animate-[shimmer_3s_infinite] before:bg-gradient-to-r before:from-transparent before:via-neutral-100/10 before:to-transparent isolate overflow-hidden shadow-xl shadow-black/5 before:border-t before:border-b before:border-neutral-100/10 opacity-50 ease-in-out transition-opacity duration-500
+        @apply relative isolate overflow-hidden rounded-xl opacity-50 shadow-xl shadow-black/5 transition-opacity duration-500 ease-in-out before:absolute before:inset-0 before:-translate-x-full before:animate-[shimmer_3s_infinite] before:border-b before:border-t before:border-neutral-100/10 before:bg-gradient-to-r before:from-transparent before:via-neutral-100/10 before:to-transparent;
     }
 }
