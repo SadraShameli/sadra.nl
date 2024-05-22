@@ -113,7 +113,7 @@ export const readings: Prisma.ReadingCreateInput[] = [
         value: 2731,
         sensor: {
             connect: {
-                id: 7,
+                id: 8,
             },
         },
         location: {

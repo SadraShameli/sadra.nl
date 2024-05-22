@@ -12,8 +12,8 @@ export const sensors: Prisma.SensorCreateInput[] = [
         enabled: true,
     },
     {
-        unit: 'hPa',
         name: 'Air Pressure',
+        unit: 'hPa',
         enabled: true,
     },
     {
@@ -22,23 +22,23 @@ export const sensors: Prisma.SensorCreateInput[] = [
         enabled: false,
     },
     {
-        unit: 'm',
         name: 'Altitude',
+        unit: 'm',
         enabled: false,
     },
     {
-        unit: 'dB',
         name: 'Loudness',
+        unit: 'dB',
         enabled: true,
     },
     {
-        unit: 'wav',
         name: 'Recording',
+        unit: 'wav',
         enabled: false,
     },
     {
-        unit: 'rpm/min',
         name: 'RPM',
+        unit: 'rpm/min',
         enabled: false,
     },
 ];
