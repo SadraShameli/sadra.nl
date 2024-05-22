@@ -120,7 +120,7 @@ export default function ReadingSection({
                                             value={reading.sensor.name}
                                             key={index}
                                         >
-                                            <div className="grid min-h-[40rem] gap-5 text-sm font-semibold leading-none">
+                                            <div className="grid gap-5 text-sm font-semibold leading-none">
                                                 <div className="grid gap-5 lg:grid-cols-2">
                                                     <div className="grid grid-cols-2 gap-5">
                                                         <div className="flex rounded-xl bg-muted p-5">
@@ -158,7 +158,7 @@ export default function ReadingSection({
                                                             <ChartLIcon />
                                                             Live Chart
                                                         </div>
-                                                        <div className="mt-5 flex h-full items-center justify-center">
+                                                        <div className="mt-12 flex items-center justify-center">
                                                             <ReadingAreaChart
                                                                 xAxis={reading.readings.map(
                                                                     (reading) =>
