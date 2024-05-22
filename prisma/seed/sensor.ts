@@ -32,6 +32,11 @@ export const sensors: Prisma.SensorCreateInput[] = [
         enabled: true,
     },
     {
+        unit: 'wav',
+        name: 'Recording',
+        enabled: false,
+    },
+    {
         unit: 'rpm/min',
         name: 'RPM',
         enabled: false,
