@@ -22,7 +22,7 @@ export default function SocialsSection() {
                                 </Link>
                             </div>
 
-                            <div className="md:py-18 mx-auto py-16">
+                            <div className="mx-auto py-8 md:py-16">
                                 <Link
                                     href={profile.url}
                                     aria-label={profile.title}

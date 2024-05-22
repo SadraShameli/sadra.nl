@@ -63,13 +63,13 @@ export default async function HomePage() {
                     </div>
                 ) : null}
 
-                {/* {locations?.[0] && sensors?.[0] ? (
+                {locations?.[0] && sensors?.[0] ? (
                     <ReadingSection
                         sensors={sensors}
                         locations={locations}
                         location={locations[0]}
                     />
-                ) : null} */}
+                ) : null}
 
                 <div className="mx-auto my-content max-w-content">
                     <SectionText text="Recent projects" />
@@ -82,7 +82,7 @@ export default async function HomePage() {
                 </div>
             </main>
 
-            <div className="mx-auto mt-content w-full border-t py-56">
+            <div className="mx-auto mb-28 mt-content w-full border-t pt-56">
                 <div className="mx-auto max-w-content px-6 xl:px-0">
                     <SectionText text="Follow my socials" />
                     <SocialsSection />

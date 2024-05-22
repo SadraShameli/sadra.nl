@@ -1,4 +1,5 @@
 import { Prisma, type Reading } from '@prisma/client';
+import { format } from 'date-fns';
 import { z } from 'zod';
 
 import {
@@ -126,10 +127,13 @@ export const readingRouter = createTRPCRouter({
                     .filter((reading) => {
                         return reading.sensor_id === sensor.id;
                     })
-                    .map((reading) => [
-                        reading.createdAt.getTime(),
-                        reading.value,
-                    ]);
+                    .map((reading) => {
+                        return {
+                            date: format(reading.createdAt, 'H:mm'),
+                            value: reading.value,
+                            sensor_id: reading.sensor_id,
+                        };
+                    });
 
                 const lastReading = filteredReadings.at(-1);
                 if (lastReading) {
@@ -138,10 +142,10 @@ export const readingRouter = createTRPCRouter({
                         latestReading: lastReading,
                         sensor: sensor,
                         highest: Math.max(
-                            ...filteredReadings.map((reading) => reading[1]),
+                            ...filteredReadings.map((reading) => reading.value),
                         ),
                         lowest: Math.min(
-                            ...filteredReadings.map((reading) => reading[1]),
+                            ...filteredReadings.map((reading) => reading.value),
                         ),
                         period: period,
                     });

@@ -1,6 +1,10 @@
 import { type Sensor } from '@prisma/client';
 
-export type ReadingRecord = [number, number];
+export type ReadingRecord = {
+    date: string;
+    value: number;
+    sensor_id: number;
+};
 
 export type GetReadingsRecord = {
     readings: ReadingRecord[];

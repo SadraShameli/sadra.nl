@@ -1,12 +1,12 @@
-import Image from 'next/image';
-
-import ProfilePicture from '~/assets/images/me.jpg';
 import RevealAnimation from '~/components/ui/Animations/Reveal';
-import StaggerAnimation from '~/components/ui/Animations/Stagger';
 import Card from '~/components/ui/Card';
-import Resume from '~/data/Resume';
 
 import GallerySection from './GallerySection';
+
+// import Image from 'next/image';
+// import ProfilePicture from '~/assets/images/me.jpg';
+// import StaggerAnimation from '~/components/ui/Animations/Stagger';
+// import Resume from '~/data/Resume';
 
 export default function AboutSection() {
     return (
@@ -14,7 +14,7 @@ export default function AboutSection() {
             <Card>
                 <div className="grid gap-y-12">
                     <GallerySection />
-                    <StaggerAnimation className="grid gap-x-20 gap-y-12 md:grid-cols-2">
+                    {/* <StaggerAnimation className="grid gap-x-20 gap-y-12 md:grid-cols-2">
                         <div className="flex h-full items-center gap-x-5">
                             <Image
                                 className="hidden size-16 rounded-lg sm:inline"
@@ -34,7 +34,16 @@ export default function AboutSection() {
                             allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
                             loading="lazy"
                         />
-                    </StaggerAnimation>
+                    </StaggerAnimation> */}
+                    <iframe
+                        className="rounded-2xl md:mx-auto lg:w-1/2"
+                        src="https://open.spotify.com/embed/track/4kjI1gwQZRKNDkw1nI475M?utm_source=generator&theme=0"
+                        width="100%"
+                        height="152"
+                        allowFullScreen={true}
+                        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                        loading="lazy"
+                    />
                 </div>
             </Card>
         </RevealAnimation>

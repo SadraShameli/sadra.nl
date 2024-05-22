@@ -2,7 +2,6 @@
 import { type Location, type Sensor } from '@prisma/client';
 import {
     AreaChart as ChartLIcon,
-    Map,
     MapPin,
     ThermometerSnowflake,
 } from 'lucide-react';
@@ -22,6 +21,8 @@ import {
 } from '~/components/ui/DropDown';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
 import { api } from '~/trpc/react';
+
+import { ReadingAreaChart } from './AreaChart';
 
 type ReadingSectionProps = {
     sensors: Sensor[];
@@ -119,8 +120,8 @@ export default function ReadingSection({
                                             value={reading.sensor.name}
                                             key={index}
                                         >
-                                            <div className="grid-row-3 grid min-h-[40rem] gap-5 text-sm font-semibold leading-none">
-                                                <div className="row-span-1 grid gap-5 md:grid-cols-2">
+                                            <div className="grid min-h-[40rem] gap-5 text-sm font-semibold leading-none">
+                                                <div className="grid gap-5 lg:grid-cols-2">
                                                     <div className="grid grid-cols-2 gap-5">
                                                         <div className="flex rounded-xl bg-muted p-5">
                                                             <div className="absolute flex items-center gap-x-2">
@@ -128,15 +129,15 @@ export default function ReadingSection({
                                                                 Latest
                                                             </div>
                                                             <div className="m-auto whitespace-nowrap text-2xl lg:text-4xl">
-                                                                {`${reading.latestReading[1]} ${reading.sensor.unit}`}
+                                                                {`${reading.latestReading.value} ${reading.sensor.unit}`}
                                                             </div>
                                                         </div>
-                                                        <div className="grid min-h-72 gap-5 md:h-auto">
+                                                        <div className="grid min-h-72 gap-5">
                                                             <div className="flex rounded-xl bg-muted p-5">
                                                                 <div className="absolute">
                                                                     {`${reading.period}h high`}
                                                                 </div>
-                                                                <div className="m-auto whitespace-nowrap text-xl lg:text-2xl">
+                                                                <div className="m-auto whitespace-nowrap text-xl lg:text-3xl">
                                                                     {`${reading.highest} ${reading.sensor.unit}`}
                                                                 </div>
                                                             </div>
@@ -145,7 +146,7 @@ export default function ReadingSection({
                                                                     <div className="absolute">
                                                                         {`${reading.period}h low`}
                                                                     </div>
-                                                                    <div className="m-auto whitespace-nowrap text-xl lg:text-2xl">
+                                                                    <div className="m-auto whitespace-nowrap text-xl lg:text-3xl">
                                                                         {`${reading.lowest} ${reading.sensor.unit}`}
                                                                     </div>
                                                                 </div>
@@ -153,28 +154,28 @@ export default function ReadingSection({
                                                         </div>
                                                     </div>
                                                     <div className="rounded-xl bg-muted p-5">
-                                                        <div className="absolute flex items-center justify-between gap-x-2">
-                                                            <Map />
-                                                            Other locations
+                                                        <div className="absolute flex items-center gap-x-2 pb-5">
+                                                            <ChartLIcon />
+                                                            Live Chart
+                                                        </div>
+                                                        <div className="mt-5 flex h-full items-center justify-center">
+                                                            <ReadingAreaChart
+                                                                xAxis={reading.readings.map(
+                                                                    (reading) =>
+                                                                        reading.date,
+                                                                )}
+                                                                yAxis={reading.readings.map(
+                                                                    (reading) =>
+                                                                        reading.value,
+                                                                )}
+                                                                yName={
+                                                                    reading
+                                                                        .sensor
+                                                                        .name
+                                                                }
+                                                            />
                                                         </div>
                                                     </div>
-                                                </div>
-                                                <div className="row-span-2 max-h-96 rounded-xl bg-muted p-5">
-                                                    <div className="flex items-center gap-x-2 pb-5">
-                                                        <ChartLIcon />
-                                                        Live Chart
-                                                    </div>
-                                                    {/* <ReadingChart
-                                                        xAxis={reading.readings.map(
-                                                            (reading) =>
-                                                                reading[0],
-                                                        )}
-                                                        yAxis={reading.readings.map(
-                                                            (reading) =>
-                                                                reading[1],
-                                                        )}
-                                                        data={reading.readings}
-                                                    /> */}
                                                 </div>
                                             </div>
                                         </TabsContent>

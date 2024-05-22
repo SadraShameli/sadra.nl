@@ -14,7 +14,7 @@ export const devices: Prisma.DeviceCreateInput[] = [
         register_interval: 60,
         loudness_threshold: 70,
         device_id: 20002,
-        sensors: [1, 2, 3, 4, 5, 6],
+        sensors: [1, 2, 3, 6],
 
         location: { connect: { id: 1 } },
     },
@@ -39,7 +39,7 @@ export const devices: Prisma.DeviceCreateInput[] = [
         register_interval: 60,
         loudness_threshold: 70,
         device_id: 20005,
-        sensors: [1, 2, 3, 4, 5, 6],
+        sensors: [1, 2, 3, 6],
         location: { connect: { id: 4 } },
     },
     {
@@ -47,7 +47,7 @@ export const devices: Prisma.DeviceCreateInput[] = [
         register_interval: 60,
         loudness_threshold: 70,
         device_id: 20006,
-        sensors: [1, 2, 3, 4, 5, 6],
+        sensors: [1, 2, 3, 6],
         location: { connect: { id: 5 } },
     },
 ];
