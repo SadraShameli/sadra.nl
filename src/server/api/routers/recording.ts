@@ -1,4 +1,5 @@
 import { Prisma, type Recording } from '@prisma/client';
+import { format } from 'date-fns';
 import { type z } from 'zod';
 
 import {
@@ -13,7 +14,7 @@ import { createRecordingProps, getRecordingProps } from '~/types/zod';
 import { getDevice } from './device';
 
 export function getRecordingFileName(date: Date) {
-    return `${date.toLocaleDateString('default', { year: 'numeric', month: 'long', day: 'numeric' })} - ${date.getHours()}.${date.getMinutes()}.wav`;
+    return `${format(date, 'MMM d, y - H.mm')}.wav`;
 }
 
 export async function getRecordingNoFile(
