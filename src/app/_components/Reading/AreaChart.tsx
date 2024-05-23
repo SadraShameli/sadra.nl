@@ -45,6 +45,12 @@ const options: ChartOptions<'line'> = {
             display: false,
         },
     },
+    elements: {
+        point: {
+            radius: 0,
+            hitRadius: 10,
+        },
+    },
     scales: {
         x: {
             grid: {

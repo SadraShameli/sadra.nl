@@ -13,7 +13,7 @@ export const recordings: Prisma.RecordingCreateInput[] = [
         },
         device: {
             connect: {
-                id: 1,
+                id: 2,
             },
         },
         file: Buffer.from(fs.readFileSync('src/assets/wav/1.wav')),
@@ -27,7 +27,7 @@ export const recordings: Prisma.RecordingCreateInput[] = [
         },
         device: {
             connect: {
-                id: 1,
+                id: 2,
             },
         },
         file: Buffer.from(fs.readFileSync('src/assets/wav/2.wav')),
@@ -41,7 +41,7 @@ export const recordings: Prisma.RecordingCreateInput[] = [
         },
         device: {
             connect: {
-                id: 1,
+                id: 2,
             },
         },
         file: Buffer.from(fs.readFileSync('src/assets/wav/3.wav')),
@@ -55,7 +55,7 @@ export const recordings: Prisma.RecordingCreateInput[] = [
         },
         device: {
             connect: {
-                id: 1,
+                id: 2,
             },
         },
         file: Buffer.from(fs.readFileSync('src/assets/wav/4.wav')),
