@@ -5,7 +5,7 @@ import {
   createTRPCRouter,
   publicProcedure,
 } from '~/server/api/trpc';
-import { type Result } from '../types/types';
+import { type GetDeviceProps, type Result } from '../types/types';
 import {
   getDeviceProps,
   getDeviceReadingsProps,
@@ -13,13 +13,13 @@ import {
 } from '../types/zod';
 
 import { getSensor } from './sensor';
-import { type recording, type device } from '~/server/db/schema';
+import { type device, type recording } from '~/server/db/schema';
 import { and, eq } from 'drizzle-orm';
 
 export async function getDevice(
   input: z.infer<typeof getDeviceProps>,
   ctx: ContextType,
-): Promise<Result<typeof device.$inferSelect>> {
+): Promise<Result<GetDeviceProps>> {
   const result = await ctx.db.query.device.findFirst({
     where: (device) => eq(device.device_id, +input.device_id),
   });
@@ -30,7 +30,13 @@ export async function getDevice(
       status: 404,
     };
 
-  return { data: result };
+  const sensors = (
+    await ctx.db.query.sensorsToDevices.findMany({
+      where: (row) => eq(row.device_id, result.id),
+    })
+  ).map((sensor) => sensor.sensor_id);
+
+  return { data: { ...result, sensors: sensors } };
 }
 
 export const deviceRouter = createTRPCRouter({

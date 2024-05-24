@@ -1,9 +1,13 @@
-import { type sensor } from '~/server/db/schema';
+import { type sensor, type device } from '~/server/db/schema';
 
 export type Result<DataType> = {
   data?: DataType;
   status?: number;
   error?: unknown;
+};
+
+export type GetDeviceProps = typeof device.$inferSelect & {
+  sensors: number[];
 };
 
 export type ReadingRecord = {
