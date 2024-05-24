@@ -18,11 +18,7 @@ import ResumeSection from './_components/Resume/Resume';
 import SocialsSection from './_components/Socials';
 
 export default async function HomePage() {
-  const recordings = (await api.recording.getRecordingsNoFile()).map(
-    (result) => {
-      return result;
-    },
-  );
+  const recordings = await api.recording.getRecordingsNoFile();
   const locations = (await api.location.getLocationsWithReading()).data;
   const sensors = (await api.sensor.getEnabledSensors()).data;
 

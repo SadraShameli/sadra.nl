@@ -10,7 +10,7 @@ import { type Result } from '../types/types';
 import { createRecordingProps, getRecordingProps } from '../types/zod';
 
 import { getDevice } from './device';
-import { eq } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import { recording } from '~/server/db/schema';
 
 export function getRecordingFileName(date: Date) {
@@ -42,6 +42,7 @@ export async function getRecordingsNoFile(ctx: ContextType) {
       device_id: true,
       file_name: true,
     },
+    orderBy: (recording) => desc(recording.id),
   });
 }
 
