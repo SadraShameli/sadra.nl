@@ -1,159 +1,168 @@
-import { Prisma, type Reading } from '@prisma/client';
 import { format } from 'date-fns';
 import { z } from 'zod';
 
 import {
-    type ContextType,
-    createTRPCRouter,
-    publicProcedure,
+  type ContextType,
+  createTRPCRouter,
+  publicProcedure,
 } from '~/server/api/trpc';
-import type Result from '~/types/result';
+import { type Result } from '../types/types';
 import {
-    createReadingProps,
-    getLocationProps,
-    type getReadingProps,
-} from '~/types/zod';
+  createReadingProps,
+  getLocationProps,
+  type getReadingProps,
+} from '../types/zod';
 
 import { getDevice } from './device';
-import { getEnabledSensors } from './sensor';
+import { getEnabledSensors, getSensor } from './sensor';
 import { type GetReadingsRecord, type ReadingRecord } from '../types/types';
+import { reading } from '~/server/db/schema';
+import { and, eq, gte, inArray, desc } from 'drizzle-orm';
 
 export async function getReading(
-    input: z.infer<typeof getReadingProps>,
-    ctx: ContextType,
-): Promise<Result<Reading>> {
-    try {
-        const reading = await ctx.db.reading.findUniqueOrThrow({
-            where: { id: +input.id },
-        });
-        return { data: reading };
-    } catch (e) {
-        if (e instanceof Prisma.PrismaClientKnownRequestError) {
-            if (e.code === 'P2025') {
-                return {
-                    error: `Reading id ${input.id} not found`,
-                    status: 404,
-                };
-            }
-        }
-        return { error: e, status: 500 };
-    }
+  input: z.infer<typeof getReadingProps>,
+  ctx: ContextType,
+): Promise<Result<typeof reading.$inferSelect>> {
+  const result = await ctx.db.query.reading.findFirst({
+    where: (reading) => eq(reading.id, +input.id),
+  });
+
+  if (!result)
+    return {
+      error: `Reading id ${input.id} not found`,
+      status: 404,
+    };
+
+  return { data: result };
 }
 
 export const readingRouter = createTRPCRouter({
-    getReadings: publicProcedure.query(async ({ ctx }) => {
-        return { data: await ctx.db.reading.findMany() } as Result<Reading[]>;
+  getReadings: publicProcedure.query(async ({ ctx }) => {
+    return { data: await ctx.db.query.reading.findMany() } as Result<
+      (typeof reading.$inferSelect)[]
+    >;
+  }),
+  getReading: publicProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ input, ctx }) => {
+      return await getReading(input, ctx);
     }),
-    getReading: publicProcedure
-        .input(z.object({ id: z.string() }))
-        .query(async ({ input, ctx }) => {
-            return await getReading(input, ctx);
-        }),
-    createReading: publicProcedure
-        .input(createReadingProps)
-        .mutation(async ({ input, ctx }) => {
-            const readings: Reading[] = [];
+  createReading: publicProcedure
+    .input(createReadingProps)
+    .mutation(async ({ input, ctx }) => {
+      const device = await getDevice(
+        { device_id: input.device_id.toString() },
+        ctx,
+      );
 
-            const device = await getDevice(
-                { device_id: input.device_id.toString() },
-                ctx,
-            );
+      if (!device.data) {
+        return device;
+      }
 
-            if (!device.data) {
-                return device;
-            }
+      for (const sensor in input.sensors) {
+        const value = input.sensors[sensor];
+        if (value == undefined) {
+          return {
+            error: `No value provided for sensor ${sensor}`,
+            status: 400,
+          };
+        }
 
-            for (const sensor in input.sensors) {
-                const value = input.sensors[sensor];
-                if (value == undefined) {
-                    return {
-                        error: `No value provided for sensor ${sensor}`,
-                        status: 400,
-                    };
-                }
+        const sensorResult = await getSensor({ id: sensor }, ctx);
+        if (!sensorResult.data) {
+          return sensorResult;
+        }
 
-                readings.push(
-                    await ctx.db.reading.create({
-                        data: {
-                            device_id: device.data.id,
-                            sensor_id: +sensor,
-                            location_id: +device.data.location_id,
-                            value: +value,
-                        },
-                    }),
-                );
-            }
+        await ctx.db.insert(reading).values({
+          sensorId: +sensorResult.data.id,
+          locationId: +device.data.locationId,
+          deviceId: device.data.id,
+          value: +value,
+        });
+      }
 
-            return { data: readings, status: 201 } as Result<Reading[]>;
-        }),
-    getReadingsLatest: publicProcedure
-        .input(getLocationProps)
-        .query(async ({ input, ctx }): Promise<Result<GetReadingsRecord[]>> => {
-            const sensors = await getEnabledSensors(ctx);
-            if (!sensors.data) {
-                return {};
-            }
+      return { status: 201 } as Result<unknown>;
+    }),
+  getReadingsLatest: publicProcedure
+    .input(getLocationProps)
+    .query(async ({ input, ctx }): Promise<Result<GetReadingsRecord[]>> => {
+      const sensors = await getEnabledSensors(ctx);
+      if (!sensors.data) {
+        return { error: sensors.error, status: sensors.status };
+      }
 
-            const period = 24;
-            const readings = await ctx.db.reading.findMany({
-                where: {
-                    createdAt: {
-                        gte: new Date(Date.now() - period * 60 * 60 * 1000),
-                    },
-                    location_id: input.location_id
-                        ? +input.location_id
-                        : undefined,
-                    sensor_id: { in: sensors.data.map((sensor) => sensor.id) },
-                },
-                select: {
-                    createdAt: true,
-                    value: true,
-                    sensor_id: true,
-                },
-                orderBy: {
-                    id: 'asc',
-                },
-            });
+      const latestReading = await ctx.db
+        .select()
+        .from(reading)
+        .orderBy(desc(reading.id))
+        .limit(1);
 
-            if (readings.length === 0) {
-                return {
-                    error: 'No readings could be found',
-                };
-            }
+      const latestReadingDate = latestReading?.[0]?.createdAt;
+      if (!latestReadingDate) {
+        return { error: 'There are no readings' } as Result<
+          GetReadingsRecord[]
+        >;
+      }
 
-            const readingsRecord: GetReadingsRecord[] = [];
-            sensors.data.map((sensor) => {
-                const filteredReadings: ReadingRecord[] = readings
-                    .filter((reading) => {
-                        return reading.sensor_id === sensor.id;
-                    })
-                    .map((reading) => {
-                        return {
-                            date: format(reading.createdAt, 'H:mm'),
-                            value: reading.value,
-                            sensor_id: reading.sensor_id,
-                        };
-                    });
+      const period = 24;
+      const readings = await ctx.db.query.reading.findMany({
+        where: (reading) =>
+          and(
+            sensors.data
+              ? inArray(
+                  reading.sensorId,
+                  sensors.data.map((sensor) => sensor.id),
+                )
+              : undefined,
+            eq(reading.locationId, +input.location_id),
+            gte(
+              reading.createdAt,
+              new Date(
+                latestReadingDate.getMilliseconds() - period * 60 * 60 * 1000,
+              ),
+            ),
+          ),
+      });
 
-                const lastReading = filteredReadings.at(-1);
-                if (lastReading) {
-                    return readingsRecord.push({
-                        readings: filteredReadings,
-                        latestReading: lastReading,
-                        sensor: sensor,
-                        highest: Math.max(
-                            ...filteredReadings.map((reading) => reading.value),
-                        ),
-                        lowest: Math.min(
-                            ...filteredReadings.map((reading) => reading.value),
-                        ),
-                        period: period,
-                    });
-                }
-            });
+      if (readings.length === 0) {
+        return {
+          error: 'No readings could be found',
+        };
+      }
 
+      const readingsRecord: GetReadingsRecord[] = [];
+      sensors.data.map((sensor) => {
+        const filteredReadings: ReadingRecord[] = readings
+          .filter((reading) => {
+            return reading.sensorId === sensor.id;
+          })
+          .map((reading) => {
             return {
-                data: readingsRecord,
+              date: format(reading.createdAt, 'H:mm'),
+              value: reading.value,
+              sensor_id: reading.sensorId,
             };
-        }),
+          });
+
+        const lastReading = filteredReadings.at(-1);
+        if (lastReading) {
+          return readingsRecord.push({
+            readings: filteredReadings,
+            latestReading: lastReading,
+            sensor: sensor,
+            highest: Math.max(
+              ...filteredReadings.map((reading) => reading.value),
+            ),
+            lowest: Math.min(
+              ...filteredReadings.map((reading) => reading.value),
+            ),
+            period: period,
+          });
+        }
+      });
+
+      return {
+        data: readingsRecord,
+      };
+    }),
 });

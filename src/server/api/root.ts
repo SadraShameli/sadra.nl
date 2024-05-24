@@ -1,17 +1,17 @@
 import { createCallerFactory, createTRPCRouter } from '~/server/api/trpc';
 
-import { deviceRouter } from './routers/device';
 import { locationRouter } from './routers/location';
+import { sensorRouter } from './routers/sensor';
+import { deviceRouter } from './routers/device';
 import { readingRouter } from './routers/reading';
 import { recordingsRouter } from './routers/recording';
-import { sensorRouter } from './routers/sensor';
 
 export const appRouter = createTRPCRouter({
-    sensor: sensorRouter,
-    location: locationRouter,
-    device: deviceRouter,
-    reading: readingRouter,
-    recording: recordingsRouter,
+  location: locationRouter,
+  sensor: sensorRouter,
+  device: deviceRouter,
+  reading: readingRouter,
+  recording: recordingsRouter,
 });
 
 export type AppRouter = typeof appRouter;
