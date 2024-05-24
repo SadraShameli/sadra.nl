@@ -22,7 +22,6 @@ type ReadingChartProps = {
   yName: string;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -64,6 +63,7 @@ const options: ChartOptions<'line'> = {
       },
     },
     y: {
+      beginAtZero: true,
       grid: {
         display: false,
       },

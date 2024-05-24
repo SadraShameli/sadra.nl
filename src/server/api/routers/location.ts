@@ -81,8 +81,6 @@ export const locationRouter = createTRPCRouter({
         .orderBy(location.id)
     ).map((result) => result.location);
 
-    console.log(locations);
-
     return { data: locations } as Result<(typeof location.$inferSelect)[]>;
   }),
   getLocationDevices: publicProcedure
