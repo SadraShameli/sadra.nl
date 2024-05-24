@@ -46,7 +46,7 @@ export async function getRecording(
         if (e instanceof Prisma.PrismaClientKnownRequestError) {
             if (e.code === 'P2025') {
                 return {
-                    error: `Reading id ${input.id} not found`,
+                    error: `Recording id ${input.id} not found`,
                     status: 404,
                 };
             }

@@ -19,10 +19,10 @@ export async function getSensor(
     ctx: ContextType,
 ): Promise<Result<Sensor>> {
     try {
-        const device = await ctx.db.sensor.findUniqueOrThrow({
+        const sensor = await ctx.db.sensor.findUniqueOrThrow({
             where: { id: +input.id },
         });
-        return { data: device };
+        return { data: sensor };
     } catch (e) {
         if (e instanceof Prisma.PrismaClientKnownRequestError) {
             if (e.code === 'P2025') {

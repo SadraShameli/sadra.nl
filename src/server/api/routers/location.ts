@@ -67,13 +67,6 @@ export const locationRouter = createTRPCRouter({
             }),
         } as Result<Location[]>;
     }),
-    getLocationFirstWithReading: publicProcedure.query(async ({ ctx }) => {
-        return {
-            data: await ctx.db.location.findFirst({
-                where: { readings: { some: {} } },
-            }),
-        } as Result<Location>;
-    }),
     getLocationDevices: publicProcedure
         .input(getLocationProps)
         .query(async ({ input, ctx }) => {
