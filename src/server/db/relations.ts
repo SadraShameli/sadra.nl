@@ -22,7 +22,7 @@ export const sensorRelations = relations(sensor, ({ many }) => ({
 
 export const deviceRelations = relations(device, ({ one, many }) => ({
   location: one(location, {
-    fields: [device.locationId],
+    fields: [device.location_id],
     references: [location.id],
   }),
   sensorsToDevices: many(sensorsToDevices),
@@ -32,26 +32,26 @@ export const deviceRelations = relations(device, ({ one, many }) => ({
 
 export const readingRelations = relations(reading, ({ one }) => ({
   device: one(device, {
-    fields: [reading.deviceId],
+    fields: [reading.device_id],
     references: [device.id],
   }),
   sensor: one(sensor, {
-    fields: [reading.sensorId],
+    fields: [reading.sensor_id],
     references: [sensor.id],
   }),
   location: one(location, {
-    fields: [reading.locationId],
+    fields: [reading.location_id],
     references: [location.id],
   }),
 }));
 
 export const recordingRelations = relations(recording, ({ one }) => ({
   device: one(device, {
-    fields: [recording.deviceId],
+    fields: [recording.device_id],
     references: [device.id],
   }),
   location: one(location, {
-    fields: [recording.locationId],
+    fields: [recording.location_id],
     references: [location.id],
   }),
 }));
@@ -60,11 +60,11 @@ export const sensorToDeviceRelations = relations(
   sensorsToDevices,
   ({ one }) => ({
     sensor: one(sensor, {
-      fields: [sensorsToDevices.sensorId],
+      fields: [sensorsToDevices.sensor_id],
       references: [sensor.id],
     }),
     device: one(device, {
-      fields: [sensorsToDevices.deviceId],
+      fields: [sensorsToDevices.device_id],
       references: [device.id],
     }),
   }),

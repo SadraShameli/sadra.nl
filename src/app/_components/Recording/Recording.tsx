@@ -219,7 +219,7 @@ export default function RecordingSection({
                       ) : (
                         <Music2 className="size-5" />
                       )}
-                      {recording.fileName}
+                      {recording.file_name}
                     </div>
                   </button>
                 ))}

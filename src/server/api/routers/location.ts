@@ -22,7 +22,7 @@ export async function getLocation(
   ctx: ContextType,
 ): Promise<Result<typeof location.$inferSelect>> {
   const result = await ctx.db.query.location.findFirst({
-    where: (location) => eq(location.locationId, +input.location_id),
+    where: (location) => eq(location.location_id, +input.location_id),
   });
 
   if (!result) {
@@ -53,7 +53,7 @@ export const locationRouter = createTRPCRouter({
       .orderBy(desc(reading.id))
       .limit(1);
 
-    const latestReadingDate = latestReading?.[0]?.createdAt;
+    const latestReadingDate = latestReading?.[0]?.created_at;
     if (!latestReadingDate) {
       return { error: 'There are no readings' } as Result<
         (typeof location.$inferSelect)[]
@@ -68,9 +68,9 @@ export const locationRouter = createTRPCRouter({
         .innerJoin(
           reading,
           and(
-            eq(location.id, reading.locationId),
+            eq(location.id, reading.location_id),
             gte(
-              reading.createdAt,
+              reading.created_at,
               new Date(
                 latestReadingDate.getMilliseconds() - period * 60 * 60 * 1000,
               ),
@@ -95,7 +95,7 @@ export const locationRouter = createTRPCRouter({
 
       const devices = await ctx.db.query.device.findMany({
         where: (device) =>
-          location.data ? eq(device.locationId, location.data.id) : undefined,
+          location.data ? eq(device.location_id, location.data.id) : undefined,
       });
 
       return { data: devices } as Result<(typeof device.$inferSelect)[]>;
@@ -123,10 +123,10 @@ export const locationRouter = createTRPCRouter({
         where: (reading) =>
           and(
             location.data
-              ? eq(reading.locationId, location.data.id)
+              ? eq(reading.location_id, location.data.id)
               : undefined,
             input?.sensor_id
-              ? eq(reading.sensorId, +input.sensor_id)
+              ? eq(reading.sensor_id, +input.sensor_id)
               : undefined,
           ),
       });
@@ -150,14 +150,14 @@ export const locationRouter = createTRPCRouter({
       const recordings = await ctx.db.query.recording.findMany({
         where: (recording) =>
           location.data
-            ? eq(recording.locationId, location.data.id)
+            ? eq(recording.location_id, location.data.id)
             : undefined,
         columns: {
           id: true,
-          createdAt: true,
-          locationId: true,
-          deviceId: true,
-          fileName: true,
+          created_at: true,
+          location_id: true,
+          device_id: true,
+          file_name: true,
         },
       });
 

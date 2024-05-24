@@ -18,7 +18,7 @@ export async function GET(
         'Accept-Ranges': 'bytes',
         'Content-Length': result.data.file.length.toString(),
         'Content-Type': 'audio/wav',
-        'Content-Disposition': `attachment; filename="${result.data.fileName}"`,
+        'Content-Disposition': `attachment; filename="${result.data.file_name}"`,
       },
     });
   }

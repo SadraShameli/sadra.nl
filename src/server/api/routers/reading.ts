@@ -74,9 +74,9 @@ export const readingRouter = createTRPCRouter({
         }
 
         await ctx.db.insert(reading).values({
-          sensorId: +sensorResult.data.id,
-          locationId: +device.data.locationId,
-          deviceId: device.data.id,
+          sensor_id: +sensorResult.data.id,
+          location_id: +device.data.location_id,
+          device_id: device.data.id,
           value: +value,
         });
       }
@@ -97,7 +97,7 @@ export const readingRouter = createTRPCRouter({
         .orderBy(desc(reading.id))
         .limit(1);
 
-      const latestReadingDate = latestReading?.[0]?.createdAt;
+      const latestReadingDate = latestReading?.[0]?.created_at;
       if (!latestReadingDate) {
         return { error: 'There are no readings' } as Result<
           GetReadingsRecord[]
@@ -110,13 +110,13 @@ export const readingRouter = createTRPCRouter({
           and(
             sensors.data
               ? inArray(
-                  reading.sensorId,
+                  reading.sensor_id,
                   sensors.data.map((sensor) => sensor.id),
                 )
               : undefined,
-            eq(reading.locationId, +input.location_id),
+            eq(reading.location_id, +input.location_id),
             gte(
-              reading.createdAt,
+              reading.created_at,
               new Date(
                 latestReadingDate.getMilliseconds() - period * 60 * 60 * 1000,
               ),
@@ -134,13 +134,13 @@ export const readingRouter = createTRPCRouter({
       sensors.data.map((sensor) => {
         const filteredReadings: ReadingRecord[] = readings
           .filter((reading) => {
-            return reading.sensorId === sensor.id;
+            return reading.sensor_id === sensor.id;
           })
           .map((reading) => {
             return {
-              date: format(reading.createdAt, 'H:mm'),
+              date: format(reading.created_at, 'H:mm'),
               value: reading.value,
-              sensor_id: reading.sensorId,
+              sensor_id: reading.sensor_id,
             };
           });
 

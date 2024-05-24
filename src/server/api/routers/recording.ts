@@ -25,10 +25,10 @@ export async function getRecordingNoFile(
     where: (recording) => eq(recording.id, +input.id),
     columns: {
       id: true,
-      createdAt: true,
-      locationId: true,
-      deviceId: true,
-      fileName: true,
+      created_at: true,
+      location_id: true,
+      device_id: true,
+      file_name: true,
     },
   });
 }
@@ -37,10 +37,10 @@ export async function getRecordingsNoFile(ctx: ContextType) {
   return await ctx.db.query.recording.findMany({
     columns: {
       id: true,
-      createdAt: true,
-      locationId: true,
-      deviceId: true,
-      fileName: true,
+      created_at: true,
+      location_id: true,
+      device_id: true,
+      file_name: true,
     },
   });
 }
@@ -68,10 +68,10 @@ export const recordingsRouter = createTRPCRouter({
     return (await ctx.db.query.recording.findMany({
       columns: {
         id: true,
-        createdAt: true,
-        locationId: true,
-        deviceId: true,
-        fileName: true,
+        created_at: true,
+        location_id: true,
+        device_id: true,
+        file_name: true,
       },
     })) as Result<(typeof recording.$inferSelect)[]>;
   }),
@@ -97,9 +97,9 @@ export const recordingsRouter = createTRPCRouter({
       }
 
       await ctx.db.insert(recording).values({
-        locationId: device.data.locationId,
-        deviceId: device.data.id,
-        fileName: getRecordingFileName(new Date()),
+        location_id: device.data.location_id,
+        device_id: device.data.id,
+        file_name: getRecordingFileName(new Date()),
         file: input.recording,
       });
 

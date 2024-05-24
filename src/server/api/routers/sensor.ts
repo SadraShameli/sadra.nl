@@ -43,7 +43,7 @@ export async function getEnabledSensors(
         .select({ sensor })
         .from(sensor)
         .where((result) => eq(result.sensor.enabled, true))
-        .innerJoin(reading, eq(sensor.id, reading.sensorId))
+        .innerJoin(reading, eq(sensor.id, reading.sensor_id))
         .groupBy(sensor.id)
         .orderBy(sensor.id)
     ).map((result) => result.sensor),

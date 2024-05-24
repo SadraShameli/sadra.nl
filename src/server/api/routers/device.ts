@@ -21,7 +21,7 @@ export async function getDevice(
   ctx: ContextType,
 ): Promise<Result<typeof device.$inferSelect>> {
   const result = await ctx.db.query.device.findFirst({
-    where: (device) => eq(device.deviceId, +input.device_id),
+    where: (device) => eq(device.device_id, +input.device_id),
   });
 
   if (!result)
@@ -65,15 +65,15 @@ export const deviceRouter = createTRPCRouter({
         const readings = await ctx.db.query.reading.findMany({
           where: (reading) =>
             and(
-              device.data ? eq(reading.deviceId, device.data.id) : undefined,
-              sensor.data ? eq(reading.sensorId, sensor.data.id) : undefined,
+              device.data ? eq(reading.device_id, device.data.id) : undefined,
+              sensor.data ? eq(reading.sensor_id, sensor.data.id) : undefined,
             ),
         });
 
         const readingsRecord: [string, number][] = [];
         readings.map((reading) => {
           readingsRecord.push([
-            `${reading.createdAt.getHours()}:${reading.createdAt.getMinutes()}`,
+            `${reading.created_at.getHours()}:${reading.created_at.getMinutes()}`,
             reading.value,
           ]);
         });
@@ -83,14 +83,16 @@ export const deviceRouter = createTRPCRouter({
 
       const readings = await ctx.db.query.reading.findMany({
         where: (reading) => {
-          return device.data ? eq(reading.deviceId, device.data.id) : undefined;
+          return device.data
+            ? eq(reading.device_id, device.data.id)
+            : undefined;
         },
       });
 
       const readingsRecord: [string, number][] = [];
       readings.map((reading) => {
         readingsRecord.push([
-          `${reading.createdAt.getHours()}:${reading.createdAt.getMinutes()}`,
+          `${reading.created_at.getHours()}:${reading.created_at.getMinutes()}`,
           reading.value,
         ]);
       });
@@ -112,15 +114,15 @@ export const deviceRouter = createTRPCRouter({
       const recordings = await ctx.db.query.recording.findMany({
         where: (recording) => {
           return device.data
-            ? eq(recording.deviceId, device.data.id)
+            ? eq(recording.device_id, device.data.id)
             : undefined;
         },
         columns: {
           id: true,
-          createdAt: true,
-          locationId: true,
-          deviceId: true,
-          fileName: true,
+          created_at: true,
+          location_id: true,
+          device_id: true,
+          file_name: true,
         },
       });
 
