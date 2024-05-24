@@ -1,31 +1,31 @@
 @tailwind components;
 
 @layer components {
-    .bg-grid {
-        @apply bg-[radial-gradient(#ffffff33_1px,#000_1px)] bg-[size:25px_25px] opacity-50;
-    }
+  .bg-grid {
+    @apply bg-[radial-gradient(#ffffff33_1px,#000_1px)] bg-[size:25px_25px] opacity-50;
+  }
 
-    .bg-gradient-card1 {
-        @apply bg-gradient-to-tl from-[rgba(101,179,174,0.5)-225%] via-[rgba(10,10,10,1)45%] to-[rgba(101,179,174,0.5)225%];
-    }
+  .bg-gradient-card1 {
+    @apply bg-gradient-to-tl from-[rgba(101,179,174,0.5)-225%] via-[rgba(10,10,10,1)45%] to-[rgba(101,179,174,0.5)225%];
+  }
 
-    .bg-gradient-card2 {
-        @apply bg-gradient-to-tl from-[rgba(69,79,191,0.5)-225%] via-[rgba(10,10,10,10)45%] to-[rgba(69,79,191,.5)225%];
-    }
+  .bg-gradient-card2 {
+    @apply bg-gradient-to-tl from-[rgba(69,79,191,0.5)-225%] via-[rgba(10,10,10,10)45%] to-[rgba(69,79,191,.5)225%];
+  }
 
-    .bg-gradient-card3 {
-        @apply bg-gradient-to-tl from-[rgba(0,164,204,0.5)-225%] via-[rgba(10,10,10,1)45%] to-[rgba(0,164,204,0.5)225%];
-    }
+  .bg-gradient-card3 {
+    @apply bg-gradient-to-tl from-[rgba(0,164,204,0.5)-225%] via-[rgba(10,10,10,1)45%] to-[rgba(0,164,204,0.5)225%];
+  }
 
-    .bg-gradient-card4 {
-        @apply bg-gradient-to-tl from-[rgba(29,161,242,0.5)-225%] via-[rgba(10,10,10,1)45%] to-[rgba(29,161,242,0.5)225%];
-    }
+  .bg-gradient-card4 {
+    @apply bg-gradient-to-tl from-[rgba(29,161,242,0.5)-225%] via-[rgba(10,10,10,1)45%] to-[rgba(29,161,242,0.5)225%];
+  }
 
-    .btn-transition {
-        @apply transition-all duration-300;
-    }
+  .btn-transition {
+    @apply transition-all duration-300;
+  }
 
-    .btn-scale {
-        @apply scale-105;
-    }
+  .btn-scale {
+    @apply scale-105;
+  }
 }

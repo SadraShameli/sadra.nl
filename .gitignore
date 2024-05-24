@@ -11,6 +11,7 @@
 # database
 /prisma/db.sqlite
 /prisma/db.sqlite-journal
+db.sqlite
 
 # next.js
 /.next/
@@ -40,15 +41,3 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
-
-# yarn
-*.lock
-.lock
-.pnp.*
-.yarn/*
-!.yarn/cache
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/sdks
-!.yarn/versions

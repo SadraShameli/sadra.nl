@@ -1,67 +1,65 @@
-import { Prisma, type Sensor } from '@prisma/client';
 import { type z } from 'zod';
+import { eq } from 'drizzle-orm';
 
 import {
-    type ContextType,
-    createTRPCRouter,
-    publicProcedure,
+  type ContextType,
+  createTRPCRouter,
+  publicProcedure,
 } from '~/server/api/trpc';
-import type Result from '~/types/result';
-import { getSensorProps } from '~/types/zod';
+import { type Result } from '../types/types';
+import { getSensorProps } from '../types/zod';
+import { reading, sensor } from '~/server/db/schema';
 
-export async function getSensors(ctx: ContextType): Promise<Result<Sensor[]>> {
-    const sensors = await ctx.db.sensor.findMany();
-    return { data: sensors };
+export async function getSensors(
+  ctx: ContextType,
+): Promise<Result<(typeof sensor.$inferSelect)[]>> {
+  const sensors = await ctx.db.query.sensor.findMany();
+  return { data: sensors };
 }
 
 export async function getSensor(
-    input: z.infer<typeof getSensorProps>,
-    ctx: ContextType,
-): Promise<Result<Sensor>> {
-    try {
-        const sensor = await ctx.db.sensor.findUniqueOrThrow({
-            where: { id: +input.id },
-        });
-        return { data: sensor };
-    } catch (e) {
-        if (e instanceof Prisma.PrismaClientKnownRequestError) {
-            if (e.code === 'P2025') {
-                return {
-                    error: `Sensor id ${input.id} not found`,
-                    status: 404,
-                };
-            }
-        }
-        return { error: e, status: 500 };
-    }
+  input: z.infer<typeof getSensorProps>,
+  ctx: ContextType,
+): Promise<Result<typeof sensor.$inferSelect>> {
+  const result = await ctx.db.query.sensor.findFirst({
+    where: (sensor, { eq }) => eq(sensor.id, +input.id),
+  });
+
+  if (!result)
+    return {
+      error: `Sensor id ${input.id} not found`,
+      status: 404,
+    };
+
+  return { data: result };
 }
 
 export async function getEnabledSensors(
-    ctx: ContextType,
-): Promise<Result<Sensor[]>> {
-    return {
-        data: await ctx.db.sensor.findMany({
-            where: {
-                enabled: true,
-                readings: { some: {} },
-            },
-            orderBy: {
-                id: 'asc',
-            },
-        }),
-    } as Result<Sensor[]>;
+  ctx: ContextType,
+): Promise<Result<(typeof sensor.$inferSelect)[]>> {
+  return {
+    data: (
+      await ctx.db
+        .select({ sensor })
+        .from(sensor)
+        .where((result) => eq(result.sensor.enabled, true))
+        .innerJoin(reading, eq(sensor.id, reading.sensorId))
+        .groupBy(sensor.id)
+        .orderBy(sensor.id)
+    ).map((result) => result.sensor),
+  };
 }
 
 export const sensorRouter = createTRPCRouter({
-    getSensors: publicProcedure.query(async ({ ctx }) => {
-        return getSensors(ctx);
+  getSensors: publicProcedure.query(async ({ ctx }) => {
+    return getSensors(ctx);
+  }),
+  getSensor: publicProcedure
+    .input(getSensorProps)
+    .query(async ({ input, ctx }) => {
+      return await getSensor(input, ctx);
     }),
-    getSensor: publicProcedure
-        .input(getSensorProps)
-        .query(async ({ input, ctx }) => {
-            return await getSensor(input, ctx);
-        }),
-    getEnabledSensors: publicProcedure.query(async ({ ctx }) => {
-        return getEnabledSensors(ctx);
-    }),
+  getEnabledSensors: publicProcedure.query(async ({ ctx }) => {
+    return getEnabledSensors(ctx);
+  }),
 });

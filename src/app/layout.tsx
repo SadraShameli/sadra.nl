@@ -8,23 +8,23 @@ import Resume from '~/data/Resume';
 import { TRPCReactProvider } from '~/trpc/react';
 
 export const metadata: Metadata = {
-    title: Resume.title,
-    description: Resume.description,
-    icons: { icon: '/favicon.ico', apple: '/apple-icon.png' },
+  title: Resume.title,
+  description: Resume.description,
+  icons: { icon: '/favicon.ico', apple: '/apple-icon.png' },
 };
 
 export default function RootLayout({
-    children,
+  children,
 }: {
-    children: React.ReactNode;
+  children: React.ReactNode;
 }) {
-    return (
-        <html lang="en" className="dark scroll-smooth antialiased">
-            <meta name="theme-color" content="#000" />
-            <body className={`${orbitron.variable} ${GeistSans.className}`}>
-                <TRPCReactProvider>{children}</TRPCReactProvider>
-                <SpeedInsights />
-            </body>
-        </html>
-    );
+  return (
+    <html lang="en" className="dark scroll-smooth antialiased">
+      <meta name="theme-color" content="#000" />
+      <body className={`${orbitron.variable} ${GeistSans.className}`}>
+        <TRPCReactProvider>{children}</TRPCReactProvider>
+        <SpeedInsights />
+      </body>
+    </html>
+  );
 }
