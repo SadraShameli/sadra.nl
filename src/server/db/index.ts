@@ -14,6 +14,6 @@ if (env.NODE_ENV !== 'production') globalForDb.conn = conn;
 
 export const db = drizzle(conn, { schema });
 
-export async function EndDBConnection() {
+export async function endDb() {
   await conn.end();
 }
