@@ -1,15 +1,17 @@
 /* eslint-disable drizzle/enforce-delete-with-where */
 import fs from 'fs';
-import { EndDBConnection, db } from '.';
+
 import {
-  location,
-  sensor,
   device,
+  location,
   reading,
   recording,
+  sensor,
   sensorsToDevices,
 } from './schema';
 import { getRecordingFileName } from '../api/routers/recording';
+
+import { EndDBConnection, db } from '.';
 
 async function main() {
   console.log('Seeding database');

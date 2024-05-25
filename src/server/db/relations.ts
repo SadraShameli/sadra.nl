@@ -1,10 +1,11 @@
 import { relations } from 'drizzle-orm';
+
 import {
-  location,
-  sensor,
   device,
+  location,
   reading,
   recording,
+  sensor,
   sensorsToDevices,
 } from './schema';
 

@@ -1,4 +1,4 @@
-import { type IResume } from '~/app/_components/Resume/ResumeTypes';
+import { type IResume } from '~/app/_components/Resume/types';
 import GithubIcon from '~/components/ui/Icons/Github';
 import InstagramIcon from '~/components/ui/Icons/Instagram';
 import WhatsAppIcon from '~/components/ui/Icons/WhatsApp';

@@ -19,10 +19,10 @@ import {
   DropdownMenuTrigger,
 } from '~/components/ui/DropDown';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
+import { type location, type sensor } from '~/server/db/schema';
 import { api } from '~/trpc/react';
 
 import { ReadingAreaChart } from './AreaChart';
-import { type sensor, type location } from '~/server/db/schema';
 
 type ReadingSectionProps = {
   sensors: (typeof sensor.$inferSelect)[];

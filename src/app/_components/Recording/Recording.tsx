@@ -13,7 +13,7 @@ import {
   Volume2,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import RevealAnimation from '~/components/ui/Animations/Reveal';
 import StaggerAnimation from '~/components/ui/Animations/Stagger';
@@ -23,44 +23,13 @@ import PauseIcon from '~/components/ui/Icons/Pause';
 import PlayIcon from '~/components/ui/Icons/Play';
 import { ScrollArea } from '~/components/ui/ScrollArea';
 import { Slider } from '~/components/ui/Slider';
-import {
-  type getRecordingNoFile,
-  type getRecordingsNoFile,
-} from '~/server/api/routers/recording';
+import { type getRecordingsNoFile } from '~/server/api/routers/recording';
+
+import { ConvertSecondsToString, GetRandom, GetRecordingURL } from './helpers';
 
 type RecordingSectionProps = {
   recordings: Awaited<ReturnType<typeof getRecordingsNoFile>>;
 };
-
-const GetRandom = (min: number, max: number | undefined) => {
-  if (!max) return 0;
-
-  min = Math.ceil(min);
-  max = Math.floor(max);
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-};
-
-const ConvertSecondsToString = (sec: number | undefined) => {
-  if (sec == undefined || Number.isNaN(sec) || !Number.isFinite(sec)) {
-    return;
-  }
-
-  const m = Math.floor((sec % 3600) / 60);
-  const s = Math.round(sec % 60);
-
-  const mS = m > 9 ? m : m || '0';
-  const sS = s > 9 ? s : '0' + s;
-  return `${mS}:${sS}`;
-};
-
-function GetRecordingURL(
-  recording: Awaited<ReturnType<typeof getRecordingNoFile>>,
-) {
-  if (recording) {
-    return `/api/recording/${recording.id}`;
-  }
-  return '';
-}
 
 export default function RecordingSection({
   recordings,
@@ -79,62 +48,39 @@ export default function RecordingSection({
   const [currentRecording, setCurrentRecording] = useState(recordings[0]);
   const [prevRecording, setPrevRecording] = useState(currentRecording);
 
-  useEffect(() => {
-    if (recordings.indexOf(currentRecording!) < recordings.length) {
-      if (prevRecording !== currentRecording) {
-        audio.current?.load();
-        setPrevRecording(currentRecording);
-      }
-      if (isPlaying) PlayAudio();
-    }
-  }, [currentRecording, isPlaying, prevRecording, recordings]);
-
-  useEffect(() => {
-    audio.current!.volume = volume;
-  }, [volume]);
-
-  useEffect(() => {
-    if (isMute) {
-      setPrevVolume(audio.current!.volume);
-      audio.current!.volume = 0;
-    } else {
-      audio.current!.volume = volume;
-    }
-  }, [isMute, prevVolume, volume]);
-
-  function LoadAudio() {
+  const LoadAudio = useCallback(() => {
     if (currentRecording && audio.current) {
       audio.current.src = GetRecordingURL(currentRecording);
       audio.current?.load();
       void audio.current.play();
       setCurrentTime(0);
     }
-  }
+  }, [currentRecording]);
 
-  function PlayAudio() {
+  const PlayAudio = useCallback(() => {
     void audio.current?.play();
     setIsPlaying(true);
-  }
+  }, []);
 
-  function UpdateAudioTime(value: number) {
+  const UpdateAudioTime = useCallback((value: number) => {
     audio.current!.currentTime = value;
     setCurrentTime(value);
-  }
+  }, []);
 
-  function OnAudioTimeUpdate() {
+  const OnAudioTimeUpdate = useCallback(() => {
     if (audio.current!.currentTime != 0) {
       setCurrentTime(audio.current!.currentTime);
     }
-  }
+  }, []);
 
-  function OnAudioPrevious() {
+  const OnAudioPrevious = useCallback(() => {
     if (currentRecording) {
       const idx = recordings.indexOf(currentRecording);
       if (idx) setCurrentRecording(recordings[idx - 1]);
     }
-  }
+  }, [currentRecording, recordings]);
 
-  function OnAudioPlause() {
+  const OnAudioPlause = useCallback(() => {
     if (!isPlaying) {
       void audio.current?.play();
       setIsPlaying(true);
@@ -144,28 +90,29 @@ export default function RecordingSection({
         setIsPlaying(false);
       } else PlayAudio();
     }
-  }
+  }, [PlayAudio, isPlaying]);
 
-  function OnAudioNext() {
+  const OnAudioNext = useCallback(() => {
     const idx = recordings.indexOf(currentRecording!);
     if (idx >= 0 && idx < recordings.length - 1)
       setCurrentRecording(recordings[idx + 1]);
     if (isPlaying) OnAudioPlause;
-  }
+  }, [OnAudioPlause, currentRecording, isPlaying, recordings]);
 
-  function OnAudioShuffle() {
+  const OnAudioShuffle = useCallback(() => {
     if (isRepeat) setIsRepeat((state) => !state);
-    if (isAutoPlay)
-      setCurrentRecording(recordings[GetRandom(0, recordings.length)]);
-    else setIsShuffle((value) => !value);
-  }
+    if (isAutoPlay) setIsShuffle((state) => !state);
+    setIsShuffle((value) => !value);
+    setCurrentRecording(recordings[GetRandom(0, recordings.length)]);
+  }, [isAutoPlay, isRepeat, recordings]);
 
-  function OnAudioRepeat() {
+  const OnAudioRepeat = useCallback(() => {
     if (isShuffle) setIsShuffle((state) => !state);
+    if (isAutoPlay) setIsAutoPlay((state) => !state);
     setIsRepeat((state) => !state);
-  }
+  }, [isAutoPlay, isShuffle]);
 
-  function OnAudioEnd() {
+  const OnAudioEnd = useCallback(() => {
     setCurrentRecording((value) => {
       if (isShuffle) return recordings[GetRandom(0, recordings.length - 1)];
       if (isAutoPlay) {
@@ -175,7 +122,26 @@ export default function RecordingSection({
       if (!isRepeat) setIsPlaying(false);
       return value;
     });
-  }
+  }, [currentRecording, isAutoPlay, isRepeat, isShuffle, recordings]);
+
+  useEffect(() => {
+    if (recordings.indexOf(currentRecording!) < recordings.length) {
+      if (prevRecording !== currentRecording) {
+        audio.current?.load();
+        setPrevRecording(currentRecording);
+      }
+      if (isPlaying) PlayAudio();
+    }
+  }, [PlayAudio, currentRecording, isPlaying, prevRecording, recordings]);
+
+  useEffect(() => {
+    if (isMute) {
+      setPrevVolume(audio.current!.volume);
+      audio.current!.volume = 0;
+      return;
+    }
+    audio.current!.volume = volume;
+  }, [isMute, prevVolume, volume]);
 
   return (
     <RevealAnimation>
@@ -259,7 +225,13 @@ export default function RecordingSection({
                   </button>
                 </div>
                 <div className="mt-5 flex items-center justify-center gap-x-3 text-neutral-400 xl:mt-0 xl:justify-end">
-                  <button onClick={() => setIsAutoPlay((state) => !state)}>
+                  <button
+                    onClick={() => {
+                      if (isShuffle) setIsShuffle((state) => !state);
+                      if (isRepeat) setIsRepeat((state) => !state);
+                      setIsAutoPlay((state) => !state);
+                    }}
+                  >
                     <ListEnd
                       className={`size-6 transition hover:text-white ${isAutoPlay && 'text-white'}`}
                     />

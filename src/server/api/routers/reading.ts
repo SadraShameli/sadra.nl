@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { and, desc, eq, gte, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 
 import {
@@ -6,18 +7,20 @@ import {
   createTRPCRouter,
   publicProcedure,
 } from '~/server/api/trpc';
-import { type Result } from '../types/types';
+import { reading } from '~/server/db/schema';
+
+import { getDevice } from './device';
+import { getEnabledSensors, getSensor } from './sensor';
+import {
+  type GetReadingsRecord,
+  type ReadingRecord,
+  type Result,
+} from '../types/types';
 import {
   createReadingProps,
   getLocationProps,
   type getReadingProps,
 } from '../types/zod';
-
-import { getDevice } from './device';
-import { getEnabledSensors, getSensor } from './sensor';
-import { type GetReadingsRecord, type ReadingRecord } from '../types/types';
-import { reading } from '~/server/db/schema';
-import { and, eq, gte, inArray, desc } from 'drizzle-orm';
 
 export async function getReading(
   input: z.infer<typeof getReadingProps>,

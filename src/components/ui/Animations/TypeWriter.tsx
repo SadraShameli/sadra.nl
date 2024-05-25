@@ -5,12 +5,12 @@ import { useEffect } from 'react';
 
 import CursorBlinkerAnimation from './CursorBlink';
 
-export interface TypeWriterProps {
+export type TypeWriterProps = {
   className?: string;
   text: string;
   delay?: number;
   cursor?: boolean;
-}
+};
 
 export default function TypeWriterAnimation({
   className,

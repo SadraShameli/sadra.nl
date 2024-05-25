@@ -1,14 +1,15 @@
-import { type z } from 'zod';
 import { eq } from 'drizzle-orm';
+import { type z } from 'zod';
 
 import {
   type ContextType,
   createTRPCRouter,
   publicProcedure,
 } from '~/server/api/trpc';
+import { reading, sensor } from '~/server/db/schema';
+
 import { type Result } from '../types/types';
 import { getSensorProps } from '../types/zod';
-import { reading, sensor } from '~/server/db/schema';
 
 export async function getSensors(
   ctx: ContextType,

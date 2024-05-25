@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { type z } from 'zod';
-import { type createReadingProps } from '~/server/api/types/zod';
 
+import { type createReadingProps } from '~/server/api/types/zod';
 import { api } from '~/trpc/server';
 
 export async function GET() {

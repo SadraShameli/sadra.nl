@@ -58,12 +58,8 @@
           "name": "sadra.nl_device_location_id_sadra.nl_location_id_fk",
           "tableFrom": "sadra.nl_device",
           "tableTo": "sadra.nl_location",
-          "columnsFrom": [
-            "location_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["location_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -73,9 +69,7 @@
         "sadra.nl_device_device_id_unique": {
           "name": "sadra.nl_device_device_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "device_id"
-          ]
+          "columns": ["device_id"]
         }
       }
     },
@@ -122,16 +116,12 @@
         "sadra.nl_location_location_name_unique": {
           "name": "sadra.nl_location_location_name_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "location_name"
-          ]
+          "columns": ["location_name"]
         },
         "sadra.nl_location_location_id_unique": {
           "name": "sadra.nl_location_location_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "location_id"
-          ]
+          "columns": ["location_id"]
         }
       }
     },
@@ -183,12 +173,8 @@
           "name": "sadra.nl_reading_sensor_id_sadra.nl_sensor_id_fk",
           "tableFrom": "sadra.nl_reading",
           "tableTo": "sadra.nl_sensor",
-          "columnsFrom": [
-            "sensor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["sensor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -196,12 +182,8 @@
           "name": "sadra.nl_reading_location_id_sadra.nl_location_id_fk",
           "tableFrom": "sadra.nl_reading",
           "tableTo": "sadra.nl_location",
-          "columnsFrom": [
-            "location_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["location_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -209,12 +191,8 @@
           "name": "sadra.nl_reading_device_id_sadra.nl_device_id_fk",
           "tableFrom": "sadra.nl_reading",
           "tableTo": "sadra.nl_device",
-          "columnsFrom": [
-            "device_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["device_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -270,12 +248,8 @@
           "name": "sadra.nl_recording_location_id_sadra.nl_location_id_fk",
           "tableFrom": "sadra.nl_recording",
           "tableTo": "sadra.nl_location",
-          "columnsFrom": [
-            "location_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["location_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -283,12 +257,8 @@
           "name": "sadra.nl_recording_device_id_sadra.nl_device_id_fk",
           "tableFrom": "sadra.nl_recording",
           "tableTo": "sadra.nl_device",
-          "columnsFrom": [
-            "device_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["device_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -339,9 +309,7 @@
         "sadra.nl_sensor_name_unique": {
           "name": "sadra.nl_sensor_name_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "name"
-          ]
+          "columns": ["name"]
         }
       }
     },
@@ -368,12 +336,8 @@
           "name": "sadra.nl_sensors_to_devices_sensor_id_sadra.nl_sensor_id_fk",
           "tableFrom": "sadra.nl_sensors_to_devices",
           "tableTo": "sadra.nl_sensor",
-          "columnsFrom": [
-            "sensor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["sensor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -381,12 +345,8 @@
           "name": "sadra.nl_sensors_to_devices_device_id_sadra.nl_device_id_fk",
           "tableFrom": "sadra.nl_sensors_to_devices",
           "tableTo": "sadra.nl_device",
-          "columnsFrom": [
-            "device_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["device_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }

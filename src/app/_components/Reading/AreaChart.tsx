@@ -12,7 +12,7 @@ import {
   Title,
   Tooltip,
 } from 'chart.js';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Line } from 'react-chartjs-2';
 import colors from 'tailwindcss/colors';
 
@@ -78,19 +78,20 @@ const options: ChartOptions<'line'> = {
 };
 
 export function ReadingAreaChart({ xAxis, yAxis, yName }: ReadingChartProps) {
-  const chartData: ChartData<'line'> = {
-    labels: xAxis,
-    datasets: [
-      {
-        fill: true,
-        label: yName,
-        data: yAxis,
-        borderColor: colors.neutral[400],
-        backgroundColor: colors.neutral[800],
-      },
-    ],
-  };
+  const chartData = useMemo<ChartData<'line'>>(() => {
+    return {
+      labels: xAxis,
+      datasets: [
+        {
+          fill: true,
+          label: yName,
+          data: yAxis,
+          borderColor: colors.neutral[400],
+          backgroundColor: colors.neutral[800],
+        },
+      ],
+    };
+  }, [xAxis, yAxis, yName]);
 
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   return <Line options={options} data={chartData} />;
 }

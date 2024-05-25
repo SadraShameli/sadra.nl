@@ -9,12 +9,28 @@ import {
 } from 'framer-motion';
 import { useRef } from 'react';
 
-interface AnimatedTextProps {
+type AnimatedTextProps = {
   className?: string;
   text: string;
   splitChar?: boolean;
   el?: keyof JSX.IntrinsicElements;
-}
+};
+
+const defaultVariants: Variants = {
+  hidden: {
+    opacity: 0,
+    y: -10,
+  },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      ease: easeOut,
+    },
+  },
+};
+
+const defaultTransition: Transition = { staggerChildren: 0.1 };
 
 export default function TextAnimation({
   className,
@@ -22,22 +38,6 @@ export default function TextAnimation({
   el: Wrapper = 'p',
   splitChar,
 }: AnimatedTextProps) {
-  const defaultVariants: Variants = {
-    hidden: {
-      opacity: 0,
-      y: -10,
-    },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        ease: easeOut,
-      },
-    },
-  };
-
-  const defaultTransition: Transition = { staggerChildren: 0.1 };
-
   const ref = useRef(null);
   const isInView = useInView(ref, { amount: 0.5, once: true });
 

@@ -1,3 +1,4 @@
+import { and, eq } from 'drizzle-orm';
 import { type z } from 'zod';
 
 import {
@@ -5,16 +6,15 @@ import {
   createTRPCRouter,
   publicProcedure,
 } from '~/server/api/trpc';
+import { type device, type recording } from '~/server/db/schema';
+
+import { getSensor } from './sensor';
 import { type GetDeviceProps, type Result } from '../types/types';
 import {
   getDeviceProps,
   getDeviceReadingsProps,
   getDeviceRecordingsProps,
 } from '../types/zod';
-
-import { getSensor } from './sensor';
-import { type device, type recording } from '~/server/db/schema';
-import { and, eq } from 'drizzle-orm';
 
 export async function getDevice(
   input: z.infer<typeof getDeviceProps>,

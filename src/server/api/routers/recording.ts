@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { desc, eq } from 'drizzle-orm';
 import { type z } from 'zod';
 
 import {
@@ -6,12 +7,11 @@ import {
   createTRPCRouter,
   publicProcedure,
 } from '~/server/api/trpc';
-import { type Result } from '../types/types';
-import { createRecordingProps, getRecordingProps } from '../types/zod';
+import { recording } from '~/server/db/schema';
 
 import { getDevice } from './device';
-import { desc, eq } from 'drizzle-orm';
-import { recording } from '~/server/db/schema';
+import { type Result } from '../types/types';
+import { createRecordingProps, getRecordingProps } from '../types/zod';
 
 export function getRecordingFileName(date: Date) {
   return `${format(date, 'MMM d, y - HH.mm')}.wav`;

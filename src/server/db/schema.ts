@@ -8,6 +8,7 @@ import {
   timestamp,
   varchar,
 } from 'drizzle-orm/pg-core';
+
 import { bytea } from './types';
 
 export const createTable = pgTableCreator((name) => `sadra.nl_${name}`);

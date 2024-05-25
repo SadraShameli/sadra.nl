@@ -6,7 +6,7 @@ import RevealAnimation from '~/components/ui/Animations/Reveal';
 import StaggerAnimation from '~/components/ui/Animations/Stagger';
 import Card from '~/components/ui/Card';
 
-import { type IResumeSection } from './ResumeTypes';
+import { type IResumeSection } from './types';
 
 interface ResumeProps {
   title: string;
