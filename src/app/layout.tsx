@@ -1,3 +1,4 @@
+import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { GeistSans } from 'geist/font/sans';
 import { type Metadata } from 'next';
@@ -23,6 +24,7 @@ export default function RootLayout({
       <meta name="theme-color" content="#000" />
       <body className={`${orbitron.variable} ${GeistSans.className}`}>
         <TRPCReactProvider>{children}</TRPCReactProvider>
+        <Analytics />
         <SpeedInsights />
       </body>
     </html>
