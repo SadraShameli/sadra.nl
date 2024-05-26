@@ -19,8 +19,8 @@ export async function POST(request: NextRequest) {
       device_id: body.device_id,
       sensors: body.sensors,
     });
-    if (result.data) {
-      return NextResponse.json({}, { status: result.status });
+    if (result.status == 201) {
+      return new NextResponse(null, { status: result.status });
     }
     return NextResponse.json(result, { status: result.status });
   } catch (e) {

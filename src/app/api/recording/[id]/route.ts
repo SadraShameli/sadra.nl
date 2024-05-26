@@ -30,15 +30,15 @@ export async function POST(
   { params }: { params: RequestProps },
 ) {
   const buffer = Buffer.from(await (await request.blob()).arrayBuffer());
-  const recordingResult = await api.recording.createRecording({
+  const result = await api.recording.createRecording({
     device: { device_id: params.id },
     recording: buffer,
   });
 
-  if (recordingResult.data) {
-    return NextResponse.json({}, { status: recordingResult.status });
+  if (result.status == 201) {
+    return new NextResponse(null, { status: result.status });
   }
-  return NextResponse.json(recordingResult, {
-    status: recordingResult.status,
+  return NextResponse.json(result, {
+    status: result.status,
   });
 }
