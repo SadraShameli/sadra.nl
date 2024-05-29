@@ -1,12 +1,17 @@
-import { CalendarDays, Cog, ExternalLink, MapPin } from 'lucide-react';
+import {
+  CalendarDays,
+  ChevronRight,
+  Cog,
+  ExternalLink,
+  MapPin,
+} from 'lucide-react';
 import Image, { type StaticImageData } from 'next/image';
 import Link from 'next/link';
 
 import RevealAnimation from '~/components/ui/Animations/Reveal';
 import StaggerAnimation from '~/components/ui/Animations/Stagger';
 import Card from '~/components/ui/Card';
-
-import { type IResumeSection } from './types';
+import { type IResumeSection } from '~/data/Resume/types';
 
 interface ResumeProps {
   title: string;
@@ -26,14 +31,15 @@ export default function ResumeItem({ title, sections, img }: ResumeProps) {
               return (
                 <div key={index}>
                   <div className="mt-8 flex flex-col justify-between md:flex-row md:items-center">
-                    <Link
-                      className="flex w-fit items-center border-b border-dashed border-transparent text-2xl font-semibold leading-none text-white transition hover:border-current"
-                      href={section.url}
-                    >
-                      <ExternalLink />
-                      <span className="pl-2">{section.title}</span>
-                    </Link>
-
+                    {section.url ? (
+                      <Link
+                        className="flex w-fit items-center border-b border-dashed border-transparent text-2xl font-semibold leading-none text-white transition hover:border-current"
+                        href={section.url}
+                      >
+                        <ExternalLink />
+                        <span className="pl-2">{section.title}</span>
+                      </Link>
+                    ) : null}
                     <span className="bg-gradient-purple-anim mt-1 text-lg font-semibold md:mt-auto">
                       {section.role}
                     </span>
@@ -69,7 +75,9 @@ export default function ResumeItem({ title, sections, img }: ResumeProps) {
                       {section.highlights.map((highlight, index) => {
                         return (
                           <li className="flex text-justify" key={index}>
-                            <span className="mr-2">+</span>
+                            <div className="mr-1 mt-[2px]">
+                              <ChevronRight className="size-5" />
+                            </div>
                             {highlight}
                           </li>
                         );

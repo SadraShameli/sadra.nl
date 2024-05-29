@@ -11,7 +11,7 @@ import { useRef } from 'react';
 
 type StaggerProps = {
   className?: string;
-  children?: JSX.Element[];
+  children?: React.ReactNode[];
 };
 
 const defaultVariants: Variants = {

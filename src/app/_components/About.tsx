@@ -4,7 +4,7 @@ import Card from '~/components/ui/Card';
 import GallerySection from './GallerySection';
 
 // import Image from 'next/image';
-// import ProfilePicture from '~/assets/images/me.jpg';
+// import ProfilePicture from '~/assets/images/sadra.jpg';
 // import StaggerAnimation from '~/components/ui/Animations/Stagger';
 // import Resume from '~/data/Resume';
 

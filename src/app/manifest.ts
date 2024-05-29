@@ -1,12 +1,12 @@
 import { type MetadataRoute } from 'next';
 
-import Resume from '~/data/Resume';
+import ResumeSadra from '~/data/Resume/Sadra';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: Resume.basics.title,
-    short_name: Resume.title,
-    description: Resume.description,
+    name: ResumeSadra.basics.title,
+    short_name: ResumeSadra.title,
+    description: ResumeSadra.description,
     start_url: '/',
     display: 'standalone',
     background_color: '#000',

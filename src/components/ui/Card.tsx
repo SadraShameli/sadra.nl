@@ -1,5 +1,5 @@
 interface CardProps {
-  children: JSX.Element | JSX.Element[];
+  children: React.ReactNode | React.ReactNode[];
 }
 
 export default function Card({ children }: CardProps) {

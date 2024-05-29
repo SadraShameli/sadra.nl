@@ -1,7 +1,7 @@
 import diplomaImg from '~/assets/images/diploma.jpg';
 import projectAiImg from '~/assets/images/projectai.jpg';
 import workImg from '~/assets/images/units.jpg';
-import Resume from '~/data/Resume';
+import ResumeSadra from '~/data/Resume/Sadra';
 
 import ResumeItem from './ResumeItem';
 
@@ -11,15 +11,19 @@ export default function ResumeSection() {
       <ResumeItem
         title="Projects"
         img={projectAiImg}
-        sections={Resume.projects}
+        sections={ResumeSadra.projects}
       />
 
-      <ResumeItem title="Work" img={workImg} sections={Resume.works} />
+      <ResumeItem
+        title="Experience"
+        img={workImg}
+        sections={ResumeSadra.experience}
+      />
 
       <ResumeItem
         title="Education"
         img={diplomaImg}
-        sections={Resume.educations}
+        sections={ResumeSadra.education}
       />
     </div>
   );

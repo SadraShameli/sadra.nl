@@ -1,13 +1,13 @@
 import Image from 'next/image';
 
-import ProfilePicture from '~/assets/images/me.jpg';
+import ProfilePicture from '~/assets/images/sadra.jpg';
 import SectionDescription from '~/components/SectionDescription';
 import SectionText from '~/components/SectionText';
 import SectionTitle from '~/components/SectionTitle';
 import RevealAnimation from '~/components/ui/Animations/Reveal';
 import TypeWriterAnimation from '~/components/ui/Animations/TypeWriter';
 import GridBackground from '~/components/ui/GridBg';
-import Resume from '~/data/Resume';
+import ResumeSadra from '~/data/Resume/Sadra';
 import { api } from '~/trpc/server';
 
 import AboutSection from './_components/About';
@@ -32,11 +32,11 @@ export default async function HomePage() {
             <RevealAnimation>
               <div className="flex flex-col gap-y-3">
                 <h1 className="text-3xl font-semibold text-white md:text-6xl xl:text-7xl">
-                  {Resume.basics.title}
+                  {ResumeSadra.basics.title}
                 </h1>
                 <TypeWriterAnimation
                   className="bg-gradient-purple-anim text-lg font-semibold md:text-xl"
-                  text={Resume.description}
+                  text={ResumeSadra.description}
                 />
               </div>
             </RevealAnimation>

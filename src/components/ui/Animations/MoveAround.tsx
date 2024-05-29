@@ -8,7 +8,7 @@ import {
 
 type MoveAroundProps = {
   className?: string;
-  children?: JSX.Element;
+  children?: React.ReactNode;
 };
 
 const defaultAnimation: TargetAndTransition = {

@@ -9,7 +9,7 @@ import {
 import { useRef } from 'react';
 
 type RevealProps = {
-  children: JSX.Element;
+  children: React.ReactNode;
 };
 
 const defaultVariants: Variants = {
