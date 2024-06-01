@@ -3,6 +3,7 @@ import {
   boolean,
   integer,
   pgTableCreator,
+  primaryKey,
   real,
   serial,
   timestamp,
@@ -79,11 +80,17 @@ export const recording = createTable('recording', {
   file: bytea('file').notNull(),
 });
 
-export const sensorsToDevices = createTable('sensors_to_devices', {
-  sensor_id: integer('sensor_id')
-    .notNull()
-    .references(() => sensor.id),
-  device_id: integer('device_id')
-    .notNull()
-    .references(() => device.id),
-});
+export const sensorsToDevices = createTable(
+  'sensors_to_devices',
+  {
+    sensor_id: integer('sensor_id')
+      .notNull()
+      .references(() => sensor.id),
+    device_id: integer('device_id')
+      .notNull()
+      .references(() => device.id),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.sensor_id, table.device_id] }),
+  }),
+);
