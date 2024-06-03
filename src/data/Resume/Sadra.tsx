@@ -18,7 +18,7 @@ const ResumeSadra: IResume = {
     email: 'sadra.shameli1@gmail.com',
     phone: '+31 06 85156033',
     birth: '11/12/2003',
-    summary: `Full-stack & embedded developer, based in Rijswijk, the Netherlands. My tech stack consists of TypeScript, React and Next together with tRPC, Drizzle and NextAuth. I am also experienced in building IoT devices and robots.`,
+    summary: `Full-stack developer with 3 years of experience. Skilled in TypeScript, React and Next.js together with tRPC, Prisma, Drizzle and NextAuth for building type-safe apps. Skilled in TailwindCSS, Material UI and Framer Motion for making great looking UI. I am also experienced in building IoT devices.`,
     summary2: `I am Sadra Shameli, ${age} years old, living in Rijswijk, The Netherlands. I trade index futures and crypto. Besides that, I build cool things and love photography.`,
     location: {
       title: 'Rijswijk, The Netherlands',
@@ -85,7 +85,7 @@ const ResumeSadra: IResume = {
       url: 'https://bluestarplanning.com',
       summary:
         'Blue Star Planning is specialized in the development and realization of Advanced Planning and Scheduling systems.',
-      role: 'Full-stack & embedded',
+      role: 'Full-stack & IoT',
       highlights: [
         'Developed various IoT devices including 3D printing. Intended to gather various data, such as sound recordings, loudness, temperature and humidity, air quality and RPM values. The devices are placed at different locations in The Netherlands.',
         'Developed the back-end to process the data gathered by the devices as well as the front-end, where the sound recordings and loudness values are available.',
