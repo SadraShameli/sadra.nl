@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { and, desc, eq, gte, inArray } from 'drizzle-orm';
-import { z } from 'zod';
+import { type z } from 'zod';
 
 import {
   type ContextType,

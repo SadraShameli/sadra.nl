@@ -5,7 +5,7 @@ import {
   createTRPCRouter,
   publicProcedure,
 } from '~/server/api/trpc';
-import { sensor } from '~/server/db/schema';
+import { type sensor } from '~/server/db/schema';
 
 import { type Result } from '../types/types';
 import { getSensorProps } from '../types/zod';

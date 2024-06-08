@@ -3,6 +3,7 @@ import { LocationSeed } from './seeds/location';
 import { ReadingSeed } from './seeds/reading';
 import { RecordingSeed } from './seeds/recording';
 import { SensorSeed } from './seeds/sensor';
+import { SensorsToDevicesSeed } from './seeds/sensorsToDevices';
 
 import { endDb } from '.';
 
@@ -15,6 +16,7 @@ async function main() {
     DeviceSeed(),
     ReadingSeed(),
     RecordingSeed(),
+    SensorsToDevicesSeed(),
   ]);
 }
 
@@ -28,6 +30,6 @@ main()
   .finally(() => {
     void (async () => {
       await endDb();
-      process.exit(1);
+      process.exit(0);
     })();
   });

@@ -1,4 +1,5 @@
 'use client';
+import { keepPreviousData } from '@tanstack/react-query';
 import {
   AreaChart as ChartLIcon,
   MapPin,
@@ -23,7 +24,6 @@ import { type location } from '~/server/db/schema';
 import { api } from '~/trpc/react';
 
 import { ReadingAreaChart } from './AreaChart';
-import { keepPreviousData } from '@tanstack/react-query';
 
 type ReadingSectionProps = {
   locations: (typeof location.$inferSelect)[];
@@ -71,7 +71,7 @@ export default function ReadingSection({
         setCurrentSensor(sensors.at(-1)?.name);
       }
     }
-  }, [sensors]);
+  }, [currentSensor, oldSensors, sensors]);
 
   if (!currentReading.data?.data?.length || !sensors?.length) return;
 
