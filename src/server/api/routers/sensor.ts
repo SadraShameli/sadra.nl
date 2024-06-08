@@ -1,4 +1,3 @@
-import { eq } from 'drizzle-orm';
 import { type z } from 'zod';
 
 import {
@@ -6,7 +5,7 @@ import {
   createTRPCRouter,
   publicProcedure,
 } from '~/server/api/trpc';
-import { reading, sensor } from '~/server/db/schema';
+import { sensor } from '~/server/db/schema';
 
 import { type Result } from '../types/types';
 import { getSensorProps } from '../types/zod';
@@ -35,22 +34,6 @@ export async function getSensor(
   return { data: result };
 }
 
-export async function getEnabledSensors(
-  ctx: ContextType,
-): Promise<Result<(typeof sensor.$inferSelect)[]>> {
-  return {
-    data: (
-      await ctx.db
-        .select({ sensor })
-        .from(sensor)
-        .where((result) => eq(result.sensor.enabled, true))
-        .innerJoin(reading, eq(sensor.id, reading.sensor_id))
-        .groupBy(sensor.id)
-        .orderBy(sensor.id)
-    ).map((result) => result.sensor),
-  };
-}
-
 export const sensorRouter = createTRPCRouter({
   getSensors: publicProcedure.query(async ({ ctx }) => {
     return getSensors(ctx);
@@ -60,7 +43,4 @@ export const sensorRouter = createTRPCRouter({
     .query(async ({ input, ctx }) => {
       return await getSensor(input, ctx);
     }),
-  getEnabledSensors: publicProcedure.query(async ({ ctx }) => {
-    return getEnabledSensors(ctx);
-  }),
 });

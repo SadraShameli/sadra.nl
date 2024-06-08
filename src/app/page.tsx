@@ -20,7 +20,6 @@ import SocialsSection from './_components/Socials';
 export default async function HomePage() {
   const recordings = await api.recording.getRecordingsNoFile();
   const locations = (await api.location.getLocationsWithReading()).data;
-  const sensors = (await api.sensor.getEnabledSensors()).data;
 
   return (
     <>
@@ -54,17 +53,13 @@ export default async function HomePage() {
         {recordings.length ? (
           <div className="mx-auto my-content max-w-content">
             <SectionTitle text="Noise recordings" />
-            <SectionDescription text="Here you will find a list of noise recordings made by my devices, which are placed at various locations in Rotterdam and Rijswijk, The Netherlands, gathering climate and loudness levels." />
+            <SectionDescription text="Here you will find a list of noise recordings made by my devices, which are placed at various locations in The Netherlands." />
             <RecordingSection recordings={recordings} />
           </div>
         ) : null}
 
-        {locations?.[0] && sensors?.[0] ? (
-          <ReadingSection
-            sensors={sensors}
-            locations={locations}
-            location={locations[0]}
-          />
+        {locations?.[0] ? (
+          <ReadingSection locations={locations} location={locations[0]} />
         ) : null}
 
         <div className="mx-auto my-content max-w-content">

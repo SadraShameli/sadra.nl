@@ -11,7 +11,7 @@ export async function GET(
   { params }: { params: RequestProps },
 ) {
   const result = await api.location.getLocationReadings({
-    location: { location_id: params.id },
+    location: { location_id: +params.id },
   });
   if (result.data) {
     return NextResponse.json(result.data, { status: result.status });

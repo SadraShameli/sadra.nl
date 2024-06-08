@@ -22,7 +22,7 @@ export async function getLocation(
   ctx: ContextType,
 ): Promise<Result<typeof location.$inferSelect>> {
   const result = await ctx.db.query.location.findFirst({
-    where: (location) => eq(location.location_id, +input.location_id),
+    where: (location) => eq(location.location_id, input.location_id),
   });
 
   if (!result) {
@@ -42,7 +42,7 @@ export const locationRouter = createTRPCRouter({
     >;
   }),
   getLocation: publicProcedure
-    .input(z.object({ location_id: z.string() }))
+    .input(getLocationProps)
     .query(async ({ input, ctx }) => {
       return await getLocation(input, ctx);
     }),
@@ -124,7 +124,7 @@ export const locationRouter = createTRPCRouter({
               ? eq(reading.location_id, location.data.id)
               : undefined,
             input?.sensor_id
-              ? eq(reading.sensor_id, +input.sensor_id)
+              ? eq(reading.sensor_id, input.sensor_id)
               : undefined,
           ),
       });

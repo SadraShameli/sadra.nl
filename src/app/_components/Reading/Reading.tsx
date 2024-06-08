@@ -4,7 +4,7 @@ import {
   MapPin,
   ThermometerSnowflake,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import SectionDescription from '~/components/SectionDescription';
 import SectionTitle from '~/components/SectionTitle';
@@ -19,46 +19,75 @@ import {
   DropdownMenuTrigger,
 } from '~/components/ui/DropDown';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
-import { type location, type sensor } from '~/server/db/schema';
+import { type location } from '~/server/db/schema';
 import { api } from '~/trpc/react';
 
 import { ReadingAreaChart } from './AreaChart';
+import { keepPreviousData } from '@tanstack/react-query';
 
 type ReadingSectionProps = {
-  sensors: (typeof sensor.$inferSelect)[];
   locations: (typeof location.$inferSelect)[];
   location: typeof location.$inferSelect;
 };
 
 export default function ReadingSection({
-  sensors,
   locations,
   location,
 }: ReadingSectionProps) {
   const [currentLocation, setCurrentLocation] = useState(location);
-  const currentReadingResponse = api.reading.getReadingsLatest.useQuery({
-    location_id: currentLocation.id.toString(),
-  });
-  const [currentReading, setCurrentReading] = useState(
-    currentReadingResponse.data?.data,
+  const currentReading = api.reading.getReadingsLatest.useQuery(
+    {
+      location_id: currentLocation.id,
+    },
+    { placeholderData: keepPreviousData },
+  );
+
+  const [oldSensors, setOldSensors] = useState<
+    | {
+        id: number;
+        created_at: Date;
+        name: string;
+        unit: string;
+      }[]
+    | undefined
+  >();
+
+  const [currentSensor, setCurrentSensor] = useState<string>();
+  const sensors = useMemo(
+    () => currentReading.data?.data?.map((reading) => reading.sensor),
+    [currentReading.data?.data],
   );
 
   useEffect(() => {
-    if (currentReadingResponse.data?.data) {
-      setCurrentReading(currentReadingResponse.data.data);
+    if (oldSensors === undefined && sensors != undefined) {
+      setOldSensors(sensors);
+      setCurrentSensor(sensors[0]?.name);
+    } else if (sensors?.length && oldSensors?.length) {
+      setOldSensors(sensors);
+      if (
+        currentSensor &&
+        !sensors.find((sensor) => sensor.name == currentSensor)
+      ) {
+        setCurrentSensor(sensors.at(-1)?.name);
+      }
     }
-  }, [currentReadingResponse]);
+  }, [sensors]);
 
-  if (!currentReading) return;
+  if (!currentReading.data?.data?.length || !sensors?.length) return;
 
   return (
     <div className="mx-auto my-content w-full max-w-content">
       <SectionTitle text="Live readings" />
-      <SectionDescription text="Ever been curious about the loudness, temperature, humidity and air pressure at various locations in real time?" />
+      <SectionDescription text="Ever been curious about the temperature, humidity and loudness levels at various locations in real time?" />
 
       <RevealAnimation>
         <Card>
-          <Tabs className="grid gap-y-3" defaultValue={sensors?.[0]?.name}>
+          <Tabs
+            className="grid gap-y-3"
+            defaultValue={sensors[0]?.name}
+            value={currentSensor}
+            onValueChange={(value) => setCurrentSensor(value)}
+          >
             <div className="flex flex-col items-center justify-between gap-y-5 md:flex-row">
               <TabsList>
                 {sensors.map((sensor, index) => {
@@ -78,7 +107,7 @@ export default function ReadingSection({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
                   <DropdownMenuRadioGroup
-                    value={currentLocation?.name}
+                    value={currentLocation.name}
                     onValueChange={(value) => {
                       const location = locations.find(
                         (location) => location.name == value,
@@ -102,10 +131,10 @@ export default function ReadingSection({
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-            {currentReading.map((reading, index) => {
+            {currentReading.data.data.map((reading, index) => {
               return (
                 <TabsContent
-                  className={currentReadingResponse.isLoading ? 'shimmer' : ''}
+                  className={currentReading.isLoading ? 'shimmer' : ''}
                   value={reading.sensor.name}
                   key={index}
                 >

@@ -12,8 +12,8 @@ export async function GET(
   { params }: { params: RequestProps },
 ) {
   const result = await api.device.getDeviceReadings({
-    device: { device_id: params.id },
-    sensor_id: params.sensor_id,
+    device: { device_id: +params.id },
+    sensor_id: +params.sensor_id,
   });
   if (result.data) {
     return NextResponse.json(result.data, { status: result.status });

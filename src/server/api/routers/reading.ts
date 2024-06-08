@@ -7,10 +7,10 @@ import {
   createTRPCRouter,
   publicProcedure,
 } from '~/server/api/trpc';
-import { reading } from '~/server/db/schema';
+import { reading, sensor } from '~/server/db/schema';
 
 import { getDevice } from './device';
-import { getEnabledSensors, getSensor } from './sensor';
+import { getSensor } from './sensor';
 import {
   type GetReadingsRecord,
   type ReadingRecord,
@@ -19,7 +19,7 @@ import {
 import {
   createReadingProps,
   getLocationProps,
-  type getReadingProps,
+  getReadingProps,
 } from '../types/zod';
 
 export async function getReading(
@@ -27,7 +27,7 @@ export async function getReading(
   ctx: ContextType,
 ): Promise<Result<typeof reading.$inferSelect>> {
   const result = await ctx.db.query.reading.findFirst({
-    where: (reading) => eq(reading.id, +input.id),
+    where: (reading) => eq(reading.id, input.id),
   });
 
   if (!result)
@@ -46,17 +46,14 @@ export const readingRouter = createTRPCRouter({
     >;
   }),
   getReading: publicProcedure
-    .input(z.object({ id: z.string() }))
+    .input(getReadingProps)
     .query(async ({ input, ctx }) => {
       return await getReading(input, ctx);
     }),
   createReading: publicProcedure
     .input(createReadingProps)
     .mutation(async ({ input, ctx }) => {
-      const device = await getDevice(
-        { device_id: input.device_id.toString() },
-        ctx,
-      );
+      const device = await getDevice({ device_id: input.device_id }, ctx);
 
       if (!device.data) {
         return device;
@@ -71,7 +68,7 @@ export const readingRouter = createTRPCRouter({
           };
         }
 
-        const sensorResult = await getSensor({ id: sensor }, ctx);
+        const sensorResult = await getSensor({ id: +sensor }, ctx);
         if (!sensorResult.data) {
           return sensorResult;
         }
@@ -89,11 +86,6 @@ export const readingRouter = createTRPCRouter({
   getReadingsLatest: publicProcedure
     .input(getLocationProps)
     .query(async ({ input, ctx }): Promise<Result<GetReadingsRecord[]>> => {
-      const sensors = await getEnabledSensors(ctx);
-      if (!sensors.data) {
-        return { error: sensors.error, status: sensors.status };
-      }
-
       const latestReading = await ctx.db
         .select()
         .from(reading)
@@ -108,15 +100,11 @@ export const readingRouter = createTRPCRouter({
       }
 
       const period = 24;
-      const readings = await ctx.db.query.reading.findMany({
-        where: (reading) =>
+      const readings = await ctx.db
+        .select()
+        .from(reading)
+        .where(
           and(
-            sensors.data
-              ? inArray(
-                  reading.sensor_id,
-                  sensors.data.map((sensor) => sensor.id),
-                )
-              : undefined,
             eq(reading.location_id, +input.location_id),
             gte(
               reading.created_at,
@@ -125,7 +113,7 @@ export const readingRouter = createTRPCRouter({
               ),
             ),
           ),
-      });
+        );
 
       if (readings.length === 0) {
         return {
@@ -133,17 +121,22 @@ export const readingRouter = createTRPCRouter({
         };
       }
 
+      const sensorIDs = [
+        ...new Set(readings.map((reading) => reading.sensor_id)),
+      ];
+
+      const sensors = await ctx.db.query.sensor.findMany({
+        where: inArray(sensor.id, sensorIDs),
+      });
+
       const readingsRecord: GetReadingsRecord[] = [];
-      sensors.data.map((sensor) => {
+      sensors.map((sensor) => {
         const filteredReadings: ReadingRecord[] = readings
-          .filter((reading) => {
-            return reading.sensor_id === sensor.id;
-          })
+          .filter((reading) => reading.sensor_id == sensor.id)
           .map((reading) => {
             return {
               date: format(reading.created_at, 'H:mm'),
               value: reading.value,
-              sensor_id: reading.sensor_id,
             };
           });
 

@@ -21,7 +21,7 @@ export async function getDevice(
   ctx: ContextType,
 ): Promise<Result<GetDeviceProps>> {
   const result = await ctx.db.query.device.findFirst({
-    where: (device) => eq(device.device_id, +input.device_id),
+    where: (device) => eq(device.device_id, input.device_id),
   });
 
   if (!result)

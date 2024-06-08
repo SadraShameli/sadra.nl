@@ -10,7 +10,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: RequestProps },
 ) {
-  const result = await api.reading.getReading({ id: params.id });
+  const result = await api.reading.getReading({ id: +params.id });
   if (result.data) {
     return NextResponse.json(result.data, { status: result.status });
   }

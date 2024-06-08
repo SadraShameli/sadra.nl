@@ -10,7 +10,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: RequestProps },
 ) {
-  const result = await api.recording.getRecording({ id: params.id });
+  const result = await api.recording.getRecording({ id: +params.id });
   if (result.data) {
     return new Response(result.data.file, {
       status: result.status,
@@ -31,7 +31,7 @@ export async function POST(
 ) {
   const buffer = Buffer.from(await (await request.blob()).arrayBuffer());
   const result = await api.recording.createRecording({
-    device: { device_id: params.id },
+    device: { device_id: +params.id },
     recording: buffer,
   });
 

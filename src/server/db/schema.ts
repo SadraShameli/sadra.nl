@@ -1,6 +1,5 @@
 import { sql } from 'drizzle-orm';
 import {
-  boolean,
   integer,
   pgTableCreator,
   primaryKey,
@@ -31,7 +30,6 @@ export const sensor = createTable('sensor', {
     .notNull(),
   name: varchar('name', { length: 256 }).notNull().unique(),
   unit: varchar('unit', { length: 256 }).notNull(),
-  enabled: boolean('enabled').notNull(),
 });
 
 export const device = createTable('device', {
