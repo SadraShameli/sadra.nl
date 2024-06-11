@@ -252,8 +252,8 @@ class AudioFile {
 
 export function applyAudioFilters(samplesBuffer: Buffer): Buffer {
   const audio = new AudioFile(samplesBuffer);
-  audio.normalize();
   DC_Blocker.filter(audio.samples);
   INMP441.filter(audio.samples);
+  audio.normalize();
   return audio.getBuffer();
 }
