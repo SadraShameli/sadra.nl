@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 
+import { applyAudioFilters } from '~/server/helpers/Audio';
 import { api } from '~/trpc/server';
 
 interface RequestProps {
@@ -30,9 +31,11 @@ export async function POST(
   { params }: { params: RequestProps },
 ) {
   const buffer = Buffer.from(await (await request.blob()).arrayBuffer());
+  const normalizedBuffer = applyAudioFilters(buffer);
+
   const result = await api.recording.createRecording({
     device: { device_id: +params.id },
-    recording: buffer,
+    recording: normalizedBuffer,
   });
 
   if (result.status == 201) {
