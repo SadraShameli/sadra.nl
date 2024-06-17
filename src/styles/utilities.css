@@ -33,6 +33,18 @@
     @apply animate-gradient bg-clip-text text-transparent;
   }
 
+  .bg-gradient-neutral-anim {
+    background: linear-gradient(
+      to right,
+      theme('colors.neutral.400'),
+      theme('colors.white'),
+      theme('colors.neutral.400'),
+      theme('colors.white')
+    );
+    background-size: 300% 300%;
+    @apply animate-gradient bg-clip-text text-transparent;
+  }
+
   .shimmer {
     @apply relative isolate overflow-hidden rounded-xl opacity-50 shadow-xl shadow-black/5 transition-opacity duration-500 ease-in-out before:absolute before:inset-0 before:-translate-x-full before:animate-[shimmer_3s_infinite] before:border-b before:border-t before:border-neutral-100/10 before:bg-gradient-to-r before:from-transparent before:via-neutral-100/10 before:to-transparent;
   }

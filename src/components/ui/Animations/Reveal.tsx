@@ -13,14 +13,13 @@ type RevealProps = {
 };
 
 const defaultVariants: Variants = {
-  hidden: { opacity: 0, y: 30 },
+  hidden: { opacity: 0, y: 15 },
   visible: { opacity: 1, y: 0 },
 };
 
 const defaultTransition: Transition = {
   duration: 1,
   ease: [0, 0, 0, 1],
-  delay: 0.1,
 };
 
 export default function RevealAnimation({ children }: RevealProps) {

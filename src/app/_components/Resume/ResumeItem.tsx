@@ -40,7 +40,7 @@ export default function ResumeItem({ title, sections, img }: ResumeProps) {
                         <span className="pl-2">{section.title}</span>
                       </Link>
                     ) : null}
-                    <span className="bg-gradient-purple-anim mt-1 text-lg font-semibold md:mt-auto">
+                    <span className="bg-gradient-neutral-anim mt-1 text-lg font-semibold md:mt-auto">
                       {section.role}
                     </span>
                   </div>
@@ -87,7 +87,7 @@ export default function ResumeItem({ title, sections, img }: ResumeProps) {
 
                   {section.skills && (
                     <div className="mt-5 flex items-center">
-                      <Cog className="size-5" />
+                      <Cog className="size-5 shrink-0" />
                       <ul className="ml-2 flex">
                         {section.skills.map((skill, index) => {
                           return <li key={index}>{skill}</li>;

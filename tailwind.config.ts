@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss';
+import defaultTheme from 'tailwindcss/defaultTheme';
 
 const config = {
   darkMode: ['class'],
@@ -14,8 +15,8 @@ const config = {
     },
     extend: {
       fontFamily: {
+        geist: ['var(--font-geist-sans)', ...defaultTheme.fontFamily.sans],
         orbitron: 'var(--font-orbitron)',
-        geist: 'var(--font-geist-sans)',
       },
       colors: {
         border: 'hsl(var(--border))',
