@@ -3,10 +3,7 @@ import InstagramIcon from '~/components/ui/Icons/Instagram';
 import WhatsAppIcon from '~/components/ui/Icons/WhatsApp';
 import YoutubeIcon from '~/components/ui/Icons/Youtube';
 
-import { CalculateAge, type IResume } from './types';
-
-const birthday = new Date('2003-12-11');
-const age = CalculateAge(birthday);
+import { type IResume } from './types';
 
 const ResumeSadra: IResume = {
   title: 'Sadra',
@@ -17,11 +14,10 @@ const ResumeSadra: IResume = {
     lastName: 'Shameli',
     email: 'sadra.shameli1@gmail.com',
     phone: '+31 06 85156033',
-    birth: '11/12/2003',
-    summary: `Full-stack developer with 3 years of experience. Skilled in TypeScript, React and Next.js together with tRPC, Prisma, Drizzle and NextAuth for building type-safe apps. Skilled in TailwindCSS, Material UI and Framer Motion for making great looking UI. I am also experienced in building IoT devices.`,
-    summary2: `I am Sadra Shameli, ${age} years old, living in Rijswijk, The Netherlands. I trade index futures and crypto. Besides that, I build cool things and love photography.`,
+    birth: 'Dec 2003',
+    summary: `Full-stack developer with 3 years of experience. Proficient in TypeScript, React and Next.js with tRPC, React Query, Prisma, Drizzle and NextAuth for building type-safe backends. Skilled in Tailwind CSS and Framer Motion for designing modern UI/UX. I am also experienced in designing IoT devices.`,
     location: {
-      title: 'Rijswijk, The Netherlands',
+      title: 'Rijswijk - The Netherlands',
       url: '',
     },
   },
@@ -54,79 +50,146 @@ const ResumeSadra: IResume = {
     { title: 'Linkedin', url: 'https://linkedin.com/in/sadrashameli' },
   ],
   skills: [
-    'TypeScript ••• React ••• Next',
-    'Tailwind CSS ••• Material UI',
-    'tRPC ••• Drizzle & Prisma ••• NextAuth',
-    'PostgreSQL ••• SQL Server',
+    'TypeScript •• React •• Next.js',
+    'Tailwind CSS •• Framer Motion',
+    'tRPC •• React Query •• Drizzle, Prisma',
+    'PostgreSQL •• SQL Server',
     '3D Modeling & Printing',
-    'ASP.NET ••• Entity Framework',
+    'ASP.NET •• Entity Framework',
   ],
   education: [
     {
       title: 'Grotius College',
+      role: 'VWO - Natuur en Techniek',
       date: 'Sep 2020 - Aug 2023',
-      location: {
-        title: 'Delft, The Netherlands',
-        url: 'https://maps.app.goo.gl/qNGqcpBCuBW8RM6x9',
-      },
+      location: { title: 'Delft, The Netherlands', url: '' },
       url: 'https://www.grotiuscollege.nl',
-      role: 'VWO - N&T',
     },
   ],
   research: [],
   experience: [
     {
       title: 'Blue Star Planning',
-      date: 'Dec 2021 - Jan 2023',
+      role: 'Full-stack developer · Fulltime',
+      date: 'Dec 2021 - Jan 2023 · 1 yr 1 mo',
       location: {
         title: 'Rotterdam, The Netherlands',
         url: 'https://goo.gl/maps/v9asMxGqgKwcvwQw5',
       },
       url: 'https://bluestarplanning.com',
       summary:
-        'Blue Star Planning is specialized in the development and realization of Advanced Planning and Scheduling systems.',
-      role: 'Full-stack & IoT',
+        'As a full-stack developer at Blue Star Planning B.V., I was responsible for creating a full-stack application integrating IoT devices for telemetry collection, a robust backend for data storage, analysis, and processing, and an intuitive frontend for data visualization. Key responsibilities:',
       highlights: [
-        'Developed various IoT devices including 3D printing. Intended to gather various data, such as sound recordings, loudness, temperature and humidity, air quality and RPM values. The devices are placed at different locations in The Netherlands.',
-        'Developed the back-end to process the data gathered by the devices as well as the front-end, where the sound recordings and loudness values are available.',
+        'Enhanced application performance with efficient lazy loading and advanced routing techniques to eliminate unused code',
+        'Designed and implemented reusable react components, contributing to code modularity and maintainability',
+        'Directed research to elevate performance, centering on user experience and streamlined system efficiency',
+        'Designed various IoT devices from ground up, including 3D modeling and printing. Intended to gather various telemetries, such as temperature, humidity, air pressure, gas resistance, altitude, loudness levels, noise recordings and RPM values. The devices are placed at various locations in the Netherlands and are continuously registering data',
+        'Cooperated a CI/CD pipeline using Azure DevOps for streamlined and automated deployments, resulting in faster and more reliable code base',
       ],
       skills: [
-        'React ••• TypeScript ••• Material UI ••• ASP.NET ••• SQL Server',
+        'React ••• TypeScript ••• Next.js ••• ASP.NET ••• SQL Server ••• Unit Testing',
       ],
+    },
+    {
+      title: 'Gamma',
+      role: 'Salesman · Parttime',
+      date: 'May 2021 - Dec 2022 · 1 yr 8 mo',
+      location: {
+        title: 'Den Haag, The Netherlands',
+        url: 'https://maps.app.goo.gl/xWFe1zER9cE8RKBg9',
+      },
+      url: 'https://gamma.nl',
+    },
+    {
+      title: 'Hoogvliet',
+      role: 'Salesman · Parttime',
+      date: 'Sep 2021 - Mar 2022 · 7 mo',
+      location: {
+        title: 'Rijswijk, The Netherlands',
+        url: 'https://maps.app.goo.gl/AUQwbGpcZDWswzLHA',
+      },
+      url: 'https://hoogvliet.com',
+    },
+    {
+      title: "Domino's",
+      role: 'Delivery Driver · Parttime',
+      date: 'Jul 2020 - Dec 2020 · 6 mo',
+      location: {
+        title: 'Rijswijk, The Netherlands',
+        url: 'https://maps.app.goo.gl/EDxYvZddBXw17z7V8',
+      },
+      url: 'https://dominos.nl',
     },
   ],
   projects: [
+    {
+      title: 'sadra.nl',
+      role: 'Personal portfolio',
+      date: 'Mar 2024 - Present',
+      url: 'https://github.com/SadraShameli/sadra.nl',
+      summary: `This project is part of a full-stack application with multiple objectives, serving as both a personal portfolio and a backend for Sensor Hub devices. The application makes the devices able to fetch configuration, register telemetries and save noise recordings. Additionally, it includes a frontend for visualizing the data collected by the Sensor Hub devices.`,
+      highlights: [
+        'Type-safe front-end and back-end using Typescript, React, Next.js, tRPC',
+        'Using React Query for for efficient state management, handling loading and error states, and managing stale data seamlessly',
+        'Implemented CRUD functionalities using Next.js App Router to manage the database and user interactions effectively',
+        "Using drizzle for near-instant SQL queries and mutations, enhancing the application's responsiveness.",
+        'Enhanced application performance with efficient lazy loading and advanced routing techniques to eliminate unused code',
+        'Designed and implemented reusable react components, contributing to code modularity and maintainability',
+        'Cooperated a CI/CD pipeline using GitHub Actions for streamlined and automated deployments, resulting in faster and more reliable code base',
+      ],
+      skills: [
+        'Typescript ••• React ••• Next.js ••• tRPC ••• React Query ••• Tailwind CSS',
+      ],
+    },
+    {
+      title: 'Sensor Hub',
+      role: 'Gathering telemetries for sadra.nl',
+      date: 'Feb 2024 - Present',
+      url: 'https://github.com/SadraShameli/SensorHub',
+      summary:
+        'This project is part of a full-stack application and is intended to gather various data such as temperature, humidity, air pressure, gas resistance, altitude, loudness levels, noise recordings and RPM values. The devices are placed at various locations in the Netherlands and are continuously sending these data to my website at my website sadra.nl.',
+      highlights: [
+        'Focus on optimizations: Debug and release configurations apply different macros and compiler flags to make debugging easy and runtime faster. Enabling all compiler warnings to write safer code. Using std::move and pass by reference to avoid additional copies',
+        'Supporting multithreading for all core functionality. Tasks are created, suspended and deleted when needed: This results to a boot time of only 100ms when running in release mode',
+        'Advanced failsafe system and logging mechanisms to notify users of potential errors and bugs',
+        'Saving a list of last 25 failures that occurred during the runtime',
+        'Using XOR bitwise operations with the mac address to encrypt user data before saving to the storage',
+        'Custom Pin, WiFi, HTTP and Gui classes to provide simple APIs for ease of use',
+        'Handling runtime and backend errors and notifying users with a failsafe when errors occur',
+      ],
+      skills: ['3D Printing ••• C++ ••• ESP32 ••• IoT devices'],
+    },
     {
       title: 'Project A.I.',
       date: 'Sep 2022 - Dec 2022',
       url: 'https://github.com/SadraShameli/ProjectAI',
       summary:
-        'Autonomous self-driving robot based on camera vision and lidar.',
-      role: 'Self driving robot',
+        'The purpose of this project is to create an autonomous self-driving robot, which is able to follow a course and avoid obstacles, all on its own. Its inspiration originates from being a big fan of Elon Musk, Tesla and its technology. This project is mainly created for PWS (profielwerkstuk) using our own specific hardware, but it can be replicated by the user to work on their hardware as well.',
+      role: 'Self Driving Robot',
       highlights: [
         'Fully autonomous driving without any input from the user',
         'Ability to manually control using a PS5 or PS4 controller',
         'Utilizing the TensorFlow machine learning library',
         'Using multithreading for every core functionality',
       ],
-      skills: ['3D Printing ••• Machine Learning'],
+      skills: ['3D Printing ••• Machine Learning ••• Python ••• C++'],
     },
   ],
   languages: [
     {
       title: 'English',
-      fluency: 'Full Professional Proficiency',
+      fluency: 'Professional Proficiency',
     },
     {
       title: 'Dutch',
-      fluency: 'Full Professional Proficiency',
+      fluency: 'Professional Proficiency',
     },
     {
       title: 'Persian',
       fluency: 'Native speaker',
     },
   ],
-  hobbies: ['Programming', 'Robotics', 'Photography', 'Guitar', 'Cars'],
+  hobbies: ['Robotics', 'Photography', 'Guitar', 'Cars'],
 };
 
 export default ResumeSadra;

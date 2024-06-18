@@ -13,7 +13,6 @@ import AboutSection from './_components/About';
 import Navbar from './_components/Navbar';
 import ReadingSection from './_components/Reading/Reading';
 import RecordingSection from './_components/Recording/Recording';
-import ResumeSection from './_components/Resume/Resume';
 
 export default async function HomePage() {
   const recordings = await api.recording.getRecordingsNoFile();
@@ -46,7 +45,7 @@ export default async function HomePage() {
         {recordings.length ? (
           <div className="mx-auto max-w-content md:my-content">
             <SectionTitle text="Noise recordings" />
-            <SectionDescription text="Here you will find a list of noise recordings made by my devices, which are placed at various locations in The Netherlands." />
+            <SectionDescription text="Here you will find a list of noise recordings made by my devices, which are placed at various locations in the Netherlands." />
             <RecordingSection recordings={recordings} />
           </div>
         ) : null}
@@ -55,10 +54,11 @@ export default async function HomePage() {
           <ReadingSection locations={locations} location={locations[0]} />
         ) : null}
 
+        {/*
         <div className="mx-auto my-content max-w-content">
           <SectionText text="Recent projects" />
           <ResumeSection />
-        </div>
+        </div> */}
 
         <div className="mx-auto mb-10 mt-content max-w-content md:my-content">
           <SectionText text="More about me" />

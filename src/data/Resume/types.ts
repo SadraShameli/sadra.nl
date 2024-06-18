@@ -1,10 +1,3 @@
-export function CalculateAge(dob: Date) {
-  const diff_ms = Date.now() - dob.getTime();
-  const age_dt = new Date(diff_ms);
-
-  return Math.abs(age_dt.getUTCFullYear() - 1970);
-}
-
 export interface ILink {
   title: string;
   url: string;
@@ -39,7 +32,7 @@ export interface IResumeSection {
 
 export interface IResumeLanguage {
   title: string;
-  fluency: 'Native speaker' | 'Full Professional Proficiency';
+  fluency: 'Native speaker' | 'Professional Proficiency';
 }
 
 export interface IResume {
