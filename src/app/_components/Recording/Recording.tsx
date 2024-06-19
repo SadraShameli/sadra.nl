@@ -153,7 +153,7 @@ export default function RecordingSection({
           <div>
             <div className="w-full rounded-xl bg-muted p-5">
               <div className="mx-3 mb-6 flex items-center justify-between">
-                <h4 className="font-semibold">Recordings</h4>
+                <p className="font-semibold">Recordings</p>
                 <Button
                   className="font-semibold"
                   size={'sm'}
@@ -193,7 +193,7 @@ export default function RecordingSection({
 
               <div className="mb-3 mt-10 grid-flow-row gap-5 xl:grid xl:grid-cols-2">
                 <div className="flex items-center justify-center gap-x-7">
-                  <button onClick={OnAudioShuffle}>
+                  <button onClick={OnAudioShuffle} aria-label="Shuffle">
                     <ShuffleIcon
                       className={`size-6 text-neutral-400 transition hover:text-white ${isShuffle && 'text-white'}`}
                     />
@@ -202,10 +202,15 @@ export default function RecordingSection({
                     className="text-neutral-400 hover:text-white disabled:text-neutral-700"
                     onClick={OnAudioPrevious}
                     disabled={recordings.indexOf(currentRecording!) === 0}
+                    aria-label="Previous"
                   >
                     <SkipBack className="size-6 transition" />
                   </button>
-                  <button className="size-12" onClick={OnAudioPlause}>
+                  <button
+                    className="size-12"
+                    onClick={OnAudioPlause}
+                    aria-label="Plause"
+                  >
                     {isPlaying ? <PauseIcon /> : <PlayIcon />}
                   </button>
                   <button
@@ -215,10 +220,11 @@ export default function RecordingSection({
                       recordings.indexOf(currentRecording!) ===
                       recordings.length - 1
                     }
+                    aria-label="Next"
                   >
                     <SkipForward className="size-6 transition" />
                   </button>
-                  <button onClick={OnAudioRepeat}>
+                  <button onClick={OnAudioRepeat} aria-label="Repeat">
                     <Repeat
                       className={`size-6 text-neutral-400 transition hover:text-white ${isRepeat && 'text-white'}`}
                     />
@@ -231,6 +237,7 @@ export default function RecordingSection({
                       if (isRepeat) setIsRepeat((state) => !state);
                       setIsAutoPlay((state) => !state);
                     }}
+                    aria-label="Auto Play"
                   >
                     <ListEnd
                       className={`size-6 transition hover:text-white ${isAutoPlay && 'text-white'}`}
@@ -243,6 +250,7 @@ export default function RecordingSection({
                         setIsMute((state) => !state);
                       }
                     }}
+                    aria-label="Volume"
                   >
                     {isMute || volume == 0 ? (
                       <Volume className="text-white" />
