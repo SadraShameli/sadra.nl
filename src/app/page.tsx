@@ -17,6 +17,12 @@ import RecordingSection from './_components/Recording/Recording';
 export default async function HomePage() {
   const recordings = await api.recording.getRecordingsNoFile();
   const locations = (await api.location.getLocationsWithReading()).data;
+  const currentLocation = locations?.[0];
+  const currentReading =
+    currentLocation &&
+    (await api.reading.getReadingsLatest({
+      location_id: currentLocation.id,
+    }));
 
   return (
     <>
@@ -50,8 +56,12 @@ export default async function HomePage() {
           </div>
         ) : null}
 
-        {locations?.[0] ? (
-          <ReadingSection locations={locations} location={locations[0]} />
+        {currentLocation && currentReading ? (
+          <ReadingSection
+            locations={locations}
+            location={currentLocation}
+            reading={currentReading}
+          />
         ) : null}
 
         {/*

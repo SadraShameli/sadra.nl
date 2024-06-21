@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from '~/components/ui/DropDown';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
+import { GetReadingsRecord, Result } from '~/server/api/types/types';
 import { type location } from '~/server/db/schema';
 import { api } from '~/trpc/react';
 
@@ -28,18 +29,20 @@ import { ReadingAreaChart } from './AreaChart';
 type ReadingSectionProps = {
   locations: (typeof location.$inferSelect)[];
   location: typeof location.$inferSelect;
+  reading: Result<GetReadingsRecord[]>;
 };
 
 export default function ReadingSection({
   locations,
   location,
+  reading,
 }: ReadingSectionProps) {
   const [currentLocation, setCurrentLocation] = useState(location);
   const currentReading = api.reading.getReadingsLatest.useQuery(
     {
       location_id: currentLocation.id,
     },
-    { placeholderData: keepPreviousData },
+    { placeholderData: keepPreviousData, initialData: reading },
   );
 
   const [oldSensors, setOldSensors] = useState<
