@@ -4,7 +4,7 @@ import ResumeSadra from '~/data/Resume/Sadra';
 
 export default function Navbar() {
   return (
-    <nav className="sticky left-0 right-0 top-0 z-50 bg-black bg-opacity-75 shadow-2xl backdrop-blur-2xl backdrop-saturate-200">
+    <nav className="sticky left-0 right-0 top-0 z-50 bg-black bg-opacity-75 backdrop-blur-2xl backdrop-saturate-200">
       <div className="mx-auto flex max-w-content items-center justify-between px-6 py-5">
         <h2 className="font-orbitron text-lg font-semibold tracking-widest text-white">
           &gt;_{ResumeSadra.basics.firstName.toLowerCase()}

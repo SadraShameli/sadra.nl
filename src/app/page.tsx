@@ -13,6 +13,7 @@ import AboutSection from './_components/About';
 import Navbar from './_components/Navbar';
 import ReadingSection from './_components/Reading/Reading';
 import RecordingSection from './_components/Recording/Recording';
+import StaggerAnimation from '~/components/ui/Animations/Stagger';
 
 export default async function HomePage() {
   const recordings = await api.recording.getRecordingsNoFile();
@@ -47,6 +48,16 @@ export default async function HomePage() {
             />
           </RevealAnimation>
         </div>
+
+        <RevealAnimation>
+          <div className="mx-auto my-content max-w-content md:my-content">
+            <SectionTitle text="This is Sensor Hub" />
+            <SectionDescription text="Devices made by me, designed to record and register various climate telemetry and noise pollution." />
+            <video className="rounded-2xl" loop autoPlay muted playsInline>
+              <source src="/sensorUnit.mp4" type="video/mp4" />
+            </video>
+          </div>
+        </RevealAnimation>
 
         {recordings.length ? (
           <div className="mx-auto max-w-content md:my-content">
