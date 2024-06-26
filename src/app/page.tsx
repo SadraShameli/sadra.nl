@@ -52,7 +52,7 @@ export default async function HomePage() {
         <RevealAnimation>
           <div className="mx-auto my-content max-w-content md:my-content">
             <SectionTitle text="This is Sensor Hub" />
-            <SectionDescription text="Devices made by me, designed to record and register various climate telemetry and noise pollution." />
+            <SectionDescription text="Devices made by me, designed to record and register various climate telemetry and noise pollution data." />
             <video className="rounded-2xl" loop autoPlay muted playsInline>
               <source src="/sensorUnit.mp4" type="video/mp4" />
             </video>
@@ -62,7 +62,7 @@ export default async function HomePage() {
         {recordings.length ? (
           <div className="mx-auto max-w-content md:my-content">
             <SectionTitle text="Noise recordings" />
-            <SectionDescription text="Here you will find a list of noise recordings made by my devices, which are placed at various locations in the Netherlands." />
+            <SectionDescription text="Here you will find a list of noise recordings made by the Sensor Hub devices, which are placed at various locations in the Netherlands." />
             <RecordingSection recordings={recordings} />
           </div>
         ) : null}
