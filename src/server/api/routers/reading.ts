@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { and, desc, eq, gte, inArray } from 'drizzle-orm';
-import { type z } from 'zod';
+import { z } from 'zod';
 
 import {
   type ContextType,
@@ -21,6 +21,7 @@ import {
   getLocationProps,
   getReadingProps,
 } from '../types/zod';
+import { getDefaultLocation } from './location';
 
 export async function getReading(
   input: z.infer<typeof getReadingProps>,
@@ -74,17 +75,17 @@ export const readingRouter = createTRPCRouter({
         }
 
         await ctx.db.insert(reading).values({
-          sensor_id: +sensorResult.data.id,
-          location_id: +device.data.location_id,
+          sensor_id: sensorResult.data.id,
+          location_id: device.data.location_id,
           device_id: device.data.id,
-          value: +value,
+          value: value,
         });
       }
 
       return { status: 201 } as Result<unknown>;
     }),
   getReadingsLatest: publicProcedure
-    .input(getLocationProps)
+    .input(z.union([getLocationProps, z.undefined()]))
     .query(async ({ input, ctx }): Promise<Result<GetReadingsRecord[]>> => {
       const latestReading = await ctx.db
         .select()
@@ -105,7 +106,7 @@ export const readingRouter = createTRPCRouter({
         .from(reading)
         .where(
           and(
-            eq(reading.location_id, +input.location_id),
+            input ? eq(reading.location_id, input.location_id) : undefined,
             gte(
               reading.created_at,
               new Date(

@@ -1,5 +1,4 @@
 'use client';
-import { keepPreviousData } from '@tanstack/react-query';
 import {
   AreaChart as ChartLIcon,
   MapPin,
@@ -20,29 +19,26 @@ import {
   DropdownMenuTrigger,
 } from '~/components/ui/DropDown';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
-import { GetReadingsRecord, Result } from '~/server/api/types/types';
-import { type location } from '~/server/db/schema';
 import { api } from '~/trpc/react';
 
 import { ReadingAreaChart } from './AreaChart';
+import { twMerge } from 'tailwind-merge';
+import { keepPreviousData } from '@tanstack/react-query';
 
-type ReadingSectionProps = {
-  locations: (typeof location.$inferSelect)[];
-  location: typeof location.$inferSelect;
-  reading: Result<GetReadingsRecord[]>;
-};
-
-export default function ReadingSection({
-  locations,
-  location,
-  reading,
-}: ReadingSectionProps) {
-  const [currentLocation, setCurrentLocation] = useState(location);
+export default function ReadingSection() {
+  const locations = api.location.getLocations.useQuery();
+  const [currentLocation, setCurrentLocation] = useState(
+    locations.data?.data?.at(0),
+  );
   const currentReading = api.reading.getReadingsLatest.useQuery(
+    currentLocation
+      ? {
+          location_id: currentLocation.id,
+        }
+      : undefined,
     {
-      location_id: currentLocation.id,
+      placeholderData: keepPreviousData,
     },
-    { placeholderData: keepPreviousData, initialData: reading },
   );
 
   const [oldSensors, setOldSensors] = useState<
@@ -76,51 +72,61 @@ export default function ReadingSection({
     }
   }, [currentSensor, oldSensors, sensors]);
 
-  if (!currentReading.data?.data?.length || !sensors?.length) return;
-
   return (
     <div className="mx-auto my-content w-full max-w-content">
       <SectionTitle text="Live readings" />
       <SectionDescription text="Ever been curious about the temperature, humidity and loudness levels at various locations in real time?" />
 
       <RevealAnimation>
-        <Card>
+        <Card
+          className={twMerge([
+            'min-h-[55vh]',
+            !currentReading.data?.data?.length && 'shimmer',
+          ])}
+        >
           <Tabs
             className="grid gap-y-3"
-            defaultValue={sensors[0]?.name}
+            defaultValue={sensors?.at(0)?.name}
             value={currentSensor}
             onValueChange={(value) => setCurrentSensor(value)}
           >
-            <div className="flex flex-col items-center justify-between gap-y-5 md:flex-row">
-              <TabsList>
-                {sensors.map((sensor, index) => {
-                  return (
-                    <TabsTrigger value={sensor.name} key={index}>
-                      {sensor.name}
-                    </TabsTrigger>
-                  );
-                })}
-              </TabsList>
+            <div className="flex flex-col justify-between gap-y-5 md:flex-row md:gap-5">
+              {sensors && (
+                <TabsList className="w-fit">
+                  {sensors.map((sensor, index) => {
+                    return (
+                      <TabsTrigger value={sensor.name} key={index}>
+                        {sensor.name}
+                      </TabsTrigger>
+                    );
+                  })}
+                </TabsList>
+              )}
+
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline">
-                    <MapPin className="mr-1 size-5" />
-                    Locations
-                  </Button>
-                </DropdownMenuTrigger>
+                {currentReading.data?.data?.length && (
+                  <DropdownMenuTrigger asChild>
+                    <Button className="w-fit md:ml-0" variant="outline">
+                      <MapPin className="mr-1 size-5" />
+                      Locations
+                    </Button>
+                  </DropdownMenuTrigger>
+                )}
                 <DropdownMenuContent>
                   <DropdownMenuRadioGroup
-                    value={currentLocation.name}
+                    value={
+                      currentLocation
+                        ? currentLocation.name
+                        : locations.data?.data?.at(0)?.name
+                    }
                     onValueChange={(value) => {
-                      const location = locations.find(
-                        (location) => location.name == value,
+                      const location = locations.data?.data?.find(
+                        (location) => location.name === value,
                       );
-                      if (location) {
-                        setCurrentLocation(location);
-                      }
+                      setCurrentLocation(location);
                     }}
                   >
-                    {locations.map((location, index) => {
+                    {locations.data?.data?.map((location, index) => {
                       return (
                         <DropdownMenuRadioItem
                           value={location.name}
@@ -134,17 +140,19 @@ export default function ReadingSection({
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-            {currentReading.data.data.map((reading, index) => {
+
+            {currentReading.data?.data?.map((reading, index) => {
               return (
-                <TabsContent
-                  className={currentReading.isLoading ? 'shimmer' : ''}
-                  value={reading.sensor.name}
-                  key={index}
-                >
+                <TabsContent value={reading.sensor.name} key={index}>
                   <div className="grid gap-5 text-sm font-semibold leading-none">
                     <div className="grid gap-5 lg:grid-cols-2">
                       <div className="grid grid-cols-2 gap-5">
-                        <div className="flex rounded-xl bg-muted p-5">
+                        <div
+                          className={twMerge([
+                            'flex rounded-xl bg-muted p-5',
+                            currentReading.isRefetching && 'shimmer',
+                          ])}
+                        >
                           <div className="absolute flex items-center gap-x-2">
                             <ThermometerSnowflake />
                             Latest
@@ -153,8 +161,13 @@ export default function ReadingSection({
                             {`${reading.latestReading.value} ${reading.sensor.unit}`}
                           </div>
                         </div>
-                        <div className="grid min-h-72 gap-5">
-                          <div className="flex rounded-xl bg-muted p-5">
+                        <div className="grid gap-5">
+                          <div
+                            className={twMerge([
+                              'flex rounded-xl bg-muted p-5',
+                              currentReading.isRefetching && 'shimmer',
+                            ])}
+                          >
                             <div className="absolute">
                               {`${reading.period}h high`}
                             </div>
@@ -162,7 +175,12 @@ export default function ReadingSection({
                               {`${reading.highest} ${reading.sensor.unit}`}
                             </div>
                           </div>
-                          <div className="rounded-xl bg-muted p-5">
+                          <div
+                            className={twMerge([
+                              'rounded-xl bg-muted p-5',
+                              currentReading.isRefetching && 'shimmer',
+                            ])}
+                          >
                             <div className="flex h-full">
                               <div className="absolute">
                                 {`${reading.period}h low`}
@@ -174,12 +192,17 @@ export default function ReadingSection({
                           </div>
                         </div>
                       </div>
-                      <div className="rounded-xl bg-muted p-5">
+                      <div
+                        className={twMerge([
+                          'rounded-xl bg-muted p-5',
+                          currentReading.isRefetching && 'shimmer',
+                        ])}
+                      >
                         <div className="absolute flex items-center gap-x-2 pb-5">
                           <ChartLIcon />
                           Live Chart
                         </div>
-                        <div className="mt-12 flex items-center justify-center">
+                        <div className="mt-12 grid">
                           <ReadingAreaChart
                             xAxis={reading.readings.map(
                               (reading) => reading.date,
