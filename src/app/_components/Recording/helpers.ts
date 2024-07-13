@@ -10,12 +10,11 @@ export function GetRandom(min: number, max: number | undefined) {
 
 export function ConvertSecondsToString(sec: number | undefined) {
   if (sec == undefined || Number.isNaN(sec) || !Number.isFinite(sec)) {
-    return;
+    return '0:00';
   }
 
   const m = Math.floor((sec % 3600) / 60);
   const s = Math.round(sec % 60);
-
   const mS = m > 9 ? m : m || '0';
   const sS = s > 9 ? s : '0' + s;
   return `${mS}:${sS}`;
@@ -24,8 +23,5 @@ export function ConvertSecondsToString(sec: number | undefined) {
 export function GetRecordingURL(
   recording: Awaited<ReturnType<typeof getRecordingNoFile>>,
 ) {
-  if (recording) {
-    return `/api/recording/${recording.id}`;
-  }
-  return '';
+  return recording ? `/api/recording/${recording.id}` : '';
 }

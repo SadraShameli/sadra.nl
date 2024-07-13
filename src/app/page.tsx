@@ -7,28 +7,19 @@ import SectionTitle from '~/components/SectionTitle';
 import RevealAnimation from '~/components/ui/Animations/Reveal';
 import GridBackground from '~/components/ui/GridBg';
 import ResumeSadra from '~/data/Resume/Sadra';
-import { api } from '~/trpc/server';
 
 import AboutSection from './_components/About';
 import Navbar from './_components/Navbar';
 import ReadingSection from './_components/Reading/Reading';
 import RecordingSection from './_components/Recording/Recording';
-import StaggerAnimation from '~/components/ui/Animations/Stagger';
+import ResumeSection from './_components/Resume/Resume';
 
 export default async function HomePage() {
-  const recordings = await api.recording.getRecordingsNoFile();
-  const locations = (await api.location.getLocationsWithReading()).data;
-  const currentLocation = locations?.[0];
-  const currentReading =
-    currentLocation &&
-    (await api.reading.getReadingsLatest({
-      location_id: currentLocation.id,
-    }));
-
   return (
     <>
       <Navbar />
       <GridBackground />
+
       <main className="grid w-full px-6 xl:px-0">
         <div className="mx-auto grid h-screen max-w-content items-center justify-center">
           <RevealAnimation>
@@ -36,10 +27,12 @@ export default async function HomePage() {
               <h1 className="text-5xl font-semibold text-white md:text-6xl xl:text-7xl">
                 {ResumeSadra.basics.title}
               </h1>
+
               <p className="bg-gradient-neutral-anim text-lg font-semibold md:text-xl">
                 {ResumeSadra.description}
               </p>
             </div>
+
             <Image
               className="mx-auto mb-40 mt-20 size-8/12 max-w-xs rounded-2xl object-cover md:mb-0 md:mt-40"
               src={ProfilePicture}
@@ -59,24 +52,15 @@ export default async function HomePage() {
           </div>
         </RevealAnimation>
 
-        {recordings.length ? (
-          <div className="mx-auto max-w-content md:my-content">
-            <SectionTitle text="Noise recordings" />
-            <SectionDescription text="Here you will find a list of noise recordings made by the Sensor Hub devices, which are placed at various locations in the Netherlands." />
-            <RecordingSection recordings={recordings} />
-          </div>
-        ) : null}
+        <div className="mx-auto max-w-content md:my-content">
+          <SectionTitle text="Noise recordings" />
+          <SectionDescription text="Here you will find a list of noise recordings made by the Sensor Hub devices, which are placed at various locations in the Netherlands." />
+          <RecordingSection />
+        </div>
 
-        {currentLocation && currentReading ? (
-          <ReadingSection
-            locations={locations}
-            location={currentLocation}
-            reading={currentReading}
-          />
-        ) : null}
+        {/* <ReadingSection /> */}
 
-        {/*
-        <div className="mx-auto my-content max-w-content">
+        {/* <div className="mx-auto my-content max-w-content">
           <SectionText text="Recent projects" />
           <ResumeSection />
         </div> */}

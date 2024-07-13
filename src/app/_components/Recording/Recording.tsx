@@ -23,125 +23,62 @@ import PauseIcon from '~/components/ui/Icons/Pause';
 import PlayIcon from '~/components/ui/Icons/Play';
 import { ScrollArea } from '~/components/ui/ScrollArea';
 import { Slider } from '~/components/ui/Slider';
-import { type getRecordingsNoFile } from '~/server/api/routers/recording';
 
 import { ConvertSecondsToString, GetRandom, GetRecordingURL } from './helpers';
+import { api } from '~/trpc/react';
 
-type RecordingSectionProps = {
-  recordings: Awaited<ReturnType<typeof getRecordingsNoFile>>;
-};
+export default function RecordingSection({}) {
+  const recordings = api.recording.getRecordingsNoFile.useQuery();
 
-export default function RecordingSection({
-  recordings,
-}: RecordingSectionProps) {
   const router = useRouter();
   const audio = useRef<HTMLAudioElement>(null);
-  const [currentTime, setCurrentTime] = useState(0);
+  const [time, setTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
   const [prevVolume, setPrevVolume] = useState(volume);
-  const [isMute, setIsMute] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isRepeat, setIsRepeat] = useState(false);
   const [isShuffle, setIsShuffle] = useState(false);
   const [isAutoPlay, setIsAutoPlay] = useState(false);
-  const [currentRecording, setCurrentRecording] = useState(recordings[0]);
-  const [prevRecording, setPrevRecording] = useState(currentRecording);
-
-  const LoadAudio = useCallback(() => {
-    if (currentRecording && audio.current) {
-      audio.current.src = GetRecordingURL(currentRecording);
-      audio.current?.load();
-      void audio.current.play();
-      setCurrentTime(0);
-    }
-  }, [currentRecording]);
+  const [currentRecordingIdx, setCurrentRecordingIdx] = useState(0);
+  const [prevRecording, setPrevRecording] = useState(currentRecordingIdx);
 
   const PlayAudio = useCallback(() => {
     void audio.current?.play();
     setIsPlaying(true);
   }, []);
 
-  const UpdateAudioTime = useCallback((value: number) => {
-    audio.current!.currentTime = value;
-    setCurrentTime(value);
-  }, []);
-
-  const OnAudioTimeUpdate = useCallback(() => {
-    if (audio.current!.currentTime != 0) {
-      setCurrentTime(audio.current!.currentTime);
-    }
-  }, []);
-
-  const OnAudioPrevious = useCallback(() => {
-    if (currentRecording) {
-      const idx = recordings.indexOf(currentRecording);
-      if (idx) setCurrentRecording(recordings[idx - 1]);
-    }
-  }, [currentRecording, recordings]);
-
   const OnAudioPlause = useCallback(() => {
     if (!isPlaying) {
       void audio.current?.play();
       setIsPlaying(true);
-    } else if (audio.current?.readyState === 4) {
+    } else if (audio.current?.readyState == 4) {
       if (isPlaying) {
         audio.current?.pause();
         setIsPlaying(false);
-      } else PlayAudio();
+      } else {
+        PlayAudio();
+      }
     }
   }, [PlayAudio, isPlaying]);
 
-  const OnAudioNext = useCallback(() => {
-    const idx = recordings.indexOf(currentRecording!);
-    if (idx >= 0 && idx < recordings.length - 1)
-      setCurrentRecording(recordings[idx + 1]);
-    if (isPlaying) OnAudioPlause;
-  }, [OnAudioPlause, currentRecording, isPlaying, recordings]);
-
-  const OnAudioShuffle = useCallback(() => {
-    if (isRepeat) setIsRepeat((state) => !state);
-    if (isAutoPlay) setIsShuffle((state) => !state);
-    setIsShuffle((value) => !value);
-    setCurrentRecording(recordings[GetRandom(0, recordings.length)]);
-  }, [isAutoPlay, isRepeat, recordings]);
-
-  const OnAudioRepeat = useCallback(() => {
-    if (isShuffle) setIsShuffle((state) => !state);
-    if (isAutoPlay) setIsAutoPlay((state) => !state);
-    setIsRepeat((state) => !state);
-  }, [isAutoPlay, isShuffle]);
-
-  const OnAudioEnd = useCallback(() => {
-    setCurrentRecording((value) => {
-      if (isShuffle) return recordings[GetRandom(0, recordings.length - 1)];
-      if (isAutoPlay) {
-        const idx = recordings.indexOf(currentRecording!);
-        if (idx >= 0 && idx < recordings.length - 1) return recordings[idx + 1];
-      }
-      if (!isRepeat) setIsPlaying(false);
-      return value;
-    });
-  }, [currentRecording, isAutoPlay, isRepeat, isShuffle, recordings]);
-
   useEffect(() => {
-    if (recordings.indexOf(currentRecording!) < recordings.length) {
-      if (prevRecording !== currentRecording) {
+    if (recordings.data && currentRecordingIdx < recordings.data.length) {
+      if (prevRecording != currentRecordingIdx) {
         audio.current?.load();
-        setPrevRecording(currentRecording);
+        setPrevRecording(currentRecordingIdx);
       }
-      if (isPlaying) PlayAudio();
+      if (isPlaying) {
+        PlayAudio();
+      }
     }
-  }, [PlayAudio, currentRecording, isPlaying, prevRecording, recordings]);
+  }, [PlayAudio, currentRecordingIdx, isPlaying, prevRecording, recordings]);
 
   useEffect(() => {
-    if (isMute) {
-      setPrevVolume(audio.current!.volume);
-      audio.current!.volume = 0;
-      return;
+    if (audio.current) {
+      audio.current.volume = volume;
     }
-    audio.current!.volume = volume;
-  }, [isMute, prevVolume, volume]);
+  }, [volume]);
 
   return (
     <RevealAnimation>
@@ -150,6 +87,7 @@ export default function RecordingSection({
           <video loop autoPlay muted playsInline>
             <source src="/headphone.mp4" type="video/mp4" />
           </video>
+
           <div>
             <div className="w-full rounded-xl bg-muted p-5">
               <div className="mx-3 mb-6 flex items-center justify-between">
@@ -157,102 +95,171 @@ export default function RecordingSection({
                 <Button
                   className="font-semibold"
                   size={'sm'}
-                  onClick={() =>
-                    currentRecording &&
-                    router.push(GetRecordingURL(currentRecording))
-                  }
+                  onClick={() => {
+                    if (recordings.data) {
+                      const recording = recordings.data[currentRecordingIdx];
+                      if (recording) {
+                        router.push(GetRecordingURL(recording));
+                      }
+                    }
+                  }}
                 >
                   <Download className="mr-2 size-5" />
                   Download
                 </Button>
               </div>
-              <ScrollArea className="h-64">
-                {recordings?.map((recording) => (
-                  <button
-                    className="flex rounded-lg px-3 py-3 font-semibold transition hover:bg-accent sm:w-11/12"
-                    onClick={() => {
-                      if (recording === currentRecording) OnAudioPlause();
-                      else {
-                        setCurrentRecording(recording);
-                        LoadAudio;
-                      }
-                    }}
-                    key={recording.id}
-                  >
-                    <div className="flex items-center gap-x-2 text-sm">
-                      {currentRecording === recording ? (
-                        <ArrowRight className="size-5" />
-                      ) : (
-                        <Music2 className="size-5" />
-                      )}
-                      {recording.file_name}
-                    </div>
-                  </button>
-                ))}
-              </ScrollArea>
+
+              <div className="h-64">
+                {recordings.isLoading ? (
+                  <p>loading</p>
+                ) : recordings.isError || !recordings.data ? (
+                  <p>error</p>
+                ) : (
+                  <ScrollArea className="h-64">
+                    {recordings.data.map((recording) => (
+                      <button
+                        className="flex rounded-lg px-3 py-3 font-semibold transition hover:bg-accent sm:w-11/12"
+                        onClick={() => {
+                          if (audio.current) {
+                            const recording =
+                              recordings.data[currentRecordingIdx];
+                            if (recording) {
+                              audio.current.src = GetRecordingURL(recording);
+                              audio.current?.load();
+                              void audio.current.play();
+                            }
+                          }
+                        }}
+                        key={recording.id}
+                      >
+                        <div className="flex items-center gap-x-2 text-sm">
+                          {recordings.data.indexOf(recording) ==
+                          currentRecordingIdx ? (
+                            <ArrowRight className="size-5" />
+                          ) : (
+                            <Music2 className="size-5" />
+                          )}
+                          {recording.file_name}
+                        </div>
+                      </button>
+                    ))}
+                  </ScrollArea>
+                )}
+              </div>
 
               <div className="mb-3 mt-10 grid-flow-row gap-5 xl:grid xl:grid-cols-2">
                 <div className="flex items-center justify-center gap-x-7">
-                  <button onClick={OnAudioShuffle} aria-label="Shuffle">
+                  <button
+                    aria-label="Shuffle"
+                    onClick={() => {
+                      if (recordings.data) {
+                        if (isRepeat) setIsRepeat((prev) => !prev);
+                        setIsShuffle((prev) => !prev);
+                        setCurrentRecordingIdx(
+                          GetRandom(0, recordings.data.length),
+                        );
+                      }
+                    }}
+                  >
                     <ShuffleIcon
                       className={`size-6 text-neutral-400 transition hover:text-white ${isShuffle && 'text-white'}`}
                     />
                   </button>
+
                   <button
-                    className="text-neutral-400 hover:text-white disabled:text-neutral-700"
-                    onClick={OnAudioPrevious}
-                    disabled={recordings.indexOf(currentRecording!) === 0}
                     aria-label="Previous"
+                    className="text-neutral-400 hover:text-white disabled:text-neutral-700"
+                    onClick={() => {
+                      setCurrentRecordingIdx((prev) => prev - 1);
+                    }}
+                    disabled={currentRecordingIdx == 0}
                   >
                     <SkipBack className="size-6 transition" />
                   </button>
+
                   <button
+                    aria-label="Plause"
                     className="size-12"
                     onClick={OnAudioPlause}
-                    aria-label="Plause"
                   >
                     {isPlaying ? <PauseIcon /> : <PlayIcon />}
                   </button>
+
                   <button
-                    className="text-neutral-400 hover:text-white disabled:text-neutral-700"
-                    onClick={OnAudioNext}
-                    disabled={
-                      recordings.indexOf(currentRecording!) ===
-                      recordings.length - 1
-                    }
                     aria-label="Next"
+                    className="text-neutral-400 hover:text-white disabled:text-neutral-700"
+                    onClick={() => {
+                      if (
+                        recordings.data &&
+                        currentRecordingIdx < recordings.data.length - 1
+                      ) {
+                        setCurrentRecordingIdx((prev) => prev + 1);
+                        if (isRepeat) {
+                          setIsRepeat(false);
+                          setIsAutoPlay(true);
+                        }
+                      }
+                    }}
+                    disabled={() => {
+                      if (recordings.data && recordings.data.length) {
+                        return (
+                          currentRecordingIdx == recordings.data.length - 1
+                        );
+                      }
+                    }}
                   >
                     <SkipForward className="size-6 transition" />
                   </button>
-                  <button onClick={OnAudioRepeat} aria-label="Repeat">
+
+                  <button
+                    aria-label="Repeat"
+                    onClick={() => {
+                      if (isShuffle) {
+                        setIsShuffle((prev) => !prev);
+                      }
+                      if (isAutoPlay) {
+                        setIsAutoPlay((prev) => !prev);
+                      }
+                      setIsRepeat((prev) => !prev);
+                    }}
+                  >
                     <Repeat
                       className={`size-6 text-neutral-400 transition hover:text-white ${isRepeat && 'text-white'}`}
                     />
                   </button>
                 </div>
+
                 <div className="mt-5 flex items-center justify-center gap-x-3 text-neutral-400 xl:mt-0 xl:justify-end">
                   <button
-                    onClick={() => {
-                      if (isShuffle) setIsShuffle((state) => !state);
-                      if (isRepeat) setIsRepeat((state) => !state);
-                      setIsAutoPlay((state) => !state);
-                    }}
                     aria-label="Auto Play"
+                    onClick={() => {
+                      if (isShuffle) {
+                        setIsShuffle((prev) => !prev);
+                      }
+                      if (isRepeat) {
+                        setIsRepeat((prev) => !prev);
+                      }
+                      setIsAutoPlay((prev) => !prev);
+                    }}
                   >
                     <ListEnd
                       className={`size-6 transition hover:text-white ${isAutoPlay && 'text-white'}`}
                     />
                   </button>
+
                   <button
+                    aria-label="Volume"
                     className="size-6 transition hover:text-white"
                     onClick={() => {
-                      if (volume != 0) {
-                        setIsMute((state) => !state);
+                      if (volume == 0) {
+                        setVolume(prevVolume);
+                      } else {
+                        setPrevVolume(volume);
+                        setVolume(0);
                       }
                     }}
-                    aria-label="Volume"
                   >
-                    {isMute || volume == 0 ? (
+                    {volume == 0 ? (
                       <Volume className="text-white" />
                     ) : volume >= 0.6 ? (
                       <Volume2 />
@@ -260,55 +267,75 @@ export default function RecordingSection({
                       <Volume1 />
                     )}
                   </button>
+
                   <Slider
                     className="h-2 w-2/5"
                     defaultValue={[1]}
                     value={[volume]}
                     min={0}
                     max={1}
-                    step={0.1}
+                    step={0.01}
                     onValueChange={(values: number[]) => {
                       if (values[0] != undefined) {
                         setVolume(values[0]);
                       }
                     }}
-                    disabled={isMute}
                   />
                 </div>
+
                 <div className="col-span-2 mt-5 grid grid-cols-6 items-center gap-x-3 font-semibold leading-none">
                   <span className="col-span-1 text-right text-sm">
-                    {ConvertSecondsToString(currentTime)}
+                    {ConvertSecondsToString(audio.current?.currentTime)}
                   </span>
+
                   <Slider
                     className="col-span-4 h-1/3"
                     defaultValue={[0]}
                     min={0}
-                    max={currentTime ? duration : duration + 1}
-                    step={1}
-                    value={[currentTime]}
+                    max={duration + 1}
+                    value={[time]}
                     onValueChange={(values: number[]) => {
-                      if (values[0] != undefined) {
-                        UpdateAudioTime(values[0]);
+                      if (audio.current && values[0] != undefined) {
+                        audio.current.currentTime = values[0];
                       }
                     }}
                   />
+
                   <span className="col-span-1 text-sm">
                     {ConvertSecondsToString(duration)}
                   </span>
                 </div>
               </div>
-              {currentRecording ? (
+
+              {recordings.data ? (
                 <audio
                   preload="none"
                   ref={audio}
                   loop={isRepeat}
-                  onEnded={() => OnAudioEnd()}
-                  onTimeUpdate={OnAudioTimeUpdate}
-                  onLoadedMetadata={() => setDuration(audio.current!.duration)}
+                  onEnded={() => {
+                    setCurrentRecordingIdx((prev) => {
+                      if (isShuffle) {
+                        return GetRandom(0, recordings.data.length - 1);
+                      }
+                      if (isAutoPlay && prev < recordings.data.length - 1) {
+                        return prev + 1;
+                      }
+                      if (!isRepeat) {
+                        setIsPlaying(false);
+                      }
+                      return prev;
+                    });
+                  }}
+                  onTimeUpdate={(e) => {
+                    setTime(e.currentTarget.currentTime);
+                  }}
+                  onLoadedMetadata={(e) => {
+                    setDuration(e.currentTarget.duration);
+                  }}
                 >
                   <source
                     type="audio/wav"
-                    src={GetRecordingURL(currentRecording)}
+                    src={GetRecordingURL(recordings.data[currentRecordingIdx])}
                   />
                 </audio>
               ) : null}
