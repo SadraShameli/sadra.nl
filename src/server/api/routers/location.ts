@@ -35,6 +35,21 @@ export async function getLocation(
   return { data: result };
 }
 
+export async function getDefaultLocation(
+  ctx: ContextType,
+): Promise<Result<typeof location.$inferSelect>> {
+  const result = await ctx.db.query.location.findFirst();
+
+  if (!result) {
+    return {
+      error: `No locations exist`,
+      status: 404,
+    };
+  }
+
+  return { data: result };
+}
+
 export const locationRouter = createTRPCRouter({
   getLocations: publicProcedure.query(async ({ ctx }) => {
     return { data: await ctx.db.query.location.findMany() } as Result<

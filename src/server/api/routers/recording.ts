@@ -12,6 +12,7 @@ import { recording } from '~/server/db/schema';
 import { getDevice } from './device';
 import { type Result } from '../types/types';
 import { createRecordingProps, getRecordingProps } from '../types/zod';
+import { setTimeout } from 'timers';
 
 export function getRecordingFileName(date: Date) {
   return `${format(date, 'MMM d, y - HH.mm')}.wav`;
