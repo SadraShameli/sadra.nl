@@ -164,7 +164,7 @@ export default function ReadingSection() {
                         <div className="grid gap-5">
                           <div
                             className={twMerge([
-                              'flex rounded-xl bg-muted p-5',
+                              'flex min-h-32 rounded-xl bg-muted p-5',
                               currentReading.isRefetching && 'shimmer',
                             ])}
                           >
@@ -177,7 +177,7 @@ export default function ReadingSection() {
                           </div>
                           <div
                             className={twMerge([
-                              'rounded-xl bg-muted p-5',
+                              'rounded-xl bg-muted p-5 min-h-32',
                               currentReading.isRefetching && 'shimmer',
                             ])}
                           >

@@ -109,7 +109,7 @@ export default function RecordingSection({}) {
                   Download
                 </Button>
               </div>
-              <div className="my-5 h-[29vh]">
+              <div className="my-5 h-[27vh] md:h-[29vh]">
                 <ScrollArea className="h-full">
                   {!recordings.data?.length
                     ? [...Array(9)].map(() => (
@@ -145,7 +145,7 @@ export default function RecordingSection({}) {
                 </ScrollArea>
               </div>
 
-              <div className="mb-3 grid-flow-row gap-5 xl:grid xl:grid-cols-2">
+              <div className="mb-3 grid-flow-row gap-5 xl:grid xl:grid-cols-2 max-w-xl mx-auto">
                 <div className="flex items-center justify-center gap-x-7">
                   <button
                     aria-label="Shuffle"

@@ -34,7 +34,7 @@ export default async function HomePage() {
             </div>
 
             <Image
-              className="mx-auto mt-20 rounded-2xl object-cover sm:size-1/4"
+              className="mx-auto mt-20 rounded-2xl object-cover sm:size-1/4 size-2/3"
               src={ProfilePicture}
               alt="Profile picture"
               priority
@@ -58,7 +58,7 @@ export default async function HomePage() {
           </div>
         </RevealAnimation>
 
-        <div className="mx-auto max-w-content md:mt-content">
+        <div className="mx-auto max-w-content mt-content">
           <SectionTitle text="Noise recordings" />
           <SectionDescription text="Here you will find a list of noise recordings made by the Sensor Hub devices, which are placed at various locations in the Netherlands." />
           <RecordingSection />
