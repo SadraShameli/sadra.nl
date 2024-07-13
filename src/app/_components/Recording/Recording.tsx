@@ -200,13 +200,10 @@ export default function RecordingSection({}) {
                         }
                       }
                     }}
-                    disabled={() => {
-                      if (recordings.data && recordings.data.length) {
-                        return (
-                          currentRecordingIdx == recordings.data.length - 1
-                        );
-                      }
-                    }}
+                    disabled={
+                      !recordings.data ||
+                      currentRecordingIdx === recordings.data.length - 1
+                    }
                   >
                     <SkipForward className="size-6 transition" />
                   </button>
