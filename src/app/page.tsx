@@ -21,10 +21,10 @@ export default async function HomePage() {
       <GridBackground />
 
       <main className="grid w-full px-6 xl:px-0">
-        <div className="mx-auto h-screen max-w-content items-center justify-center">
+        <div className="mx-auto h-screen max-w-content items-center justify-center grid">
           <RevealAnimation>
             <div className="flex flex-col gap-y-3 text-center">
-              <h1 className="mt-32 text-5xl font-semibold text-white md:text-6xl xl:text-7xl">
+              <h1 className="text-5xl font-semibold text-white md:text-6xl xl:text-7xl">
                 {ResumeSadra.basics.title}
               </h1>
 
@@ -43,7 +43,7 @@ export default async function HomePage() {
         </div>
 
         <RevealAnimation>
-          <div className="mx-auto max-w-content">
+          <div className="mx-auto max-w-content mb-content">
             <SectionTitle text="This is Sensor Hub" />
             <SectionDescription text="Devices made by me, designed to record and register various climate telemetry and noise pollution data." />
             <video
@@ -58,7 +58,7 @@ export default async function HomePage() {
           </div>
         </RevealAnimation>
 
-        <div className="mx-auto max-w-content mt-content">
+        <div className="mx-auto max-w-content my-content">
           <SectionTitle text="Noise recordings" />
           <SectionDescription text="Here you will find a list of noise recordings made by the Sensor Hub devices, which are placed at various locations in the Netherlands." />
           <RecordingSection />

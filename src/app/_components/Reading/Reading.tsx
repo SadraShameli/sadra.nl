@@ -79,10 +79,7 @@ export default function ReadingSection() {
 
       <RevealAnimation>
         <Card
-          className={twMerge([
-            'min-h-[55vh]',
-            !currentReading.data?.data?.length && 'shimmer',
-          ])}
+          className={twMerge([!currentReading.data?.data?.length && 'shimmer'])}
         >
           <Tabs
             className="grid gap-y-3"
@@ -177,7 +174,7 @@ export default function ReadingSection() {
                           </div>
                           <div
                             className={twMerge([
-                              'rounded-xl bg-muted p-5 min-h-32',
+                              'min-h-32 rounded-xl bg-muted p-5',
                               currentReading.isRefetching && 'shimmer',
                             ])}
                           >
