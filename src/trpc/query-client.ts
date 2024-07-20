@@ -9,6 +9,8 @@ export const createQueryClient = () =>
     defaultOptions: {
       queries: {
         staleTime: 30 * 1000,
+        refetchOnMount: false,
+        refetchOnWindowFocus: false,
       },
       dehydrate: {
         serializeData: SuperJSON.serialize,
