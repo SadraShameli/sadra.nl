@@ -16,10 +16,6 @@ import RecordingSection from './_components/Recording/Recording';
 // import ResumeSection from './_components/Resume/Resume';
 
 export default async function HomePage() {
-  void api.recording.getRecordingsNoFile.prefetch();
-  void api.location.getLocations.prefetch();
-  void api.sensor.getSensors.prefetch();
-
   return (
     <HydrateClient>
       <Navbar />

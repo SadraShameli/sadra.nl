@@ -30,7 +30,7 @@ import { Slider } from '~/components/ui/Slider';
 import { ConvertSecondsToString, GetRandom, GetRecordingURL } from './helpers';
 
 export default function RecordingSection({}) {
-  const [recordings] = api.recording.getRecordingsNoFile.useSuspenseQuery();
+  const recordings = api.recording.getRecordingsNoFile.useQuery();
 
   const router = useRouter();
   const audio = useRef<HTMLAudioElement>(null);
@@ -91,12 +91,12 @@ export default function RecordingSection({}) {
                   className="font-semibold"
                   size="sm"
                   onClick={() => {
-                    const recording = recordings[currentRecordingIdx];
+                    const recording = recordings.data?.at(currentRecordingIdx);
                     if (recording) {
                       router.push(GetRecordingURL(recording));
                     }
                   }}
-                  disabled={!recordings.length}
+                  disabled={!recordings.data?.length}
                 >
                   <Download className="mr-2 size-5" />
                   Download
@@ -104,14 +104,14 @@ export default function RecordingSection({}) {
               </div>
               <div className="my-5 h-[27vh] md:h-[29vh]">
                 <ScrollArea className="h-full">
-                  {!recordings.length
+                  {!recordings.data?.length
                     ? Array(9).map((_, idx) => (
                         <div
                           className="shimmer my-2 h-5 sm:w-11/12"
                           key={idx}
                         />
                       ))
-                    : recordings.map((recording) => (
+                    : recordings.data?.map((recording) => (
                         <button
                           className="flex rounded-lg p-3 font-semibold transition hover:bg-accent sm:w-11/12"
                           onClick={() => {
@@ -119,7 +119,7 @@ export default function RecordingSection({}) {
                               audio.current.src = GetRecordingURL(recording);
                               audio.current.load();
                               setCurrentRecordingIdx(
-                                recordings.indexOf(recording),
+                                recordings.data.indexOf(recording),
                               );
                               if (isShuffle) {
                                 setIsShuffle(false);
@@ -129,7 +129,7 @@ export default function RecordingSection({}) {
                           key={recording.id}
                         >
                           <div className="flex items-center gap-x-2 text-sm">
-                            {recordings.indexOf(recording) ==
+                            {recordings.data.indexOf(recording) ==
                             currentRecordingIdx ? (
                               <ArrowRight className="size-5" />
                             ) : (
@@ -160,13 +160,13 @@ export default function RecordingSection({}) {
                       setIsShuffle((prev) => {
                         if (!prev) {
                           setCurrentRecordingIdx(
-                            GetRandom(0, recordings.length),
+                            GetRandom(0, recordings.data?.length),
                           );
                         }
                         return !prev;
                       });
                     }}
-                    disabled={!recordings.length}
+                    disabled={!recordings.data?.length}
                   >
                     <ShuffleIcon />
                   </button>
@@ -186,7 +186,7 @@ export default function RecordingSection({}) {
                     aria-label="Plause"
                     className="size-12 disabled:text-neutral-600"
                     onClick={OnAudioPlause}
-                    disabled={!recordings.length}
+                    disabled={!recordings.data?.length}
                   >
                     {isPlaying ? <PauseIcon /> : <PlayIcon />}
                   </button>
@@ -195,7 +195,10 @@ export default function RecordingSection({}) {
                     aria-label="Next"
                     className="text-neutral-400 hover:text-white disabled:text-neutral-700"
                     onClick={() => {
-                      if (currentRecordingIdx < recordings.length - 1) {
+                      if (
+                        recordings.data?.length &&
+                        currentRecordingIdx < recordings.data.length - 1
+                      ) {
                         if (isRepeat || isShuffle) {
                           setIsRepeat(false);
                           setIsShuffle(false);
@@ -205,8 +208,8 @@ export default function RecordingSection({}) {
                       }
                     }}
                     disabled={
-                      !recordings.length ||
-                      currentRecordingIdx === recordings.length - 1
+                      !recordings.data?.length ||
+                      currentRecordingIdx === recordings.data.length - 1
                     }
                   >
                     <SkipForward className="size-6 transition" />
@@ -227,7 +230,7 @@ export default function RecordingSection({}) {
                       }
                       setIsRepeat((prev) => !prev);
                     }}
-                    disabled={!recordings.length}
+                    disabled={!recordings.data?.length}
                   >
                     <Repeat />
                   </button>
@@ -249,7 +252,7 @@ export default function RecordingSection({}) {
                       }
                       setIsAutoPlay((prev) => !prev);
                     }}
-                    disabled={!recordings.length}
+                    disabled={!recordings.data?.length}
                   >
                     <ListEnd />
                   </button>
@@ -306,7 +309,7 @@ export default function RecordingSection({}) {
                         audio.current.currentTime = values[0];
                       }
                     }}
-                    disabled={!recordings.length}
+                    disabled={!recordings.data?.length}
                   />
 
                   <span className="col-span-1 text-sm">
@@ -315,7 +318,7 @@ export default function RecordingSection({}) {
                 </div>
               </div>
 
-              {recordings.length ? (
+              {recordings.data?.length ? (
                 <audio
                   preload="none"
                   ref={audio}
@@ -323,9 +326,9 @@ export default function RecordingSection({}) {
                   onEnded={() => {
                     setCurrentRecordingIdx((prev) => {
                       if (isShuffle) {
-                        return GetRandom(0, recordings.length - 1);
+                        return GetRandom(0, recordings.data.length - 1);
                       }
-                      if (isAutoPlay && prev < recordings.length - 1) {
+                      if (isAutoPlay && prev < recordings.data.length - 1) {
                         return prev + 1;
                       }
                       if (!isRepeat) {
@@ -343,7 +346,7 @@ export default function RecordingSection({}) {
                 >
                   <source
                     type="audio/wav"
-                    src={GetRecordingURL(recordings[currentRecordingIdx])}
+                    src={GetRecordingURL(recordings.data[currentRecordingIdx])}
                   />
                 </audio>
               ) : null}
