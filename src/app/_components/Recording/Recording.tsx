@@ -1,4 +1,5 @@
 'use client';
+
 import {
   ArrowRight,
   Download,
@@ -13,7 +14,9 @@ import {
   Volume2,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { twMerge } from 'tailwind-merge';
+import { api } from '~/trpc/react';
 
 import RevealAnimation from '~/components/ui/Animations/Reveal';
 import StaggerAnimation from '~/components/ui/Animations/Stagger';
@@ -25,7 +28,6 @@ import { ScrollArea } from '~/components/ui/ScrollArea';
 import { Slider } from '~/components/ui/Slider';
 
 import { ConvertSecondsToString, GetRandom, GetRecordingURL } from './helpers';
-import { api } from '~/trpc/react';
 
 export default function RecordingSection({}) {
   const recordings = api.recording.getRecordingsNoFile.useQuery();
@@ -43,36 +45,29 @@ export default function RecordingSection({}) {
   const [currentRecordingIdx, setCurrentRecordingIdx] = useState(0);
   const [prevRecording, setPrevRecording] = useState(currentRecordingIdx);
 
-  const PlayAudio = useCallback(() => {
+  function PlayAudio() {
     void audio.current?.play();
     setIsPlaying(true);
-  }, []);
+  }
 
-  const OnAudioPlause = useCallback(() => {
+  function OnAudioPlause() {
     if (!isPlaying) {
-      void audio.current?.play();
-      setIsPlaying(true);
+      PlayAudio();
     } else if (audio.current?.readyState == 4) {
-      if (isPlaying) {
-        audio.current?.pause();
-        setIsPlaying(false);
-      } else {
-        PlayAudio();
-      }
+      audio.current?.pause();
+      setIsPlaying(false);
     }
-  }, [PlayAudio, isPlaying]);
+  }
 
   useEffect(() => {
-    if (recordings.data && currentRecordingIdx < recordings.data.length) {
-      if (prevRecording != currentRecordingIdx) {
-        audio.current?.load();
-        setPrevRecording(currentRecordingIdx);
-      }
-      if (isPlaying) {
-        PlayAudio();
-      }
+    if (prevRecording != currentRecordingIdx) {
+      audio.current?.load();
+      setPrevRecording(currentRecordingIdx);
     }
-  }, [PlayAudio, currentRecordingIdx, isPlaying, prevRecording, recordings]);
+    if (isPlaying) {
+      PlayAudio();
+    }
+  }, [currentRecordingIdx, isPlaying, prevRecording]);
 
   useEffect(() => {
     if (audio.current) {
@@ -96,11 +91,9 @@ export default function RecordingSection({}) {
                   className="font-semibold"
                   size="sm"
                   onClick={() => {
-                    if (recordings.data) {
-                      const recording = recordings.data[currentRecordingIdx];
-                      if (recording) {
-                        router.push(GetRecordingURL(recording));
-                      }
+                    const recording = recordings.data?.at(currentRecordingIdx);
+                    if (recording) {
+                      router.push(GetRecordingURL(recording));
                     }
                   }}
                   disabled={!recordings.data?.length}
@@ -112,21 +105,25 @@ export default function RecordingSection({}) {
               <div className="my-5 h-[27vh] md:h-[29vh]">
                 <ScrollArea className="h-full">
                   {!recordings.data?.length
-                    ? [...Array(9)].map(() => (
-                        <div className="shimmer my-2 h-5 sm:w-11/12" />
+                    ? Array(9).map((_, idx) => (
+                        <div
+                          className="shimmer my-2 h-5 sm:w-11/12"
+                          key={idx}
+                        />
                       ))
-                    : recordings.data.map((recording) => (
+                    : recordings.data?.map((recording) => (
                         <button
                           className="flex rounded-lg p-3 font-semibold transition hover:bg-accent sm:w-11/12"
                           onClick={() => {
                             if (audio.current) {
                               audio.current.src = GetRecordingURL(recording);
-                              audio.current?.load();
-                              void audio.current.play();
-                              setIsPlaying(true);
+                              audio.current.load();
                               setCurrentRecordingIdx(
                                 recordings.data.indexOf(recording),
                               );
+                              if (isShuffle) {
+                                setIsShuffle(false);
+                              }
                             }
                           }}
                           key={recording.id}
@@ -145,16 +142,29 @@ export default function RecordingSection({}) {
                 </ScrollArea>
               </div>
 
-              <div className="mb-3 grid-flow-row gap-5 xl:grid xl:grid-cols-2 max-w-xl mx-auto">
+              <div className="mx-auto mb-3 max-w-xl grid-flow-row gap-5 xl:grid xl:grid-cols-2">
                 <div className="flex items-center justify-center gap-x-7">
                   <button
                     aria-label="Shuffle"
-                    className={`size-6 text-neutral-400 transition hover:text-white disabled:text-neutral-700 ${isShuffle && 'text-white'}`}
+                    className={twMerge([
+                      `size-6 text-neutral-400 transition hover:text-white disabled:text-neutral-700`,
+                      isShuffle && 'text-white',
+                    ])}
                     onClick={() => {
-                      if (recordings.data) {
-                        if (isRepeat) setIsRepeat((prev) => !prev);
-                        setIsShuffle((prev) => !prev);
+                      if (isRepeat) {
+                        setIsRepeat(false);
                       }
+                      if (isAutoPlay) {
+                        setIsAutoPlay(false);
+                      }
+                      setIsShuffle((prev) => {
+                        if (!prev) {
+                          setCurrentRecordingIdx(
+                            GetRandom(0, recordings.data?.length),
+                          );
+                        }
+                        return !prev;
+                      });
                     }}
                     disabled={!recordings.data?.length}
                   >
@@ -186,15 +196,15 @@ export default function RecordingSection({}) {
                     className="text-neutral-400 hover:text-white disabled:text-neutral-700"
                     onClick={() => {
                       if (
-                        recordings.data &&
+                        recordings.data?.length &&
                         currentRecordingIdx < recordings.data.length - 1
                       ) {
-                        setCurrentRecordingIdx((prev) => prev + 1);
                         if (isRepeat || isShuffle) {
                           setIsRepeat(false);
                           setIsShuffle(false);
                           setIsAutoPlay(true);
                         }
+                        setCurrentRecordingIdx((prev) => prev + 1);
                       }
                     }}
                     disabled={
@@ -207,13 +217,16 @@ export default function RecordingSection({}) {
 
                   <button
                     aria-label="Repeat"
-                    className={`size-6 text-neutral-400 transition hover:text-white disabled:text-neutral-700 ${isRepeat && 'text-white'}`}
+                    className={twMerge([
+                      'size-6 text-neutral-400 transition hover:text-white disabled:text-neutral-700',
+                      isRepeat && 'text-white',
+                    ])}
                     onClick={() => {
                       if (isShuffle) {
-                        setIsShuffle((prev) => !prev);
+                        setIsShuffle(false);
                       }
                       if (isAutoPlay) {
-                        setIsAutoPlay((prev) => !prev);
+                        setIsAutoPlay(false);
                       }
                       setIsRepeat((prev) => !prev);
                     }}
@@ -226,7 +239,10 @@ export default function RecordingSection({}) {
                 <div className="mt-5 flex items-center justify-center gap-x-3 text-neutral-400 xl:mt-0 xl:justify-end">
                   <button
                     aria-label="Auto Play"
-                    className={`size-6 transition hover:text-white disabled:text-neutral-700 ${isAutoPlay && 'text-white'}`}
+                    className={twMerge([
+                      'size-6 transition hover:text-white disabled:text-neutral-700',
+                      isAutoPlay && 'text-white',
+                    ])}
                     onClick={() => {
                       if (isShuffle) {
                         setIsShuffle((prev) => !prev);
@@ -302,7 +318,7 @@ export default function RecordingSection({}) {
                 </div>
               </div>
 
-              {recordings.data ? (
+              {recordings.data?.length ? (
                 <audio
                   preload="none"
                   ref={audio}

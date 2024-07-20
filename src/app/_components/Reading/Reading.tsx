@@ -27,9 +27,7 @@ import { keepPreviousData } from '@tanstack/react-query';
 
 export default function ReadingSection() {
   const locations = api.location.getLocations.useQuery();
-  const [currentLocation, setCurrentLocation] = useState(
-    locations.data?.data?.at(0),
-  );
+  const [currentLocation, setCurrentLocation] = useState(locations.data?.data?.at(0));
   const currentReading = api.reading.getReadingsLatest.useQuery(
     currentLocation
       ? {
@@ -54,7 +52,7 @@ export default function ReadingSection() {
   const [currentSensor, setCurrentSensor] = useState<string>();
   const sensors = useMemo(
     () => currentReading.data?.data?.map((reading) => reading.sensor),
-    [currentReading.data?.data],
+    [currentReading?.data],
   );
 
   useEffect(() => {

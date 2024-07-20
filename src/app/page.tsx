@@ -21,7 +21,7 @@ export default async function HomePage() {
       <GridBackground />
 
       <main className="grid w-full px-6 xl:px-0">
-        <div className="mx-auto h-screen max-w-content items-center justify-center grid">
+        <div className="mx-auto grid h-screen max-w-content items-center justify-center">
           <RevealAnimation>
             <div className="flex flex-col gap-y-3 text-center">
               <h1 className="text-5xl font-semibold text-white md:text-6xl xl:text-7xl">
@@ -34,7 +34,7 @@ export default async function HomePage() {
             </div>
 
             <Image
-              className="mx-auto mt-20 rounded-2xl object-cover sm:size-1/4 size-2/3"
+              className="mx-auto mt-20 size-2/3 rounded-2xl object-cover sm:size-1/4"
               src={ProfilePicture}
               alt="Profile picture"
               priority
@@ -43,7 +43,7 @@ export default async function HomePage() {
         </div>
 
         <RevealAnimation>
-          <div className="mx-auto max-w-content mb-content">
+          <div className="mx-auto mb-content max-w-content">
             <SectionTitle text="This is Sensor Hub" />
             <SectionDescription text="Devices made by me, designed to record and register various climate telemetry and noise pollution data." />
             <video
@@ -58,7 +58,7 @@ export default async function HomePage() {
           </div>
         </RevealAnimation>
 
-        <div className="mx-auto max-w-content my-content">
+        <div className="mx-auto my-content max-w-content">
           <SectionTitle text="Noise recordings" />
           <SectionDescription text="Here you will find a list of noise recordings made by the Sensor Hub devices, which are placed at various locations in the Netherlands." />
           <RecordingSection />
