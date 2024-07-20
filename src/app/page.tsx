@@ -1,5 +1,4 @@
 import Image from 'next/image';
-import { api, HydrateClient } from '~/trpc/server';
 
 import ProfilePicture from '~/assets/images/sadra.jpg';
 import SectionDescription from '~/components/SectionDescription';
@@ -17,7 +16,7 @@ import RecordingSection from './_components/Recording/Recording';
 
 export default async function HomePage() {
   return (
-    <HydrateClient>
+    <>
       <Navbar />
       <GridBackground />
 
@@ -77,6 +76,6 @@ export default async function HomePage() {
           <AboutSection />
         </div>
       </main>
-    </HydrateClient>
+    </>
   );
 }
