@@ -61,10 +61,10 @@ export default function RecordingSection({}) {
 
   useEffect(() => {
     if (prevRecording != currentRecordingIdx) {
+      audio.current?.load();
       setPrevRecording(currentRecordingIdx);
     }
     if (isPlaying) {
-      audio.current?.load();
       PlayAudio();
     }
   }, [currentRecordingIdx, isPlaying, prevRecording]);
@@ -117,6 +117,7 @@ export default function RecordingSection({}) {
                           onClick={() => {
                             if (audio.current) {
                               audio.current.src = GetRecordingURL(recording);
+                              audio.current.load();
                               setCurrentRecordingIdx(
                                 recordings.indexOf(recording),
                               );
