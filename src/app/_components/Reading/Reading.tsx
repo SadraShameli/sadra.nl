@@ -26,10 +26,8 @@ import { twMerge } from 'tailwind-merge';
 import { keepPreviousData } from '@tanstack/react-query';
 
 export default function ReadingSection() {
-  const locations = api.location.getLocations.useQuery();
-  const [currentLocation, setCurrentLocation] = useState(
-    locations.data?.data?.at(0),
-  );
+  const [locations] = api.location.getLocations.useSuspenseQuery();
+  const [currentLocation, setCurrentLocation] = useState(locations.data?.at(0));
   const currentReading = api.reading.getReadingsLatest.useQuery(
     currentLocation
       ? {
@@ -54,7 +52,7 @@ export default function ReadingSection() {
   const [currentSensor, setCurrentSensor] = useState<string>();
   const sensors = useMemo(
     () => currentReading.data?.data?.map((reading) => reading.sensor),
-    [currentReading.data?.data],
+    [currentReading?.data],
   );
 
   useEffect(() => {
@@ -114,16 +112,16 @@ export default function ReadingSection() {
                     value={
                       currentLocation
                         ? currentLocation.name
-                        : locations.data?.data?.at(0)?.name
+                        : locations.data?.at(0)?.name
                     }
                     onValueChange={(value) => {
-                      const location = locations.data?.data?.find(
+                      const location = locations.data?.find(
                         (location) => location.name === value,
                       );
                       setCurrentLocation(location);
                     }}
                   >
-                    {locations.data?.data?.map((location, index) => {
+                    {locations.data?.map((location, index) => {
                       return (
                         <DropdownMenuRadioItem
                           value={location.name}

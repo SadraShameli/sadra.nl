@@ -21,7 +21,6 @@ import {
   getLocationProps,
   getReadingProps,
 } from '../types/zod';
-import { getDefaultLocation } from './location';
 
 export async function getReading(
   input: z.infer<typeof getReadingProps>,
