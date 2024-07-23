@@ -5,7 +5,12 @@ import {
   ThermometerSnowflake,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { twMerge } from 'tailwind-merge';
+import { keepPreviousData } from '@tanstack/react-query';
+import { Area, AreaChart, XAxis, YAxis } from 'recharts';
+import { api } from '~/trpc/react';
 
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
 import SectionDescription from '~/components/SectionDescription';
 import SectionTitle from '~/components/SectionTitle';
 import RevealAnimation from '~/components/ui/Animations/Reveal';
@@ -18,16 +23,17 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '~/components/ui/DropDown';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
-import { api } from '~/trpc/react';
-
-import { ReadingAreaChart } from './AreaChart';
-import { twMerge } from 'tailwind-merge';
-import { keepPreviousData } from '@tanstack/react-query';
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from '~/components/ui/Chart';
 
 export default function ReadingSection() {
   const locations = api.location.getLocations.useQuery();
-  const [currentLocation, setCurrentLocation] = useState(locations.data?.data?.at(0));
+  const [currentLocation, setCurrentLocation] = useState(
+    locations.data?.data?.at(0),
+  );
   const currentReading = api.reading.getReadingsLatest.useQuery(
     currentLocation
       ? {
@@ -70,6 +76,12 @@ export default function ReadingSection() {
     }
   }, [currentSensor, oldSensors, sensors]);
 
+  useEffect(() => {
+    if (!currentLocation) {
+      setCurrentLocation(locations.data?.data?.at(0));
+    }
+  }, [currentLocation, locations]);
+
   return (
     <div className="mx-auto my-content w-full max-w-content">
       <SectionTitle text="Live readings" />
@@ -77,7 +89,10 @@ export default function ReadingSection() {
 
       <RevealAnimation>
         <Card
-          className={twMerge([!currentReading.data?.data?.length && 'shimmer'])}
+          className={twMerge([
+            'min-h-[538.81px]',
+            !currentReading.data?.data?.length && 'shimmer',
+          ])}
         >
           <Tabs
             className="grid gap-y-3"
@@ -189,7 +204,7 @@ export default function ReadingSection() {
                       </div>
                       <div
                         className={twMerge([
-                          'rounded-xl bg-muted p-5',
+                          'rounded-xl border p-5',
                           currentReading.isRefetching && 'shimmer',
                         ])}
                       >
@@ -198,7 +213,7 @@ export default function ReadingSection() {
                           Live Chart
                         </div>
                         <div className="mt-12 grid">
-                          <ReadingAreaChart
+                          {/* <ReadingAreaChart
                             xAxis={reading.readings.map(
                               (reading) => reading.date,
                             )}
@@ -206,7 +221,70 @@ export default function ReadingSection() {
                               (reading) => reading.value,
                             )}
                             yName={reading.sensor.name}
-                          />
+                          /> */}
+                          <ChartContainer
+                            className="h-full w-full"
+                            config={{
+                              location: {
+                                label: currentLocation?.name,
+                              },
+                              sensor: {
+                                label: currentSensor,
+                              },
+                            }}
+                          >
+                            <AreaChart data={reading.readings}>
+                              <defs>
+                                <linearGradient
+                                  id="chartGradient"
+                                  x1="0"
+                                  y1="0"
+                                  x2="0"
+                                  y2="1"
+                                >
+                                  <stop
+                                    offset="5%"
+                                    stopColor="#525151"
+                                    stopOpacity={0.5}
+                                  />
+                                  <stop
+                                    offset="95%"
+                                    stopColor="#525151"
+                                    stopOpacity={0}
+                                  />
+                                </linearGradient>
+                              </defs>
+                              <XAxis
+                                dataKey="date"
+                                tickLine={false}
+                                tickMargin={10}
+                                axisLine={false}
+                              />
+                              <YAxis
+                                tickLine={false}
+                                axisLine={false}
+                                tickFormatter={(value) =>
+                                  `${value} ${sensors?.find((sensor) => sensor.name == currentSensor)?.unit}`
+                                }
+                              />
+                              <Area
+                                type="monotone"
+                                dataKey="value"
+                                stroke="#a3a3a3"
+                                fillOpacity={1}
+                                fill="url(#chartGradient)"
+                              />
+                              <ChartTooltip
+                                content={
+                                  <ChartTooltipContent
+                                    labelKey="location"
+                                    nameKey="sensor"
+                                    indicator="line"
+                                  />
+                                }
+                              />
+                            </AreaChart>
+                          </ChartContainer>
                         </div>
                       </div>
                     </div>
