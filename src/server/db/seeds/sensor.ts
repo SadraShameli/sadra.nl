@@ -1,7 +1,7 @@
 import { db } from '..';
 import { sensor } from '../schema';
 
-export async function SensorSeed() {
+export default async function SensorSeed() {
   return await db.insert(sensor).values([
     {
       name: 'Temperature',

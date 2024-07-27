@@ -1,7 +1,7 @@
 import { db } from '..';
 import { device } from '../schema';
 
-export async function DeviceSeed() {
+export default async function DeviceSeed() {
   return await db.insert(device).values([
     {
       name: 'Test Device',
