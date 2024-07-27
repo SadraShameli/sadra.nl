@@ -10,14 +10,12 @@ import { endDb } from '.';
 async function main() {
   console.log('Seeding database');
 
-  await Promise.all([
-    LocationSeed(),
-    SensorSeed(),
-    DeviceSeed(),
-    ReadingSeed(),
-    RecordingSeed(),
-    SensorsToDevicesSeed(),
-  ]);
+  await LocationSeed();
+  await SensorSeed();
+  await DeviceSeed();
+  await ReadingSeed();
+  await RecordingSeed();
+  await SensorsToDevicesSeed();
 }
 
 main()
