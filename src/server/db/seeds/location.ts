@@ -1,7 +1,7 @@
 import { db } from '..';
 import { location } from '../schema';
 
-export async function LocationSeed() {
+export default async function LocationSeed() {
   return await db.insert(location).values([
     {
       name: 'Rijswijk',

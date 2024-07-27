@@ -1,11 +1,9 @@
 import fs from 'fs';
-
-import { getRecordingFileName } from '~/server/api/routers/recording';
-
 import { db } from '..';
 import { recording } from '../schema';
+import { getRecordingFileName } from '~/server/api/routers/recording';
 
-export async function RecordingSeed() {
+export default async function RecordingSeed() {
   return await db.insert(recording).values([
     {
       device_id: 2,

@@ -1,7 +1,7 @@
 import { db } from '..';
 import { sensorsToDevices } from '../schema';
 
-export async function SensorsToDevicesSeed() {
+export default async function SensorsToDevicesSeed() {
   return await db.insert(sensorsToDevices).values([
     {
       device_id: 1,

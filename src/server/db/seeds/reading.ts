@@ -1,7 +1,7 @@
 import { db } from '..';
 import { reading } from '../schema';
 
-export async function ReadingSeed() {
+export default async function ReadingSeed() {
   return await db.insert(reading).values([
     {
       value: 29.17,

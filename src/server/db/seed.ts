@@ -1,11 +1,11 @@
-import { DeviceSeed } from './seeds/device';
-import { LocationSeed } from './seeds/location';
-import { ReadingSeed } from './seeds/reading';
-import { RecordingSeed } from './seeds/recording';
-import { SensorSeed } from './seeds/sensor';
-import { SensorsToDevicesSeed } from './seeds/sensorsToDevices';
-
 import { endDb } from '.';
+
+import DeviceSeed from './seeds/device';
+import LocationSeed from './seeds/location';
+import ReadingSeed from './seeds/reading';
+import RecordingSeed from './seeds/recording';
+import SensorSeed from './seeds/sensor';
+import SensorsToDevicesSeed from './seeds/sensorsToDevices';
 
 async function main() {
   console.log('Seeding database');
