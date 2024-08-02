@@ -8,26 +8,26 @@ import SensorSeed from './seeds/sensor';
 import SensorsToDevicesSeed from './seeds/sensorsToDevices';
 
 async function main() {
-  console.log('Seeding database');
+    console.log('Seeding database');
 
-  await LocationSeed();
-  await SensorSeed();
-  await DeviceSeed();
-  await ReadingSeed();
-  await RecordingSeed();
-  await SensorsToDevicesSeed();
+    await LocationSeed();
+    await SensorSeed();
+    await DeviceSeed();
+    await ReadingSeed();
+    await RecordingSeed();
+    await SensorsToDevicesSeed();
 }
 
 main()
-  .then(() => {
-    console.log('Seeding complete');
-  })
-  .catch((e) => {
-    console.error(e);
-  })
-  .finally(() => {
-    void (async () => {
-      await endDb();
-      process.exit(0);
-    })();
-  });
+    .then(() => {
+        console.log('Seeding complete');
+    })
+    .catch((e) => {
+        console.error(e);
+    })
+    .finally(() => {
+        void (async () => {
+            await endDb();
+            process.exit(0);
+        })();
+    });
