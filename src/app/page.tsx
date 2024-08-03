@@ -12,7 +12,6 @@ import AboutSection from './_components/About';
 import Navbar from './_components/Navbar';
 import ReadingSection from './_components/Reading/Reading';
 import RecordingSection from './_components/Recording/Recording';
-import Footer from './_components/Footer';
 // import ResumeSection from './_components/Resume/Resume';
 
 export default async function HomePage() {
@@ -71,8 +70,6 @@ export default async function HomePage() {
                     <AboutSection />
                 </div>
             </main>
-
-            <Footer />
         </>
     );
 }
