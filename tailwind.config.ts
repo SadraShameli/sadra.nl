@@ -1,7 +1,7 @@
 import type { Config } from 'tailwindcss';
 import defaultTheme from 'tailwindcss/defaultTheme';
 
-const config = {
+export default {
     content: ['./src/**/*.tsx'],
     theme: {
         container: {
@@ -93,5 +93,3 @@ const config = {
     },
     plugins: [require('@tailwindcss/typography'), require('tailwindcss-animate')],
 } satisfies Config;
-
-export default config;
