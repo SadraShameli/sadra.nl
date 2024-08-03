@@ -2,9 +2,6 @@ import type { Config } from 'tailwindcss';
 import defaultTheme from 'tailwindcss/defaultTheme';
 
 const config = {
-    experimental: {
-        optimizeUniversalDefaults: true,
-    },
     content: ['./src/**/*.tsx'],
     theme: {
         container: {
