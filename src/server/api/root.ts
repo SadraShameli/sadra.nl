@@ -7,11 +7,11 @@ import { recordingsRouter } from './routers/recording';
 import { sensorRouter } from './routers/sensor';
 
 export const appRouter = createTRPCRouter({
-  location: locationRouter,
-  sensor: sensorRouter,
-  device: deviceRouter,
-  reading: readingRouter,
-  recording: recordingsRouter,
+    location: locationRouter,
+    sensor: sensorRouter,
+    device: deviceRouter,
+    reading: readingRouter,
+    recording: recordingsRouter,
 });
 
 export type AppRouter = typeof appRouter;

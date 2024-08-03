@@ -6,25 +6,13 @@ import ResumeSadra from '~/data/Resume/Sadra';
 import ResumeItem from './ResumeItem';
 
 export default function ResumeSection() {
-  return (
-    <div className="grid gap-y-10">
-      <ResumeItem
-        title="Projects"
-        img={projectAiImg}
-        sections={ResumeSadra.projects}
-      />
+    return (
+        <div className="grid gap-y-10">
+            <ResumeItem title="Projects" img={projectAiImg} sections={ResumeSadra.projects} />
 
-      <ResumeItem
-        title="Experience"
-        img={workImg}
-        sections={ResumeSadra.experience}
-      />
+            <ResumeItem title="Experience" img={workImg} sections={ResumeSadra.experience} />
 
-      <ResumeItem
-        title="Education"
-        img={diplomaImg}
-        sections={ResumeSadra.education}
-      />
-    </div>
-  );
+            <ResumeItem title="Education" img={diplomaImg} sections={ResumeSadra.education} />
+        </div>
+    );
 }
