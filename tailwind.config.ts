@@ -2,9 +2,10 @@ import type { Config } from 'tailwindcss';
 import defaultTheme from 'tailwindcss/defaultTheme';
 
 const config = {
-    darkMode: ['class'],
+    experimental: {
+        optimizeUniversalDefaults: true,
+    },
     content: ['./src/**/*.tsx'],
-    prefix: '',
     theme: {
         container: {
             center: true,
