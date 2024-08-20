@@ -49,7 +49,7 @@ export const locationRouter = createTRPCRouter({
     getLocationsWithReading: publicProcedure.query(async ({ ctx }) => {
         const latestReading = await ctx.db.select().from(reading).orderBy(desc(reading.id)).limit(1);
 
-        const latestReadingDate = latestReading?.[0]?.created_at;
+        const latestReadingDate = latestReading.at(-1)?.created_at;
         if (!latestReadingDate) {
             return { error: 'There are no readings' } as Result<(typeof location.$inferSelect)[]>;
         }
@@ -63,10 +63,7 @@ export const locationRouter = createTRPCRouter({
                     reading,
                     and(
                         eq(location.id, reading.location_id),
-                        gte(
-                            reading.created_at,
-                            new Date(latestReadingDate.getMilliseconds() - period * 60 * 60 * 1000),
-                        ),
+                        gte(reading.created_at, new Date(latestReadingDate.getTime() - period * 60 * 60 * 1000)),
                     ),
                 )
                 .groupBy(location.id)
