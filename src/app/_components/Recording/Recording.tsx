@@ -15,8 +15,8 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { twMerge } from 'tailwind-merge';
 import { api } from '~/trpc/react';
+import { cn } from '~/lib/utils';
 
 import RevealAnimation from '~/components/ui/Animations/Reveal';
 import StaggerAnimation from '~/components/ui/Animations/Stagger';
@@ -140,7 +140,7 @@ export default function RecordingSection({}) {
                                 <div className="flex items-center justify-center gap-x-7">
                                     <button
                                         aria-label="Shuffle"
-                                        className={twMerge([
+                                        className={cn([
                                             `size-6 text-neutral-400 transition hover:text-white disabled:text-neutral-700`,
                                             isShuffle && 'text-white',
                                         ])}
@@ -209,7 +209,7 @@ export default function RecordingSection({}) {
 
                                     <button
                                         aria-label="Repeat"
-                                        className={twMerge([
+                                        className={cn([
                                             'size-6 text-neutral-400 transition hover:text-white disabled:text-neutral-700',
                                             isRepeat && 'text-white',
                                         ])}
@@ -231,7 +231,7 @@ export default function RecordingSection({}) {
                                 <div className="mt-5 flex items-center justify-center gap-x-3 text-neutral-400 xl:mt-0 xl:justify-end">
                                     <button
                                         aria-label="Auto Play"
-                                        className={twMerge([
+                                        className={cn([
                                             'size-6 transition hover:text-white disabled:text-neutral-700',
                                             isAutoPlay && 'text-white',
                                         ])}

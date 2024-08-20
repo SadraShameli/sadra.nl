@@ -1,10 +1,11 @@
 'use client';
 import { AreaChart as ChartLIcon, MapPin, ThermometerSnowflake } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { twMerge } from 'tailwind-merge';
 import { keepPreviousData } from '@tanstack/react-query';
 import { Area, AreaChart, XAxis, YAxis } from 'recharts';
 import { api } from '~/trpc/react';
+import { cn } from '~/lib/utils';
+import { type location, type sensor } from '~/server/db/schema';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
 import SectionDescription from '~/components/SectionDescription';
@@ -23,7 +24,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from '~/components/
 
 export default function ReadingSection() {
     const locations = api.location.getLocations.useQuery();
-    const [currentLocation, setCurrentLocation] = useState(locations.data?.data?.at(0));
+    const [currentLocation, setCurrentLocation] = useState<typeof location.$inferSelect>();
     const currentReading = api.reading.getReadingsLatest.useQuery(
         currentLocation
             ? {
@@ -35,16 +36,7 @@ export default function ReadingSection() {
         },
     );
 
-    const [oldSensors, setOldSensors] = useState<
-        | {
-              id: number;
-              created_at: Date;
-              name: string;
-              unit: string;
-          }[]
-        | undefined
-    >();
-
+    const [oldSensors, setOldSensors] = useState<(typeof sensor.$inferSelect)[] | undefined>();
     const [currentSensor, setCurrentSensor] = useState<string>();
     const sensors = useMemo(() => currentReading.data?.data?.map((reading) => reading.sensor), [currentReading?.data]);
 
@@ -62,7 +54,7 @@ export default function ReadingSection() {
 
     useEffect(() => {
         if (!currentLocation) {
-            setCurrentLocation(locations.data?.data?.at(0));
+            setCurrentLocation(locations.data?.data?.at(-1));
         }
     }, [currentLocation, locations]);
 
@@ -72,7 +64,7 @@ export default function ReadingSection() {
             <SectionDescription text="Ever been curious about the temperature, humidity and loudness levels at various locations in real time?" />
 
             <RevealAnimation>
-                <Card className={twMerge(['min-h-[538.81px]', !currentReading.data?.data?.length && 'shimmer'])}>
+                <Card className="min-h-[538.81px]">
                     <Tabs
                         className="grid gap-y-3"
                         defaultValue={sensors?.at(0)?.name}
@@ -93,14 +85,12 @@ export default function ReadingSection() {
                             )}
 
                             <DropdownMenu>
-                                {currentReading.data?.data?.length && (
-                                    <DropdownMenuTrigger asChild>
-                                        <Button className="w-fit md:ml-0" variant="outline">
-                                            <MapPin className="mr-1 size-5" />
-                                            Locations
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                )}
+                                <DropdownMenuTrigger asChild>
+                                    <Button className="w-fit md:ml-0" variant="outline">
+                                        <MapPin className="mr-1 size-5" />
+                                        Locations
+                                    </Button>
+                                </DropdownMenuTrigger>
                                 <DropdownMenuContent>
                                     <DropdownMenuRadioGroup
                                         value={
@@ -127,12 +117,16 @@ export default function ReadingSection() {
 
                         {currentReading.data?.data?.map((reading, index) => {
                             return (
-                                <TabsContent value={reading.sensor.name} key={index}>
+                                <TabsContent
+                                    className={cn(!currentReading.data?.data?.length && 'shimmer')}
+                                    value={reading.sensor.name}
+                                    key={index}
+                                >
                                     <div className="grid gap-5 text-sm font-semibold leading-none">
                                         <div className="grid gap-5 lg:grid-cols-2">
                                             <div className="grid grid-cols-2 gap-5">
                                                 <div
-                                                    className={twMerge([
+                                                    className={cn([
                                                         'flex rounded-xl bg-muted p-5',
                                                         currentReading.isRefetching && 'shimmer',
                                                     ])}
@@ -147,7 +141,7 @@ export default function ReadingSection() {
                                                 </div>
                                                 <div className="grid gap-5">
                                                     <div
-                                                        className={twMerge([
+                                                        className={cn([
                                                             'flex min-h-32 rounded-xl bg-muted p-5',
                                                             currentReading.isRefetching && 'shimmer',
                                                         ])}
@@ -158,7 +152,7 @@ export default function ReadingSection() {
                                                         </div>
                                                     </div>
                                                     <div
-                                                        className={twMerge([
+                                                        className={cn([
                                                             'min-h-32 rounded-xl bg-muted p-5',
                                                             currentReading.isRefetching && 'shimmer',
                                                         ])}
@@ -173,7 +167,7 @@ export default function ReadingSection() {
                                                 </div>
                                             </div>
                                             <div
-                                                className={twMerge([
+                                                className={cn([
                                                     'rounded-xl border p-5',
                                                     currentReading.isRefetching && 'shimmer',
                                                 ])}
