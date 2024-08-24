@@ -12,7 +12,6 @@ import AboutSection from './_components/About';
 import Navbar from './_components/Navbar';
 import ReadingSection from './_components/Reading/Reading';
 import RecordingSection from './_components/Recording/Recording';
-// import ResumeSection from './_components/Resume/Resume';
 
 export default async function HomePage() {
     return (
@@ -63,11 +62,6 @@ export default async function HomePage() {
                     <SectionDescription text="Ever been curious about the temperature, humidity and loudness levels at various locations in real time?" />
                     <ReadingSection />
                 </div>
-
-                {/* <div className="mx-auto my-content max-w-content">
-                    <SectionText text="Recent projects" />
-                    <ResumeSection />
-                </div> */}
 
                 <div className="mx-auto mb-10 max-w-content md:my-content">
                     <SectionText text="More about me" />

@@ -169,11 +169,6 @@ export default function ReadingSection() {
                                                 Live Chart
                                             </div>
                                             <div className="mt-12 grid">
-                                                {/* <ReadingAreaChart
-                                                        xAxis={reading.readings.map((reading) => reading.date)}
-                                                        yAxis={reading.readings.map((reading) => reading.value)}
-                                                        yName={reading.sensor.name}
-                                                    /> */}
                                                 <AreaChartNew
                                                     data={reading.readings}
                                                     config={{
