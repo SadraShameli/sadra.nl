@@ -128,10 +128,10 @@ export default function ReadingSection() {
                                         <div className="grid gap-5 lg:grid-cols-2">
                                             <div className="grid grid-cols-2 gap-5">
                                                 <div
-                                                    className={cn([
+                                                    className={cn(
                                                         'flex rounded-xl bg-muted p-5',
                                                         currentReading.isRefetching && 'shimmer',
-                                                    ])}
+                                                    )}
                                                 >
                                                     <div className="absolute flex items-center gap-x-2">
                                                         <ThermometerSnowflake />
@@ -143,10 +143,10 @@ export default function ReadingSection() {
                                                 </div>
                                                 <div className="grid gap-5">
                                                     <div
-                                                        className={cn([
+                                                        className={cn(
                                                             'flex min-h-32 rounded-xl bg-muted p-5',
                                                             currentReading.isRefetching && 'shimmer',
-                                                        ])}
+                                                        )}
                                                     >
                                                         <div className="absolute">{`${reading.period}h high`}</div>
                                                         <div className="m-auto whitespace-nowrap text-xl lg:text-3xl">
@@ -154,10 +154,10 @@ export default function ReadingSection() {
                                                         </div>
                                                     </div>
                                                     <div
-                                                        className={cn([
+                                                        className={cn(
                                                             'min-h-32 rounded-xl bg-muted p-5',
                                                             currentReading.isRefetching && 'shimmer',
-                                                        ])}
+                                                        )}
                                                     >
                                                         <div className="flex h-full">
                                                             <div className="absolute">{`${reading.period}h low`}</div>
@@ -169,10 +169,10 @@ export default function ReadingSection() {
                                                 </div>
                                             </div>
                                             <div
-                                                className={cn([
+                                                className={cn(
                                                     'rounded-xl border p-5',
                                                     currentReading.isRefetching && 'shimmer',
-                                                ])}
+                                                )}
                                             >
                                                 <div className="absolute flex items-center gap-x-2 pb-5">
                                                     <ChartLIcon />
