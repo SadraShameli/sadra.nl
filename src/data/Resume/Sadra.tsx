@@ -1,11 +1,16 @@
+import { type IResume } from './types';
+
 import GithubIcon from '~/components/ui/Icons/Github';
 import InstagramIcon from '~/components/ui/Icons/Instagram';
 import WhatsAppIcon from '~/components/ui/Icons/WhatsApp';
 import YoutubeIcon from '~/components/ui/Icons/Youtube';
 
-import { type IResume } from './types';
+import ProjectAI from '~/assets/images/projectai.jpg';
+import SensorUnit from '~/assets/images/units.jpg';
+import BSP from '~/assets/images/bsp.jpeg';
+import Diploma from '~/assets/images/diploma.jpg';
 
-const ResumeSadra: IResume = {
+const resumeSadra: IResume = {
     title: 'Sadra',
     description: 'Futures & crypto trader, developer',
     basics: {
@@ -15,7 +20,7 @@ const ResumeSadra: IResume = {
         email: 'sadra.shameli1@gmail.com',
         phone: '+31 06 85156033',
         birth: 'Dec 2003',
-        summary: `Full-stack developer with 3 years of experience. Proficient in TypeScript, React and Next.js with tRPC, React Query, Prisma, Drizzle and NextAuth for building type-safe backends. Skilled in Tailwind CSS and Framer Motion for designing modern UI/UX. I am also experienced in designing IoT devices.`,
+        summary: `Full-stack developer with 2 years of experience. Proficient in TypeScript, React and Next.js with tRPC, React Query, Prisma, Drizzle and NextAuth for building type-safe backends. Skilled in Tailwind CSS and Framer Motion for designing modern UI/UX. I am also experienced in designing IoT devices.`,
         location: {
             title: 'Rijswijk - The Netherlands',
             url: '',
@@ -64,13 +69,14 @@ const ResumeSadra: IResume = {
             date: 'Sep 2020 - Aug 2023',
             location: { title: 'Delft, The Netherlands', url: '' },
             url: 'https://www.grotiuscollege.nl',
+            image: Diploma,
         },
     ],
     research: [],
     experience: [
         {
             title: 'Blue Star Planning',
-            role: 'Full-stack developer · Fulltime',
+            role: 'Full-stack developer · Parttime',
             date: 'Dec 2021 - Jan 2023 · 1 yr 1 mo',
             location: {
                 title: 'Rotterdam, The Netherlands',
@@ -87,6 +93,7 @@ const ResumeSadra: IResume = {
                 'Cooperated a CI/CD pipeline using Azure DevOps for streamlined and automated deployments, resulting in faster and more reliable code base',
             ],
             skills: ['React ••• TypeScript ••• Next.js ••• ASP.NET ••• SQL Server ••• Unit Testing'],
+            image: BSP,
         },
         {
             title: 'Gamma',
@@ -139,11 +146,11 @@ const ResumeSadra: IResume = {
         },
         {
             title: 'Sensor Hub',
-            role: 'Gathering telemetries for sadra.nl',
+            role: 'Gathering telemetries',
             date: 'Feb 2024 - Present',
             url: 'https://github.com/SadraShameli/SensorHub',
             summary:
-                'This project is part of a full-stack application and is intended to gather various data such as temperature, humidity, air pressure, gas resistance, altitude, loudness levels, noise recordings and RPM values. The devices are placed at various locations in the Netherlands and are continuously sending these data to my website at my website sadra.nl.',
+                'This project is part of a full-stack application and is intended to gather various data such as <strong>temperature, humidity, air pressure, gas resistance, altitude, loudness levels, noise recordings and RPM values</strong>. The devices are placed at various locations in the Netherlands and are continuously sending these data to my website at my website <strong>sadra.nl</strong>.',
             highlights: [
                 'Focus on optimizations: Debug and release configurations apply different macros and compiler flags to make debugging easy and runtime faster. Enabling all compiler warnings to write safer code. Using std::move and pass by reference to avoid additional copies',
                 'Supporting multithreading for all core functionality. Tasks are created, suspended and deleted when needed: This results to a boot time of only 100ms when running in release mode',
@@ -154,6 +161,7 @@ const ResumeSadra: IResume = {
                 'Handling runtime and backend errors and notifying users with a failsafe when errors occur',
             ],
             skills: ['3D Printing ••• C++ ••• ESP32 ••• IoT devices'],
+            image: SensorUnit,
         },
         {
             title: 'Project A.I.',
@@ -169,6 +177,7 @@ const ResumeSadra: IResume = {
                 'Using multithreading for every core functionality',
             ],
             skills: ['3D Printing ••• Machine Learning ••• Python ••• C++'],
+            image: ProjectAI,
         },
     ],
     languages: [
@@ -188,4 +197,4 @@ const ResumeSadra: IResume = {
     hobbies: ['Robotics', 'Photography', 'Guitar', 'Cars'],
 };
 
-export default ResumeSadra;
+export default resumeSadra;

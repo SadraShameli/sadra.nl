@@ -5,6 +5,7 @@ import { useRef } from 'react';
 
 type RevealProps = {
     children: React.ReactNode;
+    className?: string;
 };
 
 const defaultVariants: Variants = {
@@ -17,7 +18,7 @@ const defaultTransition: Transition = {
     ease: [0, 0, 0, 1],
 };
 
-export default function RevealAnimation({ children }: RevealProps) {
+export default function RevealAnimation({ children, className }: RevealProps) {
     const ref = useRef(null);
     const isInView = useInView(ref, { once: true, amount: 0.1 });
 
@@ -28,6 +29,7 @@ export default function RevealAnimation({ children }: RevealProps) {
             initial="hidden"
             animate={isInView ? 'visible' : 'hidden'}
             transition={defaultTransition}
+            className={className}
         >
             {children}
         </motion.div>

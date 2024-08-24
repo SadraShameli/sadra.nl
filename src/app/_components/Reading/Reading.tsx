@@ -1,7 +1,10 @@
 'use client';
+
+import { format } from 'date-fns';
 import { useEffect, useMemo, useState } from 'react';
 import { keepPreviousData } from '@tanstack/react-query';
-import { AreaChart as ChartLIcon, MapPin, ThermometerSnowflake } from 'lucide-react';
+import { Calendar as CalendarIcon, AreaChart as ChartIcon, MapPin, ThermometerSnowflake } from 'lucide-react';
+import { type DateRange } from 'react-day-picker';
 
 import { api } from '~/trpc/react';
 import { cn } from '~/lib/utils';
@@ -19,24 +22,30 @@ import {
     DropdownMenuTrigger,
 } from '~/components/ui/DropDown';
 import AreaChartNew from '~/components/ui/Chart/AreaChartNew';
+import { Popover, PopoverContent, PopoverTrigger } from '~/components/ui/Popover';
+import { Calendar } from '~/components/ui/Calendar';
 
 export default function ReadingSection() {
-    const locations = api.location.getLocations.useQuery();
+    const [date, setDate] = useState<DateRange>();
     const [currentLocation, setCurrentLocation] = useState<typeof location.$inferSelect>();
-    const currentReading = api.reading.getReadingsLatest.useQuery(
+
+    const [oldSensors, setOldSensors] = useState<(typeof sensor.$inferSelect)[] | undefined>();
+    const [currentSensor, setCurrentSensor] = useState<string>();
+
+    const currentReading = api.reading.getReadingsInput.useQuery(
         currentLocation
             ? {
                   location_id: currentLocation.id,
+                  date_from: date?.from,
+                  date_to: date?.to,
               }
             : undefined,
         {
             placeholderData: keepPreviousData,
         },
     );
-
-    const [oldSensors, setOldSensors] = useState<(typeof sensor.$inferSelect)[] | undefined>();
-    const [currentSensor, setCurrentSensor] = useState<string>();
     const sensors = useMemo(() => currentReading.data?.data?.map((reading) => reading.sensor), [currentReading?.data]);
+    const locations = api.location.getLocations.useQuery();
 
     useEffect(() => {
         if (oldSensors === undefined && sensors != undefined) {
@@ -58,17 +67,22 @@ export default function ReadingSection() {
 
     return (
         <RevealAnimation>
-            <Card className="min-h-[538.81px]">
+            <Card className="flex min-h-[538.81px] flex-col">
                 <Tabs
                     className="grid gap-y-3"
                     defaultValue={sensors?.at(0)?.name}
                     value={currentSensor}
                     onValueChange={(value) => setCurrentSensor(value)}
                 >
-                    <div className="flex flex-col justify-between gap-y-5 md:flex-row md:gap-5">
+                    <div
+                        className={cn(
+                            'flex flex-col justify-between gap-y-5 md:flex-row md:gap-5',
+                            !currentReading.data?.data && 'justify-end',
+                        )}
+                    >
                         {sensors && (
                             <TabsList className="w-fit">
-                                {sensors.map((sensor, index) => {
+                                {sensors?.map((sensor, index) => {
                                     return (
                                         <TabsTrigger value={sensor.name} key={index}>
                                             {sensor.name}
@@ -78,33 +92,75 @@ export default function ReadingSection() {
                             </TabsList>
                         )}
 
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button className="w-fit md:ml-0" variant="outline">
-                                    <MapPin className="mr-1 size-5" />
-                                    Locations
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent>
-                                <DropdownMenuRadioGroup
-                                    value={currentLocation ? currentLocation.name : locations.data?.data?.at(0)?.name}
-                                    onValueChange={(value) => {
-                                        const location = locations.data?.data?.find(
-                                            (location) => location.name === value,
-                                        );
-                                        setCurrentLocation(location);
-                                    }}
-                                >
-                                    {locations.data?.data?.map((location, index) => {
-                                        return (
-                                            <DropdownMenuRadioItem value={location.name} key={index}>
-                                                {location.name}
-                                            </DropdownMenuRadioItem>
-                                        );
-                                    })}
-                                </DropdownMenuRadioGroup>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                        <div className="flex flex-col gap-5 sm:flex-row">
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button className="w-fit md:ml-0" variant="outline">
+                                        <MapPin className="mr-1 size-5" />
+                                        Locations
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                    <DropdownMenuRadioGroup
+                                        value={
+                                            currentLocation ? currentLocation.name : locations.data?.data?.at(0)?.name
+                                        }
+                                        onValueChange={(value) => {
+                                            const location = locations.data?.data?.find(
+                                                (location) => location.name === value,
+                                            );
+                                            setCurrentLocation(location);
+                                        }}
+                                    >
+                                        {locations.data?.data?.map((location, index) => {
+                                            return (
+                                                <DropdownMenuRadioItem value={location.name} key={index}>
+                                                    {location.name}
+                                                </DropdownMenuRadioItem>
+                                            );
+                                        })}
+                                    </DropdownMenuRadioGroup>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+
+                            <div className="grid gap-2">
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            className={cn(
+                                                'w-[300px] justify-start text-left font-normal',
+                                                !date && 'text-muted-foreground',
+                                            )}
+                                            variant="outline"
+                                        >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {date?.from ? (
+                                                date.to ? (
+                                                    <>
+                                                        {format(date.from, 'LLL dd, y')} -{' '}
+                                                        {format(date.to, 'LLL dd, y')}
+                                                    </>
+                                                ) : (
+                                                    format(date.from, 'LLL dd, y')
+                                                )
+                                            ) : (
+                                                <span>Pick a date</span>
+                                            )}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                        <Calendar
+                                            initialFocus
+                                            mode="range"
+                                            defaultMonth={date?.from}
+                                            selected={date}
+                                            onSelect={setDate}
+                                            numberOfMonths={2}
+                                        />
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
+                        </div>
                     </div>
 
                     {currentReading.data?.data?.map((reading, index) => {
@@ -165,7 +221,7 @@ export default function ReadingSection() {
                                             )}
                                         >
                                             <div className="absolute flex items-center gap-x-2 pb-5">
-                                                <ChartLIcon />
+                                                <ChartIcon />
                                                 Live Chart
                                             </div>
                                             <div className="mt-12 grid">
@@ -195,6 +251,20 @@ export default function ReadingSection() {
                         );
                     })}
                 </Tabs>
+
+                {!currentReading.data?.data && (
+                    <RevealAnimation className="mx-auto my-auto">
+                        {currentReading.isLoading ? (
+                            <p>Fetching readings...</p>
+                        ) : (
+                            <p>
+                                No readings could be found. Try switching to another{' '}
+                                <strong className="underline decoration-dashed">location</strong> or a different{' '}
+                                <strong className="underline decoration-dashed">date range.</strong>
+                            </p>
+                        )}
+                    </RevealAnimation>
+                )}
             </Card>
         </RevealAnimation>
     );

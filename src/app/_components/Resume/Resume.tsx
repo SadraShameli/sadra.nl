@@ -1,18 +1,24 @@
-import diplomaImg from '~/assets/images/diploma.jpg';
-import projectAiImg from '~/assets/images/projectai.jpg';
-import workImg from '~/assets/images/units.jpg';
-import ResumeSadra from '~/data/Resume/Sadra';
-
+import SectionText from '~/components/SectionText';
 import ResumeItem from './ResumeItem';
+import resumeSadra from '~/data/Resume/Sadra';
 
 export default function ResumeSection() {
     return (
         <div className="grid gap-y-10">
-            <ResumeItem title="Projects" img={projectAiImg} sections={ResumeSadra.projects} />
+            <div>
+                <SectionText text="Recent projects" />
+                <ResumeItem title="Projects" sections={resumeSadra.projects} />
+            </div>
 
-            <ResumeItem title="Experience" img={workImg} sections={ResumeSadra.experience} />
+            <div className="mt-content">
+                <SectionText text="Work experience" />
+                <ResumeItem title="Experience" sections={resumeSadra.experience} />
+            </div>
 
-            <ResumeItem title="Education" img={diplomaImg} sections={ResumeSadra.education} />
+            <div className="mt-content">
+                <SectionText text="Education" />
+                <ResumeItem title="Education" sections={resumeSadra.education} />
+            </div>
         </div>
     );
 }

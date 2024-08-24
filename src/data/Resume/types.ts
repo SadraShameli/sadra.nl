@@ -1,3 +1,5 @@
+import { type StaticImageData } from 'next/image';
+
 export interface ILink {
     title: string;
     url: string;
@@ -28,6 +30,7 @@ export interface IResumeSection {
     role?: string;
     highlights?: string[];
     skills?: string[];
+    image?: StaticImageData;
 }
 
 export interface IResumeLanguage {
