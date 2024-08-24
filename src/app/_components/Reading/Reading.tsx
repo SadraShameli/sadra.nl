@@ -94,7 +94,7 @@ export default function ReadingSection() {
 
                         <div className="flex flex-col gap-5 sm:flex-row">
                             <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
+                                <DropdownMenuTrigger asChild disabled={!locations.data?.data}>
                                     <Button className="w-fit md:ml-0" variant="outline">
                                         <MapPin className="mr-1 size-5" />
                                         Locations
