@@ -58,7 +58,11 @@ export default async function HomePage() {
                     <RecordingSection />
                 </div>
 
-                <ReadingSection />
+                <div className="mx-auto my-content w-full max-w-content">
+                    <SectionTitle text="Live readings" />
+                    <SectionDescription text="Ever been curious about the temperature, humidity and loudness levels at various locations in real time?" />
+                    <ReadingSection />
+                </div>
 
                 {/* <div className="mx-auto my-content max-w-content">
                     <SectionText text="Recent projects" />
