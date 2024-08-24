@@ -84,7 +84,7 @@ const resumeSadra: IResume = {
             },
             url: 'https://bluestarplanning.com',
             summary:
-                'As a full-stack developer at Blue Star Planning B.V., I was responsible for creating a full-stack application integrating IoT devices for telemetry collection, a robust backend for data storage, analysis, and processing, and an intuitive frontend for data visualization. Key responsibilities:',
+                'As a full-stack developer at <strong>Blue Star Planning</strong>, I was responsible for creating a full-stack application integrating <strong>IoT devices</strong> for telemetry collection, a robust <strong>backend</strong> for data storage, analysis, and processing, and an intuitive <strong>frontend</strong> for data visualization. Key responsibilities:',
             highlights: [
                 'Enhanced application performance with efficient lazy loading and advanced routing techniques to eliminate unused code',
                 'Designed and implemented reusable react components, contributing to code modularity and maintainability',
@@ -132,7 +132,7 @@ const resumeSadra: IResume = {
             role: 'Personal portfolio',
             date: 'Mar 2024 - Present',
             url: 'https://github.com/SadraShameli/sadra.nl',
-            summary: `This project is part of a full-stack application with multiple objectives, serving as both a personal portfolio and a backend for Sensor Hub devices. The application makes the devices able to fetch configuration, register telemetries and save noise recordings. Additionally, it includes a frontend for visualizing the data collected by the Sensor Hub devices.`,
+            summary: `This project is part of a <strong>full-stack application</strong> with multiple objectives, serving as both a <strong>personal portfolio</strong> and a <strong>backend</strong> for <strong>Sensor Hub</strong> devices. The application makes the devices able to fetch configuration, register telemetries and save noise recordings. Additionally, it includes a <strong>frontend</strong> for visualizing the data collected by the Sensor Hub devices.`,
             highlights: [
                 'Type-safe front-end and back-end using Typescript, React, Next.js, tRPC',
                 'Using React Query for for efficient state management, handling loading and error states, and managing stale data seamlessly',
@@ -168,7 +168,7 @@ const resumeSadra: IResume = {
             date: 'Sep 2022 - Dec 2022',
             url: 'https://github.com/SadraShameli/ProjectAI',
             summary:
-                'The purpose of this project is to create an autonomous self-driving robot, which is able to follow a course and avoid obstacles, all on its own. Its inspiration originates from being a big fan of Elon Musk, Tesla and its technology. This project is mainly created for PWS (profielwerkstuk) using our own specific hardware, but it can be replicated by the user to work on their hardware as well.',
+                'The purpose of this project is to create an <strong>autonomous self-driving robot</strong>, which is able to <strong>follow a course and avoid obstacles</strong>, all on its own. Its inspiration originates from being a big fan of Elon Musk, Tesla and its technology. This project is mainly created for <strong>PWS (profielwerkstuk)</strong> using our own specific hardware, but it can be replicated by the user to work on their hardware as well.',
             role: 'Self Driving Robot',
             highlights: [
                 'Fully autonomous driving without any input from the user',

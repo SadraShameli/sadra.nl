@@ -69,7 +69,9 @@ export default function ResumeItem({ title, sections }: ResumeProps) {
                                     </div>
                                 </div>
 
-                                {section.summary && <p className="mt-7 border-t pt-7">{parse(section.summary)}</p>}
+                                {section.summary && (
+                                    <p className="mt-7 border-t pt-7 text-justify">{parse(section.summary)}</p>
+                                )}
 
                                 {section.highlights && (
                                     <ul className="mt-2 grid gap-y-3">
@@ -87,7 +89,7 @@ export default function ResumeItem({ title, sections }: ResumeProps) {
                                 )}
 
                                 {section.skills && (
-                                    <div className="mt-5 flex items-center">
+                                    <div className="mt-5 flex items-center font-semibold">
                                         <Cog className="size-5 shrink-0" />
                                         <ul className="ml-2 flex">
                                             {section.skills.map((skill, index) => {
