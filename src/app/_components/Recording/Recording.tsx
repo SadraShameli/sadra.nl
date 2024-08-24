@@ -140,10 +140,10 @@ export default function RecordingSection({}) {
                                 <div className="flex items-center justify-center gap-x-7">
                                     <button
                                         aria-label="Shuffle"
-                                        className={cn([
+                                        className={cn(
                                             `size-6 text-neutral-400 transition hover:text-white disabled:text-neutral-700`,
                                             isShuffle && 'text-white',
-                                        ])}
+                                        )}
                                         onClick={() => {
                                             if (isRepeat) {
                                                 setIsRepeat(false);
@@ -209,10 +209,10 @@ export default function RecordingSection({}) {
 
                                     <button
                                         aria-label="Repeat"
-                                        className={cn([
+                                        className={cn(
                                             'size-6 text-neutral-400 transition hover:text-white disabled:text-neutral-700',
                                             isRepeat && 'text-white',
-                                        ])}
+                                        )}
                                         onClick={() => {
                                             if (isShuffle) {
                                                 setIsShuffle(false);
@@ -231,10 +231,10 @@ export default function RecordingSection({}) {
                                 <div className="mt-5 flex items-center justify-center gap-x-3 text-neutral-400 xl:mt-0 xl:justify-end">
                                     <button
                                         aria-label="Auto Play"
-                                        className={cn([
+                                        className={cn(
                                             'size-6 transition hover:text-white disabled:text-neutral-700',
                                             isAutoPlay && 'text-white',
-                                        ])}
+                                        )}
                                         onClick={() => {
                                             if (isShuffle) {
                                                 setIsShuffle((prev) => !prev);
