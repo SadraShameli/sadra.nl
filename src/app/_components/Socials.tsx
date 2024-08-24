@@ -2,13 +2,13 @@ import Link from 'next/link';
 
 import RevealAnimation from '~/components/ui/Animations/Reveal';
 import StaggerAnimation from '~/components/ui/Animations/Stagger';
-import ResumeSadra from '~/data/Resume/Sadra';
+import resumeSadra from '~/data/Resume/Sadra';
 
 export default function SocialsSection() {
     return (
         <RevealAnimation>
             <StaggerAnimation className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4 lg:gap-x-7">
-                {ResumeSadra.profiles.map((profile, index) => {
+                {resumeSadra.profiles.map((profile, index) => {
                     return (
                         <div className="bg-gradient-card2 flex rounded-2xl px-5 text-white" key={index}>
                             <div className="pt-5">

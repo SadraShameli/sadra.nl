@@ -1,5 +1,5 @@
 import { format } from 'date-fns';
-import { and, desc, eq, gte, inArray } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, lte } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { type ContextType, createTRPCRouter, publicProcedure } from '~/server/api/trpc';
@@ -65,31 +65,43 @@ export const readingRouter = createTRPCRouter({
 
         return { status: 201 } as Result<unknown>;
     }),
-    getReadingsLatest: publicProcedure
+    getReadingsInput: publicProcedure
         .input(z.union([getLocationProps, z.undefined()]))
         .query(async ({ input, ctx }): Promise<Result<GetReadingsRecord[]>> => {
-            const latestReading = input
-                ? await ctx.db
-                      .select()
-                      .from(reading)
-                      .where(eq(reading.location_id, input.location_id))
-                      .orderBy(desc(reading.id))
-                      .limit(1)
-                : await ctx.db.select().from(reading).orderBy(desc(reading.id)).limit(1);
+            const period = 24,
+                periodMS = period * 60 * 60 * 1000;
 
-            const latestReadingDate = latestReading.at(-1)?.created_at;
-            if (!latestReadingDate) {
-                return { error: 'There are no readings' } as Result<GetReadingsRecord[]>;
+            async function getLatestReadingDate() {
+                const latestReading = input
+                    ? await ctx.db
+                          .select()
+                          .from(reading)
+                          .where(eq(reading.location_id, input.location_id))
+                          .orderBy(desc(reading.id))
+                          .limit(1)
+                    : await ctx.db.select().from(reading).orderBy(desc(reading.id)).limit(1);
+
+                const latestReadingDate = latestReading.at(-1)?.created_at ?? new Date();
+                return new Date(latestReadingDate.getTime() - periodMS);
             }
 
-            const period = 24;
             const readings = await ctx.db
                 .select()
                 .from(reading)
                 .where(
                     and(
-                        input ? eq(reading.location_id, input.location_id) : undefined,
-                        gte(reading.created_at, new Date(latestReadingDate.getTime() - period * 60 * 60 * 1000)),
+                        input && eq(reading.location_id, input.location_id),
+                        input?.date_from
+                            ? and(
+                                  gte(reading.created_at, input.date_from),
+                                  lte(
+                                      reading.created_at,
+                                      input.date_to && input.date_from.getTime() !== input.date_to.getTime()
+                                          ? input.date_to
+                                          : new Date(input.date_from.getTime() + periodMS),
+                                  ),
+                              )
+                            : gte(reading.created_at, await getLatestReadingDate()),
                     ),
                 );
 
@@ -111,7 +123,7 @@ export const readingRouter = createTRPCRouter({
                     .filter((reading) => reading.sensor_id == sensor.id)
                     .map((reading) => {
                         return {
-                            date: format(reading.created_at, 'H:mm'),
+                            date: format(reading.created_at, 'd MMM, H:mm  '),
                             value: reading.value,
                         };
                     });

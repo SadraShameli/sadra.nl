@@ -5,12 +5,12 @@ import { type Metadata } from 'next';
 
 import '~/styles/globals.css';
 import { orbitron } from '~/data/Fonts';
-import ResumeSadra from '~/data/Resume/Sadra';
+import resumeSadra from '~/data/Resume/Sadra';
 import { TRPCReactProvider } from '~/trpc/react';
 
 export const metadata: Metadata = {
-    title: ResumeSadra.title,
-    description: ResumeSadra.description,
+    title: resumeSadra.title,
+    description: resumeSadra.description,
     icons: { icon: '/favicon.ico', apple: '/apple-icon.png' },
 };
 

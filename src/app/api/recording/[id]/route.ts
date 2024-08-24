@@ -3,9 +3,9 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { applyAudioFilters } from '~/server/helpers/Audio';
 import { api } from '~/trpc/server';
 
-interface RequestProps {
+type RequestProps = {
     id: string;
-}
+};
 
 export async function GET(request: NextRequest, { params }: { params: RequestProps }) {
     const result = await api.recording.getRecording({ id: +params.id });

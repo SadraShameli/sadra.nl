@@ -1,17 +1,16 @@
 import Link from 'next/link';
-
-import ResumeSadra from '~/data/Resume/Sadra';
+import resumeSadra from '~/data/Resume/Sadra';
 
 export default function Navbar() {
     return (
         <nav className="sticky left-0 right-0 top-0 z-50 bg-black bg-opacity-75 backdrop-blur-2xl backdrop-saturate-200">
             <div className="mx-auto flex max-w-content items-center justify-between px-6 py-5">
-                <h2 className="font-orbitron text-lg font-semibold tracking-widest text-white">
-                    &gt;_{ResumeSadra.basics.firstName.toLowerCase()}
-                </h2>
+                <a className="font-orbitron text-lg font-semibold tracking-widest text-white" href="/">
+                    &gt;_{resumeSadra.basics.firstName.toLowerCase()}
+                </a>
 
                 <div className="flex items-center justify-between gap-x-4 text-white sm:gap-x-6">
-                    {ResumeSadra.profiles.map((profile, index) => {
+                    {resumeSadra.profiles.map((profile, index) => {
                         return (
                             <Link
                                 className="size-5 transition hover:opacity-50"
