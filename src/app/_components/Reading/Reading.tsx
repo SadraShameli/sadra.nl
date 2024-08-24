@@ -1,8 +1,8 @@
 'use client';
-import { AreaChart as ChartLIcon, MapPin, ThermometerSnowflake } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { keepPreviousData } from '@tanstack/react-query';
-import { Area, AreaChart, XAxis, YAxis } from 'recharts';
+import { AreaChart as ChartLIcon, MapPin, ThermometerSnowflake } from 'lucide-react';
+
 import { api } from '~/trpc/react';
 import { cn } from '~/lib/utils';
 import { type location, type sensor } from '~/server/db/schema';
@@ -20,7 +20,9 @@ import {
     DropdownMenuRadioItem,
     DropdownMenuTrigger,
 } from '~/components/ui/DropDown';
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '~/components/ui/Chart';
+import AreaChartNew from './AreaChartNew';
+
+import type { ReadingRecord } from '~/server/api/types/types';
 
 export default function ReadingSection() {
     const locations = api.location.getLocations.useQuery();
@@ -182,8 +184,8 @@ export default function ReadingSection() {
                                                         yAxis={reading.readings.map((reading) => reading.value)}
                                                         yName={reading.sensor.name}
                                                     /> */}
-                                                    <ChartContainer
-                                                        className="h-full w-full"
+                                                    <AreaChartNew
+                                                        data={reading.readings}
                                                         config={{
                                                             location: {
                                                                 label: currentLocation?.name,
@@ -192,59 +194,14 @@ export default function ReadingSection() {
                                                                 label: currentSensor,
                                                             },
                                                         }}
-                                                    >
-                                                        <AreaChart data={reading.readings}>
-                                                            <defs>
-                                                                <linearGradient
-                                                                    id="chartGradient"
-                                                                    x1="0"
-                                                                    y1="0"
-                                                                    x2="0"
-                                                                    y2="1"
-                                                                >
-                                                                    <stop
-                                                                        offset="5%"
-                                                                        stopColor="#525151"
-                                                                        stopOpacity={0.5}
-                                                                    />
-                                                                    <stop
-                                                                        offset="95%"
-                                                                        stopColor="#525151"
-                                                                        stopOpacity={0}
-                                                                    />
-                                                                </linearGradient>
-                                                            </defs>
-                                                            <XAxis
-                                                                dataKey="date"
-                                                                tickLine={false}
-                                                                tickMargin={10}
-                                                                axisLine={false}
-                                                            />
-                                                            <YAxis
-                                                                tickLine={false}
-                                                                axisLine={false}
-                                                                tickFormatter={(value) =>
-                                                                    `${value} ${sensors?.find((sensor) => sensor.name == currentSensor)?.unit}`
-                                                                }
-                                                            />
-                                                            <Area
-                                                                type="monotone"
-                                                                dataKey="value"
-                                                                stroke="#a3a3a3"
-                                                                fillOpacity={1}
-                                                                fill="url(#chartGradient)"
-                                                            />
-                                                            <ChartTooltip
-                                                                content={
-                                                                    <ChartTooltipContent
-                                                                        labelKey="location"
-                                                                        nameKey="sensor"
-                                                                        indicator="line"
-                                                                    />
-                                                                }
-                                                            />
-                                                        </AreaChart>
-                                                    </ChartContainer>
+                                                        xAxis={{ dataKey: 'date' as keyof ReadingRecord }}
+                                                        yAxis={{
+                                                            tickFormatter: (value) =>
+                                                                `${value} ${sensors?.find((sensor) => sensor.name == currentSensor)?.unit}`,
+                                                        }}
+                                                        area={{ dataKey: 'value' }}
+                                                        tooltip={{ labelKey: 'location', nameKey: 'sensor' }}
+                                                    />
                                                 </div>
                                             </div>
                                         </div>
