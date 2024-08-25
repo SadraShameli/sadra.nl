@@ -1,5 +1,5 @@
 import { format } from 'date-fns';
-import { and, desc, eq, gte, inArray, lte } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, lte } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { type ContextType, createTRPCRouter, publicProcedure } from '~/server/api/trpc';
@@ -103,7 +103,8 @@ export const readingRouter = createTRPCRouter({
                               )
                             : gte(reading.created_at, await getLatestReadingDate()),
                     ),
-                );
+                )
+                .orderBy(asc(reading.id));
 
             if (readings.length === 0) {
                 return {
