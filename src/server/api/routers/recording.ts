@@ -69,15 +69,19 @@ export const recordingsRouter = createTRPCRouter({
             },
         })) as Result<(typeof recording.$inferSelect)[]>;
     }),
+
     getRecordingsNoFile: publicProcedure.query(async ({ ctx }) => {
         return await getRecordingsNoFile(ctx);
     }),
+
     getRecording: publicProcedure.input(getRecordingProps).query(async ({ input, ctx }) => {
         return await getRecording(input, ctx);
     }),
+
     getRecordingNoFile: publicProcedure.input(getRecordingProps).query(async ({ input, ctx }) => {
         return await getRecordingNoFile(input, ctx);
     }),
+
     createRecording: publicProcedure.input(createRecordingProps).mutation(async ({ input, ctx }) => {
         const device = await getDevice(input.device, ctx);
         if (!device.data) {

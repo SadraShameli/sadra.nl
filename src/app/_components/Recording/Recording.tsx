@@ -89,6 +89,7 @@ export default function RecordingSection({}) {
                                 <p className="font-semibold">Recordings</p>
                                 <Button
                                     className="font-semibold"
+                                    variant="ghost"
                                     size="sm"
                                     onClick={() => {
                                         const recording = recordings.data?.at(currentRecordingIdx);
@@ -102,44 +103,47 @@ export default function RecordingSection({}) {
                                     Download
                                 </Button>
                             </div>
-                            <div className="my-5 h-[27vh] md:h-[29vh]">
-                                <ScrollArea className="h-full">
-                                    {!recordings.data?.length
-                                        ? Array(9).map((_, idx) => (
-                                              <div className="shimmer my-2 h-5 sm:w-11/12" key={idx} />
-                                          ))
-                                        : recordings.data?.map((recording) => (
-                                              <button
-                                                  className="flex rounded-lg p-3 font-semibold transition hover:bg-accent sm:w-11/12"
-                                                  onClick={() => {
-                                                      if (audio.current) {
-                                                          audio.current.src = GetRecordingURL(recording);
-                                                          audio.current.load();
-                                                          setCurrentRecordingIdx(recordings.data.indexOf(recording));
-                                                          if (isShuffle) {
-                                                              setIsShuffle(false);
+                            <div className="grid h-[27vh] md:h-[29vh] mt-5">
+                                <ScrollArea>
+                                    <StaggerAnimation>
+                                        {recordings.data?.length
+                                            ? recordings.data.map((recording) => (
+                                                  <button
+                                                      className="flex rounded-lg p-3 font-semibold transition hover:bg-accent sm:w-11/12"
+                                                      onClick={() => {
+                                                          if (audio.current) {
+                                                              audio.current.src = GetRecordingURL(recording);
+                                                              audio.current.load();
+                                                              setCurrentRecordingIdx(
+                                                                  recordings.data.indexOf(recording),
+                                                              );
+                                                              if (isShuffle) {
+                                                                  setIsShuffle(false);
+                                                              }
                                                           }
-                                                      }
-                                                  }}
-                                                  key={recording.id}
-                                              >
-                                                  <div className="flex items-center gap-x-2 text-sm">
-                                                      {recordings.data.indexOf(recording) == currentRecordingIdx ? (
-                                                          <ArrowRight className="size-5" />
-                                                      ) : (
-                                                          <Music2 className="size-5" />
-                                                      )}
-                                                      {recording.file_name}
-                                                  </div>
-                                              </button>
-                                          ))}
+                                                      }}
+                                                      key={recording.id}
+                                                  >
+                                                      <div className="flex items-center gap-x-2 text-sm">
+                                                          {recordings.data.indexOf(recording) == currentRecordingIdx ? (
+                                                              <ArrowRight className="size-5" />
+                                                          ) : (
+                                                              <Music2 className="size-5" />
+                                                          )}
+                                                          {recording.file_name}
+                                                      </div>
+                                                  </button>
+                                              ))
+                                            : [...Array<number>(8)].map((_, idx) => (
+                                                  <div className="shimmer my-2 h-5 sm:w-1/2" key={idx} />
+                                              ))}
+                                    </StaggerAnimation>
                                 </ScrollArea>
                             </div>
 
                             <div className="mx-auto mb-3 max-w-xl grid-flow-row gap-5 xl:grid xl:grid-cols-2">
                                 <div className="flex items-center justify-center gap-x-7">
                                     <button
-                                        aria-label="Shuffle"
                                         className={cn(
                                             `size-6 text-neutral-400 transition hover:text-white disabled:text-neutral-700`,
                                             isShuffle && 'text-white',
@@ -159,17 +163,18 @@ export default function RecordingSection({}) {
                                             });
                                         }}
                                         disabled={!recordings.data?.length}
+                                        aria-label="Shuffle"
                                     >
                                         <ShuffleIcon />
                                     </button>
 
                                     <button
-                                        aria-label="Previous"
                                         className="text-neutral-400 hover:text-white disabled:text-neutral-700"
                                         onClick={() => {
                                             setCurrentRecordingIdx((prev) => prev - 1);
                                         }}
                                         disabled={currentRecordingIdx == 0}
+                                        aria-label="Previous"
                                     >
                                         <SkipBack className="size-6 transition" />
                                     </button>
@@ -184,7 +189,6 @@ export default function RecordingSection({}) {
                                     </button>
 
                                     <button
-                                        aria-label="Next"
                                         className="text-neutral-400 hover:text-white disabled:text-neutral-700"
                                         onClick={() => {
                                             if (
@@ -203,12 +207,12 @@ export default function RecordingSection({}) {
                                             !recordings.data?.length ||
                                             currentRecordingIdx === recordings.data.length - 1
                                         }
+                                        aria-label="Next"
                                     >
                                         <SkipForward className="size-6 transition" />
                                     </button>
 
                                     <button
-                                        aria-label="Repeat"
                                         className={cn(
                                             'size-6 text-neutral-400 transition hover:text-white disabled:text-neutral-700',
                                             isRepeat && 'text-white',
@@ -223,6 +227,7 @@ export default function RecordingSection({}) {
                                             setIsRepeat((prev) => !prev);
                                         }}
                                         disabled={!recordings.data?.length}
+                                        aria-label="Repeat"
                                     >
                                         <Repeat />
                                     </button>
@@ -230,7 +235,6 @@ export default function RecordingSection({}) {
 
                                 <div className="mt-5 flex items-center justify-center gap-x-3 text-neutral-400 xl:mt-0 xl:justify-end">
                                     <button
-                                        aria-label="Auto Play"
                                         className={cn(
                                             'size-6 transition hover:text-white disabled:text-neutral-700',
                                             isAutoPlay && 'text-white',
@@ -245,13 +249,13 @@ export default function RecordingSection({}) {
                                             setIsAutoPlay((prev) => !prev);
                                         }}
                                         disabled={!recordings.data?.length}
+                                        aria-label="Auto Play"
                                     >
                                         <ListEnd />
                                     </button>
 
                                     <button
-                                        aria-label="Volume"
-                                        className="size-6 transition hover:text-white"
+                                        className="size-6 transition hover:text-white disabled:text-neutral-700"
                                         onClick={() => {
                                             if (volume == 0) {
                                                 setVolume(prevVolume);
@@ -260,6 +264,8 @@ export default function RecordingSection({}) {
                                                 setVolume(0);
                                             }
                                         }}
+                                        disabled={!recordings.data?.length}
+                                        aria-label="Volume"
                                     >
                                         {volume == 0 ? (
                                             <Volume className="text-white" />
@@ -282,6 +288,7 @@ export default function RecordingSection({}) {
                                                 setVolume(values[0]);
                                             }
                                         }}
+                                        disabled={!recordings.data?.length}
                                     />
                                 </div>
 

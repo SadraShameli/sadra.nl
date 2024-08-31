@@ -35,9 +35,11 @@ export const deviceRouter = createTRPCRouter({
     getDevices: publicProcedure.query(async ({ ctx }) => {
         return { data: await ctx.db.query.device.findMany() } as Result<(typeof device.$inferSelect)[]>;
     }),
+
     getDevice: publicProcedure.input(getDeviceProps).query(async ({ input, ctx }) => {
         return await getDevice(input, ctx);
     }),
+
     getDeviceReadings: publicProcedure.input(getDeviceReadingsProps).query(async ({ input, ctx }) => {
         const device = await getDevice({ device_id: input.device.device_id }, ctx);
 
@@ -83,6 +85,7 @@ export const deviceRouter = createTRPCRouter({
 
         return { data: readingsRecord } as Result<typeof readingsRecord>;
     }),
+
     getDeviceRecordings: publicProcedure.input(getDeviceRecordingsProps).query(async ({ input, ctx }) => {
         const device = await getDevice({ device_id: input.device.device_id }, ctx);
 

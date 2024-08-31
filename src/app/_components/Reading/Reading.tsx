@@ -93,36 +93,6 @@ export default function ReadingSection() {
                         )}
 
                         <div className="flex flex-col gap-5 sm:flex-row">
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild disabled={!locations.data?.data}>
-                                    <Button className="w-fit md:ml-0" variant="outline">
-                                        <MapPin className="mr-1 size-5" />
-                                        Locations
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent>
-                                    <DropdownMenuRadioGroup
-                                        value={
-                                            currentLocation ? currentLocation.name : locations.data?.data?.at(0)?.name
-                                        }
-                                        onValueChange={(value) => {
-                                            const location = locations.data?.data?.find(
-                                                (location) => location.name === value,
-                                            );
-                                            setCurrentLocation(location);
-                                        }}
-                                    >
-                                        {locations.data?.data?.map((location, index) => {
-                                            return (
-                                                <DropdownMenuRadioItem value={location.name} key={index}>
-                                                    {location.name}
-                                                </DropdownMenuRadioItem>
-                                            );
-                                        })}
-                                    </DropdownMenuRadioGroup>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-
                             <div className="grid gap-2">
                                 <Popover>
                                     <PopoverTrigger asChild>
@@ -160,6 +130,36 @@ export default function ReadingSection() {
                                     </PopoverContent>
                                 </Popover>
                             </div>
+
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild disabled={!locations.data?.data}>
+                                    <Button className="w-fit md:ml-0" variant="outline">
+                                        <MapPin className="mr-1 size-5" />
+                                        Locations
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                    <DropdownMenuRadioGroup
+                                        value={
+                                            currentLocation ? currentLocation.name : locations.data?.data?.at(0)?.name
+                                        }
+                                        onValueChange={(value) => {
+                                            const location = locations.data?.data?.find(
+                                                (location) => location.name === value,
+                                            );
+                                            setCurrentLocation(location);
+                                        }}
+                                    >
+                                        {locations.data?.data?.map((location, index) => {
+                                            return (
+                                                <DropdownMenuRadioItem value={location.name} key={index}>
+                                                    {location.name}
+                                                </DropdownMenuRadioItem>
+                                            );
+                                        })}
+                                    </DropdownMenuRadioGroup>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </div>
                     </div>
 
@@ -252,18 +252,19 @@ export default function ReadingSection() {
                     })}
                 </Tabs>
 
-                {!currentReading.data?.data && (
-                    <RevealAnimation className="mx-auto my-auto">
-                        {currentReading.isLoading ? (
-                            <p>Fetching readings...</p>
-                        ) : (
+                {currentReading.isLoading ? (
+                    <p>Fetching readings...</p>
+                ) : (
+                    currentReading.isFetched &&
+                    !currentReading.data?.data && (
+                        <RevealAnimation className="mx-auto my-auto">
                             <p>
                                 No readings could be found. Try switching to another{' '}
                                 <strong className="underline decoration-dashed">location</strong> or a different{' '}
                                 <strong className="underline decoration-dashed">date range.</strong>
                             </p>
-                        )}
-                    </RevealAnimation>
+                        </RevealAnimation>
+                    )
                 )}
             </Card>
         </RevealAnimation>
