@@ -92,7 +92,7 @@ export default function ReadingSection() {
                             </TabsList>
                         )}
 
-                        <div className="flex flex-col gap-5 sm:flex-row">
+                        <div className="grid gap-5 sm:grid-flow-col">
                             <div className="grid gap-2">
                                 <Popover>
                                     <PopoverTrigger asChild>
@@ -252,19 +252,22 @@ export default function ReadingSection() {
                     })}
                 </Tabs>
 
-                {currentReading.isLoading ? (
-                    <p>Fetching readings...</p>
-                ) : (
-                    currentReading.isFetched &&
-                    !currentReading.data?.data && (
-                        <RevealAnimation className="mx-auto my-auto">
-                            <p>
-                                No readings could be found. Try switching to another{' '}
-                                <strong className="underline decoration-dashed">location</strong> or a different{' '}
-                                <strong className="underline decoration-dashed">date range.</strong>
-                            </p>
-                        </RevealAnimation>
-                    )
+                {!currentReading.data?.data && (
+                    <div className='flex my-auto mx-auto'>
+                        {currentReading.isLoading ? (
+                            <p>Fetching readings...</p>
+                        ) : (
+                            currentReading.isFetched && (
+                                <RevealAnimation className="mx-auto my-auto">
+                                    <p>
+                                        No readings could be found. Try switching to another{' '}
+                                        <strong className="underline decoration-dashed">location</strong> or a different{' '}
+                                        <strong className="underline decoration-dashed">date range.</strong>
+                                    </p>
+                                </RevealAnimation>
+                            )
+                        )}
+                    </div>
                 )}
             </Card>
         </RevealAnimation>
