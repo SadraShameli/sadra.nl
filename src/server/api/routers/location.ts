@@ -43,9 +43,11 @@ export const locationRouter = createTRPCRouter({
     getLocations: publicProcedure.query(async ({ ctx }) => {
         return { data: await ctx.db.query.location.findMany() } as Result<(typeof location.$inferSelect)[]>;
     }),
+
     getLocation: publicProcedure.input(getLocationProps).query(async ({ input, ctx }) => {
         return await getLocation(input, ctx);
     }),
+
     getLocationsWithReading: publicProcedure.query(async ({ ctx }) => {
         const latestReading = await ctx.db.select().from(reading).orderBy(desc(reading.id)).limit(1);
 
@@ -72,6 +74,7 @@ export const locationRouter = createTRPCRouter({
 
         return { data: locations } as Result<(typeof location.$inferSelect)[]>;
     }),
+
     getLocationDevices: publicProcedure.input(getLocationProps).query(async ({ input, ctx }) => {
         const location = await getLocation(input, ctx);
         if (!location.data) {
@@ -84,6 +87,7 @@ export const locationRouter = createTRPCRouter({
 
         return { data: devices } as Result<(typeof device.$inferSelect)[]>;
     }),
+
     getLocationReadings: publicProcedure.input(getLocationReadingsProps).query(async ({ input, ctx }) => {
         const location = await getLocation({ location_id: input.location.location_id }, ctx);
 
@@ -110,6 +114,7 @@ export const locationRouter = createTRPCRouter({
             data: readings,
         } as Result<(typeof reading.$inferSelect)[]>;
     }),
+
     getLocationRecordings: publicProcedure.input(getLocationProps).query(async ({ input, ctx }) => {
         const location = await getLocation({ location_id: input.location_id }, ctx);
 

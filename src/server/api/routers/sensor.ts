@@ -32,6 +32,7 @@ export const sensorRouter = createTRPCRouter({
     getSensors: publicProcedure.query(async ({ ctx }) => {
         return getSensors(ctx);
     }),
+
     getSensor: publicProcedure.input(getSensorProps).query(async ({ input, ctx }) => {
         return await getSensor(input, ctx);
     }),

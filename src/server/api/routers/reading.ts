@@ -31,9 +31,11 @@ export const readingRouter = createTRPCRouter({
     getReadings: publicProcedure.query(async ({ ctx }) => {
         return { data: await ctx.db.query.reading.findMany() } as Result<(typeof reading.$inferSelect)[]>;
     }),
+
     getReading: publicProcedure.input(getReadingProps).query(async ({ input, ctx }) => {
         return await getReading(input, ctx);
     }),
+
     createReading: publicProcedure.input(createReadingProps).mutation(async ({ input, ctx }) => {
         const device = await getDevice({ device_id: input.device_id }, ctx);
 
@@ -65,6 +67,7 @@ export const readingRouter = createTRPCRouter({
 
         return { status: 201 } as Result<unknown>;
     }),
+
     getReadingsInput: publicProcedure
         .input(z.union([getLocationProps, z.undefined()]))
         .query(async ({ input, ctx }): Promise<Result<GetReadingsRecord[]>> => {
