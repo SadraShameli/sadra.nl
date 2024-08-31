@@ -103,7 +103,7 @@ export default function RecordingSection({}) {
                                     Download
                                 </Button>
                             </div>
-                            <div className="grid h-[27vh] md:h-[29vh] mt-5">
+                            <div className="my-5 grid h-[27vh] md:h-[25vh]">
                                 <ScrollArea>
                                     <StaggerAnimation>
                                         {recordings.data?.length
@@ -135,7 +135,7 @@ export default function RecordingSection({}) {
                                                   </button>
                                               ))
                                             : [...Array<number>(8)].map((_, idx) => (
-                                                  <div className="shimmer my-2 h-5 sm:w-1/2" key={idx} />
+                                                  <div className="shimmer sm:w-1-3 my-2 h-5" key={idx} />
                                               ))}
                                     </StaggerAnimation>
                                 </ScrollArea>
