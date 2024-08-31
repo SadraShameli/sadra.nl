@@ -134,7 +134,7 @@ export default function RecordingSection({}) {
                                                       </div>
                                                   </button>
                                               ))
-                                            : [...Array<number>(8)].map((_, idx) => (
+                                            : [...Array<number>(5)].map((_, idx) => (
                                                   <div className="shimmer sm:w-1-3 my-2 h-5" key={idx} />
                                               ))}
                                     </StaggerAnimation>
