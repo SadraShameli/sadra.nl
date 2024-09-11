@@ -13,7 +13,7 @@ export const location = createTable(
             .default(sql`CURRENT_TIMESTAMP`)
             .notNull(),
         name: varchar('name', { length: 256 }).notNull(),
-        location_name: varchar('location_name', { length: 256 }).notNull().unique(),
+        location_name: varchar('location_name', { length: 256 }).notNull(),
         location_id: integer('location_id').notNull().unique(),
     },
     (table) => ({
@@ -29,7 +29,7 @@ export const sensor = createTable(
         created_at: timestamp('created_at', { withTimezone: true })
             .default(sql`CURRENT_TIMESTAMP`)
             .notNull(),
-        name: varchar('name', { length: 256 }).notNull().unique(),
+        name: varchar('name', { length: 256 }).notNull(),
         unit: varchar('unit', { length: 256 }).notNull(),
     },
     (table) => ({
