@@ -141,19 +141,21 @@ export default function ReadingSection() {
                                 <DropdownMenuContent>
                                     <DropdownMenuRadioGroup
                                         value={
-                                            currentLocation ? currentLocation.name : locations.data?.data?.at(0)?.name
+                                            currentLocation
+                                                ? currentLocation.location_name
+                                                : locations.data?.data?.at(0)?.location_name
                                         }
                                         onValueChange={(value) => {
                                             const location = locations.data?.data?.find(
-                                                (location) => location.name === value,
+                                                (location) => location.location_name === value,
                                             );
                                             setCurrentLocation(location);
                                         }}
                                     >
                                         {locations.data?.data?.map((location, index) => {
                                             return (
-                                                <DropdownMenuRadioItem value={location.name} key={index}>
-                                                    {location.name}
+                                                <DropdownMenuRadioItem value={location.location_name} key={index}>
+                                                    {location.location_name}
                                                 </DropdownMenuRadioItem>
                                             );
                                         })}
@@ -229,7 +231,7 @@ export default function ReadingSection() {
                                                     data={reading.readings}
                                                     config={{
                                                         location: {
-                                                            label: currentLocation?.name,
+                                                            label: currentLocation?.location_name,
                                                         },
                                                         sensor: {
                                                             label: currentSensor,
@@ -253,7 +255,7 @@ export default function ReadingSection() {
                 </Tabs>
 
                 {!currentReading.data?.data && (
-                    <div className='flex my-auto mx-auto'>
+                    <div className="mx-auto my-auto flex">
                         {currentReading.isLoading ? (
                             <p>Fetching readings...</p>
                         ) : (
