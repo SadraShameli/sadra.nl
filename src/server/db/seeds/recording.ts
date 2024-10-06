@@ -1,8 +1,9 @@
 import fs from 'fs';
+
+import { getRecordingFileName } from '~/server/api/routers/recording';
 import { db } from '..';
 import { recording } from '../schema';
 import { DatabaseSeeder } from '../types';
-import { getRecordingFileName } from '~/server/api/routers/recording';
 
 export default class RecordingSeed extends DatabaseSeeder {
     async run() {

@@ -1,19 +1,20 @@
 'use client';
 
-import { format } from 'date-fns';
-import { useEffect, useMemo, useState } from 'react';
 import { keepPreviousData } from '@tanstack/react-query';
+import { format } from 'date-fns';
 import { Calendar as CalendarIcon, AreaChart as ChartIcon, MapPin, ThermometerSnowflake } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { type DateRange } from 'react-day-picker';
 
-import { api } from '~/trpc/react';
 import { cn } from '~/lib/utils';
 import { type location, type sensor } from '~/server/db/schema';
+import { api } from '~/trpc/react';
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
 import RevealAnimation from '~/components/ui/Animations/Reveal';
 import { Button } from '~/components/ui/Button';
+import { Calendar } from '~/components/ui/Calendar';
 import Card from '~/components/ui/Card';
+import AreaChartNew from '~/components/ui/Chart/AreaChartNew';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -21,9 +22,8 @@ import {
     DropdownMenuRadioItem,
     DropdownMenuTrigger,
 } from '~/components/ui/DropDown';
-import AreaChartNew from '~/components/ui/Chart/AreaChartNew';
 import { Popover, PopoverContent, PopoverTrigger } from '~/components/ui/Popover';
-import { Calendar } from '~/components/ui/Calendar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
 
 export default function ReadingSection() {
     const [date, setDate] = useState<DateRange>();
@@ -69,29 +69,29 @@ export default function ReadingSection() {
         <RevealAnimation>
             <Card className="flex min-h-[538.81px] flex-col">
                 <Tabs
-                    className="grid gap-y-3"
+                    className="grid gap-y-5"
                     defaultValue={sensors?.at(0)?.name}
                     value={currentSensor}
                     onValueChange={(value) => setCurrentSensor(value)}
                 >
+                    {sensors && (
+                        <TabsList className="w-fit">
+                            {sensors?.map((sensor, index) => {
+                                return (
+                                    <TabsTrigger value={sensor.name} key={index}>
+                                        {sensor.name}
+                                    </TabsTrigger>
+                                );
+                            })}
+                        </TabsList>
+                    )}
+
                     <div
                         className={cn(
                             'flex flex-col justify-between gap-y-5 md:flex-row md:gap-5',
                             !currentReading.data?.data && 'justify-end',
                         )}
                     >
-                        {sensors && (
-                            <TabsList className="w-fit">
-                                {sensors?.map((sensor, index) => {
-                                    return (
-                                        <TabsTrigger value={sensor.name} key={index}>
-                                            {sensor.name}
-                                        </TabsTrigger>
-                                    );
-                                })}
-                            </TabsList>
-                        )}
-
                         <div className="grid gap-5 sm:grid-flow-col">
                             <div className="grid gap-2">
                                 <Popover>
@@ -164,7 +164,6 @@ export default function ReadingSection() {
                             </DropdownMenu>
                         </div>
                     </div>
-
                     {currentReading.data?.data?.map((reading, index) => {
                         return (
                             <TabsContent

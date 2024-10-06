@@ -3,9 +3,9 @@ import { SpeedInsights } from '@vercel/speed-insights/next';
 import { GeistSans } from 'geist/font/sans';
 import { type Metadata } from 'next';
 
-import '~/styles/globals.css';
 import { orbitron } from '~/data/Fonts';
 import resumeSadra from '~/data/Resume/Sadra';
+import '~/styles/globals.css';
 import { TRPCReactProvider } from '~/trpc/react';
 
 export const metadata: Metadata = {

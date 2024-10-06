@@ -5,10 +5,10 @@ import InstagramIcon from '~/components/ui/Icons/Instagram';
 import WhatsAppIcon from '~/components/ui/Icons/WhatsApp';
 import YoutubeIcon from '~/components/ui/Icons/Youtube';
 
-import ProjectAI from '~/assets/images/projectai.jpg';
-import SensorUnit from '~/assets/images/units.jpg';
 import BSP from '~/assets/images/bsp.jpeg';
 import Diploma from '~/assets/images/diploma.jpg';
+import ProjectAI from '~/assets/images/projectai.jpg';
+import SensorUnit from '~/assets/images/units.jpg';
 
 const resumeSadra: IResume = {
     title: 'Sadra',

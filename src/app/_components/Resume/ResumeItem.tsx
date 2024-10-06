@@ -1,10 +1,10 @@
 import parse from 'html-react-parser';
+import { CalendarDays, ChevronRight, Cog, ExternalLink, MapPin } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { CalendarDays, ChevronRight, Cog, ExternalLink, MapPin } from 'lucide-react';
 
-import { cn } from '~/lib/utils';
 import { type IResumeSection } from '~/data/Resume/types';
+import { cn } from '~/lib/utils';
 
 import RevealAnimation from '~/components/ui/Animations/Reveal';
 import Card from '~/components/ui/Card';
