@@ -75,7 +75,7 @@ export default function ReadingSection() {
                     onValueChange={(value) => setCurrentSensor(value)}
                 >
                     {sensors && (
-                        <TabsList>
+                        <TabsList className="w-fit">
                             {sensors?.map((sensor, index) => {
                                 return (
                                     <TabsTrigger value={sensor.name} key={index}>
