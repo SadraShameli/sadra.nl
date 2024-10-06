@@ -1,19 +1,20 @@
 'use client';
 
-import { format } from 'date-fns';
-import { useEffect, useMemo, useState } from 'react';
 import { keepPreviousData } from '@tanstack/react-query';
+import { format } from 'date-fns';
 import { Calendar as CalendarIcon, AreaChart as ChartIcon, MapPin, ThermometerSnowflake } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { type DateRange } from 'react-day-picker';
 
-import { api } from '~/trpc/react';
 import { cn } from '~/lib/utils';
 import { type location, type sensor } from '~/server/db/schema';
+import { api } from '~/trpc/react';
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
 import RevealAnimation from '~/components/ui/Animations/Reveal';
 import { Button } from '~/components/ui/Button';
+import { Calendar } from '~/components/ui/Calendar';
 import Card from '~/components/ui/Card';
+import AreaChartNew from '~/components/ui/Chart/AreaChartNew';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -21,9 +22,8 @@ import {
     DropdownMenuRadioItem,
     DropdownMenuTrigger,
 } from '~/components/ui/DropDown';
-import AreaChartNew from '~/components/ui/Chart/AreaChartNew';
 import { Popover, PopoverContent, PopoverTrigger } from '~/components/ui/Popover';
-import { Calendar } from '~/components/ui/Calendar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
 
 export default function ReadingSection() {
     const [date, setDate] = useState<DateRange>();

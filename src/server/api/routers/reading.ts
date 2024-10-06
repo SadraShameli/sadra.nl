@@ -5,10 +5,10 @@ import { z } from 'zod';
 import { type ContextType, createTRPCRouter, publicProcedure } from '~/server/api/trpc';
 import { reading, sensor } from '~/server/db/schema';
 
-import { getDevice } from './device';
-import { getSensor } from './sensor';
 import { type GetReadingsRecord, type ReadingRecord, type Result } from '../types/types';
 import { createReadingProps, getLocationProps, getReadingProps } from '../types/zod';
+import { getDevice } from './device';
+import { getSensor } from './sensor';
 
 export async function getReading(
     input: z.infer<typeof getReadingProps>,

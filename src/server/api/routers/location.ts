@@ -4,9 +4,9 @@ import { type z } from 'zod';
 import { type ContextType, createTRPCRouter, publicProcedure } from '~/server/api/trpc';
 import { type device, location, reading, type recording } from '~/server/db/schema';
 
-import { getSensor } from './sensor';
 import { getLocationProps, getLocationReadingsProps } from '..//types/zod';
 import { type Result } from '../types/types';
+import { getSensor } from './sensor';
 
 export async function getLocation(
     input: z.infer<typeof getLocationProps>,

@@ -1,6 +1,6 @@
 import SectionText from '~/components/SectionText';
-import ResumeItem from './ResumeItem';
 import resumeSadra from '~/data/Resume/Sadra';
+import ResumeItem from './ResumeItem';
 
 export default function ResumeSection() {
     return (

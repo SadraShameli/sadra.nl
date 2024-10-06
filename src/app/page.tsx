@@ -8,11 +8,11 @@ import RevealAnimation from '~/components/ui/Animations/Reveal';
 import GridBackground from '~/components/ui/GridBg';
 import resumeSadra from '~/data/Resume/Sadra';
 
+import ArrowRight from '~/components/ui/Icons/ArrowRight';
 import AboutSection from './_components/About';
 import Navbar from './_components/Navbar';
 import ReadingSection from './_components/Reading/Reading';
 import RecordingSection from './_components/Recording/Recording';
-import ArrowRight from '~/components/ui/Icons/ArrowRight';
 
 export default async function HomePage() {
     return (
