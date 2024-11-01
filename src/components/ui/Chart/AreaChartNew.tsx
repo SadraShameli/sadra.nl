@@ -30,12 +30,15 @@ export default function AreaChartNew(props: AreaChartNewProps) {
                 <defs>
                     <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#525151" stopOpacity={0.5} />
+
                         <stop offset="95%" stopColor="#525151" stopOpacity={0} />
                     </linearGradient>
                 </defs>
 
                 <XAxis dataKey={props.xAxis.dataKey} tickLine={false} tickMargin={10} axisLine={false} />
+
                 <YAxis tickLine={false} axisLine={false} tickFormatter={props.yAxis.tickFormatter} />
+
                 <Area
                     dataKey={props.area.dataKey}
                     type="monotone"

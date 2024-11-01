@@ -5,24 +5,28 @@ import { type createReadingProps } from '~/server/api/types/zod';
 import { api } from '~/trpc/server';
 
 export async function GET() {
-    const result = await api.reading.getReadings();
-    if (result.data) {
-        return NextResponse.json(result.data, { status: result.status });
+    const res = await api.reading.getReadings();
+
+    if (res.data) {
+        return NextResponse.json(res.data, { status: res.status });
     }
-    return NextResponse.json(result, { status: result.status });
+
+    return NextResponse.json(res, { status: res.status });
 }
 
 export async function POST(request: NextRequest) {
     try {
         const body = (await request.json()) as z.infer<typeof createReadingProps>;
-        const result = await api.reading.createReading({
+        const res = await api.reading.createReading({
             device_id: body.device_id,
             sensors: body.sensors,
         });
-        if (result.status == 201) {
-            return new NextResponse(null, { status: result.status });
+
+        if (res.status == 201) {
+            return new NextResponse(null, { status: res.status });
         }
-        return NextResponse.json(result, { status: result.status });
+
+        return NextResponse.json(res, { status: res.status });
     } catch (e) {
         return NextResponse.json(e, { status: 500 });
     }

@@ -21,7 +21,7 @@ import { api } from '~/trpc/react';
 import RevealAnimation from '~/components/ui/Animations/Reveal';
 import StaggerAnimation from '~/components/ui/Animations/Stagger';
 import { Button } from '~/components/ui/Button';
-import Card from '~/components/ui/Card';
+import { Card } from '~/components/ui/Card';
 import PauseIcon from '~/components/ui/Icons/Pause';
 import PlayIcon from '~/components/ui/Icons/Play';
 import { ScrollArea } from '~/components/ui/ScrollArea';

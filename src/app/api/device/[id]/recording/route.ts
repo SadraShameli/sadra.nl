@@ -7,13 +7,17 @@ type RequestProps = {
     sensor_id: string;
 };
 
-export async function GET(request: NextRequest, { params }: { params: RequestProps }) {
-    const result = await api.device.getDeviceRecordings({
-        device: { device_id: +params.id },
-        sensor_id: +params.sensor_id,
+export async function GET(request: NextRequest, { params }: { params: Promise<RequestProps> }) {
+    const requestParams = await params;
+
+    const res = await api.device.getDeviceRecordings({
+        device: { device_id: +requestParams.id },
+        sensor_id: +requestParams.sensor_id,
     });
-    if (result.data) {
-        return NextResponse.json(result.data, { status: result.status });
+
+    if (res.data) {
+        return NextResponse.json(res.data, { status: res.status });
     }
-    return NextResponse.json(result, { status: result.status });
+
+    return NextResponse.json(res, { status: res.status });
 }

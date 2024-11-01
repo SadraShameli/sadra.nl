@@ -13,7 +13,7 @@ import { api } from '~/trpc/react';
 import RevealAnimation from '~/components/ui/Animations/Reveal';
 import { Button } from '~/components/ui/Button';
 import { Calendar } from '~/components/ui/Calendar';
-import Card from '~/components/ui/Card';
+import { Card } from '~/components/ui/Card';
 import AreaChartNew from '~/components/ui/Chart/AreaChartNew';
 import {
     DropdownMenu,
@@ -118,9 +118,9 @@ export default function ReadingSection() {
                                             )}
                                         </Button>
                                     </PopoverTrigger>
+
                                     <PopoverContent className="w-auto p-0" align="start">
                                         <Calendar
-                                            initialFocus
                                             mode="range"
                                             defaultMonth={date?.from}
                                             selected={date}
@@ -138,6 +138,7 @@ export default function ReadingSection() {
                                         Locations
                                     </Button>
                                 </DropdownMenuTrigger>
+
                                 <DropdownMenuContent>
                                     <DropdownMenuRadioGroup
                                         value={
@@ -184,10 +185,12 @@ export default function ReadingSection() {
                                                     <ThermometerSnowflake />
                                                     Latest
                                                 </div>
+
                                                 <div className="m-auto whitespace-nowrap text-2xl lg:text-4xl">
                                                     {`${reading.latestReading.value} ${reading.sensor.unit}`}
                                                 </div>
                                             </div>
+
                                             <div className="grid gap-5">
                                                 <div
                                                     className={cn(
@@ -196,10 +199,12 @@ export default function ReadingSection() {
                                                     )}
                                                 >
                                                     <div className="absolute">{`${reading.period}h high`}</div>
+
                                                     <div className="m-auto whitespace-nowrap text-xl lg:text-3xl">
                                                         {`${reading.highest} ${reading.sensor.unit}`}
                                                     </div>
                                                 </div>
+
                                                 <div
                                                     className={cn(
                                                         'min-h-32 rounded-xl bg-muted p-5',
@@ -208,6 +213,7 @@ export default function ReadingSection() {
                                                 >
                                                     <div className="flex h-full">
                                                         <div className="absolute">{`${reading.period}h low`}</div>
+
                                                         <div className="m-auto whitespace-nowrap text-xl lg:text-3xl">
                                                             {`${reading.lowest} ${reading.sensor.unit}`}
                                                         </div>
@@ -215,6 +221,7 @@ export default function ReadingSection() {
                                                 </div>
                                             </div>
                                         </div>
+
                                         <div
                                             className={cn(
                                                 'rounded-xl border p-5',
@@ -225,6 +232,7 @@ export default function ReadingSection() {
                                                 <ChartIcon />
                                                 Live Chart
                                             </div>
+
                                             <div className="mt-12 grid">
                                                 <AreaChartNew
                                                     data={reading.readings}

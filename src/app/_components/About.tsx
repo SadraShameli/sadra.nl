@@ -1,7 +1,7 @@
 import GallerySection from './GallerySection';
 
 import RevealAnimation from '~/components/ui/Animations/Reveal';
-import Card from '~/components/ui/Card';
+import { Card } from '~/components/ui/Card';
 
 export default function AboutSection() {
     return (

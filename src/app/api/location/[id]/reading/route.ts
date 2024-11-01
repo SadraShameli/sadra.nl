@@ -6,12 +6,16 @@ type RequestProps = {
     id: string;
 };
 
-export async function GET(request: NextRequest, { params }: { params: RequestProps }) {
-    const result = await api.location.getLocationReadings({
-        location: { location_id: +params.id },
+export async function GET(request: NextRequest, { params }: { params: Promise<RequestProps> }) {
+    const requestParams = await params;
+
+    const res = await api.location.getLocationReadings({
+        location: { location_id: +requestParams.id },
     });
-    if (result.data) {
-        return NextResponse.json(result.data, { status: result.status });
+
+    if (res.data) {
+        return NextResponse.json(res.data, { status: res.status });
     }
-    return NextResponse.json(result, { status: result.status });
+
+    return NextResponse.json(res, { status: res.status });
 }

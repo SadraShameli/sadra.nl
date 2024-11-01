@@ -7,7 +7,7 @@ import { type IResumeSection } from '~/data/Resume/types';
 import { cn } from '~/lib/utils';
 
 import RevealAnimation from '~/components/ui/Animations/Reveal';
-import Card from '~/components/ui/Card';
+import { Card } from '~/components/ui/Card';
 
 type ResumeProps = {
     title: string;
