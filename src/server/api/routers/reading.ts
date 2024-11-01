@@ -14,17 +14,17 @@ export async function getReading(
     input: z.infer<typeof getReadingProps>,
     ctx: ContextType,
 ): Promise<Result<typeof reading.$inferSelect>> {
-    const result = await ctx.db.query.reading.findFirst({
+    const res = await ctx.db.query.reading.findFirst({
         where: (reading) => eq(reading.id, input.id),
     });
 
-    if (!result)
+    if (!res)
         return {
             error: `Reading id ${input.id} not found`,
             status: 404,
         };
 
-    return { data: result };
+    return { data: res };
 }
 
 export const readingRouter = createTRPCRouter({

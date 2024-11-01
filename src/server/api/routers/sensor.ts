@@ -15,17 +15,17 @@ export async function getSensor(
     input: z.infer<typeof getSensorProps>,
     ctx: ContextType,
 ): Promise<Result<typeof sensor.$inferSelect>> {
-    const result = await ctx.db.query.sensor.findFirst({
+    const res = await ctx.db.query.sensor.findFirst({
         where: (sensor, { eq }) => eq(sensor.id, +input.id),
     });
 
-    if (!result)
+    if (!res)
         return {
             error: `Sensor id ${input.id} not found`,
             status: 404,
         };
 
-    return { data: result };
+    return { data: res };
 }
 
 export const sensorRouter = createTRPCRouter({

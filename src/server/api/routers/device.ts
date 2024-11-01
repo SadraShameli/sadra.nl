@@ -12,11 +12,11 @@ export async function getDevice(
     input: z.infer<typeof getDeviceProps>,
     ctx: ContextType,
 ): Promise<Result<GetDeviceProps>> {
-    const result = await ctx.db.query.device.findFirst({
+    const res = await ctx.db.query.device.findFirst({
         where: (device) => eq(device.device_id, input.device_id),
     });
 
-    if (!result)
+    if (!res)
         return {
             error: `Device id ${input.device_id} not found`,
             status: 404,
@@ -24,11 +24,11 @@ export async function getDevice(
 
     const sensors = (
         await ctx.db.query.sensorsToDevices.findMany({
-            where: (row) => eq(row.device_id, result.id),
+            where: (row) => eq(row.device_id, res.id),
         })
     ).map((sensor) => sensor.sensor_id);
 
-    return { data: { ...result, sensors: sensors } };
+    return { data: { ...res, sensors: sensors } };
 }
 
 export const deviceRouter = createTRPCRouter({

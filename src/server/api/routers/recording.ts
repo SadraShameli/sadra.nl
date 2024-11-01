@@ -43,18 +43,18 @@ export async function getRecording(
     input: z.infer<typeof getRecordingProps>,
     ctx: ContextType,
 ): Promise<Result<typeof recording.$inferSelect>> {
-    const result = await ctx.db.query.recording.findFirst({
+    const res = await ctx.db.query.recording.findFirst({
         where: (recording) => eq(recording.id, +input.id),
     });
 
-    if (!result) {
+    if (!res) {
         return {
             error: `Recording id ${input.id} not found`,
             status: 404,
         };
     }
 
-    return { data: result };
+    return { data: res };
 }
 
 export const recordingsRouter = createTRPCRouter({

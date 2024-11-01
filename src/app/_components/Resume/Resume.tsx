@@ -1,24 +1,24 @@
-import SectionText from '~/components/SectionText';
+import SectionTitle from '~/components/SectionTitle';
 import resumeSadra from '~/data/Resume/Sadra';
 import ResumeItem from './ResumeItem';
 
 export default function ResumeSection() {
     return (
         <div className="grid gap-y-10">
-            <div>
-                <SectionText text="Recent projects" />
+            <section>
+                <SectionTitle text="Recent projects" />
                 <ResumeItem title="Projects" sections={resumeSadra.projects} />
-            </div>
+            </section>
 
-            <div className="mt-content">
-                <SectionText text="Work experience" />
+            <section className="mt-spacing">
+                <SectionTitle text="Work experience" />
                 <ResumeItem title="Experience" sections={resumeSadra.experience} />
-            </div>
+            </section>
 
-            <div className="mt-content">
-                <SectionText text="Education" />
+            <section className="mt-spacing">
+                <SectionTitle text="Education" />
                 <ResumeItem title="Education" sections={resumeSadra.education} />
-            </div>
+            </section>
         </div>
     );
 }

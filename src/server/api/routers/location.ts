@@ -12,31 +12,31 @@ export async function getLocation(
     input: z.infer<typeof getLocationProps>,
     ctx: ContextType,
 ): Promise<Result<typeof location.$inferSelect>> {
-    const result = await ctx.db.query.location.findFirst({
+    const res = await ctx.db.query.location.findFirst({
         where: (location) => eq(location.location_id, input.location_id),
     });
 
-    if (!result) {
+    if (!res) {
         return {
             error: `Location id ${input.location_id} not found`,
             status: 404,
         };
     }
 
-    return { data: result };
+    return { data: res };
 }
 
 export async function getDefaultLocation(ctx: ContextType): Promise<Result<typeof location.$inferSelect>> {
-    const result = await ctx.db.query.location.findFirst();
+    const res = await ctx.db.query.location.findFirst();
 
-    if (!result) {
+    if (!res) {
         return {
             error: `No locations exist`,
             status: 404,
         };
     }
 
-    return { data: result };
+    return { data: res };
 }
 
 export const locationRouter = createTRPCRouter({

@@ -7,7 +7,7 @@ interface SectionTitleProps {
 export default function SectionDescription({ text }: SectionTitleProps) {
     return (
         <RevealAnimation>
-            <h2 className="xl:text-3x mb-10 text-center text-lg md:mb-28 md:text-xl">{text}</h2>
+            <p className="mx-auto mt-4 text-center lg:w-2/3">{text}</p>
         </RevealAnimation>
     );
 }
