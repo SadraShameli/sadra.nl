@@ -9,7 +9,7 @@ export default function Navbar() {
                     &gt;_{resumeSadra.basics.firstName.toLowerCase()}
                 </Link>
 
-                <div className="flex items-center justify-between gap-x-4 text-white sm:gap-x-6">
+                <div className="flex items-center justify-between gap-x-4 text-white lg:gap-x-6">
                     {resumeSadra.profiles.map((profile, index) => {
                         return (
                             <Link

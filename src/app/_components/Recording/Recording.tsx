@@ -74,14 +74,14 @@ export default function RecordingSection({}) {
     }, [volume]);
 
     return (
-        <Card className="mt-spacing-inner container">
+        <Card className="container mt-spacing-inner">
             <div className="grid-cols-2 items-center lg:grid">
                 <video loop autoPlay muted playsInline>
                     <source src="/headphone.mp4" type="video/mp4" />
                 </video>
 
                 <div>
-                    <div className="my-spacing-inner w-full rounded-xl bg-muted p-5 lg:my-0">
+                    <div className="w-full rounded-xl bg-muted p-5 my-spacing-inner lg:my-0">
                         <div className="flex items-center justify-between lg:mx-3">
                             <p className="font-semibold">Recordings</p>
 
@@ -102,12 +102,12 @@ export default function RecordingSection({}) {
                             </Button>
                         </div>
 
-                        <div className="my-5 grid h-[27vh] md:h-[25vh]">
+                        <div className="my-5 grid h-[27vh] lg:h-[25vh]">
                             <ScrollArea>
                                 {recordings.data?.length
                                     ? recordings.data.map((recording) => (
                                           <button
-                                              className="flex rounded-lg p-3 font-semibold transition hover:bg-accent sm:w-11/12"
+                                              className="flex rounded-lg p-3 font-semibold transition hover:bg-accent lg:w-11/12"
                                               onClick={() => {
                                                   if (audio.current) {
                                                       audio.current.src = GetRecordingURL(recording);
@@ -131,7 +131,7 @@ export default function RecordingSection({}) {
                                           </button>
                                       ))
                                     : [...Array<number>(5)].map((_, idx) => (
-                                          <div className="shimmer sm:w-1-3 my-2 h-5" key={idx} />
+                                          <div className="shimmer lg:w-1-3 my-2 h-5" key={idx} />
                                       ))}
                             </ScrollArea>
                         </div>

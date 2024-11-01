@@ -13,7 +13,7 @@ import RecordingSection from './_components/Recording/Recording';
 export default async function HomePage() {
     return (
         <main>
-            <section className="mt-spacing container grid-cols-2 grid-rows-2 items-center gap-5 lg:mt-[-68px] lg:grid lg:h-screen lg:grid-rows-none lg:gap-20">
+            <section className="container grid-cols-2 grid-rows-2 items-center gap-5 mt-spacing lg:mt-[-68px] lg:grid lg:h-screen lg:grid-rows-none lg:gap-20">
                 <Image
                     className="aspect-square rounded-2xl object-cover"
                     src={ProfilePicture}
@@ -22,7 +22,7 @@ export default async function HomePage() {
                     priority
                 />
 
-                <div className="mt-spacing-inner flex flex-col lg:mt-0">
+                <div className="flex flex-col mt-spacing-inner lg:mt-0">
                     <h1 className="text-6xl font-semibold text-white lg:text-8xl lg:font-bold">
                         {resumeSadra.basics.title}
                     </h1>
@@ -50,29 +50,29 @@ export default async function HomePage() {
                 </div>
             </section>
 
-            <section className="my-spacing container">
+            <section className="container my-spacing">
                 <SectionTitle text="This is Sensor Hub" />
 
                 <SectionDescription text="Devices made by me, designed to record and register various climate telemetry and noise pollution data." />
 
-                <video className="mt-spacing-inner rounded-2xl" loop autoPlay muted playsInline>
+                <video className="rounded-2xl mt-spacing-inner" loop autoPlay muted playsInline>
                     <source src="/sensorUnit.mp4" type="video/mp4" />
                 </video>
             </section>
 
-            <section className="my-spacing container">
+            <section className="container my-spacing">
                 <SectionTitle text="Noise recordings" />
                 <SectionDescription text="Here you will find a list of noise recordings made by the Sensor Hub devices, which are placed at various locations in the Netherlands." />
                 <RecordingSection />
             </section>
 
-            <section className="my-spacing container">
+            <section className="container my-spacing">
                 <SectionTitle text="Live readings" />
                 <SectionDescription text="Ever been curious about the temperature, humidity and loudness levels at various locations in real time?" />
                 <ReadingSection />
             </section>
 
-            <section className="mt-spacing container">
+            <section className="container mt-spacing">
                 <SectionTitle text="More about me" />
                 <AboutSection />
             </section>

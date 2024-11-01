@@ -66,9 +66,9 @@ export default function ReadingSection() {
     }, [currentLocation, locations]);
 
     return (
-        <Card className="mt-spacing-inner container flex min-h-[538.81px] flex-col">
+        <Card className="container flex min-h-[538.81px] flex-col mt-spacing-inner">
             <Tabs
-                className="my-spacing-inner grid gap-y-5 lg:my-0"
+                className="grid gap-y-5 my-spacing-inner lg:my-0"
                 defaultValue={sensors?.at(0)?.name}
                 value={currentSensor}
                 onValueChange={(value) => setCurrentSensor(value)}
@@ -91,7 +91,7 @@ export default function ReadingSection() {
                         !currentReading.data?.data && 'justify-end',
                     )}
                 >
-                    <div className="grid gap-5 sm:grid-flow-col">
+                    <div className="grid gap-5 lg:grid-flow-col">
                         <div className="grid gap-2">
                             <Popover>
                                 <PopoverTrigger asChild>

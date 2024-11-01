@@ -17,8 +17,8 @@ type ResumeProps = {
 export default function ResumeItem({ title, sections }: ResumeProps) {
     return (
         <RevealAnimation>
-            <Card className="mt-spacing-inner container">
-                <div className="mt-sp my-spacing-inner grid max-w-3xl gap-y-10 lg:my-0">
+            <Card className="container mt-spacing-inner">
+                <div className="mt-sp grid max-w-3xl gap-y-10 my-spacing-inner lg:my-0">
                     {sections.map((section, index) => {
                         return (
                             <div key={index}>
@@ -34,7 +34,7 @@ export default function ResumeItem({ title, sections }: ResumeProps) {
 
                                 <div
                                     className={cn(
-                                        'flex flex-col justify-between md:flex-row md:items-center',
+                                        'flex flex-col justify-between lg:flex-row lg:items-center',
                                         index && !section.image && 'border-t pt-12',
                                     )}
                                 >
@@ -47,7 +47,7 @@ export default function ResumeItem({ title, sections }: ResumeProps) {
                                             <span className="pl-2">{section.title}</span>
                                         </Link>
                                     ) : null}
-                                    <span className="bg-gradient-neutral-anim mt-1 text-lg font-semibold md:mt-auto">
+                                    <span className="bg-gradient-neutral-anim mt-1 text-lg font-semibold lg:mt-auto">
                                         {section.role}
                                     </span>
                                 </div>
