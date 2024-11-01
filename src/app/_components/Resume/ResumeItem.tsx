@@ -17,8 +17,8 @@ type ResumeProps = {
 export default function ResumeItem({ title, sections }: ResumeProps) {
     return (
         <RevealAnimation>
-            <Card>
-                <div className="grid max-w-3xl gap-y-10">
+            <Card className="mt-spacing-inner container">
+                <div className="mt-sp my-spacing-inner grid max-w-3xl gap-y-10 lg:my-0">
                     {sections.map((section, index) => {
                         return (
                             <div key={index}>

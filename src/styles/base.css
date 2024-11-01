@@ -84,10 +84,6 @@
         color-scheme: dark;
     }
 
-    body {
-        @apply bg-background text-foreground;
-    }
-
     @media print {
         @page {
             size: A4 portrait;
@@ -101,5 +97,13 @@
         * {
             page-break-before: avoid;
         }
+    }
+
+    body {
+        @apply bg-background text-foreground;
+    }
+
+    p {
+        @apply text-lg font-medium lg:text-xl;
     }
 }

@@ -1,25 +1,24 @@
 import GallerySection from './GallerySection';
 
-import RevealAnimation from '~/components/ui/Animations/Reveal';
 import { Card } from '~/components/ui/Card';
 
 export default function AboutSection() {
     return (
-        <RevealAnimation>
-            <Card>
-                <div className="grid gap-y-12">
-                    <GallerySection />
+        <Card className="mt-spacing-inner">
+            <div className="grid gap-y-5">
+                <GallerySection />
+
+                <div className="mb-spacing-inner mx-auto lg:mb-0 lg:w-1/2">
                     <iframe
-                        className="rounded-2xl md:mx-auto lg:w-1/2"
+                        className="min-w-full rounded-2xl"
                         src="https://open.spotify.com/embed/track/4kjI1gwQZRKNDkw1nI475M?utm_source=generator&theme=0"
-                        width="100%"
-                        height="152"
-                        allowFullScreen={true}
                         allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                        allowFullScreen
+                        height={152}
                         loading="lazy"
                     />
                 </div>
-            </Card>
-        </RevealAnimation>
+            </div>
+        </Card>
     );
 }

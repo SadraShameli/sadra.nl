@@ -1,14 +1,21 @@
 import type { Config } from 'tailwindcss';
 import defaultTheme from 'tailwindcss/defaultTheme';
+import plugin from 'tailwindcss/plugin';
 
 export default {
     content: ['./src/**/*.tsx'],
     theme: {
         container: {
             center: true,
-            padding: '2rem',
+            padding: {
+                sm: '16px',
+                xl: '64px',
+            },
             screens: {
-                '2xl': '1400px',
+                sm: '375px',
+                md: '768px',
+                lg: '1024px',
+                xl: '1400px',
             },
         },
         extend: {
@@ -51,13 +58,10 @@ export default {
                     foreground: 'hsl(var(--card-foreground))',
                 },
             },
-            maxWidth: {
-                '8xl': '90rem',
-                '9xl': '98rem',
-                content: '80rem',
-            },
-            margin: {
-                content: '10.25rem',
+            spacing: {
+                '32': '32px',
+                '64': '64px',
+                '96': '96px',
             },
             borderRadius: {
                 lg: 'var(--radius)',
@@ -91,5 +95,52 @@ export default {
             },
         },
     },
-    plugins: [require('@tailwindcss/typography'), require('tailwindcss-animate')],
+    plugins: [
+        require('@tailwindcss/typography'),
+        require('tailwindcss-animate'),
+        plugin(function ({ addUtilities, theme }) {
+            addUtilities({
+                '.mt-spacing': {
+                    marginTop: theme('spacing.64'),
+                    '@screen lg': {
+                        marginTop: theme('spacing.96'),
+                    },
+                },
+                '.mb-spacing': {
+                    marginBottom: theme('spacing.64'),
+                    '@screen lg': {
+                        marginBottom: theme('spacing.96'),
+                    },
+                },
+                '.my-spacing': {
+                    marginTop: theme('spacing.64'),
+                    marginBottom: theme('spacing.64'),
+                    '@screen lg': {
+                        marginTop: theme('spacing.96'),
+                        marginBottom: theme('spacing.96'),
+                    },
+                },
+                '.mt-spacing-inner': {
+                    marginTop: theme('spacing.32'),
+                    '@screen lg': {
+                        marginTop: theme('spacing.64'),
+                    },
+                },
+                '.mb-spacing-inner': {
+                    marginBottom: theme('spacing.32'),
+                    '@screen lg': {
+                        marginBottom: theme('spacing.64'),
+                    },
+                },
+                '.my-spacing-inner': {
+                    marginTop: theme('spacing.32'),
+                    marginBottom: theme('spacing.32'),
+                    '@screen lg': {
+                        marginTop: theme('spacing.64'),
+                        marginBottom: theme('spacing.64'),
+                    },
+                },
+            });
+        }),
+    ],
 } satisfies Config;
