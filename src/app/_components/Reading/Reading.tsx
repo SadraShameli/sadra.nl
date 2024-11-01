@@ -73,96 +73,100 @@ export default function ReadingSection() {
                 value={currentSensor}
                 onValueChange={(value) => setCurrentSensor(value)}
             >
-                {sensors && (
-                    <TabsList className="w-fit">
-                        {sensors?.map((sensor, index) => {
-                            return (
-                                <TabsTrigger value={sensor.name} key={index}>
-                                    {sensor.name}
-                                </TabsTrigger>
-                            );
-                        })}
-                    </TabsList>
-                )}
-
-                <div
-                    className={cn(
-                        'flex flex-col justify-between gap-y-5 lg:flex-row lg:gap-5',
-                        !currentReading.data?.data && 'justify-end',
-                    )}
-                >
-                    <div className="grid gap-5 lg:grid-flow-col">
-                        <div className="grid gap-2">
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        className={cn(
-                                            'w-[300px] justify-start text-left font-normal',
-                                            !date && 'text-muted-foreground',
-                                        )}
-                                        variant="outline"
-                                    >
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {date?.from ? (
-                                            date.to ? (
-                                                <>
-                                                    {format(date.from, 'LLL dd, y')} - {format(date.to, 'LLL dd, y')}
-                                                </>
+                <div className="flex flex-wrap justify-between gap-5">
+                    <div
+                        className={cn(
+                            'flex flex-col justify-between gap-y-5 lg:flex-row lg:gap-5',
+                            !currentReading.data?.data && 'justify-end',
+                        )}
+                    >
+                        <div className="grid gap-5 lg:grid-flow-col">
+                            <div className="grid gap-2">
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            className={cn(
+                                                'w-[300px] justify-start text-left font-normal',
+                                                !date && 'text-muted-foreground',
+                                            )}
+                                            variant="outline"
+                                        >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {date?.from ? (
+                                                date.to ? (
+                                                    <>
+                                                        {format(date.from, 'LLL dd, y')} -{' '}
+                                                        {format(date.to, 'LLL dd, y')}
+                                                    </>
+                                                ) : (
+                                                    format(date.from, 'LLL dd, y')
+                                                )
                                             ) : (
-                                                format(date.from, 'LLL dd, y')
-                                            )
-                                        ) : (
-                                            <span>Pick a date</span>
-                                        )}
+                                                <span>Pick a date</span>
+                                            )}
+                                        </Button>
+                                    </PopoverTrigger>
+
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                        <Calendar
+                                            mode="range"
+                                            defaultMonth={date?.from}
+                                            selected={date}
+                                            onSelect={setDate}
+                                            numberOfMonths={2}
+                                        />
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
+
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild disabled={!locations.data?.data}>
+                                    <Button className="w-fit lg:ml-0" variant="outline">
+                                        <MapPin className="mr-1 size-5" />
+                                        Locations
                                     </Button>
-                                </PopoverTrigger>
+                                </DropdownMenuTrigger>
 
-                                <PopoverContent className="w-auto p-0" align="start">
-                                    <Calendar
-                                        mode="range"
-                                        defaultMonth={date?.from}
-                                        selected={date}
-                                        onSelect={setDate}
-                                        numberOfMonths={2}
-                                    />
-                                </PopoverContent>
-                            </Popover>
+                                <DropdownMenuContent>
+                                    <DropdownMenuRadioGroup
+                                        value={
+                                            currentLocation
+                                                ? currentLocation.location_name
+                                                : locations.data?.data?.at(0)?.location_name
+                                        }
+                                        onValueChange={(value) => {
+                                            const location = locations.data?.data?.find(
+                                                (location) => location.location_name === value,
+                                            );
+                                            setCurrentLocation(location);
+                                        }}
+                                    >
+                                        {locations.data?.data?.map((location, index) => {
+                                            return (
+                                                <DropdownMenuRadioItem value={location.location_name} key={index}>
+                                                    {location.location_name}
+                                                </DropdownMenuRadioItem>
+                                            );
+                                        })}
+                                    </DropdownMenuRadioGroup>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </div>
-
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild disabled={!locations.data?.data}>
-                                <Button className="w-fit lg:ml-0" variant="outline">
-                                    <MapPin className="mr-1 size-5" />
-                                    Locations
-                                </Button>
-                            </DropdownMenuTrigger>
-
-                            <DropdownMenuContent>
-                                <DropdownMenuRadioGroup
-                                    value={
-                                        currentLocation
-                                            ? currentLocation.location_name
-                                            : locations.data?.data?.at(0)?.location_name
-                                    }
-                                    onValueChange={(value) => {
-                                        const location = locations.data?.data?.find(
-                                            (location) => location.location_name === value,
-                                        );
-                                        setCurrentLocation(location);
-                                    }}
-                                >
-                                    {locations.data?.data?.map((location, index) => {
-                                        return (
-                                            <DropdownMenuRadioItem value={location.location_name} key={index}>
-                                                {location.location_name}
-                                            </DropdownMenuRadioItem>
-                                        );
-                                    })}
-                                </DropdownMenuRadioGroup>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
                     </div>
+
+                    {sensors && (
+                        <TabsList className="w-fit">
+                            {sensors?.map((sensor, index) => {
+                                return (
+                                    <TabsTrigger value={sensor.name} key={index}>
+                                        {sensor.name}
+                                    </TabsTrigger>
+                                );
+                            })}
+                        </TabsList>
+                    )}
                 </div>
+
                 {currentReading.data?.data?.map((reading, index) => {
                     return (
                         <TabsContent
@@ -172,6 +176,39 @@ export default function ReadingSection() {
                         >
                             <div className="grid gap-5 text-sm font-semibold leading-none">
                                 <div className="grid gap-5 lg:grid-cols-2">
+                                    <div
+                                        className={cn(
+                                            'rounded-xl border p-5',
+                                            currentReading.isRefetching && 'shimmer',
+                                        )}
+                                    >
+                                        <div className="absolute flex items-center gap-x-2 pb-5">
+                                            <ChartIcon />
+                                            Live Chart
+                                        </div>
+
+                                        <div className="mt-12 grid">
+                                            <AreaChartNew
+                                                data={reading.readings}
+                                                config={{
+                                                    location: {
+                                                        label: currentLocation?.location_name,
+                                                    },
+                                                    sensor: {
+                                                        label: currentSensor,
+                                                    },
+                                                }}
+                                                xAxis={{ dataKey: 'date' }}
+                                                yAxis={{
+                                                    tickFormatter: (value) =>
+                                                        `${value} ${sensors?.find((sensor) => sensor.name == currentSensor)?.unit}`,
+                                                }}
+                                                area={{ dataKey: 'value' }}
+                                                tooltip={{ labelKey: 'location', nameKey: 'sensor' }}
+                                            />
+                                        </div>
+                                    </div>
+
                                     <div className="grid grid-cols-2 gap-5">
                                         <div
                                             className={cn(
@@ -217,39 +254,6 @@ export default function ReadingSection() {
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </div>
-
-                                    <div
-                                        className={cn(
-                                            'rounded-xl border p-5',
-                                            currentReading.isRefetching && 'shimmer',
-                                        )}
-                                    >
-                                        <div className="absolute flex items-center gap-x-2 pb-5">
-                                            <ChartIcon />
-                                            Live Chart
-                                        </div>
-
-                                        <div className="mt-12 grid">
-                                            <AreaChartNew
-                                                data={reading.readings}
-                                                config={{
-                                                    location: {
-                                                        label: currentLocation?.location_name,
-                                                    },
-                                                    sensor: {
-                                                        label: currentSensor,
-                                                    },
-                                                }}
-                                                xAxis={{ dataKey: 'date' }}
-                                                yAxis={{
-                                                    tickFormatter: (value) =>
-                                                        `${value} ${sensors?.find((sensor) => sensor.name == currentSensor)?.unit}`,
-                                                }}
-                                                area={{ dataKey: 'value' }}
-                                                tooltip={{ labelKey: 'location', nameKey: 'sensor' }}
-                                            />
                                         </div>
                                     </div>
                                 </div>
