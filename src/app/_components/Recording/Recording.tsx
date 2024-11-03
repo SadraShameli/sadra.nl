@@ -74,14 +74,14 @@ export default function RecordingSection({}) {
     }, [volume]);
 
     return (
-        <Card className="container mt-spacing-inner">
-            <div className="grid-cols-2 items-center lg:grid">
-                <video loop autoPlay muted playsInline>
-                    <source src="/headphone.mp4" type="video/mp4" />
-                </video>
+        <div className="pt-spacing-inner">
+            <Card className="container">
+                <div className="grid-cols-2 items-center lg:grid">
+                    <video loop autoPlay muted playsInline>
+                        <source src="/headphone.mp4" type="video/mp4" />
+                    </video>
 
-                <div>
-                    <div className="w-full rounded-xl bg-muted p-5 my-spacing-inner lg:my-0">
+                    <div className="w-full rounded-xl bg-muted p-5 mb-spacing-inner lg:my-0">
                         <div className="flex items-center justify-between lg:mx-3">
                             <p className="font-semibold">Recordings</p>
 
@@ -340,7 +340,7 @@ export default function RecordingSection({}) {
                         ) : null}
                     </div>
                 </div>
-            </div>
-        </Card>
+            </Card>
+        </div>
     );
 }

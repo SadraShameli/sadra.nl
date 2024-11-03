@@ -100,6 +100,46 @@ export default {
         require('tailwindcss-animate'),
         plugin(function ({ addUtilities, theme }) {
             addUtilities({
+                '.pt-spacing': {
+                    paddingTop: theme('spacing.64'),
+                    '@screen lg': {
+                        paddingTop: theme('spacing.96'),
+                    },
+                },
+                '.pb-spacing': {
+                    paddingBottom: theme('spacing.64'),
+                    '@screen lg': {
+                        paddingBottom: theme('spacing.96'),
+                    },
+                },
+                '.py-spacing': {
+                    paddingTop: theme('spacing.64'),
+                    paddingBottom: theme('spacing.64'),
+                    '@screen lg': {
+                        paddingTop: theme('spacing.96'),
+                        paddingBottom: theme('spacing.96'),
+                    },
+                },
+                '.pt-spacing-inner': {
+                    paddingTop: theme('spacing.32'),
+                    '@screen lg': {
+                        paddingTop: theme('spacing.64'),
+                    },
+                },
+                '.pb-spacing-inner': {
+                    paddingBottom: theme('spacing.32'),
+                    '@screen lg': {
+                        paddingBottom: theme('spacing.64'),
+                    },
+                },
+                '.py-spacing-inner': {
+                    paddingTop: theme('spacing.32'),
+                    paddingBottom: theme('spacing.32'),
+                    '@screen lg': {
+                        paddingTop: theme('spacing.64'),
+                        paddingBottom: theme('spacing.64'),
+                    },
+                },
                 '.mt-spacing': {
                     marginTop: theme('spacing.64'),
                     '@screen lg': {

@@ -10,12 +10,12 @@ export default function ResumeSection() {
                 <ResumeItem title="Projects" sections={resumeSadra.projects} />
             </section>
 
-            <section className="mt-spacing">
+            <section className="pt-spacing">
                 <SectionTitle text="Work experience" />
                 <ResumeItem title="Experience" sections={resumeSadra.experience} />
             </section>
 
-            <section className="mt-spacing">
+            <section className="pt-spacing">
                 <SectionTitle text="Education" />
                 <ResumeItem title="Education" sections={resumeSadra.education} />
             </section>
