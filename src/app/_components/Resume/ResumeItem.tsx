@@ -18,7 +18,7 @@ export default function ResumeItem({ title, sections }: ResumeProps) {
     return (
         <RevealAnimation className="pt-spacing-inner">
             <Card className="container">
-                <div className="mt-sp py-spacing-inner grid max-w-3xl gap-y-10 lg:py-0">
+                <div className="mt-sp grid max-w-3xl gap-y-10 py-spacing-inner lg:py-0">
                     {sections.map((section, index) => {
                         return (
                             <div key={index}>
@@ -59,13 +59,13 @@ export default function ResumeItem({ title, sections }: ResumeProps) {
                                             href={section.location.url}
                                         >
                                             <MapPin className="size-5" />
-                                            <span className="ml-1 tracking-tight">{section.location.title}</span>
+                                            <span className="ml-1">{section.location.title}</span>
                                         </Link>
                                     )}
 
                                     <div className="flex items-center">
                                         <CalendarDays className="size-5" />
-                                        <span className="ml-1 leading-none tracking-tight">{section.date}</span>
+                                        <span className="ml-1 leading-none">{section.date}</span>
                                     </div>
                                 </div>
 

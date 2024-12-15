@@ -104,6 +104,6 @@
     }
 
     p {
-        @apply text-lg font-medium lg:text-xl;
+        @apply text-base font-normal lg:text-lg;
     }
 }
