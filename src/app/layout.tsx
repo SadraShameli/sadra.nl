@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     icons: { icon: '/favicon.ico', apple: '/apple-icon.png' },
 };
 
-export function App({ children }: { children: React.ReactNode }) {
+function App({ children }: { children: React.ReactNode }) {
     return (
         <>
             <Navbar />

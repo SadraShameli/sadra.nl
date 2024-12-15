@@ -1,7 +1,7 @@
 'use client';
 
-import { type Transition, type Variants, easeOut, motion, useInView } from 'framer-motion';
-import { useRef } from 'react';
+import { easeOut, motion, useInView, type Transition, type Variants } from 'framer-motion';
+import { useRef, type JSX } from 'react';
 
 type AnimatedTextProps = {
     className?: string;
