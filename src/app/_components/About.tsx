@@ -11,6 +11,7 @@ export default function AboutSection() {
 
                     <div className="mx-auto mb-spacing-inner lg:mb-0 lg:w-1/2">
                         <iframe
+                            title="Spotify Track"
                             className="min-w-full rounded-2xl"
                             src="https://open.spotify.com/embed/track/4kjI1gwQZRKNDkw1nI475M?utm_source=generator&theme=0"
                             allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
