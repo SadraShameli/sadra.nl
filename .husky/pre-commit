@@ -1,13 +1,12 @@
-echo "Running checks\n";
+echo "Running pre-commit hook";
 
-echo "Running prettier...";
+echo "Running formatters";
 bun run format:write;
+bunx sort-package-json
 
-echo "Running style linter...";
+echo "Running linters";
 bun run stylelint:fix;
-
-echo "Running linter...";
 bun run lint:fix;
 
-echo "Running type checks...";
+echo "Running type checks";
 bun run typecheck;
