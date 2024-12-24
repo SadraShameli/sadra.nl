@@ -7,7 +7,10 @@ type RequestProps = {
     id: string;
 };
 
-export async function GET(request: NextRequest, { params }: { params: Promise<RequestProps> }) {
+export async function GET(
+    request: NextRequest,
+    { params }: { params: Promise<RequestProps> },
+) {
     const requestParams = await params;
     const res = await api.recording.getRecording({ id: +requestParams.id });
 
@@ -26,7 +29,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<Re
     return NextResponse.json(res, { status: res.status });
 }
 
-export async function POST(request: NextRequest, { params }: { params: Promise<RequestProps> }) {
+export async function POST(
+    request: NextRequest,
+    { params }: { params: Promise<RequestProps> },
+) {
     const requestParams = await params;
     const buffer = Buffer.from(await (await request.blob()).arrayBuffer());
     const normalizedBuffer = applyAudioFilters(buffer);

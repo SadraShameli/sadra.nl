@@ -6,7 +6,10 @@ type RequestProps = {
     id: string;
 };
 
-export async function GET(request: NextRequest, { params }: { params: Promise<RequestProps> }) {
+export async function GET(
+    request: NextRequest,
+    { params }: { params: Promise<RequestProps> },
+) {
     const requestParams = await params;
 
     const res = await api.location.getLocationDevices({

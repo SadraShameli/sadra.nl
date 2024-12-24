@@ -2,7 +2,12 @@
 
 import { keepPreviousData } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { Calendar as CalendarIcon, AreaChart as ChartIcon, MapPin, ThermometerSnowflake } from 'lucide-react';
+import {
+    Calendar as CalendarIcon,
+    AreaChart as ChartIcon,
+    MapPin,
+    ThermometerSnowflake,
+} from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { type DateRange } from 'react-day-picker';
 
@@ -22,14 +27,21 @@ import {
     DropdownMenuRadioItem,
     DropdownMenuTrigger,
 } from '~/components/ui/DropDown';
-import { Popover, PopoverContent, PopoverTrigger } from '~/components/ui/Popover';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '~/components/ui/Popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
 
 export default function ReadingSection() {
     const [date, setDate] = useState<DateRange>();
-    const [currentLocation, setCurrentLocation] = useState<typeof location.$inferSelect>();
+    const [currentLocation, setCurrentLocation] =
+        useState<typeof location.$inferSelect>();
 
-    const [oldSensors, setOldSensors] = useState<(typeof sensor.$inferSelect)[] | undefined>();
+    const [oldSensors, setOldSensors] = useState<
+        (typeof sensor.$inferSelect)[] | undefined
+    >();
     const [currentSensor, setCurrentSensor] = useState<string>();
 
     const currentReading = api.reading.getReadingsInput.useQuery(
@@ -44,7 +56,10 @@ export default function ReadingSection() {
             placeholderData: keepPreviousData,
         },
     );
-    const sensors = useMemo(() => currentReading.data?.data?.map((reading) => reading.sensor), [currentReading?.data]);
+    const sensors = useMemo(
+        () => currentReading.data?.data?.map((reading) => reading.sensor),
+        [currentReading?.data],
+    );
     const locations = api.location.getLocations.useQuery();
 
     useEffect(() => {
@@ -53,7 +68,10 @@ export default function ReadingSection() {
             setCurrentSensor(sensors[0]?.name);
         } else if (sensors?.length && oldSensors?.length) {
             setOldSensors(sensors);
-            if (currentSensor && !sensors.find((sensor) => sensor.name == currentSensor)) {
+            if (
+                currentSensor &&
+                !sensors.find((sensor) => sensor.name == currentSensor)
+            ) {
                 setCurrentSensor(sensors.at(-1)?.name);
             }
         }
@@ -88,7 +106,8 @@ export default function ReadingSection() {
                                             <Button
                                                 className={cn(
                                                     'w-[300px] justify-start text-left font-normal',
-                                                    !date && 'text-muted-foreground',
+                                                    !date &&
+                                                        'text-muted-foreground',
                                                 )}
                                                 variant="outline"
                                             >
@@ -96,11 +115,21 @@ export default function ReadingSection() {
                                                 {date?.from ? (
                                                     date.to ? (
                                                         <>
-                                                            {format(date.from, 'LLL dd, y')} -{' '}
-                                                            {format(date.to, 'LLL dd, y')}
+                                                            {format(
+                                                                date.from,
+                                                                'LLL dd, y',
+                                                            )}{' '}
+                                                            -{' '}
+                                                            {format(
+                                                                date.to,
+                                                                'LLL dd, y',
+                                                            )}
                                                         </>
                                                     ) : (
-                                                        format(date.from, 'LLL dd, y')
+                                                        format(
+                                                            date.from,
+                                                            'LLL dd, y',
+                                                        )
                                                     )
                                                 ) : (
                                                     <span>Pick a date</span>
@@ -108,7 +137,10 @@ export default function ReadingSection() {
                                             </Button>
                                         </PopoverTrigger>
 
-                                        <PopoverContent className="w-auto p-0" align="start">
+                                        <PopoverContent
+                                            className="w-auto p-0"
+                                            align="start"
+                                        >
                                             <Calendar
                                                 mode="range"
                                                 defaultMonth={date?.from}
@@ -121,8 +153,14 @@ export default function ReadingSection() {
                                 </div>
 
                                 <DropdownMenu>
-                                    <DropdownMenuTrigger asChild disabled={!locations.data?.data}>
-                                        <Button className="w-fit lg:ml-0" variant="outline">
+                                    <DropdownMenuTrigger
+                                        asChild
+                                        disabled={!locations.data?.data}
+                                    >
+                                        <Button
+                                            className="w-fit lg:ml-0"
+                                            variant="outline"
+                                        >
                                             <MapPin className="mr-1 size-5" />
                                             Locations
                                         </Button>
@@ -133,22 +171,36 @@ export default function ReadingSection() {
                                             value={
                                                 currentLocation
                                                     ? currentLocation.location_name
-                                                    : locations.data?.data?.at(0)?.location_name
+                                                    : locations.data?.data?.at(
+                                                          0,
+                                                      )?.location_name
                                             }
                                             onValueChange={(value) => {
-                                                const location = locations.data?.data?.find(
-                                                    (location) => location.location_name === value,
-                                                );
+                                                const location =
+                                                    locations.data?.data?.find(
+                                                        (location) =>
+                                                            location.location_name ===
+                                                            value,
+                                                    );
                                                 setCurrentLocation(location);
                                             }}
                                         >
-                                            {locations.data?.data?.map((location, index) => {
-                                                return (
-                                                    <DropdownMenuRadioItem value={location.location_name} key={index}>
-                                                        {location.location_name}
-                                                    </DropdownMenuRadioItem>
-                                                );
-                                            })}
+                                            {locations.data?.data?.map(
+                                                (location, index) => {
+                                                    return (
+                                                        <DropdownMenuRadioItem
+                                                            value={
+                                                                location.location_name
+                                                            }
+                                                            key={index}
+                                                        >
+                                                            {
+                                                                location.location_name
+                                                            }
+                                                        </DropdownMenuRadioItem>
+                                                    );
+                                                },
+                                            )}
                                         </DropdownMenuRadioGroup>
                                     </DropdownMenuContent>
                                 </DropdownMenu>
@@ -159,7 +211,10 @@ export default function ReadingSection() {
                             <TabsList className="w-fit">
                                 {sensors?.map((sensor, index) => {
                                     return (
-                                        <TabsTrigger value={sensor.name} key={index}>
+                                        <TabsTrigger
+                                            value={sensor.name}
+                                            key={index}
+                                        >
                                             {sensor.name}
                                         </TabsTrigger>
                                     );
@@ -171,7 +226,10 @@ export default function ReadingSection() {
                     {currentReading.data?.data?.map((reading, index) => {
                         return (
                             <TabsContent
-                                className={cn(!currentReading.data?.data?.length && 'shimmer')}
+                                className={cn(
+                                    !currentReading.data?.data?.length &&
+                                        'shimmer',
+                                )}
                                 value={reading.sensor.name}
                                 key={index}
                             >
@@ -180,7 +238,8 @@ export default function ReadingSection() {
                                         <div
                                             className={cn(
                                                 'rounded-xl border p-5',
-                                                currentReading.isRefetching && 'shimmer',
+                                                currentReading.isRefetching &&
+                                                    'shimmer',
                                             )}
                                         >
                                             <div className="absolute flex items-center gap-x-2 pb-5">
@@ -201,11 +260,16 @@ export default function ReadingSection() {
                                                     }}
                                                     xAxis={{ dataKey: 'date' }}
                                                     yAxis={{
-                                                        tickFormatter: (value) =>
+                                                        tickFormatter: (
+                                                            value,
+                                                        ) =>
                                                             `${value} ${sensors?.find((sensor) => sensor.name == currentSensor)?.unit}`,
                                                     }}
                                                     area={{ dataKey: 'value' }}
-                                                    tooltip={{ labelKey: 'location', nameKey: 'sensor' }}
+                                                    tooltip={{
+                                                        labelKey: 'location',
+                                                        nameKey: 'sensor',
+                                                    }}
                                                 />
                                             </div>
                                         </div>
@@ -214,7 +278,8 @@ export default function ReadingSection() {
                                             <div
                                                 className={cn(
                                                     'flex rounded-xl bg-muted p-5',
-                                                    currentReading.isRefetching && 'shimmer',
+                                                    currentReading.isRefetching &&
+                                                        'shimmer',
                                                 )}
                                             >
                                                 <div className="absolute flex items-center gap-x-2">
@@ -231,7 +296,8 @@ export default function ReadingSection() {
                                                 <div
                                                     className={cn(
                                                         'flex min-h-36 rounded-xl bg-muted p-5',
-                                                        currentReading.isRefetching && 'shimmer',
+                                                        currentReading.isRefetching &&
+                                                            'shimmer',
                                                     )}
                                                 >
                                                     <div className="absolute">{`${reading.period}h high`}</div>
@@ -244,7 +310,8 @@ export default function ReadingSection() {
                                                 <div
                                                     className={cn(
                                                         'min-h-36 rounded-xl bg-muted p-5',
-                                                        currentReading.isRefetching && 'shimmer',
+                                                        currentReading.isRefetching &&
+                                                            'shimmer',
                                                     )}
                                                 >
                                                     <div className="flex h-full">
@@ -272,9 +339,15 @@ export default function ReadingSection() {
                             currentReading.isFetched && (
                                 <RevealAnimation className="mx-auto my-auto">
                                     <p>
-                                        No readings could be found. Try switching to another{' '}
-                                        <strong className="underline decoration-dashed">location</strong> or a different{' '}
-                                        <strong className="underline decoration-dashed">date range.</strong>
+                                        No readings could be found. Try
+                                        switching to another{' '}
+                                        <strong className="underline decoration-dashed">
+                                            location
+                                        </strong>{' '}
+                                        or a different{' '}
+                                        <strong className="underline decoration-dashed">
+                                            date range.
+                                        </strong>
                                     </p>
                                 </RevealAnimation>
                             )

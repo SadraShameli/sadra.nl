@@ -16,7 +16,9 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
     try {
-        const body = (await request.json()) as z.infer<typeof createReadingProps>;
+        const body = (await request.json()) as z.infer<
+            typeof createReadingProps
+        >;
         const res = await api.reading.createReading({
             device_id: body.device_id,
             sensors: body.sensors,

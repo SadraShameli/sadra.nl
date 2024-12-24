@@ -1,5 +1,14 @@
 import { sql } from 'drizzle-orm';
-import { index, integer, pgTableCreator, primaryKey, real, serial, timestamp, varchar } from 'drizzle-orm/pg-core';
+import {
+    index,
+    integer,
+    pgTableCreator,
+    primaryKey,
+    real,
+    serial,
+    timestamp,
+    varchar,
+} from 'drizzle-orm/pg-core';
 
 import { bytea } from './types';
 
@@ -100,7 +109,9 @@ export const recording = createTable(
         file: bytea('file').notNull(),
     },
     (table) => ({
-        locationIdIndex: index('recording_location_id_idx').on(table.location_id),
+        locationIdIndex: index('recording_location_id_idx').on(
+            table.location_id,
+        ),
         deviceIdIndex: index('recording_device_id_idx').on(table.device_id),
     }),
 );
@@ -117,7 +128,11 @@ export const sensorsToDevices = createTable(
     },
     (table) => ({
         pk: primaryKey({ columns: [table.sensor_id, table.device_id] }),
-        sensorIdIndex: index('sensors_to_devices_sensor_id_idx').on(table.sensor_id),
-        deviceIdIndex: index('sensors_to_devices_device_id_idx').on(table.device_id),
+        sensorIdIndex: index('sensors_to_devices_sensor_id_idx').on(
+            table.sensor_id,
+        ),
+        deviceIdIndex: index('sensors_to_devices_device_id_idx').on(
+            table.device_id,
+        ),
     }),
 );

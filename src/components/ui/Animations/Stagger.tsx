@@ -1,6 +1,12 @@
 'use client';
 
-import { type Transition, type Variants, easeOut, motion, useInView } from 'framer-motion';
+import {
+    type Transition,
+    type Variants,
+    easeOut,
+    motion,
+    useInView,
+} from 'framer-motion';
 import { useRef } from 'react';
 
 type StaggerProps = {
@@ -29,7 +35,10 @@ const defaultTransition: Transition = {
     delay: 0.2,
 };
 
-export default function StaggerAnimation({ className, children }: StaggerProps) {
+export default function StaggerAnimation({
+    className,
+    children,
+}: StaggerProps) {
     const ref = useRef(null);
     const isInView = useInView(ref, { once: true });
 

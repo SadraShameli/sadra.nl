@@ -20,7 +20,10 @@ export default {
         },
         extend: {
             fontFamily: {
-                geist: ['var(--font-geist-sans)', ...defaultTheme.fontFamily.sans],
+                geist: [
+                    'var(--font-geist-sans)',
+                    ...defaultTheme.fontFamily.sans,
+                ],
                 orbitron: 'var(--font-orbitron)',
             },
             colors: {

@@ -20,6 +20,8 @@ export function ConvertSecondsToString(sec: number | undefined) {
     return `${mS}:${sS}`;
 }
 
-export function GetRecordingURL(recording: Awaited<ReturnType<typeof getRecordingNoFile>>) {
+export function GetRecordingURL(
+    recording: Awaited<ReturnType<typeof getRecordingNoFile>>,
+) {
     return recording ? `/api/recording/${recording.id}` : '';
 }

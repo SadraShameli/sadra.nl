@@ -28,7 +28,11 @@ class SoundFilter {
         if (this.Coefficients.length < 1) return 0.0;
 
         for (let i = 0; i < this.Coefficients.length - 1; i++)
-            SoundFilter.filter(buffer, this.Coefficients[i]!, this.DelayStates[i]!);
+            SoundFilter.filter(
+                buffer,
+                this.Coefficients[i]!,
+                this.DelayStates[i]!,
+            );
 
         return SoundFilter.filterRMS(
             buffer,
@@ -47,7 +51,11 @@ class SoundFilter {
         return Math.sqrt(sumSqr / samples.length);
     }
 
-    static filter(samples: Int16Array, coeffs: Coefficients, delays: DelayStates) {
+    static filter(
+        samples: Int16Array,
+        coeffs: Coefficients,
+        delays: DelayStates,
+    ) {
         const f0 = coeffs.B1;
         const f1 = coeffs.B2;
         const f2 = coeffs.A1;
@@ -71,7 +79,12 @@ class SoundFilter {
         delays.W1 = f5;
     }
 
-    static filterRMS(samples: Int16Array, coeffs: Coefficients, delays: DelayStates, gain: number): number {
+    static filterRMS(
+        samples: Int16Array,
+        coeffs: Coefficients,
+        delays: DelayStates,
+        gain: number,
+    ): number {
         const f0 = coeffs.B1;
         const f1 = coeffs.B2;
         const f2 = coeffs.A1;
@@ -104,7 +117,9 @@ class SoundFilter {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const DC_Blocker = new SoundFilter(1.0, [{ B1: -1.0, B2: 0.0, A1: 0.9992, A2: 0 }]);
+const DC_Blocker = new SoundFilter(1.0, [
+    { B1: -1.0, B2: 0.0, A1: 0.9992, A2: 0 },
+]);
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const INMP441 = new SoundFilter(1.00197834654696, [

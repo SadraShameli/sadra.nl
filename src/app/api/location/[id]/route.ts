@@ -6,10 +6,15 @@ type RequestProps = {
     id: string;
 };
 
-export async function GET(request: NextRequest, { params }: { params: Promise<RequestProps> }) {
+export async function GET(
+    request: NextRequest,
+    { params }: { params: Promise<RequestProps> },
+) {
     const requestParams = await params;
 
-    const res = await api.location.getLocation({ location_id: +requestParams.id });
+    const res = await api.location.getLocation({
+        location_id: +requestParams.id,
+    });
 
     if (res.data) {
         return NextResponse.json(res.data, { status: res.status });

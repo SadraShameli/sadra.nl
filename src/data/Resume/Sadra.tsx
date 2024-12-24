@@ -92,7 +92,9 @@ const resumeSadra: IResume = {
                 'Designed various IoT devices from ground up, including 3D modeling and printing. Intended to gather various telemetries, such as temperature, humidity, air pressure, gas resistance, altitude, loudness levels, noise recordings and RPM values. The devices are placed at various locations in the Netherlands and are continuously registering data',
                 'Cooperated a CI/CD pipeline using Azure DevOps for streamlined and automated deployments, resulting in faster and more reliable code base',
             ],
-            skills: ['React ••• TypeScript ••• Next.js ••• ASP.NET ••• SQL Server ••• Unit Testing'],
+            skills: [
+                'React ••• TypeScript ••• Next.js ••• ASP.NET ••• SQL Server ••• Unit Testing',
+            ],
             image: BSP,
         },
         {
@@ -142,7 +144,9 @@ const resumeSadra: IResume = {
                 'Designed and implemented reusable react components, contributing to code modularity and maintainability',
                 'Cooperated a CI/CD pipeline using GitHub Actions for streamlined and automated deployments, resulting in faster and more reliable code base',
             ],
-            skills: ['Typescript ••• React ••• Next.js ••• tRPC ••• React Query ••• Tailwind CSS'],
+            skills: [
+                'Typescript ••• React ••• Next.js ••• tRPC ••• React Query ••• Tailwind CSS',
+            ],
         },
         {
             title: 'Sensor Hub',

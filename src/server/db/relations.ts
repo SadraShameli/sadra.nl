@@ -1,6 +1,13 @@
 import { relations } from 'drizzle-orm';
 
-import { device, location, reading, recording, sensor, sensorsToDevices } from './schema';
+import {
+    device,
+    location,
+    reading,
+    recording,
+    sensor,
+    sensorsToDevices,
+} from './schema';
 
 export const databaseRelations = {
     location: relations(location, ({ many }) => ({

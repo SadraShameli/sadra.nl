@@ -1,6 +1,11 @@
 'use client';
 
-import { type Transition, type Variants, motion, useInView } from 'framer-motion';
+import {
+    type Transition,
+    type Variants,
+    motion,
+    useInView,
+} from 'framer-motion';
 import { useRef } from 'react';
 
 type RevealProps = {

@@ -12,12 +12,18 @@ export default function ResumeSection() {
 
             <section className="pt-spacing">
                 <SectionTitle text="Work experience" />
-                <ResumeItem title="Experience" sections={resumeSadra.experience} />
+                <ResumeItem
+                    title="Experience"
+                    sections={resumeSadra.experience}
+                />
             </section>
 
             <section className="pt-spacing">
                 <SectionTitle text="Education" />
-                <ResumeItem title="Education" sections={resumeSadra.education} />
+                <ResumeItem
+                    title="Education"
+                    sections={resumeSadra.education}
+                />
             </section>
         </div>
     );

@@ -55,7 +55,13 @@ export default async function HomePage() {
 
                 <SectionDescription text="Devices made by me, designed to record and register various climate telemetry and noise pollution data." />
 
-                <video className="rounded-2xl pt-spacing-inner" loop autoPlay muted playsInline>
+                <video
+                    className="rounded-2xl pt-spacing-inner"
+                    loop
+                    autoPlay
+                    muted
+                    playsInline
+                >
                     <source src="/sensorUnit.mp4" type="video/mp4" />
                 </video>
             </section>

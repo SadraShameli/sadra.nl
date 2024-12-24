@@ -1,6 +1,12 @@
 'use client';
 
-import { easeOut, motion, useInView, type Transition, type Variants } from 'framer-motion';
+import {
+    easeOut,
+    motion,
+    useInView,
+    type Transition,
+    type Variants,
+} from 'framer-motion';
 import { useRef, type JSX } from 'react';
 
 type AnimatedTextProps = {
@@ -26,7 +32,12 @@ const defaultVariants: Variants = {
 
 const defaultTransition: Transition = { staggerChildren: 0.1 };
 
-export default function TextAnimation({ className, text, el: Wrapper = 'p', splitChar }: AnimatedTextProps) {
+export default function TextAnimation({
+    className,
+    text,
+    el: Wrapper = 'p',
+    splitChar,
+}: AnimatedTextProps) {
     const ref = useRef(null);
     const isInView = useInView(ref, { amount: 0.5, once: true });
 
@@ -45,14 +56,22 @@ export default function TextAnimation({ className, text, el: Wrapper = 'p', spli
                     splitChar ? (
                         <span className="inline-block" key={index}>
                             {word.split('').map((char, index) => (
-                                <motion.span className="inline-block" variants={defaultVariants} key={index}>
+                                <motion.span
+                                    className="inline-block"
+                                    variants={defaultVariants}
+                                    key={index}
+                                >
                                     {char}
                                 </motion.span>
                             ))}
                             <span className="inline-block">&nbsp;</span>
                         </span>
                     ) : (
-                        <motion.span className="inline-block" variants={defaultVariants} key={index}>
+                        <motion.span
+                            className="inline-block"
+                            variants={defaultVariants}
+                            key={index}
+                        >
                             {word}
                             <span className="inline-block">&nbsp;</span>
                         </motion.span>

@@ -31,9 +31,11 @@ export const getReadingProps = z.object({ id: z.number() });
 
 export const createReadingProps = z.object({
     device_id: z.number(),
-    sensors: z.record(z.string(), z.number()).refine((rec) => Object.keys(rec).length, {
-        message: 'No sensor provided',
-    }),
+    sensors: z
+        .record(z.string(), z.number())
+        .refine((rec) => Object.keys(rec).length, {
+            message: 'No sensor provided',
+        }),
 });
 
 export const getRecordingProps = z.object({ id: z.number() });
