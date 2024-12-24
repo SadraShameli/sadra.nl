@@ -16,7 +16,7 @@
         "format:write": "prettier --write \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
         "lint": "next lint",
         "lint:fix": "next lint --fix",
-        "ncu": "bunx ncu --interactive --format group",
+        "ncu": "bunx npm-check-updates --interactive --format group",
         "prepare": "husky",
         "preview": "next build && next start",
         "prod": "next build && next start",
