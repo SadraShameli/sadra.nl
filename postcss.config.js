@@ -2,10 +2,7 @@ const config =
     process.env.NODE_ENV === 'production'
         ? {
               plugins: {
-                  'postcss-import': {},
-                  'tailwindcss/nesting': {},
-                  tailwindcss: {},
-                  autoprefixer: {},
+                  '@tailwindcss/postcss': {},
                   cssnano: {
                       preset: [
                           'default',
@@ -16,7 +13,7 @@ const config =
           }
         : {
               plugins: {
-                  tailwindcss: {},
+                  '@tailwindcss/postcss': {},
               },
           };
 
