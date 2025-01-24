@@ -13,7 +13,7 @@ import RecordingSection from './_components/Recording/Recording';
 export default async function HomePage() {
     return (
         <main>
-            <section className="container grid-cols-2 grid-rows-2 items-center gap-5 pt-spacing lg:mt-[-68px] lg:grid lg:h-screen lg:grid-rows-none lg:gap-20">
+            <section className="pt-spacing container grid-cols-2 grid-rows-2 items-center gap-5 lg:mt-[-68px] lg:grid lg:h-screen lg:grid-rows-none lg:gap-20">
                 <Image
                     className="aspect-square rounded-2xl object-cover"
                     src={ProfilePicture}
@@ -22,7 +22,7 @@ export default async function HomePage() {
                     priority
                 />
 
-                <div className="flex flex-col pt-spacing-inner lg:mt-0">
+                <div className="pt-spacing-inner flex flex-col lg:mt-0">
                     <h1 className="text-6xl font-semibold text-white lg:text-8xl lg:font-bold">
                         {resumeSadra.basics.title}
                     </h1>
@@ -32,7 +32,7 @@ export default async function HomePage() {
                     </p>
 
                     <a
-                        className="group relative mt-3 inline-block w-fit cursor-pointer rounded-lg bg-neutral-800 p-px text-xs font-semibold leading-6 text-white no-underline shadow-2xl shadow-zinc-900"
+                        className="group relative mt-3 inline-block w-fit cursor-pointer rounded-lg bg-neutral-800 p-px text-xs leading-6 font-semibold text-white no-underline shadow-2xl shadow-zinc-900"
                         href="/resume"
                     >
                         <span className="absolute inset-0 overflow-hidden rounded-lg">
@@ -50,13 +50,13 @@ export default async function HomePage() {
                 </div>
             </section>
 
-            <section className="container py-spacing">
+            <section className="py-spacing container">
                 <SectionTitle text="This is Sensor Hub" />
 
                 <SectionDescription text="Devices made by me, designed to record and register various climate telemetry and noise pollution data." />
 
                 <video
-                    className="rounded-2xl pt-spacing-inner"
+                    className="pt-spacing-inner rounded-2xl"
                     loop
                     autoPlay
                     muted
@@ -66,19 +66,19 @@ export default async function HomePage() {
                 </video>
             </section>
 
-            <section className="container py-spacing">
+            <section className="py-spacing container">
                 <SectionTitle text="Noise recordings" />
                 <SectionDescription text="Here you will find a list of noise recordings made by the Sensor Hub devices, which are placed at various locations in the Netherlands." />
                 <RecordingSection />
             </section>
 
-            <section className="container py-spacing">
+            <section className="py-spacing container">
                 <SectionTitle text="Live readings" />
                 <SectionDescription text="Ever been curious about the temperature, humidity and loudness levels at various locations in real time?" />
                 <ReadingSection />
             </section>
 
-            <section className="container pt-spacing">
+            <section className="pt-spacing container">
                 <SectionTitle text="More about me" />
                 <AboutSection />
             </section>
