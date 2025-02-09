@@ -7,7 +7,7 @@ import {
     createTRPCRouter,
     publicProcedure,
 } from '~/server/api/trpc';
-import { reading, sensor } from '~/server/db/schema';
+import { reading, sensor } from '~/server/db/schemas/main';
 
 import {
     type GetReadingsRecord,

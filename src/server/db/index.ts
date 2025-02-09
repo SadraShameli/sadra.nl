@@ -3,7 +3,7 @@ import postgres from 'postgres';
 
 import { env } from '~/env';
 
-import * as schema from './schema';
+import * as schema from './schemas/main';
 
 const globalForDb = globalThis as unknown as {
     conn: postgres.Sql | undefined;

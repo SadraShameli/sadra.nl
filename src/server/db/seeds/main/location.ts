@@ -1,8 +1,9 @@
-import { db } from '..';
-import { location } from '../schema';
-import { DatabaseSeeder } from '../types';
+import { db } from '../..';
+import { DatabaseSeeder } from '../../types';
 
-export default class LocationSeed extends DatabaseSeeder {
+import { location } from '../../schemas/main';
+
+export default class SeedLocation extends DatabaseSeeder {
     async run() {
         await db.insert(location).values([
             {

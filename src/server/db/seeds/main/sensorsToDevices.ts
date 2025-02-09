@@ -1,8 +1,9 @@
-import { db } from '..';
-import { sensorsToDevices } from '../schema';
-import { DatabaseSeeder } from '../types';
+import { db } from '../..';
+import { DatabaseSeeder } from '../../types';
 
-export default class SensorsToDevicesSeed extends DatabaseSeeder {
+import { sensorsToDevices } from '../../schemas/main';
+
+export default class SeedSensorsToDevices extends DatabaseSeeder {
     async run() {
         await db.insert(sensorsToDevices).values([
             {

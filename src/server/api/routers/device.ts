@@ -6,7 +6,7 @@ import {
     createTRPCRouter,
     publicProcedure,
 } from '~/server/api/trpc';
-import { type device, type recording } from '~/server/db/schema';
+import { type device, type recording } from '~/server/db/schemas/main';
 
 import { type GetDeviceProps, type Result } from '../types/types';
 import {

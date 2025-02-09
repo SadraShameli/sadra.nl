@@ -7,7 +7,7 @@ import {
     recording,
     sensor,
     sensorsToDevices,
-} from './schema';
+} from './schemas/main';
 
 export const databaseRelations = {
     location: relations(location, ({ many }) => ({

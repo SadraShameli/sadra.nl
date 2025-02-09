@@ -12,7 +12,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { type DateRange } from 'react-day-picker';
 
 import { cn } from '~/lib/utils';
-import { type location, type sensor } from '~/server/db/schema';
+import { type location, type sensor } from '~/server/db/schemas/main';
 import { api } from '~/trpc/react';
 
 import RevealAnimation from '~/components/ui/Animations/Reveal';
@@ -87,7 +87,7 @@ export default function ReadingSection() {
         <div className="pt-spacing-inner">
             <Card className="container flex min-h-[538.81px] flex-col">
                 <Tabs
-                    className="grid gap-y-5 my-spacing-inner lg:my-0"
+                    className="my-spacing-inner grid gap-y-5 lg:my-0"
                     defaultValue={sensors?.at(0)?.name}
                     value={currentSensor}
                     onValueChange={(value) => setCurrentSensor(value)}
@@ -233,7 +233,7 @@ export default function ReadingSection() {
                                 value={reading.sensor.name}
                                 key={index}
                             >
-                                <div className="grid gap-5 text-sm font-semibold leading-none">
+                                <div className="grid gap-5 text-sm leading-none font-semibold">
                                     <div className="grid gap-5 lg:grid-cols-2">
                                         <div
                                             className={cn(
@@ -277,7 +277,7 @@ export default function ReadingSection() {
                                         <div className="grid grid-cols-2 gap-5">
                                             <div
                                                 className={cn(
-                                                    'flex rounded-xl bg-muted p-5',
+                                                    'bg-muted flex rounded-xl p-5',
                                                     currentReading.isRefetching &&
                                                         'shimmer',
                                                 )}
@@ -287,7 +287,7 @@ export default function ReadingSection() {
                                                     Latest
                                                 </div>
 
-                                                <div className="m-auto whitespace-nowrap text-2xl lg:text-4xl">
+                                                <div className="m-auto text-2xl whitespace-nowrap lg:text-4xl">
                                                     {`${reading.latestReading.value} ${reading.sensor.unit}`}
                                                 </div>
                                             </div>
@@ -295,21 +295,21 @@ export default function ReadingSection() {
                                             <div className="grid gap-5">
                                                 <div
                                                     className={cn(
-                                                        'flex min-h-36 rounded-xl bg-muted p-5',
+                                                        'bg-muted flex min-h-36 rounded-xl p-5',
                                                         currentReading.isRefetching &&
                                                             'shimmer',
                                                     )}
                                                 >
                                                     <div className="absolute">{`${reading.period}h high`}</div>
 
-                                                    <div className="m-auto whitespace-nowrap text-xl lg:text-3xl">
+                                                    <div className="m-auto text-xl whitespace-nowrap lg:text-3xl">
                                                         {`${reading.highest} ${reading.sensor.unit}`}
                                                     </div>
                                                 </div>
 
                                                 <div
                                                     className={cn(
-                                                        'min-h-36 rounded-xl bg-muted p-5',
+                                                        'bg-muted min-h-36 rounded-xl p-5',
                                                         currentReading.isRefetching &&
                                                             'shimmer',
                                                     )}
@@ -317,7 +317,7 @@ export default function ReadingSection() {
                                                     <div className="flex h-full">
                                                         <div className="absolute">{`${reading.period}h low`}</div>
 
-                                                        <div className="m-auto whitespace-nowrap text-xl lg:text-3xl">
+                                                        <div className="m-auto text-xl whitespace-nowrap lg:text-3xl">
                                                             {`${reading.lowest} ${reading.sensor.unit}`}
                                                         </div>
                                                     </div>

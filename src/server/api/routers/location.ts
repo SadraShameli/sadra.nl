@@ -11,7 +11,7 @@ import {
     location,
     reading,
     type recording,
-} from '~/server/db/schema';
+} from '~/server/db/schemas/main';
 
 import { getLocationProps, getLocationReadingsProps } from '..//types/zod';
 import { type Result } from '../types/types';

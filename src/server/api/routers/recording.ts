@@ -7,7 +7,7 @@ import {
     createTRPCRouter,
     publicProcedure,
 } from '~/server/api/trpc';
-import { recording } from '~/server/db/schema';
+import { recording } from '~/server/db/schemas/main';
 
 import { type Result } from '../types/types';
 import { createRecordingProps, getRecordingProps } from '../types/zod';

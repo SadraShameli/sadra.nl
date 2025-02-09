@@ -1,4 +1,4 @@
-import { type device, type sensor } from '~/server/db/schema';
+import { type device, type sensor } from '~/server/db/schemas/main';
 
 export interface Result<DataType> {
     data?: DataType;

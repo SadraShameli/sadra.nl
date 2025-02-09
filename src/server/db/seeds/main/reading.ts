@@ -1,8 +1,9 @@
-import { db } from '..';
-import { reading } from '../schema';
-import { DatabaseSeeder } from '../types';
+import { db } from '../..';
+import { DatabaseSeeder } from '../../types';
 
-export default class ReadingSeed extends DatabaseSeeder {
+import { reading } from '../../schemas/main';
+
+export default class SeedReading extends DatabaseSeeder {
     async run() {
         await db.insert(reading).values([
             {

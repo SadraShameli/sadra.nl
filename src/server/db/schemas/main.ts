@@ -10,7 +10,7 @@ import {
     varchar,
 } from 'drizzle-orm/pg-core';
 
-import { bytea } from './types';
+import { bytea } from '../types';
 
 export const createTable = pgTableCreator((name) => `sadra.nl_${name}`);
 
@@ -25,10 +25,10 @@ export const location = createTable(
         location_name: varchar('location_name', { length: 256 }).notNull(),
         location_id: integer('location_id').notNull().unique(),
     },
-    (table) => ({
-        nameIndex: index('location_name_idx').on(table.name),
-        locationIdIndex: index('location_id_idx').on(table.location_id),
-    }),
+    (table) => [
+        index('location_name_idx').on(table.name),
+        index('location_id_idx').on(table.location_id),
+    ],
 );
 
 export const sensor = createTable(
@@ -41,9 +41,7 @@ export const sensor = createTable(
         name: varchar('name', { length: 256 }).notNull(),
         unit: varchar('unit', { length: 256 }).notNull(),
     },
-    (table) => ({
-        nameIndex: index('sensor_name_idx').on(table.name),
-    }),
+    (table) => [index('sensor_name_idx').on(table.name)],
 );
 
 export const device = createTable(
@@ -61,10 +59,10 @@ export const device = createTable(
         register_interval: integer('register_interval').notNull(),
         loudness_threshold: integer('loudness_threshold').notNull(),
     },
-    (table) => ({
-        deviceIdIndex: index('device_device_id_idx').on(table.device_id),
-        locationIdIndex: index('device_location_id_idx').on(table.location_id),
-    }),
+    (table) => [
+        index('device_device_id_idx').on(table.device_id),
+        index('device_location_id_idx').on(table.location_id),
+    ],
 );
 
 export const reading = createTable(
@@ -85,11 +83,11 @@ export const reading = createTable(
             .notNull()
             .references(() => device.id),
     },
-    (table) => ({
-        sensorIdIndex: index('reading_sensor_id_idx').on(table.sensor_id),
-        locationIdIndex: index('reading_location_id_idx').on(table.location_id),
-        deviceIdIndex: index('reading_device_id_idx').on(table.device_id),
-    }),
+    (table) => [
+        index('reading_sensor_id_idx').on(table.sensor_id),
+        index('reading_location_id_idx').on(table.location_id),
+        index('reading_device_id_idx').on(table.device_id),
+    ],
 );
 
 export const recording = createTable(
@@ -108,12 +106,10 @@ export const recording = createTable(
         file_name: varchar('file_name', { length: 256 }).notNull(),
         file: bytea('file').notNull(),
     },
-    (table) => ({
-        locationIdIndex: index('recording_location_id_idx').on(
-            table.location_id,
-        ),
-        deviceIdIndex: index('recording_device_id_idx').on(table.device_id),
-    }),
+    (table) => [
+        index('recording_location_id_idx').on(table.location_id),
+        index('recording_device_id_idx').on(table.device_id),
+    ],
 );
 
 export const sensorsToDevices = createTable(
@@ -126,13 +122,9 @@ export const sensorsToDevices = createTable(
             .notNull()
             .references(() => device.id),
     },
-    (table) => ({
-        pk: primaryKey({ columns: [table.sensor_id, table.device_id] }),
-        sensorIdIndex: index('sensors_to_devices_sensor_id_idx').on(
-            table.sensor_id,
-        ),
-        deviceIdIndex: index('sensors_to_devices_device_id_idx').on(
-            table.device_id,
-        ),
-    }),
+    (table) => [
+        primaryKey({ columns: [table.sensor_id, table.device_id] }),
+        index('sensors_to_devices_sensor_id_idx').on(table.sensor_id),
+        index('sensors_to_devices_device_id_idx').on(table.device_id),
+    ],
 );
