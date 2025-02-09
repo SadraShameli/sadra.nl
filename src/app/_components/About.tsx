@@ -9,7 +9,7 @@ export default function AboutSection() {
                 <div className="grid gap-y-5">
                     <GallerySection />
 
-                    <div className="mx-auto mb-spacing-inner lg:mb-0 lg:w-1/2">
+                    <div className="mb-spacing-inner mx-auto lg:mb-0 lg:w-1/2">
                         <iframe
                             title="Spotify Track"
                             className="min-w-full rounded-2xl"

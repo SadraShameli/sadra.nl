@@ -16,7 +16,7 @@ export default function SocialsSection() {
                         >
                             <div className="pt-5">
                                 <Link href={profile.url}>
-                                    <button className="hover:btn-scale btn-transition absolute rounded-lg bg-indigo-950 bg-opacity-50 px-4 py-3 text-xs font-semibold tracking-wider text-indigo-400 saturate-50 hover:bg-indigo-500 hover:text-black">
+                                    <button className="hover:btn-scale btn-transition bg-opacity-50 absolute rounded-lg bg-indigo-950 px-4 py-3 text-xs font-semibold tracking-wider text-indigo-400 saturate-50 hover:bg-indigo-500 hover:text-black">
                                         {profile.title}
                                     </button>
                                 </Link>

@@ -24,7 +24,7 @@ export default function ResumeItem({ title, sections }: ResumeProps) {
     return (
         <RevealAnimation className="pt-spacing-inner">
             <Card className="container">
-                <div className="mt-sp grid max-w-3xl gap-y-10 py-spacing-inner lg:py-0">
+                <div className="mt-sp py-spacing-inner grid max-w-3xl gap-y-10 lg:py-0">
                     {sections.map((section, index) => {
                         return (
                             <div key={index}>
@@ -52,7 +52,7 @@ export default function ResumeItem({ title, sections }: ResumeProps) {
                                 >
                                     {section.url ? (
                                         <Link
-                                            className="flex w-fit items-center border-b border-dashed border-transparent text-2xl font-semibold leading-none text-white transition hover:border-current"
+                                            className="flex w-fit items-center border-b border-dashed border-transparent text-2xl leading-none font-semibold text-white transition hover:border-current"
                                             href={section.url}
                                         >
                                             <ExternalLink />
@@ -102,7 +102,7 @@ export default function ResumeItem({ title, sections }: ResumeProps) {
                                                         className="flex text-justify"
                                                         key={index}
                                                     >
-                                                        <div className="mr-1 mt-[2px]">
+                                                        <div className="mt-[2px] mr-1">
                                                             <ChevronRight className="size-5" />
                                                         </div>
                                                         {highlight}

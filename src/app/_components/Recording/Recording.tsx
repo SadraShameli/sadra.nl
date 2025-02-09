@@ -81,7 +81,7 @@ export default function RecordingSection({}) {
                         <source src="/headphone.mp4" type="video/mp4" />
                     </video>
 
-                    <div className="w-full rounded-xl bg-muted p-5 mb-spacing-inner lg:my-0">
+                    <div className="bg-muted mb-spacing-inner w-full rounded-xl p-5 lg:my-0">
                         <div className="flex items-center justify-between lg:mx-3">
                             <p className="font-semibold">Recordings</p>
 
@@ -110,7 +110,7 @@ export default function RecordingSection({}) {
                                 {recordings.data?.length
                                     ? recordings.data.map((recording) => (
                                           <button
-                                              className="flex rounded-lg p-3 font-semibold transition hover:bg-accent lg:w-11/12"
+                                              className="hover:bg-accent flex rounded-lg p-3 font-semibold transition lg:w-11/12"
                                               onClick={() => {
                                                   if (audio.current) {
                                                       audio.current.src =
@@ -313,7 +313,7 @@ export default function RecordingSection({}) {
                                 />
                             </div>
 
-                            <div className="col-span-2 mt-5 grid grid-cols-6 items-center gap-x-3 font-semibold leading-none">
+                            <div className="col-span-2 mt-5 grid grid-cols-6 items-center gap-x-3 leading-none font-semibold">
                                 <span className="col-span-1 text-right text-sm">
                                     {ConvertSecondsToString(
                                         audio.current?.currentTime,
