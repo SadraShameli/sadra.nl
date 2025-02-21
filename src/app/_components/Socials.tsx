@@ -7,12 +7,12 @@ import resumeSadra from '~/data/Resume/Sadra';
 export default function SocialsSection() {
     return (
         <RevealAnimation>
-            <StaggerAnimation className="grid gap-5 lg:grid-cols-2 lg:grid-cols-4 lg:gap-x-7">
+            <StaggerAnimation className="grid gap-5 lg:grid-cols-4 lg:gap-x-7">
                 {resumeSadra.profiles.map((profile, index) => {
                     return (
                         <div
                             className="bg-gradient-card2 flex rounded-2xl px-5 text-white"
-                            key={index}
+                            key={profile.title}
                         >
                             <div className="pt-5">
                                 <Link href={profile.url}>

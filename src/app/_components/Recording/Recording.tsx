@@ -142,10 +142,10 @@ export default function RecordingSection({}) {
                                               </div>
                                           </button>
                                       ))
-                                    : [...Array<number>(5)].map((_, idx) => (
+                                    : [...Array<number>(5)].map((_, index) => (
                                           <div
                                               className="shimmer lg:w-1-3 my-2 h-5"
-                                              key={idx}
+                                              key={index}
                                           />
                                       ))}
                             </ScrollArea>

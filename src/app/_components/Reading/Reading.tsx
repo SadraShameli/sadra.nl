@@ -186,13 +186,15 @@ export default function ReadingSection() {
                                             }}
                                         >
                                             {locations.data?.data?.map(
-                                                (location, index) => {
+                                                (location) => {
                                                     return (
                                                         <DropdownMenuRadioItem
                                                             value={
                                                                 location.location_name
                                                             }
-                                                            key={index}
+                                                            key={
+                                                                location.location_name
+                                                            }
                                                         >
                                                             {
                                                                 location.location_name
@@ -209,11 +211,11 @@ export default function ReadingSection() {
 
                         {sensors && (
                             <TabsList className="w-fit">
-                                {sensors?.map((sensor, index) => {
+                                {sensors?.map((sensor) => {
                                     return (
                                         <TabsTrigger
                                             value={sensor.name}
-                                            key={index}
+                                            key={sensor.name}
                                         >
                                             {sensor.name}
                                         </TabsTrigger>
@@ -223,7 +225,7 @@ export default function ReadingSection() {
                         )}
                     </div>
 
-                    {currentReading.data?.data?.map((reading, index) => {
+                    {currentReading.data?.data?.map((reading) => {
                         return (
                             <TabsContent
                                 className={cn(
@@ -231,7 +233,7 @@ export default function ReadingSection() {
                                         'shimmer',
                                 )}
                                 value={reading.sensor.name}
-                                key={index}
+                                key={reading.sensor.name}
                             >
                                 <div className="grid gap-5 text-sm leading-none font-semibold">
                                     <div className="grid gap-5 lg:grid-cols-2">

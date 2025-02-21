@@ -27,7 +27,7 @@ export default function ResumeItem({ title, sections }: ResumeProps) {
                 <div className="mt-sp py-spacing-inner grid max-w-3xl gap-y-10 lg:py-0">
                     {sections.map((section, index) => {
                         return (
-                            <div key={index}>
+                            <div key={section.title}>
                                 {section.image && (
                                     <div
                                         className={cn(
@@ -95,21 +95,19 @@ export default function ResumeItem({ title, sections }: ResumeProps) {
 
                                 {section.highlights && (
                                     <ul className="mt-2 grid gap-y-3">
-                                        {section.highlights.map(
-                                            (highlight, index) => {
-                                                return (
-                                                    <li
-                                                        className="flex text-justify"
-                                                        key={index}
-                                                    >
-                                                        <div className="mt-[2px] mr-1">
-                                                            <ChevronRight className="size-5" />
-                                                        </div>
-                                                        {highlight}
-                                                    </li>
-                                                );
-                                            },
-                                        )}
+                                        {section.highlights.map((highlight) => {
+                                            return (
+                                                <li
+                                                    className="flex text-justify"
+                                                    key={highlight}
+                                                >
+                                                    <div className="mt-[2px] mr-1">
+                                                        <ChevronRight className="size-5" />
+                                                    </div>
+                                                    {highlight}
+                                                </li>
+                                            );
+                                        })}
                                     </ul>
                                 )}
 
@@ -117,15 +115,11 @@ export default function ResumeItem({ title, sections }: ResumeProps) {
                                     <div className="mt-5 flex items-center font-semibold">
                                         <Cog className="size-5 shrink-0" />
                                         <ul className="ml-2 flex">
-                                            {section.skills.map(
-                                                (skill, index) => {
-                                                    return (
-                                                        <li key={index}>
-                                                            {skill}
-                                                        </li>
-                                                    );
-                                                },
-                                            )}
+                                            {section.skills.map((skill) => {
+                                                return (
+                                                    <li key={skill}>{skill}</li>
+                                                );
+                                            })}
                                         </ul>
                                     </div>
                                 )}

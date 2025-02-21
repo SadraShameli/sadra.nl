@@ -52,14 +52,14 @@ export default function TextAnimation({
                 transition={defaultTransition}
                 aria-hidden
             >
-                {text.split(' ').map((word, index) =>
+                {text.split(' ').map((word) =>
                     splitChar ? (
-                        <span className="inline-block" key={index}>
-                            {word.split('').map((char, index) => (
+                        <span className="inline-block" key={word}>
+                            {word.split('').map((char) => (
                                 <motion.span
                                     className="inline-block"
                                     variants={defaultVariants}
-                                    key={index}
+                                    key={char}
                                 >
                                     {char}
                                 </motion.span>
@@ -70,7 +70,7 @@ export default function TextAnimation({
                         <motion.span
                             className="inline-block"
                             variants={defaultVariants}
-                            key={index}
+                            key={word}
                         >
                             {word}
                             <span className="inline-block">&nbsp;</span>

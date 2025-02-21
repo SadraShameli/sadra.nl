@@ -13,11 +13,11 @@ export default function Navbar() {
                 </Link>
 
                 <div className="flex items-center justify-between gap-x-4 text-white lg:gap-x-6">
-                    {resumeSadra.profiles.map((profile, index) => {
+                    {resumeSadra.profiles.map((profile) => {
                         return (
                             <Link
                                 className="size-5 transition hover:opacity-50"
-                                key={index}
+                                key={profile.title}
                                 href={profile.url}
                                 aria-label={profile.title}
                             >
