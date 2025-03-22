@@ -39,7 +39,7 @@ export default function RootLayout({
     return (
         <html lang="en" className="dark scroll-smooth antialiased">
             <meta name="theme-color" content="#000" />
-            <body className={cn(orbitron.variable, GeistSans.className)}>
+            <body className={cn(orbitron.variable, GeistSans.variable)}>
                 <TRPCReactProvider>
                     <App>{children}</App>
                 </TRPCReactProvider>
