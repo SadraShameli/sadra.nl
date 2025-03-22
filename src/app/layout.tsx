@@ -1,9 +1,8 @@
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { type Metadata } from 'next';
-import { Geist } from 'next/font/google';
 
-import { orbitron } from '~/data/Fonts';
+import { geist, orbitron } from '~/app/fonts';
 import resumeSadra from '~/data/Resume/Sadra';
 import { cn } from '~/lib/utils';
 import { TRPCReactProvider } from '~/trpc/react';
@@ -19,11 +18,6 @@ export const metadata: Metadata = {
     description: resumeSadra.description,
     icons: { icon: '/favicon.ico', apple: '/apple-icon.png' },
 };
-
-const geist = Geist({
-    subsets: ['latin'],
-    variable: '--font-geist-sans',
-});
 
 function App({ children }: { children: React.ReactNode }) {
     return (

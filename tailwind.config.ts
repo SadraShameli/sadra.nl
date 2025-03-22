@@ -1,4 +1,6 @@
+import typography from '@tailwindcss/typography';
 import type { Config } from 'tailwindcss';
+import animate from 'tailwindcss-animate';
 import defaultTheme from 'tailwindcss/defaultTheme';
 import plugin from 'tailwindcss/plugin';
 
@@ -20,10 +22,7 @@ export default {
         },
         extend: {
             fontFamily: {
-                geist: [
-                    'var(--font-geist-sans)',
-                    ...defaultTheme.fontFamily.sans,
-                ],
+                geist: ['var(--font-geist)', ...defaultTheme.fontFamily.sans],
                 orbitron: 'var(--font-orbitron)',
             },
             colors: {
@@ -99,88 +98,92 @@ export default {
         },
     },
     plugins: [
-        require('@tailwindcss/typography'),
-        require('tailwindcss-animate'),
-        plugin(function ({ addUtilities, theme }) {
+        typography,
+        animate,
+        // eslint-disable-next-line @typescript-eslint/unbound-method
+        plugin(({ addUtilities, theme }) => {
+            const getSpacingValue = (path: string): string =>
+                theme(`spacing.${path}`) as string;
+
             addUtilities({
                 '.pt-spacing': {
-                    paddingTop: theme('spacing.64'),
+                    paddingTop: getSpacingValue('64'),
                     '@screen lg': {
-                        paddingTop: theme('spacing.96'),
+                        paddingTop: getSpacingValue('96'),
                     },
                 },
                 '.pb-spacing': {
-                    paddingBottom: theme('spacing.64'),
+                    paddingBottom: getSpacingValue('64'),
                     '@screen lg': {
-                        paddingBottom: theme('spacing.96'),
+                        paddingBottom: getSpacingValue('96'),
                     },
                 },
                 '.py-spacing': {
-                    paddingTop: theme('spacing.64'),
-                    paddingBottom: theme('spacing.64'),
+                    paddingTop: getSpacingValue('64'),
+                    paddingBottom: getSpacingValue('64'),
                     '@screen lg': {
-                        paddingTop: theme('spacing.96'),
-                        paddingBottom: theme('spacing.96'),
+                        paddingTop: getSpacingValue('96'),
+                        paddingBottom: getSpacingValue('96'),
                     },
                 },
                 '.pt-spacing-inner': {
-                    paddingTop: theme('spacing.32'),
+                    paddingTop: getSpacingValue('32'),
                     '@screen lg': {
-                        paddingTop: theme('spacing.64'),
+                        paddingTop: getSpacingValue('64'),
                     },
                 },
                 '.pb-spacing-inner': {
-                    paddingBottom: theme('spacing.32'),
+                    paddingBottom: getSpacingValue('32'),
                     '@screen lg': {
-                        paddingBottom: theme('spacing.64'),
+                        paddingBottom: getSpacingValue('64'),
                     },
                 },
                 '.py-spacing-inner': {
-                    paddingTop: theme('spacing.32'),
-                    paddingBottom: theme('spacing.32'),
+                    paddingTop: getSpacingValue('32'),
+                    paddingBottom: getSpacingValue('32'),
                     '@screen lg': {
-                        paddingTop: theme('spacing.64'),
-                        paddingBottom: theme('spacing.64'),
+                        paddingTop: getSpacingValue('64'),
+                        paddingBottom: getSpacingValue('64'),
                     },
                 },
                 '.mt-spacing': {
-                    marginTop: theme('spacing.64'),
+                    marginTop: getSpacingValue('64'),
                     '@screen lg': {
-                        marginTop: theme('spacing.96'),
+                        marginTop: getSpacingValue('96'),
                     },
                 },
                 '.mb-spacing': {
-                    marginBottom: theme('spacing.64'),
+                    marginBottom: getSpacingValue('64'),
                     '@screen lg': {
-                        marginBottom: theme('spacing.96'),
+                        marginBottom: getSpacingValue('96'),
                     },
                 },
                 '.my-spacing': {
-                    marginTop: theme('spacing.64'),
-                    marginBottom: theme('spacing.64'),
+                    marginTop: getSpacingValue('64'),
+                    marginBottom: getSpacingValue('64'),
                     '@screen lg': {
-                        marginTop: theme('spacing.96'),
-                        marginBottom: theme('spacing.96'),
+                        marginTop: getSpacingValue('96'),
+                        marginBottom: getSpacingValue('96'),
                     },
                 },
                 '.mt-spacing-inner': {
-                    marginTop: theme('spacing.32'),
+                    marginTop: getSpacingValue('32'),
                     '@screen lg': {
-                        marginTop: theme('spacing.64'),
+                        marginTop: getSpacingValue('64'),
                     },
                 },
                 '.mb-spacing-inner': {
-                    marginBottom: theme('spacing.32'),
+                    marginBottom: getSpacingValue('32'),
                     '@screen lg': {
-                        marginBottom: theme('spacing.64'),
+                        marginBottom: getSpacingValue('64'),
                     },
                 },
                 '.my-spacing-inner': {
-                    marginTop: theme('spacing.32'),
-                    marginBottom: theme('spacing.32'),
+                    marginTop: getSpacingValue('32'),
+                    marginBottom: getSpacingValue('32'),
                     '@screen lg': {
-                        marginTop: theme('spacing.64'),
-                        marginBottom: theme('spacing.64'),
+                        marginTop: getSpacingValue('64'),
+                        marginBottom: getSpacingValue('64'),
                     },
                 },
             });
