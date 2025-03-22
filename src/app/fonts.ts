@@ -1,9 +1,4 @@
-import { Geist, Orbitron } from 'next/font/google';
-
-const geist = Geist({
-    subsets: ['latin'],
-    variable: '--font-geist-sans',
-});
+import { Orbitron } from 'next/font/google';
 
 const orbitron = Orbitron({
     display: 'swap',
@@ -11,4 +6,4 @@ const orbitron = Orbitron({
     variable: '--font-orbitron',
 });
 
-export { geist, orbitron };
+export { orbitron };
