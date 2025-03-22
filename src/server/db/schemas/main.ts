@@ -12,7 +12,7 @@ import {
 
 import { bytea } from '../types';
 
-export const createTable = pgTableCreator((name) => `sadra.nl_${name}`);
+export const createTable = pgTableCreator((name) => `sadranl_${name}`);
 
 export const location = createTable(
     'location',

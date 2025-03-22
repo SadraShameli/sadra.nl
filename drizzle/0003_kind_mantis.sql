@@ -1,1 +1,0 @@
-ALTER TABLE "trading_bot_account" ADD COLUMN "enabled" boolean DEFAULT false NOT NULL;

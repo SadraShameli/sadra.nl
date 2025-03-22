@@ -8,7 +8,7 @@ import {
 } from 'drizzle-orm/pg-core';
 
 export const createTableTradingBot = pgTableCreator(
-    (name) => `trading_bot_${name}`,
+    (name) => `tradingbot_${name}`,
 );
 
 export const tradingBotAccount = createTableTradingBot('account', {

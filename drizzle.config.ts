@@ -11,5 +11,5 @@ export default {
     dbCredentials: {
         url: env.DATABASE_URL,
     },
-    tablesFilter: ['sadra.nl_*', 'trading_bot_*'],
+    tablesFilter: ['sadranl_*', 'tradingbot_*'],
 } satisfies Config;

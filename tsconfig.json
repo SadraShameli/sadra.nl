@@ -7,12 +7,14 @@
         "resolveJsonModule": true,
         "moduleDetection": "force",
         "isolatedModules": true,
+        "verbatimModuleSyntax": true,
 
         "strict": true,
         "noUncheckedIndexedAccess": true,
         "checkJs": true,
 
-        "lib": ["dom", "dom.iterable", "ES2022"],
+        "types": ["node"],
+        "lib": ["dom", "dom.iterable", "ESNext"],
         "noEmit": true,
         "module": "ESNext",
         "moduleResolution": "Bundler",
@@ -26,7 +28,7 @@
         }
     },
     "include": [
-        "eslint.config.cjs",
+        "eslint.config.js",
         "next-env.d.ts",
         "**/*.ts",
         "**/*.tsx",

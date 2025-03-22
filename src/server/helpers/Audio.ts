@@ -116,12 +116,10 @@ class SoundFilter {
     }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const DC_Blocker = new SoundFilter(1.0, [
     { B1: -1.0, B2: 0.0, A1: 0.9992, A2: 0 },
 ]);
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const INMP441 = new SoundFilter(1.00197834654696, [
     {
         B1: -1.986920458344451,
