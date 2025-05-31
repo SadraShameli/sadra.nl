@@ -3,8 +3,43 @@ const config = {
     plugins: ['stylelint-order'],
     customSyntax: 'postcss-scss',
     rules: {
-        'at-rule-no-unknown': null,
-        'scss/at-rule-no-unknown': null,
+        'at-rule-no-unknown': [
+            true,
+            {
+                ignoreAtRules: [
+                    'apply',
+                    'utility',
+                    'layer',
+                    'import',
+                    'tailwind',
+                    'responsive',
+                    'screen',
+                    'plugin',
+                    'theme',
+                    'page',
+                    /^page:/,
+                ],
+            },
+        ],
+        'at-rule-no-deprecated': null,
+        'scss/at-rule-no-unknown': [
+            true,
+            {
+                ignoreAtRules: [
+                    'apply',
+                    'utility',
+                    'layer',
+                    'import',
+                    'tailwind',
+                    'responsive',
+                    'screen',
+                    'plugin',
+                    'theme',
+                    'page',
+                    /^page:/,
+                ],
+            },
+        ],
         'order/order': [
             [
                 'custom-properties',

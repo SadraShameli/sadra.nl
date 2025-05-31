@@ -17,6 +17,7 @@
         var(--color-white)
     );
     background-size: 300% 300%;
+
     @apply animate-gradient bg-clip-text text-transparent;
 }
 
@@ -29,6 +30,7 @@
         var(--color-white)
     );
     background-size: 300% 300%;
+
     @apply animate-gradient bg-clip-text text-transparent;
 }
 
@@ -41,9 +43,132 @@
         var(--color-white)
     );
     background-size: 300% 300%;
+
     @apply animate-gradient bg-clip-text text-transparent;
 }
 
 @utility shimmer {
     @apply relative isolate overflow-hidden rounded-xl opacity-50 shadow-xl shadow-black/5 transition-opacity duration-500 ease-in-out before:absolute before:inset-0 before:-translate-x-full before:animate-[shimmer_3s_infinite] before:border-t before:border-b before:border-neutral-100/10 before:bg-linear-to-r before:from-transparent before:via-neutral-100/10 before:to-transparent;
+}
+
+@utility pt-spacing {
+    padding-top: var(--spacing-64);
+
+    @media (min-width: 1024px) {
+        padding-top: var(--spacing-96);
+    }
+}
+
+@utility pb-spacing {
+    padding-bottom: var(--spacing-64);
+
+    @media (min-width: 1024px) {
+        padding-bottom: var(--spacing-96);
+    }
+}
+
+@utility py-spacing {
+    padding-bottom: var(--spacing-64);
+    padding-top: var(--spacing-64);
+
+    @media (min-width: 1024px) {
+        padding-bottom: var(--spacing-96);
+        padding-top: var(--spacing-96);
+    }
+}
+
+@utility pt-spacing-inner {
+    padding-top: var(--spacing-32);
+
+    @media (min-width: 1024px) {
+        padding-top: var(--spacing-64);
+    }
+}
+
+@utility pb-spacing-inner {
+    padding-bottom: var(--spacing-32);
+
+    @media (min-width: 1024px) {
+        padding-bottom: var(--spacing-64);
+    }
+}
+
+@utility py-spacing-inner {
+    padding-bottom: var(--spacing-32);
+    padding-top: var(--spacing-32);
+
+    @media (min-width: 1024px) {
+        padding-bottom: var(--spacing-64);
+        padding-top: var(--spacing-64);
+    }
+}
+
+@utility mt-spacing {
+    margin-top: var(--spacing-64);
+
+    @media (min-width: 1024px) {
+        margin-top: var(--spacing-96);
+    }
+}
+
+@utility mb-spacing {
+    margin-bottom: var(--spacing-64);
+
+    @media (min-width: 1024px) {
+        margin-bottom: var(--spacing-96);
+    }
+}
+
+@utility my-spacing {
+    margin-bottom: var(--spacing-64);
+    margin-top: var(--spacing-64);
+
+    @media (min-width: 1024px) {
+        margin-bottom: var(--spacing-96);
+        margin-top: var(--spacing-96);
+    }
+}
+
+@utility mt-spacing-inner {
+    margin-top: var(--spacing-32);
+
+    @media (min-width: 1024px) {
+        margin-top: var(--spacing-64);
+    }
+}
+
+@utility mb-spacing-inner {
+    margin-bottom: var(--spacing-32);
+
+    @media (min-width: 1024px) {
+        margin-bottom: var(--spacing-64);
+    }
+}
+
+@utility my-spacing-inner {
+    margin-bottom: var(--spacing-32);
+    margin-top: var(--spacing-32);
+
+    @media (min-width: 1024px) {
+        margin-bottom: var(--spacing-64);
+        margin-top: var(--spacing-64);
+    }
+}
+
+@utility container {
+    max-width: 100%;
+    padding-inline: 24px;
+
+    @media (min-width: 768px) {
+        max-width: 768px;
+    }
+
+    @media (min-width: 1024px) {
+        max-width: 1024px;
+    }
+
+    @media (min-width: 1400px) {
+        max-width: 1400px;
+        padding-inline: 64px;
+    }
 }

@@ -142,6 +142,7 @@ export default function ReadingSection() {
                                             align="start"
                                         >
                                             <Calendar
+                                                initialFocus
                                                 mode="range"
                                                 defaultMonth={date?.from}
                                                 selected={date}

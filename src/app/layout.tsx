@@ -12,12 +12,12 @@ import GridBackground from '~/components/ui/GridBg';
 import Footer from './_components/Footer';
 import Navbar from './_components/Navbar';
 
-import '~/styles/globals.css';
+import '~/styles/styles.css';
 
 export const metadata: Metadata = {
     title: resumeSadra.title,
     description: resumeSadra.description,
-    icons: { icon: '/favicon.ico', apple: '/apple-icon.png' },
+    icons: { icon: '/favicon.ico' },
 };
 
 function App({ children }: { children: React.ReactNode }) {

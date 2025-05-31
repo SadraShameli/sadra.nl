@@ -1,7 +1,7 @@
 import { type getRecordingNoFile } from '~/server/api/routers/recording';
 
 export function GetRandom(min: number, max: number | undefined) {
-    if (!max) return 0;
+    if (max === undefined || max < min) return min;
 
     min = Math.ceil(min);
     max = Math.floor(max);

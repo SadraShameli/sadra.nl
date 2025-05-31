@@ -14,7 +14,7 @@ import {
     Volume2,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { cn } from '~/lib/utils';
 import { api } from '~/trpc/react';
 
@@ -41,37 +41,158 @@ export default function RecordingSection({}) {
     const [isShuffle, setIsShuffle] = useState(false);
     const [isAutoPlay, setIsAutoPlay] = useState(false);
     const [currentRecordingIdx, setCurrentRecordingIdx] = useState(0);
-    const [prevRecording, setPrevRecording] = useState(currentRecordingIdx);
+    const [isLoading, setIsLoading] = useState(false);
 
-    function PlayAudio() {
-        void audio.current?.play();
-        setIsPlaying(true);
-    }
+    const safeCurrentIdx = Math.max(
+        0,
+        Math.min(currentRecordingIdx, (recordings.data?.length ?? 1) - 1),
+    );
 
-    function OnAudioPlause() {
-        if (!isPlaying) {
-            PlayAudio();
-        } else if (audio.current?.readyState == 4) {
-            audio.current?.pause();
+    const PlayAudio = useCallback(async () => {
+        if (!audio.current) return;
+
+        try {
+            setIsLoading(true);
+            await audio.current.play();
+            setIsPlaying(true);
+        } catch (error) {
+            console.error('Failed to play audio:', error);
             setIsPlaying(false);
+        } finally {
+            setIsLoading(false);
         }
-    }
+    }, []);
+
+    const PauseAudio = useCallback(() => {
+        if (!audio.current) return;
+
+        audio.current.pause();
+        setIsPlaying(false);
+    }, []);
+
+    const OnAudioPause = useCallback(() => {
+        if (!recordings.data?.length || isLoading) return;
+
+        if (!isPlaying) {
+            void PlayAudio();
+        } else {
+            PauseAudio();
+        }
+    }, [isPlaying, recordings.data?.length, isLoading, PlayAudio, PauseAudio]);
 
     useEffect(() => {
-        if (prevRecording != currentRecordingIdx) {
-            audio.current?.load();
-            setPrevRecording(currentRecordingIdx);
+        if (!recordings.data?.length || !audio.current) return;
+
+        const recording = recordings.data[safeCurrentIdx];
+        if (recording) {
+            const newSrc = GetRecordingURL(recording);
+            if (audio.current.src !== newSrc) {
+                audio.current.src = newSrc;
+                audio.current.load();
+                setTime(0);
+                setDuration(0);
+            }
         }
-        if (isPlaying) {
-            PlayAudio();
-        }
-    }, [currentRecordingIdx, isPlaying, prevRecording]);
+    }, [safeCurrentIdx, recordings.data]);
 
     useEffect(() => {
         if (audio.current) {
             audio.current.volume = volume;
         }
     }, [volume]);
+
+    useEffect(() => {
+        if (currentRecordingIdx !== safeCurrentIdx) {
+            setCurrentRecordingIdx(safeCurrentIdx);
+        }
+    }, [safeCurrentIdx, currentRecordingIdx]);
+
+    useEffect(() => {
+        const audioElement = audio.current;
+        return () => {
+            if (audioElement) {
+                audioElement.pause();
+                audioElement.src = '';
+            }
+        };
+    }, []);
+
+    const handlePrevious = useCallback(() => {
+        if (!recordings.data?.length) return;
+
+        setCurrentRecordingIdx((prev) => {
+            const newIdx = prev - 1;
+            return newIdx < 0 ? 0 : newIdx;
+        });
+    }, [recordings.data?.length]);
+
+    const handleNext = useCallback(() => {
+        if (!recordings.data?.length) return;
+
+        setCurrentRecordingIdx((prev) => {
+            const newIdx = prev + 1;
+            return newIdx >= recordings.data.length
+                ? recordings.data.length - 1
+                : newIdx;
+        });
+    }, [recordings.data?.length]);
+
+    const handleShuffle = useCallback(() => {
+        if (!recordings.data?.length) return;
+
+        if (isRepeat) setIsRepeat(false);
+        if (isAutoPlay) setIsAutoPlay(false);
+
+        setIsShuffle((prev) => {
+            if (!prev && recordings.data.length > 1) {
+                let newIdx;
+                do {
+                    newIdx = GetRandom(0, recordings.data.length - 1);
+                } while (
+                    newIdx === safeCurrentIdx &&
+                    recordings.data.length > 1
+                );
+                setCurrentRecordingIdx(newIdx);
+            }
+            return !prev;
+        });
+    }, [recordings.data?.length, safeCurrentIdx, isRepeat, isAutoPlay]);
+
+    const handleRecordingSelect = useCallback(
+        (recording: NonNullable<typeof recordings.data>[0]) => {
+            if (!recordings.data || !audio.current) return;
+
+            const newIdx = recordings.data.indexOf(recording);
+            if (newIdx !== -1) {
+                setCurrentRecordingIdx(newIdx);
+                if (isShuffle) setIsShuffle(false);
+            }
+        },
+        [recordings, isShuffle],
+    );
+
+    const handleAudioEnded = useCallback(() => {
+        if (!recordings.data?.length) return;
+
+        setCurrentRecordingIdx((prev) => {
+            if (isShuffle && recordings.data.length > 1) {
+                let newIdx;
+                do {
+                    newIdx = GetRandom(0, recordings.data.length - 1);
+                } while (newIdx === prev && recordings.data.length > 1);
+                return newIdx;
+            }
+
+            if (isAutoPlay && prev < recordings.data.length - 1) {
+                return prev + 1;
+            }
+
+            if (!isRepeat) {
+                setIsPlaying(false);
+            }
+            return prev;
+        });
+    }, [recordings.data?.length, isShuffle, isAutoPlay, isRepeat]);
 
     return (
         <div className="pt-spacing-inner">
@@ -91,9 +212,7 @@ export default function RecordingSection({}) {
                                 size="sm"
                                 onClick={() => {
                                     const recording =
-                                        recordings.data?.at(
-                                            currentRecordingIdx,
-                                        );
+                                        recordings.data?.[safeCurrentIdx];
                                     if (recording) {
                                         router.push(GetRecordingURL(recording));
                                     }
@@ -111,29 +230,17 @@ export default function RecordingSection({}) {
                                     ? recordings.data.map((recording) => (
                                           <button
                                               className="hover:bg-accent flex rounded-lg p-3 font-semibold transition lg:w-11/12"
-                                              onClick={() => {
-                                                  if (audio.current) {
-                                                      audio.current.src =
-                                                          GetRecordingURL(
-                                                              recording,
-                                                          );
-                                                      audio.current.load();
-                                                      setCurrentRecordingIdx(
-                                                          recordings.data.indexOf(
-                                                              recording,
-                                                          ),
-                                                      );
-                                                      if (isShuffle) {
-                                                          setIsShuffle(false);
-                                                      }
-                                                  }
-                                              }}
+                                              onClick={() =>
+                                                  handleRecordingSelect(
+                                                      recording,
+                                                  )
+                                              }
                                               key={recording.id}
                                           >
                                               <div className="flex items-center gap-x-2 text-sm">
-                                                  {recordings.data.indexOf(
+                                                  {recordings.data?.indexOf(
                                                       recording,
-                                                  ) == currentRecordingIdx ? (
+                                                  ) === safeCurrentIdx ? (
                                                       <ArrowRight className="size-5" />
                                                   ) : (
                                                       <Music2 className="size-5" />
@@ -158,25 +265,7 @@ export default function RecordingSection({}) {
                                         `size-6 text-neutral-400 transition hover:text-white disabled:text-neutral-700`,
                                         isShuffle && 'text-white',
                                     )}
-                                    onClick={() => {
-                                        if (isRepeat) {
-                                            setIsRepeat(false);
-                                        }
-                                        if (isAutoPlay) {
-                                            setIsAutoPlay(false);
-                                        }
-                                        setIsShuffle((prev) => {
-                                            if (!prev) {
-                                                setCurrentRecordingIdx(
-                                                    GetRandom(
-                                                        0,
-                                                        recordings.data?.length,
-                                                    ),
-                                                );
-                                            }
-                                            return !prev;
-                                        });
-                                    }}
+                                    onClick={handleShuffle}
                                     disabled={!recordings.data?.length}
                                     aria-label="Shuffle"
                                 >
@@ -185,48 +274,40 @@ export default function RecordingSection({}) {
 
                                 <button
                                     className="text-neutral-400 hover:text-white disabled:text-neutral-700"
-                                    onClick={() => {
-                                        setCurrentRecordingIdx(
-                                            (prev) => prev - 1,
-                                        );
-                                    }}
-                                    disabled={currentRecordingIdx == 0}
+                                    onClick={handlePrevious}
+                                    disabled={
+                                        !recordings.data?.length ||
+                                        safeCurrentIdx === 0
+                                    }
                                     aria-label="Previous"
                                 >
                                     <SkipBack className="size-6 transition" />
                                 </button>
 
                                 <button
-                                    aria-label="Plause"
+                                    aria-label="Pause"
                                     className="size-12 disabled:text-neutral-600"
-                                    onClick={OnAudioPlause}
-                                    disabled={!recordings.data?.length}
+                                    onClick={OnAudioPause}
+                                    disabled={
+                                        !recordings.data?.length || isLoading
+                                    }
                                 >
-                                    {isPlaying ? <PauseIcon /> : <PlayIcon />}
+                                    {isLoading ? (
+                                        <div className="size-6 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                    ) : isPlaying ? (
+                                        <PauseIcon />
+                                    ) : (
+                                        <PlayIcon />
+                                    )}
                                 </button>
 
                                 <button
                                     className="text-neutral-400 hover:text-white disabled:text-neutral-700"
-                                    onClick={() => {
-                                        if (
-                                            recordings.data?.length &&
-                                            currentRecordingIdx <
-                                                recordings.data.length - 1
-                                        ) {
-                                            if (isRepeat || isShuffle) {
-                                                setIsRepeat(false);
-                                                setIsShuffle(false);
-                                                setIsAutoPlay(true);
-                                            }
-                                            setCurrentRecordingIdx(
-                                                (prev) => prev + 1,
-                                            );
-                                        }
-                                    }}
+                                    onClick={handleNext}
                                     disabled={
                                         !recordings.data?.length ||
-                                        currentRecordingIdx ===
-                                            recordings.data.length - 1
+                                        safeCurrentIdx >=
+                                            (recordings.data?.length ?? 0) - 1
                                     }
                                     aria-label="Next"
                                 >
@@ -239,12 +320,8 @@ export default function RecordingSection({}) {
                                         isRepeat && 'text-white',
                                     )}
                                     onClick={() => {
-                                        if (isShuffle) {
-                                            setIsShuffle(false);
-                                        }
-                                        if (isAutoPlay) {
-                                            setIsAutoPlay(false);
-                                        }
+                                        if (isShuffle) setIsShuffle(false);
+                                        if (isAutoPlay) setIsAutoPlay(false);
                                         setIsRepeat((prev) => !prev);
                                     }}
                                     disabled={!recordings.data?.length}
@@ -261,12 +338,8 @@ export default function RecordingSection({}) {
                                         isAutoPlay && 'text-white',
                                     )}
                                     onClick={() => {
-                                        if (isShuffle) {
-                                            setIsShuffle((prev) => !prev);
-                                        }
-                                        if (isRepeat) {
-                                            setIsRepeat((prev) => !prev);
-                                        }
+                                        if (isShuffle) setIsShuffle(false);
+                                        if (isRepeat) setIsRepeat(false);
                                         setIsAutoPlay((prev) => !prev);
                                     }}
                                     disabled={!recordings.data?.length}
@@ -278,7 +351,7 @@ export default function RecordingSection({}) {
                                 <button
                                     className="size-6 transition hover:text-white disabled:text-neutral-700"
                                     onClick={() => {
-                                        if (volume == 0) {
+                                        if (volume === 0) {
                                             setVolume(prevVolume);
                                         } else {
                                             setPrevVolume(volume);
@@ -288,7 +361,7 @@ export default function RecordingSection({}) {
                                     disabled={!recordings.data?.length}
                                     aria-label="Volume"
                                 >
-                                    {volume == 0 ? (
+                                    {volume === 0 ? (
                                         <Volume className="text-white" />
                                     ) : volume >= 0.6 ? (
                                         <Volume2 />
@@ -305,7 +378,7 @@ export default function RecordingSection({}) {
                                     max={1}
                                     step={0.01}
                                     onValueChange={(values: number[]) => {
-                                        if (values[0] != undefined) {
+                                        if (values[0] !== undefined) {
                                             setVolume(values[0]);
                                         }
                                     }}
@@ -315,9 +388,7 @@ export default function RecordingSection({}) {
 
                             <div className="col-span-2 mt-5 grid grid-cols-6 items-center gap-x-3 leading-none font-semibold">
                                 <span className="col-span-1 text-right text-sm">
-                                    {ConvertSecondsToString(
-                                        audio.current?.currentTime,
-                                    )}
+                                    {ConvertSecondsToString(time)}
                                 </span>
 
                                 <Slider
@@ -329,10 +400,11 @@ export default function RecordingSection({}) {
                                     onValueChange={(values: number[]) => {
                                         if (
                                             audio.current &&
-                                            values[0] != undefined
+                                            values[0] !== undefined
                                         ) {
                                             audio.current.currentTime =
                                                 values[0];
+                                            setTime(values[0]);
                                         }
                                     }}
                                     disabled={!recordings.data?.length}
@@ -346,41 +418,38 @@ export default function RecordingSection({}) {
 
                         {recordings.data?.length ? (
                             <audio
-                                preload="none"
+                                preload="metadata"
                                 ref={audio}
                                 loop={isRepeat}
-                                onEnded={() => {
-                                    setCurrentRecordingIdx((prev) => {
-                                        if (isShuffle) {
-                                            return GetRandom(
-                                                0,
-                                                recordings.data.length - 1,
-                                            );
-                                        }
-                                        if (
-                                            isAutoPlay &&
-                                            prev < recordings.data.length - 1
-                                        ) {
-                                            return prev + 1;
-                                        }
-                                        if (!isRepeat) {
-                                            setIsPlaying(false);
-                                        }
-                                        return prev;
-                                    });
-                                }}
+                                onEnded={handleAudioEnded}
                                 onTimeUpdate={(e) => {
                                     setTime(e.currentTarget.currentTime);
                                 }}
                                 onLoadedMetadata={(e) => {
                                     setDuration(e.currentTarget.duration);
                                 }}
+                                onCanPlay={() => {
+                                    if (isPlaying && audio.current?.paused) {
+                                        void PlayAudio();
+                                    }
+                                }}
+                                onError={(e) => {
+                                    console.error('Audio error:', e);
+                                    setIsPlaying(false);
+                                    setIsLoading(false);
+                                }}
                             >
                                 <source
                                     type="audio/wav"
-                                    src={GetRecordingURL(
-                                        recordings.data[currentRecordingIdx],
-                                    )}
+                                    src={
+                                        recordings.data[safeCurrentIdx]
+                                            ? GetRecordingURL(
+                                                  recordings.data[
+                                                      safeCurrentIdx
+                                                  ],
+                                              )
+                                            : ''
+                                    }
                                 />
                             </audio>
                         ) : null}

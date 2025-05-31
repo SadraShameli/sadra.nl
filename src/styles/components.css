@@ -3,19 +3,35 @@
 }
 
 @utility bg-gradient-card1 {
-    @apply bg-linear-to-tl from-[rgba(101,179,174,0.5)-225%] via-[rgba(10,10,10,1)45%] to-[rgba(101,179,174,0.5)225%];
+    @apply bg-linear-to-tl from-[rgba(101,179,174,0.5)] via-[rgba(10,10,10,1)] to-[rgba(101,179,174,0.5)];
+    background-position:
+        -225% 0%,
+        45% 0%,
+        225% 0%;
 }
 
 @utility bg-gradient-card2 {
-    @apply bg-linear-to-tl from-[rgba(69,79,191,0.5)-225%] via-[rgba(10,10,10,10)45%] to-[rgba(69,79,191,.5)225%];
+    @apply bg-linear-to-tl from-[rgba(69,79,191,0.5)] via-[rgba(10,10,10,1)] to-[rgba(69,79,191,0.5)];
+    background-position:
+        -225% 0%,
+        45% 0%,
+        225% 0%;
 }
 
 @utility bg-gradient-card3 {
-    @apply bg-linear-to-tl from-[rgba(0,164,204,0.5)-225%] via-[rgba(10,10,10,1)45%] to-[rgba(0,164,204,0.5)225%];
+    @apply bg-linear-to-tl from-[rgba(0,164,204,0.5)] via-[rgba(10,10,10,1)] to-[rgba(0,164,204,0.5)];
+    background-position:
+        -225% 0%,
+        45% 0%,
+        225% 0%;
 }
 
 @utility bg-gradient-card4 {
-    @apply bg-linear-to-tl from-[rgba(29,161,242,0.5)-225%] via-[rgba(10,10,10,1)45%] to-[rgba(29,161,242,0.5)225%];
+    @apply bg-linear-to-tl from-[rgba(29,161,242,0.5)] via-[rgba(10,10,10,1)] to-[rgba(29,161,242,0.5)];
+    background-position:
+        -225% 0%,
+        45% 0%,
+        225% 0%;
 }
 
 @utility btn-transition {
