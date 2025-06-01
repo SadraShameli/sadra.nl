@@ -2,10 +2,6 @@
 
 This project is part of a full-stack application with multiple objectives, serving as both a personal portfolio and a backend for Sensor Hub devices. The application makes the devices able to fetch configuration, register telemetries and save noise recordings. Additionally, it includes a frontend for visualizing the data collected by the Sensor Hub devices.
 
-<br>
-<img src="assets/images/sadra.jpg">
-<br>
-
 ### Features
 
 - Type-safe front-end and back-end using Typescript, React, Next.js and tRPC
