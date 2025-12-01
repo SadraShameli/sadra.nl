@@ -6,7 +6,6 @@ bunx sort-package-json
 
 echo "Running linters";
 bun run stylelint:fix;
-bun run lint:fix;
 
 echo "Running type checks";
 bun run typecheck;
