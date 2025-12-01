@@ -1,12 +1,12 @@
-import { motion } from 'framer-motion';
+import { easeOut, motion, type Variants } from 'framer-motion';
 
-const defaultVariants = {
+const defaultVariants: Variants = {
     blinking: {
         opacity: [0, 0, 1, 1],
         transition: {
             duration: 1,
             repeat: Infinity,
-            ease: 'easeOut',
+            ease: easeOut,
             times: [0, 0.5, 0.5, 1],
         },
     },

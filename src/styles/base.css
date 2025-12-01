@@ -101,7 +101,7 @@
         }
 
         * {
-            page-break-before: avoid;
+            break-before: avoid;
         }
     }
 

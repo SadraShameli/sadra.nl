@@ -1,3 +1,4 @@
+/* stylelint-disable no-invalid-position-declaration */
 @import 'tailwindcss/utilities' layer(utilities);
 
 @utility bg-gradient-indigo {

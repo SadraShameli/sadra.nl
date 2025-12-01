@@ -1,20 +1,12 @@
-const config =
-    process.env.NODE_ENV === 'production'
-        ? {
-              plugins: {
-                  '@tailwindcss/postcss': {},
-                  cssnano: {
-                      preset: [
-                          'default',
-                          { discardComments: { removeAll: true } },
-                      ],
-                  },
-              },
-          }
-        : {
-              plugins: {
-                  '@tailwindcss/postcss': {},
-              },
-          };
+const isProduction = process.env.NODE_ENV === 'production';
 
-export default config;
+const plugins = {
+    '@tailwindcss/postcss': {},
+    ...(isProduction && {
+        cssnano: {
+            preset: ['default', { discardComments: { removeAll: true } }],
+        },
+    }),
+};
+
+export default { plugins };

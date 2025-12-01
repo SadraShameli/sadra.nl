@@ -4,7 +4,6 @@ import { api } from '~/trpc/server';
 
 type RequestProps = {
     id: string;
-    sensor_id: string;
 };
 
 export async function GET(
@@ -15,7 +14,6 @@ export async function GET(
 
     const res = await api.device.getDeviceRecordings({
         device: { device_id: +requestParams.id },
-        sensor_id: +requestParams.sensor_id,
     });
 
     if (res.data) {

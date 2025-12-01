@@ -15,7 +15,7 @@ export async function GET(
     const res = await api.recording.getRecording({ id: +requestParams.id });
 
     if (res.data) {
-        return new Response(res.data.file, {
+        return new Response(new Uint8Array(res.data.file), {
             status: res.status,
             headers: {
                 'Accept-Ranges': 'bytes',

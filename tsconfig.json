@@ -8,33 +8,33 @@
         "moduleDetection": "force",
         "isolatedModules": true,
         "verbatimModuleSyntax": true,
-
         "strict": true,
         "noUncheckedIndexedAccess": true,
         "checkJs": true,
-
-        "types": ["node"],
         "lib": ["dom", "dom.iterable", "ESNext"],
         "noEmit": true,
         "module": "ESNext",
         "moduleResolution": "Bundler",
-        "jsx": "preserve",
-        "plugins": [{ "name": "next" }],
+        "jsx": "react-jsx",
+        "plugins": [
+            {
+                "name": "next"
+            }
+        ],
         "incremental": true,
-
         "baseUrl": ".",
         "paths": {
             "~/*": ["./src/*"]
         }
     },
     "include": [
-        "eslint.config.js",
         "next-env.d.ts",
         "**/*.ts",
         "**/*.tsx",
         "**/*.cjs",
         "**/*.js",
-        ".next/types/**/*.ts"
+        ".next/types/**/*.ts",
+        ".next/dev/types/**/*.ts"
     ],
-    "exclude": ["node_modules"]
+    "exclude": ["node_modules", "generated"]
 }
