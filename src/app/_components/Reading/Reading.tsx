@@ -105,7 +105,7 @@ export default function ReadingSection() {
                                         <PopoverTrigger asChild>
                                             <Button
                                                 className={cn(
-                                                    'w-[300px] justify-start text-left font-normal',
+                                                    'w-75 justify-start text-left font-normal',
                                                     !date &&
                                                         'text-muted-foreground',
                                                 )}
@@ -264,7 +264,7 @@ export default function ReadingSection() {
                                                     xAxis={{ dataKey: 'date' }}
                                                     yAxis={{
                                                         tickFormatter: (
-                                                            value,
+                                                            value: number,
                                                         ) =>
                                                             `${value} ${sensors?.find((sensor) => sensor.name == currentSensor)?.unit}`,
                                                     }}
