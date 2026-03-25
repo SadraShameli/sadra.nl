@@ -44,7 +44,7 @@ const resumeSadra: IResume = {
         },
         {
             title: 'Instagram',
-            url: 'https://instagram.com/sadra_shml',
+            url: 'https://instagram.com/sadra22._',
             icon: <InstagramIcon />,
         },
     ],
