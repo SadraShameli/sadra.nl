@@ -1,6 +1,5 @@
 import { useId } from 'react';
 import { Area, AreaChart, XAxis, YAxis } from 'recharts';
-import { type BaseAxisProps } from 'recharts/types/util/types';
 import {
     type ChartConfig,
     ChartContainer,

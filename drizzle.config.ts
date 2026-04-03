@@ -3,13 +3,10 @@ import { type Config } from 'drizzle-kit';
 import { env } from '~/env';
 
 export default {
-    schema: [
-        './src/server/db/schemas/main.ts',
-        './src/server/db/schemas/tradingBot.ts',
-    ],
+    schema: ['./src/server/db/schemas/main.ts'],
     dialect: 'postgresql',
     dbCredentials: {
         url: env.DATABASE_URL,
     },
-    tablesFilter: ['sadranl_*', 'tradingbot_*'],
+    tablesFilter: ['sadranl_*'],
 } satisfies Config;
