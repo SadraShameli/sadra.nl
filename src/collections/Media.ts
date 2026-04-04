@@ -12,7 +12,4 @@ export const Media: CollectionConfig = {
             required: true,
         },
     ],
-    upload: {
-        mimeTypes: ['image/*', 'video/mp4'],
-    },
 };

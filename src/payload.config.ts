@@ -14,7 +14,6 @@ import { Site } from './globals/Site';
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
-const isProduction = process.env.NODE_ENV === 'production';
 
 export default buildConfig({
     admin: {
@@ -40,11 +39,12 @@ export default buildConfig({
     sharp,
     plugins: [
         vercelBlobStorage({
+            enabled: true,
             clientUploads: true,
             collections: {
                 media: true,
             },
-            enabled: isProduction,
+            addRandomSuffix: true,
             token: process.env.BLOB_READ_WRITE_TOKEN,
         }),
     ],
