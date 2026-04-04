@@ -8,7 +8,10 @@ const globalForDb = globalThis as unknown as {
     conn: postgres.Sql | undefined;
 };
 
-const conn = globalForDb.conn ?? postgres(env.DATABASE_URL);
+const dbUrl = new URL(env.DATABASE_URL);
+dbUrl.searchParams.delete('uselibpqcompat');
+
+const conn = globalForDb.conn ?? postgres(dbUrl.toString(), { max: 5 });
 if (env.NODE_ENV !== 'production') globalForDb.conn = conn;
 
 export const db = drizzle(conn, { schema });

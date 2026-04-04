@@ -26,7 +26,6 @@
       }
     ],
     "incremental": true,
-    "baseUrl": ".",
     "paths": {
       "~/*": [
         "./src/*"

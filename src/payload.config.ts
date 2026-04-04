@@ -39,6 +39,7 @@ export default buildConfig({
                   })()
                 : process.env.DATABASE_URL,
             ssl: { rejectUnauthorized: false },
+            max: 5,
         },
         idType: 'serial',
         migrationDir: path.resolve(dirname, './migrations'),
