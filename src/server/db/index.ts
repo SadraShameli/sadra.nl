@@ -1,21 +1,24 @@
-import { drizzle } from 'drizzle-orm/postgres-js';
-import postgres from 'postgres';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import pg from 'pg';
 
 import { env } from '~/env';
 import * as schema from './schemas/main';
 
 const globalForDb = globalThis as unknown as {
-    conn: postgres.Sql | undefined;
+    pool: pg.Pool | undefined;
 };
 
 const dbUrl = new URL(env.DATABASE_URL);
-dbUrl.searchParams.delete('uselibpqcompat');
 
-const conn = globalForDb.conn ?? postgres(dbUrl.toString(), { max: 5 });
-if (env.NODE_ENV !== 'production') globalForDb.conn = conn;
+export const pool = globalForDb.pool ?? new pg.Pool({
+    connectionString: dbUrl.toString(),
+    max: 10,
+});
 
-export const db = drizzle(conn, { schema });
+if (env.NODE_ENV !== 'production') globalForDb.pool = pool;
+
+export const db = drizzle(pool, { schema });
 
 export async function endDb() {
-    await conn.end();
+    await pool.end();
 }

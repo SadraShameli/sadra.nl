@@ -15,6 +15,18 @@ import { Site } from './globals/Site';
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
 
+import pg from 'pg';
+import { pool } from './server/db/index';
+
+const ProxiedPg = Object.assign({}, pg, {
+    Pool: class extends pg.Pool {
+        constructor() {
+            super();
+            return pool;
+        }
+    }
+});
+
 export default buildConfig({
     admin: {
         user: Users.slug,
@@ -30,16 +42,9 @@ export default buildConfig({
         outputFile: path.resolve(dirname, 'payload-types.ts'),
     },
     db: postgresAdapter({
+        pg: ProxiedPg as any,
         pool: {
-            connectionString: process.env.DATABASE_URL 
-                ? (() => {
-                    const url = new URL(process.env.DATABASE_URL);
-                    url.searchParams.set('uselibpqcompat', 'true');
-                    return url.toString();
-                  })()
-                : process.env.DATABASE_URL,
-            ssl: { rejectUnauthorized: false },
-            max: 5,
+            connectionString: process.env.DATABASE_URL || '',
         },
         idType: 'serial',
         migrationDir: path.resolve(dirname, './migrations'),
