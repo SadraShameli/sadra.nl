@@ -31,7 +31,13 @@ export default buildConfig({
     },
     db: postgresAdapter({
         pool: {
-            connectionString: process.env.DATABASE_URL,
+            connectionString: process.env.DATABASE_URL 
+                ? (() => {
+                    const url = new URL(process.env.DATABASE_URL);
+                    url.searchParams.set('uselibpqcompat', 'true');
+                    return url.toString();
+                  })()
+                : process.env.DATABASE_URL,
             ssl: { rejectUnauthorized: false },
         },
         idType: 'serial',
