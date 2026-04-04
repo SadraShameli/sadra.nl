@@ -44,7 +44,12 @@ export default buildConfig({
     db: postgresAdapter({
         pg: ProxiedPg as any,
         pool: {
-            connectionString: process.env.DATABASE_URL || '',
+            connectionString: (() => {
+                const url = new URL(process.env.DATABASE_URL ?? '');
+                url.searchParams.delete('uselibpqcompat');
+                url.searchParams.delete('sslmode');
+                return url.toString();
+            })(),
         },
         idType: 'serial',
         migrationDir: path.resolve(dirname, './migrations'),

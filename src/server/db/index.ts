@@ -9,9 +9,12 @@ const globalForDb = globalThis as unknown as {
 };
 
 const dbUrl = new URL(env.DATABASE_URL);
+dbUrl.searchParams.delete('uselibpqcompat');
+dbUrl.searchParams.delete('sslmode');
 
 export const pool = globalForDb.pool ?? new pg.Pool({
     connectionString: dbUrl.toString(),
+    ssl: { rejectUnauthorized: false },
     max: 10,
 });
 
