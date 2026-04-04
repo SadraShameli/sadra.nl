@@ -2,6 +2,7 @@ import { getPayload } from 'payload';
 import { cache } from 'react';
 
 import config from '@payload-config';
+import { getPublicSiteOrigin } from '~/lib/site-url';
 import type { Homepage, Media, Resume, Site } from '~/payload-types';
 
 export const getSiteGlobal = cache(async (): Promise<Site | null> => {
@@ -108,12 +109,9 @@ export function pageLinkHref(raw: string | null | undefined): string {
 export function mediaUrl(url: string | null | undefined): string {
     if (!url) return '';
     if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    const base =
-        process.env.NEXT_PUBLIC_SERVER_URL ??
-        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '');
-    if (!base) return url.startsWith('/') ? url : `/${url}`;
+    const base = getPublicSiteOrigin();
     const path = url.startsWith('/') ? url : `/${url}`;
-    return `${base.replace(/\/$/, '')}${path}`;
+    return `${base}${path}`;
 }
 
 export function isPopulatedMedia(

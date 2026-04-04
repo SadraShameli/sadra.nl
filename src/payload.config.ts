@@ -1,18 +1,20 @@
 import { postgresAdapter } from '@payloadcms/db-postgres';
 import { lexicalEditor } from '@payloadcms/richtext-lexical';
+import { vercelBlobStorage } from '@payloadcms/storage-vercel-blob';
 import path from 'path';
 import { buildConfig } from 'payload';
-import { fileURLToPath } from 'url';
 import sharp from 'sharp';
+import { fileURLToPath } from 'url';
 
-import { Users } from './collections/Users';
 import { Media } from './collections/Media';
+import { Users } from './collections/Users';
 import { Homepage } from './globals/Homepage';
 import { Resume } from './globals/Resume';
 import { Site } from './globals/Site';
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
+const isProduction = process.env.NODE_ENV === 'production';
 
 export default buildConfig({
     admin: {
@@ -36,5 +38,14 @@ export default buildConfig({
         migrationDir: path.resolve(dirname, './migrations'),
     }),
     sharp,
-    plugins: [],
+    plugins: [
+        vercelBlobStorage({
+            clientUploads: true,
+            collections: {
+                media: true,
+            },
+            enabled: isProduction,
+            token: process.env.BLOB_READ_WRITE_TOKEN,
+        }),
+    ],
 });
