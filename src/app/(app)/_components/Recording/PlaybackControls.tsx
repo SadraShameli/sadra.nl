@@ -56,7 +56,7 @@ export function PlaybackControls({
             </button>
 
             <button
-                aria-label="Pause"
+                aria-label={isPlaying ? 'Pause' : 'Play'}
                 className="size-12 disabled:text-neutral-600"
                 onClick={onTogglePlayPause}
                 disabled={!hasRecordings || isLoading}

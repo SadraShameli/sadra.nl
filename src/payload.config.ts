@@ -24,7 +24,7 @@ const ProxiedPg = Object.assign({}, pg, {
             super();
             return pool;
         }
-    }
+    },
 });
 
 export default buildConfig({

@@ -5,14 +5,16 @@ import { format } from 'date-fns';
 import {
     Calendar as CalendarIcon,
     AreaChart as ChartIcon,
+    Download,
     MapPin,
+    SlidersHorizontal,
     ThermometerSnowflake,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { type DateRange } from 'react-day-picker';
 
 import { cn } from '~/lib/utils';
-import { type location, type sensor } from '~/server/db/schemas/main';
+import { type location } from '~/server/db/schemas/main';
 import { api } from '~/trpc/react';
 
 import RevealAnimation from '~/components/ui/Animations/Reveal';
@@ -34,15 +36,19 @@ import {
 } from '~/components/ui/Popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
 
+import {
+    aggregateReadings,
+    exportReadingsToCSV,
+    GRANULARITIES,
+    type Granularity,
+} from './helpers';
+
 export default function ReadingSection() {
     const [date, setDate] = useState<DateRange>();
     const [currentLocation, setCurrentLocation] =
         useState<typeof location.$inferSelect>();
-
-    const [oldSensors, setOldSensors] = useState<
-        (typeof sensor.$inferSelect)[] | undefined
-    >();
     const [currentSensor, setCurrentSensor] = useState<string>();
+    const [granularity, setGranularity] = useState<Granularity>('raw');
 
     const currentReading = api.reading.getReadingsInput.useQuery(
         currentLocation
@@ -52,30 +58,32 @@ export default function ReadingSection() {
                   date_to: date?.to,
               }
             : undefined,
-        {
-            placeholderData: keepPreviousData,
-        },
+        { placeholderData: keepPreviousData },
     );
+
     const sensors = useMemo(
         () => currentReading.data?.data?.map((reading) => reading.sensor),
         [currentReading?.data],
     );
+
     const locations = api.location.getLocations.useQuery();
 
+    const currentSensorData = useMemo(
+        () =>
+            currentReading.data?.data?.find(
+                (r) => r.sensor.name === currentSensor,
+            ),
+        [currentReading.data, currentSensor],
+    );
+
     useEffect(() => {
-        if (oldSensors === undefined && sensors != undefined) {
-            setOldSensors(sensors);
+        if (!sensors?.length) return;
+        if (!currentSensor) {
             setCurrentSensor(sensors[0]?.name);
-        } else if (sensors?.length && oldSensors?.length) {
-            setOldSensors(sensors);
-            if (
-                currentSensor &&
-                !sensors.find((sensor) => sensor.name == currentSensor)
-            ) {
-                setCurrentSensor(sensors.at(-1)?.name);
-            }
+        } else if (!sensors.find((s) => s.name === currentSensor)) {
+            setCurrentSensor(sensors.at(-1)?.name);
         }
-    }, [currentSensor, oldSensors, sensors]);
+    }, [sensors, currentSensor]);
 
     useEffect(() => {
         if (!currentLocation) {
@@ -83,11 +91,14 @@ export default function ReadingSection() {
         }
     }, [currentLocation, locations]);
 
+    const currentGranularityLabel =
+        GRANULARITIES.find((g) => g.value === granularity)?.label ?? 'Raw';
+
     return (
         <div className="pt-spacing-inner">
             <Card className="container flex min-h-[538.81px] flex-col">
                 <Tabs
-                    className="my-spacing-inner grid gap-y-5 lg:my-0"
+                    className="grid gap-y-5"
                     defaultValue={sensors?.at(0)?.name}
                     value={currentSensor}
                     onValueChange={(value) => setCurrentSensor(value)}
@@ -99,59 +110,57 @@ export default function ReadingSection() {
                                 !currentReading.data?.data && 'justify-end',
                             )}
                         >
-                            <div className="grid gap-5 lg:grid-flow-col">
-                                <div className="grid gap-2">
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <Button
-                                                className={cn(
-                                                    'w-75 justify-start text-left font-normal',
-                                                    !date &&
-                                                        'text-muted-foreground',
-                                                )}
-                                                variant="outline"
-                                            >
-                                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                                {date?.from ? (
-                                                    date.to ? (
-                                                        <>
-                                                            {format(
-                                                                date.from,
-                                                                'LLL dd, y',
-                                                            )}{' '}
-                                                            -{' '}
-                                                            {format(
-                                                                date.to,
-                                                                'LLL dd, y',
-                                                            )}
-                                                        </>
-                                                    ) : (
-                                                        format(
+                            <div className="flex flex-wrap items-center gap-2">
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            className={cn(
+                                                'w-75 justify-start text-left font-normal',
+                                                !date &&
+                                                    'text-muted-foreground',
+                                            )}
+                                            variant="outline"
+                                        >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {date?.from ? (
+                                                date.to ? (
+                                                    <>
+                                                        {format(
                                                             date.from,
                                                             'LLL dd, y',
-                                                        )
-                                                    )
+                                                        )}{' '}
+                                                        -{' '}
+                                                        {format(
+                                                            date.to,
+                                                            'LLL dd, y',
+                                                        )}
+                                                    </>
                                                 ) : (
-                                                    <span>Pick a date</span>
-                                                )}
-                                            </Button>
-                                        </PopoverTrigger>
+                                                    format(
+                                                        date.from,
+                                                        'LLL dd, y',
+                                                    )
+                                                )
+                                            ) : (
+                                                <span>Pick a date</span>
+                                            )}
+                                        </Button>
+                                    </PopoverTrigger>
 
-                                        <PopoverContent
-                                            className="w-auto p-0"
-                                            align="start"
-                                        >
-                                            <Calendar
-                                                initialFocus
-                                                mode="range"
-                                                defaultMonth={date?.from}
-                                                selected={date}
-                                                onSelect={setDate}
-                                                numberOfMonths={2}
-                                            />
-                                        </PopoverContent>
-                                    </Popover>
-                                </div>
+                                    <PopoverContent
+                                        className="mt-2 w-auto p-0"
+                                        align="start"
+                                    >
+                                        <Calendar
+                                            autoFocus
+                                            mode="range"
+                                            defaultMonth={date?.from}
+                                            selected={date}
+                                            onSelect={setDate}
+                                            numberOfMonths={2}
+                                        />
+                                    </PopoverContent>
+                                </Popover>
 
                                 <DropdownMenu>
                                     <DropdownMenuTrigger
@@ -159,7 +168,7 @@ export default function ReadingSection() {
                                         disabled={!locations.data?.data}
                                     >
                                         <Button
-                                            className="w-fit lg:ml-0"
+                                            className="w-fit"
                                             variant="outline"
                                         >
                                             <MapPin className="mr-1 size-5" />
@@ -173,66 +182,112 @@ export default function ReadingSection() {
                                                 currentLocation
                                                     ? currentLocation.location_name
                                                     : locations.data?.data?.at(
-                                                          0,
+                                                          -1,
                                                       )?.location_name
                                             }
                                             onValueChange={(value) => {
-                                                const location =
+                                                const loc =
                                                     locations.data?.data?.find(
-                                                        (location) =>
-                                                            location.location_name ===
+                                                        (l) =>
+                                                            l.location_name ===
                                                             value,
                                                     );
-                                                setCurrentLocation(location);
+                                                setCurrentLocation(loc);
                                             }}
                                         >
                                             {locations.data?.data?.map(
-                                                (location) => {
-                                                    return (
-                                                        <DropdownMenuRadioItem
-                                                            value={
-                                                                location.location_name
-                                                            }
-                                                            key={
-                                                                location.location_name
-                                                            }
-                                                        >
-                                                            {
-                                                                location.location_name
-                                                            }
-                                                        </DropdownMenuRadioItem>
-                                                    );
-                                                },
+                                                (loc) => (
+                                                    <DropdownMenuRadioItem
+                                                        value={
+                                                            loc.location_name
+                                                        }
+                                                        key={loc.location_name}
+                                                    >
+                                                        {loc.location_name}
+                                                    </DropdownMenuRadioItem>
+                                                ),
                                             )}
                                         </DropdownMenuRadioGroup>
                                     </DropdownMenuContent>
                                 </DropdownMenu>
+
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger
+                                        asChild
+                                        disabled={!currentReading.data?.data}
+                                    >
+                                        <Button
+                                            className="w-fit"
+                                            variant="outline"
+                                        >
+                                            <SlidersHorizontal className="mr-1 size-4" />
+                                            {currentGranularityLabel}
+                                        </Button>
+                                    </DropdownMenuTrigger>
+
+                                    <DropdownMenuContent>
+                                        <DropdownMenuRadioGroup
+                                            value={granularity}
+                                            onValueChange={(v) =>
+                                                setGranularity(v as Granularity)
+                                            }
+                                        >
+                                            {GRANULARITIES.map((g) => (
+                                                <DropdownMenuRadioItem
+                                                    key={g.value}
+                                                    value={g.value}
+                                                >
+                                                    {g.label}
+                                                </DropdownMenuRadioItem>
+                                            ))}
+                                        </DropdownMenuRadioGroup>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+
+                                <Button
+                                    variant="outline"
+                                    className="w-fit"
+                                    disabled={!currentSensorData}
+                                    onClick={() => {
+                                        if (!currentSensorData) return;
+                                        exportReadingsToCSV(
+                                            aggregateReadings(
+                                                currentSensorData.readings,
+                                                granularity,
+                                            ),
+                                            currentSensorData.sensor.name,
+                                            currentSensorData.sensor.unit,
+                                            currentLocation?.location_name,
+                                        );
+                                    }}
+                                >
+                                    <Download className="mr-1 size-4" />
+                                    Export CSV
+                                </Button>
                             </div>
                         </div>
 
                         {sensors && (
                             <TabsList className="w-fit">
-                                {sensors?.map((sensor) => {
-                                    return (
-                                        <TabsTrigger
-                                            value={sensor.name}
-                                            key={sensor.name}
-                                        >
-                                            {sensor.name}
-                                        </TabsTrigger>
-                                    );
-                                })}
+                                {sensors.map((sensor) => (
+                                    <TabsTrigger
+                                        value={sensor.name}
+                                        key={sensor.name}
+                                    >
+                                        {sensor.name}
+                                    </TabsTrigger>
+                                ))}
                             </TabsList>
                         )}
                     </div>
 
                     {currentReading.data?.data?.map((reading) => {
+                        const chartData = aggregateReadings(
+                            reading.readings,
+                            granularity,
+                        );
                         return (
                             <TabsContent
-                                className={cn(
-                                    !currentReading.data?.data?.length &&
-                                        'shimmer',
-                                )}
                                 value={reading.sensor.name}
                                 key={reading.sensor.name}
                             >
@@ -240,7 +295,7 @@ export default function ReadingSection() {
                                     <div className="grid gap-5 lg:grid-cols-2">
                                         <div
                                             className={cn(
-                                                'rounded-xl border p-5',
+                                                'relative rounded-xl border p-5',
                                                 currentReading.isRefetching &&
                                                     'shimmer',
                                             )}
@@ -252,7 +307,7 @@ export default function ReadingSection() {
 
                                             <div className="mt-12 grid">
                                                 <AreaChartNew
-                                                    data={reading.readings}
+                                                    data={chartData}
                                                     config={{
                                                         location: {
                                                             label: currentLocation?.location_name,
@@ -266,7 +321,7 @@ export default function ReadingSection() {
                                                         tickFormatter: (
                                                             value: number,
                                                         ) =>
-                                                            `${value} ${sensors?.find((sensor) => sensor.name == currentSensor)?.unit}`,
+                                                            `${value} ${sensors?.find((s) => s.name === currentSensor)?.unit}`,
                                                     }}
                                                     area={{ dataKey: 'value' }}
                                                     tooltip={{
@@ -280,7 +335,7 @@ export default function ReadingSection() {
                                         <div className="grid grid-cols-2 gap-5">
                                             <div
                                                 className={cn(
-                                                    'bg-muted flex rounded-xl p-5',
+                                                    'bg-muted relative flex rounded-xl p-5',
                                                     currentReading.isRefetching &&
                                                         'shimmer',
                                                 )}
@@ -298,7 +353,7 @@ export default function ReadingSection() {
                                             <div className="grid gap-5">
                                                 <div
                                                     className={cn(
-                                                        'bg-muted flex min-h-36 rounded-xl p-5',
+                                                        'bg-muted relative flex min-h-36 rounded-xl p-5',
                                                         currentReading.isRefetching &&
                                                             'shimmer',
                                                     )}
@@ -312,7 +367,7 @@ export default function ReadingSection() {
 
                                                 <div
                                                     className={cn(
-                                                        'bg-muted min-h-36 rounded-xl p-5',
+                                                        'bg-muted relative min-h-36 rounded-xl p-5',
                                                         currentReading.isRefetching &&
                                                             'shimmer',
                                                     )}

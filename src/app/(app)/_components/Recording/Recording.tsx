@@ -1,7 +1,6 @@
 'use client';
 
 import { Download } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import { api } from '~/trpc/react';
 
 import { Button } from '~/components/ui/Button';
@@ -20,35 +19,36 @@ export default function RecordingSection({
     decorVideoUrl: string;
 }) {
     const recordings = api.recording.getRecordingsNoFile.useQuery();
-    const router = useRouter();
 
     const {
         audioRef,
-        time,
+        currentRecording,
+        currentRecordingIdx,
         duration,
-        volume,
+        durations,
+        handleAudioEnded,
+        handleAutoPlay,
+        handleNext,
+        handlePrevious,
+        handleRecordingSelect,
+        handleRepeat,
+        handleShuffle,
+        handleSpeedChange,
+        handleTimeChange,
+        handleVolumeChange,
+        isAutoPlay,
+        isLoading,
         isPlaying,
         isRepeat,
         isShuffle,
-        isAutoPlay,
-        isLoading,
-        currentRecordingIdx,
-        currentRecording,
-        audioSrc,
-        togglePlayPause,
-        handlePrevious,
-        handleNext,
-        handleShuffle,
-        handleRepeat,
-        handleAutoPlay,
-        handleRecordingSelect,
-        toggleMute,
-        handleVolumeChange,
-        handleTimeChange,
         playAudio,
-        handleAudioEnded,
-        setTime,
+        playbackRate,
         setDuration,
+        setTime,
+        time,
+        toggleMute,
+        togglePlayPause,
+        volume,
     } = useAudioPlayer({ recordings: recordings.data });
 
     const hasRecordings = Boolean(recordings.data?.length);
@@ -58,29 +58,35 @@ export default function RecordingSection({
     return (
         <div className="pt-spacing-inner">
             <Card className="container">
-                <div className="grid-cols-2 items-center lg:grid">
-                    <video loop autoPlay muted playsInline>
+                <div className="flex flex-col gap-6 lg:grid lg:grid-cols-2 lg:items-center">
+                    <video
+                        loop
+                        autoPlay
+                        muted
+                        playsInline
+                        className="rounded-lg"
+                    >
                         <source src={decorVideoUrl} type="video/mp4" />
                     </video>
 
-                    <div className="bg-muted mb-spacing-inner w-full rounded-xl p-5 lg:my-0">
-                        <div className="flex items-center justify-between lg:mx-3">
-                            <p className="font-semibold">Recordings</p>
-
+                    <div className="bg-muted flex flex-col gap-5 rounded-xl p-6">
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm font-semibold tracking-widest text-neutral-100 uppercase">
+                                Recordings
+                            </span>
                             <Button
-                                className="bg-transparent font-semibold"
+                                className="h-8 gap-1.5 text-xs"
                                 variant="outline"
                                 size="sm"
                                 onClick={() => {
                                     if (currentRecording) {
-                                        router.push(
-                                            GetRecordingURL(currentRecording),
-                                        );
+                                        window.location.href =
+                                            GetRecordingURL(currentRecording);
                                     }
                                 }}
                                 disabled={!hasRecordings}
                             >
-                                <Download className="mr-2 size-5" />
+                                <Download className="size-3.5" />
                                 Download
                             </Button>
                         </div>
@@ -88,10 +94,11 @@ export default function RecordingSection({
                         <RecordingList
                             recordings={recordings.data}
                             currentIdx={currentRecordingIdx}
+                            durations={durations}
                             onSelect={handleRecordingSelect}
                         />
 
-                        <div className="mx-auto mb-3 max-w-xl grid-flow-row gap-5 xl:grid xl:grid-cols-2">
+                        <div className="space-y-3 border-t border-white/10 pt-4">
                             <PlaybackControls
                                 isPlaying={isPlaying}
                                 isLoading={isLoading}
@@ -107,20 +114,22 @@ export default function RecordingSection({
                                 onRepeat={handleRepeat}
                             />
 
-                            <VolumeControls
-                                volume={volume}
-                                isAutoPlay={isAutoPlay}
-                                hasRecordings={hasRecordings}
-                                onMute={toggleMute}
-                                onVolumeChange={handleVolumeChange}
-                                onAutoPlay={handleAutoPlay}
-                            />
-
                             <ProgressBar
                                 time={time}
                                 duration={duration}
                                 hasRecordings={hasRecordings}
                                 onTimeChange={handleTimeChange}
+                            />
+
+                            <VolumeControls
+                                volume={volume}
+                                isAutoPlay={isAutoPlay}
+                                hasRecordings={hasRecordings}
+                                playbackRate={playbackRate}
+                                onMute={toggleMute}
+                                onVolumeChange={handleVolumeChange}
+                                onAutoPlay={handleAutoPlay}
+                                onSpeedChange={handleSpeedChange}
                             />
                         </div>
 
@@ -144,9 +153,7 @@ export default function RecordingSection({
                                 onError={(e) => {
                                     console.error('Audio error:', e);
                                 }}
-                            >
-                                <source type="audio/wav" src={audioSrc} />
-                            </audio>
+                            />
                         )}
                     </div>
                 </div>

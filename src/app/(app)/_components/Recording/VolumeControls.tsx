@@ -1,26 +1,40 @@
 import { ListEnd, Volume, Volume1, Volume2 } from 'lucide-react';
+
 import { Slider } from '~/components/ui/Slider';
 import { cn } from '~/lib/utils';
+
+import { SpeedControl } from './SpeedControl';
+import { type PlaybackSpeed } from './types';
 
 interface VolumeControlsProps {
     volume: number;
     isAutoPlay: boolean;
     hasRecordings: boolean;
+    playbackRate: PlaybackSpeed;
     onMute: () => void;
     onVolumeChange: (volume: number) => void;
     onAutoPlay: () => void;
+    onSpeedChange: (speed: PlaybackSpeed) => void;
 }
 
 export function VolumeControls({
     volume,
     isAutoPlay,
     hasRecordings,
+    playbackRate,
     onMute,
     onVolumeChange,
     onAutoPlay,
+    onSpeedChange,
 }: VolumeControlsProps) {
     return (
-        <div className="mt-5 flex items-center justify-center gap-x-3 text-neutral-400 xl:mt-0 xl:justify-end">
+        <div className="flex items-center justify-end gap-x-3 text-neutral-400">
+            <SpeedControl
+                speed={playbackRate}
+                hasRecordings={hasRecordings}
+                onSpeedChange={onSpeedChange}
+            />
+
             <button
                 className={cn(
                     'size-6 transition hover:text-white disabled:text-neutral-700',
@@ -49,7 +63,7 @@ export function VolumeControls({
             </button>
 
             <Slider
-                className="h-2 w-2/5"
+                className="h-2 w-1/5"
                 defaultValue={[1]}
                 value={[volume]}
                 min={0}
