@@ -1,3 +1,4 @@
+import { attachDatabasePool } from '@vercel/functions';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 
@@ -17,8 +18,11 @@ export const pool =
     new pg.Pool({
         connectionString: dbUrl.toString(),
         ssl: { rejectUnauthorized: false },
-        max: 10,
+        max: 2,
+        idleTimeoutMillis: 5000,
     });
+
+attachDatabasePool(pool);
 
 if (env.NODE_ENV !== 'production') globalForDb.pool = pool;
 
