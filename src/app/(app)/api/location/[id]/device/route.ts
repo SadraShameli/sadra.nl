@@ -16,9 +16,13 @@ export async function GET(
         location_id: +requestParams.id,
     });
 
-    if (res.data) {
-        return NextResponse.json(res.data, { status: res.status });
+    if (!res.data) {
+        const status =
+            'status' in res && typeof res.status === 'number'
+                ? res.status
+                : 500;
+        return NextResponse.json(res, { status });
     }
 
-    return NextResponse.json(res, { status: res.status });
+    return NextResponse.json(res.data);
 }

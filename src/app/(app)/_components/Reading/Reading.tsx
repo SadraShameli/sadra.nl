@@ -335,7 +335,7 @@ export default function ReadingSection() {
                                         <div className="grid grid-cols-2 gap-5">
                                             <div
                                                 className={cn(
-                                                    'bg-muted relative flex rounded-xl p-5',
+                                                    'relative flex rounded-xl bg-muted p-5',
                                                     currentReading.isRefetching &&
                                                         'shimmer',
                                                 )}
@@ -353,7 +353,7 @@ export default function ReadingSection() {
                                             <div className="grid gap-5">
                                                 <div
                                                     className={cn(
-                                                        'bg-muted relative flex min-h-36 rounded-xl p-5',
+                                                        'relative flex min-h-36 rounded-xl bg-muted p-5',
                                                         currentReading.isRefetching &&
                                                             'shimmer',
                                                     )}
@@ -367,7 +367,7 @@ export default function ReadingSection() {
 
                                                 <div
                                                     className={cn(
-                                                        'bg-muted relative min-h-36 rounded-xl p-5',
+                                                        'relative min-h-36 rounded-xl bg-muted p-5',
                                                         currentReading.isRefetching &&
                                                             'shimmer',
                                                     )}

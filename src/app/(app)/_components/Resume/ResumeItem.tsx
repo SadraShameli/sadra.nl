@@ -122,7 +122,7 @@ export default function ResumeItem({ title, sections }: ResumeProps) {
                                                         className="flex text-justify"
                                                         key={`${hi}-${highlight}`}
                                                     >
-                                                        <div className="mt-[2px] mr-1">
+                                                        <div className="mt-0.5 mr-1">
                                                             <ChevronRight className="size-5" />
                                                         </div>
                                                         {highlight}
@@ -136,10 +136,13 @@ export default function ResumeItem({ title, sections }: ResumeProps) {
                                 {section.skills?.length ? (
                                     <div className="mt-5 flex items-center font-semibold">
                                         <Cog className="size-5 shrink-0" />
-                                        <ul className="ml-2 flex">
+                                        <ul className="ml-2 flex flex-wrap gap-x-1">
                                             {section.skills.map((skill, si) => {
                                                 return (
-                                                    <li key={`${si}-${skill}`}>
+                                                    <li
+                                                        className="after:content-[','] last:after:hidden"
+                                                        key={`${si}-${skill}`}
+                                                    >
                                                         {skill}
                                                     </li>
                                                 );

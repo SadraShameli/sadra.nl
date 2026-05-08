@@ -11,12 +11,12 @@ export default function SocialsSection() {
                 {resumeSadra.profiles.map((profile) => {
                     return (
                         <div
-                            className="bg-gradient-card2 flex rounded-2xl px-5 text-white"
+                            className="flex rounded-2xl bg-gradient-card2 px-5 text-white"
                             key={profile.title}
                         >
                             <div className="pt-5">
                                 <Link href={profile.url}>
-                                    <button className="hover:btn-scale btn-transition bg-opacity-50 absolute rounded-lg bg-indigo-950 px-4 py-3 text-xs font-semibold tracking-wider text-indigo-400 saturate-50 hover:bg-indigo-500 hover:text-black">
+                                    <button className="bg-opacity-50 absolute rounded-lg bg-indigo-950 px-4 py-3 text-xs font-semibold tracking-wider text-indigo-400 saturate-50 btn-transition hover:btn-scale hover:bg-indigo-500 hover:text-black">
                                         {profile.title}
                                     </button>
                                 </Link>

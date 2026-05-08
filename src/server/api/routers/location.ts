@@ -6,12 +6,7 @@ import {
     createTRPCRouter,
     publicProcedure,
 } from '~/server/api/trpc';
-import {
-    type device,
-    location,
-    reading,
-    type recording,
-} from '~/server/db/schemas/main';
+import { location, reading, type recording } from '~/server/db/schemas/main';
 
 import { getLocationProps, getLocationReadingsProps } from '..//types/zod';
 import { type Result } from '../types/types';
@@ -52,9 +47,7 @@ export async function getDefaultLocation(
 
 export const locationRouter = createTRPCRouter({
     getLocations: publicProcedure.query(async ({ ctx }) => {
-        return { data: await ctx.db.query.location.findMany() } as Result<
-            (typeof location.$inferSelect)[]
-        >;
+        return { data: await ctx.db.query.location.findMany() };
     }),
 
     getLocation: publicProcedure
@@ -72,9 +65,7 @@ export const locationRouter = createTRPCRouter({
 
         const latestReadingDate = latestReading.at(-1)?.created_at;
         if (!latestReadingDate) {
-            return { error: 'There are no readings' } as Result<
-                (typeof location.$inferSelect)[]
-            >;
+            return { error: 'There are no readings' };
         }
 
         const period = 24;
@@ -99,7 +90,7 @@ export const locationRouter = createTRPCRouter({
                 .orderBy(location.id)
         ).map((result) => result.location);
 
-        return { data: locations } as Result<(typeof location.$inferSelect)[]>;
+        return { data: locations };
     }),
 
     getLocationDevices: publicProcedure
@@ -117,7 +108,7 @@ export const locationRouter = createTRPCRouter({
                         : undefined,
             });
 
-            return { data: devices } as Result<(typeof device.$inferSelect)[]>;
+            return { data: devices };
         }),
 
     getLocationReadings: publicProcedure
@@ -153,7 +144,7 @@ export const locationRouter = createTRPCRouter({
 
             return {
                 data: readings,
-            } as Result<(typeof reading.$inferSelect)[]>;
+            };
         }),
 
     getLocationRecordings: publicProcedure

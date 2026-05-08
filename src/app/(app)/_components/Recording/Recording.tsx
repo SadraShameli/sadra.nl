@@ -71,7 +71,7 @@ export default function RecordingSection({
 
                     <div className="bg-muted flex flex-col gap-5 rounded-xl p-6">
                         <div className="flex items-center justify-between">
-                            <span className="text-sm font-semibold tracking-widest text-neutral-100 uppercase">
+                            <span className="font-bold text-neutral-100">
                                 Recordings
                             </span>
                             <Button

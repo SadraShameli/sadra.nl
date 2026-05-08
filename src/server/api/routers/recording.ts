@@ -108,6 +108,6 @@ export const recordingsRouter = createTRPCRouter({
                 file: input.recording,
             });
 
-            return { status: 201 } as Result<unknown>;
+            return { status: 201 };
         }),
 });

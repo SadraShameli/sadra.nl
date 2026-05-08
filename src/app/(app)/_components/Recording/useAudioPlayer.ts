@@ -156,13 +156,13 @@ export function useAudioPlayer({ recordings }: UseAudioPlayerProps) {
     }, [recordings?.length, isShuffle, isAutoPlay, isRepeat]);
 
     const keyboardRef = useRef({
-        togglePlayPause: (() => {}) as () => void,
-        handleTimeChange: ((_: number) => {}) as (t: number) => void,
-        handleVolumeChange: ((_: number) => {}) as (v: number) => void,
-        hasRecordings: false as boolean,
-        time: 0,
-        volume: 1,
-        duration: 0,
+        togglePlayPause,
+        handleTimeChange,
+        handleVolumeChange,
+        hasRecordings: Boolean(recordings?.length),
+        time,
+        volume,
+        duration,
     });
     keyboardRef.current.togglePlayPause = togglePlayPause;
     keyboardRef.current.handleTimeChange = handleTimeChange;
@@ -186,7 +186,7 @@ export function useAudioPlayer({ recordings }: UseAudioPlayerProps) {
             audio.current.volume = volume;
             audio.current.playbackRate = playbackRate;
         }
-    }, [safeCurrentIdx, recordings]);
+    }, [safeCurrentIdx, recordings]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         if (audio.current) {

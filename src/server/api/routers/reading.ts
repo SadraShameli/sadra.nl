@@ -41,9 +41,7 @@ export async function getReading(
 
 export const readingRouter = createTRPCRouter({
     getReadings: publicProcedure.query(async ({ ctx }) => {
-        return { data: await ctx.db.query.reading.findMany() } as Result<
-            (typeof reading.$inferSelect)[]
-        >;
+        return { data: await ctx.db.query.reading.findMany() };
     }),
 
     getReading: publicProcedure
@@ -83,7 +81,7 @@ export const readingRouter = createTRPCRouter({
                 });
             }
 
-            return { status: 201 } as Result<unknown>;
+            return { status: 201 };
         }),
 
     getReadingsInput: publicProcedure

@@ -4,7 +4,7 @@ import GithubIcon from '~/components/ui/Icons/Github';
 import InstagramIcon from '~/components/ui/Icons/Instagram';
 import WhatsAppIcon from '~/components/ui/Icons/WhatsApp';
 import YoutubeIcon from '~/components/ui/Icons/Youtube';
-import type { Site } from '~/payload-types';
+import { siteContent } from '~/lib/content';
 
 function SocialIcon({ platform }: { platform: string }) {
     switch (platform) {
@@ -32,8 +32,8 @@ function SocialIcon({ platform }: { platform: string }) {
     }
 }
 
-export default function Navbar({ site }: { site: Site }) {
-    const links = site.socialLinks ?? [];
+export default function Navbar() {
+    const { navBrand, socialLinks } = siteContent;
 
     return (
         <nav className="sticky top-0 right-0 left-0 z-50 bg-black/75 backdrop-blur-2xl backdrop-saturate-200">
@@ -42,11 +42,11 @@ export default function Navbar({ site }: { site: Site }) {
                     className="font-orbitron text-lg font-semibold tracking-widest text-white"
                     href="/"
                 >
-                    {site.navBrand}
+                    {navBrand}
                 </Link>
 
                 <div className="flex items-center justify-between gap-x-4 text-white lg:gap-x-6">
-                    {links.map((profile) => (
+                    {socialLinks.map((profile) => (
                         <Link
                             className="flex size-5 items-center justify-center transition hover:opacity-50"
                             key={`${profile.platform}-${profile.url}`}

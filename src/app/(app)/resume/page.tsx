@@ -1,39 +1,27 @@
 import { type Metadata } from 'next';
-import { notFound } from 'next/navigation';
 
-import { getResumeGlobal, isResumeComplete, mapResumeEntry } from '~/lib/cms';
+import { resumeContent } from '~/lib/content';
 
 import ResumeContent from '../_components/Resume/Resume';
 
-export const dynamic = 'force-dynamic';
+export const metadata: Metadata = {
+    title: resumeContent.metaTitle,
+    description: resumeContent.metaDescription,
+};
 
-export async function generateMetadata(): Promise<Metadata> {
-    const resume = await getResumeGlobal();
-    if (!isResumeComplete(resume)) {
-        return {};
-    }
-    return {
-        title: resume.metaTitle,
-        description: resume.metaDescription,
-    };
-}
-
-export default async function ResumePage() {
-    const resume = await getResumeGlobal();
-    if (!isResumeComplete(resume)) {
-        notFound();
-    }
-
+export default function ResumePage() {
     return (
-        <main className="pt-spacing container grid w-full">
+        <main className="container grid w-full pt-spacing">
             <div className="my-content mx-auto">
                 <ResumeContent
-                    projectsSectionTitle={resume.projectsSectionTitle}
-                    experienceSectionTitle={resume.experienceSectionTitle}
-                    educationSectionTitle={resume.educationSectionTitle}
-                    projects={resume.projects.map(mapResumeEntry)}
-                    experience={resume.experience.map(mapResumeEntry)}
-                    education={resume.education.map(mapResumeEntry)}
+                    projectsSectionTitle={resumeContent.projectsSectionTitle}
+                    experienceSectionTitle={
+                        resumeContent.experienceSectionTitle
+                    }
+                    educationSectionTitle={resumeContent.educationSectionTitle}
+                    projects={resumeContent.projects}
+                    experience={resumeContent.experience}
+                    education={resumeContent.education}
                 />
             </div>
         </main>

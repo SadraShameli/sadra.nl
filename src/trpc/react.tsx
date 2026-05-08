@@ -11,7 +11,7 @@ import { getPublicSiteOrigin } from '~/lib/site-url';
 
 import { createQueryClient } from './query-client';
 
-type AppRouter = import('~/server/api/root').AppRouter;
+import type { AppRouter } from '~/server/api/root';
 
 let clientQueryClientSingleton: QueryClient | undefined = undefined;
 const getQueryClient = () => {

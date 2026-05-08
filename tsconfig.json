@@ -30,14 +30,10 @@
       "~/*": [
         "./src/*"
       ],
-      "@payload-config": [
-        "./src/payload.config.ts"
-      ]
     }
   },
   "include": [
     "next-env.d.ts",
-    "src/payload-ambient.d.ts",
     "**/*.ts",
     "**/*.tsx",
     "**/*.cjs",
@@ -47,7 +43,6 @@
   ],
   "exclude": [
     "node_modules",
-    "generated",
-    "src/migrations"
+    "generated"
   ]
 }

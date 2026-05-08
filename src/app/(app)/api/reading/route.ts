@@ -6,12 +6,7 @@ import { api } from '~/trpc/server';
 
 export async function GET() {
     const res = await api.reading.getReadings();
-
-    if (res.data) {
-        return NextResponse.json(res.data, { status: res.status });
-    }
-
-    return NextResponse.json(res, { status: res.status });
+    return NextResponse.json(res.data);
 }
 
 export async function POST(request: NextRequest) {
@@ -24,12 +19,17 @@ export async function POST(request: NextRequest) {
             sensors: body.sensors,
         });
 
-        if (res.status == 201) {
-            return new NextResponse(null, { status: res.status });
+        const status =
+            'status' in res && typeof res.status === 'number'
+                ? res.status
+                : 500;
+
+        if (status === 201) {
+            return new NextResponse(null, { status: 201 });
         }
 
-        return NextResponse.json(res, { status: res.status });
+        return NextResponse.json(res, { status });
     } catch (e) {
-        return NextResponse.json(e, { status: 500 });
+        return NextResponse.json({ error: String(e) }, { status: 500 });
     }
 }

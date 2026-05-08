@@ -6,7 +6,7 @@ import {
     createTRPCRouter,
     publicProcedure,
 } from '~/server/api/trpc';
-import { type device, type recording } from '~/server/db/schemas/main';
+import { type recording } from '~/server/db/schemas/main';
 
 import { type GetDeviceProps, type Result } from '../types/types';
 import {
@@ -41,9 +41,7 @@ export async function getDevice(
 
 export const deviceRouter = createTRPCRouter({
     getDevices: publicProcedure.query(async ({ ctx }) => {
-        return { data: await ctx.db.query.device.findMany() } as Result<
-            (typeof device.$inferSelect)[]
-        >;
+        return { data: await ctx.db.query.device.findMany() };
     }),
 
     getDevice: publicProcedure
@@ -90,9 +88,7 @@ export const deviceRouter = createTRPCRouter({
                     ]);
                 });
 
-                return { data: readingsRecord } as Result<
-                    typeof readingsRecord
-                >;
+                return { data: readingsRecord };
             }
 
             const readings = await ctx.db.query.reading.findMany({
@@ -111,7 +107,7 @@ export const deviceRouter = createTRPCRouter({
                 ]);
             });
 
-            return { data: readingsRecord } as Result<typeof readingsRecord>;
+            return { data: readingsRecord };
         }),
 
     getDeviceRecordings: publicProcedure

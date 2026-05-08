@@ -12,7 +12,7 @@ export default function GallerySection({ items }: { items: GalleryItem[] }) {
     if (!items || items.length === 0) return null;
 
     return (
-        <div className="pt-spacing-inner px-4 py-6 lg:mt-0 lg:px-10 lg:py-20">
+        <div className="px-4 py-6 pt-spacing-inner lg:mt-0 lg:px-10 lg:py-20">
             <StaggerAnimation className="grid grid-cols-2 lg:grid-cols-4">
                 {items.map((item, index) => (
                     <Image

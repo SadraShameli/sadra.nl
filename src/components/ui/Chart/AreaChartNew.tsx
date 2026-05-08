@@ -14,7 +14,7 @@ type AreaChartNewProps = {
         dataKey: string;
     };
     yAxis: {
-        tickFormatter: any;
+        tickFormatter: (value: number, index: number) => string;
     };
     area: {
         dataKey: string;
