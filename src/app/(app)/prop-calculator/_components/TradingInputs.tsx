@@ -257,7 +257,7 @@ export default function TradingInputs({
                         min={0}
                         max={50}
                         step={0.5}
-                        value={commissionPerRoundTrip}
+                        value={commissionPerRoundTrip || ''}
                         onChange={(e) =>
                             onCommissionPerRoundTripChange(
                                 Number(e.target.value),
@@ -438,12 +438,18 @@ export default function TradingInputs({
                             </label>
                             <span className="font-mono text-xs text-muted-foreground tabular-nums">
                                 {plan.fees.oneTimeEval > 0
-                                    ? `${formatCompactCurrency(
-                                          plan.fees.oneTimeEval,
-                                      )} → ${formatCompactCurrency(
-                                          plan.fees.oneTimeEval *
-                                              (1 - evalDiscountPercent / 100),
-                                      )}`
+                                    ? evalDiscountPercent > 0
+                                        ? `${formatCompactCurrency(
+                                              plan.fees.oneTimeEval,
+                                          )} → ${formatCompactCurrency(
+                                              plan.fees.oneTimeEval *
+                                                  (1 -
+                                                      evalDiscountPercent /
+                                                          100),
+                                          )}`
+                                        : formatCompactCurrency(
+                                              plan.fees.oneTimeEval,
+                                          )
                                     : 'no eval fee'}
                             </span>
                         </div>
@@ -454,7 +460,7 @@ export default function TradingInputs({
                                 min={0}
                                 max={100}
                                 step={1}
-                                value={evalDiscountPercent}
+                                value={evalDiscountPercent || ''}
                                 onChange={(e) =>
                                     onEvalDiscountPercentChange(
                                         Number(e.target.value),
@@ -478,16 +484,24 @@ export default function TradingInputs({
                             </label>
                             <span className="font-mono text-xs text-muted-foreground tabular-nums">
                                 {plan.fees.activation > 0
-                                    ? `${formatCompactCurrency(
-                                          plan.fees.activation,
-                                      )} → ${formatCompactCurrency(
-                                          plan.fees.activation *
-                                              (1 -
-                                                  (linkActivationDiscount
-                                                      ? evalDiscountPercent
-                                                      : activationDiscountPercent) /
-                                                      100),
-                                      )}`
+                                    ? (() => {
+                                          const effectiveDiscount =
+                                              linkActivationDiscount
+                                                  ? evalDiscountPercent
+                                                  : activationDiscountPercent;
+                                          return effectiveDiscount > 0
+                                              ? `${formatCompactCurrency(
+                                                    plan.fees.activation,
+                                                )} → ${formatCompactCurrency(
+                                                    plan.fees.activation *
+                                                        (1 -
+                                                            effectiveDiscount /
+                                                                100),
+                                                )}`
+                                              : formatCompactCurrency(
+                                                    plan.fees.activation,
+                                                );
+                                      })()
                                     : 'no activation fee'}
                             </span>
                         </div>
@@ -500,9 +514,9 @@ export default function TradingInputs({
                                     max={100}
                                     step={1}
                                     value={
-                                        linkActivationDiscount
+                                        (linkActivationDiscount
                                             ? evalDiscountPercent
-                                            : activationDiscountPercent
+                                            : activationDiscountPercent) || ''
                                     }
                                     disabled={
                                         plan.fees.activation === 0 ||

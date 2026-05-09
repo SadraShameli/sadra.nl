@@ -128,7 +128,12 @@ export default function OptimalRiskTable({
                                     )}
                                 >
                                     <td className="py-1.5 pr-3">
-                                        {riskPct}%
+                                        {formatCurrency(
+                                            (plan.accountSize * riskPct) / 100,
+                                        )}
+                                        <span className="ml-1 text-muted-foreground">
+                                            ({riskPct}%)
+                                        </span>
                                         {isBest && !isCurrent && (
                                             <span className="ml-1 text-emerald-400">
                                                 ★

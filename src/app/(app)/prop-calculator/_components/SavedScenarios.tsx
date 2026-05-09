@@ -1,6 +1,6 @@
 'use client';
 
-import { Bookmark, Trash2 } from 'lucide-react';
+import { Bookmark, RotateCcw, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { type PropFirm } from '~/lib/prop-calculator';
@@ -61,10 +61,24 @@ export default function SavedScenarios({
         setOpen(false);
     };
 
+    const handleReplace = (record: SavedScenarioRecord) => {
+        const params = encodeState(state).toString();
+        const next = scenarios.map((s) =>
+            s.name === record.name ? { ...s, params, savedAt: Date.now() } : s,
+        );
+        persistScenarios(next);
+        setScenarios(next);
+    };
+
     const handleDelete = (record: SavedScenarioRecord) => {
         const next = scenarios.filter((s) => s.name !== record.name);
         persistScenarios(next);
         setScenarios(next);
+    };
+
+    const handleClearAll = () => {
+        persistScenarios([]);
+        setScenarios([]);
     };
 
     return (
@@ -107,8 +121,19 @@ export default function SavedScenarios({
                     </div>
 
                     <div className="border-t border-border/50 pt-2">
-                        <div className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                            Saved
+                        <div className="mb-2 flex items-center justify-between">
+                            <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                                Saved
+                            </span>
+                            {scenarios.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={handleClearAll}
+                                    className="text-xs text-muted-foreground hover:text-rose-400"
+                                >
+                                    Clear all
+                                </button>
+                            )}
                         </div>
                         {scenarios.length === 0 ? (
                             <p className="text-xs text-muted-foreground">
@@ -128,14 +153,24 @@ export default function SavedScenarios({
                                         >
                                             {s.name}
                                         </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleDelete(s)}
-                                            aria-label={`Delete ${s.name}`}
-                                            className="text-muted-foreground hover:text-rose-400"
-                                        >
-                                            <Trash2 className="size-3.5" />
-                                        </button>
+                                        <div className="flex items-center gap-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleReplace(s)}
+                                                aria-label={`Replace ${s.name} with current config`}
+                                                className="text-muted-foreground hover:text-foreground"
+                                            >
+                                                <RotateCcw className="size-3.5" />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDelete(s)}
+                                                aria-label={`Delete ${s.name}`}
+                                                className="text-muted-foreground hover:text-rose-400"
+                                            >
+                                                <Trash2 className="size-3.5" />
+                                            </button>
+                                        </div>
                                     </li>
                                 ))}
                             </ul>

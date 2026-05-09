@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import { Card } from '~/components/ui/Card';
 
+import { FirmId } from '~/lib/prop-calculator';
 import ChartPanel from './ChartPanel';
 import FirmComparisonTable from './FirmComparisonTable';
 import FirmPlanPicker from './FirmPlanPicker';
@@ -11,13 +12,14 @@ import { formatCompactCurrency, formatDays } from './helpers';
 import { kpiDescriptions } from './kpiDescriptions';
 import OptimalRiskTable from './OptimalRiskTable';
 import PercentileBar from './PercentileBar';
+import PlanComparisonTable from './PlanComparisonTable';
+import PlanStatsBadges from './PlanStatsBadges';
 import PortfolioPanel from './PortfolioPanel';
 import ResultsPanel from './ResultsPanel';
 import SavedScenarios from './SavedScenarios';
 import SensitivityHeatmap from './SensitivityHeatmap';
 import ShareLinkButton from './ShareLinkButton';
 import TradingInputs from './TradingInputs';
-import { FirmId } from '~/lib/prop-calculator';
 
 import { ChartType, type PortfolioEntry, SizingMode } from './types';
 import { useCalculator } from './useCalculator';
@@ -54,7 +56,7 @@ export default function CalculatorShell() {
                 />
             </div>
 
-            <Card className="px-6 py-6">
+            <Card className="flex flex-col gap-4 px-6 py-6">
                 <FirmPlanPicker
                     firms={c.firms}
                     firm={c.state.firm}
@@ -62,6 +64,7 @@ export default function CalculatorShell() {
                     onFirmChange={c.setFirm}
                     onPlanChange={c.setPlan}
                 />
+                <PlanStatsBadges plan={c.state.plan} />
             </Card>
 
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
@@ -176,6 +179,12 @@ export default function CalculatorShell() {
                         ? c.state.riskPercent
                         : (c.state.riskDollars / c.state.plan.accountSize) * 100
                 }
+            />
+
+            <PlanComparisonTable
+                firm={c.state.firm}
+                activePlan={c.state.plan}
+                baseInputs={c.simInputs}
             />
 
             <SensitivityHeatmap

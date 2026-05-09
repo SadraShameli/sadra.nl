@@ -484,10 +484,11 @@ function PortfolioRow({
                                     </label>
                                     {plan.fees.oneTimeEval > 0 && (
                                         <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
-                                            {formatCompactCurrency(
-                                                plan.fees.oneTimeEval,
-                                            )}{' '}
-                                            → {formatCompactCurrency(evalAfter)}
+                                            {entry.evalDiscountPercent > 0
+                                                ? `${formatCompactCurrency(plan.fees.oneTimeEval)} → ${formatCompactCurrency(evalAfter)}`
+                                                : formatCompactCurrency(
+                                                      plan.fees.oneTimeEval,
+                                                  )}
                                         </span>
                                     )}
                                 </div>
@@ -497,7 +498,7 @@ function PortfolioRow({
                                         min={0}
                                         max={100}
                                         step={1}
-                                        value={entry.evalDiscountPercent}
+                                        value={entry.evalDiscountPercent || ''}
                                         disabled={plan.fees.oneTimeEval === 0}
                                         onChange={(e) =>
                                             onUpdate(entry.id, {
@@ -520,10 +521,11 @@ function PortfolioRow({
                                     </label>
                                     {plan.fees.activation > 0 && (
                                         <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
-                                            {formatCompactCurrency(
-                                                plan.fees.activation,
-                                            )}{' '}
-                                            → {formatCompactCurrency(actAfter)}
+                                            {effectiveActDiscount > 0
+                                                ? `${formatCompactCurrency(plan.fees.activation)} → ${formatCompactCurrency(actAfter)}`
+                                                : formatCompactCurrency(
+                                                      plan.fees.activation,
+                                                  )}
                                         </span>
                                     )}
                                 </div>
@@ -535,9 +537,10 @@ function PortfolioRow({
                                             max={100}
                                             step={1}
                                             value={
-                                                entry.linkActivationDiscount
+                                                (entry.linkActivationDiscount
                                                     ? entry.evalDiscountPercent
-                                                    : entry.activationDiscountPercent
+                                                    : entry.activationDiscountPercent) ||
+                                                ''
                                             }
                                             disabled={
                                                 plan.fees.activation === 0 ||
