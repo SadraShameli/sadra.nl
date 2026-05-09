@@ -3,6 +3,7 @@ import {
     EodTrailingDrawdown,
     FirmId,
     Plan,
+    type PlanId,
     type PlanInit,
     PropFirm,
 } from '../../core';
@@ -46,7 +47,7 @@ const SIZES: readonly TradeifySize[] = [
 function buildPlan(size: TradeifySize): PlanInit {
     const profitTarget = size.accountSize * 0.06;
     return {
-        id: `tradeify-${size.accountSize}`,
+        id: `tradeify-${size.accountSize}` as PlanId,
         label: `$${(size.accountSize / 1_000).toFixed(0)}K — Growth`,
         accountSize: size.accountSize,
         profitTarget,

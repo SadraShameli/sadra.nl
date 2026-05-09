@@ -3,6 +3,7 @@ import {
     EodTrailingDrawdown,
     FirmId,
     Plan,
+    type PlanId,
     type PlanInit,
     PropFirm,
 } from '../../core';
@@ -60,7 +61,7 @@ const RAPID_SIZES: readonly FnSize[] = [
 
 function buildLegacyPlan(size: FnSize): PlanInit {
     return {
-        id: `fundednext-legacy-${size.accountSize}`,
+        id: `fundednext-legacy-${size.accountSize}` as PlanId,
         label: `$${(size.accountSize / 1_000).toFixed(0)}K — Legacy`,
         accountSize: size.accountSize,
         profitTarget: size.profitTarget,
@@ -89,7 +90,7 @@ function buildLegacyPlan(size: FnSize): PlanInit {
 
 function buildRapidPlan(size: FnSize): PlanInit {
     return {
-        id: `fundednext-rapid-${size.accountSize}`,
+        id: `fundednext-rapid-${size.accountSize}` as PlanId,
         label: `$${(size.accountSize / 1_000).toFixed(0)}K — Rapid`,
         accountSize: size.accountSize,
         profitTarget: size.profitTarget,

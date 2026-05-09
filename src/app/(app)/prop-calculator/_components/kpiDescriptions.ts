@@ -54,5 +54,7 @@ export const panelDescriptions = {
     sensitivityNet:
         "Expected monthly net dollars across the same winrate × reward-to-risk grid. Pairs with the pass% heatmap to spot the band that's both safe AND profitable.",
     firmComparison:
-        'Runs the simulator across all 6 firms at the closest plan size to your current selection, using your current trading inputs. Sorted by monthly net. Active firm highlighted; ★ rating relative to best.',
+        'Runs the simulator across all firms at the closest plan size to your current selection, using your current trading inputs. Sorted by monthly net. Active firm highlighted; ★ rating relative to best.',
+    portfolio:
+        "Build a basket of accounts across any mix of firms and plans. Each row simulates your current trading inputs against that firm's rules. Combined totals show your aggregate expected monthly income, total eval spend, and portfolio ROI — the same view as copy-trading but across different firms.",
 } as const;

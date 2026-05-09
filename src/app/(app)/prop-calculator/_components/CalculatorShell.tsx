@@ -11,12 +11,15 @@ import { formatCompactCurrency, formatDays } from './helpers';
 import { kpiDescriptions } from './kpiDescriptions';
 import OptimalRiskTable from './OptimalRiskTable';
 import PercentileBar from './PercentileBar';
+import PortfolioPanel from './PortfolioPanel';
 import ResultsPanel from './ResultsPanel';
 import SavedScenarios from './SavedScenarios';
 import SensitivityHeatmap from './SensitivityHeatmap';
 import ShareLinkButton from './ShareLinkButton';
 import TradingInputs from './TradingInputs';
-import { ChartType, SizingMode } from './types';
+import { FirmId, type PlanId } from '~/lib/prop-calculator';
+
+import { ChartType, type PortfolioEntry, SizingMode } from './types';
 import { useCalculator } from './useCalculator';
 
 export default function CalculatorShell() {
@@ -24,6 +27,17 @@ export default function CalculatorShell() {
     const [chartType, setChartType] = useState<ChartType>(
         ChartType.DaysToPassHistogram,
     );
+    const [portfolio, setPortfolio] = useState<PortfolioEntry[]>([
+        {
+            id: 'default-apex-50k-eod',
+            firmId: FirmId.Apex,
+            planId: 'apex-50000-eod' as PlanId,
+            count: 20,
+            evalDiscountPercent: 0,
+            activationDiscountPercent: 0,
+            linkActivationDiscount: false,
+        },
+    ]);
 
     return (
         <div className="mb-10 flex flex-col gap-6">
@@ -58,6 +72,7 @@ export default function CalculatorShell() {
                         riskPercent={c.state.riskPercent}
                         seed={c.state.seed}
                         trials={c.state.trials}
+                        maxEvalDays={c.state.maxEvalDays}
                         evalDiscountPercent={c.state.evalDiscountPercent}
                         activationDiscountPercent={
                             c.state.activationDiscountPercent
@@ -78,6 +93,7 @@ export default function CalculatorShell() {
                         onRiskPercentChange={c.setRiskPercent}
                         onSeedChange={c.setSeed}
                         onTrialsChange={c.setTrials}
+                        onMaxEvalDaysChange={c.setMaxEvalDays}
                         onEvalDiscountPercentChange={c.setEvalDiscountPercent}
                         onActivationDiscountPercentChange={
                             c.setActivationDiscountPercent
@@ -103,6 +119,15 @@ export default function CalculatorShell() {
                     isPending={c.isPending}
                 />
             </div>
+
+            <PortfolioPanel
+                firms={c.firms}
+                baseInputs={c.simInputs}
+                currentFirm={c.state.firm}
+                currentPlan={c.state.plan}
+                portfolio={portfolio}
+                onPortfolioChange={setPortfolio}
+            />
 
             <div className="grid gap-3 md:grid-cols-2">
                 <PercentileBar

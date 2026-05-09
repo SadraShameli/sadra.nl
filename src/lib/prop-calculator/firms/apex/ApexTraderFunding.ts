@@ -4,6 +4,7 @@ import {
     FirmId,
     IntradayTrailingDrawdown,
     Plan,
+    type PlanId,
     type PlanInit,
     PropFirm,
 } from '../../core';
@@ -61,7 +62,7 @@ function buildPlan(size: ApexSize, variant: 'eod' | 'intraday'): PlanInit {
         : new IntradayTrailingDrawdown({ amount: size.maxDrawdown });
 
     return {
-        id: `apex-${size.accountSize}-${variant}`,
+        id: `apex-${size.accountSize}-${variant}` as PlanId,
         label: `$${(size.accountSize / 1_000).toFixed(0)}K — ${isEod ? 'EOD trailing' : 'Intraday trailing'}`,
         accountSize: size.accountSize,
         profitTarget: size.profitTarget,

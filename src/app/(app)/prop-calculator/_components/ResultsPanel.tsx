@@ -1,5 +1,7 @@
 'use client';
 
+import { Pin, PinOff } from 'lucide-react';
+
 import { type Plan, type SimOutputs } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utils';
 
@@ -100,21 +102,23 @@ function CostBreakdownBody({ result, plan }: CostBreakdownBodyProps) {
     const activationListed = plan.fees.activation;
     const rows: { label: string; value: string }[] = [];
     if (evalListed > 0) {
+        const evalDiscounted = cb.perAccountEvalFee;
         rows.push({
             label: 'Eval fee',
             value:
-                evalListed !== cb.evalFee
-                    ? `${formatCompactCurrency(evalListed)} → ${formatCurrency(cb.evalFee)}`
-                    : formatCurrency(cb.evalFee),
+                Math.abs(evalListed - evalDiscounted) > 0.01
+                    ? `${formatCompactCurrency(evalListed)} → ${formatCurrency(evalDiscounted)}`
+                    : formatCurrency(evalDiscounted),
         });
     }
     if (activationListed > 0) {
+        const activationDiscounted = cb.perAccountActivationFee;
         rows.push({
             label: 'Activation',
             value:
-                activationListed !== cb.activationFee
-                    ? `${formatCompactCurrency(activationListed)} → ${formatCurrency(cb.activationFee)}`
-                    : formatCurrency(cb.activationFee),
+                Math.abs(activationListed - activationDiscounted) > 0.01
+                    ? `${formatCompactCurrency(activationListed)} → ${formatCurrency(activationDiscounted)}`
+                    : formatCurrency(activationDiscounted),
         });
     }
     if (cb.monthlySubsTotal > 0) {
@@ -251,10 +255,20 @@ export default function ResultsPanel({
                 <Button
                     variant={pinned ? 'default' : 'outline'}
                     size="sm"
-                    className="h-7 px-2 text-xs"
+                    className="flex h-7 items-center gap-1.5 px-2 text-xs"
                     onClick={pinned ? onUnpin : onPin}
                 >
-                    {pinned ? '📌 Unpin' : '📌 Pin scenario'}
+                    {pinned ? (
+                        <>
+                            <PinOff className="size-3.5" />
+                            Unpin
+                        </>
+                    ) : (
+                        <>
+                            <Pin className="size-3.5" />
+                            Pin scenario
+                        </>
+                    )}
                 </Button>
             </div>
 

@@ -31,6 +31,7 @@ interface TradingInputsProps {
     riskPercent: number;
     seed: number;
     trials: number;
+    maxEvalDays: number;
     evalDiscountPercent: number;
     activationDiscountPercent: number;
     linkActivationDiscount: boolean;
@@ -47,6 +48,7 @@ interface TradingInputsProps {
     onRiskPercentChange: (n: number) => void;
     onSeedChange: (n: number) => void;
     onTrialsChange: (n: number) => void;
+    onMaxEvalDaysChange: (n: number) => void;
     onEvalDiscountPercentChange: (n: number) => void;
     onActivationDiscountPercentChange: (n: number) => void;
     onLinkActivationDiscountChange: (linked: boolean) => void;
@@ -66,6 +68,7 @@ export default function TradingInputs({
     riskPercent,
     seed,
     trials,
+    maxEvalDays,
     evalDiscountPercent,
     activationDiscountPercent,
     linkActivationDiscount,
@@ -82,6 +85,7 @@ export default function TradingInputs({
     onRiskPercentChange,
     onSeedChange,
     onTrialsChange,
+    onMaxEvalDaysChange,
     onEvalDiscountPercentChange,
     onActivationDiscountPercentChange,
     onLinkActivationDiscountChange,
@@ -150,6 +154,30 @@ export default function TradingInputs({
                                         onSeedChange(Number(e.target.value))
                                     }
                                 />
+                            </div>
+                            <div>
+                                <label
+                                    htmlFor="max-eval-days"
+                                    className="mb-1 block text-xs font-medium text-muted-foreground"
+                                >
+                                    Max eval days
+                                </label>
+                                <Input
+                                    id="max-eval-days"
+                                    type="number"
+                                    min={10}
+                                    max={365}
+                                    step={5}
+                                    value={maxEvalDays}
+                                    onChange={(e) =>
+                                        onMaxEvalDaysChange(
+                                            Number(e.target.value),
+                                        )
+                                    }
+                                />
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    Trials that hit this limit count as timeouts
+                                </p>
                             </div>
                         </div>
                     </PopoverContent>

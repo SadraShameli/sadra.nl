@@ -15,8 +15,10 @@ export type PayoutSchedule =
     | { kind: 'every-n-win-days'; n: number }
     | { kind: 'per-cycle'; days: number };
 
+export type PlanId = string & { readonly __brand: 'PlanId' };
+
 export interface PlanInit {
-    id: string;
+    id: PlanId;
     label: string;
     accountSize: number;
     profitTarget: number;
@@ -34,7 +36,7 @@ export interface PlanInit {
 export abstract class Plan {
     constructor(protected readonly init: PlanInit) {}
 
-    get id(): string {
+    get id(): PlanId {
         return this.init.id;
     }
     get label(): string {

@@ -3,6 +3,7 @@ import {
     EodTrailingDrawdown,
     FirmId,
     Plan,
+    type PlanId,
     type PlanInit,
     PropFirm,
 } from '../../core';
@@ -83,7 +84,7 @@ const PRO_SIZES: readonly MffuSize[] = [
 
 function buildRapidPlan(size: MffuSize): PlanInit {
     return {
-        id: `mffu-rapid-${size.accountSize}`,
+        id: `mffu-rapid-${size.accountSize}` as PlanId,
         label: `$${(size.accountSize / 1_000).toFixed(0)}K — Rapid`,
         accountSize: size.accountSize,
         profitTarget: size.profitTarget,
@@ -109,7 +110,7 @@ function buildRapidPlan(size: MffuSize): PlanInit {
 
 function buildFlexPlan(size: MffuSize): PlanInit {
     return {
-        id: `mffu-flex-${size.accountSize}`,
+        id: `mffu-flex-${size.accountSize}` as PlanId,
         label: `$${(size.accountSize / 1_000).toFixed(0)}K — Flex`,
         accountSize: size.accountSize,
         profitTarget: size.profitTarget,
@@ -135,7 +136,7 @@ function buildFlexPlan(size: MffuSize): PlanInit {
 
 function buildProPlan(size: MffuSize): PlanInit {
     return {
-        id: `mffu-pro-${size.accountSize}`,
+        id: `mffu-pro-${size.accountSize}` as PlanId,
         label: `$${(size.accountSize / 1_000).toFixed(0)}K — Pro`,
         accountSize: size.accountSize,
         profitTarget: size.profitTarget,
@@ -161,7 +162,7 @@ function buildProPlan(size: MffuSize): PlanInit {
 
 function buildBuilderPlan(): PlanInit {
     return {
-        id: 'mffu-builder-50000',
+        id: 'mffu-builder-50000' as PlanId,
         label: '$50K — Builder',
         accountSize: 50_000,
         profitTarget: 3_000,

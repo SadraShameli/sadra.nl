@@ -46,6 +46,8 @@ const ChartContainer = React.forwardRef<
 >(({ id, className, children, config, ...props }, ref) => {
     const uniqueId = React.useId();
     const chartId = `chart-${id || uniqueId.replace(/:/g, '')}`;
+    const [mounted, setMounted] = React.useState(false);
+    React.useEffect(() => setMounted(true), []);
 
     return (
         <ChartContext.Provider value={{ config }}>
@@ -59,9 +61,16 @@ const ChartContainer = React.forwardRef<
                 {...props}
             >
                 <ChartStyle id={chartId} config={config} />
-                <RechartsPrimitive.ResponsiveContainer minHeight={0}>
-                    {children}
-                </RechartsPrimitive.ResponsiveContainer>
+                {mounted && (
+                    <RechartsPrimitive.ResponsiveContainer
+                        minHeight={0}
+                        minWidth={0}
+                        height="100%"
+                        width="100%"
+                    >
+                        {children}
+                    </RechartsPrimitive.ResponsiveContainer>
+                )}
             </div>
         </ChartContext.Provider>
     );
@@ -409,5 +418,6 @@ export {
     ChartLegendContent,
     ChartStyle,
     ChartTooltip,
-    ChartTooltipContent,
+    ChartTooltipContent
 };
+

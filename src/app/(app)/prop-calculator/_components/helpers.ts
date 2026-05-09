@@ -17,7 +17,11 @@ export function formatDays(d: number): string {
 }
 
 export function formatCompactCurrency(n: number): string {
-    if (Math.abs(n) >= 1000) {
+    const abs = Math.abs(n);
+    if (abs >= 1_000_000) {
+        return `$${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 2)}M`;
+    }
+    if (abs >= 1000) {
         return `$${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}K`;
     }
     return formatCurrency(n);

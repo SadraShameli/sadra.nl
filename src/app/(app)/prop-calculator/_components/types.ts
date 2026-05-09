@@ -1,4 +1,14 @@
-import { type FirmId, type Plan, type PropFirm } from '~/lib/prop-calculator';
+import { type FirmId, type PlanId, type Plan, type PropFirm } from '~/lib/prop-calculator';
+
+export interface PortfolioEntry {
+    id: string;
+    firmId: FirmId;
+    planId: PlanId;
+    count: number;
+    evalDiscountPercent: number;
+    activationDiscountPercent: number;
+    linkActivationDiscount: boolean;
+}
 
 export enum SizingMode {
     Dollar = 'dollar',
@@ -14,7 +24,7 @@ export enum ChartType {
 }
 
 export interface FirmMemoryEntry {
-    planId: string;
+    planId: PlanId;
     copyAccounts: number;
 }
 

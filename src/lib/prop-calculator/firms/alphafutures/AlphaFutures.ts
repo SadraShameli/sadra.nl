@@ -3,6 +3,7 @@ import {
     EodTrailingDrawdown,
     FirmId,
     Plan,
+    type PlanId,
     type PlanInit,
     PropFirm,
 } from '../../core';
@@ -60,7 +61,7 @@ const ADVANCED_SIZES: readonly AfSize[] = [
 
 function buildZeroPlan(size: AfSize): PlanInit {
     return {
-        id: `alphafutures-zero-${size.accountSize}`,
+        id: `alphafutures-zero-${size.accountSize}` as PlanId,
         label: `$${(size.accountSize / 1_000).toFixed(0)}K — Zero`,
         accountSize: size.accountSize,
         profitTarget: size.profitTarget,
@@ -89,7 +90,7 @@ function buildZeroPlan(size: AfSize): PlanInit {
 
 function buildAdvancedPlan(size: AfSize): PlanInit {
     return {
-        id: `alphafutures-advanced-${size.accountSize}`,
+        id: `alphafutures-advanced-${size.accountSize}` as PlanId,
         label: `$${(size.accountSize / 1_000).toFixed(0)}K — Advanced`,
         accountSize: size.accountSize,
         profitTarget: size.profitTarget,

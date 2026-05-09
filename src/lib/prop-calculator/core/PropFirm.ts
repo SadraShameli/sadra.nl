@@ -1,4 +1,4 @@
-import { type Plan } from './Plan';
+import { type Plan, type PlanId } from './Plan';
 
 export enum FirmId {
     AlphaFutures = 'alphafutures',
@@ -17,7 +17,7 @@ export abstract class PropFirm {
     abstract readonly website: string;
     abstract readonly plans: readonly Plan[];
 
-    findPlan(planId: string): Plan | undefined {
+    findPlan(planId: PlanId): Plan | undefined {
         return this.plans.find((p) => p.id === planId);
     }
 

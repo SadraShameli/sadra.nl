@@ -1,4 +1,4 @@
-import { type FirmId, type PropFirm } from '~/lib/prop-calculator';
+import { type FirmId, type PlanId, type PropFirm } from '~/lib/prop-calculator';
 
 import type { CalculatorState } from './types';
 import { SizingMode } from './types';
@@ -30,7 +30,7 @@ export function decodeState(
     fallback: CalculatorState,
 ): CalculatorState {
     const firmId = params.get('firm') as FirmId | null;
-    const planId = params.get('plan');
+    const planId = params.get('plan') as PlanId | null;
     const firm = firmId ? firms.find((f) => f.id === firmId) : undefined;
     const plan = firm && planId ? firm.findPlan(planId) : undefined;
 

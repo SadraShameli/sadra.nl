@@ -3,6 +3,7 @@ import {
     EodTrailingDrawdown,
     FirmId,
     Plan,
+    type PlanId,
     type PlanInit,
     PropFirm,
 } from '../../core';
@@ -25,7 +26,7 @@ const SIZES: readonly LucidSize[] = [
 function buildPlan(size: LucidSize): PlanInit {
     const profitTarget = size.accountSize * 0.06;
     return {
-        id: `lucid-${size.accountSize}`,
+        id: `lucid-${size.accountSize}` as PlanId,
         label: `$${(size.accountSize / 1_000).toFixed(0)}K — LucidFlex`,
         accountSize: size.accountSize,
         profitTarget,

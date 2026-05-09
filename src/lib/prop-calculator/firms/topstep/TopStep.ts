@@ -3,6 +3,7 @@ import {
     FirmId,
     IntradayTrailingDrawdown,
     Plan,
+    type PlanId,
     type PlanInit,
     PropFirm,
 } from '../../core';
@@ -39,7 +40,7 @@ const SIZES: readonly TopStepSize[] = [
 
 function buildPlan(size: TopStepSize): PlanInit {
     return {
-        id: `topstep-${size.accountSize}`,
+        id: `topstep-${size.accountSize}` as PlanId,
         label: `$${(size.accountSize / 1_000).toFixed(0)}K — Trading Combine`,
         accountSize: size.accountSize,
         profitTarget: size.profitTarget,

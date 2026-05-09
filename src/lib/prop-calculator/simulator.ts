@@ -32,6 +32,8 @@ export interface CostBreakdown {
     activationFee: number;
     monthlySubsTotal: number;
     resetFeesTotal: number;
+    perAccountEvalFee: number;
+    perAccountActivationFee: number;
 }
 
 export interface SimOutputs {
@@ -450,11 +452,15 @@ function buildCostBreakdown(
     const evalFactor = 1 - (discounts?.evalPercent ?? 0) / 100;
     const activationFactor = 1 - (discounts?.activationPercent ?? 0) / 100;
     const months = Math.max(1, Math.ceil(avgDays / TRADING_DAYS_PER_MONTH));
+    const perAccountEvalFee = plan.fees.oneTimeEval * evalFactor;
+    const perAccountActivationFee = plan.fees.activation * activationFactor;
     return {
-        evalFee: plan.fees.oneTimeEval * evalFactor,
-        activationFee: plan.fees.activation * activationFactor,
+        evalFee: perAccountEvalFee,
+        activationFee: perAccountActivationFee,
         monthlySubsTotal: plan.fees.monthlySubscription * months,
         resetFeesTotal: avgResetFees,
+        perAccountEvalFee,
+        perAccountActivationFee,
     };
 }
 
@@ -649,6 +655,8 @@ export function simulate(inputs: SimInputs): SimOutputs {
             activationFee: costBreakdown.activationFee * m,
             monthlySubsTotal: costBreakdown.monthlySubsTotal * m,
             resetFeesTotal: costBreakdown.resetFeesTotal * m,
+            perAccountEvalFee: costBreakdown.perAccountEvalFee,
+            perAccountActivationFee: costBreakdown.perAccountActivationFee,
         },
         expectedAttempts,
         expectedAttemptsP90,

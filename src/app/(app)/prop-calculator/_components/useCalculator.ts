@@ -13,7 +13,7 @@ import {
     type SimOutputs,
 } from '~/lib/prop-calculator';
 
-import { type CalculatorState, SizingMode } from './types';
+import { SizingMode, type CalculatorState } from './types';
 import { decodeState, encodeState } from './urlState';
 
 const SIM_DEBOUNCE_MS = 180;
@@ -87,6 +87,7 @@ export interface UseCalculatorReturn {
     setRiskPercent: (n: number) => void;
     setSeed: (n: number) => void;
     setTrials: (n: number) => void;
+    setMaxEvalDays: (n: number) => void;
     setEvalDiscountPercent: (n: number) => void;
     setActivationDiscountPercent: (n: number) => void;
     setLinkActivationDiscount: (linked: boolean) => void;
@@ -254,6 +255,11 @@ export function useCalculator(): UseCalculatorReturn {
         setRiskPercent: (n) => setState((s) => ({ ...s, riskPercent: n })),
         setSeed: (n) => setState((s) => ({ ...s, seed: n })),
         setTrials: (n) => setState((s) => ({ ...s, trials: n })),
+        setMaxEvalDays: (n) =>
+            setState((s) => ({
+                ...s,
+                maxEvalDays: Math.max(10, Math.min(365, Math.floor(n))),
+            })),
         setEvalDiscountPercent: (n) =>
             setState((s) => ({ ...s, evalDiscountPercent: n })),
         setActivationDiscountPercent: (n) =>

@@ -3,6 +3,7 @@ import {
     EodTrailingDrawdown,
     FirmId,
     Plan,
+    type PlanId,
     type PlanInit,
     PropFirm,
 } from '../../core';
@@ -51,7 +52,7 @@ const SIZES: readonly TptSize[] = [
 
 function buildPlan(size: TptSize): PlanInit {
     return {
-        id: `tpt-${size.accountSize}`,
+        id: `tpt-${size.accountSize}` as PlanId,
         label: `$${(size.accountSize / 1_000).toFixed(0)}K — Test → PRO`,
         accountSize: size.accountSize,
         profitTarget: size.profitTarget,
