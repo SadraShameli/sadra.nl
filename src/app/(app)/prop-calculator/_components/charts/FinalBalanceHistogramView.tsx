@@ -43,7 +43,10 @@ export default function FinalBalanceHistogramView({ result }: Props) {
     const targetBalance = result.accountSize + result.profitTarget;
 
     return (
-        <ChartContainer config={chartConfig} className="aspect-16/7 w-full">
+        <ChartContainer
+            config={chartConfig}
+            className="aspect-16/7 min-h-[500px] w-full"
+        >
             <BarChart
                 data={bins}
                 margin={{ top: 10, right: 12, left: 0, bottom: 28 }}

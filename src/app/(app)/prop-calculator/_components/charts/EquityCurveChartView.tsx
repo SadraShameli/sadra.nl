@@ -71,7 +71,10 @@ export default function EquityCurveChartView({ result }: Props) {
     const pathCount = result.sampleEquityCurves.length;
 
     return (
-        <ChartContainer config={chartConfig} className="aspect-16/7 w-full">
+        <ChartContainer
+            config={chartConfig}
+            className="aspect-16/7 min-h-125 w-full"
+        >
             <LineChart
                 data={data}
                 margin={{ top: 10, right: 12, left: 0, bottom: 28 }}

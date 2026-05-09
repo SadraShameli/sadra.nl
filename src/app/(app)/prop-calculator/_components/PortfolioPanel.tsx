@@ -211,7 +211,7 @@ export default function PortfolioPanel({
             ) : (
                 <div className="space-y-4">
                     {totals && (
-                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
                             <SummaryCard
                                 label="Combined monthly net"
                                 value={formatCurrency(totals.monthlyNet)}
