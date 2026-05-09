@@ -1,4 +1,9 @@
-import { type FirmId, type PlanId, type Plan, type PropFirm } from '~/lib/prop-calculator';
+import {
+    type FirmId,
+    type PlanId,
+    type Plan,
+    type PropFirm,
+} from '~/lib/prop-calculator';
 
 export interface PortfolioEntry {
     id: string;
