@@ -14,7 +14,11 @@ import {
 } from '~/components/ui/Popover';
 import { Slider } from '~/components/ui/Slider';
 
-import { formatCompactCurrency, formatCurrency, formatPercent } from './helpers';
+import {
+    formatCompactCurrency,
+    formatCurrency,
+    formatPercent,
+} from './helpers';
 import { SizingMode } from './types';
 
 interface TradingInputsProps {
@@ -166,7 +170,9 @@ export default function TradingInputs({
                     max={0.95}
                     step={0.01}
                     value={[winrate]}
-                    onValueChange={(v) => v[0] !== undefined && onWinrateChange(v[0])}
+                    onValueChange={(v) =>
+                        v[0] !== undefined && onWinrateChange(v[0])
+                    }
                 />
             </div>
 
@@ -184,7 +190,9 @@ export default function TradingInputs({
                     max={5}
                     step={0.1}
                     value={[rrRatio]}
-                    onValueChange={(v) => v[0] !== undefined && onRrRatioChange(v[0])}
+                    onValueChange={(v) =>
+                        v[0] !== undefined && onRrRatioChange(v[0])
+                    }
                 />
             </div>
 
@@ -289,7 +297,9 @@ export default function TradingInputs({
                     <div className="inline-flex rounded-md border border-input p-0.5">
                         <button
                             type="button"
-                            onClick={() => onSizingModeChange(SizingMode.Dollar)}
+                            onClick={() =>
+                                onSizingModeChange(SizingMode.Dollar)
+                            }
                             className={cn(
                                 'rounded-sm px-2 py-0.5 text-xs font-medium transition-colors',
                                 sizingMode === SizingMode.Dollar
@@ -301,7 +311,9 @@ export default function TradingInputs({
                         </button>
                         <button
                             type="button"
-                            onClick={() => onSizingModeChange(SizingMode.Percent)}
+                            onClick={() =>
+                                onSizingModeChange(SizingMode.Percent)
+                            }
                             className={cn(
                                 'rounded-sm px-2 py-0.5 text-xs font-medium transition-colors',
                                 sizingMode === SizingMode.Percent
@@ -368,7 +380,7 @@ export default function TradingInputs({
 
             <div className="border-t border-border/50 pt-4">
                 <div className="mb-3 flex items-center justify-between">
-                    <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <h4 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
                         Coupon
                     </h4>
                     <Button
@@ -396,7 +408,7 @@ export default function TradingInputs({
                             >
                                 Eval fee discount
                             </label>
-                            <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                            <span className="font-mono text-xs text-muted-foreground tabular-nums">
                                 {plan.fees.oneTimeEval > 0
                                     ? `${formatCompactCurrency(
                                           plan.fees.oneTimeEval,
@@ -436,7 +448,7 @@ export default function TradingInputs({
                             >
                                 Activation fee discount
                             </label>
-                            <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                            <span className="font-mono text-xs text-muted-foreground tabular-nums">
                                 {plan.fees.activation > 0
                                     ? `${formatCompactCurrency(
                                           plan.fees.activation,
@@ -488,7 +500,7 @@ export default function TradingInputs({
                                 }
                                 disabled={plan.fees.activation === 0}
                                 className={cn(
-                                    'whitespace-nowrap rounded-md border border-input px-2 text-xs font-medium transition-colors disabled:pointer-events-none disabled:opacity-50',
+                                    'rounded-md border border-input px-2 text-xs font-medium whitespace-nowrap transition-colors disabled:pointer-events-none disabled:opacity-50',
                                     linkActivationDiscount
                                         ? 'bg-primary text-primary-foreground'
                                         : 'text-muted-foreground hover:text-foreground',

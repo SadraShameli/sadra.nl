@@ -107,7 +107,7 @@ export default function SavedScenarios({
                     </div>
 
                     <div className="border-t border-border/50 pt-2">
-                        <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        <div className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
                             Saved
                         </div>
                         {scenarios.length === 0 ? (

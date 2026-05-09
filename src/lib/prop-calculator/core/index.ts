@@ -1,4 +1,8 @@
-export { type AccountState, createInitialState, resetForNewDay } from './AccountState';
+export {
+    type AccountState,
+    createInitialState,
+    resetForNewDay,
+} from './AccountState';
 export { ConsistencyRule, type ConsistencyScope } from './ConsistencyRule';
 export {
     DrawdownStrategy,

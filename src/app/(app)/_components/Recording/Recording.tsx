@@ -69,7 +69,7 @@ export default function RecordingSection({
                         <source src={decorVideoUrl} type="video/mp4" />
                     </video>
 
-                    <div className="bg-muted flex flex-col gap-5 rounded-xl p-6">
+                    <div className="flex flex-col gap-5 rounded-xl bg-muted p-6">
                         <div className="flex items-center justify-between">
                             <span className="font-bold text-neutral-100">
                                 Recordings

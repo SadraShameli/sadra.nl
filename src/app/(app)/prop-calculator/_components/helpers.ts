@@ -67,4 +67,3 @@ export function formatDelta(
     }
     return { text, positive: diff > 0 };
 }
-

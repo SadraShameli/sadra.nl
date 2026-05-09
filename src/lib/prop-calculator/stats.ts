@@ -53,7 +53,12 @@ export function histogram(
     }
     if (min === max) {
         return [
-            { binStart: min, binEnd: min, binCenter: min, count: values.length },
+            {
+                binStart: min,
+                binEnd: min,
+                binCenter: min,
+                count: values.length,
+            },
         ];
     }
     const span = max - min;

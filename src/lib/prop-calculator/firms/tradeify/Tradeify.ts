@@ -17,10 +17,30 @@ interface TradeifySize {
 }
 
 const SIZES: readonly TradeifySize[] = [
-    { accountSize: 25_000, evalCost: 99, maxDrawdown: 1_000, dailyLossLimit: 600 },
-    { accountSize: 50_000, evalCost: 129, maxDrawdown: 2_000, dailyLossLimit: 1_250 },
-    { accountSize: 100_000, evalCost: 215, maxDrawdown: 3_500, dailyLossLimit: 2_500 },
-    { accountSize: 150_000, evalCost: 299, maxDrawdown: 5_000, dailyLossLimit: 3_750 },
+    {
+        accountSize: 25_000,
+        evalCost: 99,
+        maxDrawdown: 1_000,
+        dailyLossLimit: 600,
+    },
+    {
+        accountSize: 50_000,
+        evalCost: 129,
+        maxDrawdown: 2_000,
+        dailyLossLimit: 1_250,
+    },
+    {
+        accountSize: 100_000,
+        evalCost: 215,
+        maxDrawdown: 3_500,
+        dailyLossLimit: 2_500,
+    },
+    {
+        accountSize: 150_000,
+        evalCost: 299,
+        maxDrawdown: 5_000,
+        dailyLossLimit: 3_750,
+    },
 ] as const;
 
 function buildPlan(size: TradeifySize): PlanInit {

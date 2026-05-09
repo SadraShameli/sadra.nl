@@ -17,15 +17,45 @@ interface AfSize {
 }
 
 const ZERO_SIZES: readonly AfSize[] = [
-    { accountSize: 25_000, profitTarget: 1_500, maxDrawdown: 1_000, monthlyFee: 79 },
-    { accountSize: 50_000, profitTarget: 3_000, maxDrawdown: 2_000, monthlyFee: 119 },
-    { accountSize: 100_000, profitTarget: 6_000, maxDrawdown: 3_000, monthlyFee: 239 },
+    {
+        accountSize: 25_000,
+        profitTarget: 1_500,
+        maxDrawdown: 1_000,
+        monthlyFee: 79,
+    },
+    {
+        accountSize: 50_000,
+        profitTarget: 3_000,
+        maxDrawdown: 2_000,
+        monthlyFee: 119,
+    },
+    {
+        accountSize: 100_000,
+        profitTarget: 6_000,
+        maxDrawdown: 3_000,
+        monthlyFee: 239,
+    },
 ] as const;
 
 const ADVANCED_SIZES: readonly AfSize[] = [
-    { accountSize: 50_000, profitTarget: 4_000, maxDrawdown: 1_750, monthlyFee: 139 },
-    { accountSize: 100_000, profitTarget: 8_000, maxDrawdown: 3_500, monthlyFee: 279 },
-    { accountSize: 150_000, profitTarget: 12_000, maxDrawdown: 5_250, monthlyFee: 419 },
+    {
+        accountSize: 50_000,
+        profitTarget: 4_000,
+        maxDrawdown: 1_750,
+        monthlyFee: 139,
+    },
+    {
+        accountSize: 100_000,
+        profitTarget: 8_000,
+        maxDrawdown: 3_500,
+        monthlyFee: 279,
+    },
+    {
+        accountSize: 150_000,
+        profitTarget: 12_000,
+        maxDrawdown: 5_250,
+        monthlyFee: 419,
+    },
 ] as const;
 
 function buildZeroPlan(size: AfSize): PlanInit {
@@ -92,7 +122,9 @@ export class AlphaFutures extends PropFirm {
     readonly website = 'https://alpha-futures.com';
     readonly plans = [
         ...ZERO_SIZES.map((s) => new AlphaFuturesPlan(buildZeroPlan(s))),
-        ...ADVANCED_SIZES.map((s) => new AlphaFuturesPlan(buildAdvancedPlan(s))),
+        ...ADVANCED_SIZES.map(
+            (s) => new AlphaFuturesPlan(buildAdvancedPlan(s)),
+        ),
     ] as readonly Plan[];
 
     maxFundedAccounts(plan: Plan): number {

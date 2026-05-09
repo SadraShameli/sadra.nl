@@ -57,8 +57,7 @@ function buildDrawdownData(curves: readonly number[][]): ChartRow[] {
             const mid = Math.floor(valuesAtDay.length / 2);
             row.median =
                 valuesAtDay.length % 2 === 0
-                    ? ((valuesAtDay[mid - 1] ?? 0) +
-                          (valuesAtDay[mid] ?? 0)) /
+                    ? ((valuesAtDay[mid - 1] ?? 0) + (valuesAtDay[mid] ?? 0)) /
                       2
                     : (valuesAtDay[mid] ?? 0);
         }
@@ -100,7 +99,9 @@ export default function DrawdownCurveChartView({ result }: Props) {
                     }}
                 />
                 <YAxis
-                    tickFormatter={(v: number) => `-${formatCompactCurrency(v)}`}
+                    tickFormatter={(v: number) =>
+                        `-${formatCompactCurrency(v)}`
+                    }
                     tickLine={false}
                     axisLine={false}
                     width={60}

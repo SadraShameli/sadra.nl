@@ -1,6 +1,7 @@
 import { type FirmId, type PropFirm } from '~/lib/prop-calculator';
 
-import { type CalculatorState, SizingMode } from './types';
+import type { CalculatorState } from './types';
+import { SizingMode } from './types';
 
 export function encodeState(state: CalculatorState): URLSearchParams {
     const p = new URLSearchParams();
@@ -41,7 +42,7 @@ export function decodeState(
     };
     const intNum = (key: string, def: number): number =>
         Math.floor(num(key, def));
-    const sizingMode: SizingMode =
+    const sizingMode =
         params.get('mode') === SizingMode.Percent
             ? SizingMode.Percent
             : SizingMode.Dollar;
@@ -103,10 +104,7 @@ export function loadScenarios(): SavedScenarioRecord[] {
 export function persistScenarios(scenarios: SavedScenarioRecord[]): void {
     if (typeof window === 'undefined') return;
     try {
-        window.localStorage.setItem(
-            SCENARIOS_KEY,
-            JSON.stringify(scenarios),
-        );
+        window.localStorage.setItem(SCENARIOS_KEY, JSON.stringify(scenarios));
     } catch {
         return;
     }

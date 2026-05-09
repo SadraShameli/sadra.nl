@@ -1,12 +1,6 @@
 'use client';
 
-import {
-    Area,
-    AreaChart,
-    CartesianGrid,
-    XAxis,
-    YAxis,
-} from 'recharts';
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 
 import { type SimOutputs } from '~/lib/prop-calculator';
 

@@ -17,11 +17,36 @@ interface TptSize {
 }
 
 const SIZES: readonly TptSize[] = [
-    { accountSize: 25_000, monthlySubscription: 150, profitTarget: 1_500, maxDrawdown: 1_500 },
-    { accountSize: 50_000, monthlySubscription: 170, profitTarget: 3_000, maxDrawdown: 2_000 },
-    { accountSize: 75_000, monthlySubscription: 245, profitTarget: 4_500, maxDrawdown: 2_500 },
-    { accountSize: 100_000, monthlySubscription: 330, profitTarget: 6_000, maxDrawdown: 3_000 },
-    { accountSize: 150_000, monthlySubscription: 360, profitTarget: 9_000, maxDrawdown: 4_500 },
+    {
+        accountSize: 25_000,
+        monthlySubscription: 150,
+        profitTarget: 1_500,
+        maxDrawdown: 1_500,
+    },
+    {
+        accountSize: 50_000,
+        monthlySubscription: 170,
+        profitTarget: 3_000,
+        maxDrawdown: 2_000,
+    },
+    {
+        accountSize: 75_000,
+        monthlySubscription: 245,
+        profitTarget: 4_500,
+        maxDrawdown: 2_500,
+    },
+    {
+        accountSize: 100_000,
+        monthlySubscription: 330,
+        profitTarget: 6_000,
+        maxDrawdown: 3_000,
+    },
+    {
+        accountSize: 150_000,
+        monthlySubscription: 360,
+        profitTarget: 9_000,
+        maxDrawdown: 4_500,
+    },
 ] as const;
 
 function buildPlan(size: TptSize): PlanInit {

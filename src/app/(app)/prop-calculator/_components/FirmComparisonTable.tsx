@@ -14,11 +14,7 @@ import { cn } from '~/lib/utils';
 
 import { Card } from '~/components/ui/Card';
 
-import {
-    formatCurrency,
-    formatDays,
-    formatPercent,
-} from './helpers';
+import { formatCurrency, formatDays, formatPercent } from './helpers';
 import InfoPopover from './InfoPopover';
 import { panelDescriptions } from './kpiDescriptions';
 
@@ -97,8 +93,7 @@ export default function FirmComparisonTable({
     const sorted = useMemo(
         () =>
             [...rows].sort(
-                (a, b) =>
-                    b.out.expectedMonthlyNet - a.out.expectedMonthlyNet,
+                (a, b) => b.out.expectedMonthlyNet - a.out.expectedMonthlyNet,
             ),
         [rows],
     );
@@ -175,9 +170,7 @@ export default function FirmComparisonTable({
                                         {formatCurrency(out.expectedTotalCost)}
                                     </td>
                                     <td className="py-1.5 pr-2">
-                                        {formatCurrency(
-                                            out.expectedMonthlyNet,
-                                        )}
+                                        {formatCurrency(out.expectedMonthlyNet)}
                                     </td>
                                     <td className="py-1.5 pr-2">
                                         {formatPercent(out.roiOnCost)}

@@ -16,9 +16,10 @@ export default function PropCalculatorPage() {
                     Futures Prop Firm Calculator
                 </h1>
                 <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
-                    Pick a firm, plan, and account size. Tune your winrate, RR, and trade frequency.
-                    The simulator runs a Monte Carlo against each firm&apos;s real drawdown, daily-loss,
-                    and consistency rules to estimate pass odds, costs, and payouts.
+                    Pick a firm, plan, and account size. Tune your winrate, RR,
+                    and trade frequency. The simulator runs a Monte Carlo
+                    against each firm&apos;s real drawdown, daily-loss, and
+                    consistency rules to estimate pass odds, costs, and payouts.
                 </p>
             </header>
 

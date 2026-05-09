@@ -145,9 +145,7 @@ export default function OptimalRiskTable({
                                         {formatDays(out.daysToPassP50)}
                                     </td>
                                     <td className="py-1.5 pr-3">
-                                        {formatCurrency(
-                                            out.expectedMonthlyNet,
-                                        )}
+                                        {formatCurrency(out.expectedMonthlyNet)}
                                     </td>
                                     <td className="py-1.5 pr-3">
                                         {formatPercent(out.roiOnCost)}

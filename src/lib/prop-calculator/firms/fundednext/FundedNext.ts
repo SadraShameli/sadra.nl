@@ -17,15 +17,45 @@ interface FnSize {
 }
 
 const LEGACY_SIZES: readonly FnSize[] = [
-    { accountSize: 25_000, profitTarget: 1_250, maxDrawdown: 1_000, evalCost: 80 },
-    { accountSize: 50_000, profitTarget: 3_000, maxDrawdown: 2_000, evalCost: 150 },
-    { accountSize: 100_000, profitTarget: 6_000, maxDrawdown: 3_000, evalCost: 250 },
+    {
+        accountSize: 25_000,
+        profitTarget: 1_250,
+        maxDrawdown: 1_000,
+        evalCost: 80,
+    },
+    {
+        accountSize: 50_000,
+        profitTarget: 3_000,
+        maxDrawdown: 2_000,
+        evalCost: 150,
+    },
+    {
+        accountSize: 100_000,
+        profitTarget: 6_000,
+        maxDrawdown: 3_000,
+        evalCost: 250,
+    },
 ] as const;
 
 const RAPID_SIZES: readonly FnSize[] = [
-    { accountSize: 25_000, profitTarget: 1_500, maxDrawdown: 1_000, evalCost: 110 },
-    { accountSize: 50_000, profitTarget: 3_000, maxDrawdown: 2_000, evalCost: 200 },
-    { accountSize: 100_000, profitTarget: 5_000, maxDrawdown: 2_500, evalCost: 280 },
+    {
+        accountSize: 25_000,
+        profitTarget: 1_500,
+        maxDrawdown: 1_000,
+        evalCost: 110,
+    },
+    {
+        accountSize: 50_000,
+        profitTarget: 3_000,
+        maxDrawdown: 2_000,
+        evalCost: 200,
+    },
+    {
+        accountSize: 100_000,
+        profitTarget: 5_000,
+        maxDrawdown: 2_500,
+        evalCost: 280,
+    },
 ] as const;
 
 function buildLegacyPlan(size: FnSize): PlanInit {

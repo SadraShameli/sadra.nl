@@ -13,7 +13,10 @@ const OPTIONS: Option[] = [
     { value: ChartType.Equity, label: 'Equity curves' },
     { value: ChartType.Drawdown, label: 'Drawdown curves' },
     { value: ChartType.PassRate, label: 'Cumulative pass-rate by day' },
-    { value: ChartType.FinalBalanceHistogram, label: 'Final balance histogram' },
+    {
+        value: ChartType.FinalBalanceHistogram,
+        label: 'Final balance histogram',
+    },
     { value: ChartType.DaysToPassHistogram, label: 'Days to pass histogram' },
 ];
 

@@ -40,7 +40,7 @@ export const kpiDescriptions = {
 export const panelDescriptions = {
     equity: 'Each faint line is one Monte Carlo trial. The bold line is the day-by-day median across all sampled paths. The green dashed line marks the profit target; the red dashed line marks the drawdown threshold. Use it to see typical paths AND outliers in one view.',
     drawdown:
-        'Each line shows how far below its rolling peak a trial fell at every step. The bold line is the median drawdown. The red dashed line marks the firm\'s bust limit. Useful for seeing how close paths typically come to busting.',
+        "Each line shows how far below its rolling peak a trial fell at every step. The bold line is the median drawdown. The red dashed line marks the firm's bust limit. Useful for seeing how close paths typically come to busting.",
     'pass-rate':
         'Cumulative share of trials that have hit the profit target by each day. Steepens early when most passes happen quickly; flattens late when the eval is dragging on. The asymptote = total pass probability.',
     'final-balance-hist':
@@ -52,7 +52,7 @@ export const panelDescriptions = {
     sensitivityPass:
         'Pass probability across a 7×7 grid of winrate × reward-to-risk values. Green = robust, red = unlikely. Your current cell is outlined. Use it to see how forgiving your edge is to estimation error.',
     sensitivityNet:
-        'Expected monthly net dollars across the same winrate × reward-to-risk grid. Pairs with the pass% heatmap to spot the band that\'s both safe AND profitable.',
+        "Expected monthly net dollars across the same winrate × reward-to-risk grid. Pairs with the pass% heatmap to spot the band that's both safe AND profitable.",
     firmComparison:
         'Runs the simulator across all 6 firms at the closest plan size to your current selection, using your current trading inputs. Sorted by monthly net. Active firm highlighted; ★ rating relative to best.',
 } as const;

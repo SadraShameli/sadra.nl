@@ -2,11 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
-import {
-    type Plan,
-    simulate,
-    type SimInputs,
-} from '~/lib/prop-calculator';
+import { type Plan, simulate, type SimInputs } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utils';
 
 import { Card } from '~/components/ui/Card';
@@ -145,8 +141,7 @@ function HeatmapCells({
                             </td>
                             {RR_RATIOS.map((rr) => {
                                 const cell = cells.find(
-                                    (c) =>
-                                        c.winrate === winrate && c.rr === rr,
+                                    (c) => c.winrate === winrate && c.rr === rr,
                                 );
                                 const isCurrent =
                                     Math.abs(winrate - currentWinrate) < 0.02 &&
@@ -208,7 +203,9 @@ export default function SensitivityHeatmap({
                         </InfoPopover>
                     </div>
                     <span className="text-xs text-muted-foreground">
-                        {pending ? 'computing…' : 'red = unlikely, green = robust'}
+                        {pending
+                            ? 'computing…'
+                            : 'red = unlikely, green = robust'}
                     </span>
                 </div>
                 <HeatmapCells
@@ -229,7 +226,9 @@ export default function SensitivityHeatmap({
                         </InfoPopover>
                     </div>
                     <span className="text-xs text-muted-foreground">
-                        {pending ? 'computing…' : 'red = losing $, green = profit'}
+                        {pending
+                            ? 'computing…'
+                            : 'red = losing $, green = profit'}
                     </span>
                 </div>
                 <HeatmapCells

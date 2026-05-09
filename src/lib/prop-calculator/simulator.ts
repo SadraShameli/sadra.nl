@@ -151,7 +151,8 @@ function runDay(
         traded = true;
         stats.tradesTaken += 1;
         if (state.balance > state.todayHigh) state.todayHigh = state.balance;
-        if (state.balance > stats.peakBalance) stats.peakBalance = state.balance;
+        if (state.balance > stats.peakBalance)
+            stats.peakBalance = state.balance;
         const dd = stats.peakBalance - state.balance;
         if (dd > stats.maxDrawdown) stats.maxDrawdown = dd;
         if (won) {
@@ -303,7 +304,8 @@ function simulateTrial(
                 );
                 cumulativeDays += 1;
                 attempt.state.daysElapsed += 1;
-                if (lastEquityCurve) lastEquityCurve.push(attempt.state.balance);
+                if (lastEquityCurve)
+                    lastEquityCurve.push(attempt.state.balance);
                 if (busted) {
                     bustedFunded = true;
                     break;
@@ -575,8 +577,7 @@ export function simulate(inputs: SimInputs): SimOutputs {
 
     const expectancyDollars =
         perTradePnLCount > 0 ? perTradePnLSum / perTradePnLCount : 0;
-    const expectancyR =
-        riskPerTrade > 0 ? expectancyDollars / riskPerTrade : 0;
+    const expectancyR = riskPerTrade > 0 ? expectancyDollars / riskPerTrade : 0;
     const profitFactor =
         grossLossesSum > 0
             ? grossWinsSum / grossLossesSum
