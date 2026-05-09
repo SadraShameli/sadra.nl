@@ -15,10 +15,12 @@ import PercentileBar from './PercentileBar';
 import PlanComparisonTable from './PlanComparisonTable';
 import PlanStatsBadges from './PlanStatsBadges';
 import PortfolioPanel from './PortfolioPanel';
+import ResiliencePanel from './ResiliencePanel';
 import ResultsPanel from './ResultsPanel';
 import SavedScenarios from './SavedScenarios';
 import SensitivityHeatmap from './SensitivityHeatmap';
 import ShareLinkButton from './ShareLinkButton';
+import StrategyAnalysis from './StrategyAnalysis';
 import TradingInputs from './TradingInputs';
 
 import { ChartType, type PortfolioEntry, SizingMode } from './types';
@@ -127,6 +129,15 @@ export default function CalculatorShell() {
                 />
             </div>
 
+            <StrategyAnalysis
+                plan={c.state.plan}
+                result={c.result}
+                winrate={c.state.winrate}
+                rrRatio={c.state.rrRatio}
+                riskPerTrade={c.simInputs.riskPerTrade}
+                fundedHorizonDays={c.simInputs.fundedHorizonDays}
+            />
+
             <PortfolioPanel
                 firms={c.firms}
                 baseInputs={c.simInputs}
@@ -171,6 +182,13 @@ export default function CalculatorShell() {
                 maxEvalDays={c.state.maxEvalDays}
             />
 
+            <ResiliencePanel
+                plan={c.state.plan}
+                result={c.result}
+                winrate={c.state.winrate}
+                riskPerTrade={c.simInputs.riskPerTrade}
+            />
+
             <OptimalRiskTable
                 plan={c.state.plan}
                 baseInputs={c.simInputs}
@@ -181,17 +199,17 @@ export default function CalculatorShell() {
                 }
             />
 
-            <PlanComparisonTable
-                firm={c.state.firm}
-                activePlan={c.state.plan}
-                baseInputs={c.simInputs}
-            />
-
             <SensitivityHeatmap
                 plan={c.state.plan}
                 baseInputs={c.simInputs}
                 currentWinrate={c.state.winrate}
                 currentRR={c.state.rrRatio}
+            />
+
+            <PlanComparisonTable
+                firm={c.state.firm}
+                activePlan={c.state.plan}
+                baseInputs={c.simInputs}
             />
 
             <FirmComparisonTable
@@ -200,12 +218,6 @@ export default function CalculatorShell() {
                 targetAccountSize={c.state.plan.accountSize}
                 baseInputs={c.simInputs}
             />
-
-            <p className="text-xs text-muted-foreground">
-                Monte Carlo simulation with fixed-RR trades, no commissions or
-                slippage. Firm rules are a snapshot — verify against the
-                firm&apos;s current pricing before opening an account.
-            </p>
         </div>
     );
 }

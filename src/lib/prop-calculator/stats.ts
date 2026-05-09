@@ -33,6 +33,12 @@ export function percentile(xs: readonly number[], p: number): number {
     return loVal + (hiVal - loVal) * (rank - lo);
 }
 
+export function stdDev(arr: readonly number[]): number {
+    if (arr.length === 0) return 0;
+    const m = arr.reduce((s, v) => s + v, 0) / arr.length;
+    return Math.sqrt(arr.reduce((s, v) => s + (v - m) ** 2, 0) / arr.length);
+}
+
 export interface HistogramBin {
     binStart: number;
     binEnd: number;

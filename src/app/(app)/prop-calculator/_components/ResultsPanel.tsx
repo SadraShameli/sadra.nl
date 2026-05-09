@@ -15,8 +15,6 @@ import {
     formatDays,
     formatDelta,
     formatPercent,
-    formatR,
-    formatRatio,
     formatStreak,
 } from './helpers';
 import InfoPopover from './InfoPopover';
@@ -214,18 +212,6 @@ export default function ResultsPanel({
               ? 'negative'
               : 'neutral';
 
-    const expectancyAccent: KpiProps['accent'] =
-        result.expectancyR > 0.05
-            ? 'positive'
-            : result.expectancyR < -0.05
-              ? 'negative'
-              : 'neutral';
-    const profitFactorAccent: KpiProps['accent'] =
-        result.profitFactor >= 1.5
-            ? 'positive'
-            : result.profitFactor < 1.0
-              ? 'negative'
-              : 'neutral';
     const roiAccent: KpiProps['accent'] =
         result.roiOnCost > 0
             ? 'positive'
@@ -418,43 +404,6 @@ export default function ResultsPanel({
                     Trading edge
                 </h3>
                 <div className="grid grid-cols-2 gap-3">
-                    <Kpi
-                        label="Expectancy"
-                        value={formatR(result.expectancyR)}
-                        sub={`${formatCurrency(result.expectancyDollars)} per trade`}
-                        accent={expectancyAccent}
-                        info={{
-                            title: 'Expectancy',
-                            body: (
-                                <>
-                                    <p>{kpiDescriptions.expectancy}</p>
-                                    <p className="mt-2 font-mono text-xs">
-                                        {formatR(result.expectancyR)} ·{' '}
-                                        {formatCurrency(
-                                            result.expectancyDollars,
-                                        )}{' '}
-                                        per trade
-                                    </p>
-                                </>
-                            ),
-                        }}
-                    />
-                    <Kpi
-                        label="Profit factor"
-                        value={formatRatio(result.profitFactor)}
-                        sub={
-                            result.profitFactor >= 1.5
-                                ? 'healthy'
-                                : result.profitFactor >= 1.0
-                                  ? 'marginal'
-                                  : 'losing'
-                        }
-                        accent={profitFactorAccent}
-                        info={{
-                            title: 'Profit factor',
-                            body: <p>{kpiDescriptions.profitFactor}</p>,
-                        }}
-                    />
                     <Kpi
                         label="Max losing streak"
                         value={`${formatStreak(result.maxLosingStreakP50)} / ${formatStreak(result.maxLosingStreakP95)}`}
