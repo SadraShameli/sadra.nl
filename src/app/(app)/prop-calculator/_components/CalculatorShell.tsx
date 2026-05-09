@@ -17,7 +17,7 @@ import SavedScenarios from './SavedScenarios';
 import SensitivityHeatmap from './SensitivityHeatmap';
 import ShareLinkButton from './ShareLinkButton';
 import TradingInputs from './TradingInputs';
-import { FirmId, type PlanId } from '~/lib/prop-calculator';
+import { FirmId } from '~/lib/prop-calculator';
 
 import { ChartType, type PortfolioEntry, SizingMode } from './types';
 import { useCalculator } from './useCalculator';
@@ -31,7 +31,11 @@ export default function CalculatorShell() {
         {
             id: 'default-apex-50k-eod',
             firmId: FirmId.Apex,
-            planId: 'apex-50000-eod' as PlanId,
+            planId: {
+                firm: FirmId.Apex,
+                accountSize: 50_000,
+                variant: 'eod' as const,
+            },
             count: 20,
             evalDiscountPercent: 0,
             activationDiscountPercent: 0,

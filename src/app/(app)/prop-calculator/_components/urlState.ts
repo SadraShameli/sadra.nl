@@ -1,4 +1,8 @@
-import { type FirmId, type PlanId, type PropFirm } from '~/lib/prop-calculator';
+import {
+    type FirmId,
+    serializePlanId,
+    type PropFirm,
+} from '~/lib/prop-calculator';
 
 import type { CalculatorState } from './types';
 import { SizingMode } from './types';
@@ -6,7 +10,7 @@ import { SizingMode } from './types';
 export function encodeState(state: CalculatorState): URLSearchParams {
     const p = new URLSearchParams();
     p.set('firm', state.firm.id);
-    p.set('plan', state.plan.id);
+    p.set('plan', serializePlanId(state.plan.id));
     p.set('wr', state.winrate.toFixed(3));
     p.set('rr', state.rrRatio.toFixed(2));
     p.set('tpd', String(state.tradesPerDay));
@@ -30,9 +34,12 @@ export function decodeState(
     fallback: CalculatorState,
 ): CalculatorState {
     const firmId = params.get('firm') as FirmId | null;
-    const planId = params.get('plan') as PlanId | null;
+    const planSerial = params.get('plan');
     const firm = firmId ? firms.find((f) => f.id === firmId) : undefined;
-    const plan = firm && planId ? firm.findPlan(planId) : undefined;
+    const plan =
+        firm && planSerial
+            ? firm.plans.find((p) => serializePlanId(p.id) === planSerial)
+            : undefined;
 
     const num = (key: string, def: number): number => {
         const v = params.get(key);

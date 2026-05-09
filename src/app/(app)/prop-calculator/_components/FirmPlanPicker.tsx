@@ -1,6 +1,11 @@
 'use client';
 
-import { type FirmId, type Plan, type PropFirm } from '~/lib/prop-calculator';
+import {
+    type FirmId,
+    serializePlanId,
+    type Plan,
+    type PropFirm,
+} from '~/lib/prop-calculator';
 
 import { Select } from '~/components/ui/Select';
 
@@ -57,16 +62,19 @@ export default function FirmPlanPicker({
                 </label>
                 <Select
                     id="plan-select"
-                    value={plan.id}
+                    value={serializePlanId(plan.id)}
                     onChange={(e) => {
                         const next = firm.plans.find(
-                            (p) => p.id === e.target.value,
+                            (p) => serializePlanId(p.id) === e.target.value,
                         );
                         if (next) onPlanChange(next);
                     }}
                 >
                     {firm.plans.map((p) => (
-                        <option key={p.id} value={p.id}>
+                        <option
+                            key={serializePlanId(p.id)}
+                            value={serializePlanId(p.id)}
+                        >
                             {p.label} · target{' '}
                             {formatCompactCurrency(p.profitTarget)} · drawdown{' '}
                             {formatCompactCurrency(p.drawdown.amount)}

@@ -3,21 +3,13 @@ import {
     EodTrailingDrawdown,
     FirmId,
     Plan,
-    type PlanId,
     type PlanInit,
     PropFirm,
 } from '../../core';
 
 class FundedNextPlan extends Plan {}
 
-interface FnSize {
-    accountSize: number;
-    profitTarget: number;
-    maxDrawdown: number;
-    evalCost: number;
-}
-
-const LEGACY_SIZES: readonly FnSize[] = [
+const LEGACY_SIZES = [
     {
         accountSize: 25_000,
         profitTarget: 1_250,
@@ -38,7 +30,7 @@ const LEGACY_SIZES: readonly FnSize[] = [
     },
 ] as const;
 
-const RAPID_SIZES: readonly FnSize[] = [
+const RAPID_SIZES = [
     {
         accountSize: 25_000,
         profitTarget: 1_500,
@@ -59,9 +51,16 @@ const RAPID_SIZES: readonly FnSize[] = [
     },
 ] as const;
 
-function buildLegacyPlan(size: FnSize): PlanInit {
+type FnLegacySize = (typeof LEGACY_SIZES)[number];
+type FnRapidSize = (typeof RAPID_SIZES)[number];
+
+function buildLegacyPlan(size: FnLegacySize): PlanInit {
     return {
-        id: `fundednext-legacy-${size.accountSize}` as PlanId,
+        id: {
+            firm: FirmId.FundedNext,
+            accountSize: size.accountSize,
+            variant: 'legacy',
+        },
         label: `$${(size.accountSize / 1_000).toFixed(0)}K — Legacy`,
         accountSize: size.accountSize,
         profitTarget: size.profitTarget,
@@ -88,9 +87,13 @@ function buildLegacyPlan(size: FnSize): PlanInit {
     };
 }
 
-function buildRapidPlan(size: FnSize): PlanInit {
+function buildRapidPlan(size: FnRapidSize): PlanInit {
     return {
-        id: `fundednext-rapid-${size.accountSize}` as PlanId,
+        id: {
+            firm: FirmId.FundedNext,
+            accountSize: size.accountSize,
+            variant: 'rapid',
+        },
         label: `$${(size.accountSize / 1_000).toFixed(0)}K — Rapid`,
         accountSize: size.accountSize,
         profitTarget: size.profitTarget,

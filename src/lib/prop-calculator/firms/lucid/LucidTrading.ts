@@ -3,30 +3,25 @@ import {
     EodTrailingDrawdown,
     FirmId,
     Plan,
-    type PlanId,
     type PlanInit,
     PropFirm,
 } from '../../core';
 
 class LucidPlan extends Plan {}
 
-interface LucidSize {
-    accountSize: number;
-    evalCost: number;
-    maxDrawdown: number;
-}
-
-const SIZES: readonly LucidSize[] = [
+const SIZES = [
     { accountSize: 25_000, evalCost: 80, maxDrawdown: 1_000 },
     { accountSize: 50_000, evalCost: 104, maxDrawdown: 2_000 },
     { accountSize: 100_000, evalCost: 180, maxDrawdown: 3_000 },
     { accountSize: 150_000, evalCost: 261, maxDrawdown: 4_500 },
 ] as const;
 
+type LucidSize = (typeof SIZES)[number];
+
 function buildPlan(size: LucidSize): PlanInit {
     const profitTarget = size.accountSize * 0.06;
     return {
-        id: `lucid-${size.accountSize}` as PlanId,
+        id: { firm: FirmId.Lucid, accountSize: size.accountSize },
         label: `$${(size.accountSize / 1_000).toFixed(0)}K — LucidFlex`,
         accountSize: size.accountSize,
         profitTarget,

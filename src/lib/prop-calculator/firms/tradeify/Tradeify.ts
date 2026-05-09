@@ -3,21 +3,13 @@ import {
     EodTrailingDrawdown,
     FirmId,
     Plan,
-    type PlanId,
     type PlanInit,
     PropFirm,
 } from '../../core';
 
 class TradeifyPlan extends Plan {}
 
-interface TradeifySize {
-    accountSize: number;
-    evalCost: number;
-    maxDrawdown: number;
-    dailyLossLimit: number;
-}
-
-const SIZES: readonly TradeifySize[] = [
+const SIZES = [
     {
         accountSize: 25_000,
         evalCost: 99,
@@ -44,10 +36,12 @@ const SIZES: readonly TradeifySize[] = [
     },
 ] as const;
 
+type TradeifySize = (typeof SIZES)[number];
+
 function buildPlan(size: TradeifySize): PlanInit {
     const profitTarget = size.accountSize * 0.06;
     return {
-        id: `tradeify-${size.accountSize}` as PlanId,
+        id: { firm: FirmId.Tradeify, accountSize: size.accountSize },
         label: `$${(size.accountSize / 1_000).toFixed(0)}K — Growth`,
         accountSize: size.accountSize,
         profitTarget,

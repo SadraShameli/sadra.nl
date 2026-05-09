@@ -7,7 +7,7 @@ import {
     simulate,
     type FirmId,
     type Plan,
-    type PlanId,
+    serializePlanId,
     type PropFirm,
     type SimInputs,
     type SimOutputs,
@@ -378,8 +378,11 @@ function PortfolioRow({
         });
     }
 
-    function handlePlanChange(planId: PlanId) {
-        onUpdate(entry.id, { planId });
+    function handlePlanChange(serialized: string) {
+        const found = firm.plans.find(
+            (p) => serializePlanId(p.id) === serialized,
+        );
+        if (found) onUpdate(entry.id, { planId: found.id });
     }
 
     function adjustCount(delta: number) {
@@ -418,15 +421,18 @@ function PortfolioRow({
             </td>
             <td className="py-1.5 pr-3">
                 <Select
-                    value={plan.id}
+                    value={serializePlanId(plan.id)}
                     onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                        handlePlanChange(e.target.value as PlanId)
+                        handlePlanChange(e.target.value)
                     }
                     wrapperClassName="w-44"
                     className="h-7 text-xs"
                 >
                     {firm.plans.map((p) => (
-                        <option key={p.id} value={p.id}>
+                        <option
+                            key={serializePlanId(p.id)}
+                            value={serializePlanId(p.id)}
+                        >
                             {p.label}
                         </option>
                     ))}

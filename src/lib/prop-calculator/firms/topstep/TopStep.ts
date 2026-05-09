@@ -3,21 +3,13 @@ import {
     FirmId,
     IntradayTrailingDrawdown,
     Plan,
-    type PlanId,
     type PlanInit,
     PropFirm,
 } from '../../core';
 
 class TopStepPlan extends Plan {}
 
-interface TopStepSize {
-    accountSize: number;
-    monthlySubscription: number;
-    profitTarget: number;
-    maxLossLimit: number;
-}
-
-const SIZES: readonly TopStepSize[] = [
+const SIZES = [
     {
         accountSize: 50_000,
         monthlySubscription: 49,
@@ -38,9 +30,11 @@ const SIZES: readonly TopStepSize[] = [
     },
 ] as const;
 
+type TopStepSize = (typeof SIZES)[number];
+
 function buildPlan(size: TopStepSize): PlanInit {
     return {
-        id: `topstep-${size.accountSize}` as PlanId,
+        id: { firm: FirmId.TopStep, accountSize: size.accountSize },
         label: `$${(size.accountSize / 1_000).toFixed(0)}K — Trading Combine`,
         accountSize: size.accountSize,
         profitTarget: size.profitTarget,

@@ -4,23 +4,13 @@ import {
     FirmId,
     IntradayTrailingDrawdown,
     Plan,
-    type PlanId,
     type PlanInit,
     PropFirm,
 } from '../../core';
 
 class ApexPlan extends Plan {}
 
-interface ApexSize {
-    accountSize: number;
-    profitTarget: number;
-    maxDrawdown: number;
-    dailyLossLimit: number;
-    evalCostEod: number;
-    evalCostIntraday: number;
-}
-
-const SIZES: readonly ApexSize[] = [
+const SIZES = [
     {
         accountSize: 25_000,
         profitTarget: 1_500,
@@ -55,6 +45,8 @@ const SIZES: readonly ApexSize[] = [
     },
 ] as const;
 
+type ApexSize = (typeof SIZES)[number];
+
 function buildPlan(size: ApexSize, variant: 'eod' | 'intraday'): PlanInit {
     const isEod = variant === 'eod';
     const drawdown = isEod
@@ -62,7 +54,7 @@ function buildPlan(size: ApexSize, variant: 'eod' | 'intraday'): PlanInit {
         : new IntradayTrailingDrawdown({ amount: size.maxDrawdown });
 
     return {
-        id: `apex-${size.accountSize}-${variant}` as PlanId,
+        id: { firm: FirmId.Apex, accountSize: size.accountSize, variant },
         label: `$${(size.accountSize / 1_000).toFixed(0)}K — ${isEod ? 'EOD trailing' : 'Intraday trailing'}`,
         accountSize: size.accountSize,
         profitTarget: size.profitTarget,

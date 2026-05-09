@@ -18,6 +18,8 @@ export {
     feesUntilPass,
     totalFees,
 } from './FeeSchedule';
-export { Plan, type PlanId, type PlanInit, type PayoutSchedule } from './Plan';
+export { FirmId } from './FirmId';
+export { type PlanId, planIdEquals, serializePlanId } from './PlanId';
+export { Plan, type PlanInit, type PayoutSchedule } from './Plan';
 export { type PayoutTier, walkPayoutTiers } from './PayoutTiers';
-export { FirmId, PropFirm } from './PropFirm';
+export { PropFirm } from './PropFirm';

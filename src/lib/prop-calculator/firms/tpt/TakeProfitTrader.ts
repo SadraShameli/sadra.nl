@@ -3,21 +3,13 @@ import {
     EodTrailingDrawdown,
     FirmId,
     Plan,
-    type PlanId,
     type PlanInit,
     PropFirm,
 } from '../../core';
 
 class TptPlan extends Plan {}
 
-interface TptSize {
-    accountSize: number;
-    monthlySubscription: number;
-    profitTarget: number;
-    maxDrawdown: number;
-}
-
-const SIZES: readonly TptSize[] = [
+const SIZES = [
     {
         accountSize: 25_000,
         monthlySubscription: 150,
@@ -50,9 +42,11 @@ const SIZES: readonly TptSize[] = [
     },
 ] as const;
 
+type TptSize = (typeof SIZES)[number];
+
 function buildPlan(size: TptSize): PlanInit {
     return {
-        id: `tpt-${size.accountSize}` as PlanId,
+        id: { firm: FirmId.Tpt, accountSize: size.accountSize },
         label: `$${(size.accountSize / 1_000).toFixed(0)}K — Test → PRO`,
         accountSize: size.accountSize,
         profitTarget: size.profitTarget,

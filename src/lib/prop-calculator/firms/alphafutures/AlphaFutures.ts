@@ -10,14 +10,7 @@ import {
 
 class AlphaFuturesPlan extends Plan {}
 
-interface AfSize {
-    accountSize: number;
-    profitTarget: number;
-    maxDrawdown: number;
-    monthlyFee: number;
-}
-
-const ZERO_SIZES: readonly AfSize[] = [
+const ZERO_SIZES = [
     {
         accountSize: 25_000,
         profitTarget: 1_500,
@@ -38,7 +31,7 @@ const ZERO_SIZES: readonly AfSize[] = [
     },
 ] as const;
 
-const ADVANCED_SIZES: readonly AfSize[] = [
+const ADVANCED_SIZES = [
     {
         accountSize: 50_000,
         profitTarget: 4_000,
@@ -59,9 +52,16 @@ const ADVANCED_SIZES: readonly AfSize[] = [
     },
 ] as const;
 
-function buildZeroPlan(size: AfSize): PlanInit {
+type AfZeroSize = (typeof ZERO_SIZES)[number];
+type AfAdvancedSize = (typeof ADVANCED_SIZES)[number];
+
+function buildZeroPlan(size: AfZeroSize): PlanInit {
     return {
-        id: `alphafutures-zero-${size.accountSize}` as PlanId,
+        id: {
+            firm: FirmId.AlphaFutures,
+            accountSize: size.accountSize,
+            variant: 'zero',
+        },
         label: `$${(size.accountSize / 1_000).toFixed(0)}K — Zero`,
         accountSize: size.accountSize,
         profitTarget: size.profitTarget,
@@ -88,9 +88,13 @@ function buildZeroPlan(size: AfSize): PlanInit {
     };
 }
 
-function buildAdvancedPlan(size: AfSize): PlanInit {
+function buildAdvancedPlan(size: AfAdvancedSize): PlanInit {
     return {
-        id: `alphafutures-advanced-${size.accountSize}` as PlanId,
+        id: {
+            firm: FirmId.AlphaFutures,
+            accountSize: size.accountSize,
+            variant: 'advanced',
+        },
         label: `$${(size.accountSize / 1_000).toFixed(0)}K — Advanced`,
         accountSize: size.accountSize,
         profitTarget: size.profitTarget,
@@ -129,6 +133,7 @@ export class AlphaFutures extends PropFirm {
     ] as readonly Plan[];
 
     maxFundedAccounts(plan: Plan): number {
-        return plan.id.includes('advanced') ? 3 : 5;
+        const id = plan.id as Extract<PlanId, { firm: FirmId.AlphaFutures }>;
+        return id.variant === 'advanced' ? 3 : 5;
     }
 }

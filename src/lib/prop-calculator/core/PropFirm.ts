@@ -1,15 +1,8 @@
-import { type Plan, type PlanId } from './Plan';
+import { type Plan } from './Plan';
+import { FirmId } from './FirmId';
+import { type PlanId, planIdEquals } from './PlanId';
 
-export enum FirmId {
-    AlphaFutures = 'alphafutures',
-    Apex = 'apex',
-    FundedNext = 'fundednext',
-    Lucid = 'lucid',
-    Mffu = 'mffu',
-    TopStep = 'topstep',
-    Tpt = 'tpt',
-    Tradeify = 'tradeify',
-}
+export { FirmId };
 
 export abstract class PropFirm {
     abstract readonly id: FirmId;
@@ -18,7 +11,7 @@ export abstract class PropFirm {
     abstract readonly plans: readonly Plan[];
 
     findPlan(planId: PlanId): Plan | undefined {
-        return this.plans.find((p) => p.id === planId);
+        return this.plans.find((p) => planIdEquals(p.id, planId));
     }
 
     abstract maxFundedAccounts(plan: Plan): number;

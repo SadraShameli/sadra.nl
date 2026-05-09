@@ -11,6 +11,7 @@ import { TRPCReactProvider } from '~/trpc/react';
 import GridBackground from '~/components/ui/GridBg';
 import Footer from './_components/Footer';
 import Navbar from './_components/Navbar';
+import ScrollToTop from './_components/ScrollToTop';
 
 import '~/styles/styles.css';
 
@@ -36,6 +37,7 @@ export default function RootLayout({
                     <Footer />
                 </TRPCReactProvider>
 
+                <ScrollToTop />
                 <Analytics />
                 <SpeedInsights />
             </body>

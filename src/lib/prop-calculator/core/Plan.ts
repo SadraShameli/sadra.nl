@@ -7,6 +7,7 @@ import {
     feesUntilPass,
     totalFees,
 } from './FeeSchedule';
+import { type PlanId } from './PlanId';
 import { type PayoutTier, walkPayoutTiers } from './PayoutTiers';
 
 export type PayoutSchedule =
@@ -14,8 +15,6 @@ export type PayoutSchedule =
     | { kind: 'biweekly' }
     | { kind: 'every-n-win-days'; n: number }
     | { kind: 'per-cycle'; days: number };
-
-export type PlanId = string & { readonly __brand: 'PlanId' };
 
 export interface PlanInit {
     id: PlanId;

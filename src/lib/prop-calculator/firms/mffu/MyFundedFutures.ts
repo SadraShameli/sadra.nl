@@ -10,16 +10,9 @@ import {
 
 class MffuPlan extends Plan {}
 
-interface MffuSize {
-    accountSize: number;
-    monthlyFee: number;
-    profitTarget: number;
-    maxDrawdown: number;
-}
-
 const LOCK = (start: number) => start + 100;
 
-const RAPID_SIZES: readonly MffuSize[] = [
+const RAPID_SIZES = [
     {
         accountSize: 25_000,
         monthlyFee: 109,
@@ -46,7 +39,7 @@ const RAPID_SIZES: readonly MffuSize[] = [
     },
 ] as const;
 
-const FLEX_SIZES: readonly MffuSize[] = [
+const FLEX_SIZES = [
     {
         accountSize: 25_000,
         monthlyFee: 84,
@@ -61,7 +54,7 @@ const FLEX_SIZES: readonly MffuSize[] = [
     },
 ] as const;
 
-const PRO_SIZES: readonly MffuSize[] = [
+const PRO_SIZES = [
     {
         accountSize: 50_000,
         monthlyFee: 227,
@@ -82,9 +75,17 @@ const PRO_SIZES: readonly MffuSize[] = [
     },
 ] as const;
 
-function buildRapidPlan(size: MffuSize): PlanInit {
+type MffuRapidSize = (typeof RAPID_SIZES)[number];
+type MffuFlexSize = (typeof FLEX_SIZES)[number];
+type MffuProSize = (typeof PRO_SIZES)[number];
+
+function buildRapidPlan(size: MffuRapidSize): PlanInit {
     return {
-        id: `mffu-rapid-${size.accountSize}` as PlanId,
+        id: {
+            firm: FirmId.Mffu,
+            accountSize: size.accountSize,
+            variant: 'rapid',
+        },
         label: `$${(size.accountSize / 1_000).toFixed(0)}K — Rapid`,
         accountSize: size.accountSize,
         profitTarget: size.profitTarget,
@@ -108,9 +109,13 @@ function buildRapidPlan(size: MffuSize): PlanInit {
     };
 }
 
-function buildFlexPlan(size: MffuSize): PlanInit {
+function buildFlexPlan(size: MffuFlexSize): PlanInit {
     return {
-        id: `mffu-flex-${size.accountSize}` as PlanId,
+        id: {
+            firm: FirmId.Mffu,
+            accountSize: size.accountSize,
+            variant: 'flex',
+        },
         label: `$${(size.accountSize / 1_000).toFixed(0)}K — Flex`,
         accountSize: size.accountSize,
         profitTarget: size.profitTarget,
@@ -134,9 +139,13 @@ function buildFlexPlan(size: MffuSize): PlanInit {
     };
 }
 
-function buildProPlan(size: MffuSize): PlanInit {
+function buildProPlan(size: MffuProSize): PlanInit {
     return {
-        id: `mffu-pro-${size.accountSize}` as PlanId,
+        id: {
+            firm: FirmId.Mffu,
+            accountSize: size.accountSize,
+            variant: 'pro',
+        },
         label: `$${(size.accountSize / 1_000).toFixed(0)}K — Pro`,
         accountSize: size.accountSize,
         profitTarget: size.profitTarget,
@@ -162,7 +171,7 @@ function buildProPlan(size: MffuSize): PlanInit {
 
 function buildBuilderPlan(): PlanInit {
     return {
-        id: 'mffu-builder-50000' as PlanId,
+        id: { firm: FirmId.Mffu, accountSize: 50_000, variant: 'builder' },
         label: '$50K — Builder',
         accountSize: 50_000,
         profitTarget: 3_000,
@@ -198,9 +207,10 @@ export class MyFundedFutures extends PropFirm {
     ] as readonly Plan[];
 
     maxFundedAccounts(plan: Plan): number {
-        if (plan.id.includes('builder')) return 1;
-        if (plan.id.includes('flex')) return 3;
-        if (plan.id.includes('pro') && plan.accountSize >= 100_000) return 3;
+        const id = plan.id as Extract<PlanId, { firm: FirmId.Mffu }>;
+        if (id.variant === 'builder') return 1;
+        if (id.variant === 'flex') return 3;
+        if (id.variant === 'pro' && plan.accountSize >= 100_000) return 3;
         return 5;
     }
 }
