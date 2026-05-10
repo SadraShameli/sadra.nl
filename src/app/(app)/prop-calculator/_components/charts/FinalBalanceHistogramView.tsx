@@ -45,7 +45,7 @@ export default function FinalBalanceHistogramView({ result }: Props) {
     return (
         <ChartContainer
             config={chartConfig}
-            className="aspect-16/7 min-h-[500px] w-full"
+            className="aspect-16/7 min-h-125 w-full"
         >
             <BarChart
                 data={bins}

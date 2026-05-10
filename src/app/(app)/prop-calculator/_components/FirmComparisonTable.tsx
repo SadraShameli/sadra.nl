@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
     type FirmId,
@@ -59,6 +59,12 @@ export default function FirmComparisonTable({
 }: FirmComparisonTableProps) {
     const [rows, setRows] = useState<Row[]>([]);
     const [pending, setPending] = useState(false);
+    const inputsRef = useRef(baseInputs);
+    inputsRef.current = baseInputs;
+    const firmsRef = useRef(firms);
+    firmsRef.current = firms;
+    const targetSizeRef = useRef(targetAccountSize);
+    targetSizeRef.current = targetAccountSize;
 
     const debouncedKey = useDebouncedKey(baseInputs, targetAccountSize, 700);
 
@@ -66,12 +72,15 @@ export default function FirmComparisonTable({
         let cancelled = false;
         setPending(true);
         const handle = setTimeout(() => {
-            const trials = Math.min(500, baseInputs.trials);
+            const inputs = inputsRef.current;
+            const firmList = firmsRef.current;
+            const targetSize = targetSizeRef.current;
+            const trials = Math.min(500, inputs.trials);
             const out: Row[] = [];
-            for (const firm of firms) {
-                const plan = pickPlan(firm, targetAccountSize);
+            for (const firm of firmList) {
+                const plan = pickPlan(firm, targetSize);
                 if (!plan) continue;
-                const sim = simulate({ ...baseInputs, plan, trials });
+                const sim = simulate({ ...inputs, plan, trials });
                 out.push({ firm, plan, out: sim });
             }
             if (!cancelled) {
@@ -83,7 +92,7 @@ export default function FirmComparisonTable({
             cancelled = true;
             clearTimeout(handle);
         };
-    }, [debouncedKey, firms, baseInputs, targetAccountSize]);
+    }, [debouncedKey]);
 
     const bestNet = useMemo(() => {
         if (rows.length === 0) return -Infinity;
@@ -206,6 +215,10 @@ function useDebouncedKey(
         seed: inputs.seed,
         commission: inputs.commissionPerRoundTrip ?? 0,
         attempts: inputs.maxAttempts ?? 1,
+        copy: inputs.copyAccounts ?? 1,
+        trials: inputs.trials,
+        eval: inputs.discounts?.evalPercent ?? 0,
+        act: inputs.discounts?.activationPercent ?? 0,
         accountSize,
     });
     const [debounced, setDebounced] = useState(key);

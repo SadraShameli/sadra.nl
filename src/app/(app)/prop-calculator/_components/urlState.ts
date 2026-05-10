@@ -25,6 +25,8 @@ export function encodeState(state: CalculatorState): URLSearchParams {
     p.set('comm', String(state.commissionPerRoundTrip));
     p.set('attempts', String(state.maxAttempts));
     p.set('copy', String(state.copyAccounts));
+    p.set('maxDays', String(state.maxEvalDays));
+    p.set('fundedDays', String(state.fundedHorizonDays));
     return p;
 }
 
@@ -54,9 +56,12 @@ export function decodeState(
             ? SizingMode.Percent
             : SizingMode.Dollar;
 
+    const resolvedFirm = firm ?? fallback.firm;
+    const resolvedPlan = plan ?? (firm ? firm.plans[0] : null) ?? fallback.plan;
+
     return {
-        firm: firm ?? fallback.firm,
-        plan: plan ?? fallback.plan,
+        firm: resolvedFirm,
+        plan: resolvedPlan,
         winrate: num('wr', fallback.winrate),
         rrRatio: num('rr', fallback.rrRatio),
         tradesPerDay: intNum('tpd', fallback.tradesPerDay),
@@ -65,8 +70,8 @@ export function decodeState(
         riskPercent: num('rp', fallback.riskPercent),
         seed: intNum('seed', fallback.seed),
         trials: intNum('trials', fallback.trials),
-        maxEvalDays: fallback.maxEvalDays,
-        fundedHorizonDays: fallback.fundedHorizonDays,
+        maxEvalDays: intNum('maxDays', fallback.maxEvalDays),
+        fundedHorizonDays: intNum('fundedDays', fallback.fundedHorizonDays),
         evalDiscountPercent: num('eval', fallback.evalDiscountPercent),
         activationDiscountPercent: num(
             'act',

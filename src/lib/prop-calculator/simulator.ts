@@ -67,9 +67,11 @@ export interface SimOutputs {
     finalBalanceP50: number;
     finalBalanceP75: number;
     finalBalanceP95: number;
+    daysToPassP5: number;
     daysToPassP25: number;
     daysToPassP50: number;
     daysToPassP75: number;
+    daysToPassP95: number;
     tradesPerSuccessfulAttempt: number;
     roiOnCost: number;
     costBreakdown: CostBreakdown;
@@ -98,6 +100,7 @@ interface TrialResult {
     grossLosses: number;
     maxLosingStreak: number;
     tradesTaken: number;
+    evalTradesAtPass: number;
     had5LossStreak: boolean;
     had10LossStreak: boolean;
     attemptsUsed: number;
@@ -290,6 +293,7 @@ function simulateTrial(
         if (attempt.outcome === 'passed') {
             const passDay = attempt.days;
             const passBalance = attempt.state.balance;
+            const evalTradesAtPass = attempt.stats.tradesTaken;
             let bustedFunded = false;
 
             for (let day = 0; day < fundedHorizonDays; day++) {
@@ -352,6 +356,7 @@ function simulateTrial(
                 firstPayoutDay,
                 discounts,
                 cumulative,
+                evalTradesAtPass,
                 attemptsUsed,
                 resetFeesPaid,
             });
@@ -377,6 +382,7 @@ function simulateTrial(
             firstPayoutDay: null,
             discounts,
             cumulative,
+            evalTradesAtPass: 0,
             attemptsUsed,
             resetFeesPaid,
         });
@@ -394,6 +400,7 @@ interface FinishTrialArgs {
     firstPayoutDay: number | null;
     discounts: CouponDiscounts | undefined;
     cumulative: PathStats;
+    evalTradesAtPass: number;
     attemptsUsed: number;
     resetFeesPaid: number;
 }
@@ -410,6 +417,7 @@ function finishTrial(args: FinishTrialArgs): TrialResult {
         firstPayoutDay,
         discounts,
         cumulative,
+        evalTradesAtPass,
         attemptsUsed,
         resetFeesPaid,
     } = args;
@@ -436,6 +444,7 @@ function finishTrial(args: FinishTrialArgs): TrialResult {
         grossLosses: cumulative.grossLosses,
         maxLosingStreak: cumulative.maxLosingStreak,
         tradesTaken: cumulative.tradesTaken,
+        evalTradesAtPass,
         had5LossStreak: cumulative.maxLosingStreak >= 5,
         had10LossStreak: cumulative.maxLosingStreak >= 10,
         attemptsUsed,
@@ -561,7 +570,7 @@ export function simulate(inputs: SimInputs): SimOutputs {
             perTradePnLCount += 1;
         }
         if (r.outcome === 'pass-clean' || r.outcome === 'pass-violation') {
-            passingTradesSum += r.tradesTaken;
+            passingTradesSum += r.evalTradesAtPass;
             passingTrialsCount += 1;
         }
         if (r.had5LossStreak) had5LossCount += 1;
@@ -645,9 +654,11 @@ export function simulate(inputs: SimInputs): SimOutputs {
         finalBalanceP50: percentile(finalBalances, 50),
         finalBalanceP75: percentile(finalBalances, 75),
         finalBalanceP95: percentile(finalBalances, 95),
+        daysToPassP5: percentile(daysToPassArr, 5),
         daysToPassP25: percentile(daysToPassArr, 25),
         daysToPassP50: percentile(daysToPassArr, 50),
         daysToPassP75: percentile(daysToPassArr, 75),
+        daysToPassP95: percentile(daysToPassArr, 95),
         tradesPerSuccessfulAttempt,
         roiOnCost,
         costBreakdown: {

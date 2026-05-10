@@ -73,6 +73,10 @@ export default function PortfolioPanel({
         tpd: baseInputs.tradesPerDay,
         seed: baseInputs.seed,
         commission: baseInputs.commissionPerRoundTrip ?? 0,
+        maxEvalDays: baseInputs.maxEvalDays,
+        fundedHorizonDays: baseInputs.fundedHorizonDays,
+        attempts: baseInputs.maxAttempts ?? 1,
+        trials: baseInputs.trials,
     });
 
     const [debouncedKey, setDebouncedKey] = useState(simKey);
@@ -100,6 +104,7 @@ export default function PortfolioPanel({
                     ...baseInputs,
                     plan,
                     trials,
+                    copyAccounts: 1,
                     discounts: {
                         evalPercent: entry.evalDiscountPercent,
                         activationPercent: entry.linkActivationDiscount
@@ -368,6 +373,8 @@ function PortfolioRow({
     onUpdate,
     onRemove,
 }: PortfolioRowProps) {
+    const maxAccounts = firm.maxFundedAccounts(plan);
+
     function handleFirmChange(firmId: string) {
         const newFirm = firms.find((f) => f.id === firmId);
         const firstPlan = newFirm?.plans[0];
@@ -375,6 +382,7 @@ function PortfolioRow({
         onUpdate(entry.id, {
             firmId: firmId as FirmId,
             planId: firstPlan.id,
+            count: Math.min(entry.count, newFirm.maxFundedAccounts(firstPlan)),
         });
     }
 
@@ -382,14 +390,21 @@ function PortfolioRow({
         const found = firm.plans.find(
             (p) => serializePlanId(p.id) === serialized,
         );
-        if (found) onUpdate(entry.id, { planId: found.id });
+        if (!found) return;
+        onUpdate(entry.id, {
+            planId: found.id,
+            count: Math.min(entry.count, firm.maxFundedAccounts(found)),
+        });
     }
 
     function adjustCount(delta: number) {
         onUpdate(entry.id, {
-            count: Math.max(1, Math.min(20, entry.count + delta)),
+            count: Math.max(1, Math.min(maxAccounts, entry.count + delta)),
         });
     }
+
+    const atMin = entry.count <= 1;
+    const atMax = entry.count >= maxAccounts;
 
     const effectiveActDiscount = entry.linkActivationDiscount
         ? entry.evalDiscountPercent
@@ -442,16 +457,27 @@ function PortfolioRow({
                 <div className="flex items-center gap-1">
                     <button
                         onClick={() => adjustCount(-1)}
-                        className="flex h-5 w-5 items-center justify-center rounded text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                        disabled={atMin}
+                        className="flex h-5 w-5 items-center justify-center rounded text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
                     >
                         −
                     </button>
-                    <span className="w-4 text-center font-medium">
+                    <span className="min-w-12 text-center font-medium tabular-nums">
                         {entry.count}
+                        <span className="text-muted-foreground">
+                            {' / '}
+                            {maxAccounts}
+                        </span>
                     </span>
                     <button
                         onClick={() => adjustCount(1)}
-                        className="flex h-5 w-5 items-center justify-center rounded text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                        disabled={atMax}
+                        title={
+                            atMax
+                                ? `${firm.displayName} caps at ${maxAccounts}`
+                                : undefined
+                        }
+                        className="flex h-5 w-5 items-center justify-center rounded text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
                     >
                         +
                     </button>

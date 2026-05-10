@@ -136,6 +136,7 @@ export default function CalculatorShell() {
                 rrRatio={c.state.rrRatio}
                 riskPerTrade={c.simInputs.riskPerTrade}
                 fundedHorizonDays={c.simInputs.fundedHorizonDays}
+                copyAccounts={c.state.copyAccounts}
             />
 
             <PortfolioPanel
@@ -164,13 +165,13 @@ export default function CalculatorShell() {
                 />
                 <PercentileBar
                     label="Days to pass distribution"
-                    p5={c.result.daysToPassP25}
+                    p5={c.result.daysToPassP5}
                     p25={c.result.daysToPassP25}
                     p50={c.result.daysToPassP50}
                     p75={c.result.daysToPassP75}
-                    p95={c.result.daysToPassP75}
+                    p95={c.result.daysToPassP95}
                     formatValue={formatDays}
-                    description="Distribution of trading days needed to hit the profit target across passing trials."
+                    description={kpiDescriptions.daysToPass}
                 />
             </div>
 

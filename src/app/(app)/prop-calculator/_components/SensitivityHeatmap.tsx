@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { type Plan, simulate, type SimInputs } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utils';
@@ -13,6 +13,12 @@ import { panelDescriptions } from './kpiDescriptions';
 
 const WINRATES = [0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6] as const;
 const RR_RATIOS = [1, 1.5, 2, 2.5, 3, 3.5, 4] as const;
+
+function nearest<T extends number>(target: number, options: readonly T[]): T {
+    return options.reduce((best, v) =>
+        Math.abs(v - target) < Math.abs(best - target) ? v : best,
+    );
+}
 
 interface SensitivityHeatmapProps {
     plan: Plan;
@@ -50,11 +56,13 @@ function colorForNet(net: number, maxAbs: number): string {
 }
 
 function useSensitivityGrid(
-    plan: Plan,
+    _plan: Plan,
     baseInputs: SimInputs,
 ): { cells: Cell[]; pending: boolean } {
     const [cells, setCells] = useState<Cell[]>([]);
     const [pending, setPending] = useState(false);
+    const inputsRef = useRef(baseInputs);
+    inputsRef.current = baseInputs;
 
     const debouncedKey = useDebouncedKey(baseInputs, 700);
 
@@ -62,12 +70,13 @@ function useSensitivityGrid(
         let cancelled = false;
         setPending(true);
         const handle = setTimeout(() => {
-            const trials = Math.min(300, baseInputs.trials);
+            const inputs = inputsRef.current;
+            const trials = Math.min(300, inputs.trials);
             const out: Cell[] = [];
             for (const winrate of WINRATES) {
                 for (const rr of RR_RATIOS) {
                     const result = simulate({
-                        ...baseInputs,
+                        ...inputs,
                         trials,
                         winrate,
                         rrRatio: rr,
@@ -89,7 +98,7 @@ function useSensitivityGrid(
             cancelled = true;
             clearTimeout(handle);
         };
-    }, [debouncedKey, plan, baseInputs]);
+    }, [debouncedKey]);
 
     return { cells, pending };
 }
@@ -114,6 +123,9 @@ function HeatmapCells({
             if (abs > maxAbs) maxAbs = abs;
         }
     }
+
+    const closestWinrate = nearest(currentWinrate, WINRATES);
+    const closestRR = nearest(currentRR, RR_RATIOS);
 
     return (
         <div className="overflow-x-auto">
@@ -144,8 +156,8 @@ function HeatmapCells({
                                     (c) => c.winrate === winrate && c.rr === rr,
                                 );
                                 const isCurrent =
-                                    Math.abs(winrate - currentWinrate) < 0.02 &&
-                                    Math.abs(rr - currentRR) < 0.06;
+                                    winrate === closestWinrate &&
+                                    rr === closestRR;
                                 const colorClass = cell
                                     ? metric === 'pass'
                                         ? colorForPass(cell.pass)
@@ -252,6 +264,8 @@ function useDebouncedKey(inputs: SimInputs, delay: number): string {
         seed: inputs.seed,
         commission: inputs.commissionPerRoundTrip ?? 0,
         attempts: inputs.maxAttempts ?? 1,
+        copy: inputs.copyAccounts ?? 1,
+        trials: inputs.trials,
         eval: inputs.discounts?.evalPercent ?? 0,
         act: inputs.discounts?.activationPercent ?? 0,
     });

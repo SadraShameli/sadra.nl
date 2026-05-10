@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
     type Plan,
@@ -23,6 +23,12 @@ import { panelDescriptions } from './kpiDescriptions';
 
 const RISK_LEVELS = [0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 4, 5] as const;
 
+function nearestRisk(target: number): number {
+    return RISK_LEVELS.reduce((best, v) =>
+        Math.abs(v - target) < Math.abs(best - target) ? v : best,
+    );
+}
+
 interface OptimalRiskTableProps {
     plan: Plan;
     baseInputs: Omit<SimInputs, 'riskPerTrade'>;
@@ -41,6 +47,10 @@ export default function OptimalRiskTable({
 }: OptimalRiskTableProps) {
     const [rows, setRows] = useState<Row[]>([]);
     const [pending, setPending] = useState(false);
+    const inputsRef = useRef(baseInputs);
+    inputsRef.current = baseInputs;
+    const planRef = useRef(plan);
+    planRef.current = plan;
 
     const debouncedKey = useDebouncedKey(baseInputs);
 
@@ -48,11 +58,13 @@ export default function OptimalRiskTable({
         let cancelled = false;
         setPending(true);
         const handle = setTimeout(() => {
-            const trials = Math.min(500, baseInputs.trials);
+            const inputs = inputsRef.current;
+            const accountSize = planRef.current.accountSize;
+            const trials = Math.min(500, inputs.trials);
             const results: Row[] = RISK_LEVELS.map((riskPct) => {
-                const riskDollars = (plan.accountSize * riskPct) / 100;
+                const riskDollars = (accountSize * riskPct) / 100;
                 const out = simulate({
-                    ...baseInputs,
+                    ...inputs,
                     trials,
                     riskPerTrade: riskDollars,
                 });
@@ -67,7 +79,7 @@ export default function OptimalRiskTable({
             cancelled = true;
             clearTimeout(handle);
         };
-    }, [debouncedKey, plan, baseInputs]);
+    }, [debouncedKey]);
 
     const bestRow = useMemo(() => {
         if (rows.length === 0) return null;
@@ -75,6 +87,8 @@ export default function OptimalRiskTable({
             r.out.expectedMonthlyNet > best.out.expectedMonthlyNet ? r : best,
         );
     }, [rows]);
+
+    const closestRiskPct = nearestRisk(currentRiskPercent);
 
     return (
         <Card className="px-5 py-4">
@@ -115,8 +129,7 @@ export default function OptimalRiskTable({
                     </thead>
                     <tbody>
                         {rows.map(({ riskPct, out }) => {
-                            const isCurrent =
-                                Math.abs(riskPct - currentRiskPercent) < 0.01;
+                            const isCurrent = riskPct === closestRiskPct;
                             const isBest = bestRow?.riskPct === riskPct;
                             return (
                                 <tr
@@ -179,6 +192,8 @@ function useDebouncedKey(inputs: Omit<SimInputs, 'riskPerTrade'>): string {
         seed: inputs.seed,
         commission: inputs.commissionPerRoundTrip ?? 0,
         attempts: inputs.maxAttempts ?? 1,
+        copy: inputs.copyAccounts ?? 1,
+        trials: inputs.trials,
         eval: inputs.discounts?.evalPercent ?? 0,
         act: inputs.discounts?.activationPercent ?? 0,
     });

@@ -23,6 +23,7 @@ interface StrategyAnalysisProps {
     rrRatio: number;
     riskPerTrade: number;
     fundedHorizonDays: number;
+    copyAccounts: number;
 }
 
 function localStdDev(arr: readonly number[]): number {
@@ -179,7 +180,9 @@ export default function StrategyAnalysis({
     rrRatio,
     riskPerTrade,
     fundedHorizonDays,
+    copyAccounts,
 }: StrategyAnalysisProps) {
+    const accounts = Math.max(1, Math.floor(copyAccounts));
     const edge = useMemo(() => {
         const breakEvenWR = 1 / (1 + rrRatio);
         const edgeMargin = winrate - breakEvenWR;
@@ -229,6 +232,8 @@ export default function StrategyAnalysis({
             maxDrawdownP50,
             profitFactor,
         } = result;
+        const perAccountMonthlyNet = expectedMonthlyNet / accounts;
+        const perAccountNet = expectedNet / accounts;
 
         const monthsInHorizon = fundedHorizonDays / 21;
         const monthlyReturns = finalBalances.map(
@@ -241,10 +246,11 @@ export default function StrategyAnalysis({
         const sharpe =
             sdMonthly > 0 ? (meanMonthly / sdMonthly) * Math.sqrt(12) : 0;
 
-        const annualizedReturn = (expectedMonthlyNet / accountSize) * 12;
+        const annualizedReturn = (perAccountMonthlyNet / accountSize) * 12;
         const maxDDFraction = maxDrawdownP50 / accountSize;
         const calmar = maxDDFraction > 0 ? annualizedReturn / maxDDFraction : 0;
-        const recovery = maxDrawdownP50 > 0 ? expectedNet / maxDrawdownP50 : 0;
+        const recovery =
+            maxDrawdownP50 > 0 ? perAccountNet / maxDrawdownP50 : 0;
 
         const gains = finalBalances.reduce(
             (s, b) => s + Math.max(b - accountSize, 0),
@@ -257,12 +263,13 @@ export default function StrategyAnalysis({
         const omega = losses > 0 ? gains / losses : gains > 0 ? Infinity : 1;
 
         return { sharpe, calmar, recovery, omega, profitFactor };
-    }, [result, fundedHorizonDays]);
+    }, [result, fundedHorizonDays, accounts]);
 
     const breakdown = useMemo(() => {
         const accountSize = plan.accountSize;
-        const yearlyPct = (result.expectedMonthlyNet * 12) / accountSize;
-        const monthlyPct = result.expectedMonthlyNet / accountSize;
+        const perAccountMonthlyNet = result.expectedMonthlyNet / accounts;
+        const yearlyPct = (perAccountMonthlyNet * 12) / accountSize;
+        const monthlyPct = perAccountMonthlyNet / accountSize;
         const weeklyPct = monthlyPct / 4.2;
         const perTradePct = result.expectancyDollars / accountSize;
 
@@ -306,6 +313,7 @@ export default function StrategyAnalysis({
         winrate,
         rrRatio,
         riskPerTrade,
+        accounts,
     ]);
 
     const omegaStr = !isFinite(ratios.omega) ? '∞' : ratios.omega.toFixed(2);

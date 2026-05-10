@@ -35,6 +35,8 @@ export const kpiDescriptions = {
         'Worst peak-to-trough $ drop observed within a trial path. P95 = the drawdown you should expect to face in 1 of 20 attempts.',
     finalBalance:
         'Distribution of account balances at the end of each simulation. Most-likely range vs tail outcomes.',
+    daysToPass:
+        'Distribution of trading days needed to hit the profit target across passing trials. Tighter = consistent timing, wider = some trials grind for many days.',
 } as const;
 
 export const panelDescriptions = {

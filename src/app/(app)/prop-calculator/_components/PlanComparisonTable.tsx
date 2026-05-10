@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
     type Plan,
@@ -42,6 +42,10 @@ export default function PlanComparisonTable({
 }: PlanComparisonTableProps) {
     const [rows, setRows] = useState<Row[]>([]);
     const [pending, setPending] = useState(false);
+    const inputsRef = useRef(baseInputs);
+    inputsRef.current = baseInputs;
+    const firmRef = useRef(firm);
+    firmRef.current = firm;
 
     const debouncedKey = useDebouncedKey(baseInputs, firm.id, 600);
 
@@ -49,10 +53,12 @@ export default function PlanComparisonTable({
         let cancelled = false;
         setPending(true);
         const handle = setTimeout(() => {
-            const trials = Math.min(500, baseInputs.trials);
-            const out: Row[] = firm.plans.map((plan) => ({
+            const inputs = inputsRef.current;
+            const plans = firmRef.current.plans;
+            const trials = Math.min(500, inputs.trials);
+            const out: Row[] = plans.map((plan) => ({
                 plan,
-                out: simulate({ ...baseInputs, plan, trials }),
+                out: simulate({ ...inputs, plan, trials }),
             }));
             if (!cancelled) {
                 setRows(out);
@@ -63,7 +69,7 @@ export default function PlanComparisonTable({
             cancelled = true;
             clearTimeout(handle);
         };
-    }, [debouncedKey, firm, baseInputs]);
+    }, [debouncedKey]);
 
     const bestNet = useMemo(() => {
         if (rows.length === 0) return -Infinity;
@@ -196,6 +202,10 @@ function useDebouncedKey(
         seed: inputs.seed,
         commission: inputs.commissionPerRoundTrip ?? 0,
         attempts: inputs.maxAttempts ?? 1,
+        copy: inputs.copyAccounts ?? 1,
+        trials: inputs.trials,
+        eval: inputs.discounts?.evalPercent ?? 0,
+        act: inputs.discounts?.activationPercent ?? 0,
     });
     const [debounced, setDebounced] = useState(key);
     useEffect(() => {

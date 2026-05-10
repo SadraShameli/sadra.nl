@@ -23,6 +23,16 @@ function required<T>(value: T | undefined, message: string): T {
     return value;
 }
 
+function clampNum(n: number, lo: number, hi: number, fallback: number): number {
+    if (!Number.isFinite(n)) return fallback;
+    return Math.min(hi, Math.max(lo, n));
+}
+
+function clampInt(n: number, lo: number, hi: number, fallback: number): number {
+    if (!Number.isFinite(n)) return fallback;
+    return Math.min(hi, Math.max(lo, Math.floor(n)));
+}
+
 const DEFAULT_FIRM: PropFirm = required(
     findFirm(FirmId.Apex),
     'Prop calculator: Apex firm missing from registry',
@@ -105,6 +115,7 @@ export function useCalculator(): UseCalculatorReturn {
     const [state, setState] = useState<CalculatorState>(defaultState);
     const [pinned, setPinned] = useState<PinnedScenario | null>(null);
     const hydratedRef = useRef(false);
+    const skipNextWriteRef = useRef(true);
 
     useEffect(() => {
         if (hydratedRef.current) return;
@@ -114,6 +125,7 @@ export function useCalculator(): UseCalculatorReturn {
         if (!params.has('firm')) return;
         try {
             const next = decodeState(params, ALL_FIRMS, defaultState());
+            skipNextWriteRef.current = true;
             setState(next);
         } catch {
             return;
@@ -121,7 +133,10 @@ export function useCalculator(): UseCalculatorReturn {
     }, []);
 
     useEffect(() => {
-        if (!hydratedRef.current) return;
+        if (skipNextWriteRef.current) {
+            skipNextWriteRef.current = false;
+            return;
+        }
         if (typeof window === 'undefined') return;
         const params = encodeState(state).toString();
         const next = `${window.location.pathname}?${params}${window.location.hash}`;
@@ -247,36 +262,83 @@ export function useCalculator(): UseCalculatorReturn {
         isPending,
         setFirm,
         setPlan,
-        setWinrate: (n) => setState((s) => ({ ...s, winrate: n })),
-        setRrRatio: (n) => setState((s) => ({ ...s, rrRatio: n })),
-        setTradesPerDay: (n) => setState((s) => ({ ...s, tradesPerDay: n })),
+        setWinrate: (n) =>
+            setState((s) => ({
+                ...s,
+                winrate: clampNum(n, 0.05, 0.95, s.winrate),
+            })),
+        setRrRatio: (n) =>
+            setState((s) => ({
+                ...s,
+                rrRatio: clampNum(n, 0.5, 10, s.rrRatio),
+            })),
+        setTradesPerDay: (n) =>
+            setState((s) => ({
+                ...s,
+                tradesPerDay: clampInt(n, 1, 50, s.tradesPerDay),
+            })),
         setSizingMode: (m) => setState((s) => ({ ...s, sizingMode: m })),
-        setRiskDollars: (n) => setState((s) => ({ ...s, riskDollars: n })),
-        setRiskPercent: (n) => setState((s) => ({ ...s, riskPercent: n })),
-        setSeed: (n) => setState((s) => ({ ...s, seed: n })),
-        setTrials: (n) => setState((s) => ({ ...s, trials: n })),
+        setRiskDollars: (n) =>
+            setState((s) => ({
+                ...s,
+                riskDollars: clampNum(n, 1, s.plan.accountSize, s.riskDollars),
+            })),
+        setRiskPercent: (n) =>
+            setState((s) => ({
+                ...s,
+                riskPercent: clampNum(n, 0.05, 100, s.riskPercent),
+            })),
+        setSeed: (n) =>
+            setState((s) => ({
+                ...s,
+                seed: Number.isFinite(n) ? Math.floor(n) : s.seed,
+            })),
+        setTrials: (n) =>
+            setState((s) => ({
+                ...s,
+                trials: clampInt(n, 100, 5000, s.trials),
+            })),
         setMaxEvalDays: (n) =>
             setState((s) => ({
                 ...s,
-                maxEvalDays: Math.max(10, Math.min(365, Math.floor(n))),
+                maxEvalDays: clampInt(n, 10, 365, s.maxEvalDays),
             })),
         setEvalDiscountPercent: (n) =>
-            setState((s) => ({ ...s, evalDiscountPercent: n })),
+            setState((s) => ({
+                ...s,
+                evalDiscountPercent: clampNum(n, 0, 100, s.evalDiscountPercent),
+            })),
         setActivationDiscountPercent: (n) =>
-            setState((s) => ({ ...s, activationDiscountPercent: n })),
+            setState((s) => ({
+                ...s,
+                activationDiscountPercent: clampNum(
+                    n,
+                    0,
+                    100,
+                    s.activationDiscountPercent,
+                ),
+            })),
         setLinkActivationDiscount: (linked) =>
             setState((s) => ({ ...s, linkActivationDiscount: linked })),
         setCommissionPerRoundTrip: (n) =>
-            setState((s) => ({ ...s, commissionPerRoundTrip: n })),
+            setState((s) => ({
+                ...s,
+                commissionPerRoundTrip: clampNum(
+                    n,
+                    0,
+                    50,
+                    s.commissionPerRoundTrip,
+                ),
+            })),
         setMaxAttempts: (n) =>
             setState((s) => ({
                 ...s,
-                maxAttempts: Math.max(1, Math.floor(n)),
+                maxAttempts: clampInt(n, 1, 10, s.maxAttempts),
             })),
         setCopyAccounts: (n) =>
             setState((s) => {
                 const cap = s.firm.maxFundedAccounts(s.plan);
-                const clamped = Math.max(1, Math.min(cap, Math.floor(n)));
+                const clamped = clampInt(n, 1, cap, s.copyAccounts);
                 return {
                     ...s,
                     copyAccounts: clamped,
