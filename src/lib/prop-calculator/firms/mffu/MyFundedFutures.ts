@@ -2,6 +2,7 @@ import {
     ConsistencyRule,
     EodTrailingDrawdown,
     FirmId,
+    IntradayTrailingDrawdown,
     Plan,
     type PlanId,
     type PlanInit,
@@ -18,24 +19,28 @@ const RAPID_SIZES = [
         monthlyFee: 109,
         profitTarget: 1_500,
         maxDrawdown: 1_000,
+        minPayoutProfit: 1_100,
     },
     {
         accountSize: 50_000,
         monthlyFee: 157,
         profitTarget: 3_000,
         maxDrawdown: 2_000,
+        minPayoutProfit: 2_100,
     },
     {
         accountSize: 100_000,
         monthlyFee: 267,
         profitTarget: 6_000,
         maxDrawdown: 3_000,
+        minPayoutProfit: 3_100,
     },
     {
         accountSize: 150_000,
         monthlyFee: 347,
         profitTarget: 9_000,
         maxDrawdown: 4_500,
+        minPayoutProfit: 4_600,
     },
 ] as const;
 
@@ -48,7 +53,7 @@ const FLEX_SIZES = [
     },
     {
         accountSize: 50_000,
-        monthlyFee: 107,
+        monthlyFee: 127,
         profitTarget: 3_000,
         maxDrawdown: 2_000,
     },
@@ -60,18 +65,21 @@ const PRO_SIZES = [
         monthlyFee: 227,
         profitTarget: 3_000,
         maxDrawdown: 2_000,
+        minPayoutProfit: 2_100,
     },
     {
         accountSize: 100_000,
         monthlyFee: 344,
         profitTarget: 6_000,
         maxDrawdown: 3_000,
+        minPayoutProfit: 3_100,
     },
     {
         accountSize: 150_000,
         monthlyFee: 477,
         profitTarget: 9_000,
         maxDrawdown: 4_500,
+        minPayoutProfit: 4_600,
     },
 ] as const;
 
@@ -91,7 +99,7 @@ function buildRapidPlan(size: MffuRapidSize): PlanInit {
         profitTarget: size.profitTarget,
         minTradingDays: 2,
         dailyLossLimit: null,
-        drawdown: new EodTrailingDrawdown({
+        drawdown: new IntradayTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: { atProfit: size.maxDrawdown + 100, lockedThreshold: LOCK },
         }),
@@ -104,7 +112,7 @@ function buildRapidPlan(size: MffuRapidSize): PlanInit {
             monthlySubscription: size.monthlyFee,
             reset: size.monthlyFee,
         },
-        minPayoutProfit: 500,
+        minPayoutProfit: size.minPayoutProfit,
         minDaysAfterPassForPayout: 3,
     };
 }
@@ -164,7 +172,7 @@ function buildProPlan(size: MffuProSize): PlanInit {
             monthlySubscription: size.monthlyFee,
             reset: size.monthlyFee,
         },
-        minPayoutProfit: 1_000,
+        minPayoutProfit: size.minPayoutProfit,
         minDaysAfterPassForPayout: 5,
     };
 }

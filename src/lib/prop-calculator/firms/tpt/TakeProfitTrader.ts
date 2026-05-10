@@ -68,8 +68,8 @@ function buildPlan(size: TptSize): PlanInit {
             monthlySubscription: size.monthlySubscription,
             reset: 0,
         },
-        minPayoutProfit: 250,
-        minDaysAfterPassForPayout: 5,
+        minPayoutProfit: size.maxDrawdown,
+        minDaysAfterPassForPayout: 0,
     };
 }
 

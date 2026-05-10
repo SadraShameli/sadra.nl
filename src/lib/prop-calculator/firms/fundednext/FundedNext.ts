@@ -35,24 +35,39 @@ const RAPID_SIZES = [
         accountSize: 25_000,
         profitTarget: 1_500,
         maxDrawdown: 1_000,
-        evalCost: 110,
+        evalCost: 100,
+        minPayoutProfit: 250,
     },
     {
         accountSize: 50_000,
         profitTarget: 3_000,
         maxDrawdown: 2_000,
         evalCost: 200,
+        minPayoutProfit: 250,
     },
     {
         accountSize: 100_000,
         profitTarget: 5_000,
         maxDrawdown: 2_500,
         evalCost: 280,
+        minPayoutProfit: 500,
+    },
+] as const;
+
+const BOLT_SIZES = [
+    {
+        accountSize: 50_000,
+        profitTarget: 3_000,
+        maxDrawdown: 2_000,
+        dailyLossLimit: 1_000,
+        evalCost: 100,
+        resetCost: 92,
     },
 ] as const;
 
 type FnLegacySize = (typeof LEGACY_SIZES)[number];
 type FnRapidSize = (typeof RAPID_SIZES)[number];
+type FnBoltSize = (typeof BOLT_SIZES)[number];
 
 function buildLegacyPlan(size: FnLegacySize): PlanInit {
     return {
@@ -64,7 +79,7 @@ function buildLegacyPlan(size: FnLegacySize): PlanInit {
         label: `$${(size.accountSize / 1_000).toFixed(0)}K — Legacy`,
         accountSize: size.accountSize,
         profitTarget: size.profitTarget,
-        minTradingDays: 0,
+        minTradingDays: 3,
         dailyLossLimit: null,
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
@@ -115,8 +130,41 @@ function buildRapidPlan(size: FnRapidSize): PlanInit {
             monthlySubscription: 0,
             reset: Math.round(size.evalCost * 0.9),
         },
-        minPayoutProfit: 250,
+        minPayoutProfit: size.minPayoutProfit,
         minDaysAfterPassForPayout: 5,
+    };
+}
+
+function buildBoltPlan(size: FnBoltSize): PlanInit {
+    return {
+        id: {
+            firm: FirmId.FundedNext,
+            accountSize: size.accountSize,
+            variant: 'bolt',
+        },
+        label: `$${(size.accountSize / 1_000).toFixed(0)}K — Bolt`,
+        accountSize: size.accountSize,
+        profitTarget: size.profitTarget,
+        minTradingDays: 0,
+        dailyLossLimit: size.dailyLossLimit,
+        drawdown: new EodTrailingDrawdown({
+            amount: size.maxDrawdown,
+            lock: {
+                atProfit: size.maxDrawdown,
+                lockedThreshold: (start) => start,
+            },
+        }),
+        consistency: new ConsistencyRule('eval', 0.4),
+        payoutTiers: [{ thresholdProfit: 0, traderShare: 0.8 }],
+        payoutSchedule: { kind: 'daily' },
+        fees: {
+            oneTimeEval: size.evalCost,
+            activation: 0,
+            monthlySubscription: 0,
+            reset: size.resetCost,
+        },
+        minPayoutProfit: 250,
+        minDaysAfterPassForPayout: 0,
     };
 }
 
@@ -127,6 +175,7 @@ export class FundedNext extends PropFirm {
     readonly plans = [
         ...LEGACY_SIZES.map((s) => new FundedNextPlan(buildLegacyPlan(s))),
         ...RAPID_SIZES.map((s) => new FundedNextPlan(buildRapidPlan(s))),
+        ...BOLT_SIZES.map((s) => new FundedNextPlan(buildBoltPlan(s))),
     ] as readonly Plan[];
 
     maxFundedAccounts(): number {
