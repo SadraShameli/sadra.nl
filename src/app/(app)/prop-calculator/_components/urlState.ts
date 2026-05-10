@@ -1,11 +1,73 @@
 import {
-    type FirmId,
     serializePlanId,
+    type DayStopRule,
+    type FirmId,
     type PropFirm,
 } from '~/lib/prop-calculator';
 
-import type { CalculatorState } from './types';
+import type { CalculatorState, LabScenario } from './types';
 import { SizingMode } from './types';
+
+function base64UrlEncode(s: string): string {
+    if (typeof window === 'undefined') return '';
+    try {
+        const bytes = new TextEncoder().encode(s);
+        let binary = '';
+        for (const b of bytes) binary += String.fromCharCode(b);
+        return window
+            .btoa(binary)
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=+$/, '');
+    } catch {
+        return '';
+    }
+}
+
+function base64UrlDecode(s: string): string {
+    if (typeof window === 'undefined') return '';
+    try {
+        const padded =
+            s.replace(/-/g, '+').replace(/_/g, '/') +
+            '==='.slice((s.length + 3) % 4);
+        const binary = window.atob(padded);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        return new TextDecoder().decode(bytes);
+    } catch {
+        return '';
+    }
+}
+
+function isDayStopRule(v: unknown): v is DayStopRule {
+    if (!v || typeof v !== 'object') return false;
+    const kind = (v as { kind?: unknown }).kind;
+    if (kind === 'none' || kind === 'first-win') return true;
+    if (kind === 'after-k-losses')
+        return typeof (v as { k?: unknown }).k === 'number';
+    if (kind === 'after-target')
+        return typeof (v as { dollars?: unknown }).dollars === 'number';
+    return false;
+}
+
+function isLabScenario(v: unknown): v is LabScenario {
+    if (!v || typeof v !== 'object') return false;
+    const o = v as Partial<LabScenario>;
+    return (
+        typeof o.id === 'string' &&
+        typeof o.label === 'string' &&
+        typeof o.riskPerTrade === 'number' &&
+        typeof o.winrate === 'number' &&
+        typeof o.rrRatio === 'number' &&
+        typeof o.tradesPerDay === 'number' &&
+        typeof o.accounts === 'number' &&
+        (o.correlation === 'copy' ||
+            o.correlation === 'grouped' ||
+            o.correlation === 'independent') &&
+        typeof o.groups === 'number' &&
+        isDayStopRule(o.dayStop)
+    );
+}
 
 export function encodeState(state: CalculatorState): URLSearchParams {
     const p = new URLSearchParams();
@@ -27,6 +89,14 @@ export function encodeState(state: CalculatorState): URLSearchParams {
     p.set('copy', String(state.copyAccounts));
     p.set('maxDays', String(state.maxEvalDays));
     p.set('fundedDays', String(state.fundedHorizonDays));
+    if (state.dayStop.kind !== 'none') {
+        const ds = base64UrlEncode(JSON.stringify(state.dayStop));
+        if (ds) p.set('ds', ds);
+    }
+    if (state.labScenarios.length > 0) {
+        const lab = base64UrlEncode(JSON.stringify(state.labScenarios));
+        if (lab) p.set('lab', lab);
+    }
     return p;
 }
 
@@ -59,6 +129,25 @@ export function decodeState(
     const resolvedFirm = firm ?? fallback.firm;
     const resolvedPlan = plan ?? (firm ? firm.plans[0] : null) ?? fallback.plan;
 
+    let dayStop: DayStopRule = fallback.dayStop;
+    const dsParam = params.get('ds');
+    if (dsParam) {
+        try {
+            const parsed: unknown = JSON.parse(base64UrlDecode(dsParam));
+            if (isDayStopRule(parsed)) dayStop = parsed;
+        } catch {}
+    }
+
+    let labScenarios: LabScenario[] = fallback.labScenarios;
+    const labParam = params.get('lab');
+    if (labParam) {
+        try {
+            const parsed: unknown = JSON.parse(base64UrlDecode(labParam));
+            if (Array.isArray(parsed) && parsed.every(isLabScenario))
+                labScenarios = parsed;
+        } catch {}
+    }
+
     return {
         firm: resolvedFirm,
         plan: resolvedPlan,
@@ -82,6 +171,8 @@ export function decodeState(
         maxAttempts: intNum('attempts', fallback.maxAttempts),
         copyAccounts: intNum('copy', fallback.copyAccounts),
         firmMemory: fallback.firmMemory,
+        dayStop,
+        labScenarios,
     };
 }
 

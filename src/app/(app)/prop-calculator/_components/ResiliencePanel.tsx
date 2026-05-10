@@ -10,6 +10,7 @@ import { Card } from '~/components/ui/Card';
 import { formatCurrency, formatPercent } from './helpers';
 import InfoPopover from './InfoPopover';
 import { panelDescriptions } from './kpiDescriptions';
+import { probStreakAtLeast } from './lab/labMath';
 
 interface ResiliencePanelProps {
     plan: Plan;
@@ -19,13 +20,6 @@ interface ResiliencePanelProps {
 }
 
 const BASE_STREAKS = [3, 4, 5, 6, 7, 8, 10] as const;
-
-function streakProb(n: number, k: number, q: number): number {
-    if (k < n || q <= 0) return 0;
-    if (q >= 1) return 1;
-    const expected = (k - n + 1) * Math.pow(q, n);
-    return 1 - Math.exp(-expected);
-}
 
 export default function ResiliencePanel({
     plan,
@@ -51,7 +45,7 @@ export default function ResiliencePanel({
 
         const rows = streaks.map((n) => ({
             n,
-            prob: streakProb(n, K, q),
+            prob: probStreakAtLeast(K, n, q),
             damage: Math.min(n * riskPerTrade, dd),
             survives: n * riskPerTrade <= dd,
             isTolerance: n === lossToler,

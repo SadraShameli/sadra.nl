@@ -3,7 +3,12 @@ import {
     type PlanId,
     type Plan,
     type PropFirm,
+    type CorrelationMode,
+    type DayStopRule,
+    type MultiAccountResult,
 } from '~/lib/prop-calculator';
+
+export type { CorrelationMode, DayStopRule, MultiAccountResult };
 
 export interface PortfolioEntry {
     id: string;
@@ -35,6 +40,19 @@ export interface FirmMemoryEntry {
 
 export type FirmMemory = Partial<Record<FirmId, FirmMemoryEntry>>;
 
+export interface LabScenario {
+    id: string;
+    label: string;
+    riskPerTrade: number;
+    winrate: number;
+    rrRatio: number;
+    tradesPerDay: number;
+    accounts: number;
+    correlation: CorrelationMode;
+    groups: number;
+    dayStop: DayStopRule;
+}
+
 export interface CalculatorState {
     firm: PropFirm;
     plan: Plan;
@@ -55,4 +73,6 @@ export interface CalculatorState {
     maxAttempts: number;
     copyAccounts: number;
     firmMemory: FirmMemory;
+    dayStop: DayStopRule;
+    labScenarios: LabScenario[];
 }

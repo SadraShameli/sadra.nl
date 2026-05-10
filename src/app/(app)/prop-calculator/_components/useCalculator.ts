@@ -7,13 +7,14 @@ import {
     FirmId,
     findFirm,
     simulate,
+    type DayStopRule,
     type Plan,
     type PropFirm,
     type SimInputs,
     type SimOutputs,
 } from '~/lib/prop-calculator';
 
-import { SizingMode, type CalculatorState } from './types';
+import { SizingMode, type CalculatorState, type LabScenario } from './types';
 import { decodeState, encodeState } from './urlState';
 
 const SIM_DEBOUNCE_MS = 180;
@@ -42,6 +43,57 @@ const DEFAULT_PLAN: Plan = required(
     'Prop calculator: default $50K plan missing from Apex',
 );
 
+function freshId(): string {
+    if (
+        typeof crypto !== 'undefined' &&
+        typeof crypto.randomUUID === 'function'
+    ) {
+        return crypto.randomUUID();
+    }
+    return `lab-${Math.random().toString(36).slice(2, 11)}`;
+}
+
+export function buildDefaultLabScenarios(): LabScenario[] {
+    return [
+        {
+            id: freshId(),
+            label: 'Risk-scale',
+            riskPerTrade: 500,
+            winrate: 0.4,
+            rrRatio: 2,
+            tradesPerDay: 1,
+            accounts: 10,
+            correlation: 'copy',
+            groups: 1,
+            dayStop: { kind: 'none' },
+        },
+        {
+            id: freshId(),
+            label: 'Frequency-scale',
+            riskPerTrade: 250,
+            winrate: 0.35,
+            rrRatio: 2,
+            tradesPerDay: 4,
+            accounts: 10,
+            correlation: 'copy',
+            groups: 1,
+            dayStop: { kind: 'none' },
+        },
+        {
+            id: freshId(),
+            label: 'Group-split',
+            riskPerTrade: 250,
+            winrate: 0.4,
+            rrRatio: 2,
+            tradesPerDay: 1,
+            accounts: 10,
+            correlation: 'grouped',
+            groups: 2,
+            dayStop: { kind: 'none' },
+        },
+    ];
+}
+
 function defaultState(): CalculatorState {
     return {
         firm: DEFAULT_FIRM,
@@ -63,6 +115,8 @@ function defaultState(): CalculatorState {
         maxAttempts: 1,
         copyAccounts: 1,
         firmMemory: {},
+        dayStop: { kind: 'none' },
+        labScenarios: buildDefaultLabScenarios(),
     };
 }
 
@@ -104,6 +158,12 @@ export interface UseCalculatorReturn {
     setCommissionPerRoundTrip: (n: number) => void;
     setMaxAttempts: (n: number) => void;
     setCopyAccounts: (n: number) => void;
+    setDayStop: (rule: DayStopRule) => void;
+    setLabScenarios: (entries: LabScenario[]) => void;
+    addLabScenario: () => void;
+    updateLabScenario: (id: string, patch: Partial<LabScenario>) => void;
+    removeLabScenario: (id: string) => void;
+    resetLabScenarios: () => void;
     resetCoupon: () => void;
     pinScenario: () => void;
     unpinScenario: () => void;
@@ -180,6 +240,7 @@ export function useCalculator(): UseCalculatorReturn {
             commissionPerRoundTrip: state.commissionPerRoundTrip,
             maxAttempts: state.maxAttempts,
             copyAccounts: state.copyAccounts,
+            dayStop: state.dayStop,
         }),
         [
             state.plan,
@@ -196,6 +257,7 @@ export function useCalculator(): UseCalculatorReturn {
             state.commissionPerRoundTrip,
             state.maxAttempts,
             state.copyAccounts,
+            state.dayStop,
         ],
     );
 
@@ -351,6 +413,45 @@ export function useCalculator(): UseCalculatorReturn {
                     },
                 };
             }),
+        setDayStop: (rule) => setState((s) => ({ ...s, dayStop: rule })),
+        setLabScenarios: (entries) =>
+            setState((s) => ({ ...s, labScenarios: entries })),
+        addLabScenario: () =>
+            setState((s) => {
+                const last = s.labScenarios[s.labScenarios.length - 1];
+                const base: LabScenario = last
+                    ? { ...last, id: freshId(), label: `${last.label} copy` }
+                    : {
+                          id: freshId(),
+                          label: 'New scenario',
+                          riskPerTrade: 250,
+                          winrate: 0.4,
+                          rrRatio: 2,
+                          tradesPerDay: 1,
+                          accounts: 10,
+                          correlation: 'copy',
+                          groups: 1,
+                          dayStop: { kind: 'none' },
+                      };
+                return { ...s, labScenarios: [...s.labScenarios, base] };
+            }),
+        updateLabScenario: (id, patch) =>
+            setState((s) => ({
+                ...s,
+                labScenarios: s.labScenarios.map((sc) =>
+                    sc.id === id ? { ...sc, ...patch } : sc,
+                ),
+            })),
+        removeLabScenario: (id) =>
+            setState((s) => ({
+                ...s,
+                labScenarios: s.labScenarios.filter((sc) => sc.id !== id),
+            })),
+        resetLabScenarios: () =>
+            setState((s) => ({
+                ...s,
+                labScenarios: buildDefaultLabScenarios(),
+            })),
         resetCoupon: () =>
             setState((s) => ({
                 ...s,

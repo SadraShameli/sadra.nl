@@ -21,6 +21,7 @@ import SavedScenarios from './SavedScenarios';
 import SensitivityHeatmap from './SensitivityHeatmap';
 import ShareLinkButton from './ShareLinkButton';
 import StrategyAnalysis from './StrategyAnalysis';
+import StrategyLabPanel from './StrategyLabPanel';
 import TradingInputs from './TradingInputs';
 
 import { ChartType, type PortfolioEntry, SizingMode } from './types';
@@ -57,7 +58,6 @@ export default function CalculatorShell() {
                     onLoad={c.applyState}
                 />
             </div>
-
             <Card className="flex flex-col gap-4 px-6 py-6">
                 <FirmPlanPicker
                     firms={c.firms}
@@ -68,7 +68,6 @@ export default function CalculatorShell() {
                 />
                 <PlanStatsBadges plan={c.state.plan} />
             </Card>
-
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
                 <Card className="px-6 py-6">
                     <TradingInputs
@@ -94,6 +93,7 @@ export default function CalculatorShell() {
                             c.state.plan,
                         )}
                         firmDisplayName={c.state.firm.displayName}
+                        dayStop={c.state.dayStop}
                         onWinrateChange={c.setWinrate}
                         onRrRatioChange={c.setRrRatio}
                         onTradesPerDayChange={c.setTradesPerDay}
@@ -116,6 +116,7 @@ export default function CalculatorShell() {
                         onMaxAttemptsChange={c.setMaxAttempts}
                         onCopyAccountsChange={c.setCopyAccounts}
                         onResetCoupon={c.resetCoupon}
+                        onDayStopChange={c.setDayStop}
                     />
                 </Card>
 
@@ -128,7 +129,6 @@ export default function CalculatorShell() {
                     isPending={c.isPending}
                 />
             </div>
-
             <StrategyAnalysis
                 plan={c.state.plan}
                 result={c.result}
@@ -138,7 +138,6 @@ export default function CalculatorShell() {
                 fundedHorizonDays={c.simInputs.fundedHorizonDays}
                 copyAccounts={c.state.copyAccounts}
             />
-
             <PortfolioPanel
                 firms={c.firms}
                 baseInputs={c.simInputs}
@@ -147,7 +146,6 @@ export default function CalculatorShell() {
                 portfolio={portfolio}
                 onPortfolioChange={setPortfolio}
             />
-
             <div className="grid gap-3 md:grid-cols-2">
                 <PercentileBar
                     label="Final balance distribution"
@@ -174,7 +172,6 @@ export default function CalculatorShell() {
                     description={kpiDescriptions.daysToPass}
                 />
             </div>
-
             <ChartPanel
                 chartType={chartType}
                 onChartTypeChange={setChartType}
@@ -182,14 +179,12 @@ export default function CalculatorShell() {
                 totalTrials={c.state.trials}
                 maxEvalDays={c.state.maxEvalDays}
             />
-
             <ResiliencePanel
                 plan={c.state.plan}
                 result={c.result}
                 winrate={c.state.winrate}
                 riskPerTrade={c.simInputs.riskPerTrade}
             />
-
             <OptimalRiskTable
                 plan={c.state.plan}
                 baseInputs={c.simInputs}
@@ -199,25 +194,38 @@ export default function CalculatorShell() {
                         : (c.state.riskDollars / c.state.plan.accountSize) * 100
                 }
             />
-
             <SensitivityHeatmap
                 plan={c.state.plan}
                 baseInputs={c.simInputs}
                 currentWinrate={c.state.winrate}
                 currentRR={c.state.rrRatio}
             />
-
             <PlanComparisonTable
                 firm={c.state.firm}
                 activePlan={c.state.plan}
                 baseInputs={c.simInputs}
             />
-
             <FirmComparisonTable
                 firms={c.firms}
                 activeFirmId={c.state.firm.id}
                 targetAccountSize={c.state.plan.accountSize}
                 baseInputs={c.simInputs}
+            />
+
+            <StrategyLabPanel
+                plan={c.state.plan}
+                seed={c.state.seed}
+                maxEvalDays={c.state.maxEvalDays}
+                fundedHorizonDays={c.state.fundedHorizonDays}
+                commissionPerRoundTrip={c.state.commissionPerRoundTrip}
+                evalDiscountPercent={c.state.evalDiscountPercent}
+                activationDiscountPercent={c.state.activationDiscountPercent}
+                linkActivationDiscount={c.state.linkActivationDiscount}
+                scenarios={c.state.labScenarios}
+                onUpdate={c.updateLabScenario}
+                onRemove={c.removeLabScenario}
+                onAdd={c.addLabScenario}
+                onReset={c.resetLabScenarios}
             />
         </div>
     );

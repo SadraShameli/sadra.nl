@@ -2,7 +2,7 @@
 
 import { Settings2 } from 'lucide-react';
 
-import { type Plan } from '~/lib/prop-calculator';
+import { type DayStopRule, type Plan } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utils';
 
 import { Button } from '~/components/ui/Button';
@@ -14,6 +14,7 @@ import {
 } from '~/components/ui/Popover';
 import { Slider } from '~/components/ui/Slider';
 
+import DayStopRulePicker from './DayStopRulePicker';
 import {
     formatCompactCurrency,
     formatCurrency,
@@ -40,6 +41,7 @@ interface TradingInputsProps {
     copyAccounts: number;
     maxCopyAccounts: number;
     firmDisplayName: string;
+    dayStop: DayStopRule;
     onWinrateChange: (n: number) => void;
     onRrRatioChange: (n: number) => void;
     onTradesPerDayChange: (n: number) => void;
@@ -56,6 +58,7 @@ interface TradingInputsProps {
     onMaxAttemptsChange: (n: number) => void;
     onCopyAccountsChange: (n: number) => void;
     onResetCoupon: () => void;
+    onDayStopChange: (rule: DayStopRule) => void;
 }
 
 export default function TradingInputs({
@@ -77,6 +80,7 @@ export default function TradingInputs({
     copyAccounts,
     maxCopyAccounts,
     firmDisplayName,
+    dayStop,
     onWinrateChange,
     onRrRatioChange,
     onTradesPerDayChange,
@@ -93,6 +97,7 @@ export default function TradingInputs({
     onMaxAttemptsChange,
     onCopyAccountsChange,
     onResetCoupon,
+    onDayStopChange,
 }: TradingInputsProps) {
     const accountSize = plan.accountSize;
     const computedRisk =
@@ -177,6 +182,19 @@ export default function TradingInputs({
                                 />
                                 <p className="mt-1 text-xs text-muted-foreground">
                                     Trials that hit this limit count as timeouts
+                                </p>
+                            </div>
+                            <div>
+                                <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                                    Day-stop rule
+                                </label>
+                                <DayStopRulePicker
+                                    value={dayStop}
+                                    onChange={onDayStopChange}
+                                />
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    Cap intraday trading: stop after first win,
+                                    K losses, or a $ target.
                                 </p>
                             </div>
                         </div>

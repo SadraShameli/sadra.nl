@@ -1,10 +1,14 @@
+'use client';
+
 import Link from 'next/link';
+import { useCallback, useState } from 'react';
 
 import GithubIcon from '~/components/ui/Icons/Github';
 import InstagramIcon from '~/components/ui/Icons/Instagram';
 import WhatsAppIcon from '~/components/ui/Icons/WhatsApp';
 import YoutubeIcon from '~/components/ui/Icons/Youtube';
 import { siteContent } from '~/lib/content';
+import BrandTypewriter from './brand/BrandTypewriter';
 
 function SocialIcon({ platform }: { platform: string }) {
     switch (platform) {
@@ -34,16 +38,24 @@ function SocialIcon({ platform }: { platform: string }) {
 
 export default function Navbar() {
     const { navBrand, socialLinks } = siteContent;
+    const [glitchTrigger, setGlitchTrigger] = useState(0);
+
+    const handleTransition = useCallback(() => {
+        setGlitchTrigger((n) => n + 1);
+    }, []);
 
     return (
         <nav className="sticky top-0 right-0 left-0 z-50 bg-black/75 backdrop-blur-2xl backdrop-saturate-200">
             <div className="container mx-auto flex items-center justify-between py-5">
-                <Link
-                    className="font-orbitron text-lg font-semibold tracking-widest text-white"
-                    href="/"
-                >
-                    {navBrand}
-                </Link>
+                <div className="flex items-center gap-3">
+                    <Link
+                        className="font-orbitron text-lg font-semibold tracking-widest text-white"
+                        href="/"
+                    >
+                        {navBrand}
+                    </Link>
+                    <BrandTypewriter onTransition={handleTransition} />
+                </div>
 
                 <div className="flex items-center justify-between gap-x-4 text-white lg:gap-x-6">
                     {socialLinks.map((profile) => (

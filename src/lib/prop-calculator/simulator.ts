@@ -4,6 +4,14 @@ import { type Plan } from './core/Plan';
 import { mulberry32, type Rng } from './rng';
 import { percentile } from './stats';
 
+export type CorrelationMode = 'copy' | 'grouped' | 'independent';
+
+export type DayStopRule =
+    | { kind: 'none' }
+    | { kind: 'first-win' }
+    | { kind: 'after-k-losses'; k: number }
+    | { kind: 'after-target'; dollars: number };
+
 export interface SimInputs {
     plan: Plan;
     winrate: number;
@@ -18,6 +26,27 @@ export interface SimInputs {
     commissionPerRoundTrip?: number;
     maxAttempts?: number;
     copyAccounts?: number;
+    dayStop?: DayStopRule;
+}
+
+export interface PortfolioSimInputs extends SimInputs {
+    accounts: number;
+    correlation: CorrelationMode;
+    groups: number;
+}
+
+export interface MultiAccountResult {
+    perAccountPass: number;
+    expectedAccountsPass: number;
+    accountsPassDistribution: number[];
+    pAtLeast: { k1: number; kHalf: number; kAll: number };
+    expectedNet: number;
+    expectedMonthlyNet: number;
+    expectedDaysToPass: number;
+    expectedMaxLossStreak: number;
+    pHitDDLimit: number;
+    meanTradesPerDay: number;
+    theoreticalPassProb: number;
 }
 
 export type TrialOutcome =
@@ -132,6 +161,23 @@ function newPathStats(startingBalance: number): PathStats {
     };
 }
 
+function shouldStopDay(
+    rule: DayStopRule | undefined,
+    won: boolean,
+    lossesToday: number,
+    pnlToday: number,
+): boolean {
+    if (!rule || rule.kind === 'none') return false;
+    switch (rule.kind) {
+        case 'first-win':
+            return won;
+        case 'after-k-losses':
+            return lossesToday >= rule.k;
+        case 'after-target':
+            return pnlToday >= rule.dollars;
+    }
+}
+
 function runDay(
     plan: Plan,
     state: AccountState,
@@ -142,10 +188,12 @@ function runDay(
     tradesPerDay: number,
     commission: number,
     rng: Rng,
+    dayStop: DayStopRule | undefined,
 ): { busted: boolean; traded: boolean } {
     state.todayHigh = state.balance;
     state.todayPnL = 0;
     let traded = false;
+    let lossesToday = 0;
 
     for (let t = 0; t < tradesPerDay; t++) {
         const won = rng() < winrate;
@@ -166,12 +214,14 @@ function runDay(
         } else {
             stats.grossLosses += -pnl;
             stats.currentLossStreak += 1;
+            lossesToday += 1;
             if (stats.currentLossStreak > stats.maxLosingStreak) {
                 stats.maxLosingStreak = stats.currentLossStreak;
             }
         }
         plan.drawdown.onTrade(state, pnl);
         if (plan.isBust(state)) return { busted: true, traded };
+        if (shouldStopDay(dayStop, won, lossesToday, state.todayPnL)) break;
     }
 
     if (traded) state.tradingDays += 1;
@@ -201,6 +251,7 @@ function runEvalAttempt(
     commission: number,
     rng: Rng,
     captureEquity: boolean,
+    dayStop: DayStopRule | undefined,
 ): EvalAttemptResult {
     const state = plan.initialState();
     const stats = newPathStats(state.startingBalance);
@@ -220,6 +271,7 @@ function runEvalAttempt(
             tradesPerDay,
             commission,
             rng,
+            dayStop,
         );
         days += 1;
         state.daysElapsed = days;
@@ -267,6 +319,7 @@ function simulateTrial(
     rng: Rng,
     captureEquity: boolean,
     discounts: CouponDiscounts | undefined,
+    dayStop: DayStopRule | undefined,
 ): TrialResult {
     const cumulative = newPathStats(plan.accountSize);
     let cumulativeDays = 0;
@@ -286,6 +339,7 @@ function simulateTrial(
             commission,
             rng,
             captureEquity,
+            dayStop,
         );
         cumulativeDays += attempt.days;
         lastEquityCurve = attempt.equityCurve;
@@ -307,6 +361,7 @@ function simulateTrial(
                     tradesPerDay,
                     commission,
                     rng,
+                    dayStop,
                 );
                 cumulativeDays += 1;
                 attempt.state.daysElapsed += 1;
@@ -488,6 +543,7 @@ export function simulate(inputs: SimInputs): SimOutputs {
         commissionPerRoundTrip = 0,
         maxAttempts = 1,
         copyAccounts = 1,
+        dayStop,
     } = inputs;
     const accountMultiplier = Math.max(1, Math.floor(copyAccounts));
     const rng = mulberry32(seed);
@@ -509,6 +565,7 @@ export function simulate(inputs: SimInputs): SimOutputs {
                 rng,
                 captureEquity,
                 discounts,
+                dayStop,
             ),
         );
     }
@@ -676,5 +733,158 @@ export function simulate(inputs: SimInputs): SimOutputs {
         breakEvenFundedProfit: breakEvenFundedProfit * m,
         finalBalances,
         daysToPassValues: daysToPassArr,
+    };
+}
+
+function buildGroupSizes(N: number, groups: number): number[] {
+    const G = Math.max(1, Math.min(groups, N));
+    const base = Math.floor(N / G);
+    const extra = N - base * G;
+    const out: number[] = [];
+    for (let g = 0; g < G; g++) out.push(base + (g < extra ? 1 : 0));
+    return out;
+}
+
+function isPassingOutcome(o: TrialOutcome): boolean {
+    return o === 'pass-clean' || o === 'pass-violation';
+}
+
+export function simulatePortfolio(
+    inputs: PortfolioSimInputs,
+): MultiAccountResult {
+    const {
+        plan,
+        winrate,
+        rrRatio,
+        riskPerTrade,
+        tradesPerDay,
+        maxEvalDays,
+        fundedHorizonDays,
+        trials,
+        seed,
+        discounts,
+        commissionPerRoundTrip = 0,
+        maxAttempts = 1,
+        dayStop,
+        accounts,
+        correlation,
+        groups,
+    } = inputs;
+
+    const N = Math.max(1, Math.floor(accounts));
+    const groupSizes =
+        correlation === 'copy'
+            ? [N]
+            : correlation === 'independent'
+              ? new Array<number>(N).fill(1)
+              : buildGroupSizes(N, groups);
+
+    const distribution = new Array<number>(N + 1).fill(0);
+    let netSum = 0;
+    let dayElapsedSum = 0;
+    let daysToPassSum = 0;
+    let daysToPassCount = 0;
+    let bustTrials = 0;
+    let totalAccountPasses = 0;
+    let tradesTakenSum = 0;
+    let activeDaysSum = 0;
+    let maxStreakSum = 0;
+
+    for (let i = 0; i < trials; i++) {
+        let trialPasses = 0;
+        let trialNet = 0;
+        let trialDayElapsed = 0;
+        let trialDaysToPassSum = 0;
+        let trialDaysToPassCount = 0;
+        let anyBust = false;
+        let trialTrades = 0;
+        let trialActiveDays = 0;
+        let trialMaxStreak = 0;
+
+        for (let g = 0; g < groupSizes.length; g++) {
+            const size = groupSizes[g]!;
+            const groupRng = mulberry32(seed + i * 1000 + g * 7919 + 1);
+            const r = simulateTrial(
+                plan,
+                winrate,
+                rrRatio,
+                riskPerTrade,
+                tradesPerDay,
+                maxEvalDays,
+                fundedHorizonDays,
+                Math.max(1, maxAttempts),
+                commissionPerRoundTrip,
+                groupRng,
+                false,
+                discounts,
+                dayStop,
+            );
+            const passes = isPassingOutcome(r.outcome);
+            if (passes) trialPasses += size;
+            if (r.outcome === 'bust-eval' || r.outcome === 'bust-funded')
+                anyBust = true;
+            trialNet += r.net * size;
+            trialDayElapsed += r.daysElapsed * size;
+            if (r.daysToPass !== null) {
+                trialDaysToPassSum += r.daysToPass * size;
+                trialDaysToPassCount += size;
+            }
+            trialTrades += r.tradesTaken * size;
+            trialActiveDays += Math.max(1, r.daysElapsed) * size;
+            if (r.maxLosingStreak > trialMaxStreak)
+                trialMaxStreak = r.maxLosingStreak;
+        }
+
+        distribution[trialPasses]! += 1;
+        netSum += trialNet;
+        dayElapsedSum += trialDayElapsed;
+        daysToPassSum += trialDaysToPassSum;
+        daysToPassCount += trialDaysToPassCount;
+        if (anyBust) bustTrials += 1;
+        totalAccountPasses += trialPasses;
+        tradesTakenSum += trialTrades;
+        activeDaysSum += trialActiveDays;
+        maxStreakSum += trialMaxStreak;
+    }
+
+    const totalTrials = Math.max(1, trials);
+    for (let k = 0; k <= N; k++) distribution[k]! /= totalTrials;
+
+    const perAccountPass = totalAccountPasses / (totalTrials * N);
+    const expectedAccountsPass = totalAccountPasses / totalTrials;
+
+    let pAtLeast1 = 0;
+    let pAtLeastHalf = 0;
+    let pAll = 0;
+    const halfK = Math.ceil(N / 2);
+    for (let k = 0; k <= N; k++) {
+        const pk = distribution[k]!;
+        if (k >= 1) pAtLeast1 += pk;
+        if (k >= halfK) pAtLeastHalf += pk;
+        if (k >= N) pAll += pk;
+    }
+
+    const expectedNet = netSum / totalTrials;
+    const expectedDaysPerTrial = dayElapsedSum / (totalTrials * N) || 1;
+    const expectedMonthlyNet =
+        (expectedNet * TRADING_DAYS_PER_MONTH) / expectedDaysPerTrial;
+    const expectedDaysToPass =
+        daysToPassCount > 0 ? daysToPassSum / daysToPassCount : 0;
+    const expectedMaxLossStreak = maxStreakSum / totalTrials;
+    const meanTradesPerDay =
+        activeDaysSum > 0 ? tradesTakenSum / activeDaysSum : 0;
+
+    return {
+        perAccountPass,
+        expectedAccountsPass,
+        accountsPassDistribution: distribution,
+        pAtLeast: { k1: pAtLeast1, kHalf: pAtLeastHalf, kAll: pAll },
+        expectedNet,
+        expectedMonthlyNet,
+        expectedDaysToPass,
+        expectedMaxLossStreak,
+        pHitDDLimit: bustTrials / totalTrials,
+        meanTradesPerDay,
+        theoreticalPassProb: 0,
     };
 }
