@@ -6,7 +6,7 @@ import { env } from '~/env';
 import * as authSchema from './schemas/auth';
 import * as schema from './schemas/main';
 
-export { users } from './schemas/auth';
+export { passwordResetTokens, users } from './schemas/auth';
 
 const globalForDb = globalThis as unknown as {
     pool: pg.Pool | undefined;

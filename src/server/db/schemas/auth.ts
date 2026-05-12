@@ -16,3 +16,15 @@ export const users = createTable('user', {
         .default(sql`CURRENT_TIMESTAMP`)
         .notNull(),
 });
+
+export const passwordResetTokens = createTable('password_reset_token', {
+    id: text('id')
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    userId: text('user_id').notNull(),
+    tokenHash: text('token_hash').notNull().unique(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+        .default(sql`CURRENT_TIMESTAMP`)
+        .notNull(),
+});

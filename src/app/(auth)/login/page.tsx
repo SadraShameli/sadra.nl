@@ -33,9 +33,9 @@ async function login(formData: FormData) {
 export default async function LoginPage({
     searchParams,
 }: {
-    searchParams: Promise<{ error?: string }>;
+    searchParams: Promise<{ error?: string; success?: string }>;
 }) {
-    const { error } = await searchParams;
+    const { error, success } = await searchParams;
 
     return (
         <div className="flex min-h-screen items-center justify-center px-4">
@@ -52,6 +52,14 @@ export default async function LoginPage({
                     </CardHeader>
                     <form action={login}>
                         <CardContent className="flex flex-col gap-3">
+                            {success === 'reset' && (
+                                <Alert variant="success">
+                                    <AlertDescription>
+                                        Password reset — sign in with your new
+                                        password.
+                                    </AlertDescription>
+                                </Alert>
+                            )}
                             {error && (
                                 <Alert variant="destructive">
                                     <AlertDescription>
@@ -76,12 +84,20 @@ export default async function LoginPage({
                                 />
                             </div>
                             <div className="flex flex-col gap-1.5">
-                                <label
-                                    htmlFor="password"
-                                    className="text-sm font-medium"
-                                >
-                                    Password
-                                </label>
+                                <div className="flex items-center justify-between">
+                                    <label
+                                        htmlFor="password"
+                                        className="text-sm font-medium"
+                                    >
+                                        Password
+                                    </label>
+                                    <Link
+                                        href="/forgot-password"
+                                        className="text-xs text-muted-foreground underline underline-offset-4 hover:opacity-70"
+                                    >
+                                        Forgot password?
+                                    </Link>
+                                </div>
                                 <Input
                                     id="password"
                                     name="password"
