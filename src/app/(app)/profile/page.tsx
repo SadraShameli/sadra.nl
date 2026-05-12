@@ -7,16 +7,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { Input } from '~/components/ui/Input';
 import { Separator } from '~/components/ui/Separator';
 import { auth } from '~/lib/auth';
-import {
-    deleteAccount,
-    logout,
-    updateName,
-    updatePassword,
-} from '~/lib/auth-actions';
+import { logout, updateName, updatePassword } from '~/lib/auth-actions';
 import { db, users } from '~/server/db';
+import { DeleteAccountDialog } from './_components/DeleteAccountDialog';
 
 const nameMessages: Record<string, string> = {
     name_required: 'Name cannot be empty.',
+    name_unchanged: 'No changes to save.',
 };
 
 const pwMessages: Record<string, string> = {
@@ -81,7 +78,13 @@ export default async function ProfilePage({
                     </CardHeader>
                     <CardContent className="space-y-4">
                         {error && nameMessages[error] && (
-                            <Alert variant="destructive">
+                            <Alert
+                                variant={
+                                    error === 'name_unchanged'
+                                        ? 'warning'
+                                        : 'destructive'
+                                }
+                            >
                                 <AlertDescription>
                                     {nameMessages[error]}
                                 </AlertDescription>
@@ -98,6 +101,11 @@ export default async function ProfilePage({
                             action={updateName}
                             className="flex flex-col gap-3"
                         >
+                            <input
+                                type="hidden"
+                                name="currentName"
+                                value={name ?? ''}
+                            />
                             <div className="flex flex-col gap-1.5">
                                 <label
                                     htmlFor="name"
@@ -238,11 +246,7 @@ export default async function ProfilePage({
                                     data.
                                 </p>
                             </div>
-                            <form action={deleteAccount}>
-                                <Button type="submit" variant="destructive">
-                                    Delete account
-                                </Button>
-                            </form>
+                            <DeleteAccountDialog />
                         </div>
                     </CardContent>
                 </Card>

@@ -18,6 +18,9 @@ export async function updateName(formData: FormData) {
     const name = (formData.get('name') as string).trim();
     if (!name) redirect('/profile?error=name_required');
 
+    const currentName = (formData.get('currentName') as string).trim();
+    if (name === currentName) redirect('/profile?error=name_unchanged');
+
     await db.update(users).set({ name }).where(eq(users.id, session.user.id));
     redirect('/profile?success=name');
 }
