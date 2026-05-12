@@ -6,6 +6,7 @@ export default {
     schema: [
         './src/server/db/schemas/main.ts',
         './src/server/db/schemas/auth.ts',
+        './src/server/db/schemas/trading.ts',
     ],
     dialect: 'postgresql',
     dbCredentials: {

@@ -10,6 +10,7 @@ import { cn } from '~/lib/utils';
 import { TRPCReactProvider } from '~/trpc/react';
 
 import GridBackground from '~/components/ui/GridBg';
+import { Toaster } from '~/components/ui/Sonner';
 import Footer from './_components/Footer';
 import Navbar from './_components/Navbar';
 import ScrollToTop from './_components/ScrollToTop';
@@ -40,6 +41,7 @@ export default async function RootLayout({
                     <Footer />
                 </TRPCReactProvider>
 
+                <Toaster position="bottom-right" richColors />
                 <ScrollToTop />
                 <Analytics />
                 <SpeedInsights />

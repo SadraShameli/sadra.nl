@@ -5,8 +5,10 @@ import pg from 'pg';
 import { env } from '~/env';
 import * as authSchema from './schemas/auth';
 import * as schema from './schemas/main';
+import * as tradingSchema from './schemas/trading';
 
 export { passwordResetTokens, users } from './schemas/auth';
+export { tradeAssessments, tradingPlans } from './schemas/trading';
 
 const globalForDb = globalThis as unknown as {
     pool: pg.Pool | undefined;
@@ -29,7 +31,9 @@ attachDatabasePool(pool);
 
 if (env.NODE_ENV !== 'production') globalForDb.pool = pool;
 
-export const db = drizzle(pool, { schema: { ...schema, ...authSchema } });
+export const db = drizzle(pool, {
+    schema: { ...schema, ...authSchema, ...tradingSchema },
+});
 
 export async function endDb() {
     await pool.end();

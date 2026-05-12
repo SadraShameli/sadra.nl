@@ -83,7 +83,7 @@ export default async function ResetPasswordPage({
                     </CardHeader>
                     {error === 'expired' ? (
                         <CardContent className="flex flex-col gap-4">
-                            <Alert variant="destructive">
+                            <Alert variant="destructive" persistent>
                                 <AlertDescription>
                                     {errorMessages.expired}
                                 </AlertDescription>

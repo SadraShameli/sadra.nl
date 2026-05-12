@@ -1,4 +1,7 @@
+'use client';
+
 import { cva, type VariantProps } from 'class-variance-authority';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import * as React from 'react';
 
 import { cn } from '~/lib/utils';
@@ -23,17 +26,72 @@ const alertVariants = cva(
     },
 );
 
-const Alert = React.forwardRef<
-    HTMLDivElement,
-    React.HTMLAttributes<HTMLDivElement> & VariantProps<typeof alertVariants>
->(({ className, variant, ...props }, ref) => (
-    <div
-        ref={ref}
-        role="alert"
-        className={cn(alertVariants({ variant }), className)}
-        {...props}
-    />
-));
+type AlertProps = React.HTMLAttributes<HTMLDivElement> &
+    VariantProps<typeof alertVariants> & {
+        persistent?: boolean;
+        autoDismissMs?: number;
+    };
+
+const AUTO_DISMISS_PARAMS = ['success', 'error'];
+const FADE_DURATION_MS = 300;
+
+const Alert = React.forwardRef<HTMLDivElement, AlertProps>(
+    (
+        { className, variant, persistent, autoDismissMs = 3000, ...props },
+        ref,
+    ) => {
+        const isPersistent = persistent ?? variant === 'destructive';
+        const router = useRouter();
+        const pathname = usePathname();
+        const searchParams = useSearchParams();
+        const [visible, setVisible] = React.useState(true);
+        const [mounted, setMounted] = React.useState(true);
+
+        React.useEffect(() => {
+            if (isPersistent) return;
+            const fade = setTimeout(() => setVisible(false), autoDismissMs);
+            const unmount = setTimeout(() => {
+                setMounted(false);
+                const sp = new URLSearchParams(searchParams.toString());
+                let changed = false;
+                for (const key of AUTO_DISMISS_PARAMS) {
+                    if (sp.has(key)) {
+                        sp.delete(key);
+                        changed = true;
+                    }
+                }
+                if (changed) {
+                    const query = sp.toString();
+                    router.replace(query ? `${pathname}?${query}` : pathname, {
+                        scroll: false,
+                    });
+                }
+            }, autoDismissMs + FADE_DURATION_MS);
+            return () => {
+                clearTimeout(fade);
+                clearTimeout(unmount);
+            };
+        }, [isPersistent, autoDismissMs, pathname, router, searchParams]);
+
+        if (!mounted && !isPersistent) return null;
+
+        return (
+            <div
+                ref={ref}
+                role="alert"
+                className={cn(
+                    alertVariants({ variant }),
+                    'transition-all duration-300 ease-out',
+                    visible
+                        ? 'translate-y-0 opacity-100'
+                        : '-translate-y-1 opacity-0',
+                    className,
+                )}
+                {...props}
+            />
+        );
+    },
+);
 Alert.displayName = 'Alert';
 
 const AlertTitle = React.forwardRef<

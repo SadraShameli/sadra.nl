@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import { redirect } from 'next/navigation';
 
 import { Alert, AlertDescription } from '~/components/ui/Alert';
@@ -8,8 +8,12 @@ import { Input } from '~/components/ui/Input';
 import { Separator } from '~/components/ui/Separator';
 import { auth } from '~/lib/auth';
 import { logout, updateName, updatePassword } from '~/lib/auth-actions';
-import { db, users } from '~/server/db';
+import { ensureUserHasPlan } from '~/lib/trading-actions';
+import type { TradingPlanRow } from '~/lib/trading-types';
+import { db, tradingPlans, users } from '~/server/db';
 import { DeleteAccountDialog } from './_components/DeleteAccountDialog';
+import { ProfileTabs } from './_components/ProfileTabs';
+import { TradingPlanTab } from './_components/TradingPlanTab';
 
 const nameMessages: Record<string, string> = {
     name_required: 'Name cannot be empty.',
@@ -43,7 +47,11 @@ function Avatar({
 export default async function ProfilePage({
     searchParams,
 }: {
-    searchParams: Promise<{ error?: string; success?: string }>;
+    searchParams: Promise<{
+        error?: string;
+        success?: string;
+        tab?: string;
+    }>;
 }) {
     const session = await auth();
     if (!session?.user?.id) redirect('/login');
@@ -57,11 +65,201 @@ export default async function ProfilePage({
         .limit(1);
     if (!user) redirect('/login');
 
+    await ensureUserHasPlan();
+
+    const plans = (await db
+        .select()
+        .from(tradingPlans)
+        .where(eq(tradingPlans.userId, session.user.id))
+        .orderBy(
+            tradingPlans.sortOrder,
+            desc(tradingPlans.updatedAt),
+        )) as TradingPlanRow[];
+
     const { name, email } = user;
+
+    const accountTab = (
+        <>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Profile</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    {error && nameMessages[error] && (
+                        <Alert
+                            variant={
+                                error === 'name_unchanged'
+                                    ? 'warning'
+                                    : 'destructive'
+                            }
+                        >
+                            <AlertDescription>
+                                {nameMessages[error]}
+                            </AlertDescription>
+                        </Alert>
+                    )}
+                    {success === 'name' && (
+                        <Alert variant="success">
+                            <AlertDescription>
+                                Name updated successfully.
+                            </AlertDescription>
+                        </Alert>
+                    )}
+                    <form action={updateName} className="flex flex-col gap-3">
+                        <input
+                            type="hidden"
+                            name="currentName"
+                            value={name ?? ''}
+                        />
+                        <div className="flex flex-col gap-1.5">
+                            <label
+                                htmlFor="name"
+                                className="text-sm font-medium"
+                            >
+                                Display name
+                            </label>
+                            <Input
+                                id="name"
+                                name="name"
+                                type="text"
+                                defaultValue={name ?? ''}
+                                placeholder="Your name"
+                                required
+                                autoComplete="name"
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-sm font-medium">Email</label>
+                            <Input
+                                value={email ?? ''}
+                                disabled
+                                readOnly
+                                className="opacity-50"
+                            />
+                        </div>
+                        <Button type="submit" className="self-start">
+                            Save changes
+                        </Button>
+                    </form>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Security</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    {error && pwMessages[error] && (
+                        <Alert variant="destructive">
+                            <AlertDescription>
+                                {pwMessages[error]}
+                            </AlertDescription>
+                        </Alert>
+                    )}
+                    {success === 'password' && (
+                        <Alert variant="success">
+                            <AlertDescription>
+                                Password changed successfully.
+                            </AlertDescription>
+                        </Alert>
+                    )}
+                    <form
+                        action={updatePassword}
+                        className="flex flex-col gap-3"
+                    >
+                        <div className="flex flex-col gap-1.5">
+                            <label
+                                htmlFor="current"
+                                className="text-sm font-medium"
+                            >
+                                Current password
+                            </label>
+                            <Input
+                                id="current"
+                                name="current"
+                                type="password"
+                                placeholder="••••••••"
+                                required
+                                autoComplete="current-password"
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                            <label
+                                htmlFor="password"
+                                className="text-sm font-medium"
+                            >
+                                New password
+                            </label>
+                            <Input
+                                id="password"
+                                name="password"
+                                type="password"
+                                placeholder="••••••••"
+                                required
+                                minLength={8}
+                                autoComplete="new-password"
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                            <label
+                                htmlFor="confirm"
+                                className="text-sm font-medium"
+                            >
+                                Confirm new password
+                            </label>
+                            <Input
+                                id="confirm"
+                                name="confirm"
+                                type="password"
+                                placeholder="••••••••"
+                                required
+                                autoComplete="new-password"
+                            />
+                        </div>
+                        <Button type="submit" className="self-start">
+                            Change password
+                        </Button>
+                    </form>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardContent>
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-sm font-medium">Sign out</p>
+                            <p className="mt-0.5 text-xs text-white/50">
+                                You will be signed out of your account.
+                            </p>
+                        </div>
+                        <form action={logout}>
+                            <Button type="submit" variant="outline">
+                                Sign out
+                            </Button>
+                        </form>
+                    </div>
+                    <Separator className="mt-6" />
+                    <div className="mt-6 flex items-center justify-between">
+                        <div>
+                            <p className="text-sm font-medium text-destructive">
+                                Delete account
+                            </p>
+                            <p className="mt-0.5 text-xs text-white/50">
+                                Permanently remove your account and all data.
+                            </p>
+                        </div>
+                        <DeleteAccountDialog />
+                    </div>
+                </CardContent>
+            </Card>
+        </>
+    );
+
+    const tradingPlanTab = <TradingPlanTab plans={plans} />;
 
     return (
         <main className="container mx-auto py-16">
-            <div className="mx-auto max-w-2xl space-y-8">
+            <div className="mx-auto max-w-3xl space-y-8">
                 <div className="flex items-center gap-5">
                     <Avatar name={name} email={email} />
                     <div>
@@ -72,184 +270,10 @@ export default async function ProfilePage({
                     </div>
                 </div>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Profile</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        {error && nameMessages[error] && (
-                            <Alert
-                                variant={
-                                    error === 'name_unchanged'
-                                        ? 'warning'
-                                        : 'destructive'
-                                }
-                            >
-                                <AlertDescription>
-                                    {nameMessages[error]}
-                                </AlertDescription>
-                            </Alert>
-                        )}
-                        {success === 'name' && (
-                            <Alert variant="success">
-                                <AlertDescription>
-                                    Name updated successfully.
-                                </AlertDescription>
-                            </Alert>
-                        )}
-                        <form
-                            action={updateName}
-                            className="flex flex-col gap-3"
-                        >
-                            <input
-                                type="hidden"
-                                name="currentName"
-                                value={name ?? ''}
-                            />
-                            <div className="flex flex-col gap-1.5">
-                                <label
-                                    htmlFor="name"
-                                    className="text-sm font-medium"
-                                >
-                                    Display name
-                                </label>
-                                <Input
-                                    id="name"
-                                    name="name"
-                                    type="text"
-                                    defaultValue={name ?? ''}
-                                    placeholder="Your name"
-                                    required
-                                    autoComplete="name"
-                                />
-                            </div>
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-sm font-medium">
-                                    Email
-                                </label>
-                                <Input
-                                    value={email ?? ''}
-                                    disabled
-                                    readOnly
-                                    className="opacity-50"
-                                />
-                            </div>
-                            <Button type="submit" className="self-start">
-                                Save changes
-                            </Button>
-                        </form>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Security</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        {error && pwMessages[error] && (
-                            <Alert variant="destructive">
-                                <AlertDescription>
-                                    {pwMessages[error]}
-                                </AlertDescription>
-                            </Alert>
-                        )}
-                        {success === 'password' && (
-                            <Alert variant="success">
-                                <AlertDescription>
-                                    Password changed successfully.
-                                </AlertDescription>
-                            </Alert>
-                        )}
-                        <form
-                            action={updatePassword}
-                            className="flex flex-col gap-3"
-                        >
-                            <div className="flex flex-col gap-1.5">
-                                <label
-                                    htmlFor="current"
-                                    className="text-sm font-medium"
-                                >
-                                    Current password
-                                </label>
-                                <Input
-                                    id="current"
-                                    name="current"
-                                    type="password"
-                                    placeholder="••••••••"
-                                    required
-                                    autoComplete="current-password"
-                                />
-                            </div>
-                            <div className="flex flex-col gap-1.5">
-                                <label
-                                    htmlFor="password"
-                                    className="text-sm font-medium"
-                                >
-                                    New password
-                                </label>
-                                <Input
-                                    id="password"
-                                    name="password"
-                                    type="password"
-                                    placeholder="••••••••"
-                                    required
-                                    minLength={8}
-                                    autoComplete="new-password"
-                                />
-                            </div>
-                            <div className="flex flex-col gap-1.5">
-                                <label
-                                    htmlFor="confirm"
-                                    className="text-sm font-medium"
-                                >
-                                    Confirm new password
-                                </label>
-                                <Input
-                                    id="confirm"
-                                    name="confirm"
-                                    type="password"
-                                    placeholder="••••••••"
-                                    required
-                                    autoComplete="new-password"
-                                />
-                            </div>
-                            <Button type="submit" className="self-start">
-                                Change password
-                            </Button>
-                        </form>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardContent>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium">Sign out</p>
-                                <p className="mt-0.5 text-xs text-white/50">
-                                    You will be signed out of your account.
-                                </p>
-                            </div>
-                            <form action={logout}>
-                                <Button type="submit" variant="outline">
-                                    Sign out
-                                </Button>
-                            </form>
-                        </div>
-                        <Separator className="mt-6" />
-                        <div className="mt-6 flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-destructive">
-                                    Delete account
-                                </p>
-                                <p className="mt-0.5 text-xs text-white/50">
-                                    Permanently remove your account and all
-                                    data.
-                                </p>
-                            </div>
-                            <DeleteAccountDialog />
-                        </div>
-                    </CardContent>
-                </Card>
+                <ProfileTabs
+                    accountTab={accountTab}
+                    tradingPlanTab={tradingPlanTab}
+                />
             </div>
         </main>
     );

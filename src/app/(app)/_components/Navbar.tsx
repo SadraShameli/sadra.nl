@@ -1,11 +1,11 @@
 'use client';
 
+import { User } from 'lucide-react';
 import { type Session } from 'next-auth';
 import Link from 'next/link';
 import { useCallback, useState } from 'react';
 
 import GithubIcon from '~/components/ui/Icons/Github';
-import UserIcon from '~/components/ui/Icons/User';
 import InstagramIcon from '~/components/ui/Icons/Instagram';
 import WhatsAppIcon from '~/components/ui/Icons/WhatsApp';
 import YoutubeIcon from '~/components/ui/Icons/Youtube';
@@ -76,7 +76,7 @@ export default function Navbar({ session }: { session: Session | null }) {
                         aria-label={session?.user ? 'Profile' : 'Sign in'}
                         className="flex size-5 items-center justify-center text-white transition hover:opacity-60"
                     >
-                        <UserIcon className="size-5" />
+                        <User className="size-5" strokeWidth={1.75} />
                     </Link>
                 </div>
             </div>

@@ -150,7 +150,7 @@ export default function CompoundingPanel({
                         risk settings.
                     </InfoPopover>
                 </div>
-                <div className="flex gap-1">
+                <div className="flex gap-2">
                     {HORIZON_OPTIONS.map((h, i) => (
                         <button
                             key={h.label}
