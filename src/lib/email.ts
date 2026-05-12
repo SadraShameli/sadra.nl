@@ -6,6 +6,7 @@ const resend = new Resend(env.RESEND_API_KEY);
 
 export async function sendPasswordResetEmail(to: string, token: string) {
     const url = `${process.env.NEXT_PUBLIC_SERVER_URL}/reset-password?token=${token}`;
+
     await resend.emails.send({
         from: 'noreply@sadra.nl',
         to,

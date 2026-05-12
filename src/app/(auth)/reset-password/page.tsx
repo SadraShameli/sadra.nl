@@ -23,8 +23,10 @@ async function resetPassword(formData: FormData) {
     const password = formData.get('password') as string;
     const confirm = formData.get('confirm') as string;
 
-    if (password.length < 8) redirect(`/reset-password?token=${token}&error=short`);
-    if (password !== confirm) redirect(`/reset-password?token=${token}&error=mismatch`);
+    if (password.length < 8)
+        redirect(`/reset-password?token=${token}&error=short`);
+    if (password !== confirm)
+        redirect(`/reset-password?token=${token}&error=mismatch`);
 
     const tokenHash = createHash('sha256').update(token).digest('hex');
 
@@ -51,7 +53,8 @@ async function resetPassword(formData: FormData) {
 }
 
 const errorMessages: Record<string, string> = {
-    expired: 'This reset link has expired or already been used. Request a new one.',
+    expired:
+        'This reset link has expired or already been used. Request a new one.',
     short: 'Password must be at least 8 characters.',
     mismatch: 'Passwords do not match.',
 };
