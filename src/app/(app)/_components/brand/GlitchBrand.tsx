@@ -51,7 +51,6 @@ export default function GlitchBrand({
         return () => clearTimeout(t);
     };
 
-    // Idle random glitch schedule
     useEffect(() => {
         let timer: ReturnType<typeof setTimeout>;
 
@@ -67,7 +66,6 @@ export default function GlitchBrand({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [text]);
 
-    // Triggered glitch when typewriter transitions
     useEffect(() => {
         if (trigger === 0) return;
         runBurst();

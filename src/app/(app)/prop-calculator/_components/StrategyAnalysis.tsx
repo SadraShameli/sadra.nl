@@ -172,6 +172,29 @@ function pfBench(v: number): string {
     if (v > 1) return 'marginal';
     return 'losing';
 }
+function sortinoColor(v: number): string {
+    if (v > 2) return 'text-emerald-400';
+    if (v > 1) return 'text-green-400';
+    if (v > 0.5) return 'text-amber-400';
+    return 'text-rose-400';
+}
+function sortinoBench(v: number): string {
+    if (v > 2) return 'excellent';
+    if (v > 1) return 'good';
+    if (v > 0.5) return 'acceptable';
+    return 'poor';
+}
+function gainToPainColor(v: number): string {
+    if (v > 3) return 'text-emerald-400';
+    if (v > 1.5) return 'text-green-400';
+    if (v > 1) return 'text-amber-400';
+    return 'text-rose-400';
+}
+function ulcerColor(v: number): string {
+    if (v < 3) return 'text-emerald-400';
+    if (v < 8) return 'text-amber-400';
+    return 'text-rose-400';
+}
 
 export default function StrategyAnalysis({
     plan,
@@ -262,7 +285,51 @@ export default function StrategyAnalysis({
         );
         const omega = losses > 0 ? gains / losses : gains > 0 ? Infinity : 1;
 
-        return { sharpe, calmar, recovery, omega, profitFactor };
+        const downsideSumSq = monthlyReturns.reduce(
+            (s, r) => s + (r < 0 ? r * r : 0),
+            0,
+        );
+        const downsideDev = Math.sqrt(
+            downsideSumSq / (monthlyReturns.length || 1),
+        );
+        const sortino =
+            downsideDev > 0 ? (meanMonthly / downsideDev) * Math.sqrt(12) : 0;
+
+        const sumPos = monthlyReturns.reduce((s, r) => s + Math.max(r, 0), 0);
+        const sumNeg = monthlyReturns.reduce(
+            (s, r) => s + Math.abs(Math.min(r, 0)),
+            0,
+        );
+        const gainToPain =
+            sumNeg > 0 ? sumPos / sumNeg : sumPos > 0 ? Infinity : 1;
+
+        const ulcerSquares: number[] = [];
+        for (const curve of result.sampleEquityCurves) {
+            let peak = curve[0] ?? accountSize;
+            for (const b of curve) {
+                if (b > peak) peak = b;
+                const ddPct = peak > 0 ? ((peak - b) / peak) * 100 : 0;
+                ulcerSquares.push(ddPct * ddPct);
+            }
+        }
+        const ulcerIndex =
+            ulcerSquares.length > 0
+                ? Math.sqrt(
+                      ulcerSquares.reduce((s, v) => s + v, 0) /
+                          ulcerSquares.length,
+                  )
+                : 0;
+
+        return {
+            sharpe,
+            calmar,
+            recovery,
+            omega,
+            profitFactor,
+            sortino,
+            gainToPain,
+            ulcerIndex,
+        };
     }, [result, fundedHorizonDays, accounts]);
 
     const breakdown = useMemo(() => {
@@ -398,7 +465,7 @@ export default function StrategyAnalysis({
                         title="Risk-Adjusted Returns"
                         description={panelDescriptions.riskReturn}
                     />
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                         <RatioCard
                             label="Profit factor"
                             value={ratios.profitFactor.toFixed(2)}
@@ -410,6 +477,12 @@ export default function StrategyAnalysis({
                             value={ratios.sharpe.toFixed(2)}
                             bench={sharpeBench(ratios.sharpe)}
                             color={sharpeColor(ratios.sharpe)}
+                        />
+                        <RatioCard
+                            label="Sortino (ann.)"
+                            value={ratios.sortino.toFixed(2)}
+                            bench={sortinoBench(ratios.sortino)}
+                            color={sortinoColor(ratios.sortino)}
                         />
                         <RatioCard
                             label="Calmar"
@@ -436,6 +509,34 @@ export default function StrategyAnalysis({
                             value={omegaStr}
                             bench={omegaBench(ratios.omega)}
                             color={omegaColor(ratios.omega)}
+                        />
+                        <RatioCard
+                            label="Gain-to-pain"
+                            value={
+                                !isFinite(ratios.gainToPain)
+                                    ? '∞'
+                                    : ratios.gainToPain.toFixed(2)
+                            }
+                            bench={
+                                ratios.gainToPain > 1.5
+                                    ? 'strong'
+                                    : ratios.gainToPain > 1
+                                      ? 'acceptable'
+                                      : 'losing'
+                            }
+                            color={gainToPainColor(ratios.gainToPain)}
+                        />
+                        <RatioCard
+                            label="Ulcer index"
+                            value={ratios.ulcerIndex.toFixed(1)}
+                            bench={
+                                ratios.ulcerIndex < 3
+                                    ? 'low DD pain'
+                                    : ratios.ulcerIndex < 8
+                                      ? 'moderate'
+                                      : 'high DD pain'
+                            }
+                            color={ulcerColor(ratios.ulcerIndex)}
                         />
                     </div>
                 </section>

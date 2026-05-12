@@ -10,6 +10,14 @@ import {
 
 export type { CorrelationMode, DayStopRule, MultiAccountResult };
 
+export interface PortfolioEntryMemory {
+    planId: PlanId;
+    count: number;
+    evalDiscountPercent: number;
+    activationDiscountPercent: number;
+    linkActivationDiscount: boolean;
+}
+
 export interface PortfolioEntry {
     id: string;
     firmId: FirmId;
@@ -18,6 +26,7 @@ export interface PortfolioEntry {
     evalDiscountPercent: number;
     activationDiscountPercent: number;
     linkActivationDiscount: boolean;
+    memory: Partial<Record<FirmId, PortfolioEntryMemory>>;
 }
 
 export enum SizingMode {

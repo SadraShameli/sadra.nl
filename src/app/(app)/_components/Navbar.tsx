@@ -70,6 +70,7 @@ export default function Navbar() {
                     ))}
                 </div>
             </div>
+            <div id="navbar-subnav-slot" />
         </nav>
     );
 }

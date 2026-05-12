@@ -157,6 +157,7 @@ export default function PortfolioPanel({
                 evalDiscountPercent: 0,
                 activationDiscountPercent: 0,
                 linkActivationDiscount: false,
+                memory: {},
             },
         ]);
     }
