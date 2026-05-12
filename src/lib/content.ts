@@ -1,17 +1,17 @@
-import ProjectAIImage from '~/assets/images/projectai.jpg';
-import SensorHubImage from '~/assets/images/units.jpg';
 import BSPImage from '~/assets/images/bsp.jpeg';
 import DiplomaImage from '~/assets/images/diploma.jpg';
-import SadraImage from '~/assets/images/pictureBar.jpg';
-import SpainPoolImage from '~/assets/images/gallery/spain-pool.jpg';
-import SpainChurchImage from '~/assets/images/gallery/spain-church.jpg';
-import SetupImage from '~/assets/images/gallery/setup.jpg';
 import PorscheImage from '~/assets/images/gallery/porsche.jpg';
+import SetupImage from '~/assets/images/gallery/setup.jpg';
+import SpainChurchImage from '~/assets/images/gallery/spain-church.jpg';
+import SpainPoolImage from '~/assets/images/gallery/spain-pool.jpg';
+import SadraImage from '~/assets/images/pictureBar.jpg';
+import ProjectAIImage from '~/assets/images/projectai.jpg';
+import SensorHubImage from '~/assets/images/units.jpg';
 
 import type { StaticImageData } from 'next/image';
 
-import type { ResumeSectionView } from '~/lib/cms';
 import type { GalleryItem } from '~/app/(app)/_components/GallerySection';
+import type { ResumeSectionView } from '~/lib/cms';
 
 type SiteData = {
     metaTitle: string;
@@ -56,10 +56,7 @@ export const siteContent: SiteData = {
     navBrand: '_sadra',
     socialLinks: [
         { platform: 'instagram', url: 'https://instagram.com/sadra22._' },
-        { platform: 'whatsapp', url: 'https://wa.me/+31685156033' },
         { platform: 'youtube', url: 'https://youtube.com/@sadrashameli' },
-        { platform: 'github', url: 'https://github.com/SadraShameli' },
-        { platform: 'linkedin', url: 'https://linkedin.com/in/sadrashameli' },
     ] as { platform: string; url: string }[],
     resumeUrl: '/resume',
 };

@@ -1,9 +1,11 @@
 'use client';
 
+import { type Session } from 'next-auth';
 import Link from 'next/link';
 import { useCallback, useState } from 'react';
 
 import GithubIcon from '~/components/ui/Icons/Github';
+import UserIcon from '~/components/ui/Icons/User';
 import InstagramIcon from '~/components/ui/Icons/Instagram';
 import WhatsAppIcon from '~/components/ui/Icons/WhatsApp';
 import YoutubeIcon from '~/components/ui/Icons/Youtube';
@@ -36,7 +38,7 @@ function SocialIcon({ platform }: { platform: string }) {
     }
 }
 
-export default function Navbar() {
+export default function Navbar({ session }: { session: Session | null }) {
     const { navBrand, socialLinks } = siteContent;
     const [glitchTrigger, setGlitchTrigger] = useState(0);
 
@@ -57,7 +59,7 @@ export default function Navbar() {
                     <BrandTypewriter onTransition={handleTransition} />
                 </div>
 
-                <div className="flex items-center justify-between gap-x-4 text-white lg:gap-x-6">
+                <div className="flex items-center gap-x-4 text-white lg:gap-x-6">
                     {socialLinks.map((profile) => (
                         <Link
                             className="flex size-5 items-center justify-center transition hover:opacity-50"
@@ -68,6 +70,14 @@ export default function Navbar() {
                             <SocialIcon platform={profile.platform} />
                         </Link>
                     ))}
+
+                    <Link
+                        href={session?.user ? '/profile' : '/login'}
+                        aria-label={session?.user ? 'Profile' : 'Sign in'}
+                        className="flex size-5 items-center justify-center text-white transition hover:opacity-60"
+                    >
+                        <UserIcon className="size-5" />
+                    </Link>
                 </div>
             </div>
             <div id="navbar-subnav-slot" />

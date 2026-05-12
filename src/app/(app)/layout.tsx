@@ -3,6 +3,7 @@ import { SpeedInsights } from '@vercel/speed-insights/next';
 import { GeistSans } from 'geist/font/sans';
 import { type Metadata } from 'next';
 
+import { auth } from '~/lib/auth';
 import { orbitron } from '~/fonts';
 import { siteContent } from '~/lib/content';
 import { cn } from '~/lib/utils';
@@ -21,17 +22,19 @@ export const metadata: Metadata = {
     icons: { icon: '/favicon.ico' },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
+    const session = await auth();
+
     return (
         <html lang="en" className="dark scroll-smooth antialiased">
             <meta name="theme-color" content="#000" />
             <body className={cn(orbitron.variable, GeistSans.variable)}>
                 <TRPCReactProvider>
-                    <Navbar />
+                    <Navbar session={session} />
                     <GridBackground />
                     {children}
                     <Footer />

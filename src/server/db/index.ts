@@ -3,7 +3,10 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 
 import { env } from '~/env';
+import * as authSchema from './schemas/auth';
 import * as schema from './schemas/main';
+
+export { users } from './schemas/auth';
 
 const globalForDb = globalThis as unknown as {
     pool: pg.Pool | undefined;
@@ -26,7 +29,7 @@ attachDatabasePool(pool);
 
 if (env.NODE_ENV !== 'production') globalForDb.pool = pool;
 
-export const db = drizzle(pool, { schema });
+export const db = drizzle(pool, { schema: { ...schema, ...authSchema } });
 
 export async function endDb() {
     await pool.end();
