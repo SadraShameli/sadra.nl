@@ -12,9 +12,12 @@ export const env = createEnv({
         RESEND_API_KEY: z.string().min(1),
     },
 
-    client: {},
+    client: {
+        NEXT_PUBLIC_SERVER_URL: z.url(),
+    },
 
     runtimeEnv: {
+        NEXT_PUBLIC_SERVER_URL: process.env.NEXT_PUBLIC_SERVER_URL,
         NODE_ENV: process.env.NODE_ENV,
         DATABASE_URL: process.env.DATABASE_URL,
         AUTH_SECRET: process.env.AUTH_SECRET,

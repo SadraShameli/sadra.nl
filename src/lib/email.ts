@@ -9,7 +9,7 @@ const resend = new Resend(env.RESEND_API_KEY);
 const FROM = 'noreply@sadra.nl';
 
 export async function sendPasswordResetEmail(to: string, token: string) {
-    const url = `${process.env.NEXT_PUBLIC_SERVER_URL}/reset-password?token=${token}`;
+    const url = `${env.NEXT_PUBLIC_SERVER_URL}/reset-password?token=${token}`;
     const subject = 'Reset your password — sadra.nl';
     const html = `
 <p>Hi,</p>
