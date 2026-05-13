@@ -3,8 +3,8 @@ import { SpeedInsights } from '@vercel/speed-insights/next';
 import { GeistSans } from 'geist/font/sans';
 import { type Metadata } from 'next';
 
-import { auth } from '~/lib/auth';
 import { orbitron } from '~/fonts';
+import { auth } from '~/lib/auth';
 import { siteContent } from '~/lib/content';
 import { cn } from '~/lib/utils';
 import { TRPCReactProvider } from '~/trpc/react';
@@ -31,7 +31,11 @@ export default async function RootLayout({
     const session = await auth();
 
     return (
-        <html lang="en" className="dark scroll-smooth antialiased">
+        <html
+            lang="en"
+            className="dark scroll-smooth antialiased"
+            data-scroll-behavior="smooth"
+        >
             <meta name="theme-color" content="#000" />
             <body className={cn(orbitron.variable, GeistSans.variable)}>
                 <TRPCReactProvider>
