@@ -5,7 +5,7 @@
     "type": "module",
     "scripts": {
         "build": "next build",
-        "check": "bun run format:write && eslint . && bun run stylelint && bun run typecheck && bun run knip",
+        "check": "bun run format:write && bun run lint && bun run stylelint && bun run typecheck && bun run knip",
         "db:generate": "drizzle-kit generate",
         "db:migrate": "drizzle-kit migrate",
         "db:push": "drizzle-kit push",
@@ -15,6 +15,7 @@
         "format": "prettier --check \"**/*.{ts,tsx,js,jsx,mjs,cjs,mdx,md,json,yml,yaml}\"",
         "format:write": "prettier --write \"**/*.{ts,tsx,js,jsx,mjs,cjs,mdx,md,json,yml,yaml}\"",
         "knip": "knip",
+        "lint": "eslint .",
         "ncu": "bunx npm-check-updates --interactive --format group",
         "prepare": "husky",
         "preview": "next build && next start",
