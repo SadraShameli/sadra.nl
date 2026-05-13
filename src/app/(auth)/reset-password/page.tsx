@@ -140,7 +140,7 @@ export default async function ResetPasswordPage({
                                     />
                                 </div>
                             </CardContent>
-                            <CardFooter className="flex flex-col gap-3">
+                            <CardFooter className="mt-10 flex flex-col gap-3">
                                 <Button type="submit" className="w-full">
                                     Reset password
                                 </Button>
