@@ -29,6 +29,7 @@ import type {
     TradeAssessmentRow,
     TradingPlanRow,
 } from '~/lib/trading-types';
+
 import { OutcomeDialog } from './OutcomeDialog';
 
 const gradeColor: Record<Grade, string> = {

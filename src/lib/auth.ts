@@ -1,6 +1,7 @@
 import { DrizzleAdapter } from '@auth/drizzle-adapter';
 import { compare } from 'bcryptjs';
 import { eq } from 'drizzle-orm';
+import { headers } from 'next/headers';
 import type { NextAuthConfig } from 'next-auth';
 import NextAuth from 'next-auth';
 import type { Adapter, AdapterUser } from 'next-auth/adapters';
@@ -8,7 +9,6 @@ import Credentials from 'next-auth/providers/credentials';
 import GitHub from 'next-auth/providers/github';
 import Google from 'next-auth/providers/google';
 import Email from 'next-auth/providers/nodemailer';
-import { headers } from 'next/headers';
 
 import { env } from '~/env';
 import { sendMagicLinkEmail } from '~/lib/email';

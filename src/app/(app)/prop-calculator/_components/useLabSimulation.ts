@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import {
-    simulatePortfolio,
     type MultiAccountResult,
     type Plan,
+    simulatePortfolio,
 } from '~/lib/prop-calculator';
 
 import { gamblersRuinAsymmetric } from './lab/labMath';

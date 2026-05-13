@@ -16,8 +16,8 @@ import {
 import { Input } from '~/components/ui/Input';
 import { resetPassword } from '~/lib/auth-actions';
 import {
-    resetPasswordInputSchema,
     type ResetPasswordInput,
+    resetPasswordInputSchema,
 } from '~/lib/schemas/auth';
 
 export function ResetPasswordForm({ token }: { token: string }) {

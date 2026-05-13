@@ -4,17 +4,17 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
     ALL_FIRMS,
-    FirmId,
-    findFirm,
-    simulate,
     type DayStopRule,
+    findFirm,
+    FirmId,
     type Plan,
     type PropFirm,
     type SimInputs,
     type SimOutputs,
+    simulate,
 } from '~/lib/prop-calculator';
 
-import { SizingMode, type CalculatorState, type LabScenario } from './types';
+import { type CalculatorState, type LabScenario, SizingMode } from './types';
 import { decodeState, encodeState } from './urlState';
 
 const SIM_DEBOUNCE_MS = 180;

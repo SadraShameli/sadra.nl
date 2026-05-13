@@ -3,8 +3,8 @@
 import { compare, hash } from 'bcryptjs';
 import { createHash, randomBytes } from 'crypto';
 import { and, eq, ne } from 'drizzle-orm';
-import { AuthError, CredentialsSignin } from 'next-auth';
 import { redirect } from 'next/navigation';
+import { AuthError, CredentialsSignin } from 'next-auth';
 
 import { auth, signIn, signOut } from '~/lib/auth';
 import { sendPasswordResetEmail } from '~/lib/email';
@@ -12,26 +12,26 @@ import { checkRateLimit } from '~/lib/rate-limit';
 import { isRedirectError } from '~/lib/redirect-error';
 import {
     callbackUrlSchema,
-    forgotPasswordInputSchema,
-    loginInputSchema,
-    magicLinkInputSchema,
-    oauthSignInInputSchema,
-    resetPasswordInputSchema,
-    setPasswordInputSchema,
-    signupInputSchema,
-    updateEmailInputSchema,
-    updateNameInputSchema,
-    updatePasswordInputSchema,
     type ForgotPasswordInput,
+    forgotPasswordInputSchema,
     type LoginInput,
+    loginInputSchema,
     type MagicLinkInput,
+    magicLinkInputSchema,
     type OAuthSignInInput,
+    oauthSignInInputSchema,
     type ResetPasswordInput,
+    resetPasswordInputSchema,
     type SetPasswordInput,
+    setPasswordInputSchema,
     type SignupInput,
+    signupInputSchema,
     type UpdateEmailInput,
+    updateEmailInputSchema,
     type UpdateNameInput,
+    updateNameInputSchema,
     type UpdatePasswordInput,
+    updatePasswordInputSchema,
 } from '~/lib/schemas/auth';
 import { db, passwordResetTokens, sessions, users } from '~/server/db';
 

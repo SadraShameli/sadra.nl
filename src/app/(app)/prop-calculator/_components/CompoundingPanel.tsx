@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-
 import {
     Area,
     CartesianGrid,
@@ -12,15 +11,14 @@ import {
 } from 'recharts';
 import { z } from 'zod';
 
-import { simulateCompound } from '~/lib/prop-calculator/compoundSimulator';
-import { cn } from '~/lib/utils';
-
 import { Card } from '~/components/ui/Card';
 import {
+    type ChartConfig,
     ChartContainer,
     ChartTooltip,
-    type ChartConfig,
 } from '~/components/ui/Chart';
+import { simulateCompound } from '~/lib/prop-calculator/compoundSimulator';
+import { cn } from '~/lib/utils';
 
 import { formatCompactCurrency, formatPercent } from './helpers';
 import InfoPopover from './InfoPopover';

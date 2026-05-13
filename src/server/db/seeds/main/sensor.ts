@@ -1,7 +1,6 @@
 import { db } from '../..';
-import { DatabaseSeeder } from '../../types';
-
 import { sensor } from '../../schemas/main';
+import { DatabaseSeeder } from '../../types';
 
 export default class SeedSensor extends DatabaseSeeder {
     async run() {

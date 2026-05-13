@@ -5,22 +5,40 @@
     "type": "module",
     "scripts": {
         "build": "next build",
-        "check": "eslint . && tsc --noEmit",
+        "check": "eslint . --cache --cache-strategy content && tsc --noEmit",
         "db:generate": "drizzle-kit generate",
         "db:migrate": "drizzle-kit migrate",
         "db:push": "drizzle-kit push",
         "db:seed": "bun --env-file .env ./src/server/db/seed.ts",
         "db:studio": "drizzle-kit studio",
         "dev": "next dev",
-        "format": "prettier --check \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
-        "format:write": "prettier --write \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
+        "format": "prettier --check \"**/*.{ts,tsx,js,jsx,mjs,cjs,mdx,md,json,yml,yaml}\" --cache",
+        "format:write": "prettier --write \"**/*.{ts,tsx,js,jsx,mjs,cjs,mdx,md,json,yml,yaml}\" --cache",
         "ncu": "bunx npm-check-updates --interactive --format group",
         "prepare": "husky",
         "preview": "next build && next start",
         "start": "next start",
         "stylelint": "stylelint '**/*.{css,scss}'",
-        "stylelint:fix": "stylelint '**/*.{css,scss}' -- --fix --quiet",
+        "stylelint:fix": "stylelint '**/*.{css,scss}' --fix --quiet",
         "typecheck": "tsc --noEmit"
+    },
+    "lint-staged": {
+        "*.{ts,tsx,js,jsx,mjs,cjs}": [
+            "eslint --fix --cache --cache-strategy content",
+            "prettier --write --cache"
+        ],
+        "*.{css,scss}": [
+            "stylelint --fix --quiet"
+        ],
+        "*.{md,mdx,yml,yaml}": [
+            "prettier --write --cache"
+        ],
+        "*.json": [
+            "prettier --write --cache"
+        ],
+        "package.json": [
+            "sort-package-json"
+        ]
     },
     "dependencies": {
         "@auth/drizzle-adapter": "^1.11.2",
@@ -104,12 +122,16 @@
         "eslint": "^10.3.0",
         "eslint-config-next": "^16.2.6",
         "eslint-plugin-drizzle": "^0.2.3",
+        "eslint-plugin-jsx-a11y": "^6.10.2",
+        "eslint-plugin-simple-import-sort": "^13.0.0",
         "eslint-plugin-tailwindcss": "^3.18.3",
         "husky": "^9.1.7",
+        "lint-staged": "^17.0.4",
         "postcss": "^8.5.14",
         "prettier": "^3.8.3",
         "prettier-plugin-tailwindcss": "^0.8.0",
         "sass": "^1.99.0",
+        "sort-package-json": "^3.6.1",
         "stylelint": "^17.11.0",
         "stylelint-config-recommended-scss": "^17.0.1",
         "stylelint-order": "^8.1.1",

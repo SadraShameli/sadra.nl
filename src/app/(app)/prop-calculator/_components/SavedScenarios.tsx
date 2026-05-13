@@ -3,14 +3,13 @@
 import { Bookmark, RotateCcw, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-import { type PropFirm } from '~/lib/prop-calculator';
-
 import { Button } from '~/components/ui/Button';
 import {
     Popover,
     PopoverContent,
     PopoverTrigger,
 } from '~/components/ui/Popover';
+import { type PropFirm } from '~/lib/prop-calculator';
 
 import type { CalculatorState } from './types';
 import {

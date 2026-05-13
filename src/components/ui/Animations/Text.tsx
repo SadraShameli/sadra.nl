@@ -3,11 +3,11 @@
 import {
     easeOut,
     motion,
-    useInView,
     type Transition,
+    useInView,
     type Variants,
 } from 'framer-motion';
-import { useRef, type JSX } from 'react';
+import { type JSX, useRef } from 'react';
 
 type AnimatedTextProps = {
     className?: string;

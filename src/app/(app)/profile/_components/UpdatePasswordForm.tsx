@@ -16,10 +16,10 @@ import {
 import { Input } from '~/components/ui/Input';
 import { setPassword, updatePassword } from '~/lib/auth-actions';
 import {
-    setPasswordInputSchema,
-    updatePasswordInputSchema,
     type SetPasswordInput,
+    setPasswordInputSchema,
     type UpdatePasswordInput,
+    updatePasswordInputSchema,
 } from '~/lib/schemas/auth';
 
 export function UpdatePasswordForm({

@@ -42,5 +42,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 
+# lint/format caches
+.eslintcache
+.stylelintcache
+
 # idea files
 .idea.env.local

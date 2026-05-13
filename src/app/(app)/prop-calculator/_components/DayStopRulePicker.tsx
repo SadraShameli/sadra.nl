@@ -1,9 +1,8 @@
 'use client';
 
-import { type DayStopRule } from '~/lib/prop-calculator';
-
 import { Input } from '~/components/ui/Input';
 import { Select } from '~/components/ui/Select';
+import { type DayStopRule } from '~/lib/prop-calculator';
 
 interface DayStopRulePickerProps {
     value: DayStopRule;

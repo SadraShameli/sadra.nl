@@ -2,14 +2,16 @@
     "emmet.showExpandedAbbreviation": "never",
     "editor.formatOnSave": true,
     "eslint.validate": [
-        "typescript"
+        "javascript",
+        "javascriptreact",
+        "typescript",
+        "typescriptreact"
     ],
     "editor.codeActionsOnSave": {
-        "source.fixAll": "always"
+        "source.fixAll.eslint": "explicit",
+        "source.fixAll.stylelint": "explicit"
     },
     "scss.lint.unknownAtRules": "ignore",
-    "css.customData": [
-        ".vscode/tailwind.json"
-    ],
+    "css.customData": [".vscode/tailwind.json"],
     "git.ignoreLimitWarning": true
 }

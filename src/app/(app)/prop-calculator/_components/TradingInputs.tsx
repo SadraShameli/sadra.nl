@@ -2,9 +2,6 @@
 
 import { Settings2 } from 'lucide-react';
 
-import { type DayStopRule, type Plan } from '~/lib/prop-calculator';
-import { cn } from '~/lib/utils';
-
 import { Button } from '~/components/ui/Button';
 import { Input } from '~/components/ui/Input';
 import {
@@ -13,6 +10,8 @@ import {
     PopoverTrigger,
 } from '~/components/ui/Popover';
 import { Slider } from '~/components/ui/Slider';
+import { type DayStopRule, type Plan } from '~/lib/prop-calculator';
+import { cn } from '~/lib/utils';
 
 import DayStopRulePicker from './DayStopRulePicker';
 import {
@@ -185,9 +184,9 @@ export default function TradingInputs({
                                 </p>
                             </div>
                             <div>
-                                <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                                <span className="mb-1 block text-xs font-medium text-muted-foreground">
                                     Day-stop rule
-                                </label>
+                                </span>
                                 <DayStopRulePicker
                                     value={dayStop}
                                     onChange={onDayStopChange}
@@ -204,14 +203,18 @@ export default function TradingInputs({
 
             <div>
                 <div className="mb-2 flex items-center justify-between">
-                    <label className="text-xs font-medium text-muted-foreground">
+                    <span
+                        id="winrate-label"
+                        className="text-xs font-medium text-muted-foreground"
+                    >
                         Winrate
-                    </label>
+                    </span>
                     <span className="font-mono text-xs tabular-nums">
                         {formatPercent(winrate)}
                     </span>
                 </div>
                 <Slider
+                    aria-labelledby="winrate-label"
                     min={0.05}
                     max={0.95}
                     step={0.01}
@@ -224,14 +227,18 @@ export default function TradingInputs({
 
             <div>
                 <div className="mb-2 flex items-center justify-between">
-                    <label className="text-xs font-medium text-muted-foreground">
+                    <span
+                        id="rr-ratio-label"
+                        className="text-xs font-medium text-muted-foreground"
+                    >
                         Reward : Risk (RR)
-                    </label>
+                    </span>
                     <span className="font-mono text-xs tabular-nums">
                         {rrRatio.toFixed(2)} : 1
                     </span>
                 </div>
                 <Slider
+                    aria-labelledby="rr-ratio-label"
                     min={0.5}
                     max={5}
                     step={0.1}
@@ -337,9 +344,9 @@ export default function TradingInputs({
 
             <div>
                 <div className="mb-2 flex items-center justify-between">
-                    <label className="text-xs font-medium text-muted-foreground">
+                    <span className="text-xs font-medium text-muted-foreground">
                         Risk per trade (1R)
-                    </label>
+                    </span>
                     <div className="inline-flex rounded-md border border-input p-0.5">
                         <button
                             type="button"

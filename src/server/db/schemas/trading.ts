@@ -14,6 +14,7 @@ import type {
     AssessmentResult,
     TradingPlanConfig,
 } from '~/lib/trading-types';
+
 import { createTable } from './main';
 
 export const tradingPlans = createTable('trading_plan', {

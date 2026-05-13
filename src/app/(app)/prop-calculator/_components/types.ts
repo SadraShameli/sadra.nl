@@ -1,11 +1,11 @@
 import {
-    type FirmId,
-    type PlanId,
-    type Plan,
-    type PropFirm,
     type CorrelationMode,
     type DayStopRule,
+    type FirmId,
     type MultiAccountResult,
+    type Plan,
+    type PlanId,
+    type PropFirm,
 } from '~/lib/prop-calculator';
 
 export type { CorrelationMode, DayStopRule, MultiAccountResult };

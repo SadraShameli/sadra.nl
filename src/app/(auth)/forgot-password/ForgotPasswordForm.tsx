@@ -16,8 +16,8 @@ import {
 import { Input } from '~/components/ui/Input';
 import { requestPasswordReset } from '~/lib/auth-actions';
 import {
-    forgotPasswordInputSchema,
     type ForgotPasswordInput,
+    forgotPasswordInputSchema,
 } from '~/lib/schemas/auth';
 
 export function ForgotPasswordForm() {

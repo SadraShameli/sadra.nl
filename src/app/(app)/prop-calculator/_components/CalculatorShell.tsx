@@ -3,8 +3,8 @@
 import { useState } from 'react';
 
 import { Card } from '~/components/ui/Card';
-
 import { FirmId } from '~/lib/prop-calculator';
+
 import ChartPanel from './ChartPanel';
 import CompoundingPanel from './CompoundingPanel';
 import DrawdownDurationPanel from './DrawdownDurationPanel';
@@ -27,7 +27,6 @@ import StrategyAnalysis from './StrategyAnalysis';
 import StrategyLabPanel from './StrategyLabPanel';
 import TailRiskPanel from './TailRiskPanel';
 import TradingInputs from './TradingInputs';
-
 import { ChartType, type PortfolioEntry, SizingMode } from './types';
 import { useCalculator } from './useCalculator';
 

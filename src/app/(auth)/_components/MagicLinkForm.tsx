@@ -16,7 +16,7 @@ import {
 } from '~/components/ui/Form';
 import { Input } from '~/components/ui/Input';
 import { signInWithMagicLink } from '~/lib/auth-actions';
-import { magicLinkInputSchema, type MagicLinkInput } from '~/lib/schemas/auth';
+import { type MagicLinkInput, magicLinkInputSchema } from '~/lib/schemas/auth';
 
 export function MagicLinkForm() {
     const [pending, startTransition] = useTransition();

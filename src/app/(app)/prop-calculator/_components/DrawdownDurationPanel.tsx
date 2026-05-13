@@ -2,10 +2,9 @@
 
 import { useMemo } from 'react';
 
+import { Card } from '~/components/ui/Card';
 import { type SimOutputs } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utils';
-
-import { Card } from '~/components/ui/Card';
 
 import { formatDays, formatPercent } from './helpers';
 import InfoPopover from './InfoPopover';

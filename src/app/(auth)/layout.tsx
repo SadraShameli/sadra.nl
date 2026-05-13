@@ -1,10 +1,10 @@
+import '~/styles/styles.css';
+
 import { GeistSans } from 'geist/font/sans';
 import { type Metadata } from 'next';
 
 import { orbitron } from '~/fonts';
 import { cn } from '~/lib/utils';
-
-import '~/styles/styles.css';
 
 export const metadata: Metadata = {
     title: 'sadra.nl',

@@ -1,13 +1,13 @@
 import { desc, eq } from 'drizzle-orm';
 import { type Metadata } from 'next';
 import { redirect } from 'next/navigation';
-
 import { z } from 'zod';
 
 import { auth } from '~/lib/auth';
 import { tradeAssessmentRowSchema } from '~/lib/schemas/trading';
 import { ensureUserHasPlan } from '~/lib/trading-actions';
 import { db, tradeAssessments, tradingPlans } from '~/server/db';
+
 import { ChecklistShell } from './_components/ChecklistShell';
 
 export const metadata: Metadata = {

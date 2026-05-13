@@ -8,6 +8,7 @@ import { auth } from '~/lib/auth';
 import { profileSearchSchema } from '~/lib/schemas/url';
 import { ensureUserHasPlan } from '~/lib/trading-actions';
 import { db, tradingPlans, users } from '~/server/db';
+
 import { DeleteAccountDialog } from './_components/DeleteAccountDialog';
 import { LogoutButton } from './_components/LogoutButton';
 import { ProfileTabs } from './_components/ProfileTabs';

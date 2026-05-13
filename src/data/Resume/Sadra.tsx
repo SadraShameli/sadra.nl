@@ -1,14 +1,13 @@
-import { type IResume } from './types';
-
+import BSP from '~/assets/images/bsp.jpeg';
+import Diploma from '~/assets/images/diploma.jpg';
+import ProjectAI from '~/assets/images/projectai.jpg';
+import SensorUnit from '~/assets/images/units.jpg';
 import GithubIcon from '~/components/ui/Icons/Github';
 import InstagramIcon from '~/components/ui/Icons/Instagram';
 import WhatsAppIcon from '~/components/ui/Icons/WhatsApp';
 import YoutubeIcon from '~/components/ui/Icons/Youtube';
 
-import BSP from '~/assets/images/bsp.jpeg';
-import Diploma from '~/assets/images/diploma.jpg';
-import ProjectAI from '~/assets/images/projectai.jpg';
-import SensorUnit from '~/assets/images/units.jpg';
+import { type IResume } from './types';
 
 const resumeSadra: IResume = {
     title: 'Sadra',

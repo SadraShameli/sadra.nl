@@ -1,7 +1,6 @@
 import { db } from '../..';
-import { DatabaseSeeder } from '../../types';
-
 import { reading } from '../../schemas/main';
+import { DatabaseSeeder } from '../../types';
 
 export default class SeedReading extends DatabaseSeeder {
     async run() {

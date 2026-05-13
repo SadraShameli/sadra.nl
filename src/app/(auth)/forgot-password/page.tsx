@@ -9,6 +9,7 @@ import {
     CardTitle,
 } from '~/components/ui/Card';
 import { forgotPasswordSearchSchema } from '~/lib/schemas/url';
+
 import { ForgotPasswordForm } from './ForgotPasswordForm';
 
 export default async function ForgotPasswordPage({

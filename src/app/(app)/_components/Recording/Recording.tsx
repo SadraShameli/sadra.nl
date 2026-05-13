@@ -1,10 +1,10 @@
 'use client';
 
 import { Download } from 'lucide-react';
-import { api } from '~/trpc/react';
 
 import { Button } from '~/components/ui/Button';
 import { Card } from '~/components/ui/Card';
+import { api } from '~/trpc/react';
 
 import { GetRecordingURL } from './helpers';
 import { PlaybackControls } from './PlaybackControls';
@@ -138,6 +138,7 @@ export default function RecordingSection({
                                 preload="metadata"
                                 ref={audioRef}
                                 loop={isRepeat}
+                                aria-label="Recording playback"
                                 onEnded={handleAudioEnded}
                                 onTimeUpdate={(e) => {
                                     setTime(e.currentTarget.currentTime);
@@ -153,7 +154,9 @@ export default function RecordingSection({
                                 onError={(e) => {
                                     console.error('Audio error:', e);
                                 }}
-                            />
+                            >
+                                <track kind="captions" />
+                            </audio>
                         )}
                     </div>
                 </div>

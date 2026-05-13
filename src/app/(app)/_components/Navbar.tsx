@@ -1,8 +1,8 @@
 'use client';
 
 import { User } from 'lucide-react';
-import { type Session } from 'next-auth';
 import Link from 'next/link';
+import { type Session } from 'next-auth';
 import { useCallback, useState } from 'react';
 
 import GithubIcon from '~/components/ui/Icons/Github';
@@ -10,6 +10,7 @@ import InstagramIcon from '~/components/ui/Icons/Instagram';
 import WhatsAppIcon from '~/components/ui/Icons/WhatsApp';
 import YoutubeIcon from '~/components/ui/Icons/Youtube';
 import { siteContent } from '~/lib/content';
+
 import BrandTypewriter from './brand/BrandTypewriter';
 
 function SocialIcon({ platform }: { platform: string }) {

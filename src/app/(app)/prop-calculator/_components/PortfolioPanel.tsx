@@ -3,17 +3,6 @@
 import { Tag } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 
-import {
-    serializePlanId,
-    simulate,
-    type FirmId,
-    type Plan,
-    type PropFirm,
-    type SimInputs,
-    type SimOutputs,
-} from '~/lib/prop-calculator';
-import { cn } from '~/lib/utils';
-
 import { Card } from '~/components/ui/Card';
 import { Input } from '~/components/ui/Input';
 import {
@@ -22,6 +11,16 @@ import {
     PopoverTrigger,
 } from '~/components/ui/Popover';
 import { Select } from '~/components/ui/Select';
+import {
+    type FirmId,
+    type Plan,
+    type PropFirm,
+    serializePlanId,
+    type SimInputs,
+    type SimOutputs,
+    simulate,
+} from '~/lib/prop-calculator';
+import { cn } from '~/lib/utils';
 
 import {
     formatCompactCurrency,
@@ -507,7 +506,10 @@ function PortfolioRow({
                             </p>
                             <div>
                                 <div className="mb-1 flex items-center justify-between">
-                                    <label className="text-xs text-muted-foreground">
+                                    <label
+                                        htmlFor={`eval-discount-${entry.id}`}
+                                        className="text-xs text-muted-foreground"
+                                    >
                                         Eval fee discount
                                     </label>
                                     {plan.fees.oneTimeEval > 0 && (
@@ -522,6 +524,7 @@ function PortfolioRow({
                                 </div>
                                 <div className="relative">
                                     <Input
+                                        id={`eval-discount-${entry.id}`}
                                         type="number"
                                         min={0}
                                         max={100}
@@ -544,7 +547,10 @@ function PortfolioRow({
                             </div>
                             <div>
                                 <div className="mb-1 flex items-center justify-between">
-                                    <label className="text-xs text-muted-foreground">
+                                    <label
+                                        htmlFor={`activation-discount-${entry.id}`}
+                                        className="text-xs text-muted-foreground"
+                                    >
                                         Activation fee discount
                                     </label>
                                     {plan.fees.activation > 0 && (
@@ -560,6 +566,7 @@ function PortfolioRow({
                                 <div className="flex items-stretch gap-2">
                                     <div className="relative flex-1">
                                         <Input
+                                            id={`activation-discount-${entry.id}`}
                                             type="number"
                                             min={0}
                                             max={100}

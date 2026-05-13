@@ -3,6 +3,7 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 
 import { env } from '~/env';
+
 import * as authSchema from './schemas/auth';
 import * as schema from './schemas/main';
 import * as tradingSchema from './schemas/trading';

@@ -437,7 +437,7 @@ function ContextStep({ plan }: { plan: TradingPlanRow }) {
                 </RadioGroup>
             </div>
 
-            <label className="flex cursor-pointer items-center justify-between rounded-lg border border-border/60 p-4">
+            <div className="flex items-center justify-between rounded-lg border border-border/60 p-4">
                 <div>
                     <p className="text-sm font-medium text-white">
                         Already used this window&apos;s quota?
@@ -455,7 +455,7 @@ function ContextStep({ plan }: { plan: TradingPlanRow }) {
                         })
                     }
                 />
-            </label>
+            </div>
         </div>
     );
 }
@@ -586,7 +586,7 @@ function DolStep({ plan }: { plan: TradingPlanRow }) {
                 </ToggleGroup>
             </div>
 
-            <label className="flex cursor-pointer items-center justify-between rounded-lg border border-border/60 p-4">
+            <div className="flex items-center justify-between rounded-lg border border-border/60 p-4">
                 <span className="text-sm text-white">
                     Singular and clearly defined DOL
                 </span>
@@ -598,9 +598,9 @@ function DolStep({ plan }: { plan: TradingPlanRow }) {
                         })
                     }
                 />
-            </label>
+            </div>
 
-            <label className="flex cursor-pointer items-center justify-between rounded-lg border border-rose-500/30 bg-rose-500/5 p-4">
+            <div className="flex items-center justify-between rounded-lg border border-rose-500/30 bg-rose-500/5 p-4">
                 <div>
                     <p className="text-sm text-white">Both-sided liquidity?</p>
                     <p className="mt-0.5 text-xs text-rose-500">
@@ -615,7 +615,7 @@ function DolStep({ plan }: { plan: TradingPlanRow }) {
                         })
                     }
                 />
-            </label>
+            </div>
 
             <div className="rounded-lg border border-border/60 p-4">
                 <Label htmlFor="distanceR" className="text-sm">
@@ -651,7 +651,7 @@ function StateStep() {
 
     return (
         <div className="space-y-4">
-            <label className="flex cursor-pointer items-center justify-between rounded-lg border border-border/60 p-4">
+            <div className="flex items-center justify-between rounded-lg border border-border/60 p-4">
                 <div>
                     <p className="text-sm font-medium text-white">
                         Recent sweep of opposing liquidity
@@ -668,7 +668,7 @@ function StateStep() {
                         })
                     }
                 />
-            </label>
+            </div>
 
             <div>
                 <Label className="mb-2 block text-xs tracking-wider text-muted-foreground uppercase">
@@ -923,9 +923,9 @@ function SlStep({ plan }: { plan: TradingPlanRow }) {
             {rows.map((r) => {
                 const v = watch(`sl.${r.name}`);
                 return (
-                    <label
+                    <div
                         key={r.name}
-                        className="flex cursor-pointer items-center justify-between rounded-lg border border-border/60 p-4"
+                        className="flex items-center justify-between rounded-lg border border-border/60 p-4"
                     >
                         <div className="flex items-start gap-3">
                             <Checkbox
@@ -946,7 +946,7 @@ function SlStep({ plan }: { plan: TradingPlanRow }) {
                                 </p>
                             </div>
                         </div>
-                    </label>
+                    </div>
                 );
             })}
             <div
@@ -1050,7 +1050,7 @@ function FinalsStep() {
 
     return (
         <div className="space-y-4">
-            <label className="flex cursor-pointer items-center justify-between rounded-lg border border-rose-500/30 bg-rose-500/5 p-4">
+            <div className="flex items-center justify-between rounded-lg border border-rose-500/30 bg-rose-500/5 p-4">
                 <div>
                     <p className="text-sm text-white">
                         DOL already taken or invalidated
@@ -1067,8 +1067,8 @@ function FinalsStep() {
                         })
                     }
                 />
-            </label>
-            <label className="flex cursor-pointer items-center justify-between rounded-lg border border-border/60 p-4">
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-border/60 p-4">
                 <div>
                     <p className="text-sm text-white">
                         Market already expanded too far
@@ -1085,7 +1085,7 @@ function FinalsStep() {
                         })
                     }
                 />
-            </label>
+            </div>
             <div className="rounded-lg border border-border/60 p-4">
                 <Label htmlFor="notes" className="text-sm">
                     Notes

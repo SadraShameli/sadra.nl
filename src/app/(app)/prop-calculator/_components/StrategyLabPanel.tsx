@@ -3,17 +3,16 @@
 import { Plus, RotateCcw, X } from 'lucide-react';
 import { useMemo } from 'react';
 
+import { Button } from '~/components/ui/Button';
+import { Card } from '~/components/ui/Card';
+import { Input } from '~/components/ui/Input';
+import { Select } from '~/components/ui/Select';
 import {
     type CorrelationMode,
     type DayStopRule,
     type Plan,
 } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utils';
-
-import { Button } from '~/components/ui/Button';
-import { Card } from '~/components/ui/Card';
-import { Input } from '~/components/ui/Input';
-import { Select } from '~/components/ui/Select';
 
 import AccountsPassedDistributionChart from './AccountsPassedDistributionChart';
 import DayStopRulePicker from './DayStopRulePicker';

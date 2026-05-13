@@ -1,8 +1,7 @@
 'use client';
 
-import { type SimOutputs } from '~/lib/prop-calculator';
-
 import { Card } from '~/components/ui/Card';
+import { type SimOutputs } from '~/lib/prop-calculator';
 
 import DaysToPassHistogramView from './charts/DaysToPassHistogramView';
 import DrawdownCurveChartView from './charts/DrawdownCurveChartView';

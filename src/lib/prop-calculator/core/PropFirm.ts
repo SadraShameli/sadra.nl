@@ -1,5 +1,5 @@
-import { type Plan } from './Plan';
 import { FirmId } from './FirmId';
+import { type Plan } from './Plan';
 import { type PlanId, planIdEquals } from './PlanId';
 
 export { FirmId };

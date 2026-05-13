@@ -2,10 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-import { type Plan, simulate, type SimInputs } from '~/lib/prop-calculator';
-import { cn } from '~/lib/utils';
-
 import { Card } from '~/components/ui/Card';
+import { type Plan, type SimInputs, simulate } from '~/lib/prop-calculator';
+import { cn } from '~/lib/utils';
 
 import { formatCompactCurrency, formatPercent } from './helpers';
 import InfoPopover from './InfoPopover';

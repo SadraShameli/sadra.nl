@@ -16,7 +16,7 @@ import {
 } from '~/components/ui/Form';
 import { Input } from '~/components/ui/Input';
 import { login } from '~/lib/auth-actions';
-import { loginInputSchema, type LoginInput } from '~/lib/schemas/auth';
+import { type LoginInput, loginInputSchema } from '~/lib/schemas/auth';
 
 export function LoginForm() {
     const [pending, startTransition] = useTransition();

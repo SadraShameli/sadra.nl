@@ -1,14 +1,15 @@
 import { z } from 'zod';
+
 import {
-    serializePlanId,
     type DayStopRule,
     type PropFirm,
+    serializePlanId,
 } from '~/lib/prop-calculator';
 import {
     dayStopRuleSchema,
     labScenarioSchema,
-    savedScenarioRecordSchema,
     type SavedScenarioRecord as SavedScenarioRecordSchema,
+    savedScenarioRecordSchema,
 } from '~/lib/schemas/url';
 
 import type { CalculatorState, LabScenario } from './types';

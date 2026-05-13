@@ -1,7 +1,6 @@
 import { db } from '../..';
-import { DatabaseSeeder } from '../../types';
-
 import { device } from '../../schemas/main';
+import { DatabaseSeeder } from '../../types';
 
 export default class SeedDevice extends DatabaseSeeder {
     async run() {

@@ -1,3 +1,6 @@
+import type { StaticImageData } from 'next/image';
+
+import type { GalleryItem } from '~/app/(app)/_components/GallerySection';
 import BSPImage from '~/assets/images/bsp.jpeg';
 import DiplomaImage from '~/assets/images/diploma.jpg';
 import PorscheImage from '~/assets/images/gallery/porsche.jpg';
@@ -7,10 +10,6 @@ import SpainPoolImage from '~/assets/images/gallery/spain-pool.jpg';
 import SadraImage from '~/assets/images/pictureBar.jpg';
 import ProjectAIImage from '~/assets/images/projectai.jpg';
 import SensorHubImage from '~/assets/images/units.jpg';
-
-import type { StaticImageData } from 'next/image';
-
-import type { GalleryItem } from '~/app/(app)/_components/GallerySection';
 
 export type ResumeSectionView = {
     title: string;

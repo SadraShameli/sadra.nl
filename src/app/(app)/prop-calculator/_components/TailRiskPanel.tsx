@@ -2,11 +2,10 @@
 
 import { useMemo } from 'react';
 
+import { Card } from '~/components/ui/Card';
 import { type SimOutputs } from '~/lib/prop-calculator';
 import { percentile } from '~/lib/prop-calculator/stats';
 import { cn } from '~/lib/utils';
-
-import { Card } from '~/components/ui/Card';
 
 import { formatCompactCurrency, formatPercent } from './helpers';
 import InfoPopover from './InfoPopover';

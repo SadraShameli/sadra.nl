@@ -2,9 +2,8 @@
 
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 
-import { type SimOutputs } from '~/lib/prop-calculator';
-
 import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
+import { type SimOutputs } from '~/lib/prop-calculator';
 
 interface Props {
     result: SimOutputs;

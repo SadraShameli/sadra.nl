@@ -9,10 +9,9 @@ import {
     YAxis,
 } from 'recharts';
 
+import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
 import { type SimOutputs } from '~/lib/prop-calculator';
 import { histogram } from '~/lib/prop-calculator/stats';
-
-import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
 
 import { formatCompactCurrency } from '../helpers';
 

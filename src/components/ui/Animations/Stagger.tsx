@@ -1,11 +1,11 @@
 'use client';
 
 import {
-    type Transition,
-    type Variants,
     easeOut,
     motion,
+    type Transition,
     useInView,
+    type Variants,
 } from 'framer-motion';
 import { useRef } from 'react';
 

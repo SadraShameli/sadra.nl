@@ -7,8 +7,8 @@ import {
     feesUntilPass,
     totalFees,
 } from './FeeSchedule';
-import { type PlanId } from './PlanId';
 import { type PayoutTier, walkPayoutTiers } from './PayoutTiers';
+import { type PlanId } from './PlanId';
 
 export type PayoutSchedule =
     | { kind: 'daily' }

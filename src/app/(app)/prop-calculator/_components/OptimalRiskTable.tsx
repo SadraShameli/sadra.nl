@@ -2,15 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { Card } from '~/components/ui/Card';
 import {
     type Plan,
-    simulate,
     type SimInputs,
     type SimOutputs,
+    simulate,
 } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utils';
-
-import { Card } from '~/components/ui/Card';
 
 import {
     formatCurrency,

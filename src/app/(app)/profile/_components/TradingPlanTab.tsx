@@ -1,17 +1,17 @@
 'use client';
 
 import {
+    closestCenter,
     DndContext,
     type DragEndEvent,
     KeyboardSensor,
     PointerSensor,
-    closestCenter,
     useSensor,
     useSensors,
 } from '@dnd-kit/core';
 import {
-    SortableContext,
     arrayMove,
+    SortableContext,
     sortableKeyboardCoordinates,
     useSortable,
     verticalListSortingStrategy,
@@ -65,6 +65,7 @@ import {
     setActiveTradingPlan,
 } from '~/lib/trading-actions';
 import type { TradingPlanRow } from '~/lib/trading-types';
+
 import { PlanEditor } from './PlanEditor';
 
 const PLAN_TOAST_MESSAGES: Record<string, string> = {
@@ -286,7 +287,6 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
                             value={newName}
                             onChange={(e) => setNewName(e.target.value)}
                             placeholder="Funded plan"
-                            autoFocus
                         />
                     </div>
                     <DialogFooter>

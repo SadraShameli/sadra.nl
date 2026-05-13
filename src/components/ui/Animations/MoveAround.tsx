@@ -1,9 +1,9 @@
 'use client';
 
 import {
+    motion,
     type TargetAndTransition,
     type Transition,
-    motion,
 } from 'framer-motion';
 
 type MoveAroundProps = {

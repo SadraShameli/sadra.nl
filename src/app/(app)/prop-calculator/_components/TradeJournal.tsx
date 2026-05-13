@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-
 import {
     CartesianGrid,
     Line,
@@ -12,10 +11,9 @@ import {
     YAxis,
 } from 'recharts';
 
-import { cn } from '~/lib/utils';
-
 import { Card } from '~/components/ui/Card';
-import { ChartContainer, type ChartConfig } from '~/components/ui/Chart';
+import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
+import { cn } from '~/lib/utils';
 
 import { formatPercent, formatR } from './helpers';
 import InfoPopover from './InfoPopover';

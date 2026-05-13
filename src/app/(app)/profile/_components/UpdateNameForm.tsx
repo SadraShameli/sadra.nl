@@ -18,8 +18,8 @@ import { Label } from '~/components/ui/Label';
 import { updateEmail, updateName } from '~/lib/auth-actions';
 import {
     updateEmailInputSchema,
-    updateNameInputSchema,
     type UpdateNameInput,
+    updateNameInputSchema,
 } from '~/lib/schemas/auth';
 
 export function UpdateNameForm({

@@ -16,7 +16,7 @@ import {
 } from '~/components/ui/Form';
 import { Input } from '~/components/ui/Input';
 import { signup } from '~/lib/auth-actions';
-import { signupInputSchema, type SignupInput } from '~/lib/schemas/auth';
+import { type SignupInput, signupInputSchema } from '~/lib/schemas/auth';
 
 export function SignupForm() {
     const [pending, startTransition] = useTransition();

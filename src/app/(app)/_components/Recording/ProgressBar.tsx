@@ -1,4 +1,5 @@
 import { Slider } from '~/components/ui/Slider';
+
 import { ConvertSecondsToString } from './helpers';
 
 interface ProgressBarProps {

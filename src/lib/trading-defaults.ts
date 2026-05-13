@@ -1,12 +1,12 @@
-import {
-    DOL_CONFLUENCE_KEYS,
-    DOL_TYPE_VALUES,
-    ENTRY_CONFLUENCE_KEYS,
-} from './trading-types';
 import type {
     ConfluenceGroup,
     Grade,
     TradingPlanConfig,
+} from './trading-types';
+import {
+    DOL_CONFLUENCE_KEYS,
+    DOL_TYPE_VALUES,
+    ENTRY_CONFLUENCE_KEYS,
 } from './trading-types';
 
 export const WEIGHT_CATEGORIES: {

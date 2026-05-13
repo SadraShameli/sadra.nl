@@ -3,8 +3,8 @@
 import { keepPreviousData } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import {
-    Calendar as CalendarIcon,
     AreaChart as ChartIcon,
+    Calendar as CalendarIcon,
     Download,
     MapPin,
     SlidersHorizontal,
@@ -12,10 +12,6 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { type DateRange } from 'react-day-picker';
-
-import { cn } from '~/lib/utils';
-import { type location } from '~/server/db/schemas/main';
-import { api } from '~/trpc/react';
 
 import RevealAnimation from '~/components/ui/Animations/Reveal';
 import { Button } from '~/components/ui/Button';
@@ -35,6 +31,9 @@ import {
     PopoverTrigger,
 } from '~/components/ui/Popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
+import { cn } from '~/lib/utils';
+import { type location } from '~/server/db/schemas/main';
+import { api } from '~/trpc/react';
 
 import {
     aggregateReadings,
@@ -152,7 +151,6 @@ export default function ReadingSection() {
                                         align="start"
                                     >
                                         <Calendar
-                                            autoFocus
                                             mode="range"
                                             defaultMonth={date?.from}
                                             selected={date}
