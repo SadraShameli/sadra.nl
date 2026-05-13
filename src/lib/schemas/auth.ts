@@ -114,3 +114,19 @@ export const updatePasswordInputSchema = z
     });
 
 export type UpdatePasswordInput = z.infer<typeof updatePasswordInputSchema>;
+
+export const updateEmailInputSchema = z.object({
+    email: emailSchema,
+});
+export type UpdateEmailInput = z.infer<typeof updateEmailInputSchema>;
+
+export const setPasswordInputSchema = z
+    .object({
+        password: passwordSchema,
+        confirm: z.string(),
+    })
+    .refine((data) => data.password === data.confirm, {
+        message: 'Passwords do not match',
+        path: ['confirm'],
+    });
+export type SetPasswordInput = z.infer<typeof setPasswordInputSchema>;

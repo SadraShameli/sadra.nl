@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useTransition } from 'react';
+import { useTransition, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { Button } from '~/components/ui/Button';
@@ -15,8 +15,9 @@ import {
 } from '~/components/ui/Form';
 import { Input } from '~/components/ui/Input';
 import { Label } from '~/components/ui/Label';
-import { updateName } from '~/lib/auth-actions';
+import { updateEmail, updateName } from '~/lib/auth-actions';
 import {
+    updateEmailInputSchema,
     updateNameInputSchema,
     type UpdateNameInput,
 } from '~/lib/schemas/auth';
@@ -26,9 +27,12 @@ export function UpdateNameForm({
     email,
 }: {
     currentName: string;
-    email: string;
+    email: string | null;
 }) {
-    const [pending, startTransition] = useTransition();
+    const [namePending, startNameTransition] = useTransition();
+    const [emailPending, startEmailTransition] = useTransition();
+    const [emailDraft, setEmailDraft] = useState('');
+
     const form = useForm<UpdateNameInput>({
         resolver: zodResolver(updateNameInputSchema),
         defaultValues: { name: currentName, currentName },
@@ -36,8 +40,16 @@ export function UpdateNameForm({
     });
 
     const onSubmit = (data: UpdateNameInput) => {
-        startTransition(async () => {
+        startNameTransition(async () => {
             await updateName(data);
+        });
+    };
+
+    const onSaveEmail = () => {
+        const parsed = updateEmailInputSchema.safeParse({ email: emailDraft });
+        if (!parsed.success) return;
+        startEmailTransition(async () => {
+            await updateEmail(parsed.data);
         });
     };
 
@@ -67,19 +79,39 @@ export function UpdateNameForm({
                 />
                 <div className="space-y-2">
                     <Label>Email</Label>
-                    <Input
-                        value={email}
-                        disabled
-                        readOnly
-                        className="opacity-50"
-                    />
+                    {email ? (
+                        <Input
+                            value={email}
+                            disabled
+                            readOnly
+                            className="opacity-50"
+                        />
+                    ) : (
+                        <div className="flex gap-2">
+                            <Input
+                                type="email"
+                                placeholder="your@email.com"
+                                autoComplete="email"
+                                value={emailDraft}
+                                onChange={(e) => setEmailDraft(e.target.value)}
+                            />
+                            <Button
+                                type="button"
+                                variant="outline"
+                                disabled={emailPending || !emailDraft.trim()}
+                                onClick={onSaveEmail}
+                            >
+                                {emailPending ? 'Saving…' : 'Save email'}
+                            </Button>
+                        </div>
+                    )}
                 </div>
                 <Button
                     type="submit"
                     className="mt-2 self-start"
-                    disabled={pending}
+                    disabled={namePending}
                 >
-                    {pending ? 'Saving…' : 'Save changes'}
+                    {namePending ? 'Saving…' : 'Save changes'}
                 </Button>
             </form>
         </Form>

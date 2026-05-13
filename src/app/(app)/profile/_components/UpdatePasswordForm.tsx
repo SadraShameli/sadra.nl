@@ -14,35 +14,105 @@ import {
     FormMessage,
 } from '~/components/ui/Form';
 import { Input } from '~/components/ui/Input';
-import { updatePassword } from '~/lib/auth-actions';
+import { setPassword, updatePassword } from '~/lib/auth-actions';
 import {
+    setPasswordInputSchema,
     updatePasswordInputSchema,
+    type SetPasswordInput,
     type UpdatePasswordInput,
 } from '~/lib/schemas/auth';
 
-export function UpdatePasswordForm() {
+export function UpdatePasswordForm({ hasPassword }: { hasPassword: boolean }) {
     const [pending, startTransition] = useTransition();
-    const form = useForm<UpdatePasswordInput>({
+
+    const changeForm = useForm<UpdatePasswordInput>({
         resolver: zodResolver(updatePasswordInputSchema),
         defaultValues: { current: '', password: '', confirm: '' },
         mode: 'onTouched',
     });
 
-    const onSubmit = (data: UpdatePasswordInput) => {
+    const setForm = useForm<SetPasswordInput>({
+        resolver: zodResolver(setPasswordInputSchema),
+        defaultValues: { password: '', confirm: '' },
+        mode: 'onTouched',
+    });
+
+    const onChangeSubmit = (data: UpdatePasswordInput) => {
         startTransition(async () => {
             await updatePassword(data);
-            form.reset({ current: '', password: '', confirm: '' });
+            changeForm.reset({ current: '', password: '', confirm: '' });
         });
     };
 
+    const onSetSubmit = (data: SetPasswordInput) => {
+        startTransition(async () => {
+            await setPassword(data);
+        });
+    };
+
+    if (!hasPassword) {
+        return (
+            <Form {...setForm}>
+                <form
+                    onSubmit={setForm.handleSubmit(onSetSubmit)}
+                    className="flex flex-col gap-3"
+                >
+                    <FormField
+                        control={setForm.control}
+                        name="password"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Password</FormLabel>
+                                <FormControl>
+                                    <Input
+                                        type="password"
+                                        placeholder="••••••••"
+                                        autoComplete="new-password"
+                                        {...field}
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={setForm.control}
+                        name="confirm"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Confirm password</FormLabel>
+                                <FormControl>
+                                    <Input
+                                        type="password"
+                                        placeholder="••••••••"
+                                        autoComplete="new-password"
+                                        {...field}
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <Button
+                        type="submit"
+                        className="mt-2 self-start"
+                        disabled={pending}
+                    >
+                        {pending ? 'Setting…' : 'Set password'}
+                    </Button>
+                </form>
+            </Form>
+        );
+    }
+
     return (
-        <Form {...form}>
+        <Form {...changeForm}>
             <form
-                onSubmit={form.handleSubmit(onSubmit)}
+                onSubmit={changeForm.handleSubmit(onChangeSubmit)}
                 className="flex flex-col gap-3"
             >
                 <FormField
-                    control={form.control}
+                    control={changeForm.control}
                     name="current"
                     render={({ field }) => (
                         <FormItem>
@@ -60,7 +130,7 @@ export function UpdatePasswordForm() {
                     )}
                 />
                 <FormField
-                    control={form.control}
+                    control={changeForm.control}
                     name="password"
                     render={({ field }) => (
                         <FormItem>
@@ -78,7 +148,7 @@ export function UpdatePasswordForm() {
                     )}
                 />
                 <FormField
-                    control={form.control}
+                    control={changeForm.control}
                     name="confirm"
                     render={({ field }) => (
                         <FormItem>

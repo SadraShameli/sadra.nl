@@ -13,14 +13,18 @@ import {
     loginInputSchema,
     magicLinkInputSchema,
     resetPasswordInputSchema,
+    setPasswordInputSchema,
     signupInputSchema,
+    updateEmailInputSchema,
     updateNameInputSchema,
     updatePasswordInputSchema,
     type ForgotPasswordInput,
     type LoginInput,
     type MagicLinkInput,
     type ResetPasswordInput,
+    type SetPasswordInput,
     type SignupInput,
+    type UpdateEmailInput,
     type UpdateNameInput,
     type UpdatePasswordInput,
 } from '~/lib/schemas/auth';
@@ -199,5 +203,43 @@ export async function updatePassword(
         .set({ password: await hash(data.password, 12) })
         .where(eq(users.id, session.user.id));
 
+    redirect('/profile?success=password');
+}
+
+export async function updateEmail(input: UpdateEmailInput): Promise<void> {
+    const data = updateEmailInputSchema.parse(input);
+    const session = await auth();
+    if (!session?.user?.id) redirect('/login');
+
+    const [existing] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.email, data.email))
+        .limit(1);
+    if (existing) redirect('/profile?error=email_taken');
+
+    await db
+        .update(users)
+        .set({ email: data.email })
+        .where(eq(users.id, session.user.id));
+    redirect('/profile?success=email');
+}
+
+export async function setPassword(input: SetPasswordInput): Promise<void> {
+    const data = setPasswordInputSchema.parse(input);
+    const session = await auth();
+    if (!session?.user?.id) redirect('/login');
+
+    const [user] = await db
+        .select({ password: users.password })
+        .from(users)
+        .where(eq(users.id, session.user.id))
+        .limit(1);
+    if (!user || user.password) redirect('/profile?error=pw_fail');
+
+    await db
+        .update(users)
+        .set({ password: await hash(data.password, 12) })
+        .where(eq(users.id, session.user.id));
     redirect('/profile?success=password');
 }

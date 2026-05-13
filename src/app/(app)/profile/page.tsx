@@ -79,10 +79,14 @@ export default async function ProfilePage({
                             </AlertDescription>
                         </Alert>
                     )}
-                    <UpdateNameForm
-                        currentName={name ?? ''}
-                        email={email ?? ''}
-                    />
+                    {success === 'email' && (
+                        <Alert variant="success">
+                            <AlertDescription>
+                                Email updated successfully.
+                            </AlertDescription>
+                        </Alert>
+                    )}
+                    <UpdateNameForm currentName={name ?? ''} email={email} />
                 </CardContent>
             </Card>
 
@@ -105,7 +109,7 @@ export default async function ProfilePage({
                             </AlertDescription>
                         </Alert>
                     )}
-                    <UpdatePasswordForm />
+                    <UpdatePasswordForm hasPassword={!!user.password} />
                 </CardContent>
             </Card>
 
