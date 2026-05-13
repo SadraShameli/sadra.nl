@@ -9,6 +9,7 @@ const config = {
                 ignoreAtRules: [
                     'apply',
                     'utility',
+                    'variant',
                     'layer',
                     'import',
                     'tailwind',
@@ -22,12 +23,14 @@ const config = {
             },
         ],
         'at-rule-no-deprecated': null,
+        'nesting-selector-no-missing-scoping-root': null,
         'scss/at-rule-no-unknown': [
             true,
             {
                 ignoreAtRules: [
                     'apply',
                     'utility',
+                    'variant',
                     'layer',
                     'import',
                     'tailwind',

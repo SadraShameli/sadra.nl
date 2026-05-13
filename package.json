@@ -59,6 +59,7 @@
         "framer-motion": "^12.38.0",
         "geist": "^1.7.0",
         "html-react-parser": "^6.1.0",
+        "lettermint": "^2.0.0",
         "lucide-react": "^1.14.0",
         "next": "^16.2.6",
         "next-auth": "^5.0.0-beta.31",

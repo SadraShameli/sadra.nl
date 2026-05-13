@@ -8,6 +8,7 @@ export const env = createEnv({
             .default('development'),
         DATABASE_URL: z.url(),
         AUTH_SECRET: z.string().min(32),
+        LETTERMINT_PROJECT_TOKEN: z.string().min(1),
         RESEND_API_KEY: z.string().min(1),
     },
 
@@ -17,6 +18,7 @@ export const env = createEnv({
         NODE_ENV: process.env.NODE_ENV,
         DATABASE_URL: process.env.DATABASE_URL,
         AUTH_SECRET: process.env.AUTH_SECRET,
+        LETTERMINT_PROJECT_TOKEN: process.env.LETTERMINT_PROJECT_TOKEN,
         RESEND_API_KEY: process.env.RESEND_API_KEY,
     },
 
