@@ -27,6 +27,9 @@ jobs:
             - name: Install dependencies
               run: bun install --frozen-lockfile
 
+            - name: Generate Next.js type declarations
+              run: printf '/// <reference types="next" />\n/// <reference types="next/image-types/global" />\n' > next-env.d.ts
+
             - name: Format
               run: bun run format
 
