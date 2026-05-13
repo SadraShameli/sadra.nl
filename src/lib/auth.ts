@@ -3,6 +3,7 @@ import { compare } from 'bcryptjs';
 import { eq } from 'drizzle-orm';
 import type { NextAuthConfig } from 'next-auth';
 import NextAuth from 'next-auth';
+import type { Adapter, AdapterUser } from 'next-auth/adapters';
 import Credentials from 'next-auth/providers/credentials';
 import GitHub from 'next-auth/providers/github';
 import Google from 'next-auth/providers/google';
@@ -15,6 +16,7 @@ import { credentialsSchema } from '~/lib/schemas/session';
 import { accounts, db, sessions, users, verificationTokens } from '~/server/db';
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const SESSION_UPDATE_INTERVAL_MS = 60 * 60 * 1000;
 
 async function readRequestMetadata(): Promise<{
     userAgent: string | null;
@@ -31,6 +33,41 @@ async function readRequestMetadata(): Promise<{
     } catch {
         return { userAgent: null, ipAddress: null };
     }
+}
+
+function deriveNameFromEmail(email: string | null | undefined): string | null {
+    if (!email) return null;
+    const local = email.split('@')[0]?.trim();
+    if (!local) return null;
+    return local.slice(0, 256);
+}
+
+function buildAdapter(): Adapter {
+    const base = DrizzleAdapter(db, {
+        usersTable: users,
+        accountsTable: accounts,
+        sessionsTable: sessions,
+        verificationTokensTable: verificationTokens,
+    });
+    const lower = (e: string | null | undefined) =>
+        e ? e.toLowerCase() : (e ?? null);
+    return {
+        ...base,
+        async createUser(user) {
+            const email = lower(user.email);
+            const name = user.name ?? deriveNameFromEmail(email);
+            return base.createUser!({ ...user, email, name } as AdapterUser);
+        },
+        async getUserByEmail(email) {
+            return base.getUserByEmail!(email.toLowerCase());
+        },
+        async updateUser(user) {
+            const next = { ...user };
+            if (typeof next.email === 'string')
+                next.email = next.email.toLowerCase();
+            return base.updateUser!(next);
+        },
+    };
 }
 
 const providers: NextAuthConfig['providers'] = [
@@ -50,7 +87,7 @@ const providers: NextAuthConfig['providers'] = [
                 .where(eq(users.email, email))
                 .limit(1);
 
-            if (!user?.password) return null;
+            if (!user?.password || !user.email) return null;
 
             const valid = await compare(password, user.password);
             if (!valid) return null;
@@ -64,7 +101,7 @@ const providers: NextAuthConfig['providers'] = [
         },
     }),
     Email({
-        from: 'auth@sadra.nl',
+        from: 'noreply@sadra.nl',
         server: { host: 'unused', port: 0, auth: { user: '', pass: '' } },
         sendVerificationRequest: async (params: {
             identifier: string;
@@ -101,13 +138,12 @@ if (githubId && githubSecret) {
 
 export const { auth, signIn, signOut, handlers } = NextAuth({
     trustHost: true,
-    adapter: DrizzleAdapter(db, {
-        usersTable: users,
-        accountsTable: accounts,
-        sessionsTable: sessions,
-        verificationTokensTable: verificationTokens,
-    }),
-    session: { strategy: 'jwt', maxAge: SESSION_TTL_MS / 1000 },
+    adapter: buildAdapter(),
+    session: {
+        strategy: 'jwt',
+        maxAge: SESSION_TTL_MS / 1000,
+        updateAge: SESSION_UPDATE_INTERVAL_MS / 1000,
+    },
     providers,
     callbacks: {
         async jwt({ token, user, account }) {
@@ -128,9 +164,23 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
             return token;
         },
         async session({ session, token }) {
-            if (token?.userId) {
-                session.user.id = token.userId as string;
-            }
+            const userId = token?.userId;
+            if (typeof userId !== 'string') return session;
+
+            const [row] = await db
+                .select({
+                    name: users.name,
+                    email: users.email,
+                    image: users.image,
+                })
+                .from(users)
+                .where(eq(users.id, userId))
+                .limit(1);
+
+            session.user.id = userId;
+            session.user.name = row?.name ?? null;
+            session.user.email = row?.email ?? '';
+            session.user.image = row?.image ?? null;
             return session;
         },
     },
@@ -140,16 +190,28 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
         },
         decode: async ({ token }) => {
             if (!token) return null;
-            const rows = await db
+            const [row] = await db
                 .select({
                     userId: sessions.userId,
                     expires: sessions.expires,
+                    lastUsedAt: sessions.lastUsedAt,
                 })
                 .from(sessions)
                 .where(eq(sessions.sessionToken, token))
                 .limit(1);
-            const row = rows[0];
             if (!row || row.expires < new Date()) return null;
+
+            const now = Date.now();
+            if (now - row.lastUsedAt.getTime() >= SESSION_UPDATE_INTERVAL_MS) {
+                await db
+                    .update(sessions)
+                    .set({
+                        lastUsedAt: new Date(now),
+                        expires: new Date(now + SESSION_TTL_MS),
+                    })
+                    .where(eq(sessions.sessionToken, token));
+            }
+
             return {
                 sessionToken: token,
                 userId: row.userId,
@@ -171,7 +233,7 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
     },
     pages: {
         signIn: '/login',
-        error: '/login',
+        error: '/auth-error',
         verifyRequest: '/verify-request',
     },
 });

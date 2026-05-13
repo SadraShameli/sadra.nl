@@ -19,6 +19,7 @@ import { UpdatePasswordForm } from './_components/UpdatePasswordForm';
 const pwMessages: Record<string, string> = {
     pw_wrong: 'Current password is incorrect.',
     pw_fail: 'Could not update password.',
+    email_taken: 'That email is already in use by another account.',
 };
 
 function Avatar({
@@ -109,7 +110,10 @@ export default async function ProfilePage({
                             </AlertDescription>
                         </Alert>
                     )}
-                    <UpdatePasswordForm hasPassword={!!user.password} />
+                    <UpdatePasswordForm
+                        hasPassword={!!user.password}
+                        hasEmail={!!user.email}
+                    />
                 </CardContent>
             </Card>
 
@@ -163,7 +167,9 @@ export default async function ProfilePage({
                         <h1 className="text-2xl font-semibold text-white">
                             {name ?? 'No name set'}
                         </h1>
-                        <p className="mt-0.5 text-sm text-white/50">{email}</p>
+                        <p className="mt-0.5 text-sm text-white/50">
+                            {email ?? 'No email set'}
+                        </p>
                     </div>
                 </div>
 

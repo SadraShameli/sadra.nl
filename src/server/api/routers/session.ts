@@ -1,17 +1,20 @@
+import { TRPCError } from '@trpc/server';
 import { and, desc, eq, gt, ne } from 'drizzle-orm';
 import { z } from 'zod';
 
-import { sessions } from '~/server/db';
 import { createTRPCRouter, protectedProcedure } from '~/server/api/trpc';
+import { sessions } from '~/server/db';
 
-const SESSION_COOKIE_DEV = 'authjs.session-token';
-const SESSION_COOKIE_PROD = '__Secure-authjs.session-token';
+const SESSION_COOKIE_NAMES = [
+    'authjs.session-token',
+    '__Secure-authjs.session-token',
+];
 
 function readCurrentSessionToken(headers: Headers): string | null {
     const cookieHeader = headers.get('cookie') ?? '';
     for (const part of cookieHeader.split(';')) {
         const [name, ...rest] = part.trim().split('=');
-        if (name === SESSION_COOKIE_DEV || name === SESSION_COOKIE_PROD) {
+        if (name && SESSION_COOKIE_NAMES.includes(name)) {
             return decodeURIComponent(rest.join('='));
         }
     }
@@ -61,11 +64,12 @@ export const sessionRouter = createTRPCRouter({
     revokeAllOthers: protectedProcedure.mutation(async ({ ctx }) => {
         const current = readCurrentSessionToken(ctx.headers);
         if (!current) {
-            await ctx.db
-                .delete(sessions)
-                .where(eq(sessions.userId, ctx.userId));
-            return;
+            throw new TRPCError({
+                code: 'BAD_REQUEST',
+                message: 'Could not identify current session',
+            });
         }
+
         await ctx.db
             .delete(sessions)
             .where(

@@ -22,6 +22,12 @@ export const displayNameSchema = z
     .min(1, 'Name cannot be empty')
     .max(256);
 
+export const callbackUrlSchema = z
+    .string()
+    .max(512)
+    .regex(/^\/(?!\/)/, 'Must be a same-origin path');
+export const optionalCallbackUrlSchema = callbackUrlSchema.optional();
+
 export const userRowSchema = createSelectSchema(users);
 export type UserRow = z.infer<typeof userRowSchema>;
 
@@ -47,6 +53,7 @@ export type VerificationTokenRow = z.infer<typeof verificationTokenRowSchema>;
 export const loginInputSchema = z.object({
     email: emailSchema,
     password: z.string().min(1, 'Password is required').max(256),
+    callbackUrl: optionalCallbackUrlSchema,
 });
 
 export type LoginInput = z.infer<typeof loginInputSchema>;
@@ -57,6 +64,7 @@ export const signupInputSchema = z
         email: emailSchema,
         password: passwordSchema,
         confirm: z.string(),
+        callbackUrl: optionalCallbackUrlSchema,
     })
     .refine((data) => data.password === data.confirm, {
         message: 'Passwords do not match',
@@ -73,9 +81,15 @@ export type ForgotPasswordInput = z.infer<typeof forgotPasswordInputSchema>;
 
 export const magicLinkInputSchema = z.object({
     email: emailSchema,
+    callbackUrl: optionalCallbackUrlSchema,
 });
 
 export type MagicLinkInput = z.infer<typeof magicLinkInputSchema>;
+
+export const oauthSignInInputSchema = z.object({
+    callbackUrl: optionalCallbackUrlSchema,
+});
+export type OAuthSignInInput = z.infer<typeof oauthSignInInputSchema>;
 
 export const resetPasswordInputSchema = z
     .object({

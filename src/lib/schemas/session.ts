@@ -12,7 +12,7 @@ export const sessionUserSchema = z.object({
 export type SessionUser = z.infer<typeof sessionUserSchema>;
 
 export const credentialsSchema = z.object({
-    email: z.email(),
+    email: z.email().toLowerCase(),
     password: z.string().min(1).max(256),
 });
 

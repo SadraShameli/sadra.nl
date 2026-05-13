@@ -42,6 +42,13 @@ export default async function LoginPage({
                                 </AlertDescription>
                             </Alert>
                         )}
+                        {success === 'created' && (
+                            <Alert variant="success">
+                                <AlertDescription>
+                                    Account created — sign in to continue.
+                                </AlertDescription>
+                            </Alert>
+                        )}
                         {error && (
                             <Alert variant="destructive">
                                 <AlertDescription>

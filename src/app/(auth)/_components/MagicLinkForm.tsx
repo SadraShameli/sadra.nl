@@ -1,6 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useSearchParams } from 'next/navigation';
 import { useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 
@@ -19,15 +20,18 @@ import { magicLinkInputSchema, type MagicLinkInput } from '~/lib/schemas/auth';
 
 export function MagicLinkForm() {
     const [pending, startTransition] = useTransition();
+    const searchParams = useSearchParams();
+    const callbackUrl = searchParams.get('callbackUrl') ?? undefined;
+
     const form = useForm<MagicLinkInput>({
         resolver: zodResolver(magicLinkInputSchema),
-        defaultValues: { email: '' },
+        defaultValues: { email: '', callbackUrl },
         mode: 'onTouched',
     });
 
     const onSubmit = (data: MagicLinkInput) => {
         startTransition(async () => {
-            await signInWithMagicLink(data);
+            await signInWithMagicLink({ ...data, callbackUrl });
         });
     };
 

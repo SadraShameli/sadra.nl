@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useTransition, useState } from 'react';
+import { useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { Button } from '~/components/ui/Button';
@@ -31,7 +31,8 @@ export function UpdateNameForm({
 }) {
     const [namePending, startNameTransition] = useTransition();
     const [emailPending, startEmailTransition] = useTransition();
-    const [emailDraft, setEmailDraft] = useState('');
+    const [emailDraft, setEmailDraft] = useState(email ?? '');
+    const [editingEmail, setEditingEmail] = useState(false);
 
     const form = useForm<UpdateNameInput>({
         resolver: zodResolver(updateNameInputSchema),
@@ -46,12 +47,24 @@ export function UpdateNameForm({
     };
 
     const onSaveEmail = () => {
-        const parsed = updateEmailInputSchema.safeParse({ email: emailDraft });
+        const trimmed = emailDraft.trim();
+        if (trimmed === (email ?? '')) {
+            setEditingEmail(false);
+            return;
+        }
+        const parsed = updateEmailInputSchema.safeParse({ email: trimmed });
         if (!parsed.success) return;
         startEmailTransition(async () => {
             await updateEmail(parsed.data);
         });
     };
+
+    const onCancelEmail = () => {
+        setEmailDraft(email ?? '');
+        setEditingEmail(false);
+    };
+
+    const showEmailEditor = editingEmail || !email;
 
     return (
         <Form {...form}>
@@ -79,15 +92,8 @@ export function UpdateNameForm({
                 />
                 <div className="space-y-2">
                     <Label>Email</Label>
-                    {email ? (
-                        <Input
-                            value={email}
-                            disabled
-                            readOnly
-                            className="opacity-50"
-                        />
-                    ) : (
-                        <div className="flex gap-2">
+                    {showEmailEditor ? (
+                        <div className="flex flex-col gap-2 sm:flex-row">
                             <Input
                                 type="email"
                                 placeholder="your@email.com"
@@ -95,13 +101,43 @@ export function UpdateNameForm({
                                 value={emailDraft}
                                 onChange={(e) => setEmailDraft(e.target.value)}
                             />
+                            <div className="flex gap-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    disabled={
+                                        emailPending || !emailDraft.trim()
+                                    }
+                                    onClick={onSaveEmail}
+                                >
+                                    {emailPending ? 'Saving…' : 'Save'}
+                                </Button>
+                                {email && (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        disabled={emailPending}
+                                        onClick={onCancelEmail}
+                                    >
+                                        Cancel
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-2">
+                            <Input
+                                value={email ?? ''}
+                                disabled
+                                readOnly
+                                className="opacity-60"
+                            />
                             <Button
                                 type="button"
                                 variant="outline"
-                                disabled={emailPending || !emailDraft.trim()}
-                                onClick={onSaveEmail}
+                                onClick={() => setEditingEmail(true)}
                             >
-                                {emailPending ? 'Saving…' : 'Save email'}
+                                Change
                             </Button>
                         </div>
                     )}

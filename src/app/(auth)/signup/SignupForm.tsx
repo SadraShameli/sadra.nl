@@ -1,6 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useSearchParams } from 'next/navigation';
 import { useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 
@@ -19,15 +20,24 @@ import { signupInputSchema, type SignupInput } from '~/lib/schemas/auth';
 
 export function SignupForm() {
     const [pending, startTransition] = useTransition();
+    const searchParams = useSearchParams();
+    const callbackUrl = searchParams.get('callbackUrl') ?? undefined;
+
     const form = useForm<SignupInput>({
         resolver: zodResolver(signupInputSchema),
-        defaultValues: { name: '', email: '', password: '', confirm: '' },
+        defaultValues: {
+            name: '',
+            email: '',
+            password: '',
+            confirm: '',
+            callbackUrl,
+        },
         mode: 'onTouched',
     });
 
     const onSubmit = (data: SignupInput) => {
         startTransition(async () => {
-            await signup(data);
+            await signup({ ...data, callbackUrl });
         });
     };
 

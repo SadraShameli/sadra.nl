@@ -22,7 +22,13 @@ import {
     type UpdatePasswordInput,
 } from '~/lib/schemas/auth';
 
-export function UpdatePasswordForm({ hasPassword }: { hasPassword: boolean }) {
+export function UpdatePasswordForm({
+    hasPassword,
+    hasEmail,
+}: {
+    hasPassword: boolean;
+    hasEmail: boolean;
+}) {
     const [pending, startTransition] = useTransition();
 
     const changeForm = useForm<UpdatePasswordInput>({
@@ -49,6 +55,15 @@ export function UpdatePasswordForm({ hasPassword }: { hasPassword: boolean }) {
             await setPassword(data);
         });
     };
+
+    if (!hasPassword && !hasEmail) {
+        return (
+            <p className="text-sm text-muted-foreground">
+                Set an email address above before adding a password — passwords
+                require an email to sign in with.
+            </p>
+        );
+    }
 
     if (!hasPassword) {
         return (

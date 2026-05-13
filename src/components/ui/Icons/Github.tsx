@@ -1,6 +1,20 @@
 import { type SVGProps } from 'react';
 
-export default function GithubIcon(props: SVGProps<SVGSVGElement>) {
+type GithubIconProps = SVGProps<SVGSVGElement> & { colored?: boolean };
+
+export default function GithubIcon({ colored, ...props }: GithubIconProps) {
+    if (colored) {
+        return (
+            <svg
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                aria-hidden="true"
+                {...props}
+            >
+                <path d="M12 .5C5.37.5 0 5.87 0 12.5c0 5.3 3.44 9.8 8.21 11.39.6.11.82-.26.82-.58v-2.04c-3.34.73-4.04-1.6-4.04-1.6-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.74.08-.74 1.21.09 1.85 1.24 1.85 1.24 1.08 1.85 2.83 1.32 3.52 1.01.11-.78.42-1.32.76-1.62-2.66-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.53.12-3.19 0 0 1-.32 3.3 1.23.96-.27 1.99-.4 3.02-.4 1.03 0 2.06.13 3.02.4 2.3-1.55 3.3-1.23 3.3-1.23.66 1.66.25 2.89.12 3.19.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.63-5.49 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58A12.005 12.005 0 0 0 24 12.5C24 5.87 18.63.5 12 .5z" />
+            </svg>
+        );
+    }
     return (
         <svg
             fill="currentColor"

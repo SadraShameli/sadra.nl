@@ -9,10 +9,12 @@ export type ProfileTab = z.infer<typeof profileTabSchema>;
 export const loginSearchSchema = z.object({
     error: z.string().optional(),
     success: z.string().optional(),
+    callbackUrl: z.string().optional(),
 });
 
 export const signupSearchSchema = z.object({
     error: z.string().optional(),
+    callbackUrl: z.string().optional(),
 });
 
 export const forgotPasswordSearchSchema = z.object({
@@ -21,6 +23,14 @@ export const forgotPasswordSearchSchema = z.object({
 
 export const resetPasswordSearchSchema = z.object({
     token: z.string().optional(),
+    error: z.string().optional(),
+});
+
+export const verifyRequestSearchSchema = z.object({
+    email: z.string().optional(),
+});
+
+export const authErrorSearchSchema = z.object({
     error: z.string().optional(),
 });
 
