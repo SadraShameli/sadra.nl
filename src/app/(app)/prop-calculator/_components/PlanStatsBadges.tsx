@@ -8,30 +8,6 @@ interface BadgeProps {
     valueClassName?: string;
 }
 
-function Badge({ label, value, valueClassName }: BadgeProps) {
-    return (
-        <span className="flex items-center gap-1.5">
-            <span className="text-muted-foreground">{label}</span>
-            <span className={`font-mono font-semibold ${valueClassName ?? ''}`}>
-                {value}
-            </span>
-        </span>
-    );
-}
-
-function drawdownLabel(kind: string): string {
-    if (kind === 'eod-trailing') return 'EOD trailing';
-    if (kind === 'intraday-trailing') return 'Intraday trailing';
-    return 'Static';
-}
-
-function ptddColor(ratio: number): string {
-    if (ratio <= 1.0) return 'text-emerald-400';
-    if (ratio <= 1.5) return 'text-foreground';
-    if (ratio <= 2.0) return 'text-amber-400';
-    return 'text-rose-400';
-}
-
 interface PlanStatsBadgesProps {
     plan: Plan;
 }
@@ -69,4 +45,28 @@ export default function PlanStatsBadges({ plan }: PlanStatsBadgesProps) {
             )}
         </div>
     );
+}
+
+function Badge({ label, value, valueClassName }: BadgeProps) {
+    return (
+        <span className="flex items-center gap-1.5">
+            <span className="text-muted-foreground">{label}</span>
+            <span className={`font-mono font-semibold ${valueClassName ?? ''}`}>
+                {value}
+            </span>
+        </span>
+    );
+}
+
+function drawdownLabel(kind: string): string {
+    if (kind === 'eod-trailing') return 'EOD trailing';
+    if (kind === 'intraday-trailing') return 'Intraday trailing';
+    return 'Static';
+}
+
+function ptddColor(ratio: number): string {
+    if (ratio <= 1) return 'text-emerald-400';
+    if (ratio <= 1.5) return 'text-foreground';
+    if (ratio <= 2) return 'text-amber-400';
+    return 'text-rose-400';
 }

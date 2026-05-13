@@ -5,8 +5,6 @@ import { cn } from '~/lib/utils';
 function Input({ className, type, ...props }: React.ComponentProps<'input'>) {
     return (
         <input
-            type={type}
-            data-slot="input"
             className={cn(
                 'flex h-9 w-full min-w-0 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs transition-colors outline-none',
                 'placeholder:text-muted-foreground',
@@ -18,6 +16,8 @@ function Input({ className, type, ...props }: React.ComponentProps<'input'>) {
                 'dark:border-input dark:bg-input/30',
                 className,
             )}
+            data-slot="input"
+            type={type}
             {...props}
         />
     );

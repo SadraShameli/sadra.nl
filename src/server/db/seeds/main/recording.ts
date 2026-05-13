@@ -1,4 +1,4 @@
-import fs from 'fs';
+import fs from 'node:fs';
 
 import { getRecordingFileName } from '~/server/api/routers/recording';
 
@@ -11,27 +11,27 @@ export default class SeedRecording extends DatabaseSeeder {
         await db.insert(recording).values([
             {
                 device_id: 2,
-                location_id: 1,
-                file_name: getRecordingFileName(new Date()),
                 file: Buffer.from(fs.readFileSync('src/assets/wav/1.wav')),
+                file_name: getRecordingFileName(new Date()),
+                location_id: 1,
             },
             {
                 device_id: 2,
-                location_id: 1,
-                file_name: getRecordingFileName(new Date()),
                 file: Buffer.from(fs.readFileSync('src/assets/wav/2.wav')),
+                file_name: getRecordingFileName(new Date()),
+                location_id: 1,
             },
             {
                 device_id: 2,
-                location_id: 1,
-                file_name: getRecordingFileName(new Date()),
                 file: Buffer.from(fs.readFileSync('src/assets/wav/3.wav')),
+                file_name: getRecordingFileName(new Date()),
+                location_id: 1,
             },
             {
                 device_id: 2,
-                location_id: 1,
-                file_name: getRecordingFileName(new Date()),
                 file: Buffer.from(fs.readFileSync('src/assets/wav/4.wav')),
+                file_name: getRecordingFileName(new Date()),
+                location_id: 1,
             },
         ]);
     }

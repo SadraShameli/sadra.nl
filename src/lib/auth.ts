@@ -1,14 +1,15 @@
+import type { NextAuthConfig } from 'next-auth';
+import type { Adapter, AdapterUser } from 'next-auth/adapters';
+
 import { DrizzleAdapter } from '@auth/drizzle-adapter';
 import { compare } from 'bcryptjs';
 import { eq } from 'drizzle-orm';
-import { headers } from 'next/headers';
-import type { NextAuthConfig } from 'next-auth';
 import NextAuth from 'next-auth';
-import type { Adapter, AdapterUser } from 'next-auth/adapters';
 import Credentials from 'next-auth/providers/credentials';
 import GitHub from 'next-auth/providers/github';
 import Google from 'next-auth/providers/google';
 import Email from 'next-auth/providers/nodemailer';
+import { headers } from 'next/headers';
 
 import { env } from '~/env';
 import { sendMagicLinkEmail } from '~/lib/email';
@@ -18,9 +19,45 @@ import { accounts, db, sessions, users, verificationTokens } from '~/server/db';
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const SESSION_UPDATE_INTERVAL_MS = 60 * 60 * 1000;
 
+const lower = (e: null | string | undefined) =>
+    e ? e.toLowerCase() : (e ?? null);
+
+function buildAdapter(): Adapter {
+    const base = DrizzleAdapter(db, {
+        accountsTable: accounts,
+        sessionsTable: sessions,
+        usersTable: users,
+        verificationTokensTable: verificationTokens,
+    }) as Required<Adapter>;
+    return {
+        ...base,
+        async createUser(user) {
+            const email = lower(user.email);
+            const name = user.name ?? deriveNameFromEmail(email);
+            return base.createUser({ ...user, email, name } as AdapterUser);
+        },
+        async getUserByEmail(email) {
+            return base.getUserByEmail(email.toLowerCase());
+        },
+        async updateUser(user) {
+            const next = { ...user };
+            if (typeof next.email === 'string')
+                next.email = next.email.toLowerCase();
+            return base.updateUser(next);
+        },
+    };
+}
+
+function deriveNameFromEmail(email: null | string | undefined): null | string {
+    if (!email) return null;
+    const local = email.split('@')[0]?.trim();
+    if (!local) return null;
+    return local.slice(0, 256);
+}
+
 async function readRequestMetadata(): Promise<{
-    userAgent: string | null;
-    ipAddress: string | null;
+    ipAddress: null | string;
+    userAgent: null | string;
 }> {
     try {
         const h = await headers();
@@ -29,53 +66,14 @@ async function readRequestMetadata(): Promise<{
             h.get('x-forwarded-for')?.split(',')[0]?.trim() ??
             h.get('x-real-ip') ??
             null;
-        return { userAgent, ipAddress };
+        return { ipAddress, userAgent };
     } catch {
-        return { userAgent: null, ipAddress: null };
+        return { ipAddress: null, userAgent: null };
     }
-}
-
-function deriveNameFromEmail(email: string | null | undefined): string | null {
-    if (!email) return null;
-    const local = email.split('@')[0]?.trim();
-    if (!local) return null;
-    return local.slice(0, 256);
-}
-
-function buildAdapter(): Adapter {
-    const base = DrizzleAdapter(db, {
-        usersTable: users,
-        accountsTable: accounts,
-        sessionsTable: sessions,
-        verificationTokensTable: verificationTokens,
-    });
-    const lower = (e: string | null | undefined) =>
-        e ? e.toLowerCase() : (e ?? null);
-    return {
-        ...base,
-        async createUser(user) {
-            const email = lower(user.email);
-            const name = user.name ?? deriveNameFromEmail(email);
-            return base.createUser!({ ...user, email, name } as AdapterUser);
-        },
-        async getUserByEmail(email) {
-            return base.getUserByEmail!(email.toLowerCase());
-        },
-        async updateUser(user) {
-            const next = { ...user };
-            if (typeof next.email === 'string')
-                next.email = next.email.toLowerCase();
-            return base.updateUser!(next);
-        },
-    };
 }
 
 const providers: NextAuthConfig['providers'] = [
     Credentials({
-        credentials: {
-            email: { label: 'Email', type: 'email' },
-            password: { label: 'Password', type: 'password' },
-        },
         async authorize(raw) {
             const parsed = credentialsSchema.safeParse(raw);
             if (!parsed.success) return null;
@@ -93,22 +91,26 @@ const providers: NextAuthConfig['providers'] = [
             if (!valid) return null;
 
             return {
-                id: user.id,
-                name: user.name,
                 email: user.email,
+                id: user.id,
                 image: user.image,
+                name: user.name,
             };
+        },
+        credentials: {
+            email: { label: 'Email', type: 'email' },
+            password: { label: 'Password', type: 'password' },
         },
     }),
     Email({
         from: 'noreply@sadra.nl',
-        server: { host: 'unused', port: 0, auth: { user: '', pass: '' } },
         sendVerificationRequest: async (params: {
             identifier: string;
             url: string;
         }) => {
             await sendMagicLinkEmail(params.identifier, params.url);
         },
+        server: { auth: { pass: '', user: '' }, host: 'unused', port: 0 },
     }),
 ];
 
@@ -117,9 +119,9 @@ const googleSecret: string | undefined = env.AUTH_GOOGLE_SECRET;
 if (googleId && googleSecret) {
     providers.push(
         Google({
+            allowDangerousEmailAccountLinking: true,
             clientId: googleId,
             clientSecret: googleSecret,
-            allowDangerousEmailAccountLinking: true,
         }),
     );
 }
@@ -129,34 +131,27 @@ const githubSecret: string | undefined = env.AUTH_GITHUB_SECRET;
 if (githubId && githubSecret) {
     providers.push(
         GitHub({
+            allowDangerousEmailAccountLinking: true,
             clientId: githubId,
             clientSecret: githubSecret,
-            allowDangerousEmailAccountLinking: true,
         }),
     );
 }
 
-export const { auth, signIn, signOut, handlers } = NextAuth({
-    trustHost: true,
+export const { auth, handlers, signIn, signOut } = NextAuth({
     adapter: buildAdapter(),
-    session: {
-        strategy: 'jwt',
-        maxAge: SESSION_TTL_MS / 1000,
-        updateAge: SESSION_UPDATE_INTERVAL_MS / 1000,
-    },
-    providers,
     callbacks: {
-        async jwt({ token, user, account }) {
-            if (user?.id && account) {
+        async jwt({ account, token, user }) {
+            if (user.id && account) {
                 const meta = await readRequestMetadata();
                 const sessionToken = crypto.randomUUID();
                 const expires = new Date(Date.now() + SESSION_TTL_MS);
                 await db.insert(sessions).values({
-                    sessionToken,
-                    userId: user.id,
                     expires,
-                    userAgent: meta.userAgent,
                     ipAddress: meta.ipAddress,
+                    sessionToken,
+                    userAgent: meta.userAgent,
+                    userId: user.id,
                 });
                 token.sessionToken = sessionToken;
                 token.userId = user.id;
@@ -164,14 +159,14 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
             return token;
         },
         async session({ session, token }) {
-            const userId = token?.userId;
+            const userId = token.userId;
             if (typeof userId !== 'string') return session;
 
             const [row] = await db
                 .select({
-                    name: users.name,
                     email: users.email,
                     image: users.image,
+                    name: users.name,
                 })
                 .from(users)
                 .where(eq(users.id, userId))
@@ -182,40 +177,6 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
             session.user.email = row?.email ?? '';
             session.user.image = row?.image ?? null;
             return session;
-        },
-    },
-    jwt: {
-        encode: async ({ token }) => {
-            return (token?.sessionToken as string | undefined) ?? '';
-        },
-        decode: async ({ token }) => {
-            if (!token) return null;
-            const [row] = await db
-                .select({
-                    userId: sessions.userId,
-                    expires: sessions.expires,
-                    lastUsedAt: sessions.lastUsedAt,
-                })
-                .from(sessions)
-                .where(eq(sessions.sessionToken, token))
-                .limit(1);
-            if (!row || row.expires < new Date()) return null;
-
-            const now = Date.now();
-            if (now - row.lastUsedAt.getTime() >= SESSION_UPDATE_INTERVAL_MS) {
-                await db
-                    .update(sessions)
-                    .set({
-                        lastUsedAt: new Date(now),
-                        expires: new Date(now + SESSION_TTL_MS),
-                    })
-                    .where(eq(sessions.sessionToken, token));
-            }
-
-            return {
-                sessionToken: token,
-                userId: row.userId,
-            };
         },
     },
     events: {
@@ -231,9 +192,50 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
             }
         },
     },
+    jwt: {
+        decode: async ({ token }) => {
+            if (!token) return null;
+            const [row] = await db
+                .select({
+                    expires: sessions.expires,
+                    lastUsedAt: sessions.lastUsedAt,
+                    userId: sessions.userId,
+                })
+                .from(sessions)
+                .where(eq(sessions.sessionToken, token))
+                .limit(1);
+            if (!row || row.expires < new Date()) return null;
+
+            const now = Date.now();
+            if (now - row.lastUsedAt.getTime() >= SESSION_UPDATE_INTERVAL_MS) {
+                await db
+                    .update(sessions)
+                    .set({
+                        expires: new Date(now + SESSION_TTL_MS),
+                        lastUsedAt: new Date(now),
+                    })
+                    .where(eq(sessions.sessionToken, token));
+            }
+
+            return {
+                sessionToken: token,
+                userId: row.userId,
+            };
+        },
+        encode: async ({ token }) => {
+            return (token?.sessionToken as string | undefined) ?? '';
+        },
+    },
     pages: {
-        signIn: '/login',
         error: '/auth-error',
+        signIn: '/login',
         verifyRequest: '/verify-request',
     },
+    providers,
+    session: {
+        maxAge: SESSION_TTL_MS / 1000,
+        strategy: 'jwt',
+        updateAge: SESSION_UPDATE_INTERVAL_MS / 1000,
+    },
+    trustHost: true,
 });

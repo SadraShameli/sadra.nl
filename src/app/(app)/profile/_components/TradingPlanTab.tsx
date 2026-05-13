@@ -32,6 +32,8 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { toast } from 'sonner';
 
+import type { TradingPlanRow } from '~/lib/trading-types';
+
 import {
     AlertDialog,
     AlertDialogAction,
@@ -42,7 +44,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
     AlertDialogTrigger,
-} from '~/components/ui/Alert-dialog';
+} from '~/components/ui/AlertDialog';
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
@@ -64,21 +66,20 @@ import {
     reorderTradingPlans,
     setActiveTradingPlan,
 } from '~/lib/trading-actions';
-import type { TradingPlanRow } from '~/lib/trading-types';
 
 import { PlanEditor } from './PlanEditor';
 
 const PLAN_TOAST_MESSAGES: Record<string, string> = {
-    plan_created: 'Plan created.',
-    plan_saved: 'Plan saved.',
-    plan_deleted: 'Plan deleted.',
     plan_activated: 'Active plan switched.',
     plan_cloned: 'Plan cloned.',
+    plan_created: 'Plan created.',
+    plan_deleted: 'Plan deleted.',
+    plan_saved: 'Plan saved.',
 };
 
 const PLAN_TOAST_ERRORS: Record<string, string> = {
-    plan_name_required: 'Plan name is required.',
     plan_last_remaining: 'You must keep at least one trading plan.',
+    plan_name_required: 'Plan name is required.',
     plan_not_found: 'Plan not found.',
 };
 
@@ -87,7 +88,7 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const [orderedPlans, setOrderedPlans] = useState(plans);
-    const [editingId, setEditingId] = useState<string | null>(() => {
+    const [editingId, setEditingId] = useState<null | string>(() => {
         const fromUrl = searchParams.get('plan');
         if (fromUrl && plans.some((p) => p.id === fromUrl)) return fromUrl;
         return plans.find((p) => p.isActive)?.id ?? plans[0]?.id ?? null;
@@ -95,14 +96,14 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
     const [newDialogOpen, setNewDialogOpen] = useState(false);
     const [newName, setNewName] = useState('');
     const [creating, startCreate] = useTransition();
-    const [pendingActionId, setPendingActionId] = useState<string | null>(null);
+    const [pendingActionId, setPendingActionId] = useState<null | string>(null);
     const [pending, startPlanAction] = useTransition();
 
     useEffect(() => {
         setOrderedPlans(plans);
     }, [plans]);
 
-    const toastedRef = useRef<string | null>(null);
+    const toastedRef = useRef<null | string>(null);
 
     useEffect(() => {
         const success = searchParams.get('success');
@@ -154,7 +155,7 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
         if (!over || active.id === over.id) return;
         const oldIndex = orderedPlans.findIndex((p) => p.id === active.id);
         const newIndex = orderedPlans.findIndex((p) => p.id === over.id);
-        if (oldIndex < 0 || newIndex < 0) return;
+        if (oldIndex === -1 || newIndex === -1) return;
         const next = arrayMove(orderedPlans, oldIndex, newIndex);
         setOrderedPlans(next);
         startPlanAction(async () => {
@@ -206,8 +207,8 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
                             </Link>
                         </Button>
                         <Button
-                            size="sm"
                             onClick={() => setNewDialogOpen(true)}
+                            size="sm"
                         >
                             <Plus className="mr-1 size-4" />
                             New plan
@@ -222,10 +223,10 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
                         </p>
                     ) : (
                         <DndContext
-                            id="plans-dnd"
-                            sensors={sensors}
                             collisionDetection={closestCenter}
+                            id="plans-dnd"
                             onDragEnd={onDragEnd}
+                            sensors={sensors}
                         >
                             <SortableContext
                                 items={orderedPlans.map((p) => p.id)}
@@ -234,16 +235,16 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
                                 <div className="flex flex-col gap-1.5">
                                     {orderedPlans.map((p) => (
                                         <SortablePlanRow
-                                            key={p.id}
-                                            plan={p}
+                                            canDelete={orderedPlans.length > 1}
                                             editingId={editingId}
-                                            onEdit={startEditing}
+                                            key={p.id}
                                             onActivate={setActive}
                                             onClone={clone}
                                             onDelete={remove}
+                                            onEdit={startEditing}
                                             pending={pending}
                                             pendingActionId={pendingActionId}
-                                            canDelete={orderedPlans.length > 1}
+                                            plan={p}
                                         />
                                     ))}
                                 </div>
@@ -254,7 +255,7 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
             </Card>
 
             {editing && (
-                <Card ref={editorRef} className="scroll-mt-4">
+                <Card className="scroll-mt-4" ref={editorRef}>
                     <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
                         <CardTitle className="flex items-center gap-2">
                             <Edit3 className="size-4" />
@@ -268,7 +269,7 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
                 </Card>
             )}
 
-            <Dialog open={newDialogOpen} onOpenChange={setNewDialogOpen}>
+            <Dialog onOpenChange={setNewDialogOpen} open={newDialogOpen}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>New trading plan</DialogTitle>
@@ -278,27 +279,27 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
                         </DialogDescription>
                     </DialogHeader>
                     <div>
-                        <Label htmlFor="newPlanName" className="text-sm">
+                        <Label className="text-sm" htmlFor="newPlanName">
                             Name
                         </Label>
                         <Input
-                            id="newPlanName"
                             className="mt-2"
-                            value={newName}
+                            id="newPlanName"
                             onChange={(e) => setNewName(e.target.value)}
                             placeholder="Funded plan"
+                            value={newName}
                         />
                     </div>
                     <DialogFooter>
                         <Button
-                            variant="ghost"
                             onClick={() => setNewDialogOpen(false)}
+                            variant="ghost"
                         >
                             Cancel
                         </Button>
                         <Button
-                            onClick={create}
                             disabled={creating || !newName.trim()}
+                            onClick={create}
                         >
                             Create
                         </Button>
@@ -310,52 +311,52 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
 }
 
 function SortablePlanRow({
-    plan,
+    canDelete,
     editingId,
-    onEdit,
     onActivate,
     onClone,
     onDelete,
+    onEdit,
     pending,
     pendingActionId,
-    canDelete,
+    plan,
 }: {
-    plan: TradingPlanRow;
-    editingId: string | null;
-    onEdit: (id: string) => void;
+    canDelete: boolean;
+    editingId: null | string;
     onActivate: (id: string) => void;
     onClone: (id: string) => void;
     onDelete: (id: string) => void;
+    onEdit: (id: string) => void;
     pending: boolean;
-    pendingActionId: string | null;
-    canDelete: boolean;
+    pendingActionId: null | string;
+    plan: TradingPlanRow;
 }) {
     const {
         attributes,
+        isDragging,
         listeners,
         setNodeRef,
         transform,
         transition,
-        isDragging,
     } = useSortable({ id: plan.id });
 
     const style: React.CSSProperties = {
+        opacity: isDragging ? 0.6 : 1,
         transform: CSS.Transform.toString(transform),
         transition,
-        opacity: isDragging ? 0.6 : 1,
         zIndex: isDragging ? 10 : undefined,
     };
 
     return (
         <div
+            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-background p-3 transition-colors"
             ref={setNodeRef}
             style={style}
-            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-background p-3 transition-colors"
         >
             <button
-                type="button"
                 aria-label="Drag to reorder"
                 className="-ml-1 cursor-grab touch-none rounded-md p-1 text-muted-foreground transition hover:text-white active:cursor-grabbing"
+                type="button"
                 {...attributes}
                 {...listeners}
             >
@@ -372,38 +373,38 @@ function SortablePlanRow({
             </div>
             <div className="flex gap-2">
                 <Button
+                    onClick={() => onEdit(plan.id)}
                     size="sm"
                     variant={plan.id === editingId ? 'default' : 'outline'}
-                    onClick={() => onEdit(plan.id)}
                 >
                     <Pencil className="mr-1 size-3.5" />
                     Edit
                 </Button>
                 {!plan.isActive && (
                     <Button
+                        disabled={pending && pendingActionId === plan.id}
+                        onClick={() => onActivate(plan.id)}
                         size="sm"
                         variant="outline"
-                        onClick={() => onActivate(plan.id)}
-                        disabled={pending && pendingActionId === plan.id}
                     >
                         <Check className="mr-1 size-3.5" />
                         Activate
                     </Button>
                 )}
                 <Button
+                    disabled={pending && pendingActionId === plan.id}
+                    onClick={() => onClone(plan.id)}
                     size="sm"
                     variant="outline"
-                    onClick={() => onClone(plan.id)}
-                    disabled={pending && pendingActionId === plan.id}
                 >
                     <Copy className="size-3.5" />
                 </Button>
                 <AlertDialog>
                     <AlertDialogTrigger asChild>
                         <Button
+                            disabled={!canDelete}
                             size="sm"
                             variant="outline"
-                            disabled={!canDelete}
                         >
                             <Trash2 className="size-3.5" />
                         </Button>

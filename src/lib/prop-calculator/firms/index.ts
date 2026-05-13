@@ -23,13 +23,11 @@ export function findFirm(id: FirmId): PropFirm | undefined {
     return ALL_FIRMS.find((f) => f.id === id);
 }
 
-export {
-    AlphaFutures,
-    ApexTraderFunding,
-    FundedNext,
-    LucidTrading,
-    MyFundedFutures,
-    TakeProfitTrader,
-    TopStep,
-    Tradeify,
-};
+export { AlphaFutures } from './alphafutures/AlphaFutures';
+export { ApexTraderFunding } from './apex/ApexTraderFunding';
+export { FundedNext } from './fundednext/FundedNext';
+export { LucidTrading } from './lucid/LucidTrading';
+export { MyFundedFutures } from './mffu/MyFundedFutures';
+export { TopStep } from './topstep/TopStep';
+export { TakeProfitTrader } from './tpt/TakeProfitTrader';
+export { Tradeify } from './tradeify/Tradeify';

@@ -25,13 +25,13 @@ const dbUrl = new URL(env.DATABASE_URL);
 dbUrl.searchParams.delete('uselibpqcompat');
 dbUrl.searchParams.delete('sslmode');
 
-export const pool =
+const pool =
     globalForDb.pool ??
     new pg.Pool({
         connectionString: dbUrl.toString(),
-        ssl: { rejectUnauthorized: false },
-        max: 2,
         idleTimeoutMillis: 5000,
+        max: 2,
+        ssl: { rejectUnauthorized: false },
     });
 
 attachDatabasePool(pool);

@@ -3,11 +3,11 @@ import { Card } from '~/components/ui/Card';
 import GallerySection, { type GalleryItem } from './GallerySection';
 
 export default function AboutSection({
-    spotifyEmbedUrl,
     gallery,
+    spotifyEmbedUrl,
 }: {
-    spotifyEmbedUrl: string;
     gallery: GalleryItem[];
+    spotifyEmbedUrl: string;
 }) {
     return (
         <div className="pt-spacing-inner">
@@ -17,13 +17,13 @@ export default function AboutSection({
 
                     <div className="mx-auto mb-spacing-inner lg:mb-0 lg:w-1/2">
                         <iframe
-                            title="Spotify Track"
-                            className="min-w-full rounded-2xl"
-                            src={spotifyEmbedUrl}
                             allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
                             allowFullScreen
+                            className="min-w-full rounded-2xl"
                             height={152}
                             loading="lazy"
+                            src={spotifyEmbedUrl}
+                            title="Spotify Track"
                         />
                     </div>
                 </div>

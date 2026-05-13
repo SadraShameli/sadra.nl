@@ -17,27 +17,20 @@ import InfoPopover from './InfoPopover';
 import { panelDescriptions } from './kpiDescriptions';
 
 interface PlanComparisonTableProps {
-    firm: PropFirm;
     activePlan: Plan;
     baseInputs: Omit<SimInputs, 'plan'>;
+    firm: PropFirm;
 }
 
 interface Row {
-    plan: Plan;
     out: SimOutputs;
-}
-
-function ptddColor(ratio: number): string {
-    if (ratio <= 1.0) return 'text-emerald-400';
-    if (ratio <= 1.5) return '';
-    if (ratio <= 2.0) return 'text-amber-400';
-    return 'text-rose-400';
+    plan: Plan;
 }
 
 export default function PlanComparisonTable({
-    firm,
     activePlan,
     baseInputs,
+    firm,
 }: PlanComparisonTableProps) {
     const [rows, setRows] = useState<Row[]>([]);
     const [pending, setPending] = useState(false);
@@ -56,8 +49,8 @@ export default function PlanComparisonTable({
             const plans = firmRef.current.plans;
             const trials = Math.min(500, inputs.trials);
             const out: Row[] = plans.map((plan) => ({
-                plan,
                 out: simulate({ ...inputs, plan, trials }),
+                plan,
             }));
             if (!cancelled) {
                 setRows(out);
@@ -89,7 +82,7 @@ export default function PlanComparisonTable({
                 <span className="text-xs text-muted-foreground">
                     {pending
                         ? 'computing…'
-                        : `${rows.length} plan${rows.length !== 1 ? 's' : ''}`}
+                        : `${rows.length} plan${rows.length === 1 ? '' : 's'}`}
                 </span>
             </div>
             <div className="overflow-x-auto">
@@ -111,7 +104,7 @@ export default function PlanComparisonTable({
                         </tr>
                     </thead>
                     <tbody>
-                        {rows.map(({ plan, out }) => {
+                        {rows.map(({ out, plan }) => {
                             const isActive = plan === activePlan;
                             const ptdd =
                                 plan.profitTarget / plan.drawdown.amount;
@@ -131,12 +124,12 @@ export default function PlanComparisonTable({
                                 bestNet > -Infinity;
                             return (
                                 <tr
-                                    key={JSON.stringify(plan.id)}
                                     className={cn(
                                         'border-t border-border/40 transition-colors',
                                         isActive &&
                                             'bg-primary/10 font-semibold text-foreground',
                                     )}
+                                    key={JSON.stringify(plan.id)}
                                 >
                                     <td className="py-1.5 pr-3">
                                         {plan.label}
@@ -185,26 +178,33 @@ export default function PlanComparisonTable({
     );
 }
 
+function ptddColor(ratio: number): string {
+    if (ratio <= 1) return 'text-emerald-400';
+    if (ratio <= 1.5) return '';
+    if (ratio <= 2) return 'text-amber-400';
+    return 'text-rose-400';
+}
+
 function useDebouncedKey(
     inputs: Omit<SimInputs, 'plan'>,
     firmId: string,
     delay: number,
 ): string {
     const key = JSON.stringify({
-        firmId,
-        winrate: inputs.winrate,
-        rr: inputs.rrRatio,
-        risk: inputs.riskPerTrade,
-        tpd: inputs.tradesPerDay,
-        max: inputs.maxEvalDays,
-        funded: inputs.fundedHorizonDays,
-        seed: inputs.seed,
-        commission: inputs.commissionPerRoundTrip ?? 0,
-        attempts: inputs.maxAttempts ?? 1,
-        copy: inputs.copyAccounts ?? 1,
-        trials: inputs.trials,
-        eval: inputs.discounts?.evalPercent ?? 0,
         act: inputs.discounts?.activationPercent ?? 0,
+        attempts: inputs.maxAttempts ?? 1,
+        commission: inputs.commissionPerRoundTrip ?? 0,
+        copy: inputs.copyAccounts ?? 1,
+        eval: inputs.discounts?.evalPercent ?? 0,
+        firmId,
+        funded: inputs.fundedHorizonDays,
+        max: inputs.maxEvalDays,
+        risk: inputs.riskPerTrade,
+        rr: inputs.rrRatio,
+        seed: inputs.seed,
+        tpd: inputs.tradesPerDay,
+        trials: inputs.trials,
+        winrate: inputs.winrate,
     });
     const [debounced, setDebounced] = useState(key);
     useEffect(() => {

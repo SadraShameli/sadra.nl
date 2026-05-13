@@ -5,37 +5,37 @@ import { Select } from '~/components/ui/Select';
 import { ChartType } from './types';
 
 interface Option {
-    value: ChartType;
     label: string;
+    value: ChartType;
 }
 
 const OPTIONS: Option[] = [
-    { value: ChartType.Equity, label: 'Equity curves' },
-    { value: ChartType.Drawdown, label: 'Drawdown curves' },
-    { value: ChartType.PassRate, label: 'Cumulative pass-rate by day' },
+    { label: 'Equity curves', value: ChartType.Equity },
+    { label: 'Drawdown curves', value: ChartType.Drawdown },
+    { label: 'Cumulative pass-rate by day', value: ChartType.PassRate },
     {
-        value: ChartType.FinalBalanceHistogram,
         label: 'Final balance histogram',
+        value: ChartType.FinalBalanceHistogram,
     },
-    { value: ChartType.DaysToPassHistogram, label: 'Days to pass histogram' },
+    { label: 'Days to pass histogram', value: ChartType.DaysToPassHistogram },
 ];
 
 interface ChartTypeSelectorProps {
-    value: ChartType;
     onChange: (next: ChartType) => void;
+    value: ChartType;
 }
 
 export default function ChartTypeSelector({
-    value,
     onChange,
+    value,
 }: ChartTypeSelectorProps) {
     return (
         <Select
-            value={value}
-            onChange={(e) => onChange(e.target.value as ChartType)}
-            className="h-8 pr-8 text-xs"
-            wrapperClassName="w-full sm:w-auto"
             aria-label="Chart type"
+            className="h-8 pr-8 text-xs"
+            onChange={(e) => onChange(e.target.value as ChartType)}
+            value={value}
+            wrapperClassName="w-full sm:w-auto"
         >
             {OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>

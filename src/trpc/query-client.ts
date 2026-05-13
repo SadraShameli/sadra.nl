@@ -7,11 +7,6 @@ import SuperJSON from 'superjson';
 export const createQueryClient = () =>
     new QueryClient({
         defaultOptions: {
-            queries: {
-                staleTime: 30 * 1000,
-                refetchOnMount: false,
-                refetchOnWindowFocus: false,
-            },
             dehydrate: {
                 serializeData: SuperJSON.serialize,
                 shouldDehydrateQuery: (query) =>
@@ -20,6 +15,11 @@ export const createQueryClient = () =>
             },
             hydrate: {
                 deserializeData: SuperJSON.deserialize,
+            },
+            queries: {
+                refetchOnMount: false,
+                refetchOnWindowFocus: false,
+                staleTime: 30 * 1000,
             },
         },
     });

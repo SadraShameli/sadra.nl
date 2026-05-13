@@ -9,31 +9,31 @@ import {
 import { PLAYBACK_SPEEDS, type PlaybackSpeed } from './types';
 
 interface SpeedControlProps {
-    speed: PlaybackSpeed;
     hasRecordings: boolean;
     onSpeedChange: (speed: PlaybackSpeed) => void;
+    speed: PlaybackSpeed;
 }
 
 export function SpeedControl({
-    speed,
     hasRecordings,
     onSpeedChange,
+    speed,
 }: SpeedControlProps) {
     return (
         <DropdownMenu>
             <DropdownMenuTrigger
-                disabled={!hasRecordings}
-                className="w-8 text-center text-sm font-semibold text-neutral-400 tabular-nums transition hover:text-white disabled:cursor-not-allowed disabled:text-neutral-700"
                 aria-label="Playback speed"
+                className="w-8 text-center text-sm font-semibold text-neutral-400 tabular-nums transition hover:text-white disabled:cursor-not-allowed disabled:text-neutral-700"
+                disabled={!hasRecordings}
             >
                 {speed}×
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
                 <DropdownMenuRadioGroup
-                    value={String(speed)}
                     onValueChange={(v) =>
                         onSpeedChange(Number(v) as PlaybackSpeed)
                     }
+                    value={String(speed)}
                 >
                     {PLAYBACK_SPEEDS.map((s) => (
                         <DropdownMenuRadioItem key={s} value={String(s)}>

@@ -5,13 +5,6 @@ type Bucket = {
 
 const buckets = new Map<string, Bucket>();
 
-function sweep(now: number): void {
-    if (buckets.size < 1024) return;
-    for (const [key, entry] of buckets) {
-        if (entry.resetAt <= now) buckets.delete(key);
-    }
-}
-
 export async function checkRateLimit(args: {
     bucket: string;
     key: string;
@@ -30,4 +23,11 @@ export async function checkRateLimit(args: {
     if (entry.count >= args.max) return false;
     entry.count += 1;
     return true;
+}
+
+function sweep(now: number): void {
+    if (buckets.size < 1024) return;
+    for (const [key, entry] of buckets) {
+        if (entry.resetAt <= now) buckets.delete(key);
+    }
 }

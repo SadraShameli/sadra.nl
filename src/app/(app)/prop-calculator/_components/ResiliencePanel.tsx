@@ -14,8 +14,8 @@ import { probStreakAtLeast } from './lab/labMath';
 interface ResiliencePanelProps {
     plan: Plan;
     result: SimOutputs;
-    winrate: number;
     riskPerTrade: number;
+    winrate: number;
 }
 
 const BASE_STREAKS = [3, 4, 5, 6, 7, 8, 10] as const;
@@ -23,8 +23,8 @@ const BASE_STREAKS = [3, 4, 5, 6, 7, 8, 10] as const;
 export default function ResiliencePanel({
     plan,
     result,
-    winrate,
     riskPerTrade,
+    winrate,
 }: ResiliencePanelProps) {
     const data = useMemo(() => {
         const dd = plan.drawdown.amount;
@@ -43,18 +43,18 @@ export default function ResiliencePanel({
         }
 
         const rows = streaks.map((n) => ({
+            damage: Math.min(n * riskPerTrade, dd),
+            isTolerance: n === lossToler,
             n,
             prob: probStreakAtLeast(K, n, q),
-            damage: Math.min(n * riskPerTrade, dd),
             survives: n * riskPerTrade <= dd,
-            isTolerance: n === lossToler,
         }));
 
         const safeRisk = p95 > 0 ? dd / p95 : 0;
         const safeRiskPct =
             accountSize > 0 ? (safeRisk / accountSize) * 100 : 0;
 
-        return { lossToler, rows, safeRisk, safeRiskPct, p95 };
+        return { lossToler, p95, rows, safeRisk, safeRiskPct };
     }, [plan, result, winrate, riskPerTrade]);
 
     const buffer = data.lossToler - data.p95;
@@ -132,9 +132,8 @@ export default function ResiliencePanel({
                     </thead>
                     <tbody>
                         {data.rows.map(
-                            ({ n, prob, damage, survives, isTolerance }) => (
+                            ({ damage, isTolerance, n, prob, survives }) => (
                                 <tr
-                                    key={n}
                                     className={cn(
                                         'border-t border-border/40',
                                         !survives &&
@@ -145,6 +144,7 @@ export default function ResiliencePanel({
                                             'text-amber-400',
                                         isTolerance && 'font-semibold',
                                     )}
+                                    key={n}
                                 >
                                     <td className="py-1.5 pr-4">
                                         {n} in a row

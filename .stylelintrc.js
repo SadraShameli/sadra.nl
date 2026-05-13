@@ -1,8 +1,9 @@
 const config = {
+    customSyntax: 'postcss-scss',
     extends: 'stylelint-config-recommended-scss',
     plugins: ['stylelint-order'],
-    customSyntax: 'postcss-scss',
     rules: {
+        'at-rule-no-deprecated': null,
         'at-rule-no-unknown': [
             true,
             {
@@ -22,27 +23,7 @@ const config = {
                 ],
             },
         ],
-        'at-rule-no-deprecated': null,
         'nesting-selector-no-missing-scoping-root': null,
-        'scss/at-rule-no-unknown': [
-            true,
-            {
-                ignoreAtRules: [
-                    'apply',
-                    'utility',
-                    'variant',
-                    'layer',
-                    'import',
-                    'tailwind',
-                    'responsive',
-                    'screen',
-                    'plugin',
-                    'theme',
-                    'page',
-                    /^page:/,
-                ],
-            },
-        ],
         'order/order': [
             [
                 'custom-properties',
@@ -66,12 +47,31 @@ const config = {
             ],
         ],
         'order/properties-alphabetical-order': true,
+        'scss/at-rule-no-unknown': [
+            true,
+            {
+                ignoreAtRules: [
+                    'apply',
+                    'utility',
+                    'variant',
+                    'layer',
+                    'import',
+                    'tailwind',
+                    'responsive',
+                    'screen',
+                    'plugin',
+                    'theme',
+                    'page',
+                    /^page:/,
+                ],
+            },
+        ],
         'selector-class-pattern': [
             '^[a-z]([-]?[a-z0-9]+)*(__[a-z0-9]([-]?[a-z0-9]+)*)?(--[a-z0-9]([-]?[a-z0-9]+)*)?$',
             {
-                resolveNestedSelectors: true,
                 message: (selectorValue) =>
                     `Expected class selector "${selectorValue}" to match BEM CSS pattern.`,
+                resolveNestedSelectors: true,
             },
         ],
     },

@@ -8,11 +8,11 @@ import { sensorRouter } from './routers/sensor';
 import { sessionRouter } from './routers/session';
 
 export const appRouter = createTRPCRouter({
-    location: locationRouter,
-    sensor: sensorRouter,
     device: deviceRouter,
+    location: locationRouter,
     reading: readingRouter,
     recording: recordingsRouter,
+    sensor: sensorRouter,
     session: sessionRouter,
 });
 

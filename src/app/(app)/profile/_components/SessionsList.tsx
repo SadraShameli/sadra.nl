@@ -12,49 +12,23 @@ import { Button } from '~/components/ui/Button';
 import { Separator } from '~/components/ui/Separator';
 import { api } from '~/trpc/react';
 
-function describeUserAgent(ua: string | null): {
-    label: string;
-    isMobile: boolean;
-} {
-    if (!ua) return { label: 'Unknown device', isMobile: false };
-    const parsed = new UAParser(ua).getResult();
-    const browser = parsed.browser.name ?? 'Browser';
-    const os = parsed.os.name ?? 'Unknown OS';
-    const isMobile = parsed.device.type === 'mobile';
-    return { label: `${browser} on ${os}`, isMobile };
-}
-
-function maskIp(ip: string | null): string {
-    if (!ip) return '—';
-    if (ip === '::1' || ip === '127.0.0.1') return 'localhost';
-    if (ip.includes(':')) {
-        const parts = ip.split(':').slice(0, 4);
-        return `${parts.join(':')}::/64`;
-    }
-    const octets = ip.split('.');
-    if (octets.length === 4) {
-        return `${octets[0]}.${octets[1]}.${octets[2]}.x`;
-    }
-    return ip;
-}
-
 export function SessionsList() {
     const router = useRouter();
     const [pending, startTransition] = useTransition();
     const sessionsQuery = api.session.list.useQuery();
     const revoke = api.session.revoke.useMutation({
+        onError: (e) => toast.error(e.message),
         onSuccess: () => {
             toast.success('Session revoked.');
             void sessionsQuery.refetch();
         },
-        onError: (e) => toast.error(e.message),
     });
     const revokeAll = api.session.revokeAllOthers.useMutation({
+        onError: (e) => toast.error(e.message),
         onSuccess: () => {
             toast.success('All other sessions signed out.');
             void sessionsQuery.refetch();
         },
-        onError: (e) => toast.error(e.message),
     });
 
     if (sessionsQuery.isLoading) {
@@ -75,7 +49,7 @@ export function SessionsList() {
             ) : (
                 <div className="flex flex-col gap-2">
                     {rows.map((row) => {
-                        const { label, isMobile } = describeUserAgent(
+                        const { isMobile, label } = describeUserAgent(
                             row.userAgent,
                         );
                         const Icon = isMobile ? Smartphone : Monitor;
@@ -85,8 +59,8 @@ export function SessionsList() {
                         );
                         return (
                             <div
-                                key={row.sessionToken}
                                 className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-background p-3"
+                                key={row.sessionToken}
                             >
                                 <div className="flex min-w-0 items-center gap-3">
                                     <Icon className="size-4 shrink-0 text-muted-foreground" />
@@ -109,8 +83,6 @@ export function SessionsList() {
                                 </div>
                                 {!row.current && (
                                     <Button
-                                        size="sm"
-                                        variant="outline"
                                         disabled={pending || revoke.isPending}
                                         onClick={() =>
                                             startTransition(() =>
@@ -120,6 +92,8 @@ export function SessionsList() {
                                                 }),
                                             )
                                         }
+                                        size="sm"
+                                        variant="outline"
                                     >
                                         Revoke
                                     </Button>
@@ -135,8 +109,6 @@ export function SessionsList() {
                     <Separator />
                     <div className="flex justify-end">
                         <Button
-                            variant="outline"
-                            size="sm"
                             disabled={pending || revokeAll.isPending}
                             onClick={() =>
                                 startTransition(async () => {
@@ -144,6 +116,8 @@ export function SessionsList() {
                                     router.refresh();
                                 })
                             }
+                            size="sm"
+                            variant="outline"
                         >
                             <LogOut className="mr-1 size-3.5" />
                             Sign out everywhere else
@@ -153,4 +127,30 @@ export function SessionsList() {
             )}
         </div>
     );
+}
+
+function describeUserAgent(ua: null | string): {
+    isMobile: boolean;
+    label: string;
+} {
+    if (!ua) return { isMobile: false, label: 'Unknown device' };
+    const parsed = new UAParser(ua).getResult();
+    const browser = parsed.browser.name ?? 'Browser';
+    const os = parsed.os.name ?? 'Unknown OS';
+    const isMobile = parsed.device.type === 'mobile';
+    return { isMobile, label: `${browser} on ${os}` };
+}
+
+function maskIp(ip: null | string): string {
+    if (!ip) return '—';
+    if (ip === '::1' || ip === '127.0.0.1') return 'localhost';
+    if (ip.includes(':')) {
+        const parts = ip.split(':').slice(0, 4);
+        return `${parts.join(':')}::/64`;
+    }
+    const octets = ip.split('.');
+    if (octets.length === 4) {
+        return `${octets[0]}.${octets[1]}.${octets[2]}.x`;
+    }
+    return ip;
 }

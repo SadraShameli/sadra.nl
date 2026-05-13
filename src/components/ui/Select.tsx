@@ -8,15 +8,14 @@ interface SelectProps extends React.ComponentProps<'select'> {
 }
 
 function Select({
+    children,
     className,
     wrapperClassName,
-    children,
     ...props
 }: SelectProps) {
     return (
         <div className={cn('relative w-full', wrapperClassName)}>
             <select
-                data-slot="select"
                 className={cn(
                     'h-9 w-full appearance-none rounded-md border border-input bg-background px-3 pr-9 text-sm shadow-xs transition-colors outline-none',
                     'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
@@ -24,6 +23,7 @@ function Select({
                     'dark:border-input dark:bg-input/30',
                     className,
                 )}
+                data-slot="select"
                 {...props}
             >
                 {children}

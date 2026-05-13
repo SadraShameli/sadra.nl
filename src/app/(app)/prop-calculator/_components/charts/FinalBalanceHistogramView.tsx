@@ -20,7 +20,7 @@ interface Props {
 }
 
 const chartConfig: ChartConfig = {
-    count: { label: 'Trials', color: 'hsl(var(--chart-1))' },
+    count: { color: 'hsl(var(--chart-1))', label: 'Trials' },
 };
 
 const BIN_COUNT = 30;
@@ -43,59 +43,59 @@ export default function FinalBalanceHistogramView({ result }: Props) {
 
     return (
         <ChartContainer
-            config={chartConfig}
             className="aspect-16/7 min-h-125 w-full"
+            config={chartConfig}
         >
             <BarChart
                 data={bins}
-                margin={{ top: 10, right: 12, left: 0, bottom: 28 }}
+                margin={{ bottom: 28, left: 0, right: 12, top: 10 }}
             >
-                <CartesianGrid strokeDasharray="3 3" stroke="#ccc" />
+                <CartesianGrid stroke="#ccc" strokeDasharray="3 3" />
                 <XAxis
-                    dataKey="center"
-                    tickLine={false}
                     axisLine={false}
-                    tickMargin={6}
-                    tickFormatter={(v: number) => formatCompactCurrency(v)}
+                    dataKey="center"
                     label={{
-                        value: 'Final balance',
-                        position: 'bottom',
-                        offset: 12,
                         fontSize: 11,
+                        offset: 12,
+                        position: 'bottom',
+                        value: 'Final balance',
                     }}
+                    tickFormatter={(v: number) => formatCompactCurrency(v)}
+                    tickLine={false}
+                    tickMargin={6}
                 />
                 <YAxis
-                    tickLine={false}
                     axisLine={false}
-                    width={40}
                     label={{
-                        value: 'Trials',
                         angle: -90,
-                        position: 'insideLeft',
                         fontSize: 11,
+                        position: 'insideLeft',
+                        value: 'Trials',
                     }}
+                    tickLine={false}
+                    width={40}
                 />
                 <ReferenceLine
-                    x={startingBalance}
-                    stroke="hsl(0 0% 70%)"
-                    strokeDasharray="4 4"
                     label={{
-                        value: 'Start',
-                        position: 'top',
                         fill: 'hsl(0 0% 70%)',
                         fontSize: 11,
+                        position: 'top',
+                        value: 'Start',
                     }}
+                    stroke="hsl(0 0% 70%)"
+                    strokeDasharray="4 4"
+                    x={startingBalance}
                 />
                 <ReferenceLine
-                    x={targetBalance}
-                    stroke="hsl(142 76% 45%)"
-                    strokeDasharray="4 4"
                     label={{
-                        value: 'Target',
-                        position: 'top',
                         fill: 'hsl(142 76% 45%)',
                         fontSize: 11,
+                        position: 'top',
+                        value: 'Target',
                     }}
+                    stroke="hsl(142 76% 45%)"
+                    strokeDasharray="4 4"
+                    x={targetBalance}
                 />
                 <Bar
                     dataKey="count"

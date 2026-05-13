@@ -11,16 +11,16 @@ import { db, tradeAssessments, tradingPlans } from '~/server/db';
 import { ChecklistShell } from './_components/ChecklistShell';
 
 export const metadata: Metadata = {
-    title: 'Trade Checklist',
     description:
         'A pre-trade qualification checklist that scores your setup against your personal trading plan and returns a grade with a take/skip recommendation.',
+    title: 'Trade Checklist',
 };
 
 export const dynamic = 'force-dynamic';
 
 export default async function TradeChecklistPage() {
     const session = await auth();
-    if (!session?.user?.id) redirect('/login');
+    if (!session?.user.id) redirect('/login');
     const userId = session.user.id;
 
     await ensureUserHasPlan();
@@ -40,7 +40,8 @@ export default async function TradeChecklistPage() {
 
     const history = z.array(tradeAssessmentRowSchema).parse(historyRows);
 
-    const active = plans.find((p) => p.isActive) ?? plans[0]!;
+    const active = plans.find((p) => p.isActive) ?? plans[0];
+    if (!active) redirect('/profile?tab=trading-plan');
 
     return (
         <main className="container pt-spacing pb-24">
@@ -60,8 +61,8 @@ export default async function TradeChecklistPage() {
 
             <ChecklistShell
                 activePlan={active}
-                plans={plans}
                 history={history}
+                plans={plans}
             />
         </main>
     );

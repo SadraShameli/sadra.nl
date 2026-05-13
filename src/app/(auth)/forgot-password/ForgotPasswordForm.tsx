@@ -23,9 +23,9 @@ import {
 export function ForgotPasswordForm() {
     const [pending, startTransition] = useTransition();
     const form = useForm<ForgotPasswordInput>({
-        resolver: zodResolver(forgotPasswordInputSchema),
         defaultValues: { email: '' },
         mode: 'onTouched',
+        resolver: zodResolver(forgotPasswordInputSchema),
     });
 
     const onSubmit = (data: ForgotPasswordInput) => {
@@ -37,8 +37,8 @@ export function ForgotPasswordForm() {
     return (
         <Form {...form}>
             <form
-                onSubmit={form.handleSubmit(onSubmit)}
                 className="flex flex-col gap-3"
+                onSubmit={form.handleSubmit(onSubmit)}
             >
                 <FormField
                     control={form.control}
@@ -48,9 +48,9 @@ export function ForgotPasswordForm() {
                             <FormLabel>Email</FormLabel>
                             <FormControl>
                                 <Input
-                                    type="email"
-                                    placeholder="you@example.com"
                                     autoComplete="email"
+                                    placeholder="you@example.com"
+                                    type="email"
                                     {...field}
                                 />
                             </FormControl>
@@ -59,9 +59,9 @@ export function ForgotPasswordForm() {
                     )}
                 />
                 <Button
-                    type="submit"
                     className="mt-7 w-full"
                     disabled={pending}
+                    type="submit"
                 >
                     {pending ? 'Sending…' : 'Send reset link'}
                 </Button>

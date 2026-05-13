@@ -12,20 +12,20 @@ import { gamblersRuinAsymmetric } from './lab/labMath';
 import { type LabScenario } from './types';
 
 interface Args {
-    plan: Plan;
-    seed: number;
-    maxEvalDays: number;
-    fundedHorizonDays: number;
-    commissionPerRoundTrip: number;
-    scenarios: LabScenario[];
-    discountPercent?: number;
     activationDiscountPercent?: number;
+    commissionPerRoundTrip: number;
+    discountPercent?: number;
+    fundedHorizonDays: number;
     linkActivationDiscount?: boolean;
+    maxEvalDays: number;
+    plan: Plan;
+    scenarios: LabScenario[];
+    seed: number;
 }
 
 interface LabResult {
-    scenarioId: string;
     result: MultiAccountResult;
+    scenarioId: string;
 }
 
 const DEBOUNCE_MS = 600;
@@ -33,43 +33,43 @@ const TRIALS_BASE = 400;
 const TRIALS_INDEPENDENT = 250;
 
 export function useLabSimulation(args: Args): {
-    results: Map<string, MultiAccountResult>;
     pending: boolean;
+    results: Map<string, MultiAccountResult>;
 } {
     const {
-        plan,
-        seed,
-        maxEvalDays,
-        fundedHorizonDays,
-        commissionPerRoundTrip,
-        scenarios,
-        discountPercent = 0,
         activationDiscountPercent = 0,
+        commissionPerRoundTrip,
+        discountPercent = 0,
+        fundedHorizonDays,
         linkActivationDiscount = false,
+        maxEvalDays,
+        plan,
+        scenarios,
+        seed,
     } = args;
 
     const key = useMemo(
         () =>
             JSON.stringify({
-                planId: plan.id,
-                seed,
-                maxEvalDays,
-                fundedHorizonDays,
+                actDiscount: activationDiscountPercent,
                 commission: commissionPerRoundTrip,
                 evalDiscount: discountPercent,
-                actDiscount: activationDiscountPercent,
+                fundedHorizonDays,
                 linkAct: linkActivationDiscount,
+                maxEvalDays,
+                planId: plan.id,
                 scenarios: scenarios.map((s) => ({
-                    id: s.id,
-                    risk: s.riskPerTrade,
-                    wr: s.winrate,
-                    rr: s.rrRatio,
-                    tpd: s.tradesPerDay,
                     a: s.accounts,
                     c: s.correlation,
-                    g: s.groups,
                     ds: s.dayStop,
+                    g: s.groups,
+                    id: s.id,
+                    risk: s.riskPerTrade,
+                    rr: s.rrRatio,
+                    tpd: s.tradesPerDay,
+                    wr: s.winrate,
                 })),
+                seed,
             }),
         [
             plan.id,
@@ -114,27 +114,27 @@ export function useLabSimulation(args: Args): {
                         ? TRIALS_INDEPENDENT
                         : TRIALS_BASE;
                 const r = simulatePortfolio({
-                    plan,
-                    winrate: sc.winrate,
-                    rrRatio: sc.rrRatio,
-                    riskPerTrade: sc.riskPerTrade,
-                    tradesPerDay: sc.tradesPerDay,
-                    maxEvalDays,
-                    fundedHorizonDays,
-                    trials,
-                    seed,
+                    accounts: sc.accounts,
+                    commissionPerRoundTrip,
+                    correlation: sc.correlation,
+                    dayStop: sc.dayStop,
                     discounts: {
-                        evalPercent: discountPercent,
                         activationPercent: linkActivationDiscount
                             ? discountPercent
                             : activationDiscountPercent,
+                        evalPercent: discountPercent,
                     },
-                    commissionPerRoundTrip,
-                    maxAttempts: 1,
-                    accounts: sc.accounts,
-                    correlation: sc.correlation,
+                    fundedHorizonDays,
                     groups: sc.groups,
-                    dayStop: sc.dayStop,
+                    maxAttempts: 1,
+                    maxEvalDays,
+                    plan,
+                    riskPerTrade: sc.riskPerTrade,
+                    rrRatio: sc.rrRatio,
+                    seed,
+                    tradesPerDay: sc.tradesPerDay,
+                    trials,
+                    winrate: sc.winrate,
                 });
                 const targetUnits =
                     sc.riskPerTrade > 0 ? target / sc.riskPerTrade : 0;
@@ -150,7 +150,7 @@ export function useLabSimulation(args: Args): {
                     theoreticalPassProb: theoretical,
                 };
                 next.set(sc.id, enriched);
-                out.push({ scenarioId: sc.id, result: enriched });
+                out.push({ result: enriched, scenarioId: sc.id });
             }
             if (!cancelled) {
                 setResults(next);
@@ -164,5 +164,5 @@ export function useLabSimulation(args: Args): {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [debouncedKey]);
 
-    return { results, pending };
+    return { pending, results };
 }

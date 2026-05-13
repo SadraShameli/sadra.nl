@@ -10,24 +10,18 @@ import {
 } from './schemas/main';
 
 export const databaseRelations = {
-    location: relations(location, ({ many }) => ({
-        devices: many(device),
-        readings: many(reading),
-        recordings: many(recording),
-    })),
-
-    sensor: relations(sensor, ({ many }) => ({
-        sensorsToDevices: many(sensorsToDevices),
-        readings: many(reading),
-        recordings: many(recording),
-    })),
-
-    device: relations(device, ({ one, many }) => ({
+    device: relations(device, ({ many, one }) => ({
         location: one(location, {
             fields: [device.location_id],
             references: [location.id],
         }),
+        readings: many(reading),
+        recordings: many(recording),
         sensorsToDevices: many(sensorsToDevices),
+    })),
+
+    location: relations(location, ({ many }) => ({
+        devices: many(device),
         readings: many(reading),
         recordings: many(recording),
     })),
@@ -37,13 +31,13 @@ export const databaseRelations = {
             fields: [reading.device_id],
             references: [device.id],
         }),
-        sensor: one(sensor, {
-            fields: [reading.sensor_id],
-            references: [sensor.id],
-        }),
         location: one(location, {
             fields: [reading.location_id],
             references: [location.id],
+        }),
+        sensor: one(sensor, {
+            fields: [reading.sensor_id],
+            references: [sensor.id],
         }),
     })),
 
@@ -58,14 +52,20 @@ export const databaseRelations = {
         }),
     })),
 
+    sensor: relations(sensor, ({ many }) => ({
+        readings: many(reading),
+        recordings: many(recording),
+        sensorsToDevices: many(sensorsToDevices),
+    })),
+
     sensorsToDevices: relations(sensorsToDevices, ({ one }) => ({
-        sensor: one(sensor, {
-            fields: [sensorsToDevices.sensor_id],
-            references: [sensor.id],
-        }),
         device: one(device, {
             fields: [sensorsToDevices.device_id],
             references: [device.id],
+        }),
+        sensor: one(sensor, {
+            fields: [sensorsToDevices.sensor_id],
+            references: [sensor.id],
         }),
     })),
 };

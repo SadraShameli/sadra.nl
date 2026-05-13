@@ -26,10 +26,10 @@ export default function ShareLinkButton() {
 
     return (
         <Button
-            variant="outline"
-            size="sm"
             className="h-7 gap-1.5 px-2 text-xs"
             onClick={handleCopy}
+            size="sm"
+            variant="outline"
         >
             {copied ? (
                 <>

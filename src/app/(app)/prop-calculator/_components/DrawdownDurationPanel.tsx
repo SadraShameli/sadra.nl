@@ -9,105 +9,15 @@ import { cn } from '~/lib/utils';
 import { formatDays, formatPercent } from './helpers';
 import InfoPopover from './InfoPopover';
 
+interface DdEpisode {
+    depthPct: number;
+    durationDays: number;
+    recovered: boolean;
+    recoveryDays: null | number;
+}
+
 interface DrawdownDurationPanelProps {
     result: SimOutputs;
-}
-
-interface DdEpisode {
-    durationDays: number;
-    depthPct: number;
-    recovered: boolean;
-    recoveryDays: number | null;
-}
-
-function analyzeEquityCurve(path: number[]): {
-    underwaterPct: number;
-    episodes: DdEpisode[];
-} {
-    if (path.length === 0) return { underwaterPct: 0, episodes: [] };
-
-    let peak = path[0] ?? 0;
-    let inDD = false;
-    let ddStart = 0;
-    let ddTrough = peak;
-    let ddTroughIdx = 0;
-    let underwaterDays = 0;
-    const episodes: DdEpisode[] = [];
-
-    for (let i = 0; i < path.length; i++) {
-        const b = path[i] ?? 0;
-        if (b > peak) peak = b;
-
-        if (b < peak) {
-            underwaterDays++;
-            if (!inDD) {
-                inDD = true;
-                ddStart = i;
-                ddTrough = b;
-                ddTroughIdx = i;
-            } else if (b < ddTrough) {
-                ddTrough = b;
-                ddTroughIdx = i;
-            }
-        } else if (inDD) {
-            episodes.push({
-                durationDays: i - ddStart,
-                depthPct: peak > 0 ? (peak - ddTrough) / peak : 0,
-                recovered: true,
-                recoveryDays: i - ddTroughIdx,
-            });
-            inDD = false;
-        }
-    }
-
-    if (inDD) {
-        episodes.push({
-            durationDays: path.length - ddStart,
-            depthPct: peak > 0 ? (peak - ddTrough) / peak : 0,
-            recovered: false,
-            recoveryDays: null,
-        });
-    }
-
-    return {
-        underwaterPct: underwaterDays / path.length,
-        episodes,
-    };
-}
-
-function avg(nums: number[]): number {
-    return nums.length === 0
-        ? 0
-        : nums.reduce((s, v) => s + v, 0) / nums.length;
-}
-
-function StatCard({
-    label,
-    value,
-    sub,
-    valueClass,
-}: {
-    label: string;
-    value: string;
-    sub?: string;
-    valueClass?: string;
-}) {
-    return (
-        <div className="flex flex-col gap-1 rounded-md border border-border/50 bg-muted/20 px-3 py-2.5">
-            <span className="text-[11px] text-muted-foreground">{label}</span>
-            <span
-                className={cn(
-                    'font-mono text-lg leading-none font-bold tabular-nums',
-                    valueClass,
-                )}
-            >
-                {value}
-            </span>
-            {sub && (
-                <span className="text-[10px] text-muted-foreground">{sub}</span>
-            )}
-        </div>
-    );
 }
 
 export default function DrawdownDurationPanel({
@@ -125,7 +35,7 @@ export default function DrawdownDurationPanel({
         let totalWithEpisodes = 0;
 
         for (const curve of curves) {
-            const { underwaterPct, episodes } = analyzeEquityCurve(curve);
+            const { episodes, underwaterPct } = analyzeEquityCurve(curve);
             underwaterPcts.push(underwaterPct);
             episodesPerPath.push(episodes.length);
             allEpisodes.push(...episodes);
@@ -144,16 +54,16 @@ export default function DrawdownDurationPanel({
         const depths = allEpisodes.map((e) => e.depthPct);
 
         return {
-            avgUnderwaterPct: avg(underwaterPcts),
-            avgEpisodesPerPath: avg(episodesPerPath),
-            avgDuration: avg(durations),
-            maxDuration: durations.length > 0 ? Math.max(...durations) : 0,
             avgDepth: avg(depths),
+            avgDuration: avg(durations),
+            avgEpisodesPerPath: avg(episodesPerPath),
             avgRecovery: avg(recoveryTimes),
+            avgUnderwaterPct: avg(underwaterPcts),
+            maxDuration: durations.length > 0 ? Math.max(...durations) : 0,
+            sampleSize: curves.length,
+            totalEpisodes: allEpisodes.length,
             vShapePct:
                 totalWithEpisodes > 0 ? vShapeCount / totalWithEpisodes : 0,
-            totalEpisodes: allEpisodes.length,
-            sampleSize: curves.length,
         };
     }, [result]);
 
@@ -202,37 +112,37 @@ export default function DrawdownDurationPanel({
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
                     <StatCard
                         label="Time underwater"
-                        value={formatPercent(m.avgUnderwaterPct)}
                         sub="avg % of days below peak"
+                        value={formatPercent(m.avgUnderwaterPct)}
                         valueClass={underwaterClass}
                     />
                     <StatCard
                         label="DD episodes / path"
-                        value={m.avgEpisodesPerPath.toFixed(1)}
                         sub={`${m.totalEpisodes} total across ${m.sampleSize} paths`}
+                        value={m.avgEpisodesPerPath.toFixed(1)}
                     />
                     <StatCard
                         label="Avg DD duration"
-                        value={formatDays(m.avgDuration)}
                         sub={`max ${formatDays(m.maxDuration)}`}
+                        value={formatDays(m.avgDuration)}
                     />
                     <StatCard
                         label="Avg DD depth"
-                        value={formatPercent(m.avgDepth)}
                         sub="mean peak-to-trough"
+                        value={formatPercent(m.avgDepth)}
                     />
                     <StatCard
                         label="Avg recovery time"
+                        sub="from trough to new peak"
                         value={
                             m.avgRecovery > 0 ? formatDays(m.avgRecovery) : '—'
                         }
-                        sub="from trough to new peak"
                         valueClass={recoveryClass}
                     />
                     <StatCard
                         label="V-shape episodes"
-                        value={formatPercent(m.vShapePct)}
                         sub="fast recovery (&lt; 40% of dur.)"
+                        value={formatPercent(m.vShapePct)}
                         valueClass={vShapeClass}
                     />
                 </div>
@@ -261,7 +171,6 @@ export default function DrawdownDurationPanel({
                                     const recovery = ddPct / (100 - ddPct);
                                     return (
                                         <tr
-                                            key={ddPct}
                                             className={cn(
                                                 'border-b border-border/20',
                                                 m.avgDepth * 100 >= ddPct - 2 &&
@@ -270,6 +179,7 @@ export default function DrawdownDurationPanel({
                                                     ? 'bg-muted/30 font-semibold'
                                                     : '',
                                             )}
+                                            key={ddPct}
                                         >
                                             <td className="py-1.5 pr-8">
                                                 −{ddPct}%
@@ -300,5 +210,95 @@ export default function DrawdownDurationPanel({
                 </div>
             </div>
         </Card>
+    );
+}
+
+function analyzeEquityCurve(path: number[]): {
+    episodes: DdEpisode[];
+    underwaterPct: number;
+} {
+    if (path.length === 0) return { episodes: [], underwaterPct: 0 };
+
+    let peak = path[0] ?? 0;
+    let inDD = false;
+    let ddStart = 0;
+    let ddTrough = peak;
+    let ddTroughIdx = 0;
+    let underwaterDays = 0;
+    const episodes: DdEpisode[] = [];
+
+    for (const [i, element] of path.entries()) {
+        const b = element;
+        if (b > peak) peak = b;
+
+        if (b < peak) {
+            underwaterDays++;
+            if (!inDD) {
+                inDD = true;
+                ddStart = i;
+                ddTrough = b;
+                ddTroughIdx = i;
+            } else if (b < ddTrough) {
+                ddTrough = b;
+                ddTroughIdx = i;
+            }
+        } else if (inDD) {
+            episodes.push({
+                depthPct: peak > 0 ? (peak - ddTrough) / peak : 0,
+                durationDays: i - ddStart,
+                recovered: true,
+                recoveryDays: i - ddTroughIdx,
+            });
+            inDD = false;
+        }
+    }
+
+    if (inDD) {
+        episodes.push({
+            depthPct: peak > 0 ? (peak - ddTrough) / peak : 0,
+            durationDays: path.length - ddStart,
+            recovered: false,
+            recoveryDays: null,
+        });
+    }
+
+    return {
+        episodes,
+        underwaterPct: underwaterDays / path.length,
+    };
+}
+
+function avg(nums: number[]): number {
+    return nums.length === 0
+        ? 0
+        : nums.reduce((s, v) => s + v, 0) / nums.length;
+}
+
+function StatCard({
+    label,
+    sub,
+    value,
+    valueClass,
+}: {
+    label: string;
+    sub?: string;
+    value: string;
+    valueClass?: string;
+}) {
+    return (
+        <div className="flex flex-col gap-1 rounded-md border border-border/50 bg-muted/20 px-3 py-2.5">
+            <span className="text-[11px] text-muted-foreground">{label}</span>
+            <span
+                className={cn(
+                    'font-mono text-lg leading-none font-bold tabular-nums',
+                    valueClass,
+                )}
+            >
+                {value}
+            </span>
+            {sub && (
+                <span className="text-[10px] text-muted-foreground">{sub}</span>
+            )}
+        </div>
     );
 }

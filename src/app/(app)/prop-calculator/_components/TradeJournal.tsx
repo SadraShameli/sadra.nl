@@ -28,32 +28,23 @@ or
 -1
 +1.8`;
 
-function parseTradeInput(raw: string): number[] {
-    return raw
-        .split(/[\n,;]+/)
-        .map((s) => s.trim().replace(/[^0-9.+-]/g, ''))
-        .filter((s) => s.length > 0 && !isNaN(Number(s)))
-        .map(Number)
-        .filter(isFinite);
-}
-
 interface JournalStats {
-    n: number;
-    wins: number;
-    losses: number;
-    winrate: number;
-    avgWin: number;
     avgLoss: number;
-    rrActual: number;
-    expectancy: number;
-    profitFactor: number;
-    totalR: number;
+    avgWin: number;
     breakEvenWR: number;
     edgeMargin: number;
-    zScore: number | null;
-    minTrades95: number | null;
-    equityCurve: { trade: number; cumR: number }[];
+    equityCurve: { cumR: number; trade: number }[];
+    expectancy: number;
+    losses: number;
+    minTrades95: null | number;
+    n: number;
+    profitFactor: number;
     rollingWR: { trade: number; wr20: number }[];
+    rrActual: number;
+    totalR: number;
+    winrate: number;
+    wins: number;
+    zScore: null | number;
 }
 
 function computeStats(trades: number[]): JournalStats {
@@ -88,9 +79,9 @@ function computeStats(trades: number[]): JournalStats {
     let cumR = 0;
     const equityCurve = trades.map((r, i) => {
         cumR += r;
-        return { trade: i + 1, cumR: +cumR.toFixed(3) };
+        return { cumR: +cumR.toFixed(3), trade: i + 1 };
     });
-    equityCurve.unshift({ trade: 0, cumR: 0 });
+    equityCurve.unshift({ cumR: 0, trade: 0 });
 
     const WINDOW = 20;
     const rollingWR = trades.slice(WINDOW - 1).map((_, i) => {
@@ -102,60 +93,40 @@ function computeStats(trades: number[]): JournalStats {
     });
 
     return {
-        n,
-        wins,
-        losses,
-        winrate,
-        avgWin,
         avgLoss,
-        rrActual,
-        expectancy,
-        profitFactor,
-        totalR,
+        avgWin,
         breakEvenWR,
         edgeMargin,
-        zScore,
-        minTrades95,
         equityCurve,
+        expectancy,
+        losses,
+        minTrades95,
+        n,
+        profitFactor,
         rollingWR,
+        rrActual,
+        totalR,
+        winrate,
+        wins,
+        zScore,
     };
 }
 
+function parseTradeInput(raw: string): number[] {
+    return raw
+        .split(/[\n,;]+/)
+        .map((s) => s.trim().replaceAll(/[^0-9.+-]/g, ''))
+        .filter((s) => s.length > 0 && !Number.isNaN(Number(s)))
+        .map(Number)
+        .filter(Number.isFinite);
+}
+
 const equityConfig: ChartConfig = {
-    cumR: { label: 'Cumulative R', color: 'hsl(142 76% 45%)' },
+    cumR: { color: 'hsl(142 76% 45%)', label: 'Cumulative R' },
 };
 const rollingConfig: ChartConfig = {
-    wr20: { label: '20-trade WR', color: 'hsl(217 91% 60%)' },
+    wr20: { color: 'hsl(217 91% 60%)', label: '20-trade WR' },
 };
-
-function StatCell({
-    label,
-    value,
-    sub,
-    valueClass,
-}: {
-    label: string;
-    value: string;
-    sub?: string;
-    valueClass?: string;
-}) {
-    return (
-        <div className="flex flex-col gap-0.5">
-            <span className="text-[11px] text-muted-foreground">{label}</span>
-            <span
-                className={cn(
-                    'font-mono text-sm font-semibold tabular-nums',
-                    valueClass,
-                )}
-            >
-                {value}
-            </span>
-            {sub && (
-                <span className="text-[10px] text-muted-foreground">{sub}</span>
-            )}
-        </div>
-    );
-}
 
 export default function TradeJournal() {
     const [raw, setRaw] = useState('');
@@ -175,19 +146,19 @@ export default function TradeJournal() {
                 ? 'text-amber-400'
                 : 'text-rose-400';
 
-    const pfClass = !stats
-        ? ''
-        : stats.profitFactor > 1.5
-          ? 'text-emerald-400'
-          : stats.profitFactor > 1
-            ? 'text-amber-400'
-            : 'text-rose-400';
+    const pfClass = stats
+        ? stats.profitFactor > 1.5
+            ? 'text-emerald-400'
+            : stats.profitFactor > 1
+              ? 'text-amber-400'
+              : 'text-rose-400'
+        : '';
 
-    const expClass = !stats
-        ? ''
-        : stats.expectancy > 0
-          ? 'text-emerald-400'
-          : 'text-rose-400';
+    const expClass = stats
+        ? stats.expectancy > 0
+            ? 'text-emerald-400'
+            : 'text-rose-400'
+        : '';
 
     return (
         <Card className="px-5 py-5">
@@ -208,11 +179,11 @@ export default function TradeJournal() {
 
             <div className="flex flex-col gap-5">
                 <textarea
-                    value={raw}
+                    className="w-full resize-y rounded-md border border-border bg-muted/20 px-3 py-2 font-mono text-xs text-foreground placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary focus:outline-none"
                     onChange={(e) => setRaw(e.target.value)}
                     placeholder={PLACEHOLDER}
                     rows={5}
-                    className="w-full resize-y rounded-md border border-border bg-muted/20 px-3 py-2 font-mono text-xs text-foreground placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary focus:outline-none"
+                    value={raw}
                 />
 
                 {trades.length > 0 && trades.length < 2 && (
@@ -226,13 +197,13 @@ export default function TradeJournal() {
                         <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
                             <StatCell
                                 label="Trades"
-                                value={String(stats.n)}
                                 sub={`${stats.wins}W · ${stats.losses}L`}
+                                value={String(stats.n)}
                             />
                             <StatCell
                                 label="Win rate (actual)"
-                                value={formatPercent(stats.winrate)}
                                 sub={`break-even: ${formatPercent(stats.breakEvenWR)}`}
+                                value={formatPercent(stats.winrate)}
                                 valueClass={
                                     stats.edgeMargin > 0
                                         ? 'text-emerald-400'
@@ -241,28 +212,28 @@ export default function TradeJournal() {
                             />
                             <StatCell
                                 label="Avg RR (actual)"
-                                value={`${stats.rrActual.toFixed(2)}:1`}
                                 sub={`+${stats.avgWin.toFixed(2)}R win · −${stats.avgLoss.toFixed(2)}R loss`}
+                                value={`${stats.rrActual.toFixed(2)}:1`}
                             />
                             <StatCell
                                 label="Expectancy"
-                                value={formatR(stats.expectancy)}
                                 sub="per trade"
+                                value={formatR(stats.expectancy)}
                                 valueClass={expClass}
                             />
                             <StatCell
                                 label="Profit factor"
-                                value={
-                                    !isFinite(stats.profitFactor)
-                                        ? '∞'
-                                        : stats.profitFactor.toFixed(2)
-                                }
                                 sub={
                                     stats.profitFactor > 1.5
                                         ? 'healthy'
                                         : stats.profitFactor > 1
                                           ? 'marginal'
                                           : 'losing'
+                                }
+                                value={
+                                    Number.isFinite(stats.profitFactor)
+                                        ? stats.profitFactor.toFixed(2)
+                                        : '∞'
                                 }
                                 valueClass={pfClass}
                             />
@@ -277,11 +248,6 @@ export default function TradeJournal() {
                             />
                             <StatCell
                                 label="Z-score"
-                                value={
-                                    stats.zScore !== null
-                                        ? stats.zScore.toFixed(2)
-                                        : 'N/A'
-                                }
                                 sub={
                                     stats.zScore === null
                                         ? 'no edge detected'
@@ -291,21 +257,26 @@ export default function TradeJournal() {
                                             ? 'moderate (80% CI)'
                                             : 'weak — need more trades'
                                 }
+                                value={
+                                    stats.zScore === null
+                                        ? 'N/A'
+                                        : stats.zScore.toFixed(2)
+                                }
                                 valueClass={zClass}
                             />
                             <StatCell
                                 label="Min trades (95% CI)"
-                                value={
-                                    stats.minTrades95 !== null
-                                        ? String(stats.minTrades95)
-                                        : '—'
-                                }
                                 sub={
                                     stats.n >= (stats.minTrades95 ?? Infinity)
                                         ? '✓ reached'
-                                        : stats.minTrades95 !== null
-                                          ? `${stats.minTrades95 - stats.n} more needed`
-                                          : ''
+                                        : stats.minTrades95 === null
+                                          ? ''
+                                          : `${stats.minTrades95 - stats.n} more needed`
+                                }
+                                value={
+                                    stats.minTrades95 === null
+                                        ? '—'
+                                        : String(stats.minTrades95)
                                 }
                                 valueClass={
                                     stats.minTrades95 !== null &&
@@ -322,43 +293,43 @@ export default function TradeJournal() {
                                     Cumulative R equity curve
                                 </p>
                                 <ChartContainer
-                                    config={equityConfig}
                                     className="h-48 w-full"
+                                    config={equityConfig}
                                 >
                                     <LineChart
                                         data={stats.equityCurve}
                                         margin={{
-                                            top: 4,
-                                            right: 8,
-                                            left: 0,
                                             bottom: 4,
+                                            left: 0,
+                                            right: 8,
+                                            top: 4,
                                         }}
                                     >
                                         <CartesianGrid
-                                            strokeDasharray="3 3"
-                                            stroke="#ccc"
                                             opacity={0.2}
+                                            stroke="#ccc"
+                                            strokeDasharray="3 3"
                                         />
                                         <XAxis
-                                            dataKey="trade"
-                                            tickLine={false}
                                             axisLine={false}
+                                            dataKey="trade"
                                             tick={{ fontSize: 10 }}
+                                            tickLine={false}
                                         />
                                         <YAxis
-                                            tickLine={false}
                                             axisLine={false}
-                                            width={36}
                                             tick={{ fontSize: 10 }}
                                             tickFormatter={(v: number) =>
                                                 `${v > 0 ? '+' : ''}${v.toFixed(1)}R`
                                             }
+                                            tickLine={false}
+                                            width={36}
                                         />
                                         <ReferenceLine
-                                            y={0}
                                             stroke="hsl(var(--muted-foreground))"
                                             strokeDasharray="4 2"
                                             strokeOpacity={0.5}
+                                            y={0}
                                         />
                                         <Tooltip
                                             formatter={(v: unknown) => {
@@ -373,12 +344,12 @@ export default function TradeJournal() {
                                             }
                                         />
                                         <Line
-                                            type="monotone"
                                             dataKey="cumR"
-                                            stroke="hsl(142 76% 45%)"
-                                            strokeWidth={1.5}
                                             dot={false}
                                             isAnimationActive={false}
+                                            stroke="hsl(142 76% 45%)"
+                                            strokeWidth={1.5}
+                                            type="monotone"
                                         />
                                     </LineChart>
                                 </ChartContainer>
@@ -390,55 +361,55 @@ export default function TradeJournal() {
                                         Rolling 20-trade win rate (edge drift)
                                     </p>
                                     <ChartContainer
-                                        config={rollingConfig}
                                         className="h-48 w-full"
+                                        config={rollingConfig}
                                     >
                                         <LineChart
                                             data={stats.rollingWR}
                                             margin={{
-                                                top: 4,
-                                                right: 8,
-                                                left: 0,
                                                 bottom: 4,
+                                                left: 0,
+                                                right: 8,
+                                                top: 4,
                                             }}
                                         >
                                             <CartesianGrid
-                                                strokeDasharray="3 3"
-                                                stroke="#ccc"
                                                 opacity={0.2}
+                                                stroke="#ccc"
+                                                strokeDasharray="3 3"
                                             />
                                             <XAxis
-                                                dataKey="trade"
-                                                tickLine={false}
                                                 axisLine={false}
+                                                dataKey="trade"
                                                 tick={{ fontSize: 10 }}
+                                                tickLine={false}
                                             />
                                             <YAxis
-                                                tickLine={false}
                                                 axisLine={false}
-                                                width={36}
                                                 domain={[0, 1]}
                                                 tick={{ fontSize: 10 }}
                                                 tickFormatter={(v: number) =>
                                                     formatPercent(v)
                                                 }
+                                                tickLine={false}
+                                                width={36}
                                             />
                                             <ReferenceLine
-                                                y={stats.breakEvenWR}
+                                                label={{
+                                                    fill: 'hsl(var(--destructive))',
+                                                    fontSize: 10,
+                                                    value: 'Break-even',
+                                                }}
                                                 stroke="hsl(var(--destructive))"
                                                 strokeDasharray="4 2"
                                                 strokeOpacity={0.7}
-                                                label={{
-                                                    value: 'Break-even',
-                                                    fontSize: 10,
-                                                    fill: 'hsl(var(--destructive))',
-                                                }}
+                                                y={stats.breakEvenWR}
                                             />
                                             <ReferenceLine
-                                                y={stats.winrate}
                                                 stroke="hsl(142 76% 45%)"
                                                 strokeDasharray="4 2"
                                                 strokeOpacity={0.5}
+                                                y={stats.winrate}
                                             />
                                             <Tooltip
                                                 formatter={(v: unknown) => [
@@ -450,12 +421,12 @@ export default function TradeJournal() {
                                                 }
                                             />
                                             <Line
-                                                type="monotone"
                                                 dataKey="wr20"
-                                                stroke="hsl(217 91% 60%)"
-                                                strokeWidth={1.5}
                                                 dot={false}
                                                 isAnimationActive={false}
+                                                stroke="hsl(217 91% 60%)"
+                                                strokeWidth={1.5}
+                                                type="monotone"
                                             />
                                         </LineChart>
                                     </ChartContainer>
@@ -473,5 +444,34 @@ export default function TradeJournal() {
                 )}
             </div>
         </Card>
+    );
+}
+
+function StatCell({
+    label,
+    sub,
+    value,
+    valueClass,
+}: {
+    label: string;
+    sub?: string;
+    value: string;
+    valueClass?: string;
+}) {
+    return (
+        <div className="flex flex-col gap-0.5">
+            <span className="text-[11px] text-muted-foreground">{label}</span>
+            <span
+                className={cn(
+                    'font-mono text-sm font-semibold tabular-nums',
+                    valueClass,
+                )}
+            >
+                {value}
+            </span>
+            {sub && (
+                <span className="text-[10px] text-muted-foreground">{sub}</span>
+            )}
+        </div>
     );
 }

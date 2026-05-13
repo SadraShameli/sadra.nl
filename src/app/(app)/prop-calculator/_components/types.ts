@@ -2,31 +2,17 @@ import {
     type CorrelationMode,
     type DayStopRule,
     type FirmId,
-    type MultiAccountResult,
     type Plan,
     type PlanId,
     type PropFirm,
 } from '~/lib/prop-calculator';
 
-export type { CorrelationMode, DayStopRule, MultiAccountResult };
-
-export interface PortfolioEntryMemory {
-    planId: PlanId;
-    count: number;
-    evalDiscountPercent: number;
-    activationDiscountPercent: number;
-    linkActivationDiscount: boolean;
-}
-
-export interface PortfolioEntry {
-    id: string;
-    firmId: FirmId;
-    planId: PlanId;
-    count: number;
-    evalDiscountPercent: number;
-    activationDiscountPercent: number;
-    linkActivationDiscount: boolean;
-    memory: Partial<Record<FirmId, PortfolioEntryMemory>>;
+export enum ChartType {
+    DaysToPassHistogram = 'days-to-pass-hist',
+    Drawdown = 'drawdown',
+    Equity = 'equity',
+    FinalBalanceHistogram = 'final-balance-hist',
+    PassRate = 'pass-rate',
 }
 
 export enum SizingMode {
@@ -34,54 +20,71 @@ export enum SizingMode {
     Percent = 'percent',
 }
 
-export enum ChartType {
-    Equity = 'equity',
-    Drawdown = 'drawdown',
-    PassRate = 'pass-rate',
-    FinalBalanceHistogram = 'final-balance-hist',
-    DaysToPassHistogram = 'days-to-pass-hist',
-}
-
-export interface FirmMemoryEntry {
-    planId: PlanId;
+export interface CalculatorState {
+    activationDiscountPercent: number;
+    commissionPerRoundTrip: number;
     copyAccounts: number;
+    dayStop: DayStopRule;
+    evalDiscountPercent: number;
+    firm: PropFirm;
+    firmMemory: FirmMemory;
+    fundedHorizonDays: number;
+    labScenarios: LabScenario[];
+    linkActivationDiscount: boolean;
+    maxAttempts: number;
+    maxEvalDays: number;
+    plan: Plan;
+    riskDollars: number;
+    riskPercent: number;
+    rrRatio: number;
+    seed: number;
+    sizingMode: SizingMode;
+    tradesPerDay: number;
+    trials: number;
+    winrate: number;
 }
 
 export type FirmMemory = Partial<Record<FirmId, FirmMemoryEntry>>;
 
+export interface FirmMemoryEntry {
+    copyAccounts: number;
+    planId: PlanId;
+}
+
 export interface LabScenario {
+    accounts: number;
+    correlation: CorrelationMode;
+    dayStop: DayStopRule;
+    groups: number;
     id: string;
     label: string;
     riskPerTrade: number;
-    winrate: number;
     rrRatio: number;
     tradesPerDay: number;
-    accounts: number;
-    correlation: CorrelationMode;
-    groups: number;
-    dayStop: DayStopRule;
+    winrate: number;
 }
 
-export interface CalculatorState {
-    firm: PropFirm;
-    plan: Plan;
-    winrate: number;
-    rrRatio: number;
-    tradesPerDay: number;
-    sizingMode: SizingMode;
-    riskDollars: number;
-    riskPercent: number;
-    seed: number;
-    trials: number;
-    maxEvalDays: number;
-    fundedHorizonDays: number;
-    evalDiscountPercent: number;
+export interface PortfolioEntry {
     activationDiscountPercent: number;
+    count: number;
+    evalDiscountPercent: number;
+    firmId: FirmId;
+    id: string;
     linkActivationDiscount: boolean;
-    commissionPerRoundTrip: number;
-    maxAttempts: number;
-    copyAccounts: number;
-    firmMemory: FirmMemory;
-    dayStop: DayStopRule;
-    labScenarios: LabScenario[];
+    memory: Partial<Record<FirmId, PortfolioEntryMemory>>;
+    planId: PlanId;
 }
+
+export interface PortfolioEntryMemory {
+    activationDiscountPercent: number;
+    count: number;
+    evalDiscountPercent: number;
+    linkActivationDiscount: boolean;
+    planId: PlanId;
+}
+
+export {
+    type CorrelationMode,
+    type DayStopRule,
+    type MultiAccountResult,
+} from '~/lib/prop-calculator';

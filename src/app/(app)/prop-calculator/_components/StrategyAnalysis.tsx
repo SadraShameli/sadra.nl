@@ -16,193 +16,23 @@ import InfoPopover from './InfoPopover';
 import { panelDescriptions } from './kpiDescriptions';
 
 interface StrategyAnalysisProps {
+    copyAccounts: number;
+    fundedHorizonDays: number;
     plan: Plan;
     result: SimOutputs;
-    winrate: number;
-    rrRatio: number;
     riskPerTrade: number;
-    fundedHorizonDays: number;
-    copyAccounts: number;
-}
-
-function localStdDev(arr: readonly number[]): number {
-    if (arr.length === 0) return 0;
-    const m = arr.reduce((s, v) => s + v, 0) / arr.length;
-    return Math.sqrt(arr.reduce((s, v) => s + (v - m) ** 2, 0) / arr.length);
-}
-
-function Metric({
-    label,
-    value,
-    sub,
-    valueClass,
-}: {
-    label: string;
-    value: string;
-    sub?: string;
-    valueClass?: string;
-}) {
-    return (
-        <div className="flex flex-col gap-0.5">
-            <span className="text-[11px] text-muted-foreground">{label}</span>
-            <span
-                className={cn(
-                    'font-mono text-sm font-semibold tabular-nums',
-                    valueClass,
-                )}
-            >
-                {value}
-            </span>
-            {sub && (
-                <span className="text-[10px] text-muted-foreground">{sub}</span>
-            )}
-        </div>
-    );
-}
-
-function RatioCard({
-    label,
-    value,
-    bench,
-    color,
-}: {
-    label: string;
-    value: string;
-    bench: string;
-    color: string;
-}) {
-    return (
-        <div className="flex flex-col gap-1 rounded-md border border-border/50 bg-muted/20 px-3 py-2.5">
-            <span className="text-[11px] text-muted-foreground">{label}</span>
-            <span
-                className={cn(
-                    'font-mono text-lg leading-none font-bold tabular-nums',
-                    color,
-                )}
-            >
-                {value}
-            </span>
-            <span className={cn('text-[10px]', color)}>{bench}</span>
-        </div>
-    );
-}
-
-function SectionHeader({
-    title,
-    description,
-}: {
-    title: string;
-    description: string;
-}) {
-    return (
-        <div className="mb-3 flex items-center gap-2">
-            <h4 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                {title}
-            </h4>
-            <InfoPopover title={title}>{description}</InfoPopover>
-        </div>
-    );
-}
-
-function kellyColor(i: number): string {
-    if (i > 1.0) return 'text-rose-400';
-    if (i > 0.75) return 'text-amber-400';
-    if (i >= 0.25) return 'text-emerald-400';
-    return 'text-amber-400';
-}
-function kellyLabel(i: number): string {
-    if (i > 1.0) return 'over-betting';
-    if (i > 0.75) return 'high variance';
-    if (i >= 0.25) return 'optimal zone';
-    return 'under-betting';
-}
-function zColor(z: number): string {
-    if (z >= 1.645) return 'text-emerald-400';
-    if (z >= 1.28) return 'text-amber-400';
-    return 'text-rose-400';
-}
-function zLabel(z: number): string {
-    if (z >= 1.645) return 'strong (95% CI)';
-    if (z >= 1.28) return 'moderate (80% CI)';
-    return 'weak';
-}
-
-function sharpeColor(v: number): string {
-    if (v > 2) return 'text-emerald-400';
-    if (v > 1) return 'text-green-400';
-    if (v > 0.5) return 'text-amber-400';
-    return 'text-rose-400';
-}
-function sharpeBench(v: number): string {
-    if (v > 2) return 'excellent';
-    if (v > 1) return 'good';
-    if (v > 0.5) return 'acceptable';
-    return 'poor';
-}
-function calmarColor(v: number): string {
-    if (v > 3) return 'text-emerald-400';
-    if (v > 2) return 'text-green-400';
-    if (v > 1) return 'text-amber-400';
-    return 'text-rose-400';
-}
-function calmarBench(v: number): string {
-    if (v > 3) return 'excellent';
-    if (v > 2) return 'good';
-    if (v > 1) return 'acceptable';
-    return 'poor';
-}
-function omegaColor(v: number): string {
-    if (v > 2) return 'text-emerald-400';
-    if (v > 1) return 'text-amber-400';
-    return 'text-rose-400';
-}
-function omegaBench(v: number): string {
-    if (v > 2) return 'strong';
-    if (v > 1) return 'acceptable';
-    return 'losing';
-}
-function pfColor(v: number): string {
-    if (v > 1.5) return 'text-emerald-400';
-    if (v > 1) return 'text-amber-400';
-    return 'text-rose-400';
-}
-function pfBench(v: number): string {
-    if (v > 1.5) return 'healthy';
-    if (v > 1) return 'marginal';
-    return 'losing';
-}
-function sortinoColor(v: number): string {
-    if (v > 2) return 'text-emerald-400';
-    if (v > 1) return 'text-green-400';
-    if (v > 0.5) return 'text-amber-400';
-    return 'text-rose-400';
-}
-function sortinoBench(v: number): string {
-    if (v > 2) return 'excellent';
-    if (v > 1) return 'good';
-    if (v > 0.5) return 'acceptable';
-    return 'poor';
-}
-function gainToPainColor(v: number): string {
-    if (v > 3) return 'text-emerald-400';
-    if (v > 1.5) return 'text-green-400';
-    if (v > 1) return 'text-amber-400';
-    return 'text-rose-400';
-}
-function ulcerColor(v: number): string {
-    if (v < 3) return 'text-emerald-400';
-    if (v < 8) return 'text-amber-400';
-    return 'text-rose-400';
+    rrRatio: number;
+    winrate: number;
 }
 
 export default function StrategyAnalysis({
+    copyAccounts,
+    fundedHorizonDays,
     plan,
     result,
-    winrate,
-    rrRatio,
     riskPerTrade,
-    fundedHorizonDays,
-    copyAccounts,
+    rrRatio,
+    winrate,
 }: StrategyAnalysisProps) {
     const accounts = Math.max(1, Math.floor(copyAccounts));
     const edge = useMemo(() => {
@@ -229,13 +59,13 @@ export default function StrategyAnalysis({
 
         return {
             breakEvenWR,
+            currentRiskPct,
             edgeMargin,
             fullKelly,
             halfKelly,
-            currentRiskPct,
             kellyIndex,
-            zScore,
             minTrades,
+            zScore,
         };
     }, [
         winrate,
@@ -247,10 +77,10 @@ export default function StrategyAnalysis({
 
     const ratios = useMemo(() => {
         const {
-            finalBalances,
             accountSize,
             expectedMonthlyNet,
             expectedNet,
+            finalBalances,
             maxDrawdownP50,
             profitFactor,
         } = result;
@@ -320,13 +150,13 @@ export default function StrategyAnalysis({
                 : 0;
 
         return {
-            sharpe,
             calmar,
-            recovery,
+            gainToPain,
             omega,
             profitFactor,
+            recovery,
+            sharpe,
             sortino,
-            gainToPain,
             ulcerIndex,
         };
     }, [result, fundedHorizonDays, accounts]);
@@ -352,22 +182,22 @@ export default function StrategyAnalysis({
             if (b < minBal) minBal = b;
             if (b > maxBal) maxBal = b;
         }
-        if (!isFinite(minBal)) minBal = accountSize;
-        if (!isFinite(maxBal)) maxBal = accountSize;
+        if (!Number.isFinite(minBal)) minBal = accountSize;
+        if (!Number.isFinite(maxBal)) maxBal = accountSize;
 
         return {
-            yearlyPct,
-            monthlyPct,
-            weeklyPct,
-            perTradePct,
-            tradesPerPass,
-            wins,
-            losses,
-            sumR,
-            avgWin,
             avgLoss,
-            minBal,
+            avgWin,
+            losses,
             maxBal,
+            minBal,
+            monthlyPct,
+            perTradePct,
+            sumR,
+            tradesPerPass,
+            weeklyPct,
+            wins,
+            yearlyPct,
         };
     }, [
         plan.accountSize,
@@ -382,7 +212,9 @@ export default function StrategyAnalysis({
         accounts,
     ]);
 
-    const omegaStr = !isFinite(ratios.omega) ? '∞' : ratios.omega.toFixed(2);
+    const omegaStr = Number.isFinite(ratios.omega)
+        ? ratios.omega.toFixed(2)
+        : '∞';
 
     return (
         <Card className="px-5 py-5">
@@ -396,14 +228,14 @@ export default function StrategyAnalysis({
             <div className="flex flex-col gap-6">
                 <section>
                     <SectionHeader
-                        title="Returns Breakdown"
                         description={panelDescriptions.returnsBreakdown}
+                        title="Returns Breakdown"
                     />
                     <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
                         <Metric
                             label="Annualized ROI"
-                            value={`${(breakdown.yearlyPct * 100).toFixed(2)}% / yr`}
                             sub={`${(breakdown.monthlyPct * 100).toFixed(2)}%/mo · ${(breakdown.weeklyPct * 100).toFixed(2)}%/wk · ${(breakdown.perTradePct * 100).toFixed(3)}%/trade`}
+                            value={`${(breakdown.yearlyPct * 100).toFixed(2)}% / yr`}
                             valueClass={
                                 breakdown.yearlyPct > 0
                                     ? 'text-emerald-400'
@@ -412,30 +244,30 @@ export default function StrategyAnalysis({
                         />
                         <Metric
                             label="Avg trade size"
-                            value={`+${formatCurrency(breakdown.avgWin)} / −${formatCurrency(breakdown.avgLoss)}`}
                             sub={`${rrRatio.toFixed(2)}:1 reward-to-risk`}
+                            value={`+${formatCurrency(breakdown.avgWin)} / −${formatCurrency(breakdown.avgLoss)}`}
                         />
                         <Metric
                             label="Trades per pass"
-                            value={
-                                breakdown.tradesPerPass > 0
-                                    ? `${breakdown.tradesPerPass} trades`
-                                    : '—'
-                            }
                             sub={
                                 breakdown.tradesPerPass > 0
                                     ? `${breakdown.wins}W · ${breakdown.losses}L · ${formatPercent(winrate)} WR`
                                     : 'no passing trials'
                             }
+                            value={
+                                breakdown.tradesPerPass > 0
+                                    ? `${breakdown.tradesPerPass} trades`
+                                    : '—'
+                            }
                         />
                         <Metric
                             label="Sum R per pass"
+                            sub={`+${rrRatio.toFixed(2)}R win · −1.00R loss`}
                             value={
                                 breakdown.tradesPerPass > 0
                                     ? `${breakdown.sumR >= 0 ? '+' : ''}${breakdown.sumR.toFixed(1)}R`
                                     : '—'
                             }
-                            sub={`+${rrRatio.toFixed(2)}R win · −1.00R loss`}
                             valueClass={
                                 breakdown.sumR > 0
                                     ? 'text-emerald-400'
@@ -446,13 +278,13 @@ export default function StrategyAnalysis({
                         />
                         <Metric
                             label="Drawdown %"
-                            value={`${((result.maxDrawdownP50 / plan.accountSize) * 100).toFixed(2)}% avg`}
                             sub={`P95 ${((result.maxDrawdownP95 / plan.accountSize) * 100).toFixed(2)}% worst`}
+                            value={`${((result.maxDrawdownP50 / plan.accountSize) * 100).toFixed(2)}% avg`}
                         />
                         <Metric
                             label="Balance range"
-                            value={`${formatCompactCurrency(breakdown.minBal)} – ${formatCompactCurrency(breakdown.maxBal)}`}
                             sub={`across ${result.finalBalances.length.toLocaleString()} trials`}
+                            value={`${formatCompactCurrency(breakdown.minBal)} – ${formatCompactCurrency(breakdown.maxBal)}`}
                         />
                     </div>
                 </section>
@@ -461,37 +293,35 @@ export default function StrategyAnalysis({
 
                 <section>
                     <SectionHeader
-                        title="Risk-Adjusted Returns"
                         description={panelDescriptions.riskReturn}
+                        title="Risk-Adjusted Returns"
                     />
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                         <RatioCard
-                            label="Profit factor"
-                            value={ratios.profitFactor.toFixed(2)}
                             bench={pfBench(ratios.profitFactor)}
                             color={pfColor(ratios.profitFactor)}
+                            label="Profit factor"
+                            value={ratios.profitFactor.toFixed(2)}
                         />
                         <RatioCard
-                            label="Sharpe (ann.)"
-                            value={ratios.sharpe.toFixed(2)}
                             bench={sharpeBench(ratios.sharpe)}
                             color={sharpeColor(ratios.sharpe)}
+                            label="Sharpe (ann.)"
+                            value={ratios.sharpe.toFixed(2)}
                         />
                         <RatioCard
-                            label="Sortino (ann.)"
-                            value={ratios.sortino.toFixed(2)}
                             bench={sortinoBench(ratios.sortino)}
                             color={sortinoColor(ratios.sortino)}
+                            label="Sortino (ann.)"
+                            value={ratios.sortino.toFixed(2)}
                         />
                         <RatioCard
-                            label="Calmar"
-                            value={ratios.calmar.toFixed(2)}
                             bench={calmarBench(ratios.calmar)}
                             color={calmarColor(ratios.calmar)}
+                            label="Calmar"
+                            value={ratios.calmar.toFixed(2)}
                         />
                         <RatioCard
-                            label="Recovery factor"
-                            value={ratios.recovery.toFixed(2)}
                             bench={
                                 ratios.recovery > 1
                                     ? 'net > max DD'
@@ -502,20 +332,16 @@ export default function StrategyAnalysis({
                                     ? 'text-emerald-400'
                                     : 'text-rose-400'
                             }
+                            label="Recovery factor"
+                            value={ratios.recovery.toFixed(2)}
                         />
                         <RatioCard
-                            label="Omega ratio"
-                            value={omegaStr}
                             bench={omegaBench(ratios.omega)}
                             color={omegaColor(ratios.omega)}
+                            label="Omega ratio"
+                            value={omegaStr}
                         />
                         <RatioCard
-                            label="Gain-to-pain"
-                            value={
-                                !isFinite(ratios.gainToPain)
-                                    ? '∞'
-                                    : ratios.gainToPain.toFixed(2)
-                            }
                             bench={
                                 ratios.gainToPain > 1.5
                                     ? 'strong'
@@ -524,10 +350,14 @@ export default function StrategyAnalysis({
                                       : 'losing'
                             }
                             color={gainToPainColor(ratios.gainToPain)}
+                            label="Gain-to-pain"
+                            value={
+                                Number.isFinite(ratios.gainToPain)
+                                    ? ratios.gainToPain.toFixed(2)
+                                    : '∞'
+                            }
                         />
                         <RatioCard
-                            label="Ulcer index"
-                            value={ratios.ulcerIndex.toFixed(1)}
                             bench={
                                 ratios.ulcerIndex < 3
                                     ? 'low DD pain'
@@ -536,6 +366,8 @@ export default function StrategyAnalysis({
                                       : 'high DD pain'
                             }
                             color={ulcerColor(ratios.ulcerIndex)}
+                            label="Ulcer index"
+                            value={ratios.ulcerIndex.toFixed(1)}
                         />
                     </div>
                 </section>
@@ -544,8 +376,8 @@ export default function StrategyAnalysis({
 
                 <section>
                     <SectionHeader
-                        title="Edge"
                         description={panelDescriptions.strategyDNA}
+                        title="Edge"
                     />
                     <div className="grid gap-6 sm:grid-cols-3">
                         <div className="flex flex-col gap-3">
@@ -596,7 +428,13 @@ export default function StrategyAnalysis({
                                     ),
                                 )}
                             />
-                            {edge.zScore !== null ? (
+                            {edge.zScore === null ? (
+                                <Metric
+                                    label="Z-score"
+                                    value="N/A — no edge"
+                                    valueClass="text-muted-foreground"
+                                />
+                            ) : (
                                 <>
                                     <div className="flex flex-col gap-0.5">
                                         <span className="text-[11px] text-muted-foreground">
@@ -617,18 +455,12 @@ export default function StrategyAnalysis({
                                     <Metric
                                         label="Min trades (95% CI)"
                                         value={
-                                            edge.minTrades !== null
-                                                ? String(edge.minTrades)
-                                                : '—'
+                                            edge.minTrades === null
+                                                ? '—'
+                                                : String(edge.minTrades)
                                         }
                                     />
                                 </>
-                            ) : (
-                                <Metric
-                                    label="Z-score"
-                                    value="N/A — no edge"
-                                    valueClass="text-muted-foreground"
-                                />
                             )}
                         </div>
                         <div className="flex flex-col gap-3">
@@ -679,4 +511,174 @@ export default function StrategyAnalysis({
             </div>
         </Card>
     );
+}
+
+function calmarBench(v: number): string {
+    if (v > 3) return 'excellent';
+    if (v > 2) return 'good';
+    if (v > 1) return 'acceptable';
+    return 'poor';
+}
+
+function calmarColor(v: number): string {
+    if (v > 3) return 'text-emerald-400';
+    if (v > 2) return 'text-green-400';
+    if (v > 1) return 'text-amber-400';
+    return 'text-rose-400';
+}
+
+function gainToPainColor(v: number): string {
+    if (v > 3) return 'text-emerald-400';
+    if (v > 1.5) return 'text-green-400';
+    if (v > 1) return 'text-amber-400';
+    return 'text-rose-400';
+}
+
+function kellyColor(i: number): string {
+    if (i > 1) return 'text-rose-400';
+    if (i > 0.75) return 'text-amber-400';
+    if (i >= 0.25) return 'text-emerald-400';
+    return 'text-amber-400';
+}
+function kellyLabel(i: number): string {
+    if (i > 1) return 'over-betting';
+    if (i > 0.75) return 'high variance';
+    if (i >= 0.25) return 'optimal zone';
+    return 'under-betting';
+}
+function localStdDev(arr: readonly number[]): number {
+    if (arr.length === 0) return 0;
+    const m = arr.reduce((s, v) => s + v, 0) / arr.length;
+    return Math.sqrt(arr.reduce((s, v) => s + (v - m) ** 2, 0) / arr.length);
+}
+function Metric({
+    label,
+    sub,
+    value,
+    valueClass,
+}: {
+    label: string;
+    sub?: string;
+    value: string;
+    valueClass?: string;
+}) {
+    return (
+        <div className="flex flex-col gap-0.5">
+            <span className="text-[11px] text-muted-foreground">{label}</span>
+            <span
+                className={cn(
+                    'font-mono text-sm font-semibold tabular-nums',
+                    valueClass,
+                )}
+            >
+                {value}
+            </span>
+            {sub && (
+                <span className="text-[10px] text-muted-foreground">{sub}</span>
+            )}
+        </div>
+    );
+}
+
+function omegaBench(v: number): string {
+    if (v > 2) return 'strong';
+    if (v > 1) return 'acceptable';
+    return 'losing';
+}
+function omegaColor(v: number): string {
+    if (v > 2) return 'text-emerald-400';
+    if (v > 1) return 'text-amber-400';
+    return 'text-rose-400';
+}
+function pfBench(v: number): string {
+    if (v > 1.5) return 'healthy';
+    if (v > 1) return 'marginal';
+    return 'losing';
+}
+function pfColor(v: number): string {
+    if (v > 1.5) return 'text-emerald-400';
+    if (v > 1) return 'text-amber-400';
+    return 'text-rose-400';
+}
+function RatioCard({
+    bench,
+    color,
+    label,
+    value,
+}: {
+    bench: string;
+    color: string;
+    label: string;
+    value: string;
+}) {
+    return (
+        <div className="flex flex-col gap-1 rounded-md border border-border/50 bg-muted/20 px-3 py-2.5">
+            <span className="text-[11px] text-muted-foreground">{label}</span>
+            <span
+                className={cn(
+                    'font-mono text-lg leading-none font-bold tabular-nums',
+                    color,
+                )}
+            >
+                {value}
+            </span>
+            <span className={cn('text-[10px]', color)}>{bench}</span>
+        </div>
+    );
+}
+function SectionHeader({
+    description,
+    title,
+}: {
+    description: string;
+    title: string;
+}) {
+    return (
+        <div className="mb-3 flex items-center gap-2">
+            <h4 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                {title}
+            </h4>
+            <InfoPopover title={title}>{description}</InfoPopover>
+        </div>
+    );
+}
+function sharpeBench(v: number): string {
+    if (v > 2) return 'excellent';
+    if (v > 1) return 'good';
+    if (v > 0.5) return 'acceptable';
+    return 'poor';
+}
+function sharpeColor(v: number): string {
+    if (v > 2) return 'text-emerald-400';
+    if (v > 1) return 'text-green-400';
+    if (v > 0.5) return 'text-amber-400';
+    return 'text-rose-400';
+}
+function sortinoBench(v: number): string {
+    if (v > 2) return 'excellent';
+    if (v > 1) return 'good';
+    if (v > 0.5) return 'acceptable';
+    return 'poor';
+}
+function sortinoColor(v: number): string {
+    if (v > 2) return 'text-emerald-400';
+    if (v > 1) return 'text-green-400';
+    if (v > 0.5) return 'text-amber-400';
+    return 'text-rose-400';
+}
+function ulcerColor(v: number): string {
+    if (v < 3) return 'text-emerald-400';
+    if (v < 8) return 'text-amber-400';
+    return 'text-rose-400';
+}
+function zColor(z: number): string {
+    if (z >= 1.645) return 'text-emerald-400';
+    if (z >= 1.28) return 'text-amber-400';
+    return 'text-rose-400';
+}
+
+function zLabel(z: number): string {
+    if (z >= 1.645) return 'strong (95% CI)';
+    if (z >= 1.28) return 'moderate (80% CI)';
+    return 'weak';
 }

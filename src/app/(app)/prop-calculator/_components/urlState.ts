@@ -13,34 +13,36 @@ import {
 } from '~/lib/schemas/url';
 
 import type { CalculatorState, LabScenario } from './types';
+
 import { SizingMode } from './types';
+
+function base64UrlDecode(s: string): string {
+    if (typeof window === 'undefined') return '';
+    try {
+        const padded =
+            s.replaceAll('-', '+').replaceAll('_', '/') +
+            '==='.slice((s.length + 3) % 4);
+        const binary = window.atob(padded);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++)
+            bytes[i] = binary.codePointAt(i) ?? 0;
+        return new TextDecoder().decode(bytes);
+    } catch {
+        return '';
+    }
+}
 
 function base64UrlEncode(s: string): string {
     if (typeof window === 'undefined') return '';
     try {
         const bytes = new TextEncoder().encode(s);
         let binary = '';
-        for (const b of bytes) binary += String.fromCharCode(b);
+        for (const b of bytes) binary += String.fromCodePoint(b);
         return window
             .btoa(binary)
-            .replace(/\+/g, '-')
-            .replace(/\//g, '_')
+            .replaceAll('+', '-')
+            .replaceAll('/', '_')
             .replace(/=+$/, '');
-    } catch {
-        return '';
-    }
-}
-
-function base64UrlDecode(s: string): string {
-    if (typeof window === 'undefined') return '';
-    try {
-        const padded =
-            s.replace(/-/g, '+').replace(/_/g, '/') +
-            '==='.slice((s.length + 3) % 4);
-        const binary = window.atob(padded);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-        return new TextDecoder().decode(bytes);
     } catch {
         return '';
     }
@@ -48,37 +50,6 @@ function base64UrlDecode(s: string): string {
 
 const labScenarioArraySchema = z.array(labScenarioSchema);
 const savedScenarioArraySchema = z.array(savedScenarioRecordSchema);
-
-export function encodeState(state: CalculatorState): URLSearchParams {
-    const p = new URLSearchParams();
-    p.set('firm', state.firm.id);
-    p.set('plan', serializePlanId(state.plan.id));
-    p.set('wr', state.winrate.toFixed(3));
-    p.set('rr', state.rrRatio.toFixed(2));
-    p.set('tpd', String(state.tradesPerDay));
-    p.set('mode', state.sizingMode);
-    p.set('rd', String(state.riskDollars));
-    p.set('rp', state.riskPercent.toFixed(3));
-    p.set('seed', String(state.seed));
-    p.set('trials', String(state.trials));
-    p.set('eval', String(state.evalDiscountPercent));
-    p.set('act', String(state.activationDiscountPercent));
-    p.set('linkAct', state.linkActivationDiscount ? '1' : '0');
-    p.set('comm', String(state.commissionPerRoundTrip));
-    p.set('attempts', String(state.maxAttempts));
-    p.set('copy', String(state.copyAccounts));
-    p.set('maxDays', String(state.maxEvalDays));
-    p.set('fundedDays', String(state.fundedHorizonDays));
-    if (state.dayStop.kind !== 'none') {
-        const ds = base64UrlEncode(JSON.stringify(state.dayStop));
-        if (ds) p.set('ds', ds);
-    }
-    if (state.labScenarios.length > 0) {
-        const lab = base64UrlEncode(JSON.stringify(state.labScenarios));
-        if (lab) p.set('lab', lab);
-    }
-    return p;
-}
 
 export function decodeState(
     params: URLSearchParams,
@@ -132,31 +103,62 @@ export function decodeState(
     }
 
     return {
-        firm: resolvedFirm,
-        plan: resolvedPlan,
-        winrate: num('wr', fallback.winrate),
-        rrRatio: num('rr', fallback.rrRatio),
-        tradesPerDay: intNum('tpd', fallback.tradesPerDay),
-        sizingMode,
-        riskDollars: num('rd', fallback.riskDollars),
-        riskPercent: num('rp', fallback.riskPercent),
-        seed: intNum('seed', fallback.seed),
-        trials: intNum('trials', fallback.trials),
-        maxEvalDays: intNum('maxDays', fallback.maxEvalDays),
-        fundedHorizonDays: intNum('fundedDays', fallback.fundedHorizonDays),
-        evalDiscountPercent: num('eval', fallback.evalDiscountPercent),
         activationDiscountPercent: num(
             'act',
             fallback.activationDiscountPercent,
         ),
-        linkActivationDiscount: params.get('linkAct') === '1',
         commissionPerRoundTrip: num('comm', fallback.commissionPerRoundTrip),
-        maxAttempts: intNum('attempts', fallback.maxAttempts),
         copyAccounts: intNum('copy', fallback.copyAccounts),
-        firmMemory: fallback.firmMemory,
         dayStop,
+        evalDiscountPercent: num('eval', fallback.evalDiscountPercent),
+        firm: resolvedFirm,
+        firmMemory: fallback.firmMemory,
+        fundedHorizonDays: intNum('fundedDays', fallback.fundedHorizonDays),
         labScenarios,
+        linkActivationDiscount: params.get('linkAct') === '1',
+        maxAttempts: intNum('attempts', fallback.maxAttempts),
+        maxEvalDays: intNum('maxDays', fallback.maxEvalDays),
+        plan: resolvedPlan,
+        riskDollars: num('rd', fallback.riskDollars),
+        riskPercent: num('rp', fallback.riskPercent),
+        rrRatio: num('rr', fallback.rrRatio),
+        seed: intNum('seed', fallback.seed),
+        sizingMode,
+        tradesPerDay: intNum('tpd', fallback.tradesPerDay),
+        trials: intNum('trials', fallback.trials),
+        winrate: num('wr', fallback.winrate),
     };
+}
+
+export function encodeState(state: CalculatorState): URLSearchParams {
+    const p = new URLSearchParams();
+    p.set('firm', state.firm.id);
+    p.set('plan', serializePlanId(state.plan.id));
+    p.set('wr', state.winrate.toFixed(3));
+    p.set('rr', state.rrRatio.toFixed(2));
+    p.set('tpd', String(state.tradesPerDay));
+    p.set('mode', state.sizingMode);
+    p.set('rd', String(state.riskDollars));
+    p.set('rp', state.riskPercent.toFixed(3));
+    p.set('seed', String(state.seed));
+    p.set('trials', String(state.trials));
+    p.set('eval', String(state.evalDiscountPercent));
+    p.set('act', String(state.activationDiscountPercent));
+    p.set('linkAct', state.linkActivationDiscount ? '1' : '0');
+    p.set('comm', String(state.commissionPerRoundTrip));
+    p.set('attempts', String(state.maxAttempts));
+    p.set('copy', String(state.copyAccounts));
+    p.set('maxDays', String(state.maxEvalDays));
+    p.set('fundedDays', String(state.fundedHorizonDays));
+    if (state.dayStop.kind !== 'none') {
+        const ds = base64UrlEncode(JSON.stringify(state.dayStop));
+        if (ds) p.set('ds', ds);
+    }
+    if (state.labScenarios.length > 0) {
+        const lab = base64UrlEncode(JSON.stringify(state.labScenarios));
+        if (lab) p.set('lab', lab);
+    }
+    return p;
 }
 
 const SCENARIOS_KEY = 'propCalc.scenarios.v1';

@@ -1,5 +1,7 @@
 import { type AccountState } from './AccountState';
 
+export type DrawdownKind = 'eod-trailing' | 'intraday-trailing' | 'static';
+
 export interface DrawdownLockConfig {
     atProfit: number;
     lockedThreshold: (startingBalance: number) => number;
@@ -10,12 +12,8 @@ export interface DrawdownStrategyInit {
     lock?: DrawdownLockConfig;
 }
 
-export type DrawdownKind = 'eod-trailing' | 'intraday-trailing' | 'static';
-
 export abstract class DrawdownStrategy {
     abstract readonly kind: DrawdownKind;
-
-    constructor(protected readonly init: DrawdownStrategyInit) {}
 
     get amount(): number {
         return this.init.amount;
@@ -25,20 +23,18 @@ export abstract class DrawdownStrategy {
         return this.init.lock;
     }
 
+    constructor(protected readonly init: DrawdownStrategyInit) {}
+
     initialThreshold(startingBalance: number): number {
         return startingBalance - this.init.amount;
     }
 
-    abstract onTrade(state: AccountState, tradePnL: number): void;
-    abstract onDayClose(state: AccountState): void;
-
     isBreached(state: AccountState): boolean {
         return state.balance < state.threshold;
     }
+    abstract onDayClose(state: AccountState): void;
 
-    protected ratchet(state: AccountState, target: number): void {
-        if (target > state.threshold) state.threshold = target;
-    }
+    abstract onTrade(state: AccountState, tradePnL: number): void;
 
     protected maybeLock(state: AccountState): void {
         if (state.thresholdLocked) return;
@@ -50,31 +46,35 @@ export abstract class DrawdownStrategy {
         if (lockedTo > state.threshold) state.threshold = lockedTo;
         state.thresholdLocked = true;
     }
-}
 
-export class IntradayTrailingDrawdown extends DrawdownStrategy {
-    readonly kind = 'intraday-trailing' as const;
-
-    onTrade(state: AccountState, _tradePnL: number): void {
-        if (!state.thresholdLocked) {
-            this.ratchet(state, state.balance - this.init.amount);
-            this.maybeLock(state);
-        }
-    }
-
-    onDayClose(_state: AccountState): void {
-        return;
+    protected ratchet(state: AccountState, target: number): void {
+        if (target > state.threshold) state.threshold = target;
     }
 }
 
 export class EodTrailingDrawdown extends DrawdownStrategy {
     readonly kind = 'eod-trailing' as const;
 
+    onDayClose(state: AccountState): void {
+        if (!state.thresholdLocked) {
+            this.ratchet(state, state.balance - this.init.amount);
+            this.maybeLock(state);
+        }
+    }
+
     onTrade(_state: AccountState, _tradePnL: number): void {
         return;
     }
+}
 
-    onDayClose(state: AccountState): void {
+export class IntradayTrailingDrawdown extends DrawdownStrategy {
+    readonly kind = 'intraday-trailing' as const;
+
+    onDayClose(_state: AccountState): void {
+        return;
+    }
+
+    onTrade(state: AccountState, _tradePnL: number): void {
         if (!state.thresholdLocked) {
             this.ratchet(state, state.balance - this.init.amount);
             this.maybeLock(state);
@@ -85,10 +85,10 @@ export class EodTrailingDrawdown extends DrawdownStrategy {
 export class StaticDrawdown extends DrawdownStrategy {
     readonly kind = 'static' as const;
 
-    onTrade(_state: AccountState, _tradePnL: number): void {
+    onDayClose(_state: AccountState): void {
         return;
     }
-    onDayClose(_state: AccountState): void {
+    onTrade(_state: AccountState, _tradePnL: number): void {
         return;
     }
 }

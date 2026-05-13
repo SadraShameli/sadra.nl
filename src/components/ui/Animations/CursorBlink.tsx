@@ -5,8 +5,8 @@ const defaultVariants: Variants = {
         opacity: [0, 0, 1, 1],
         transition: {
             duration: 1,
-            repeat: Infinity,
             ease: easeOut,
+            repeat: Infinity,
             times: [0, 0.5, 0.5, 1],
         },
     },
@@ -15,9 +15,9 @@ const defaultVariants: Variants = {
 export default function CursorBlinkerAnimation() {
     return (
         <motion.div
-            variants={defaultVariants}
             animate="blinking"
             className="ml-2 inline-block h-3/4 w-[1.5px] translate-y-1 bg-white opacity-0"
+            variants={defaultVariants}
         />
     );
 }

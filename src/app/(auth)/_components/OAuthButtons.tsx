@@ -9,11 +9,11 @@ import GoogleIcon from '~/components/ui/Icons/Google';
 import { signInWithGithub, signInWithGoogle } from '~/lib/auth-actions';
 
 export function OAuthButtons({
-    hasGoogle,
     hasGithub,
+    hasGoogle,
 }: {
-    hasGoogle: boolean;
     hasGithub: boolean;
+    hasGoogle: boolean;
 }) {
     const [pendingGoogle, startGoogle] = useTransition();
     const [pendingGithub, startGithub] = useTransition();
@@ -26,13 +26,13 @@ export function OAuthButtons({
         <div className="flex flex-col gap-2">
             {hasGoogle && (
                 <Button
-                    type="button"
-                    variant="outline"
                     className="w-full"
                     disabled={pendingGoogle}
                     onClick={() =>
                         startGoogle(() => signInWithGoogle({ callbackUrl }))
                     }
+                    type="button"
+                    variant="outline"
                 >
                     <GoogleIcon className="size-4" />
                     {pendingGoogle ? 'Redirecting…' : 'Continue with Google'}
@@ -40,15 +40,15 @@ export function OAuthButtons({
             )}
             {hasGithub && (
                 <Button
-                    type="button"
-                    variant="outline"
                     className="w-full"
                     disabled={pendingGithub}
                     onClick={() =>
                         startGithub(() => signInWithGithub({ callbackUrl }))
                     }
+                    type="button"
+                    variant="outline"
                 >
-                    <GithubIcon colored className="size-4" />
+                    <GithubIcon className="size-4" colored />
                     {pendingGithub ? 'Redirecting…' : 'Continue with GitHub'}
                 </Button>
             )}

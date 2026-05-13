@@ -10,8 +10,8 @@ import {
 import { useRef } from 'react';
 
 type StaggerProps = {
-    className?: string;
     children?: React.ReactNode[];
+    className?: string;
 };
 
 const defaultVariants: Variants = {
@@ -21,23 +21,23 @@ const defaultVariants: Variants = {
     },
     visible: (index: number) => ({
         opacity: 1,
-        x: 0,
         transition: {
             delay: 0.1 * index,
             ease: easeOut,
         },
+        x: 0,
     }),
 };
 
 const defaultTransition: Transition = {
+    delay: 0.2,
     duration: 0.25,
     staggerChildren: 0.2,
-    delay: 0.2,
 };
 
 export default function StaggerAnimation({
-    className,
     children,
+    className,
 }: StaggerProps) {
     const ref = useRef(null);
     const isInView = useInView(ref, { once: true });
@@ -47,11 +47,11 @@ export default function StaggerAnimation({
             {children?.map((child, index) => {
                 return (
                     <motion.li
-                        variants={defaultVariants}
                         animate={isInView ? 'visible' : 'hidden'}
-                        transition={defaultTransition}
                         custom={index}
                         key={index}
+                        transition={defaultTransition}
+                        variants={defaultVariants}
                     >
                         {child}
                     </motion.li>

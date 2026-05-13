@@ -18,9 +18,9 @@ import Navbar from './_components/Navbar';
 import ScrollToTop from './_components/ScrollToTop';
 
 export const metadata: Metadata = {
-    title: siteContent.metaTitle,
     description: siteContent.metaDescription,
     icons: { icon: '/favicon.ico' },
+    title: siteContent.metaTitle,
 };
 
 export default async function RootLayout({
@@ -32,11 +32,11 @@ export default async function RootLayout({
 
     return (
         <html
-            lang="en"
             className="dark scroll-smooth antialiased"
             data-scroll-behavior="smooth"
+            lang="en"
         >
-            <meta name="theme-color" content="#000" />
+            <meta content="#000" name="theme-color" />
             <body className={cn(orbitron.variable, GeistSans.variable)}>
                 <TRPCReactProvider>
                     <Navbar session={session} />

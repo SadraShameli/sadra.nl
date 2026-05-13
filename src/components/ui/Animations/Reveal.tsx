@@ -25,16 +25,16 @@ const defaultTransition: Transition = {
 
 export default function RevealAnimation({ children, className }: RevealProps) {
     const ref = useRef(null);
-    const isInView = useInView(ref, { once: true, amount: 0.1 });
+    const isInView = useInView(ref, { amount: 0.1, once: true });
 
     return (
         <motion.div
-            ref={ref}
-            variants={defaultVariants}
-            initial="hidden"
             animate={isInView ? 'visible' : 'hidden'}
-            transition={defaultTransition}
             className={className}
+            initial="hidden"
+            ref={ref}
+            transition={defaultTransition}
+            variants={defaultVariants}
         >
             {children}
         </motion.div>

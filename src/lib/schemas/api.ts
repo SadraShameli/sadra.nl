@@ -21,14 +21,7 @@ export const recordingBlobSchema = z
         message: `Recording exceeds ${MAX_RECORDING_BYTES} byte limit`,
     });
 
-export function zodErrorResponse(error: ZodError): NextResponse {
-    return NextResponse.json(
-        { error: 'Invalid input', issues: error.issues },
-        { status: 400 },
-    );
-}
-
-export function parseRouteParams<T extends z.ZodTypeAny>(
+export function parseRouteParams<T extends z.ZodType>(
     schema: T,
     input: unknown,
 ):
@@ -37,4 +30,11 @@ export function parseRouteParams<T extends z.ZodTypeAny>(
     const result = schema.safeParse(input);
     if (result.success) return { data: result.data };
     return { response: zodErrorResponse(result.error) };
+}
+
+export function zodErrorResponse(error: ZodError): NextResponse {
+    return NextResponse.json(
+        { error: 'Invalid input', issues: error.issues },
+        { status: 400 },
+    );
 }

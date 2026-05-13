@@ -9,46 +9,46 @@ export interface IProfile extends ILink {
     icon: React.ReactNode;
 }
 
-export interface IResumeBasics {
+export interface IResume {
+    basics: IResumeBasics;
+    description: string;
+    education: IResumeSection[];
+    experience: IResumeSection[];
+    hobbies: string[];
+    languages: IResumeLanguage[];
+    links: ILink[];
+    profiles: IProfile[];
+    projects: IResumeSection[];
+    research: IResumeSection[];
+    skills: string[];
     title: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-    phone: string;
-    birth: string;
-    summary: string;
-    summary2?: string;
-    location: ILink;
 }
 
-export interface IResumeSection {
+export interface IResumeBasics {
+    birth: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    location: ILink;
+    phone: string;
+    summary: string;
+    summary2?: string;
     title: string;
-    date: string;
-    location?: ILink;
-    url?: string;
-    summary?: string;
-    role?: string;
-    highlights?: string[];
-    skills?: string[];
-    image?: StaticImageData;
 }
 
 export interface IResumeLanguage {
-    title: string;
     fluency: 'Native speaker' | 'Professional Proficiency';
+    title: string;
 }
 
-export interface IResume {
+export interface IResumeSection {
+    date: string;
+    highlights?: string[];
+    image?: StaticImageData;
+    location?: ILink;
+    role?: string;
+    skills?: string[];
+    summary?: string;
     title: string;
-    description: string;
-    basics: IResumeBasics;
-    profiles: IProfile[];
-    links: ILink[];
-    skills: string[];
-    education: IResumeSection[];
-    research: IResumeSection[];
-    experience: IResumeSection[];
-    projects: IResumeSection[];
-    languages: IResumeLanguage[];
-    hobbies: string[];
+    url?: string;
 }

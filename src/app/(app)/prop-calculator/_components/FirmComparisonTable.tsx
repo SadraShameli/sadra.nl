@@ -18,43 +18,23 @@ import InfoPopover from './InfoPopover';
 import { panelDescriptions } from './kpiDescriptions';
 
 interface FirmComparisonTableProps {
-    firms: readonly PropFirm[];
     activeFirmId: FirmId;
-    targetAccountSize: number;
     baseInputs: Omit<SimInputs, 'plan'>;
+    firms: readonly PropFirm[];
+    targetAccountSize: number;
 }
 
 interface Row {
     firm: PropFirm;
-    plan: Plan;
     out: SimOutputs;
-}
-
-function pickPlan(firm: PropFirm, targetSize: number): Plan | null {
-    const sameSize = firm.plans.filter((p) => p.accountSize === targetSize);
-    if (sameSize.length > 0) {
-        return sameSize.reduce<Plan | null>((best, p) => {
-            if (!best) return p;
-            return p.profitTarget < best.profitTarget ? p : best;
-        }, null);
-    }
-    let closest: Plan | null = null;
-    let closestDiff = Infinity;
-    for (const p of firm.plans) {
-        const diff = Math.abs(p.accountSize - targetSize);
-        if (diff < closestDiff) {
-            closest = p;
-            closestDiff = diff;
-        }
-    }
-    return closest;
+    plan: Plan;
 }
 
 export default function FirmComparisonTable({
-    firms,
     activeFirmId,
-    targetAccountSize,
     baseInputs,
+    firms,
+    targetAccountSize,
 }: FirmComparisonTableProps) {
     const [rows, setRows] = useState<Row[]>([]);
     const [pending, setPending] = useState(false);
@@ -80,7 +60,7 @@ export default function FirmComparisonTable({
                 const plan = pickPlan(firm, targetSize);
                 if (!plan) continue;
                 const sim = simulate({ ...inputs, plan, trials });
-                out.push({ firm, plan, out: sim });
+                out.push({ firm, out: sim, plan });
             }
             if (!cancelled) {
                 setRows(out);
@@ -100,7 +80,7 @@ export default function FirmComparisonTable({
 
     const sorted = useMemo(
         () =>
-            [...rows].sort(
+            rows.toSorted(
                 (a, b) => b.out.expectedMonthlyNet - a.out.expectedMonthlyNet,
             ),
         [rows],
@@ -140,7 +120,7 @@ export default function FirmComparisonTable({
                         </tr>
                     </thead>
                     <tbody>
-                        {sorted.map(({ firm, plan, out }) => {
+                        {sorted.map(({ firm, out, plan }) => {
                             const isActive = firm.id === activeFirmId;
                             const score =
                                 bestNet > 0
@@ -155,12 +135,12 @@ export default function FirmComparisonTable({
                                     : 1;
                             return (
                                 <tr
-                                    key={firm.id}
                                     className={cn(
                                         'border-t border-border/40 transition-colors',
                                         isActive &&
                                             'bg-primary/10 font-semibold text-foreground',
                                     )}
+                                    key={firm.id}
                                 >
                                     <td className="py-1.5 pr-2">
                                         {firm.displayName}
@@ -199,26 +179,46 @@ export default function FirmComparisonTable({
     );
 }
 
+function pickPlan(firm: PropFirm, targetSize: number): null | Plan {
+    const sameSize = firm.plans.filter((p) => p.accountSize === targetSize);
+    if (sameSize.length > 0) {
+        return sameSize.reduce<null | Plan>((best, p) => {
+            if (!best) return p;
+            return p.profitTarget < best.profitTarget ? p : best;
+        }, null);
+    }
+    let closest: null | Plan = null;
+    let closestDiff = Infinity;
+    for (const p of firm.plans) {
+        const diff = Math.abs(p.accountSize - targetSize);
+        if (diff < closestDiff) {
+            closest = p;
+            closestDiff = diff;
+        }
+    }
+    return closest;
+}
+
 function useDebouncedKey(
     inputs: Omit<SimInputs, 'plan'>,
     accountSize: number,
     delay: number,
 ): string {
     const key = JSON.stringify({
-        winrate: inputs.winrate,
-        rr: inputs.rrRatio,
-        risk: inputs.riskPerTrade,
-        tpd: inputs.tradesPerDay,
-        max: inputs.maxEvalDays,
-        funded: inputs.fundedHorizonDays,
-        seed: inputs.seed,
-        commission: inputs.commissionPerRoundTrip ?? 0,
-        attempts: inputs.maxAttempts ?? 1,
-        copy: inputs.copyAccounts ?? 1,
-        trials: inputs.trials,
-        eval: inputs.discounts?.evalPercent ?? 0,
-        act: inputs.discounts?.activationPercent ?? 0,
         accountSize,
+        act: inputs.discounts?.activationPercent ?? 0,
+        attempts: inputs.maxAttempts ?? 1,
+        commission: inputs.commissionPerRoundTrip ?? 0,
+        copy: inputs.copyAccounts ?? 1,
+        eval: inputs.discounts?.evalPercent ?? 0,
+        funded: inputs.fundedHorizonDays,
+        max: inputs.maxEvalDays,
+        risk: inputs.riskPerTrade,
+        rr: inputs.rrRatio,
+        seed: inputs.seed,
+        tpd: inputs.tradesPerDay,
+        trials: inputs.trials,
+        winrate: inputs.winrate,
     });
     const [debounced, setDebounced] = useState(key);
     useEffect(() => {

@@ -52,99 +52,99 @@ const CONFLUENCE_KEY_VALUES = [
 export const confluenceKeySchema = z.enum(CONFLUENCE_KEY_VALUES);
 
 export const timeWindowSchema = z.object({
+    end: z.string().regex(/^\d{2}:\d{2}$/, 'HH:MM'),
     id: z.string().min(1),
     label: z.string().max(64),
     start: z.string().regex(/^\d{2}:\d{2}$/, 'HH:MM'),
-    end: z.string().regex(/^\d{2}:\d{2}$/, 'HH:MM'),
 });
 
 export type TimeWindow = z.infer<typeof timeWindowSchema>;
 
 export const tradingPlanConfigSchema = z.object({
-    windows: z.array(timeWindowSchema).min(1),
+    knockouts: z.object({
+        boredomHunt: z.boolean(),
+        bothSidedLiquidity: z.boolean(),
+        distracted: z.boolean(),
+        dolAlreadyTaken: z.boolean(),
+        outsideMacroWindow: z.boolean(),
+        revengeOrFomo: z.boolean(),
+        slNotProtected: z.boolean(),
+    }),
     risk: z.object({
-        fundedDollars: z.number().nonnegative(),
         evalDollars: z.number().nonnegative(),
+        fundedDollars: z.number().nonnegative(),
         maxTradesPerWindow: z.number().nonnegative(),
     }),
     setup: z.object({
-        minRR: z.number().nonnegative(),
-        requiredPdArrays: z.number().nonnegative(),
         allowedConfluences: z.array(confluenceKeySchema),
         allowedDolTypes: z.array(dolTypeSchema),
+        minRR: z.number().nonnegative(),
+        requiredPdArrays: z.number().nonnegative(),
     }),
     weights: z.object({
-        mental: z.number().nonnegative(),
-        context: z.number().nonnegative(),
         bias: z.number().nonnegative(),
+        context: z.number().nonnegative(),
         dol: z.number().nonnegative(),
-        state: z.number().nonnegative(),
         entry: z.number().nonnegative(),
-        sl: z.number().nonnegative(),
+        mental: z.number().nonnegative(),
         rr: z.number().nonnegative(),
+        sl: z.number().nonnegative(),
+        state: z.number().nonnegative(),
     }),
-    knockouts: z.object({
-        outsideMacroWindow: z.boolean(),
-        bothSidedLiquidity: z.boolean(),
-        slNotProtected: z.boolean(),
-        dolAlreadyTaken: z.boolean(),
-        revengeOrFomo: z.boolean(),
-        distracted: z.boolean(),
-        boredomHunt: z.boolean(),
-    }),
+    windows: z.array(timeWindowSchema).min(1),
 });
 
 export type TradingPlanConfig = z.infer<typeof tradingPlanConfigSchema>;
 
 export const answersSchema = z.object({
-    mental: z.object({
-        hesitation: z.boolean(),
-        boredomHunt: z.boolean(),
-        revengeOrFomo: z.boolean(),
-        distracted: z.boolean(),
-    }),
-    context: z.object({
-        windowId: z.string().nullable(),
-        accountType: accountTypeSchema,
-        windowQuotaUsed: z.boolean(),
-    }),
     bias: z.object({
-        weekly: biasDirectionSchema,
+        conviction: z.number().min(1).max(10),
         daily: biasDirectionSchema,
+        fifteenMin: biasDirectionSchema,
         fourHour: biasDirectionSchema,
         oneHour: biasDirectionSchema,
-        fifteenMin: biasDirectionSchema,
-        conviction: z.number().min(1).max(10),
+        weekly: biasDirectionSchema,
+    }),
+    context: z.object({
+        accountType: accountTypeSchema,
+        windowId: z.string().nullable(),
+        windowQuotaUsed: z.boolean(),
     }),
     dol: z.object({
-        type: dolTypeSchema,
-        singular: z.boolean(),
         bothSided: z.boolean(),
         distanceR: z.number().min(0),
-    }),
-    state: z.object({
-        opposingSweep: z.boolean(),
-        displacement: displacementDirectionSchema,
-        dayType: dayTypeSchema,
-        setupType: setupTypeSchema,
+        singular: z.boolean(),
+        type: dolTypeSchema,
     }),
     entry: z.object({
-        onFvg: z.boolean(),
         confluences: z.array(z.string()),
-    }),
-    sl: z.object({
-        ob: z.boolean(),
-        bb: z.boolean(),
-        swing: z.boolean(),
-    }),
-    rr: z.object({
-        targetR: z.number().min(0),
-        slippageR: z.number().min(0),
+        onFvg: z.boolean(),
     }),
     finals: z.object({
         dolAlreadyTaken: z.boolean(),
-        overExtended: z.boolean(),
         notes: z.string(),
+        overExtended: z.boolean(),
+    }),
+    mental: z.object({
+        boredomHunt: z.boolean(),
+        distracted: z.boolean(),
+        hesitation: z.boolean(),
+        revengeOrFomo: z.boolean(),
+    }),
+    rr: z.object({
+        slippageR: z.number().min(0),
+        targetR: z.number().min(0),
+    }),
+    sl: z.object({
+        bb: z.boolean(),
+        ob: z.boolean(),
+        swing: z.boolean(),
+    }),
+    state: z.object({
+        dayType: dayTypeSchema,
+        displacement: displacementDirectionSchema,
+        opposingSweep: z.boolean(),
+        setupType: setupTypeSchema,
     }),
 });
 
@@ -152,32 +152,32 @@ export type Answers = z.infer<typeof answersSchema>;
 
 export const componentScoreSchema = z.object({
     earned: z.number(),
-    max: z.number(),
     label: z.string(),
+    max: z.number(),
     note: z.string(),
 });
 
 export type ComponentScore = z.infer<typeof componentScoreSchema>;
 
 export const assessmentResultSchema = z.object({
-    grade: gradeSchema,
-    score: z.number(),
-    recommendation: recommendationSchema,
-    suggestedSizeMultiplier: z.number(),
     componentScores: z.object({
-        mental: componentScoreSchema,
-        context: componentScoreSchema,
         bias: componentScoreSchema,
+        context: componentScoreSchema,
         dol: componentScoreSchema,
-        state: componentScoreSchema,
         entry: componentScoreSchema,
-        sl: componentScoreSchema,
+        mental: componentScoreSchema,
         rr: componentScoreSchema,
+        sl: componentScoreSchema,
+        state: componentScoreSchema,
     }),
-    strengths: z.array(z.string()),
-    weaknesses: z.array(z.string()),
-    redFlags: z.array(z.string()),
+    grade: gradeSchema,
     improvements: z.array(z.string()),
+    recommendation: recommendationSchema,
+    redFlags: z.array(z.string()),
+    score: z.number(),
+    strengths: z.array(z.string()),
+    suggestedSizeMultiplier: z.number(),
+    weaknesses: z.array(z.string()),
 });
 
 export type AssessmentResult = z.infer<typeof assessmentResultSchema>;
@@ -189,10 +189,10 @@ export const tradingPlanRowSchema = createSelectSchema(tradingPlans, {
 export type TradingPlanRow = z.infer<typeof tradingPlanRowSchema>;
 
 export const tradeAssessmentRowSchema = createSelectSchema(tradeAssessments, {
-    planSnapshot: tradingPlanConfigSchema,
     answers: answersSchema,
-    result: assessmentResultSchema,
     outcome: outcomeSchema.nullable(),
+    planSnapshot: tradingPlanConfigSchema,
+    result: assessmentResultSchema,
 });
 
 export type TradeAssessmentRow = z.infer<typeof tradeAssessmentRowSchema>;
@@ -208,9 +208,9 @@ export type CreateTradingPlanInput = z.infer<
 >;
 
 export const updateTradingPlanInputSchema = z.object({
-    planId: planIdSchema,
-    name: z.string().trim().min(1, 'Plan name is required').max(128),
     config: tradingPlanConfigSchema,
+    name: z.string().trim().min(1, 'Plan name is required').max(128),
+    planId: planIdSchema,
 });
 
 export type UpdateTradingPlanInput = z.infer<
@@ -229,9 +229,9 @@ export type ReorderTradingPlansInput = z.infer<
 >;
 
 export const saveAssessmentInputSchema = z.object({
+    answers: answersSchema,
     planId: planIdSchema.nullable(),
     planSnapshot: tradingPlanConfigSchema,
-    answers: answersSchema,
     result: assessmentResultSchema,
 });
 
@@ -241,9 +241,9 @@ export const assessmentIdSchema = z.uuid();
 
 export const recordAssessmentOutcomeInputSchema = z.object({
     id: assessmentIdSchema,
+    notes: z.string().nullable(),
     outcome: outcomeSchema,
     outcomeR: z.number().nullable(),
-    notes: z.string().nullable(),
 });
 
 export type RecordAssessmentOutcomeInput = z.infer<

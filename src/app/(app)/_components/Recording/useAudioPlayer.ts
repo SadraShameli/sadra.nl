@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { GetRandom, GetRecordingURL } from './helpers';
 import type { PlaybackSpeed, RecordingSummary } from './types';
+
+import { GetRandom, GetRecordingURL } from './helpers';
 
 interface UseAudioPlayerProps {
     recordings: RecordingSummary[] | undefined;
@@ -50,10 +51,10 @@ export function useAudioPlayer({ recordings }: UseAudioPlayerProps) {
 
     const togglePlayPause = useCallback(() => {
         if (!recordings?.length || isLoading) return;
-        if (!isPlaying) {
-            void playAudio();
-        } else {
+        if (isPlaying) {
             pauseAudio();
+        } else {
+            void playAudio();
         }
     }, [isPlaying, recordings?.length, isLoading, playAudio, pauseAudio]);
 
@@ -65,7 +66,7 @@ export function useAudioPlayer({ recordings }: UseAudioPlayerProps) {
     const handleNext = useCallback(() => {
         if (!recordings?.length) return;
         setCurrentRecordingIdx((prev) =>
-            Math.min((recordings?.length ?? 0) - 1, prev + 1),
+            Math.min(recordings.length - 1, prev + 1),
         );
     }, [recordings?.length]);
 
@@ -156,13 +157,13 @@ export function useAudioPlayer({ recordings }: UseAudioPlayerProps) {
     }, [recordings?.length, isShuffle, isAutoPlay, isRepeat]);
 
     const keyboardRef = useRef({
-        togglePlayPause,
+        duration,
         handleTimeChange,
         handleVolumeChange,
         hasRecordings: Boolean(recordings?.length),
         time,
+        togglePlayPause,
         volume,
-        duration,
     });
     keyboardRef.current.togglePlayPause = togglePlayPause;
     keyboardRef.current.handleTimeChange = handleTimeChange;
@@ -219,28 +220,32 @@ export function useAudioPlayer({ recordings }: UseAudioPlayerProps) {
     useEffect(() => {
         if (!recordings?.length) return;
         let active = true;
-        const audioElements: HTMLAudioElement[] = [];
-        recordings.forEach((recording) => {
+        const cleanups: Array<() => void> = [];
+        for (const recording of recordings) {
             const key = String(recording.id);
-            if (fetchedDurationsRef.current.has(key)) return;
+            if (fetchedDurationsRef.current.has(key)) continue;
             fetchedDurationsRef.current.add(key);
             const a = new Audio();
             a.preload = 'metadata';
             a.src = GetRecordingURL(recording);
-            a.onloadedmetadata = () => {
+
+            // eslint-disable-next-line unicorn/consistent-function-scoping
+            const onMetadata = () => {
                 if (active) {
                     setDurations((prev) => new Map(prev).set(key, a.duration));
                 }
                 a.src = '';
             };
-            audioElements.push(a);
-        });
-        return () => {
-            active = false;
-            audioElements.forEach((a) => {
-                a.onloadedmetadata = null;
+
+            a.addEventListener('loadedmetadata', onMetadata);
+            cleanups.push(() => {
+                a.removeEventListener('loadedmetadata', onMetadata);
                 a.src = '';
             });
+        }
+        return () => {
+            active = false;
+            for (const cleanup of cleanups) cleanup();
         };
     }, [recordings]);
 
@@ -252,40 +257,45 @@ export function useAudioPlayer({ recordings }: UseAudioPlayerProps) {
             )
                 return;
             const {
-                togglePlayPause,
+                duration,
                 handleTimeChange,
                 handleVolumeChange,
                 hasRecordings,
                 time,
+                togglePlayPause,
                 volume,
-                duration,
             } = keyboardRef.current;
             if (!hasRecordings) return;
             switch (e.code) {
-                case 'Space':
-                    e.preventDefault();
-                    togglePlayPause();
-                    break;
-                case 'ArrowLeft':
-                    e.preventDefault();
-                    handleTimeChange(Math.max(0, time - 10));
-                    break;
-                case 'ArrowRight':
-                    e.preventDefault();
-                    handleTimeChange(Math.min(duration, time + 10));
-                    break;
-                case 'ArrowUp':
-                    e.preventDefault();
-                    handleVolumeChange(
-                        Math.min(1, Math.round((volume + 0.1) * 10) / 10),
-                    );
-                    break;
-                case 'ArrowDown':
+                case 'ArrowDown': {
                     e.preventDefault();
                     handleVolumeChange(
                         Math.max(0, Math.round((volume - 0.1) * 10) / 10),
                     );
                     break;
+                }
+                case 'ArrowLeft': {
+                    e.preventDefault();
+                    handleTimeChange(Math.max(0, time - 10));
+                    break;
+                }
+                case 'ArrowRight': {
+                    e.preventDefault();
+                    handleTimeChange(Math.min(duration, time + 10));
+                    break;
+                }
+                case 'ArrowUp': {
+                    e.preventDefault();
+                    handleVolumeChange(
+                        Math.min(1, Math.round((volume + 0.1) * 10) / 10),
+                    );
+                    break;
+                }
+                case 'Space': {
+                    e.preventDefault();
+                    togglePlayPause();
+                    break;
+                }
             }
         }
         window.addEventListener('keydown', onKeyDown);

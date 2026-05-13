@@ -27,7 +27,7 @@ export function UpdateNameForm({
     email,
 }: {
     currentName: string;
-    email: string | null;
+    email: null | string;
 }) {
     const [namePending, startNameTransition] = useTransition();
     const [emailPending, startEmailTransition] = useTransition();
@@ -35,9 +35,9 @@ export function UpdateNameForm({
     const [editingEmail, setEditingEmail] = useState(false);
 
     const form = useForm<UpdateNameInput>({
-        resolver: zodResolver(updateNameInputSchema),
-        defaultValues: { name: currentName, currentName },
+        defaultValues: { currentName, name: currentName },
         mode: 'onTouched',
+        resolver: zodResolver(updateNameInputSchema),
     });
 
     const onSubmit = (data: UpdateNameInput) => {
@@ -69,8 +69,8 @@ export function UpdateNameForm({
     return (
         <Form {...form}>
             <form
-                onSubmit={form.handleSubmit(onSubmit)}
                 className="flex flex-col gap-3"
+                onSubmit={form.handleSubmit(onSubmit)}
             >
                 <FormField
                     control={form.control}
@@ -80,9 +80,9 @@ export function UpdateNameForm({
                             <FormLabel>Display name</FormLabel>
                             <FormControl>
                                 <Input
-                                    type="text"
-                                    placeholder="Your name"
                                     autoComplete="name"
+                                    placeholder="Your name"
+                                    type="text"
                                     {...field}
                                 />
                             </FormControl>
@@ -95,29 +95,29 @@ export function UpdateNameForm({
                     {showEmailEditor ? (
                         <div className="flex flex-col gap-2 sm:flex-row">
                             <Input
-                                type="email"
-                                placeholder="your@email.com"
                                 autoComplete="email"
-                                value={emailDraft}
                                 onChange={(e) => setEmailDraft(e.target.value)}
+                                placeholder="your@email.com"
+                                type="email"
+                                value={emailDraft}
                             />
                             <div className="flex gap-2">
                                 <Button
-                                    type="button"
-                                    variant="outline"
                                     disabled={
                                         emailPending || !emailDraft.trim()
                                     }
                                     onClick={onSaveEmail}
+                                    type="button"
+                                    variant="outline"
                                 >
                                     {emailPending ? 'Saving…' : 'Save'}
                                 </Button>
                                 {email && (
                                     <Button
-                                        type="button"
-                                        variant="ghost"
                                         disabled={emailPending}
                                         onClick={onCancelEmail}
+                                        type="button"
+                                        variant="ghost"
                                     >
                                         Cancel
                                     </Button>
@@ -127,15 +127,15 @@ export function UpdateNameForm({
                     ) : (
                         <div className="flex items-center gap-2">
                             <Input
-                                value={email ?? ''}
+                                className="opacity-60"
                                 disabled
                                 readOnly
-                                className="opacity-60"
+                                value={email}
                             />
                             <Button
+                                onClick={() => setEditingEmail(true)}
                                 type="button"
                                 variant="outline"
-                                onClick={() => setEditingEmail(true)}
                             >
                                 Change
                             </Button>
@@ -143,9 +143,9 @@ export function UpdateNameForm({
                     )}
                 </div>
                 <Button
-                    type="submit"
                     className="mt-2 self-start"
                     disabled={namePending}
+                    type="submit"
                 >
                     {namePending ? 'Saving…' : 'Save changes'}
                 </Button>

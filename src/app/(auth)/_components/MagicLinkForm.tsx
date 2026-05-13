@@ -24,9 +24,9 @@ export function MagicLinkForm() {
     const callbackUrl = searchParams.get('callbackUrl') ?? undefined;
 
     const form = useForm<MagicLinkInput>({
-        resolver: zodResolver(magicLinkInputSchema),
-        defaultValues: { email: '', callbackUrl },
+        defaultValues: { callbackUrl, email: '' },
         mode: 'onTouched',
+        resolver: zodResolver(magicLinkInputSchema),
     });
 
     const onSubmit = (data: MagicLinkInput) => {
@@ -38,8 +38,8 @@ export function MagicLinkForm() {
     return (
         <Form {...form}>
             <form
-                onSubmit={form.handleSubmit(onSubmit)}
                 className="flex flex-col gap-3"
+                onSubmit={form.handleSubmit(onSubmit)}
             >
                 <FormField
                     control={form.control}
@@ -49,9 +49,9 @@ export function MagicLinkForm() {
                             <FormLabel>Email</FormLabel>
                             <FormControl>
                                 <Input
-                                    type="email"
-                                    placeholder="you@example.com"
                                     autoComplete="email"
+                                    placeholder="you@example.com"
+                                    type="email"
                                     {...field}
                                 />
                             </FormControl>
@@ -60,9 +60,9 @@ export function MagicLinkForm() {
                     )}
                 />
                 <Button
-                    type="submit"
                     className="mt-5 w-full"
                     disabled={pending}
+                    type="submit"
                 >
                     {pending ? 'Sending link…' : 'Email me a sign-in link'}
                 </Button>

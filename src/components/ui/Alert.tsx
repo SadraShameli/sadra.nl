@@ -9,6 +9,9 @@ import { cn } from '~/lib/utils';
 const alertVariants = cva(
     'relative w-full rounded-lg border p-4 [&>svg~*]:pl-7 [&>svg+div]:translate-y-[-3px] [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg]:text-foreground',
     {
+        defaultVariants: {
+            variant: 'default',
+        },
         variants: {
             variant: {
                 default: 'bg-background text-foreground',
@@ -20,16 +23,13 @@ const alertVariants = cva(
                     'border-amber-500/40 bg-amber-500/10 text-amber-400 [&>svg]:text-amber-400',
             },
         },
-        defaultVariants: {
-            variant: 'default',
-        },
     },
 );
 
 type AlertProps = React.HTMLAttributes<HTMLDivElement> &
     VariantProps<typeof alertVariants> & {
-        persistent?: boolean;
         autoDismissMs?: number;
+        persistent?: boolean;
     };
 
 const AUTO_DISMISS_PARAMS = ['success', 'error'];
@@ -37,7 +37,7 @@ const FADE_DURATION_MS = 300;
 
 const Alert = React.forwardRef<HTMLDivElement, AlertProps>(
     (
-        { className, variant, persistent, autoDismissMs = 3000, ...props },
+        { autoDismissMs = 3000, className, persistent, variant, ...props },
         ref,
     ) => {
         const isPersistent = persistent ?? variant === 'destructive';
@@ -77,8 +77,6 @@ const Alert = React.forwardRef<HTMLDivElement, AlertProps>(
 
         return (
             <div
-                ref={ref}
-                role="alert"
                 className={cn(
                     alertVariants({ variant }),
                     'transition-all duration-300 ease-out',
@@ -87,6 +85,8 @@ const Alert = React.forwardRef<HTMLDivElement, AlertProps>(
                         : '-translate-y-1 opacity-0',
                     className,
                 )}
+                ref={ref}
+                role="alert"
                 {...props}
             />
         );
@@ -97,13 +97,13 @@ Alert.displayName = 'Alert';
 const AlertTitle = React.forwardRef<
     HTMLParagraphElement,
     React.HTMLAttributes<HTMLHeadingElement>
->(({ className, children, ...props }, ref) => (
+>(({ children, className, ...props }, ref) => (
     <h5
-        ref={ref}
         className={cn(
             'mb-1 leading-none font-medium tracking-tight',
             className,
         )}
+        ref={ref}
         {...props}
     >
         {children}
@@ -116,8 +116,8 @@ const AlertDescription = React.forwardRef<
     React.HTMLAttributes<HTMLParagraphElement>
 >(({ className, ...props }, ref) => (
     <div
-        ref={ref}
         className={cn('text-sm [&_p]:leading-relaxed', className)}
+        ref={ref}
         {...props}
     />
 ));

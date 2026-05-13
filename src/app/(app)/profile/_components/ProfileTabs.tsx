@@ -8,12 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
 const VALID_TABS = ['account', 'security', 'trading-plan'] as const;
 type TabValue = (typeof VALID_TABS)[number];
 
-function normalize(value: string | null | undefined): TabValue {
-    return VALID_TABS.includes(value as TabValue)
-        ? (value as TabValue)
-        : 'account';
-}
-
 export function ProfileTabs({
     accountTab,
     securityTab,
@@ -46,27 +40,33 @@ export function ProfileTabs({
     );
 
     return (
-        <Tabs value={value} onValueChange={onChange} className="">
+        <Tabs className="" onValueChange={onChange} value={value}>
             <TabsList className="mb-5 flex max-w-md gap-1">
-                <TabsTrigger value="account" className="flex-1">
+                <TabsTrigger className="flex-1" value="account">
                     Account
                 </TabsTrigger>
-                <TabsTrigger value="security" className="flex-1">
+                <TabsTrigger className="flex-1" value="security">
                     Security
                 </TabsTrigger>
-                <TabsTrigger value="trading-plan" className="flex-1">
+                <TabsTrigger className="flex-1" value="trading-plan">
                     Trading Plan
                 </TabsTrigger>
             </TabsList>
-            <TabsContent value="account" className="space-y-6">
+            <TabsContent className="space-y-6" value="account">
                 {accountTab}
             </TabsContent>
-            <TabsContent value="security" className="space-y-6">
+            <TabsContent className="space-y-6" value="security">
                 {securityTab}
             </TabsContent>
-            <TabsContent value="trading-plan" className="space-y-6">
+            <TabsContent className="space-y-6" value="trading-plan">
                 {tradingPlanTab}
             </TabsContent>
         </Tabs>
     );
+}
+
+function normalize(value: null | string | undefined): TabValue {
+    return VALID_TABS.includes(value as TabValue)
+        ? (value as TabValue)
+        : 'account';
 }

@@ -7,8 +7,8 @@ import { orbitron } from '~/fonts';
 import { cn } from '~/lib/utils';
 
 export const metadata: Metadata = {
-    title: 'sadra.nl',
     icons: { icon: '/favicon.ico' },
+    title: 'sadra.nl',
 };
 
 export default function AuthLayout({
@@ -17,7 +17,7 @@ export default function AuthLayout({
     children: React.ReactNode;
 }) {
     return (
-        <html lang="en" className="dark antialiased">
+        <html className="dark antialiased" lang="en">
             <body
                 className={cn(
                     orbitron.variable,

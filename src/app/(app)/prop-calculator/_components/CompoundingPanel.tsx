@@ -28,82 +28,59 @@ const tooltipEntrySchema = z.object({
     value: z.number(),
 });
 
-type TooltipEntry = z.infer<typeof tooltipEntrySchema>;
+const fmtDays = (d: null | number) => {
+    if (d === null) return '—';
+    const m = d / 21;
+    return m < 3 ? `${Math.round(d)}d` : `${m.toFixed(1)}mo`;
+};
 
 interface CompoundingPanelProps {
-    winrate: number;
-    rrRatio: number;
-    tradesPerDay: number;
     riskPercent: number;
+    rrRatio: number;
     seed: number;
     startBalance: number;
+    tradesPerDay: number;
+    winrate: number;
 }
 
+type TooltipEntry = z.infer<typeof tooltipEntrySchema>;
+
 const HORIZON_OPTIONS = [
-    { label: '6 months', days: 126 },
-    { label: '1 year', days: 252 },
-    { label: '2 years', days: 504 },
-    { label: '3 years', days: 756 },
+    { days: 126, label: '6 months' },
+    { days: 252, label: '1 year' },
+    { days: 504, label: '2 years' },
+    { days: 756, label: '3 years' },
 ] as const;
 
 const chartConfig: ChartConfig = {
-    band95: { label: 'P5–P95', color: 'hsl(142 76% 45% / 0.1)' },
-    band75: { label: 'P25–P75', color: 'hsl(142 76% 45% / 0.2)' },
-    median: { label: 'Median', color: 'hsl(142 76% 45%)' },
+    band75: { color: 'hsl(142 76% 45% / 0.2)', label: 'P25–P75' },
+    band95: { color: 'hsl(142 76% 45% / 0.1)', label: 'P5–P95' },
+    median: { color: 'hsl(142 76% 45%)', label: 'Median' },
 };
 
-function StatCell({
-    label,
-    value,
-    sub,
-    valueClass,
-}: {
-    label: string;
-    value: string;
-    sub?: string;
-    valueClass?: string;
-}) {
-    return (
-        <div className="flex flex-col gap-1 rounded-md border border-border/50 bg-muted/20 px-3 py-2.5">
-            <span className="text-[11px] text-muted-foreground">{label}</span>
-            <span
-                className={cn(
-                    'font-mono text-lg leading-none font-bold tabular-nums',
-                    valueClass,
-                )}
-            >
-                {value}
-            </span>
-            {sub && (
-                <span className="text-[10px] text-muted-foreground">{sub}</span>
-            )}
-        </div>
-    );
-}
-
 export default function CompoundingPanel({
-    winrate,
-    rrRatio,
-    tradesPerDay,
     riskPercent,
+    rrRatio,
     seed,
     startBalance,
+    tradesPerDay,
+    winrate,
 }: CompoundingPanelProps) {
     const [horizonIdx, setHorizonIdx] = useState(1);
 
-    const horizon = HORIZON_OPTIONS[horizonIdx]!;
+    const horizon = HORIZON_OPTIONS[horizonIdx] ?? HORIZON_OPTIONS[0];
 
     const out = useMemo(
         () =>
             simulateCompound({
-                winrate,
-                rrRatio,
-                tradesPerDay,
                 riskFraction: riskPercent / 100,
-                tradingDays: horizon.days,
-                trials: 500,
+                rrRatio,
                 seed,
                 startBalance,
+                tradesPerDay,
+                tradingDays: horizon.days,
+                trials: 500,
+                winrate,
             }),
         [
             winrate,
@@ -117,6 +94,8 @@ export default function CompoundingPanel({
     );
 
     const chartData = out.days.map((day, i) => ({
+        band75lo: out.p25[i],
+        band95lo: out.p5[i],
         day,
         month: +(day / 21).toFixed(1),
         p5: out.p5[i],
@@ -124,18 +103,10 @@ export default function CompoundingPanel({
         p50: out.p50[i],
         p75: out.p75[i],
         p95: out.p95[i],
-        band95lo: out.p5[i],
-        band75lo: out.p25[i],
     }));
 
     const medianFinalCAGR =
         ((out.finalP50 / startBalance) ** (252 / horizon.days) - 1) * 100;
-
-    const fmtDays = (d: number | null) => {
-        if (d === null) return '—';
-        const m = d / 21;
-        return m < 3 ? `${Math.round(d)}d` : `${m.toFixed(1)}mo`;
-    };
 
     return (
         <Card className="px-5 py-5">
@@ -159,14 +130,14 @@ export default function CompoundingPanel({
                 <div className="flex gap-2">
                     {HORIZON_OPTIONS.map((h, i) => (
                         <button
-                            key={h.label}
-                            onClick={() => setHorizonIdx(i)}
                             className={cn(
                                 'rounded px-2.5 py-1 text-xs font-medium transition-colors',
                                 i === horizonIdx
                                     ? 'bg-primary text-primary-foreground'
                                     : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                             )}
+                            key={h.label}
+                            onClick={() => setHorizonIdx(i)}
                         >
                             {h.label}
                         </button>
@@ -178,8 +149,8 @@ export default function CompoundingPanel({
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
                     <StatCell
                         label="Median final balance"
-                        value={formatCompactCurrency(out.finalP50)}
                         sub={`start: ${formatCompactCurrency(startBalance)}`}
+                        value={formatCompactCurrency(out.finalP50)}
                         valueClass={
                             out.finalP50 > startBalance
                                 ? 'text-emerald-400'
@@ -188,8 +159,8 @@ export default function CompoundingPanel({
                     />
                     <StatCell
                         label="Annualised CAGR"
-                        value={`${medianFinalCAGR >= 0 ? '+' : ''}${medianFinalCAGR.toFixed(1)}%`}
                         sub="compound annual growth"
+                        value={`${medianFinalCAGR >= 0 ? '+' : ''}${medianFinalCAGR.toFixed(1)}%`}
                         valueClass={
                             medianFinalCAGR > 0
                                 ? 'text-emerald-400'
@@ -198,28 +169,28 @@ export default function CompoundingPanel({
                     />
                     <StatCell
                         label="P25 final"
-                        value={formatCompactCurrency(out.finalP25)}
                         sub="25th percentile outcome"
+                        value={formatCompactCurrency(out.finalP25)}
                     />
                     <StatCell
                         label="P75 final"
-                        value={formatCompactCurrency(out.finalP75)}
                         sub="75th percentile outcome"
+                        value={formatCompactCurrency(out.finalP75)}
                     />
                     <StatCell
                         label="Time to 2×"
-                        value={fmtDays(out.daysToDouble)}
                         sub="median trading days"
+                        value={fmtDays(out.daysToDouble)}
                         valueClass={
-                            out.daysToDouble !== null
-                                ? 'text-emerald-400'
-                                : 'text-muted-foreground'
+                            out.daysToDouble === null
+                                ? 'text-muted-foreground'
+                                : 'text-emerald-400'
                         }
                     />
                     <StatCell
                         label="Ruin probability"
-                        value={formatPercent(out.ruinProb)}
                         sub="balance drops to &lt;10%"
+                        value={formatPercent(out.ruinProb)}
                         valueClass={
                             out.ruinProb < 0.05
                                 ? 'text-emerald-400'
@@ -231,56 +202,56 @@ export default function CompoundingPanel({
                 </div>
 
                 <ChartContainer
-                    config={chartConfig}
                     className="aspect-16/7 min-h-125 w-full"
+                    config={chartConfig}
                 >
                     <ComposedChart
                         data={chartData}
-                        margin={{ top: 10, right: 12, left: 0, bottom: 28 }}
+                        margin={{ bottom: 28, left: 0, right: 12, top: 10 }}
                     >
                         <CartesianGrid
-                            strokeDasharray="3 3"
-                            stroke="#ccc"
                             opacity={0.2}
+                            stroke="#ccc"
+                            strokeDasharray="3 3"
                         />
                         <XAxis
-                            dataKey="month"
-                            tickLine={false}
                             axisLine={false}
-                            tickMargin={6}
+                            dataKey="month"
                             label={{
-                                value: 'Months',
-                                position: 'bottom',
-                                offset: 12,
                                 fontSize: 11,
+                                offset: 12,
+                                position: 'bottom',
+                                value: 'Months',
                             }}
                             tickFormatter={(v: number) => `${v}mo`}
+                            tickLine={false}
+                            tickMargin={6}
                         />
                         <YAxis
-                            tickLine={false}
                             axisLine={false}
-                            width={60}
                             tickFormatter={(v: number) =>
                                 formatCompactCurrency(v)
                             }
+                            tickLine={false}
+                            width={60}
                         />
                         <ChartTooltip
                             content={({
                                 active,
-                                payload,
                                 label,
+                                payload,
                             }: {
                                 active?: boolean;
-                                payload?: readonly unknown[];
                                 label?: unknown;
+                                payload?: readonly unknown[];
                             }) => {
                                 if (!active || !payload?.length) return null;
                                 const keyLabel: Record<string, string> = {
-                                    p95: 'P95',
-                                    p75: 'P75',
-                                    p50: 'Median',
-                                    p25: 'P25',
                                     p5: 'P5',
+                                    p25: 'P25',
+                                    p50: 'Median',
+                                    p75: 'P75',
+                                    p95: 'P95',
                                 };
                                 const order = [
                                     'p95',
@@ -321,15 +292,15 @@ export default function CompoundingPanel({
                                                 )
                                                 .map((k) => (
                                                     <div
-                                                        key={k}
                                                         className="flex justify-between gap-4"
+                                                        key={k}
                                                     >
                                                         <span className="text-muted-foreground">
                                                             {keyLabel[k]}
                                                         </span>
                                                         <span className="font-mono font-medium tabular-nums">
                                                             {formatCompactCurrency(
-                                                                byKey[k]!,
+                                                                byKey[k] ?? 0,
                                                             )}
                                                         </span>
                                                     </div>
@@ -340,48 +311,48 @@ export default function CompoundingPanel({
                             }}
                         />
                         <Area
-                            type="monotone"
                             dataKey="p95"
-                            stroke="none"
                             fill="hsl(142 76% 45%)"
                             fillOpacity={0.08}
                             isAnimationActive={false}
                             legendType="none"
+                            stroke="none"
+                            type="monotone"
                         />
                         <Area
-                            type="monotone"
                             dataKey="p5"
-                            stroke="none"
                             fill="hsl(var(--background))"
                             fillOpacity={1}
                             isAnimationActive={false}
                             legendType="none"
+                            stroke="none"
+                            type="monotone"
                         />
                         <Area
-                            type="monotone"
                             dataKey="p75"
-                            stroke="none"
                             fill="hsl(142 76% 45%)"
                             fillOpacity={0.18}
                             isAnimationActive={false}
                             legendType="none"
+                            stroke="none"
+                            type="monotone"
                         />
                         <Area
-                            type="monotone"
                             dataKey="p25"
-                            stroke="none"
                             fill="hsl(var(--background))"
                             fillOpacity={1}
                             isAnimationActive={false}
                             legendType="none"
+                            stroke="none"
+                            type="monotone"
                         />
                         <Line
-                            type="monotone"
                             dataKey="p50"
-                            stroke="hsl(142 76% 45%)"
-                            strokeWidth={2}
                             dot={false}
                             isAnimationActive={false}
+                            stroke="hsl(142 76% 45%)"
+                            strokeWidth={2}
+                            type="monotone"
                         />
                     </ComposedChart>
                 </ChartContainer>
@@ -391,10 +362,39 @@ export default function CompoundingPanel({
                     <span className="font-semibold text-foreground">
                         {riskPercent.toFixed(2)}% per trade
                     </span>{' '}
-                    · {tradesPerDay} trade{tradesPerDay !== 1 ? 's' : ''}/day ·
+                    · {tradesPerDay} trade{tradesPerDay === 1 ? '' : 's'}/day ·
                     500 trials · shaded bands: P25–P75 (dark) and P5–P95 (light)
                 </p>
             </div>
         </Card>
+    );
+}
+
+function StatCell({
+    label,
+    sub,
+    value,
+    valueClass,
+}: {
+    label: string;
+    sub?: string;
+    value: string;
+    valueClass?: string;
+}) {
+    return (
+        <div className="flex flex-col gap-1 rounded-md border border-border/50 bg-muted/20 px-3 py-2.5">
+            <span className="text-[11px] text-muted-foreground">{label}</span>
+            <span
+                className={cn(
+                    'font-mono text-lg leading-none font-bold tabular-nums',
+                    valueClass,
+                )}
+            >
+                {value}
+            </span>
+            {sub && (
+                <span className="text-[10px] text-muted-foreground">{sub}</span>
+            )}
+        </div>
     );
 }

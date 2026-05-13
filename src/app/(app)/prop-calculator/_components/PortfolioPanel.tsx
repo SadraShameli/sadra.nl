@@ -32,51 +32,61 @@ import InfoPopover from './InfoPopover';
 import { panelDescriptions } from './kpiDescriptions';
 import { type PortfolioEntry } from './types';
 
+interface PortfolioPanelProps {
+    baseInputs: Omit<SimInputs, 'plan'>;
+    currentFirm: PropFirm;
+    currentPlan: Plan;
+    firms: readonly PropFirm[];
+    onPortfolioChange: (entries: PortfolioEntry[]) => void;
+    portfolio: PortfolioEntry[];
+}
+
+interface PortfolioRowProps {
+    entry: PortfolioEntry;
+    firm: PropFirm;
+    firms: readonly PropFirm[];
+    onRemove: (id: string) => void;
+    onUpdate: (id: string, patch: Partial<Omit<PortfolioEntry, 'id'>>) => void;
+    plan: Plan;
+    sim: SimmedEntry | undefined;
+}
+
 interface SimmedEntry {
     entry: PortfolioEntry;
     out: SimOutputs;
 }
 
-interface PortfolioPanelProps {
-    firms: readonly PropFirm[];
-    baseInputs: Omit<SimInputs, 'plan'>;
-    currentFirm: PropFirm;
-    currentPlan: Plan;
-    portfolio: PortfolioEntry[];
-    onPortfolioChange: (entries: PortfolioEntry[]) => void;
-}
-
 export default function PortfolioPanel({
-    firms,
     baseInputs,
     currentFirm,
     currentPlan,
-    portfolio,
+    firms,
     onPortfolioChange,
+    portfolio,
 }: PortfolioPanelProps) {
     const [simmed, setSimmed] = useState<SimmedEntry[]>([]);
     const [pending, setPending] = useState(false);
 
     const simKey = JSON.stringify({
+        attempts: baseInputs.maxAttempts ?? 1,
+        commission: baseInputs.commissionPerRoundTrip ?? 0,
+        dayStop: baseInputs.dayStop,
+        fundedHorizonDays: baseInputs.fundedHorizonDays,
+        maxEvalDays: baseInputs.maxEvalDays,
         portfolio: portfolio.map((e) => ({
-            firmId: e.firmId,
-            planId: e.planId,
+            actDiscount: e.activationDiscountPercent,
             count: e.count,
             evalDiscount: e.evalDiscountPercent,
-            actDiscount: e.activationDiscountPercent,
+            firmId: e.firmId,
             linkAct: e.linkActivationDiscount,
+            planId: e.planId,
         })),
-        winrate: baseInputs.winrate,
-        rr: baseInputs.rrRatio,
         risk: baseInputs.riskPerTrade,
-        tpd: baseInputs.tradesPerDay,
+        rr: baseInputs.rrRatio,
         seed: baseInputs.seed,
-        commission: baseInputs.commissionPerRoundTrip ?? 0,
-        maxEvalDays: baseInputs.maxEvalDays,
-        fundedHorizonDays: baseInputs.fundedHorizonDays,
-        attempts: baseInputs.maxAttempts ?? 1,
+        tpd: baseInputs.tradesPerDay,
         trials: baseInputs.trials,
-        dayStop: baseInputs.dayStop,
+        winrate: baseInputs.winrate,
     });
 
     const [debouncedKey, setDebouncedKey] = useState(simKey);
@@ -102,15 +112,15 @@ export default function PortfolioPanel({
                 if (!plan) continue;
                 const out = simulate({
                     ...baseInputs,
-                    plan,
-                    trials,
                     copyAccounts: 1,
                     discounts: {
-                        evalPercent: entry.evalDiscountPercent,
                         activationPercent: entry.linkActivationDiscount
                             ? entry.evalDiscountPercent
                             : entry.activationDiscountPercent,
+                        evalPercent: entry.evalDiscountPercent,
                     },
+                    plan,
+                    trials,
                 });
                 results.push({ entry, out });
             }
@@ -143,21 +153,21 @@ export default function PortfolioPanel({
         const totalAccounts = portfolio.reduce((s, e) => s + e.count, 0);
         const annualNet = monthlyNet * 12;
         const roi = totalCost > 0 ? annualNet / totalCost - 1 : 0;
-        return { monthlyNet, totalCost, totalFunding, totalAccounts, roi };
+        return { monthlyNet, roi, totalAccounts, totalCost, totalFunding };
     }, [simmed, portfolio]);
 
     function addEntry() {
         onPortfolioChange([
             ...portfolio,
             {
-                id: crypto.randomUUID(),
-                firmId: currentFirm.id,
-                planId: currentPlan.id,
+                activationDiscountPercent: 0,
                 count: 1,
                 evalDiscountPercent: 0,
-                activationDiscountPercent: 0,
+                firmId: currentFirm.id,
+                id: crypto.randomUUID(),
                 linkActivationDiscount: false,
                 memory: {},
+                planId: currentPlan.id,
             },
         ]);
     }
@@ -194,15 +204,15 @@ export default function PortfolioPanel({
                     )}
                     {portfolio.length > 0 && (
                         <button
-                            onClick={() => onPortfolioChange([])}
                             className="rounded border border-border bg-background px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                            onClick={() => onPortfolioChange([])}
                         >
                             Clear all
                         </button>
                     )}
                     <button
-                        onClick={addEntry}
                         className="rounded border border-border bg-background px-2.5 py-1 text-xs font-medium transition-colors hover:bg-muted"
+                        onClick={addEntry}
                     >
                         + Add firm
                     </button>
@@ -219,48 +229,48 @@ export default function PortfolioPanel({
                     {totals && (
                         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
                             <SummaryCard
-                                label="Combined monthly net"
-                                value={formatCurrency(totals.monthlyNet)}
-                                positive={totals.monthlyNet > 0}
                                 info={{
-                                    title: 'Combined monthly net',
                                     body: "Expected $ profit per month across all portfolio accounts after fees. Each row's expected monthly net × its account count, summed. Averaged over pass and bust outcomes.",
+                                    title: 'Combined monthly net',
                                 }}
+                                label="Combined monthly net"
+                                positive={totals.monthlyNet > 0}
+                                value={formatCurrency(totals.monthlyNet)}
                             />
                             <SummaryCard
+                                info={{
+                                    body: 'Combined account capital across all portfolio rows. = sum of (account size × account count) for each row. Represents your total notional exposure across firms.',
+                                    title: 'Total funding',
+                                }}
                                 label="Total funding"
                                 value={formatCompactCurrency(
                                     totals.totalFunding,
                                 )}
-                                info={{
-                                    title: 'Total funding',
-                                    body: 'Combined account capital across all portfolio rows. = sum of (account size × account count) for each row. Represents your total notional exposure across firms.',
-                                }}
                             />
                             <SummaryCard
+                                info={{
+                                    body: "Average all-in evaluation fees you'll pay per cycle across all accounts — eval, activation, monthly subs, and resets — weighted by account count. This is your expected outlay before any payout.",
+                                    title: 'Total eval cost',
+                                }}
                                 label="Total eval cost"
                                 value={formatCurrency(totals.totalCost)}
-                                info={{
-                                    title: 'Total eval cost',
-                                    body: "Average all-in evaluation fees you'll pay per cycle across all accounts — eval, activation, monthly subs, and resets — weighted by account count. This is your expected outlay before any payout.",
-                                }}
                             />
                             <SummaryCard
+                                info={{
+                                    body: "Sum of account counts across all portfolio rows. Each row's count represents how many parallel funded accounts of that firm/plan you are running.",
+                                    title: 'Total accounts',
+                                }}
                                 label="Total accounts"
                                 value={String(totals.totalAccounts)}
-                                info={{
-                                    title: 'Total accounts',
-                                    body: "Sum of account counts across all portfolio rows. Each row's count represents how many parallel funded accounts of that firm/plan you are running.",
-                                }}
                             />
                             <SummaryCard
-                                label="Annual ROI on fees"
-                                value={formatPercent(totals.roi)}
-                                positive={totals.roi > 0}
                                 info={{
-                                    title: 'Annual ROI on fees',
                                     body: 'Annualised return on your total evaluation spend. = (combined monthly net × 12) ÷ total eval cost − 1. Above 0 % means your expected payouts recover the full fee outlay within a year.',
+                                    title: 'Annual ROI on fees',
                                 }}
+                                label="Annual ROI on fees"
+                                positive={totals.roi > 0}
+                                value={formatPercent(totals.roi)}
                             />
                         </div>
                     )}
@@ -315,14 +325,14 @@ export default function PortfolioPanel({
                                     if (!plan) return null;
                                     return (
                                         <PortfolioRow
-                                            key={entry.id}
                                             entry={entry}
                                             firm={firm}
-                                            plan={plan}
                                             firms={firms}
-                                            sim={sim}
-                                            onUpdate={updateEntry}
+                                            key={entry.id}
                                             onRemove={removeEntry}
+                                            onUpdate={updateEntry}
+                                            plan={plan}
+                                            sim={sim}
                                         />
                                     );
                                 })}
@@ -331,8 +341,8 @@ export default function PortfolioPanel({
                                 <tfoot>
                                     <tr className="border-t-2 border-border/60 font-semibold text-foreground">
                                         <td
-                                            colSpan={7}
                                             className="py-1.5 pr-3 text-muted-foreground"
+                                            colSpan={7}
                                         >
                                             Total ({totals.totalAccounts}{' '}
                                             accounts)
@@ -355,24 +365,14 @@ export default function PortfolioPanel({
     );
 }
 
-interface PortfolioRowProps {
-    entry: PortfolioEntry;
-    firm: PropFirm;
-    plan: Plan;
-    firms: readonly PropFirm[];
-    sim: SimmedEntry | undefined;
-    onUpdate: (id: string, patch: Partial<Omit<PortfolioEntry, 'id'>>) => void;
-    onRemove: (id: string) => void;
-}
-
 function PortfolioRow({
     entry,
     firm,
-    plan,
     firms,
-    sim,
-    onUpdate,
     onRemove,
+    onUpdate,
+    plan,
+    sim,
 }: PortfolioRowProps) {
     const maxAccounts = firm.maxFundedAccounts(plan);
 
@@ -381,9 +381,9 @@ function PortfolioRow({
         const firstPlan = newFirm?.plans[0];
         if (!newFirm || !firstPlan) return;
         onUpdate(entry.id, {
+            count: Math.min(entry.count, newFirm.maxFundedAccounts(firstPlan)),
             firmId: firmId as FirmId,
             planId: firstPlan.id,
-            count: Math.min(entry.count, newFirm.maxFundedAccounts(firstPlan)),
         });
     }
 
@@ -393,8 +393,8 @@ function PortfolioRow({
         );
         if (!found) return;
         onUpdate(entry.id, {
-            planId: found.id,
             count: Math.min(entry.count, firm.maxFundedAccounts(found)),
+            planId: found.id,
         });
     }
 
@@ -421,12 +421,12 @@ function PortfolioRow({
         <tr className="border-t border-border/40">
             <td className="py-1.5 pr-3">
                 <Select
-                    value={firm.id}
+                    className="h-7 text-xs"
                     onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
                         handleFirmChange(e.target.value)
                     }
+                    value={firm.id}
                     wrapperClassName="w-44"
-                    className="h-7 text-xs"
                 >
                     {firms.map((f) => (
                         <option key={f.id} value={f.id}>
@@ -437,12 +437,12 @@ function PortfolioRow({
             </td>
             <td className="py-1.5 pr-3">
                 <Select
-                    value={serializePlanId(plan.id)}
+                    className="h-7 text-xs"
                     onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
                         handlePlanChange(e.target.value)
                     }
+                    value={serializePlanId(plan.id)}
                     wrapperClassName="w-44"
-                    className="h-7 text-xs"
                 >
                     {firm.plans.map((p) => (
                         <option
@@ -457,9 +457,9 @@ function PortfolioRow({
             <td className="py-1.5 pr-3">
                 <div className="flex items-center gap-1">
                     <button
-                        onClick={() => adjustCount(-1)}
-                        disabled={atMin}
                         className="flex h-5 w-5 items-center justify-center rounded text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
+                        disabled={atMin}
+                        onClick={() => adjustCount(-1)}
                     >
                         −
                     </button>
@@ -471,14 +471,14 @@ function PortfolioRow({
                         </span>
                     </span>
                     <button
-                        onClick={() => adjustCount(1)}
+                        className="flex h-5 w-5 items-center justify-center rounded text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
                         disabled={atMax}
+                        onClick={() => adjustCount(1)}
                         title={
                             atMax
                                 ? `${firm.displayName} caps at ${maxAccounts}`
                                 : undefined
                         }
-                        className="flex h-5 w-5 items-center justify-center rounded text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
                     >
                         +
                     </button>
@@ -499,7 +499,7 @@ function PortfolioRow({
                             {hasCoupon ? 'Applied' : 'Coupon'}
                         </button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-80" align="start">
+                    <PopoverContent align="start" className="w-80">
                         <div className="flex flex-col gap-3">
                             <p className="text-xs font-semibold">
                                 Coupon discounts
@@ -507,8 +507,8 @@ function PortfolioRow({
                             <div>
                                 <div className="mb-1 flex items-center justify-between">
                                     <label
-                                        htmlFor={`eval-discount-${entry.id}`}
                                         className="text-xs text-muted-foreground"
+                                        htmlFor={`eval-discount-${entry.id}`}
                                     >
                                         Eval fee discount
                                     </label>
@@ -524,13 +524,11 @@ function PortfolioRow({
                                 </div>
                                 <div className="relative">
                                     <Input
-                                        id={`eval-discount-${entry.id}`}
-                                        type="number"
-                                        min={0}
-                                        max={100}
-                                        step={1}
-                                        value={entry.evalDiscountPercent || ''}
+                                        className="pr-7"
                                         disabled={plan.fees.oneTimeEval === 0}
+                                        id={`eval-discount-${entry.id}`}
+                                        max={100}
+                                        min={0}
                                         onChange={(e) =>
                                             onUpdate(entry.id, {
                                                 evalDiscountPercent: Number(
@@ -538,7 +536,9 @@ function PortfolioRow({
                                                 ),
                                             })
                                         }
-                                        className="pr-7"
+                                        step={1}
+                                        type="number"
+                                        value={entry.evalDiscountPercent || ''}
                                     />
                                     <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
                                         %
@@ -548,8 +548,8 @@ function PortfolioRow({
                             <div>
                                 <div className="mb-1 flex items-center justify-between">
                                     <label
-                                        htmlFor={`activation-discount-${entry.id}`}
                                         className="text-xs text-muted-foreground"
+                                        htmlFor={`activation-discount-${entry.id}`}
                                     >
                                         Activation fee discount
                                     </label>
@@ -566,41 +566,36 @@ function PortfolioRow({
                                 <div className="flex items-stretch gap-2">
                                     <div className="relative flex-1">
                                         <Input
-                                            id={`activation-discount-${entry.id}`}
-                                            type="number"
-                                            min={0}
-                                            max={100}
-                                            step={1}
-                                            value={
-                                                (entry.linkActivationDiscount
-                                                    ? entry.evalDiscountPercent
-                                                    : entry.activationDiscountPercent) ||
-                                                ''
-                                            }
+                                            className="pr-7"
                                             disabled={
                                                 plan.fees.activation === 0 ||
                                                 entry.linkActivationDiscount
                                             }
+                                            id={`activation-discount-${entry.id}`}
+                                            max={100}
+                                            min={0}
                                             onChange={(e) =>
                                                 onUpdate(entry.id, {
                                                     activationDiscountPercent:
                                                         Number(e.target.value),
                                                 })
                                             }
-                                            className="pr-7"
+                                            step={1}
+                                            type="number"
+                                            value={
+                                                (entry.linkActivationDiscount
+                                                    ? entry.evalDiscountPercent
+                                                    : entry.activationDiscountPercent) ||
+                                                ''
+                                            }
                                         />
                                         <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
                                             %
                                         </span>
                                     </div>
                                     <button
-                                        type="button"
-                                        disabled={plan.fees.activation === 0}
-                                        onClick={() =>
-                                            onUpdate(entry.id, {
-                                                linkActivationDiscount:
-                                                    !entry.linkActivationDiscount,
-                                            })
+                                        aria-pressed={
+                                            entry.linkActivationDiscount
                                         }
                                         className={cn(
                                             'rounded-md border border-input px-2 text-xs font-medium whitespace-nowrap transition-colors disabled:pointer-events-none disabled:opacity-50',
@@ -608,9 +603,14 @@ function PortfolioRow({
                                                 ? 'bg-primary text-primary-foreground'
                                                 : 'text-muted-foreground hover:text-foreground',
                                         )}
-                                        aria-pressed={
-                                            entry.linkActivationDiscount
+                                        disabled={plan.fees.activation === 0}
+                                        onClick={() =>
+                                            onUpdate(entry.id, {
+                                                linkActivationDiscount:
+                                                    !entry.linkActivationDiscount,
+                                            })
                                         }
+                                        type="button"
                                     >
                                         Match eval
                                     </button>
@@ -618,14 +618,14 @@ function PortfolioRow({
                             </div>
                             {hasCoupon && (
                                 <button
+                                    className="text-left text-[11px] text-muted-foreground hover:text-foreground"
                                     onClick={() =>
                                         onUpdate(entry.id, {
-                                            evalDiscountPercent: 0,
                                             activationDiscountPercent: 0,
+                                            evalDiscountPercent: 0,
                                             linkActivationDiscount: false,
                                         })
                                     }
-                                    className="text-left text-[11px] text-muted-foreground hover:text-foreground"
                                 >
                                     Reset discounts
                                 </button>
@@ -661,9 +661,9 @@ function PortfolioRow({
             </td>
             <td className="py-1.5">
                 <button
-                    onClick={() => onRemove(entry.id)}
-                    className="text-muted-foreground transition-colors hover:text-foreground"
                     aria-label="Remove"
+                    className="text-muted-foreground transition-colors hover:text-foreground"
+                    onClick={() => onRemove(entry.id)}
                 >
                     ×
                 </button>
@@ -673,15 +673,15 @@ function PortfolioRow({
 }
 
 function SummaryCard({
-    label,
-    value,
-    positive,
     info,
+    label,
+    positive,
+    value,
 }: {
+    info?: { body: string; title: string };
     label: string;
-    value: string;
     positive?: boolean;
-    info?: { title: string; body: string };
+    value: string;
 }) {
     return (
         <div className="rounded-lg border border-border/50 bg-muted/20 px-3 py-2">

@@ -30,29 +30,24 @@ export async function getDevice(
             status: 404,
         };
 
-    const sensors = (
-        await ctx.db.query.sensorsToDevices.findMany({
-            where: (row) => eq(row.device_id, res.id),
-        })
-    ).map((sensor) => sensor.sensor_id);
+    const sensorRows = await ctx.db.query.sensorsToDevices.findMany({
+        where: (row) => eq(row.device_id, res.id),
+    });
+    const sensors = sensorRows.map((sensor) => sensor.sensor_id);
 
     return { data: { ...res, sensors: sensors } };
 }
 
 export const deviceRouter = createTRPCRouter({
-    getDevices: publicProcedure.query(async ({ ctx }) => {
-        return { data: await ctx.db.query.device.findMany() };
-    }),
-
     getDevice: publicProcedure
         .input(getDeviceProps)
-        .query(async ({ input, ctx }) => {
+        .query(async ({ ctx, input }) => {
             return await getDevice(input, ctx);
         }),
 
     getDeviceReadings: publicProcedure
         .input(getDeviceReadingsProps)
-        .query(async ({ input, ctx }) => {
+        .query(async ({ ctx, input }) => {
             const device = await getDevice(
                 { device_id: input.device.device_id },
                 ctx,
@@ -112,7 +107,7 @@ export const deviceRouter = createTRPCRouter({
 
     getDeviceRecordings: publicProcedure
         .input(getDeviceRecordingsProps)
-        .query(async ({ input, ctx }) => {
+        .query(async ({ ctx, input }) => {
             const device = await getDevice(
                 { device_id: input.device.device_id },
                 ctx,
@@ -123,17 +118,17 @@ export const deviceRouter = createTRPCRouter({
             }
 
             const recordings = await ctx.db.query.recording.findMany({
+                columns: {
+                    created_at: true,
+                    device_id: true,
+                    file_name: true,
+                    id: true,
+                    location_id: true,
+                },
                 where: (recording) => {
                     return device.data
                         ? eq(recording.device_id, device.data.id)
                         : undefined;
-                },
-                columns: {
-                    id: true,
-                    created_at: true,
-                    location_id: true,
-                    device_id: true,
-                    file_name: true,
                 },
             });
 
@@ -141,4 +136,8 @@ export const deviceRouter = createTRPCRouter({
                 (typeof recording.$inferSelect)[]
             >;
         }),
+
+    getDevices: publicProcedure.query(async ({ ctx }) => {
+        return { data: await ctx.db.query.device.findMany() };
+    }),
 });

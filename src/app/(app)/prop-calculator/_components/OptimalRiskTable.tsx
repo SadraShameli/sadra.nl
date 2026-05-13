@@ -22,27 +22,21 @@ import { panelDescriptions } from './kpiDescriptions';
 
 const RISK_LEVELS = [0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 4, 5] as const;
 
-function nearestRisk(target: number): number {
-    return RISK_LEVELS.reduce((best, v) =>
-        Math.abs(v - target) < Math.abs(best - target) ? v : best,
-    );
-}
-
 interface OptimalRiskTableProps {
-    plan: Plan;
     baseInputs: Omit<SimInputs, 'riskPerTrade'>;
     currentRiskPercent: number;
+    plan: Plan;
 }
 
 interface Row {
-    riskPct: number;
     out: SimOutputs;
+    riskPct: number;
 }
 
 export default function OptimalRiskTable({
-    plan,
     baseInputs,
     currentRiskPercent,
+    plan,
 }: OptimalRiskTableProps) {
     const [rows, setRows] = useState<Row[]>([]);
     const [pending, setPending] = useState(false);
@@ -64,10 +58,10 @@ export default function OptimalRiskTable({
                 const riskDollars = (accountSize * riskPct) / 100;
                 const out = simulate({
                     ...inputs,
-                    trials,
                     riskPerTrade: riskDollars,
+                    trials,
                 });
-                return { riskPct, out };
+                return { out, riskPct };
             });
             if (!cancelled) {
                 setRows(results);
@@ -127,17 +121,17 @@ export default function OptimalRiskTable({
                         </tr>
                     </thead>
                     <tbody>
-                        {rows.map(({ riskPct, out }) => {
+                        {rows.map(({ out, riskPct }) => {
                             const isCurrent = riskPct === closestRiskPct;
                             const isBest = bestRow?.riskPct === riskPct;
                             return (
                                 <tr
-                                    key={riskPct}
                                     className={cn(
                                         'border-t border-border/40 transition-colors',
                                         isCurrent &&
                                             'bg-primary/10 font-semibold text-foreground',
                                     )}
+                                    key={riskPct}
                                 >
                                     <td className="py-1.5 pr-3">
                                         {formatCurrency(
@@ -180,21 +174,27 @@ export default function OptimalRiskTable({
     );
 }
 
+function nearestRisk(target: number): number {
+    return RISK_LEVELS.reduce((best, v) =>
+        Math.abs(v - target) < Math.abs(best - target) ? v : best,
+    );
+}
+
 function useDebouncedKey(inputs: Omit<SimInputs, 'riskPerTrade'>): string {
     const key = JSON.stringify({
-        firmId: inputs.plan.id,
-        winrate: inputs.winrate,
-        rr: inputs.rrRatio,
-        tpd: inputs.tradesPerDay,
-        max: inputs.maxEvalDays,
-        funded: inputs.fundedHorizonDays,
-        seed: inputs.seed,
-        commission: inputs.commissionPerRoundTrip ?? 0,
-        attempts: inputs.maxAttempts ?? 1,
-        copy: inputs.copyAccounts ?? 1,
-        trials: inputs.trials,
-        eval: inputs.discounts?.evalPercent ?? 0,
         act: inputs.discounts?.activationPercent ?? 0,
+        attempts: inputs.maxAttempts ?? 1,
+        commission: inputs.commissionPerRoundTrip ?? 0,
+        copy: inputs.copyAccounts ?? 1,
+        eval: inputs.discounts?.evalPercent ?? 0,
+        firmId: inputs.plan.id,
+        funded: inputs.fundedHorizonDays,
+        max: inputs.maxEvalDays,
+        rr: inputs.rrRatio,
+        seed: inputs.seed,
+        tpd: inputs.tradesPerDay,
+        trials: inputs.trials,
+        winrate: inputs.winrate,
     });
     const [debounced, setDebounced] = useState(key);
     useEffect(() => {

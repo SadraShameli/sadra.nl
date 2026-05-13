@@ -14,45 +14,9 @@ interface TailRiskPanelProps {
     result: SimOutputs;
 }
 
-function StatCell({
-    label,
-    value,
-    sub,
-    valueClass,
-}: {
-    label: string;
-    value: string;
-    sub?: string;
-    valueClass?: string;
-}) {
-    return (
-        <div className="flex flex-col gap-1 rounded-md border border-border/50 bg-muted/20 px-3 py-2.5">
-            <span className="text-[11px] text-muted-foreground">{label}</span>
-            <span
-                className={cn(
-                    'font-mono text-lg leading-none font-bold tabular-nums',
-                    valueClass,
-                )}
-            >
-                {value}
-            </span>
-            {sub && (
-                <span
-                    className={cn(
-                        'text-[10px]',
-                        valueClass ?? 'text-muted-foreground',
-                    )}
-                >
-                    {sub}
-                </span>
-            )}
-        </div>
-    );
-}
-
 export default function TailRiskPanel({ result }: TailRiskPanelProps) {
     const m = useMemo(() => {
-        const { finalBalances, accountSize } = result;
+        const { accountSize, finalBalances } = result;
         if (finalBalances.length === 0) return null;
 
         const pnls = finalBalances.map((b) => b - accountSize);
@@ -88,23 +52,25 @@ export default function TailRiskPanel({ result }: TailRiskPanelProps) {
             pnls.filter((p) => p > threshold).length / n;
 
         return {
-            var95,
-            var99,
+            accountSize,
             cvar95,
             cvar99,
-            tailRatio,
+            gainProb10: gainProb(accountSize * 0.1),
+            gainProb25: gainProb(accountSize * 0.25),
             lossProb10,
             lossProb25,
             lossProb50,
-            gainProb10: gainProb(accountSize * 0.1),
-            gainProb25: gainProb(accountSize * 0.25),
-            accountSize,
+            tailRatio,
+            var95,
+            var99,
         };
     }, [result]);
 
     if (!m) return null;
 
-    const tailRatioStr = !isFinite(m.tailRatio) ? '∞' : m.tailRatio.toFixed(2);
+    const tailRatioStr = Number.isFinite(m.tailRatio)
+        ? m.tailRatio.toFixed(2)
+        : '∞';
     const tailColor =
         m.tailRatio > 1.5
             ? 'text-emerald-400'
@@ -132,32 +98,32 @@ export default function TailRiskPanel({ result }: TailRiskPanelProps) {
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
                     <StatCell
                         label="VaR 95%"
-                        value={formatCompactCurrency(m.var95)}
                         sub="loss in 1-of-20 trials"
+                        value={formatCompactCurrency(m.var95)}
                         valueClass="text-rose-400"
                     />
                     <StatCell
                         label="CVaR 95% (ES)"
-                        value={formatCompactCurrency(m.cvar95)}
                         sub="avg loss in worst 5%"
+                        value={formatCompactCurrency(m.cvar95)}
                         valueClass="text-rose-400"
                     />
                     <StatCell
                         label="VaR 99%"
-                        value={formatCompactCurrency(m.var99)}
                         sub="loss in 1-of-100 trials"
+                        value={formatCompactCurrency(m.var99)}
                         valueClass="text-rose-500"
                     />
                     <StatCell
                         label="CVaR 99% (ES)"
-                        value={formatCompactCurrency(m.cvar99)}
                         sub="avg loss in worst 1%"
+                        value={formatCompactCurrency(m.cvar99)}
                         valueClass="text-rose-500"
                     />
                     <StatCell
                         label="Tail ratio"
-                        value={tailRatioStr}
                         sub="upside / downside tail"
+                        value={tailRatioStr}
                         valueClass={tailColor}
                     />
                 </div>
@@ -187,27 +153,27 @@ export default function TailRiskPanel({ result }: TailRiskPanelProps) {
                             <tbody>
                                 {[
                                     {
-                                        label: 'Lose 10% of capital',
-                                        threshold: m.accountSize * 0.1,
-                                        lossP: m.lossProb10,
                                         gainP: m.gainProb10,
+                                        label: 'Lose 10% of capital',
+                                        lossP: m.lossProb10,
+                                        threshold: m.accountSize * 0.1,
                                     },
                                     {
-                                        label: 'Lose 25% of capital',
-                                        threshold: m.accountSize * 0.25,
-                                        lossP: m.lossProb25,
                                         gainP: m.gainProb25,
+                                        label: 'Lose 25% of capital',
+                                        lossP: m.lossProb25,
+                                        threshold: m.accountSize * 0.25,
                                     },
                                     {
-                                        label: 'Lose 50% of capital',
-                                        threshold: m.accountSize * 0.5,
-                                        lossP: m.lossProb50,
                                         gainP: null,
+                                        label: 'Lose 50% of capital',
+                                        lossP: m.lossProb50,
+                                        threshold: m.accountSize * 0.5,
                                     },
                                 ].map((row) => (
                                     <tr
-                                        key={row.label}
                                         className="border-b border-border/20"
+                                        key={row.label}
                                     >
                                         <td className="py-1.5 pr-6 text-foreground">
                                             {row.label}
@@ -241,9 +207,9 @@ export default function TailRiskPanel({ result }: TailRiskPanelProps) {
                                                         : 'text-muted-foreground',
                                             )}
                                         >
-                                            {row.gainP !== null
-                                                ? formatPercent(row.gainP)
-                                                : '—'}
+                                            {row.gainP === null
+                                                ? '—'
+                                                : formatPercent(row.gainP)}
                                         </td>
                                     </tr>
                                 ))}
@@ -253,5 +219,41 @@ export default function TailRiskPanel({ result }: TailRiskPanelProps) {
                 </div>
             </div>
         </Card>
+    );
+}
+
+function StatCell({
+    label,
+    sub,
+    value,
+    valueClass,
+}: {
+    label: string;
+    sub?: string;
+    value: string;
+    valueClass?: string;
+}) {
+    return (
+        <div className="flex flex-col gap-1 rounded-md border border-border/50 bg-muted/20 px-3 py-2.5">
+            <span className="text-[11px] text-muted-foreground">{label}</span>
+            <span
+                className={cn(
+                    'font-mono text-lg leading-none font-bold tabular-nums',
+                    valueClass,
+                )}
+            >
+                {value}
+            </span>
+            {sub && (
+                <span
+                    className={cn(
+                        'text-[10px]',
+                        valueClass ?? 'text-muted-foreground',
+                    )}
+                >
+                    {sub}
+                </span>
+            )}
+        </div>
     );
 }

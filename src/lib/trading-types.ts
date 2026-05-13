@@ -67,35 +67,35 @@ export const WEIGHT_CATEGORY_VALUES = [
     'rr',
 ] as const;
 
-export type ConfluenceKey =
-    | (typeof ENTRY_CONFLUENCE_KEYS)[number]
-    | (typeof DOL_CONFLUENCE_KEYS)[number];
-
-export type DolType = (typeof DOL_TYPE_VALUES)[number];
-
 export type AccountType = (typeof ACCOUNT_TYPE_VALUES)[number];
 
 export type BiasDirection = (typeof BIAS_DIRECTION_VALUES)[number];
 
-export type DayType = (typeof DAY_TYPE_VALUES)[number];
+export type ConfluenceGroup = {
+    items: ConfluenceKey[];
+    label: string;
+};
 
-export type SetupType = (typeof SETUP_TYPE_VALUES)[number];
+export type ConfluenceKey =
+    | (typeof DOL_CONFLUENCE_KEYS)[number]
+    | (typeof ENTRY_CONFLUENCE_KEYS)[number];
+
+export type DayType = (typeof DAY_TYPE_VALUES)[number];
 
 export type DisplacementDirection =
     (typeof DISPLACEMENT_DIRECTION_VALUES)[number];
 
-export type Grade = (typeof GRADE_VALUES)[number];
+export type DolType = (typeof DOL_TYPE_VALUES)[number];
 
-export type Recommendation = (typeof RECOMMENDATION_VALUES)[number];
+export type Grade = (typeof GRADE_VALUES)[number];
 
 export type Outcome = (typeof OUTCOME_VALUES)[number];
 
-export type WeightCategory = (typeof WEIGHT_CATEGORY_VALUES)[number];
+export type Recommendation = (typeof RECOMMENDATION_VALUES)[number];
 
-export type ConfluenceGroup = {
-    label: string;
-    items: ConfluenceKey[];
-};
+export type SetupType = (typeof SETUP_TYPE_VALUES)[number];
+
+export type WeightCategory = (typeof WEIGHT_CATEGORY_VALUES)[number];
 
 export type {
     Answers,

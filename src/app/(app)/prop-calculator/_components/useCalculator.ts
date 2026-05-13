@@ -19,9 +19,9 @@ import { decodeState, encodeState } from './urlState';
 
 const SIM_DEBOUNCE_MS = 180;
 
-function required<T>(value: T | undefined, message: string): T {
-    if (value === undefined) throw new Error(message);
-    return value;
+function clampInt(n: number, lo: number, hi: number, fallback: number): number {
+    if (!Number.isFinite(n)) return fallback;
+    return Math.min(hi, Math.max(lo, Math.floor(n)));
 }
 
 function clampNum(n: number, lo: number, hi: number, fallback: number): number {
@@ -29,9 +29,9 @@ function clampNum(n: number, lo: number, hi: number, fallback: number): number {
     return Math.min(hi, Math.max(lo, n));
 }
 
-function clampInt(n: number, lo: number, hi: number, fallback: number): number {
-    if (!Number.isFinite(n)) return fallback;
-    return Math.min(hi, Math.max(lo, Math.floor(n)));
+function required<T>(value: T | undefined, message: string): T {
+    if (value === undefined) throw new Error(message);
+    return value;
 }
 
 const DEFAULT_FIRM: PropFirm = required(
@@ -43,137 +43,92 @@ const DEFAULT_PLAN: Plan = required(
     'Prop calculator: default $50K plan missing from Apex',
 );
 
-function freshId(): string {
-    if (
-        typeof crypto !== 'undefined' &&
-        typeof crypto.randomUUID === 'function'
-    ) {
-        return crypto.randomUUID();
-    }
-    return `lab-${Math.random().toString(36).slice(2, 11)}`;
+export interface PinnedScenario {
+    result: SimOutputs;
+    state: CalculatorState;
+}
+
+export interface UseCalculatorReturn {
+    addLabScenario: () => void;
+    applyState: (next: CalculatorState) => void;
+    firms: typeof ALL_FIRMS;
+    isPending: boolean;
+    pinned: null | PinnedScenario;
+    pinScenario: () => void;
+    removeLabScenario: (id: string) => void;
+    reset: () => void;
+    resetCoupon: () => void;
+    resetLabScenarios: () => void;
+    result: SimOutputs;
+    setActivationDiscountPercent: (n: number) => void;
+    setCommissionPerRoundTrip: (n: number) => void;
+    setCopyAccounts: (n: number) => void;
+    setDayStop: (rule: DayStopRule) => void;
+    setEvalDiscountPercent: (n: number) => void;
+    setFirm: (firm: PropFirm) => void;
+    setLabScenarios: (entries: LabScenario[]) => void;
+    setLinkActivationDiscount: (linked: boolean) => void;
+    setMaxAttempts: (n: number) => void;
+    setMaxEvalDays: (n: number) => void;
+    setPlan: (plan: Plan) => void;
+    setRiskDollars: (n: number) => void;
+    setRiskPercent: (n: number) => void;
+    setRrRatio: (n: number) => void;
+    setSeed: (n: number) => void;
+    setSizingMode: (m: SizingMode) => void;
+    setTradesPerDay: (n: number) => void;
+    setTrials: (n: number) => void;
+    setWinrate: (n: number) => void;
+    simInputs: SimInputs;
+    state: CalculatorState;
+    unpinScenario: () => void;
+    updateLabScenario: (id: string, patch: Partial<LabScenario>) => void;
 }
 
 export function buildDefaultLabScenarios(): LabScenario[] {
     return [
         {
+            accounts: 10,
+            correlation: 'copy',
+            dayStop: { kind: 'none' },
+            groups: 1,
             id: freshId(),
             label: 'Risk-scale',
             riskPerTrade: 500,
-            winrate: 0.4,
             rrRatio: 2,
             tradesPerDay: 1,
-            accounts: 10,
-            correlation: 'copy',
-            groups: 1,
-            dayStop: { kind: 'none' },
+            winrate: 0.4,
         },
         {
+            accounts: 10,
+            correlation: 'copy',
+            dayStop: { kind: 'none' },
+            groups: 1,
             id: freshId(),
             label: 'Frequency-scale',
             riskPerTrade: 250,
-            winrate: 0.35,
             rrRatio: 2,
             tradesPerDay: 4,
-            accounts: 10,
-            correlation: 'copy',
-            groups: 1,
-            dayStop: { kind: 'none' },
+            winrate: 0.35,
         },
         {
+            accounts: 10,
+            correlation: 'grouped',
+            dayStop: { kind: 'none' },
+            groups: 2,
             id: freshId(),
             label: 'Group-split',
             riskPerTrade: 250,
-            winrate: 0.4,
             rrRatio: 2,
             tradesPerDay: 1,
-            accounts: 10,
-            correlation: 'grouped',
-            groups: 2,
-            dayStop: { kind: 'none' },
+            winrate: 0.4,
         },
     ];
 }
 
-function defaultState(): CalculatorState {
-    return {
-        firm: DEFAULT_FIRM,
-        plan: DEFAULT_PLAN,
-        winrate: 0.4,
-        rrRatio: 2,
-        tradesPerDay: 1,
-        sizingMode: SizingMode.Dollar,
-        riskDollars: 250,
-        riskPercent: 0.5,
-        seed: 42,
-        trials: 2000,
-        maxEvalDays: 60,
-        fundedHorizonDays: 60,
-        evalDiscountPercent: 0,
-        activationDiscountPercent: 0,
-        linkActivationDiscount: false,
-        commissionPerRoundTrip: 0,
-        maxAttempts: 1,
-        copyAccounts: 1,
-        firmMemory: {},
-        dayStop: { kind: 'none' },
-        labScenarios: buildDefaultLabScenarios(),
-    };
-}
-
-function useDebouncedValue<T>(value: T, delay: number): T {
-    const [debounced, setDebounced] = useState(value);
-    useEffect(() => {
-        const t = setTimeout(() => setDebounced(value), delay);
-        return () => clearTimeout(t);
-    }, [value, delay]);
-    return debounced;
-}
-
-export interface PinnedScenario {
-    state: CalculatorState;
-    result: SimOutputs;
-}
-
-export interface UseCalculatorReturn {
-    state: CalculatorState;
-    firms: typeof ALL_FIRMS;
-    result: SimOutputs;
-    simInputs: SimInputs;
-    pinned: PinnedScenario | null;
-    isPending: boolean;
-    setFirm: (firm: PropFirm) => void;
-    setPlan: (plan: Plan) => void;
-    setWinrate: (n: number) => void;
-    setRrRatio: (n: number) => void;
-    setTradesPerDay: (n: number) => void;
-    setSizingMode: (m: SizingMode) => void;
-    setRiskDollars: (n: number) => void;
-    setRiskPercent: (n: number) => void;
-    setSeed: (n: number) => void;
-    setTrials: (n: number) => void;
-    setMaxEvalDays: (n: number) => void;
-    setEvalDiscountPercent: (n: number) => void;
-    setActivationDiscountPercent: (n: number) => void;
-    setLinkActivationDiscount: (linked: boolean) => void;
-    setCommissionPerRoundTrip: (n: number) => void;
-    setMaxAttempts: (n: number) => void;
-    setCopyAccounts: (n: number) => void;
-    setDayStop: (rule: DayStopRule) => void;
-    setLabScenarios: (entries: LabScenario[]) => void;
-    addLabScenario: () => void;
-    updateLabScenario: (id: string, patch: Partial<LabScenario>) => void;
-    removeLabScenario: (id: string) => void;
-    resetLabScenarios: () => void;
-    resetCoupon: () => void;
-    pinScenario: () => void;
-    unpinScenario: () => void;
-    applyState: (next: CalculatorState) => void;
-    reset: () => void;
-}
-
 export function useCalculator(): UseCalculatorReturn {
     const [state, setState] = useState<CalculatorState>(defaultState);
-    const [pinned, setPinned] = useState<PinnedScenario | null>(null);
+    const [pinned, setPinned] = useState<null | PinnedScenario>(null);
     const hydratedRef = useRef(false);
     const skipNextWriteRef = useRef(true);
 
@@ -224,23 +179,23 @@ export function useCalculator(): UseCalculatorReturn {
 
     const simInputs = useMemo(
         () => ({
-            plan: state.plan,
-            winrate: state.winrate,
-            rrRatio: state.rrRatio,
-            riskPerTrade,
-            tradesPerDay: state.tradesPerDay,
-            maxEvalDays: state.maxEvalDays,
-            fundedHorizonDays: state.fundedHorizonDays,
-            trials: state.trials,
-            seed: state.seed,
-            discounts: {
-                evalPercent: state.evalDiscountPercent,
-                activationPercent: effectiveActivationDiscount,
-            },
             commissionPerRoundTrip: state.commissionPerRoundTrip,
-            maxAttempts: state.maxAttempts,
             copyAccounts: state.copyAccounts,
             dayStop: state.dayStop,
+            discounts: {
+                activationPercent: effectiveActivationDiscount,
+                evalPercent: state.evalDiscountPercent,
+            },
+            fundedHorizonDays: state.fundedHorizonDays,
+            maxAttempts: state.maxAttempts,
+            maxEvalDays: state.maxEvalDays,
+            plan: state.plan,
+            riskPerTrade,
+            rrRatio: state.rrRatio,
+            seed: state.seed,
+            tradesPerDay: state.tradesPerDay,
+            trials: state.trials,
+            winrate: state.winrate,
         }),
         [
             state.plan,
@@ -272,8 +227,8 @@ export function useCalculator(): UseCalculatorReturn {
             const memoryWithCurrent = {
                 ...s.firmMemory,
                 [s.firm.id]: {
-                    planId: s.plan.id,
                     copyAccounts: s.copyAccounts,
+                    planId: s.plan.id,
                 },
             };
             const remembered = memoryWithCurrent[firm.id];
@@ -291,10 +246,10 @@ export function useCalculator(): UseCalculatorReturn {
                 : 1;
             return {
                 ...s,
-                firm,
-                plan,
                 copyAccounts,
+                firm,
                 firmMemory: memoryWithCurrent,
+                plan,
             };
         });
     };
@@ -305,71 +260,60 @@ export function useCalculator(): UseCalculatorReturn {
             const copyAccounts = Math.min(s.copyAccounts, cap);
             return {
                 ...s,
-                plan,
                 copyAccounts,
                 firmMemory: {
                     ...s.firmMemory,
-                    [s.firm.id]: { planId: plan.id, copyAccounts },
+                    [s.firm.id]: { copyAccounts, planId: plan.id },
                 },
+                plan,
             };
         });
     };
 
     return {
-        state,
+        addLabScenario: () =>
+            setState((s) => {
+                const last = s.labScenarios.at(-1);
+                const base: LabScenario = last
+                    ? { ...last, id: freshId(), label: `${last.label} copy` }
+                    : {
+                          accounts: 10,
+                          correlation: 'copy',
+                          dayStop: { kind: 'none' },
+                          groups: 1,
+                          id: freshId(),
+                          label: 'New scenario',
+                          riskPerTrade: 250,
+                          rrRatio: 2,
+                          tradesPerDay: 1,
+                          winrate: 0.4,
+                      };
+                return { ...s, labScenarios: [...s.labScenarios, base] };
+            }),
+        applyState: (next) => setState(next),
         firms: ALL_FIRMS,
-        result,
-        simInputs,
-        pinned,
         isPending,
-        setFirm,
-        setPlan,
-        setWinrate: (n) =>
+        pinned,
+        pinScenario: () => setPinned({ result, state }),
+        removeLabScenario: (id) =>
             setState((s) => ({
                 ...s,
-                winrate: clampNum(n, 0.05, 0.95, s.winrate),
+                labScenarios: s.labScenarios.filter((sc) => sc.id !== id),
             })),
-        setRrRatio: (n) =>
+        reset: () => setState(defaultState()),
+        resetCoupon: () =>
             setState((s) => ({
                 ...s,
-                rrRatio: clampNum(n, 0.5, 10, s.rrRatio),
+                activationDiscountPercent: 0,
+                evalDiscountPercent: 0,
+                linkActivationDiscount: false,
             })),
-        setTradesPerDay: (n) =>
+        resetLabScenarios: () =>
             setState((s) => ({
                 ...s,
-                tradesPerDay: clampInt(n, 1, 50, s.tradesPerDay),
+                labScenarios: buildDefaultLabScenarios(),
             })),
-        setSizingMode: (m) => setState((s) => ({ ...s, sizingMode: m })),
-        setRiskDollars: (n) =>
-            setState((s) => ({
-                ...s,
-                riskDollars: clampNum(n, 1, s.plan.accountSize, s.riskDollars),
-            })),
-        setRiskPercent: (n) =>
-            setState((s) => ({
-                ...s,
-                riskPercent: clampNum(n, 0.05, 100, s.riskPercent),
-            })),
-        setSeed: (n) =>
-            setState((s) => ({
-                ...s,
-                seed: Number.isFinite(n) ? Math.floor(n) : s.seed,
-            })),
-        setTrials: (n) =>
-            setState((s) => ({
-                ...s,
-                trials: clampInt(n, 100, 5000, s.trials),
-            })),
-        setMaxEvalDays: (n) =>
-            setState((s) => ({
-                ...s,
-                maxEvalDays: clampInt(n, 10, 365, s.maxEvalDays),
-            })),
-        setEvalDiscountPercent: (n) =>
-            setState((s) => ({
-                ...s,
-                evalDiscountPercent: clampNum(n, 0, 100, s.evalDiscountPercent),
-            })),
+        result,
         setActivationDiscountPercent: (n) =>
             setState((s) => ({
                 ...s,
@@ -380,8 +324,6 @@ export function useCalculator(): UseCalculatorReturn {
                     s.activationDiscountPercent,
                 ),
             })),
-        setLinkActivationDiscount: (linked) =>
-            setState((s) => ({ ...s, linkActivationDiscount: linked })),
         setCommissionPerRoundTrip: (n) =>
             setState((s) => ({
                 ...s,
@@ -391,11 +333,6 @@ export function useCalculator(): UseCalculatorReturn {
                     50,
                     s.commissionPerRoundTrip,
                 ),
-            })),
-        setMaxAttempts: (n) =>
-            setState((s) => ({
-                ...s,
-                maxAttempts: clampInt(n, 1, 10, s.maxAttempts),
             })),
         setCopyAccounts: (n) =>
             setState((s) => {
@@ -407,34 +344,73 @@ export function useCalculator(): UseCalculatorReturn {
                     firmMemory: {
                         ...s.firmMemory,
                         [s.firm.id]: {
-                            planId: s.plan.id,
                             copyAccounts: clamped,
+                            planId: s.plan.id,
                         },
                     },
                 };
             }),
         setDayStop: (rule) => setState((s) => ({ ...s, dayStop: rule })),
+        setEvalDiscountPercent: (n) =>
+            setState((s) => ({
+                ...s,
+                evalDiscountPercent: clampNum(n, 0, 100, s.evalDiscountPercent),
+            })),
+        setFirm,
         setLabScenarios: (entries) =>
             setState((s) => ({ ...s, labScenarios: entries })),
-        addLabScenario: () =>
-            setState((s) => {
-                const last = s.labScenarios[s.labScenarios.length - 1];
-                const base: LabScenario = last
-                    ? { ...last, id: freshId(), label: `${last.label} copy` }
-                    : {
-                          id: freshId(),
-                          label: 'New scenario',
-                          riskPerTrade: 250,
-                          winrate: 0.4,
-                          rrRatio: 2,
-                          tradesPerDay: 1,
-                          accounts: 10,
-                          correlation: 'copy',
-                          groups: 1,
-                          dayStop: { kind: 'none' },
-                      };
-                return { ...s, labScenarios: [...s.labScenarios, base] };
-            }),
+        setLinkActivationDiscount: (linked) =>
+            setState((s) => ({ ...s, linkActivationDiscount: linked })),
+        setMaxAttempts: (n) =>
+            setState((s) => ({
+                ...s,
+                maxAttempts: clampInt(n, 1, 10, s.maxAttempts),
+            })),
+        setMaxEvalDays: (n) =>
+            setState((s) => ({
+                ...s,
+                maxEvalDays: clampInt(n, 10, 365, s.maxEvalDays),
+            })),
+        setPlan,
+        setRiskDollars: (n) =>
+            setState((s) => ({
+                ...s,
+                riskDollars: clampNum(n, 1, s.plan.accountSize, s.riskDollars),
+            })),
+        setRiskPercent: (n) =>
+            setState((s) => ({
+                ...s,
+                riskPercent: clampNum(n, 0.05, 100, s.riskPercent),
+            })),
+        setRrRatio: (n) =>
+            setState((s) => ({
+                ...s,
+                rrRatio: clampNum(n, 0.5, 10, s.rrRatio),
+            })),
+        setSeed: (n) =>
+            setState((s) => ({
+                ...s,
+                seed: Number.isFinite(n) ? Math.floor(n) : s.seed,
+            })),
+        setSizingMode: (m) => setState((s) => ({ ...s, sizingMode: m })),
+        setTradesPerDay: (n) =>
+            setState((s) => ({
+                ...s,
+                tradesPerDay: clampInt(n, 1, 50, s.tradesPerDay),
+            })),
+        setTrials: (n) =>
+            setState((s) => ({
+                ...s,
+                trials: clampInt(n, 100, 5000, s.trials),
+            })),
+        setWinrate: (n) =>
+            setState((s) => ({
+                ...s,
+                winrate: clampNum(n, 0.05, 0.95, s.winrate),
+            })),
+        simInputs,
+        state,
+        unpinScenario: () => setPinned(null),
         updateLabScenario: (id, patch) =>
             setState((s) => ({
                 ...s,
@@ -442,26 +418,50 @@ export function useCalculator(): UseCalculatorReturn {
                     sc.id === id ? { ...sc, ...patch } : sc,
                 ),
             })),
-        removeLabScenario: (id) =>
-            setState((s) => ({
-                ...s,
-                labScenarios: s.labScenarios.filter((sc) => sc.id !== id),
-            })),
-        resetLabScenarios: () =>
-            setState((s) => ({
-                ...s,
-                labScenarios: buildDefaultLabScenarios(),
-            })),
-        resetCoupon: () =>
-            setState((s) => ({
-                ...s,
-                evalDiscountPercent: 0,
-                activationDiscountPercent: 0,
-                linkActivationDiscount: false,
-            })),
-        pinScenario: () => setPinned({ state, result }),
-        unpinScenario: () => setPinned(null),
-        applyState: (next) => setState(next),
-        reset: () => setState(defaultState()),
     };
+}
+
+function defaultState(): CalculatorState {
+    return {
+        activationDiscountPercent: 0,
+        commissionPerRoundTrip: 0,
+        copyAccounts: 1,
+        dayStop: { kind: 'none' },
+        evalDiscountPercent: 0,
+        firm: DEFAULT_FIRM,
+        firmMemory: {},
+        fundedHorizonDays: 60,
+        labScenarios: buildDefaultLabScenarios(),
+        linkActivationDiscount: false,
+        maxAttempts: 1,
+        maxEvalDays: 60,
+        plan: DEFAULT_PLAN,
+        riskDollars: 250,
+        riskPercent: 0.5,
+        rrRatio: 2,
+        seed: 42,
+        sizingMode: SizingMode.Dollar,
+        tradesPerDay: 1,
+        trials: 2000,
+        winrate: 0.4,
+    };
+}
+
+function freshId(): string {
+    if (
+        typeof crypto !== 'undefined' &&
+        typeof crypto.randomUUID === 'function'
+    ) {
+        return crypto.randomUUID();
+    }
+    return `lab-${Math.random().toString(36).slice(2, 11)}`;
+}
+
+function useDebouncedValue<T>(value: T, delay: number): T {
+    const [debounced, setDebounced] = useState(value);
+    useEffect(() => {
+        const t = setTimeout(() => setDebounced(value), delay);
+        return () => clearTimeout(t);
+    }, [value, delay]);
+    return debounced;
 }

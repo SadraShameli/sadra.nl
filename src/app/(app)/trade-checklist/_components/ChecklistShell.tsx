@@ -5,6 +5,13 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 
+import type {
+    Answers,
+    AssessmentResult,
+    TradeAssessmentRow,
+    TradingPlanRow,
+} from '~/lib/trading-types';
+
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
@@ -20,34 +27,28 @@ import {
     deleteAssessment,
     setActiveTradingPlan,
 } from '~/lib/trading-actions';
-import type {
-    Answers,
-    AssessmentResult,
-    TradeAssessmentRow,
-    TradingPlanRow,
-} from '~/lib/trading-types';
 
 import { AnalysisReport } from './AnalysisReport';
 import { HistoryStrip } from './HistoryStrip';
 import { WizardStepper } from './WizardStepper';
 
 type SubmissionState =
-    | { status: 'editing' }
     | {
-          status: 'graded';
           answers: Answers;
           result: AssessmentResult;
-          savedId: string | null;
-      };
+          savedId: null | string;
+          status: 'graded';
+      }
+    | { status: 'editing' };
 
 export function ChecklistShell({
     activePlan,
-    plans,
     history,
+    plans,
 }: {
     activePlan: TradingPlanRow;
-    plans: TradingPlanRow[];
     history: TradeAssessmentRow[];
+    plans: TradingPlanRow[];
 }) {
     const router = useRouter();
     const [submission, setSubmission] = useState<SubmissionState>({
@@ -57,10 +58,10 @@ export function ChecklistShell({
 
     const handleSelect = (row: TradeAssessmentRow) => {
         setSubmission({
-            status: 'graded',
             answers: row.answers,
             result: row.result,
             savedId: row.id,
+            status: 'graded',
         });
     };
 
@@ -92,23 +93,21 @@ export function ChecklistShell({
                 {submission.status === 'editing' ? (
                     <WizardStepper
                         key={activePlan.id}
-                        plan={activePlan}
                         onSubmit={(answers, result) =>
                             setSubmission({
-                                status: 'graded',
                                 answers,
                                 result,
                                 savedId: null,
+                                status: 'graded',
                             })
                         }
+                        plan={activePlan}
                     />
                 ) : (
                     <AnalysisReport
-                        plan={activePlan}
                         answers={submission.answers}
-                        result={submission.result}
                         history={history}
-                        savedId={submission.savedId}
+                        onRestart={() => setSubmission({ status: 'editing' })}
                         onSaved={(id) => {
                             setSubmission((s) =>
                                 s.status === 'graded'
@@ -117,7 +116,9 @@ export function ChecklistShell({
                             );
                             router.refresh();
                         }}
-                        onRestart={() => setSubmission({ status: 'editing' })}
+                        plan={activePlan}
+                        result={submission.result}
+                        savedId={submission.savedId}
                     />
                 )}
             </div>
@@ -133,11 +134,11 @@ export function ChecklistShell({
                             <Badge variant="secondary">{history.length}</Badge>
                             {history.length > 0 && (
                                 <Button
-                                    variant="ghost"
-                                    size="icon"
                                     className="size-7"
                                     disabled={deletePending}
                                     onClick={handleClearAll}
+                                    size="icon"
+                                    variant="ghost"
                                 >
                                     <Trash2 className="size-3.5 text-muted-foreground" />
                                 </Button>
@@ -149,8 +150,8 @@ export function ChecklistShell({
                         <ScrollArea className="h-115">
                             <HistoryStrip
                                 history={history}
-                                onSelect={handleSelect}
                                 onDelete={handleDelete}
+                                onSelect={handleSelect}
                             />
                         </ScrollArea>
                     </CardContent>
@@ -200,9 +201,9 @@ function PlanHeader({
                         <Popover>
                             <PopoverTrigger asChild>
                                 <Button
-                                    variant="outline"
-                                    size="sm"
                                     disabled={pending}
+                                    size="sm"
+                                    variant="outline"
                                 >
                                     Switch plan
                                     <ChevronDown className="ml-1 size-4" />
@@ -212,10 +213,10 @@ function PlanHeader({
                                 <div className="space-y-1">
                                     {plans.map((p) => (
                                         <button
-                                            key={p.id}
-                                            type="button"
-                                            onClick={() => switchPlan(p.id)}
                                             className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-accent"
+                                            key={p.id}
+                                            onClick={() => switchPlan(p.id)}
+                                            type="button"
                                         >
                                             <span>{p.name}</span>
                                             {p.id === activePlan.id && (

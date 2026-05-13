@@ -25,8 +25,8 @@ export default async function LoginPage({
         <div className="flex min-h-screen items-center justify-center px-4">
             <div className="w-full max-w-sm">
                 <Link
-                    href="/"
                     className="mb-8 block text-center font-orbitron text-lg font-semibold tracking-widest text-white"
+                    href="/"
                 >
                     sadra.nl
                 </Link>
@@ -58,18 +58,18 @@ export default async function LoginPage({
                             </Alert>
                         )}
                         <OAuthButtons
-                            hasGoogle={Boolean(
-                                env.AUTH_GOOGLE_ID && env.AUTH_GOOGLE_SECRET,
-                            )}
                             hasGithub={Boolean(
                                 env.AUTH_GITHUB_ID && env.AUTH_GITHUB_SECRET,
+                            )}
+                            hasGoogle={Boolean(
+                                env.AUTH_GOOGLE_ID && env.AUTH_GOOGLE_SECRET,
                             )}
                         />
                         <SignInMethodTabs />
                         <div className="mt-1 text-right">
                             <Link
-                                href="/forgot-password"
                                 className="text-xs text-muted-foreground underline underline-offset-4 hover:opacity-70"
+                                href="/forgot-password"
                             >
                                 Forgot password?
                             </Link>
@@ -79,8 +79,8 @@ export default async function LoginPage({
                         <p className="text-center text-sm text-muted-foreground">
                             No account?{' '}
                             <Link
-                                href="/signup"
                                 className="text-foreground underline underline-offset-4 hover:opacity-70"
+                                href="/signup"
                             >
                                 Sign up
                             </Link>

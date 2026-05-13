@@ -17,41 +17,12 @@ export function getRecordingFileName(date: Date) {
     return `${format(date, 'MMM d, y - HH.mm')}.wav`;
 }
 
-export async function getRecordingNoFile(
-    input: z.infer<typeof getRecordingProps>,
-    ctx: ContextType,
-) {
-    return await ctx.db.query.recording.findFirst({
-        where: (recording) => eq(recording.id, +input.id),
-        columns: {
-            id: true,
-            created_at: true,
-            location_id: true,
-            device_id: true,
-            file_name: true,
-        },
-    });
-}
-
-export async function getRecordingsNoFile(ctx: ContextType) {
-    return await ctx.db.query.recording.findMany({
-        columns: {
-            id: true,
-            created_at: true,
-            location_id: true,
-            device_id: true,
-            file_name: true,
-        },
-        orderBy: (recording) => desc(recording.id),
-    });
-}
-
-export async function getRecording(
+async function getRecording(
     input: z.infer<typeof getRecordingProps>,
     ctx: ContextType,
 ): Promise<Result<typeof recording.$inferSelect>> {
     const res = await ctx.db.query.recording.findFirst({
-        where: (recording) => eq(recording.id, +input.id),
+        where: (recording) => eq(recording.id, input.id),
     });
 
     if (!res) {
@@ -64,15 +35,74 @@ export async function getRecording(
     return { data: res };
 }
 
+async function getRecordingNoFile(
+    input: z.infer<typeof getRecordingProps>,
+    ctx: ContextType,
+) {
+    return await ctx.db.query.recording.findFirst({
+        columns: {
+            created_at: true,
+            device_id: true,
+            file_name: true,
+            id: true,
+            location_id: true,
+        },
+        where: (recording) => eq(recording.id, input.id),
+    });
+}
+
+async function getRecordingsNoFile(ctx: ContextType) {
+    return await ctx.db.query.recording.findMany({
+        columns: {
+            created_at: true,
+            device_id: true,
+            file_name: true,
+            id: true,
+            location_id: true,
+        },
+        orderBy: (recording) => desc(recording.id),
+    });
+}
+
 export const recordingsRouter = createTRPCRouter({
+    createRecording: publicProcedure
+        .input(createRecordingProps)
+        .mutation(async ({ ctx, input }) => {
+            const device = await getDevice(input.device, ctx);
+            if (!device.data) {
+                return device;
+            }
+
+            await ctx.db.insert(recording).values({
+                device_id: device.data.id,
+                file: input.recording,
+                file_name: getRecordingFileName(new Date()),
+                location_id: device.data.location_id,
+            });
+
+            return { status: 201 };
+        }),
+
+    getRecording: publicProcedure
+        .input(getRecordingProps)
+        .query(async ({ ctx, input }) => {
+            return await getRecording(input, ctx);
+        }),
+
+    getRecordingNoFile: publicProcedure
+        .input(getRecordingProps)
+        .query(async ({ ctx, input }) => {
+            return await getRecordingNoFile(input, ctx);
+        }),
+
     getRecordings: publicProcedure.query(async ({ ctx }) => {
         return (await ctx.db.query.recording.findMany({
             columns: {
-                id: true,
                 created_at: true,
-                location_id: true,
                 device_id: true,
                 file_name: true,
+                id: true,
+                location_id: true,
             },
         })) as Result<(typeof recording.$inferSelect)[]>;
     }),
@@ -80,34 +110,4 @@ export const recordingsRouter = createTRPCRouter({
     getRecordingsNoFile: publicProcedure.query(async ({ ctx }) => {
         return await getRecordingsNoFile(ctx);
     }),
-
-    getRecording: publicProcedure
-        .input(getRecordingProps)
-        .query(async ({ input, ctx }) => {
-            return await getRecording(input, ctx);
-        }),
-
-    getRecordingNoFile: publicProcedure
-        .input(getRecordingProps)
-        .query(async ({ input, ctx }) => {
-            return await getRecordingNoFile(input, ctx);
-        }),
-
-    createRecording: publicProcedure
-        .input(createRecordingProps)
-        .mutation(async ({ input, ctx }) => {
-            const device = await getDevice(input.device, ctx);
-            if (!device.data) {
-                return device;
-            }
-
-            await ctx.db.insert(recording).values({
-                location_id: device.data.location_id,
-                device_id: device.data.id,
-                file_name: getRecordingFileName(new Date()),
-                file: input.recording,
-            });
-
-            return { status: 201 };
-        }),
 });

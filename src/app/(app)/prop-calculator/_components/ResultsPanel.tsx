@@ -18,148 +18,41 @@ import {
 import InfoPopover from './InfoPopover';
 import { kpiDescriptions } from './kpiDescriptions';
 
-interface ResultsPanelProps {
+interface CostBreakdownBodyProps {
     plan: Plan;
     result: SimOutputs;
-    pinned: SimOutputs | null;
-    onPin: () => void;
-    onUnpin: () => void;
-    isPending: boolean;
 }
 
 interface DeltaChip {
-    text: string;
     positive: boolean | null;
+    text: string;
 }
 
 interface KpiProps {
-    label: string;
-    value: string;
-    sub?: string;
-    accent?: 'positive' | 'negative' | 'neutral';
+    accent?: 'negative' | 'neutral' | 'positive';
     delta?: DeltaChip | null;
-    info: { title: string; body: React.ReactNode };
+    info: { body: React.ReactNode; title: string };
+    label: string;
+    sub?: string;
+    value: string;
 }
 
-function Kpi({ label, value, sub, accent = 'neutral', delta, info }: KpiProps) {
-    const accentClass =
-        accent === 'positive'
-            ? 'text-emerald-400'
-            : accent === 'negative'
-              ? 'text-rose-400'
-              : 'text-foreground';
-    const deltaClass =
-        delta?.positive === true
-            ? 'text-emerald-400'
-            : delta?.positive === false
-              ? 'text-rose-400'
-              : 'text-muted-foreground';
-    return (
-        <Card className="gap-1 px-5 py-4">
-            <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-                    {label}
-                </span>
-                <InfoPopover title={info.title}>{info.body}</InfoPopover>
-            </div>
-            <span
-                className={cn(
-                    'font-mono text-2xl font-semibold tabular-nums',
-                    accentClass,
-                )}
-            >
-                {value}
-            </span>
-            {sub && (
-                <span className="text-xs text-muted-foreground">{sub}</span>
-            )}
-            {delta && (
-                <span
-                    className={cn(
-                        'mt-0.5 font-mono text-[11px] tabular-nums',
-                        deltaClass,
-                    )}
-                >
-                    {delta.text} vs pinned
-                </span>
-            )}
-        </Card>
-    );
-}
-
-interface CostBreakdownBodyProps {
-    result: SimOutputs;
+interface ResultsPanelProps {
+    isPending: boolean;
+    onPin: () => void;
+    onUnpin: () => void;
+    pinned: null | SimOutputs;
     plan: Plan;
-}
-
-function CostBreakdownBody({ result, plan }: CostBreakdownBodyProps) {
-    const cb = result.costBreakdown;
-    const evalListed = plan.fees.oneTimeEval;
-    const activationListed = plan.fees.activation;
-    const rows: { label: string; value: string }[] = [];
-    if (evalListed > 0) {
-        const evalDiscounted = cb.perAccountEvalFee;
-        rows.push({
-            label: 'Eval fee',
-            value:
-                Math.abs(evalListed - evalDiscounted) > 0.01
-                    ? `${formatCompactCurrency(evalListed)} → ${formatCurrency(evalDiscounted)}`
-                    : formatCurrency(evalDiscounted),
-        });
-    }
-    if (activationListed > 0) {
-        const activationDiscounted = cb.perAccountActivationFee;
-        rows.push({
-            label: 'Activation',
-            value:
-                Math.abs(activationListed - activationDiscounted) > 0.01
-                    ? `${formatCompactCurrency(activationListed)} → ${formatCurrency(activationDiscounted)}`
-                    : formatCurrency(activationDiscounted),
-        });
-    }
-    if (cb.monthlySubsTotal > 0) {
-        rows.push({
-            label: 'Monthly subs',
-            value: formatCurrency(cb.monthlySubsTotal),
-        });
-    }
-    if (cb.resetFeesTotal > 0) {
-        rows.push({
-            label: 'Reset fees',
-            value: formatCurrency(cb.resetFeesTotal),
-        });
-    }
-    return (
-        <div className="flex flex-col gap-1.5">
-            <p>{kpiDescriptions.totalCost}</p>
-            <div className="mt-1 flex flex-col gap-1 rounded-md border border-border/50 bg-muted/30 p-2 font-mono text-[11px] tabular-nums">
-                {rows.map((row) => (
-                    <div
-                        key={row.label}
-                        className="flex items-center justify-between gap-3"
-                    >
-                        <span className="text-muted-foreground">
-                            {row.label}
-                        </span>
-                        <span className="text-foreground">{row.value}</span>
-                    </div>
-                ))}
-                <div className="mt-0.5 flex items-center justify-between gap-3 border-t border-border/40 pt-1 font-semibold">
-                    <span>Total avg</span>
-                    <span>{formatCurrency(result.expectedTotalCost)}</span>
-                </div>
-            </div>
-        </div>
-    );
+    result: SimOutputs;
 }
 
 export default function ResultsPanel({
-    plan,
-    result,
-    pinned,
+    isPending,
     onPin,
     onUnpin,
-    isPending,
+    pinned,
+    plan,
+    result,
 }: ResultsPanelProps) {
     const dPass = pinned
         ? formatDelta(result.passProbability, pinned.passProbability, 'percent')
@@ -187,14 +80,14 @@ export default function ResultsPanel({
         : null;
     const dCostInverted = dCost
         ? {
-              text: dCost.text,
               positive: dCost.positive === null ? null : !dCost.positive,
+              text: dCost.text,
           }
         : null;
     const dDaysInverted = dDays
         ? {
-              text: dDays.text,
               positive: dDays.positive === null ? null : !dDays.positive,
+              text: dDays.text,
           }
         : null;
     const passAccent: KpiProps['accent'] =
@@ -237,10 +130,10 @@ export default function ResultsPanel({
                     </span>
                 )}
                 <Button
-                    variant={pinned ? 'default' : 'outline'}
-                    size="sm"
                     className="flex h-7 items-center gap-1.5 px-2 text-xs"
                     onClick={pinned ? onUnpin : onPin}
+                    size="sm"
+                    variant={pinned ? 'default' : 'outline'}
                 >
                     {pinned ? (
                         <>
@@ -262,13 +155,9 @@ export default function ResultsPanel({
                 </h3>
                 <div className="grid grid-cols-2 gap-3">
                     <Kpi
-                        label="Pass probability"
-                        value={formatPercent(result.passProbability)}
-                        sub={`${formatPercent(result.bustProbability)} bust · ${formatPercent(result.timeoutProbability)} timeout`}
                         accent={passAccent}
                         delta={dPass}
                         info={{
-                            title: 'Pass probability',
                             body: (
                                 <>
                                     <p>{kpiDescriptions.passProbability}</p>
@@ -291,18 +180,14 @@ export default function ResultsPanel({
                                     </p>
                                 </>
                             ),
+                            title: 'Pass probability',
                         }}
+                        label="Pass probability"
+                        sub={`${formatPercent(result.bustProbability)} bust · ${formatPercent(result.timeoutProbability)} timeout`}
+                        value={formatPercent(result.passProbability)}
                     />
                     <Kpi
-                        label="Clean pass"
-                        value={formatPercent(result.cleanPassProbability)}
-                        sub={
-                            plan.consistency
-                                ? `${formatPercent(plan.consistency.maxBestDayShare)} single-day cap`
-                                : 'no consistency rule'
-                        }
                         info={{
-                            title: 'Clean pass',
                             body: (
                                 <>
                                     <p>{kpiDescriptions.cleanPass}</p>
@@ -318,15 +203,19 @@ export default function ResultsPanel({
                                     )}
                                 </>
                             ),
+                            title: 'Clean pass',
                         }}
+                        label="Clean pass"
+                        sub={
+                            plan.consistency
+                                ? `${formatPercent(plan.consistency.maxBestDayShare)} single-day cap`
+                                : 'no consistency rule'
+                        }
+                        value={formatPercent(result.cleanPassProbability)}
                     />
                     <Kpi
-                        label="Avg days to pass"
-                        value={formatDays(result.expectedDaysToPass)}
-                        sub={`min ${plan.minTradingDays} required`}
                         delta={dDaysInverted}
                         info={{
-                            title: 'Avg days to pass',
                             body: (
                                 <>
                                     <p>{kpiDescriptions.avgDaysToPass}</p>
@@ -337,44 +226,44 @@ export default function ResultsPanel({
                                     </p>
                                 </>
                             ),
+                            title: 'Avg days to pass',
                         }}
+                        label="Avg days to pass"
+                        sub={`min ${plan.minTradingDays} required`}
+                        value={formatDays(result.expectedDaysToPass)}
                     />
                     <Kpi
-                        label="Total cost (avg)"
-                        value={formatCurrency(result.expectedTotalCost)}
-                        sub={`P90 budget ${formatCurrency(result.expectedSpendP90)}`}
                         delta={dCostInverted}
                         info={{
-                            title: 'Total cost (avg)',
                             body: (
                                 <CostBreakdownBody
-                                    result={result}
                                     plan={plan}
+                                    result={result}
                                 />
                             ),
+                            title: 'Total cost (avg)',
                         }}
+                        label="Total cost (avg)"
+                        sub={`P90 budget ${formatCurrency(result.expectedSpendP90)}`}
+                        value={formatCurrency(result.expectedTotalCost)}
                     />
                     <Kpi
+                        info={{
+                            body: <p>{kpiDescriptions.firstPayout}</p>,
+                            title: 'First payout',
+                        }}
                         label="First payout"
+                        sub={`${plan.minDaysAfterPassForPayout}d min · ${formatCompactCurrency(plan.minPayoutProfit)} buffer`}
                         value={
                             result.expectedFirstPayoutDay > 0
                                 ? `day ${result.expectedFirstPayoutDay.toFixed(0)}`
                                 : '—'
                         }
-                        sub={`${plan.minDaysAfterPassForPayout}d min · ${formatCompactCurrency(plan.minPayoutProfit)} buffer`}
-                        info={{
-                            title: 'First payout',
-                            body: <p>{kpiDescriptions.firstPayout}</p>,
-                        }}
                     />
                     <Kpi
-                        label="Monthly net (est)"
-                        value={formatCurrency(result.expectedMonthlyNet)}
-                        sub={`payout ${formatCurrency(result.expectedGrossPayout)} avg`}
                         accent={netAccent}
                         delta={dNet}
                         info={{
-                            title: 'Monthly net (est)',
                             body: (
                                 <>
                                     <p>{kpiDescriptions.monthlyNet}</p>
@@ -392,7 +281,11 @@ export default function ResultsPanel({
                                     </p>
                                 </>
                             ),
+                            title: 'Monthly net (est)',
                         }}
+                        label="Monthly net (est)"
+                        sub={`payout ${formatCurrency(result.expectedGrossPayout)} avg`}
+                        value={formatCurrency(result.expectedMonthlyNet)}
                     />
                 </div>
             </div>
@@ -403,11 +296,7 @@ export default function ResultsPanel({
                 </h3>
                 <div className="grid grid-cols-2 gap-3">
                     <Kpi
-                        label="Max losing streak"
-                        value={`${formatStreak(result.maxLosingStreakP50)} / ${formatStreak(result.maxLosingStreakP95)}`}
-                        sub="P50 / P95"
                         info={{
-                            title: 'Max losing streak',
                             body: (
                                 <>
                                     <p>{kpiDescriptions.maxLosingStreak}</p>
@@ -423,69 +312,69 @@ export default function ResultsPanel({
                                     </p>
                                 </>
                             ),
+                            title: 'Max losing streak',
                         }}
+                        label="Max losing streak"
+                        sub="P50 / P95"
+                        value={`${formatStreak(result.maxLosingStreakP50)} / ${formatStreak(result.maxLosingStreakP95)}`}
                     />
                     <Kpi
-                        label="Risk of ruin"
-                        value={formatPercent(result.bustProbability)}
-                        sub="bust before passing"
                         accent={
                             result.bustProbability > 0.4
                                 ? 'negative'
                                 : 'neutral'
                         }
                         info={{
-                            title: 'Risk of ruin',
                             body: <p>{kpiDescriptions.riskOfRuin}</p>,
+                            title: 'Risk of ruin',
                         }}
+                        label="Risk of ruin"
+                        sub="bust before passing"
+                        value={formatPercent(result.bustProbability)}
                     />
                     <Kpi
-                        label="Risk of 5+ losses"
-                        value={formatPercent(result.risk5LossesPercent)}
-                        sub={
-                            result.risk10LossesPercent > 0.05
-                                ? `10+: ${formatPercent(result.risk10LossesPercent)}`
-                                : '10+: rare'
-                        }
                         accent={
                             result.risk5LossesPercent > 0.5
                                 ? 'negative'
                                 : 'neutral'
                         }
                         info={{
-                            title: 'Risk of 5+ consecutive losses',
                             body: <p>{kpiDescriptions.risk5Losses}</p>,
+                            title: 'Risk of 5+ consecutive losses',
                         }}
+                        label="Risk of 5+ losses"
+                        sub={
+                            result.risk10LossesPercent > 0.05
+                                ? `10+: ${formatPercent(result.risk10LossesPercent)}`
+                                : '10+: rare'
+                        }
+                        value={formatPercent(result.risk5LossesPercent)}
                     />
                     <Kpi
-                        label="ROI on cost"
-                        value={formatPercent(result.roiOnCost)}
-                        sub={`net ${formatCurrency(result.expectedNet)} / cost`}
                         accent={roiAccent}
                         info={{
-                            title: 'ROI on cost',
                             body: <p>{kpiDescriptions.roiOnCost}</p>,
+                            title: 'ROI on cost',
                         }}
+                        label="ROI on cost"
+                        sub={`net ${formatCurrency(result.expectedNet)} / cost`}
+                        value={formatPercent(result.roiOnCost)}
                     />
                     <Kpi
+                        info={{
+                            body: <p>{kpiDescriptions.tradesPerPass}</p>,
+                            title: 'Trades per pass',
+                        }}
                         label="Trades per pass"
+                        sub="when you pass"
                         value={
                             result.tradesPerSuccessfulAttempt > 0
                                 ? `${Math.round(result.tradesPerSuccessfulAttempt)}`
                                 : '—'
                         }
-                        sub="when you pass"
-                        info={{
-                            title: 'Trades per pass',
-                            body: <p>{kpiDescriptions.tradesPerPass}</p>,
-                        }}
                     />
                     <Kpi
-                        label="Max drawdown"
-                        value={formatCompactCurrency(result.maxDrawdownP95)}
-                        sub={`P50 ${formatCompactCurrency(result.maxDrawdownP50)}`}
                         info={{
-                            title: 'Max drawdown',
                             body: (
                                 <>
                                     <p>{kpiDescriptions.maxDrawdown}</p>
@@ -501,7 +390,11 @@ export default function ResultsPanel({
                                     </p>
                                 </>
                             ),
+                            title: 'Max drawdown',
                         }}
+                        label="Max drawdown"
+                        sub={`P50 ${formatCompactCurrency(result.maxDrawdownP50)}`}
+                        value={formatCompactCurrency(result.maxDrawdownP95)}
                     />
                 </div>
             </div>
@@ -513,11 +406,7 @@ export default function ResultsPanel({
                     </h3>
                     <div className="grid grid-cols-2 gap-3">
                         <Kpi
-                            label="Expected attempts"
-                            value={result.expectedAttempts.toFixed(2)}
-                            sub={`P90: ${result.expectedAttemptsP90.toFixed(0)}`}
                             info={{
-                                title: 'Expected attempts',
                                 body: (
                                     <>
                                         <p>
@@ -533,14 +422,14 @@ export default function ResultsPanel({
                                         </p>
                                     </>
                                 ),
+                                title: 'Expected attempts',
                             }}
+                            label="Expected attempts"
+                            sub={`P90: ${result.expectedAttemptsP90.toFixed(0)}`}
+                            value={result.expectedAttempts.toFixed(2)}
                         />
                         <Kpi
-                            label="Gross spend"
-                            value={formatCurrency(result.expectedGrossSpend)}
-                            sub={`P90 budget: ${formatCurrency(result.expectedSpendP90)}`}
                             info={{
-                                title: 'Expected gross spend',
                                 body: (
                                     <>
                                         <p>{kpiDescriptions.expectedSpend}</p>
@@ -556,20 +445,131 @@ export default function ResultsPanel({
                                         </p>
                                     </>
                                 ),
+                                title: 'Expected gross spend',
                             }}
+                            label="Gross spend"
+                            sub={`P90 budget: ${formatCurrency(result.expectedSpendP90)}`}
+                            value={formatCurrency(result.expectedGrossSpend)}
                         />
                         <Kpi
-                            label="Break-even"
-                            value={formatCurrency(result.breakEvenFundedProfit)}
-                            sub="funded P&L to recoup"
                             info={{
-                                title: 'Break-even funded P&L',
                                 body: <p>{kpiDescriptions.breakEven}</p>,
+                                title: 'Break-even funded P&L',
                             }}
+                            label="Break-even"
+                            sub="funded P&L to recoup"
+                            value={formatCurrency(result.breakEvenFundedProfit)}
                         />
                     </div>
                 </div>
             )}
         </div>
+    );
+}
+
+function CostBreakdownBody({ plan, result }: CostBreakdownBodyProps) {
+    const cb = result.costBreakdown;
+    const evalListed = plan.fees.oneTimeEval;
+    const activationListed = plan.fees.activation;
+    const rows: { label: string; value: string }[] = [];
+    if (evalListed > 0) {
+        const evalDiscounted = cb.perAccountEvalFee;
+        rows.push({
+            label: 'Eval fee',
+            value:
+                Math.abs(evalListed - evalDiscounted) > 0.01
+                    ? `${formatCompactCurrency(evalListed)} → ${formatCurrency(evalDiscounted)}`
+                    : formatCurrency(evalDiscounted),
+        });
+    }
+    if (activationListed > 0) {
+        const activationDiscounted = cb.perAccountActivationFee;
+        rows.push({
+            label: 'Activation',
+            value:
+                Math.abs(activationListed - activationDiscounted) > 0.01
+                    ? `${formatCompactCurrency(activationListed)} → ${formatCurrency(activationDiscounted)}`
+                    : formatCurrency(activationDiscounted),
+        });
+    }
+    if (cb.monthlySubsTotal > 0) {
+        rows.push({
+            label: 'Monthly subs',
+            value: formatCurrency(cb.monthlySubsTotal),
+        });
+    }
+    if (cb.resetFeesTotal > 0) {
+        rows.push({
+            label: 'Reset fees',
+            value: formatCurrency(cb.resetFeesTotal),
+        });
+    }
+    return (
+        <div className="flex flex-col gap-1.5">
+            <p>{kpiDescriptions.totalCost}</p>
+            <div className="mt-1 flex flex-col gap-1 rounded-md border border-border/50 bg-muted/30 p-2 font-mono text-[11px] tabular-nums">
+                {rows.map((row) => (
+                    <div
+                        className="flex items-center justify-between gap-3"
+                        key={row.label}
+                    >
+                        <span className="text-muted-foreground">
+                            {row.label}
+                        </span>
+                        <span className="text-foreground">{row.value}</span>
+                    </div>
+                ))}
+                <div className="mt-0.5 flex items-center justify-between gap-3 border-t border-border/40 pt-1 font-semibold">
+                    <span>Total avg</span>
+                    <span>{formatCurrency(result.expectedTotalCost)}</span>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function Kpi({ accent = 'neutral', delta, info, label, sub, value }: KpiProps) {
+    const accentClass =
+        accent === 'positive'
+            ? 'text-emerald-400'
+            : accent === 'negative'
+              ? 'text-rose-400'
+              : 'text-foreground';
+    const deltaClass =
+        delta?.positive === true
+            ? 'text-emerald-400'
+            : delta?.positive === false
+              ? 'text-rose-400'
+              : 'text-muted-foreground';
+    return (
+        <Card className="gap-1 px-5 py-4">
+            <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+                    {label}
+                </span>
+                <InfoPopover title={info.title}>{info.body}</InfoPopover>
+            </div>
+            <span
+                className={cn(
+                    'font-mono text-2xl font-semibold tabular-nums',
+                    accentClass,
+                )}
+            >
+                {value}
+            </span>
+            {sub && (
+                <span className="text-xs text-muted-foreground">{sub}</span>
+            )}
+            {delta && (
+                <span
+                    className={cn(
+                        'mt-0.5 font-mono text-[11px] tabular-nums',
+                        deltaClass,
+                    )}
+                >
+                    {delta.text} vs pinned
+                </span>
+            )}
+        </Card>
     );
 }

@@ -1,8 +1,8 @@
 type Coefficients = {
-    B1: number;
-    B2: number;
     A1: number;
     A2: number;
+    B1: number;
+    B2: number;
 };
 
 type DelayStates = {
@@ -11,39 +11,21 @@ type DelayStates = {
 };
 
 class SoundFilter {
-    private Gain: number;
     private Coefficients: Coefficients[];
     private DelayStates: DelayStates[];
+    private Gain: number;
 
     constructor(gain: number, coeffs: Coefficients[]) {
         this.Gain = gain;
         this.Coefficients = coeffs;
-        this.DelayStates = new Array(coeffs.length).fill({
-            W0: 0.0,
-            W1: 0.0,
+        this.DelayStates = Array.from({ length: coeffs.length }).fill({
+            W0: 0,
+            W1: 0,
         }) as DelayStates[];
     }
 
-    filter(buffer: Int16Array): number {
-        if (this.Coefficients.length < 1) return 0.0;
-
-        for (let i = 0; i < this.Coefficients.length - 1; i++)
-            SoundFilter.filter(
-                buffer,
-                this.Coefficients[i]!,
-                this.DelayStates[i]!,
-            );
-
-        return SoundFilter.filterRMS(
-            buffer,
-            this.Coefficients[this.Coefficients.length - 1]!,
-            this.DelayStates[this.Coefficients.length - 1]!,
-            this.Gain,
-        );
-    }
-
     static calculateRMS(samples: Int16Array): number {
-        let sumSqr = 0.0;
+        let sumSqr = 0;
         for (const sample of samples) {
             const f0 = sample;
             sumSqr += f0 * f0;
@@ -64,7 +46,7 @@ class SoundFilter {
         let f5 = delays.W1;
 
         for (let i = 0; i < samples.length; i++) {
-            let f6 = samples[i]!;
+            let f6 = samples[i] ?? 0;
             f6 += f2 * f4;
             f6 += f3 * f5;
             let f7 = f6;
@@ -93,9 +75,9 @@ class SoundFilter {
         let f5 = delays.W1;
         const f6 = gain;
 
-        let sumSqr = 0.0;
+        let sumSqr = 0;
         for (let i = 0; i < samples.length; i++) {
-            let f7 = samples[i]!;
+            let f7 = samples[i] ?? 0;
             f7 += f2 * f4;
             f7 += f3 * f5;
             let f8 = f7;
@@ -114,75 +96,89 @@ class SoundFilter {
 
         return Math.sqrt(sumSqr / samples.length);
     }
+
+    filter(buffer: Int16Array): number {
+        if (this.Coefficients.length === 0) return 0;
+
+        for (let i = 0; i < this.Coefficients.length - 1; i++) {
+            const coeff = this.Coefficients[i];
+            const delay = this.DelayStates[i];
+            if (!coeff || !delay) continue;
+            SoundFilter.filter(buffer, coeff, delay);
+        }
+
+        const lastCoeff = this.Coefficients.at(-1);
+        const lastDelay = this.DelayStates[this.Coefficients.length - 1];
+        if (!lastCoeff || !lastDelay) return 0;
+        return SoundFilter.filterRMS(buffer, lastCoeff, lastDelay, this.Gain);
+    }
 }
 
-const DC_Blocker = new SoundFilter(1.0, [
-    { B1: -1.0, B2: 0.0, A1: 0.9992, A2: 0 },
-]);
+const DC_Blocker = new SoundFilter(1, [{ A1: 0.9992, A2: 0, B1: -1, B2: 0 }]);
 
-const INMP441 = new SoundFilter(1.00197834654696, [
+const INMP441 = new SoundFilter(1.001_978_346_546_96, [
     {
-        B1: -1.986920458344451,
-        B2: 0.986963226946616,
-        A1: 1.995178510504166,
-        A2: -0.995184322194091,
-    },
-]);
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const A_weighting = new SoundFilter(0.16999494814743, [
-    {
-        B1: -2.00026996133106,
-        B2: 1.00027056142719,
-        A1: -1.060868438509278,
-        A2: -0.163987445885926,
-    },
-    {
-        B1: 4.35912384203144,
-        B2: 3.09120265783884,
-        A1: 1.208419926363593,
-        A2: -0.273166998428332,
-    },
-    {
-        B1: -0.70930303489759,
-        B2: -0.2907186839358,
-        A1: 1.982242159753048,
-        A2: -0.982298594928989,
+        A1: 1.995_178_510_504_166,
+        A2: -0.995_184_322_194_091,
+        B1: -1.986_920_458_344_451,
+        B2: 0.986_963_226_946_616,
     },
 ]);
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const C_weighting = new SoundFilter(-0.49164716933714, [
+const A_weighting = new SoundFilter(0.169_994_948_147_43, [
     {
-        B1: 1.4604385758204708,
-        B2: 0.5275070373815286,
-        A1: 1.9946144559930252,
-        A2: -0.9946217070140883,
+        A1: -1.060_868_438_509_278,
+        A2: -0.163_987_445_885_926,
+        B1: -2.000_269_961_331_06,
+        B2: 1.000_270_561_427_19,
     },
     {
-        B1: 0.2376222404939509,
-        B2: 0.0140411206016894,
-        A1: -1.3396585608422749,
-        A2: -0.4421457807694559,
+        A1: 1.208_419_926_363_593,
+        A2: -0.273_166_998_428_332,
+        B1: 4.359_123_842_031_44,
+        B2: 3.091_202_657_838_84,
     },
-    { B1: -2.0, B2: 1.0, A1: 0.3775800047420818, A2: -0.035636575668043 },
+    {
+        A1: 1.982_242_159_753_048,
+        A2: -0.982_298_594_928_989,
+        B1: -0.709_303_034_897_59,
+        B2: -0.290_718_683_935_8,
+    },
+]);
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const C_weighting = new SoundFilter(-0.491_647_169_337_14, [
+    {
+        A1: 1.994_614_455_993_025_2,
+        A2: -0.994_621_707_014_088_3,
+        B1: 1.460_438_575_820_470_8,
+        B2: 0.527_507_037_381_528_6,
+    },
+    {
+        A1: -1.339_658_560_842_274_9,
+        A2: -0.442_145_780_769_455_9,
+        B1: 0.237_622_240_493_950_9,
+        B2: 0.014_041_120_601_689_4,
+    },
+    { A1: 0.377_580_004_742_081_8, A2: -0.035_636_575_668_043, B1: -2, B2: 1 },
 ]);
 
 class AudioFile {
+    audioFormat: number;
+    bitsPerSample: number;
+    blockAlign: number;
+    byteRate: number;
     chunkId: string;
     chunkSize: number;
     format: string;
-    subchunk1Id: string;
-    subchunk1Size: number;
-    audioFormat: number;
     numChannels: number;
     sampleRate: number;
-    byteRate: number;
-    blockAlign: number;
-    bitsPerSample: number;
+    samples: Int16Array;
+    subchunk1Id: string;
+    subchunk1Size: number;
     subchunk2Id: string;
     subchunk2Size: number;
-    samples: Int16Array;
 
     constructor(file: Buffer) {
         this.chunkId = file.toString('ascii', 0, 4);
@@ -245,9 +241,9 @@ class AudioFile {
             }
         }
 
-        const scaleFactor = 32767.0 / max;
+        const scaleFactor = 32_767 / max;
         for (let i = 0; i < this.samples.length; i++) {
-            this.samples[i] = this.samples[i]! * scaleFactor;
+            this.samples[i] = (this.samples[i] ?? 0) * scaleFactor;
         }
     }
 }

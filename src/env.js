@@ -2,37 +2,37 @@ import { createEnv } from '@t3-oss/env-nextjs';
 import { z } from 'zod';
 
 export const env = createEnv({
-    server: {
-        NODE_ENV: z
-            .enum(['development', 'test', 'production'])
-            .default('development'),
-        DATABASE_URL: z.url(),
-        AUTH_SECRET: z.string().min(32),
-        LETTERMINT_PROJECT_TOKEN: z.string().min(1),
-        RESEND_API_KEY: z.string().min(1),
-        AUTH_GOOGLE_ID: z.string().min(1).optional(),
-        AUTH_GOOGLE_SECRET: z.string().min(1).optional(),
-        AUTH_GITHUB_ID: z.string().min(1).optional(),
-        AUTH_GITHUB_SECRET: z.string().min(1).optional(),
-    },
-
     client: {
         NEXT_PUBLIC_SERVER_URL: z.url(),
     },
 
+    emptyStringAsUndefined: true,
+
     runtimeEnv: {
-        NEXT_PUBLIC_SERVER_URL: process.env.NEXT_PUBLIC_SERVER_URL,
-        NODE_ENV: process.env.NODE_ENV,
-        DATABASE_URL: process.env.DATABASE_URL,
-        AUTH_SECRET: process.env.AUTH_SECRET,
-        LETTERMINT_PROJECT_TOKEN: process.env.LETTERMINT_PROJECT_TOKEN,
-        RESEND_API_KEY: process.env.RESEND_API_KEY,
-        AUTH_GOOGLE_ID: process.env.AUTH_GOOGLE_ID,
-        AUTH_GOOGLE_SECRET: process.env.AUTH_GOOGLE_SECRET,
         AUTH_GITHUB_ID: process.env.AUTH_GITHUB_ID,
         AUTH_GITHUB_SECRET: process.env.AUTH_GITHUB_SECRET,
+        AUTH_GOOGLE_ID: process.env.AUTH_GOOGLE_ID,
+        AUTH_GOOGLE_SECRET: process.env.AUTH_GOOGLE_SECRET,
+        AUTH_SECRET: process.env.AUTH_SECRET,
+        DATABASE_URL: process.env.DATABASE_URL,
+        LETTERMINT_PROJECT_TOKEN: process.env.LETTERMINT_PROJECT_TOKEN,
+        NEXT_PUBLIC_SERVER_URL: process.env.NEXT_PUBLIC_SERVER_URL,
+        NODE_ENV: process.env.NODE_ENV,
+        RESEND_API_KEY: process.env.RESEND_API_KEY,
     },
 
+    server: {
+        AUTH_GITHUB_ID: z.string().min(1).optional(),
+        AUTH_GITHUB_SECRET: z.string().min(1).optional(),
+        AUTH_GOOGLE_ID: z.string().min(1).optional(),
+        AUTH_GOOGLE_SECRET: z.string().min(1).optional(),
+        AUTH_SECRET: z.string().min(32),
+        DATABASE_URL: z.url(),
+        LETTERMINT_PROJECT_TOKEN: z.string().min(1),
+        NODE_ENV: z
+            .enum(['development', 'test', 'production'])
+            .default('development'),
+        RESEND_API_KEY: z.string().min(1),
+    },
     skipValidation: !!process.env.SKIP_ENV_VALIDATION,
-    emptyStringAsUndefined: true,
 });

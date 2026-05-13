@@ -17,7 +17,7 @@ export default async function ResetPasswordPage({
 }: {
     searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-    const { token, error } = resetPasswordSearchSchema.parse(
+    const { error, token } = resetPasswordSearchSchema.parse(
         await searchParams,
     );
 
@@ -27,8 +27,8 @@ export default async function ResetPasswordPage({
         <div className="flex min-h-screen items-center justify-center px-4">
             <div className="w-full max-w-sm">
                 <Link
-                    href="/"
                     className="mb-8 block text-center font-orbitron text-lg font-semibold tracking-widest text-white"
+                    href="/"
                 >
                     sadra.nl
                 </Link>
@@ -38,14 +38,14 @@ export default async function ResetPasswordPage({
                     </CardHeader>
                     {error === 'expired' ? (
                         <CardContent className="flex flex-col gap-4">
-                            <Alert variant="destructive" persistent>
+                            <Alert persistent variant="destructive">
                                 <AlertDescription>
                                     {errorMessages.expired}
                                 </AlertDescription>
                             </Alert>
                             <Link
-                                href="/forgot-password"
                                 className="text-sm underline underline-offset-4 hover:opacity-70"
+                                href="/forgot-password"
                             >
                                 Request a new link
                             </Link>

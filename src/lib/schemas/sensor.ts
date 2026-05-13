@@ -35,9 +35,9 @@ export const getSensorProps = z.object({
 });
 
 export const getLocationProps = z.object({
-    location_id: z.number().int().positive(),
     date_from: z.date().optional(),
     date_to: z.date().optional(),
+    location_id: z.number().int().positive(),
 });
 
 export const getLocationReadingsProps = z.object({

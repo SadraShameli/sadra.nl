@@ -1,20 +1,4 @@
-export function formatCurrency(n: number, fractionDigits = 0): string {
-    const sign = n < 0 ? '-' : '';
-    const abs = Math.abs(n);
-    return `${sign}$${abs.toLocaleString('en-US', {
-        minimumFractionDigits: fractionDigits,
-        maximumFractionDigits: fractionDigits,
-    })}`;
-}
-
-export function formatPercent(p: number, fractionDigits = 1): string {
-    return `${(p * 100).toFixed(fractionDigits)}%`;
-}
-
-export function formatDays(d: number): string {
-    if (!Number.isFinite(d) || d <= 0) return '—';
-    return `${d.toFixed(1)} d`;
-}
+export type DeltaKind = 'currency' | 'days' | 'number' | 'percent' | 'r';
 
 export function formatCompactCurrency(n: number): string {
     const abs = Math.abs(n);
@@ -26,6 +10,58 @@ export function formatCompactCurrency(n: number): string {
         return `${sign}$${(abs / 1000).toFixed(abs % 1000 === 0 ? 0 : 1)}K`;
     }
     return formatCurrency(n);
+}
+
+export function formatCurrency(n: number, fractionDigits = 0): string {
+    const sign = n < 0 ? '-' : '';
+    const abs = Math.abs(n);
+    return `${sign}$${abs.toLocaleString('en-US', {
+        maximumFractionDigits: fractionDigits,
+        minimumFractionDigits: fractionDigits,
+    })}`;
+}
+
+export function formatDays(d: number): string {
+    if (!Number.isFinite(d) || d <= 0) return '—';
+    return `${d.toFixed(1)} d`;
+}
+
+export function formatDelta(
+    current: number,
+    pinned: number,
+    kind: DeltaKind,
+): { positive: boolean | null; text: string } {
+    const diff = current - pinned;
+    if (Math.abs(diff) < 1e-6) return { positive: null, text: '·' };
+    const sign = diff > 0 ? '+' : '';
+    let text: string;
+    switch (kind) {
+        case 'currency': {
+            text = `${sign}${formatCurrency(diff)}`;
+            break;
+        }
+        case 'days': {
+            text = `${sign}${diff.toFixed(1)}d`;
+            break;
+        }
+        case 'number': {
+            text = `${sign}${diff.toFixed(2)}`;
+            break;
+        }
+        case 'percent': {
+            text = `${sign}${(diff * 100).toFixed(1)}pp`;
+            break;
+        }
+        case 'r': {
+            text = `${sign}${diff.toFixed(2)}R`;
+            break;
+        }
+    }
+    return { positive: diff > 0, text };
+}
+
+export function formatPercent(p: number, fractionDigits = 1): string {
+    return `${(p * 100).toFixed(fractionDigits)}%`;
 }
 
 export function formatR(r: number, digits = 2): string {
@@ -40,35 +76,4 @@ export function formatRatio(ratio: number, digits = 2): string {
 
 export function formatStreak(streak: number): string {
     return `${Math.round(streak)}`;
-}
-
-export type DeltaKind = 'currency' | 'percent' | 'r' | 'days' | 'number';
-
-export function formatDelta(
-    current: number,
-    pinned: number,
-    kind: DeltaKind,
-): { text: string; positive: boolean | null } {
-    const diff = current - pinned;
-    if (Math.abs(diff) < 1e-6) return { text: '·', positive: null };
-    const sign = diff > 0 ? '+' : '';
-    let text: string;
-    switch (kind) {
-        case 'currency':
-            text = `${sign}${formatCurrency(diff)}`;
-            break;
-        case 'percent':
-            text = `${sign}${(diff * 100).toFixed(1)}pp`;
-            break;
-        case 'r':
-            text = `${sign}${diff.toFixed(2)}R`;
-            break;
-        case 'days':
-            text = `${sign}${diff.toFixed(1)}d`;
-            break;
-        case 'number':
-            text = `${sign}${diff.toFixed(2)}`;
-            break;
-    }
-    return { text, positive: diff > 0 };
 }

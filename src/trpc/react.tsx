@@ -7,12 +7,13 @@ import { type inferRouterInputs, type inferRouterOutputs } from '@trpc/server';
 import { useState } from 'react';
 import SuperJSON from 'superjson';
 
-import { getPublicSiteOrigin } from '~/lib/site-url';
 import type { AppRouter } from '~/server/api/root';
+
+import { getPublicSiteOrigin } from '~/lib/site-url';
 
 import { createQueryClient } from './query-client';
 
-let clientQueryClientSingleton: QueryClient | undefined = undefined;
+let clientQueryClientSingleton: QueryClient | undefined;
 const getQueryClient = () => {
     if (typeof window === 'undefined') {
         return createQueryClient();
@@ -36,13 +37,13 @@ export function TRPCReactProvider(props: { children: React.ReactNode }) {
                         (op.direction === 'down' && op.result instanceof Error),
                 }),
                 httpBatchStreamLink({
-                    transformer: SuperJSON,
-                    url: getBaseUrl() + '/api/trpc',
                     headers: () => {
                         const headers = new Headers();
                         headers.set('x-trpc-source', 'nextjs-react');
                         return headers;
                     },
+                    transformer: SuperJSON,
+                    url: getBaseUrl() + '/api/trpc',
                 }),
             ],
         }),

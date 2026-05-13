@@ -10,7 +10,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
     AlertDialogTrigger,
-} from '~/components/ui/Alert-dialog';
+} from '~/components/ui/AlertDialog';
 import { Button } from '~/components/ui/Button';
 import { deleteAccount } from '~/lib/auth-actions';
 

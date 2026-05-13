@@ -3,31 +3,19 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
-const CHARS = '!<>-\\/[]{}=+*^?#@$%';
-
-function corrupt(text: string): string {
-    return text
-        .split('')
-        .map((c) => {
-            if (c === '_') return c;
-            return Math.random() < 0.45
-                ? (CHARS[Math.floor(Math.random() * CHARS.length)] ?? c)
-                : c;
-        })
-        .join('');
-}
+const CHARS = String.raw`!<>-\/[]{}=+*^?#@$%`;
 
 interface Props {
-    text: string;
-    href?: string;
     className?: string;
+    href?: string;
+    text: string;
     trigger?: number;
 }
 
 export default function GlitchBrand({
-    text,
-    href = '/',
     className = 'font-orbitron text-lg font-semibold tracking-widest text-white',
+    href = '/',
+    text,
     trigger = 0,
 }: Props) {
     const [display, setDisplay] = useState(text);
@@ -73,8 +61,19 @@ export default function GlitchBrand({
     }, [trigger]);
 
     return (
-        <Link href={href} className={className}>
+        <Link className={className} href={href}>
             {display}
         </Link>
     );
+}
+
+function corrupt(text: string): string {
+    return Array.from(text)
+        .map((c) => {
+            if (c === '_') return c;
+            return Math.random() < 0.45
+                ? (CHARS[Math.floor(Math.random() * CHARS.length)] ?? c)
+                : c;
+        })
+        .join('');
 }

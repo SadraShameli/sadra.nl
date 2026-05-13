@@ -51,20 +51,20 @@ export const verificationTokenRowSchema =
 export type VerificationTokenRow = z.infer<typeof verificationTokenRowSchema>;
 
 export const loginInputSchema = z.object({
+    callbackUrl: optionalCallbackUrlSchema,
     email: emailSchema,
     password: z.string().min(1, 'Password is required').max(256),
-    callbackUrl: optionalCallbackUrlSchema,
 });
 
 export type LoginInput = z.infer<typeof loginInputSchema>;
 
 export const signupInputSchema = z
     .object({
-        name: displayNameSchema,
-        email: emailSchema,
-        password: passwordSchema,
-        confirm: z.string(),
         callbackUrl: optionalCallbackUrlSchema,
+        confirm: z.string(),
+        email: emailSchema,
+        name: displayNameSchema,
+        password: passwordSchema,
     })
     .refine((data) => data.password === data.confirm, {
         message: 'Passwords do not match',
@@ -80,8 +80,8 @@ export const forgotPasswordInputSchema = z.object({
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordInputSchema>;
 
 export const magicLinkInputSchema = z.object({
-    email: emailSchema,
     callbackUrl: optionalCallbackUrlSchema,
+    email: emailSchema,
 });
 
 export type MagicLinkInput = z.infer<typeof magicLinkInputSchema>;
@@ -93,9 +93,9 @@ export type OAuthSignInInput = z.infer<typeof oauthSignInInputSchema>;
 
 export const resetPasswordInputSchema = z
     .object({
-        token: z.string().min(1, 'Reset token is required'),
-        password: passwordSchema,
         confirm: z.string(),
+        password: passwordSchema,
+        token: z.string().min(1, 'Reset token is required'),
     })
     .refine((data) => data.password === data.confirm, {
         message: 'Passwords do not match',
@@ -106,8 +106,8 @@ export type ResetPasswordInput = z.infer<typeof resetPasswordInputSchema>;
 
 export const updateNameInputSchema = z
     .object({
-        name: displayNameSchema,
         currentName: z.string(),
+        name: displayNameSchema,
     })
     .refine((data) => data.name !== data.currentName.trim(), {
         message: 'No changes to save',
@@ -118,9 +118,9 @@ export type UpdateNameInput = z.infer<typeof updateNameInputSchema>;
 
 export const updatePasswordInputSchema = z
     .object({
+        confirm: z.string(),
         current: z.string().min(1, 'Current password is required').max(256),
         password: passwordSchema,
-        confirm: z.string(),
     })
     .refine((data) => data.password === data.confirm, {
         message: 'Passwords do not match',
@@ -136,8 +136,8 @@ export type UpdateEmailInput = z.infer<typeof updateEmailInputSchema>;
 
 export const setPasswordInputSchema = z
     .object({
-        password: passwordSchema,
         confirm: z.string(),
+        password: passwordSchema,
     })
     .refine((data) => data.password === data.confirm, {
         message: 'Passwords do not match',

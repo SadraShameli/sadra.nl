@@ -2,8 +2,8 @@ import { customType } from 'drizzle-orm/pg-core';
 
 export const bytea = customType<{
     data: Buffer;
-    notNull: false;
     default: false;
+    notNull: false;
 }>({
     dataType() {
         return 'bytea';
@@ -17,11 +17,11 @@ export abstract class DatabaseSeeder {
         DatabaseSeeder.seeds.push(this);
     }
 
-    abstract run(): Promise<void>;
-
     static async runAll() {
         for (const seed of DatabaseSeeder.seeds) {
             await seed.run();
         }
     }
+
+    abstract run(): Promise<void>;
 }

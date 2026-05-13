@@ -22,81 +22,81 @@ import {
 import { SizingMode } from './types';
 
 interface TradingInputsProps {
-    plan: Plan;
-    winrate: number;
-    rrRatio: number;
-    tradesPerDay: number;
-    sizingMode: SizingMode;
-    riskDollars: number;
-    riskPercent: number;
-    seed: number;
-    trials: number;
-    maxEvalDays: number;
-    evalDiscountPercent: number;
     activationDiscountPercent: number;
-    linkActivationDiscount: boolean;
     commissionPerRoundTrip: number;
-    maxAttempts: number;
     copyAccounts: number;
-    maxCopyAccounts: number;
-    firmDisplayName: string;
     dayStop: DayStopRule;
-    onWinrateChange: (n: number) => void;
-    onRrRatioChange: (n: number) => void;
-    onTradesPerDayChange: (n: number) => void;
-    onSizingModeChange: (m: SizingMode) => void;
+    evalDiscountPercent: number;
+    firmDisplayName: string;
+    linkActivationDiscount: boolean;
+    maxAttempts: number;
+    maxCopyAccounts: number;
+    maxEvalDays: number;
+    onActivationDiscountPercentChange: (n: number) => void;
+    onCommissionPerRoundTripChange: (n: number) => void;
+    onCopyAccountsChange: (n: number) => void;
+    onDayStopChange: (rule: DayStopRule) => void;
+    onEvalDiscountPercentChange: (n: number) => void;
+    onLinkActivationDiscountChange: (linked: boolean) => void;
+    onMaxAttemptsChange: (n: number) => void;
+    onMaxEvalDaysChange: (n: number) => void;
+    onResetCoupon: () => void;
     onRiskDollarsChange: (n: number) => void;
     onRiskPercentChange: (n: number) => void;
+    onRrRatioChange: (n: number) => void;
     onSeedChange: (n: number) => void;
+    onSizingModeChange: (m: SizingMode) => void;
+    onTradesPerDayChange: (n: number) => void;
     onTrialsChange: (n: number) => void;
-    onMaxEvalDaysChange: (n: number) => void;
-    onEvalDiscountPercentChange: (n: number) => void;
-    onActivationDiscountPercentChange: (n: number) => void;
-    onLinkActivationDiscountChange: (linked: boolean) => void;
-    onCommissionPerRoundTripChange: (n: number) => void;
-    onMaxAttemptsChange: (n: number) => void;
-    onCopyAccountsChange: (n: number) => void;
-    onResetCoupon: () => void;
-    onDayStopChange: (rule: DayStopRule) => void;
+    onWinrateChange: (n: number) => void;
+    plan: Plan;
+    riskDollars: number;
+    riskPercent: number;
+    rrRatio: number;
+    seed: number;
+    sizingMode: SizingMode;
+    tradesPerDay: number;
+    trials: number;
+    winrate: number;
 }
 
 export default function TradingInputs({
-    plan,
-    winrate,
-    rrRatio,
-    tradesPerDay,
-    sizingMode,
-    riskDollars,
-    riskPercent,
-    seed,
-    trials,
-    maxEvalDays,
-    evalDiscountPercent,
     activationDiscountPercent,
-    linkActivationDiscount,
     commissionPerRoundTrip,
-    maxAttempts,
     copyAccounts,
-    maxCopyAccounts,
-    firmDisplayName,
     dayStop,
-    onWinrateChange,
-    onRrRatioChange,
-    onTradesPerDayChange,
-    onSizingModeChange,
+    evalDiscountPercent,
+    firmDisplayName,
+    linkActivationDiscount,
+    maxAttempts,
+    maxCopyAccounts,
+    maxEvalDays,
+    onActivationDiscountPercentChange,
+    onCommissionPerRoundTripChange,
+    onCopyAccountsChange,
+    onDayStopChange,
+    onEvalDiscountPercentChange,
+    onLinkActivationDiscountChange,
+    onMaxAttemptsChange,
+    onMaxEvalDaysChange,
+    onResetCoupon,
     onRiskDollarsChange,
     onRiskPercentChange,
+    onRrRatioChange,
     onSeedChange,
+    onSizingModeChange,
+    onTradesPerDayChange,
     onTrialsChange,
-    onMaxEvalDaysChange,
-    onEvalDiscountPercentChange,
-    onActivationDiscountPercentChange,
-    onLinkActivationDiscountChange,
-    onCommissionPerRoundTripChange,
-    onMaxAttemptsChange,
-    onCopyAccountsChange,
-    onResetCoupon,
-    onDayStopChange,
+    onWinrateChange,
+    plan,
+    riskDollars,
+    riskPercent,
+    rrRatio,
+    seed,
+    sizingMode,
+    tradesPerDay,
+    trials,
+    winrate,
 }: TradingInputsProps) {
     const accountSize = plan.accountSize;
     const computedRisk =
@@ -115,69 +115,69 @@ export default function TradingInputs({
                 <Popover>
                     <PopoverTrigger asChild>
                         <Button
-                            variant="ghost"
-                            size="icon-sm"
                             aria-label="Advanced settings"
+                            size="icon-sm"
+                            variant="ghost"
                         >
                             <Settings2 className="size-4" />
                         </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-80" align="end">
+                    <PopoverContent align="end" className="w-80">
                         <div className="flex flex-col gap-3">
                             <div>
                                 <label
-                                    htmlFor="trials"
                                     className="mb-1 block text-xs font-medium text-muted-foreground"
+                                    htmlFor="trials"
                                 >
                                     Monte Carlo trials
                                 </label>
                                 <Input
                                     id="trials"
-                                    type="number"
-                                    min={100}
                                     max={5000}
-                                    step={100}
-                                    value={trials}
+                                    min={100}
                                     onChange={(e) =>
                                         onTrialsChange(Number(e.target.value))
                                     }
+                                    step={100}
+                                    type="number"
+                                    value={trials}
                                 />
                             </div>
                             <div>
                                 <label
-                                    htmlFor="seed"
                                     className="mb-1 block text-xs font-medium text-muted-foreground"
+                                    htmlFor="seed"
                                 >
                                     Random seed
                                 </label>
                                 <Input
                                     id="seed"
-                                    type="number"
-                                    value={seed}
                                     onChange={(e) =>
                                         onSeedChange(Number(e.target.value))
                                     }
+                                    type="number"
+                                    value={seed}
                                 />
                             </div>
                             <div>
                                 <label
-                                    htmlFor="max-eval-days"
                                     className="mb-1 block text-xs font-medium text-muted-foreground"
+                                    htmlFor="max-eval-days"
                                 >
                                     Max eval days
                                 </label>
                                 <Input
                                     id="max-eval-days"
-                                    type="number"
-                                    min={10}
                                     max={365}
-                                    step={5}
-                                    value={maxEvalDays}
+                                    min={10}
                                     onChange={(e) =>
                                         onMaxEvalDaysChange(
                                             Number(e.target.value),
                                         )
                                     }
+                                    step={5}
+                                    type="number"
+                                    value={maxEvalDays}
                                 />
                                 <p className="mt-1 text-xs text-muted-foreground">
                                     Trials that hit this limit count as timeouts
@@ -188,8 +188,8 @@ export default function TradingInputs({
                                     Day-stop rule
                                 </span>
                                 <DayStopRulePicker
-                                    value={dayStop}
                                     onChange={onDayStopChange}
+                                    value={dayStop}
                                 />
                                 <p className="mt-1 text-xs text-muted-foreground">
                                     Cap intraday trading: stop after first win,
@@ -204,8 +204,8 @@ export default function TradingInputs({
             <div>
                 <div className="mb-2 flex items-center justify-between">
                     <span
-                        id="winrate-label"
                         className="text-xs font-medium text-muted-foreground"
+                        id="winrate-label"
                     >
                         Winrate
                     </span>
@@ -215,21 +215,21 @@ export default function TradingInputs({
                 </div>
                 <Slider
                     aria-labelledby="winrate-label"
-                    min={0.05}
                     max={0.95}
-                    step={0.01}
-                    value={[winrate]}
+                    min={0.05}
                     onValueChange={(v) =>
                         v[0] !== undefined && onWinrateChange(v[0])
                     }
+                    step={0.01}
+                    value={[winrate]}
                 />
             </div>
 
             <div>
                 <div className="mb-2 flex items-center justify-between">
                     <span
-                        id="rr-ratio-label"
                         className="text-xs font-medium text-muted-foreground"
+                        id="rr-ratio-label"
                     >
                         Reward : Risk (RR)
                     </span>
@@ -239,55 +239,55 @@ export default function TradingInputs({
                 </div>
                 <Slider
                     aria-labelledby="rr-ratio-label"
-                    min={0.5}
                     max={5}
-                    step={0.1}
-                    value={[rrRatio]}
+                    min={0.5}
                     onValueChange={(v) =>
                         v[0] !== undefined && onRrRatioChange(v[0])
                     }
+                    step={0.1}
+                    value={[rrRatio]}
                 />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
                 <div>
                     <label
-                        htmlFor="trades-per-day"
                         className="mb-2 block text-xs font-medium text-muted-foreground"
+                        htmlFor="trades-per-day"
                     >
                         Trades per day
                     </label>
                     <Input
                         id="trades-per-day"
-                        type="number"
-                        min={1}
                         max={50}
-                        step={1}
-                        value={tradesPerDay}
+                        min={1}
                         onChange={(e) =>
                             onTradesPerDayChange(Number(e.target.value))
                         }
+                        step={1}
+                        type="number"
+                        value={tradesPerDay}
                     />
                 </div>
                 <div>
                     <label
-                        htmlFor="commission"
                         className="mb-2 block text-xs font-medium text-muted-foreground"
+                        htmlFor="commission"
                     >
                         Commission ($/trade)
                     </label>
                     <Input
                         id="commission"
-                        type="number"
-                        min={0}
                         max={50}
-                        step={0.5}
-                        value={commissionPerRoundTrip || ''}
+                        min={0}
                         onChange={(e) =>
                             onCommissionPerRoundTripChange(
                                 Number(e.target.value),
                             )
                         }
+                        step={0.5}
+                        type="number"
+                        value={commissionPerRoundTrip || ''}
                     />
                 </div>
             </div>
@@ -295,21 +295,21 @@ export default function TradingInputs({
             <div className="grid grid-cols-2 gap-3">
                 <div>
                     <label
-                        htmlFor="max-attempts"
                         className="mb-2 block text-xs font-medium text-muted-foreground"
+                        htmlFor="max-attempts"
                     >
                         Max reset attempts
                     </label>
                     <Input
                         id="max-attempts"
-                        type="number"
-                        min={1}
                         max={10}
-                        step={1}
-                        value={maxAttempts}
+                        min={1}
                         onChange={(e) =>
                             onMaxAttemptsChange(Number(e.target.value))
                         }
+                        step={1}
+                        type="number"
+                        value={maxAttempts}
                     />
                     {maxAttempts > 1 && plan.fees.reset > 0 && (
                         <p className="mt-1 text-xs text-muted-foreground">
@@ -320,21 +320,21 @@ export default function TradingInputs({
                 </div>
                 <div>
                     <label
-                        htmlFor="copy-accounts"
                         className="mb-2 block text-xs font-medium text-muted-foreground"
+                        htmlFor="copy-accounts"
                     >
                         Copy-traded accounts
                     </label>
                     <Input
                         id="copy-accounts"
-                        type="number"
-                        min={1}
                         max={maxCopyAccounts}
-                        step={1}
-                        value={copyAccounts}
+                        min={1}
                         onChange={(e) =>
                             onCopyAccountsChange(Number(e.target.value))
                         }
+                        step={1}
+                        type="number"
+                        value={copyAccounts}
                     />
                     <p className="mt-1 text-xs text-muted-foreground">
                         max {maxCopyAccounts} for {firmDisplayName}
@@ -349,30 +349,30 @@ export default function TradingInputs({
                     </span>
                     <div className="inline-flex rounded-md border border-input p-0.5">
                         <button
-                            type="button"
-                            onClick={() =>
-                                onSizingModeChange(SizingMode.Dollar)
-                            }
                             className={cn(
                                 'rounded-sm px-2 py-0.5 text-xs font-medium transition-colors',
                                 sizingMode === SizingMode.Dollar
                                     ? 'bg-primary text-primary-foreground'
                                     : 'text-muted-foreground hover:text-foreground',
                             )}
+                            onClick={() =>
+                                onSizingModeChange(SizingMode.Dollar)
+                            }
+                            type="button"
                         >
                             $
                         </button>
                         <button
-                            type="button"
-                            onClick={() =>
-                                onSizingModeChange(SizingMode.Percent)
-                            }
                             className={cn(
                                 'rounded-sm px-2 py-0.5 text-xs font-medium transition-colors',
                                 sizingMode === SizingMode.Percent
                                     ? 'bg-primary text-primary-foreground'
                                     : 'text-muted-foreground hover:text-foreground',
                             )}
+                            onClick={() =>
+                                onSizingModeChange(SizingMode.Percent)
+                            }
+                            type="button"
                         >
                             %
                         </button>
@@ -380,25 +380,25 @@ export default function TradingInputs({
                 </div>
                 {sizingMode === SizingMode.Dollar ? (
                     <Input
-                        type="number"
-                        min={1}
                         max={accountSize}
-                        step={10}
-                        value={riskDollars}
+                        min={1}
                         onChange={(e) =>
                             onRiskDollarsChange(Number(e.target.value))
                         }
+                        step={10}
+                        type="number"
+                        value={riskDollars}
                     />
                 ) : (
                     <Input
-                        type="number"
-                        min={0.05}
                         max={5}
-                        step={0.05}
-                        value={riskPercent}
+                        min={0.05}
                         onChange={(e) =>
                             onRiskPercentChange(Number(e.target.value))
                         }
+                        step={0.05}
+                        type="number"
+                        value={riskPercent}
                     />
                 )}
                 <p className="mt-1 text-xs text-muted-foreground">
@@ -411,18 +411,18 @@ export default function TradingInputs({
                             Math.abs(riskPercent - preset) < 0.01;
                         return (
                             <button
-                                key={preset}
-                                type="button"
-                                onClick={() => {
-                                    onSizingModeChange(SizingMode.Percent);
-                                    onRiskPercentChange(preset);
-                                }}
                                 className={cn(
                                     'rounded-md border border-input px-2 py-0.5 text-[11px] font-medium transition-colors',
                                     active
                                         ? 'bg-primary text-primary-foreground'
                                         : 'text-muted-foreground hover:text-foreground',
                                 )}
+                                key={preset}
+                                onClick={() => {
+                                    onSizingModeChange(SizingMode.Percent);
+                                    onRiskPercentChange(preset);
+                                }}
+                                type="button"
                             >
                                 {preset}%
                             </button>
@@ -437,16 +437,16 @@ export default function TradingInputs({
                         Coupon
                     </h4>
                     <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
                         className="h-7 px-2 text-xs"
-                        onClick={onResetCoupon}
                         disabled={
                             evalDiscountPercent === 0 &&
                             activationDiscountPercent === 0 &&
                             !linkActivationDiscount
                         }
+                        onClick={onResetCoupon}
+                        size="sm"
+                        type="button"
+                        variant="ghost"
                     >
                         Reset
                     </Button>
@@ -456,8 +456,8 @@ export default function TradingInputs({
                     <div>
                         <div className="mb-1 flex items-center justify-between">
                             <label
-                                htmlFor="eval-discount"
                                 className="text-xs font-medium text-muted-foreground"
+                                htmlFor="eval-discount"
                             >
                                 Eval fee discount
                             </label>
@@ -480,18 +480,18 @@ export default function TradingInputs({
                         </div>
                         <div className="relative">
                             <Input
+                                className="pr-7"
                                 id="eval-discount"
-                                type="number"
-                                min={0}
                                 max={100}
-                                step={1}
-                                value={evalDiscountPercent || ''}
+                                min={0}
                                 onChange={(e) =>
                                     onEvalDiscountPercentChange(
                                         Number(e.target.value),
                                     )
                                 }
-                                className="pr-7"
+                                step={1}
+                                type="number"
+                                value={evalDiscountPercent || ''}
                             />
                             <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
                                 %
@@ -502,8 +502,8 @@ export default function TradingInputs({
                     <div>
                         <div className="mb-1 flex items-center justify-between">
                             <label
-                                htmlFor="activation-discount"
                                 className="text-xs font-medium text-muted-foreground"
+                                htmlFor="activation-discount"
                             >
                                 Activation fee discount
                             </label>
@@ -533,46 +533,46 @@ export default function TradingInputs({
                         <div className="flex items-stretch gap-2">
                             <div className="relative flex-1">
                                 <Input
-                                    id="activation-discount"
-                                    type="number"
-                                    min={0}
-                                    max={100}
-                                    step={1}
-                                    value={
-                                        (linkActivationDiscount
-                                            ? evalDiscountPercent
-                                            : activationDiscountPercent) || ''
-                                    }
+                                    className="pr-7"
                                     disabled={
                                         plan.fees.activation === 0 ||
                                         linkActivationDiscount
                                     }
+                                    id="activation-discount"
+                                    max={100}
+                                    min={0}
                                     onChange={(e) =>
                                         onActivationDiscountPercentChange(
                                             Number(e.target.value),
                                         )
                                     }
-                                    className="pr-7"
+                                    step={1}
+                                    type="number"
+                                    value={
+                                        (linkActivationDiscount
+                                            ? evalDiscountPercent
+                                            : activationDiscountPercent) || ''
+                                    }
                                 />
                                 <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
                                     %
                                 </span>
                             </div>
                             <button
-                                type="button"
-                                onClick={() =>
-                                    onLinkActivationDiscountChange(
-                                        !linkActivationDiscount,
-                                    )
-                                }
-                                disabled={plan.fees.activation === 0}
+                                aria-pressed={linkActivationDiscount}
                                 className={cn(
                                     'rounded-md border border-input px-2 text-xs font-medium whitespace-nowrap transition-colors disabled:pointer-events-none disabled:opacity-50',
                                     linkActivationDiscount
                                         ? 'bg-primary text-primary-foreground'
                                         : 'text-muted-foreground hover:text-foreground',
                                 )}
-                                aria-pressed={linkActivationDiscount}
+                                disabled={plan.fees.activation === 0}
+                                onClick={() =>
+                                    onLinkActivationDiscountChange(
+                                        !linkActivationDiscount,
+                                    )
+                                }
+                                type="button"
                             >
                                 Match eval
                             </button>

@@ -11,38 +11,38 @@ import {
 import { formatCompactCurrency } from './helpers';
 
 interface FirmPlanPickerProps {
-    firms: readonly PropFirm[];
     firm: PropFirm;
-    plan: Plan;
+    firms: readonly PropFirm[];
     onFirmChange: (firm: PropFirm) => void;
     onPlanChange: (plan: Plan) => void;
+    plan: Plan;
 }
 
 export default function FirmPlanPicker({
-    firms,
     firm,
-    plan,
+    firms,
     onFirmChange,
     onPlanChange,
+    plan,
 }: FirmPlanPickerProps) {
     return (
         <div className="grid gap-4 md:grid-cols-2">
             <div>
                 <label
-                    htmlFor="firm-select"
                     className="mb-2 block text-xs font-medium text-muted-foreground"
+                    htmlFor="firm-select"
                 >
                     Firm
                 </label>
                 <Select
                     id="firm-select"
-                    value={firm.id}
                     onChange={(e) => {
                         const next = firms.find(
                             (f) => f.id === (e.target.value as FirmId),
                         );
                         if (next) onFirmChange(next);
                     }}
+                    value={firm.id}
                 >
                     {firms.map((f) => (
                         <option key={f.id} value={f.id}>
@@ -54,20 +54,20 @@ export default function FirmPlanPicker({
 
             <div>
                 <label
-                    htmlFor="plan-select"
                     className="mb-2 block text-xs font-medium text-muted-foreground"
+                    htmlFor="plan-select"
                 >
                     Plan &amp; account size
                 </label>
                 <Select
                     id="plan-select"
-                    value={serializePlanId(plan.id)}
                     onChange={(e) => {
                         const next = firm.plans.find(
                             (p) => serializePlanId(p.id) === e.target.value,
                         );
                         if (next) onPlanChange(next);
                     }}
+                    value={serializePlanId(plan.id)}
                 >
                     {firm.plans.map((p) => (
                         <option

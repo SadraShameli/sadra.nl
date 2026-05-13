@@ -32,8 +32,8 @@ export default async function SignupPage({
         <div className="flex min-h-screen items-center justify-center px-4">
             <div className="w-full max-w-sm">
                 <Link
-                    href="/"
                     className="mb-8 block text-center font-orbitron text-lg font-semibold tracking-widest text-white"
+                    href="/"
                 >
                     sadra.nl
                 </Link>
@@ -50,11 +50,11 @@ export default async function SignupPage({
                             </Alert>
                         )}
                         <OAuthButtons
-                            hasGoogle={Boolean(
-                                env.AUTH_GOOGLE_ID && env.AUTH_GOOGLE_SECRET,
-                            )}
                             hasGithub={Boolean(
                                 env.AUTH_GITHUB_ID && env.AUTH_GITHUB_SECRET,
+                            )}
+                            hasGoogle={Boolean(
+                                env.AUTH_GOOGLE_ID && env.AUTH_GOOGLE_SECRET,
                             )}
                         />
                         <SignupForm />
@@ -63,8 +63,8 @@ export default async function SignupPage({
                         <p className="text-center text-sm text-muted-foreground">
                             Already have an account?{' '}
                             <Link
-                                href="/login"
                                 className="text-foreground underline underline-offset-4 hover:opacity-70"
+                                href="/login"
                             >
                                 Sign in
                             </Link>

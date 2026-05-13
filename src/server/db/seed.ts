@@ -1,17 +1,8 @@
 import { endDb } from '.';
 import { DatabaseSeeder } from './types';
 
-async function main() {
+try {
     await DatabaseSeeder.runAll();
+} finally {
+    await endDb();
 }
-
-main()
-    .catch((e) => {
-        console.error(e);
-    })
-    .finally(() => {
-        void (async () => {
-            await endDb();
-            process.exit(0);
-        })();
-    });

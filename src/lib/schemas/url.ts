@@ -2,19 +2,20 @@ import { z } from 'zod';
 
 export const profileTabSchema = z
     .enum(['account', 'security', 'trading-plan'])
+    // eslint-disable-next-line unicorn/prefer-top-level-await
     .catch('account');
 
 export type ProfileTab = z.infer<typeof profileTabSchema>;
 
 export const loginSearchSchema = z.object({
+    callbackUrl: z.string().optional(),
     error: z.string().optional(),
     success: z.string().optional(),
-    callbackUrl: z.string().optional(),
 });
 
 export const signupSearchSchema = z.object({
-    error: z.string().optional(),
     callbackUrl: z.string().optional(),
+    error: z.string().optional(),
 });
 
 export const forgotPasswordSearchSchema = z.object({
@@ -22,8 +23,8 @@ export const forgotPasswordSearchSchema = z.object({
 });
 
 export const resetPasswordSearchSchema = z.object({
-    token: z.string().optional(),
     error: z.string().optional(),
+    token: z.string().optional(),
 });
 
 export const verifyRequestSearchSchema = z.object({
@@ -41,35 +42,35 @@ export const profileSearchSchema = z.object({
 });
 
 export const tradingPlanSearchSchema = z.object({
+    error: z.string().optional(),
     plan: z.string().optional(),
     success: z.string().optional(),
-    error: z.string().optional(),
 });
 
 export const dayStopRuleSchema = z.discriminatedUnion('kind', [
     z.object({ kind: z.literal('none') }),
     z.object({ kind: z.literal('first-win') }),
-    z.object({ kind: z.literal('after-k-losses'), k: z.number() }),
-    z.object({ kind: z.literal('after-target'), dollars: z.number() }),
+    z.object({ k: z.number(), kind: z.literal('after-k-losses') }),
+    z.object({ dollars: z.number(), kind: z.literal('after-target') }),
 ]);
 
 export const labScenarioSchema = z.object({
+    accounts: z.number(),
+    correlation: z.enum(['copy', 'grouped', 'independent']),
+    dayStop: dayStopRuleSchema,
+    groups: z.number(),
     id: z.string(),
     label: z.string(),
     riskPerTrade: z.number(),
-    winrate: z.number(),
     rrRatio: z.number(),
     tradesPerDay: z.number(),
-    accounts: z.number(),
-    correlation: z.enum(['copy', 'grouped', 'independent']),
-    groups: z.number(),
-    dayStop: dayStopRuleSchema,
+    winrate: z.number(),
 });
 
 export const savedScenarioRecordSchema = z.object({
     name: z.string(),
-    savedAt: z.number(),
     params: z.string(),
+    savedAt: z.number(),
 });
 
 export type SavedScenarioRecord = z.infer<typeof savedScenarioRecordSchema>;

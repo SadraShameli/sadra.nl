@@ -21,13 +21,13 @@ export async function GET(
 
     if (res.data) {
         return new Response(new Uint8Array(res.data.file), {
-            status: res.status,
             headers: {
                 'Accept-Ranges': 'bytes',
+                'Content-Disposition': `attachment; filename="${res.data.file_name}"`,
                 'Content-Length': res.data.file.length.toString(),
                 'Content-Type': 'audio/wav',
-                'Content-Disposition': `attachment; filename="${res.data.file_name}"`,
             },
+            status: res.status,
         });
     }
 
@@ -56,8 +56,8 @@ export async function POST(
         }
 
         return NextResponse.json(res, { status: res.status });
-    } catch (e) {
-        if (e instanceof ZodError) return zodErrorResponse(e);
-        return NextResponse.json({ error: String(e) }, { status: 500 });
+    } catch (error) {
+        if (error instanceof ZodError) return zodErrorResponse(error);
+        return NextResponse.json({ error: String(error) }, { status: 500 });
     }
 }

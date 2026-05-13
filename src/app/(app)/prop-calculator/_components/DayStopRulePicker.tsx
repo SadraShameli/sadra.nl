@@ -5,51 +5,55 @@ import { Select } from '~/components/ui/Select';
 import { type DayStopRule } from '~/lib/prop-calculator';
 
 interface DayStopRulePickerProps {
-    value: DayStopRule;
-    onChange: (rule: DayStopRule) => void;
     compact?: boolean;
+    onChange: (rule: DayStopRule) => void;
+    value: DayStopRule;
 }
 
 type Kind = DayStopRule['kind'];
 
 const KIND_LABEL: Record<Kind, string> = {
-    none: 'No stop',
-    'first-win': 'Stop after first win',
     'after-k-losses': 'Stop after K losses',
     'after-target': 'Stop after $ target',
+    'first-win': 'Stop after first win',
+    none: 'No stop',
 };
 
 export default function DayStopRulePicker({
-    value,
-    onChange,
     compact = false,
+    onChange,
+    value,
 }: DayStopRulePickerProps) {
     const handleKind = (kind: Kind) => {
         switch (kind) {
-            case 'none':
-                onChange({ kind: 'none' });
-                return;
-            case 'first-win':
-                onChange({ kind: 'first-win' });
-                return;
-            case 'after-k-losses':
+            case 'after-k-losses': {
                 onChange({
-                    kind: 'after-k-losses',
                     k:
                         value.kind === 'after-k-losses'
                             ? Math.max(1, value.k)
                             : 2,
+                    kind: 'after-k-losses',
                 });
                 return;
-            case 'after-target':
+            }
+            case 'after-target': {
                 onChange({
-                    kind: 'after-target',
                     dollars:
                         value.kind === 'after-target'
                             ? Math.max(1, value.dollars)
                             : 500,
+                    kind: 'after-target',
                 });
                 return;
+            }
+            case 'first-win': {
+                onChange({ kind: 'first-win' });
+                return;
+            }
+            case 'none': {
+                onChange({ kind: 'none' });
+                return;
+            }
         }
     };
 
@@ -59,9 +63,9 @@ export default function DayStopRulePicker({
         >
             <Select
                 aria-label="Day stop rule"
-                value={value.kind}
-                onChange={(e) => handleKind(e.target.value as Kind)}
                 className={compact ? 'h-7 text-xs' : undefined}
+                onChange={(e) => handleKind(e.target.value as Kind)}
+                value={value.kind}
             >
                 {(Object.keys(KIND_LABEL) as Kind[]).map((k) => (
                     <option key={k} value={k}>
@@ -71,36 +75,36 @@ export default function DayStopRulePicker({
             </Select>
             {value.kind === 'after-k-losses' && (
                 <Input
-                    type="number"
-                    min={1}
+                    aria-label="K losses"
+                    className={compact ? 'h-7 text-xs' : undefined}
                     max={20}
-                    step={1}
-                    value={value.k}
+                    min={1}
                     onChange={(e) => {
                         const n = Math.max(
                             1,
                             Math.min(20, Math.floor(Number(e.target.value))),
                         );
                         if (Number.isFinite(n))
-                            onChange({ kind: 'after-k-losses', k: n });
+                            onChange({ k: n, kind: 'after-k-losses' });
                     }}
-                    className={compact ? 'h-7 text-xs' : undefined}
-                    aria-label="K losses"
+                    step={1}
+                    type="number"
+                    value={value.k}
                 />
             )}
             {value.kind === 'after-target' && (
                 <Input
-                    type="number"
+                    aria-label="Target dollars"
+                    className={compact ? 'h-7 text-xs' : undefined}
                     min={1}
-                    step={50}
-                    value={value.dollars}
                     onChange={(e) => {
                         const n = Math.max(1, Number(e.target.value));
                         if (Number.isFinite(n))
-                            onChange({ kind: 'after-target', dollars: n });
+                            onChange({ dollars: n, kind: 'after-target' });
                     }}
-                    className={compact ? 'h-7 text-xs' : undefined}
-                    aria-label="Target dollars"
+                    step={50}
+                    type="number"
+                    value={value.dollars}
                 />
             )}
         </div>

@@ -9,17 +9,18 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 
+import type { ResumeSectionView } from '~/lib/content';
+
 import RevealAnimation from '~/components/ui/Animations/Reveal';
 import { Card } from '~/components/ui/Card';
-import type { ResumeSectionView } from '~/lib/content';
 import { cn } from '~/lib/utils';
 
 type ResumeProps = {
-    title: string;
     sections: ResumeSectionView[];
+    title: string;
 };
 
-export default function ResumeItem({ title, sections }: ResumeProps) {
+export default function ResumeItem({ sections, title }: ResumeProps) {
     return (
         <RevealAnimation className="pt-spacing-inner">
             <Card className="container">
@@ -36,12 +37,12 @@ export default function ResumeItem({ title, sections }: ResumeProps) {
                                         )}
                                     >
                                         <Image
-                                            className="mb-12 rounded-2xl"
-                                            src={section.imageUrl}
                                             alt={`${title} picture`}
-                                            width={800}
+                                            className="mb-12 rounded-2xl"
                                             height={600}
+                                            src={section.imageUrl}
                                             unoptimized
+                                            width={800}
                                         />
                                     </div>
                                 ) : null}

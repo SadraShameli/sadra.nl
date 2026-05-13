@@ -3,9 +3,9 @@ import { type Metadata } from 'next';
 import CalculatorShell from './_components/CalculatorShell';
 
 export const metadata: Metadata = {
-    title: 'Prop Firm Calculator',
     description:
         'Interactive Monte Carlo calculator for futures prop firms — model pass probability, days to pass, total cost, and expected monthly net for Apex, Take Profit Trader, Tradeify, Lucid, My Funded Futures, and TopStep.',
+    title: 'Prop Firm Calculator',
 };
 
 export default function PropCalculatorPage() {

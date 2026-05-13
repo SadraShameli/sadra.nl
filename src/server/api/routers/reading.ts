@@ -22,7 +22,7 @@ import {
 import { getDevice } from './device';
 import { getSensor } from './sensor';
 
-export async function getReading(
+async function getReading(
     input: z.infer<typeof getReadingProps>,
     ctx: ContextType,
 ): Promise<Result<typeof reading.$inferSelect>> {
@@ -40,19 +40,9 @@ export async function getReading(
 }
 
 export const readingRouter = createTRPCRouter({
-    getReadings: publicProcedure.query(async ({ ctx }) => {
-        return { data: await ctx.db.query.reading.findMany() };
-    }),
-
-    getReading: publicProcedure
-        .input(getReadingProps)
-        .query(async ({ input, ctx }) => {
-            return await getReading(input, ctx);
-        }),
-
     createReading: publicProcedure
         .input(createReadingProps)
-        .mutation(async ({ input, ctx }) => {
+        .mutation(async ({ ctx, input }) => {
             const device = await getDevice({ device_id: input.device_id }, ctx);
 
             if (!device.data) {
@@ -74,9 +64,9 @@ export const readingRouter = createTRPCRouter({
                 }
 
                 await ctx.db.insert(reading).values({
-                    sensor_id: sensorResult.data.id,
-                    location_id: device.data.location_id,
                     device_id: device.data.id,
+                    location_id: device.data.location_id,
+                    sensor_id: sensorResult.data.id,
                     value: value,
                 });
             }
@@ -84,9 +74,19 @@ export const readingRouter = createTRPCRouter({
             return { status: 201 };
         }),
 
+    getReading: publicProcedure
+        .input(getReadingProps)
+        .query(async ({ ctx, input }) => {
+            return await getReading(input, ctx);
+        }),
+
+    getReadings: publicProcedure.query(async ({ ctx }) => {
+        return { data: await ctx.db.query.reading.findMany() };
+    }),
+
     getReadingsInput: publicProcedure
         .input(z.union([getLocationProps, z.undefined()]))
-        .query(async ({ input, ctx }): Promise<Result<GetReadingsRecord[]>> => {
+        .query(async ({ ctx, input }): Promise<Result<GetReadingsRecord[]>> => {
             const period = 24,
                 periodMS = period * 60 * 60 * 1000;
 
@@ -166,16 +166,16 @@ export const readingRouter = createTRPCRouter({
                 const lastReading = filteredReadings.at(-1);
                 if (lastReading) {
                     return readingsRecord.push({
-                        readings: filteredReadings,
-                        latestReading: lastReading,
-                        sensor: sensor,
                         highest: Math.max(
                             ...filteredReadings.map((reading) => reading.value),
                         ),
+                        latestReading: lastReading,
                         lowest: Math.min(
                             ...filteredReadings.map((reading) => reading.value),
                         ),
                         period: period,
+                        readings: filteredReadings,
+                        sensor: sensor,
                     });
                 }
             });

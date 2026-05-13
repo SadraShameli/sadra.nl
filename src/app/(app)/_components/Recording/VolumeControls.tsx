@@ -7,51 +7,51 @@ import { SpeedControl } from './SpeedControl';
 import { type PlaybackSpeed } from './types';
 
 interface VolumeControlsProps {
-    volume: number;
-    isAutoPlay: boolean;
     hasRecordings: boolean;
-    playbackRate: PlaybackSpeed;
-    onMute: () => void;
-    onVolumeChange: (volume: number) => void;
+    isAutoPlay: boolean;
     onAutoPlay: () => void;
+    onMute: () => void;
     onSpeedChange: (speed: PlaybackSpeed) => void;
+    onVolumeChange: (volume: number) => void;
+    playbackRate: PlaybackSpeed;
+    volume: number;
 }
 
 export function VolumeControls({
-    volume,
-    isAutoPlay,
     hasRecordings,
-    playbackRate,
-    onMute,
-    onVolumeChange,
+    isAutoPlay,
     onAutoPlay,
+    onMute,
     onSpeedChange,
+    onVolumeChange,
+    playbackRate,
+    volume,
 }: VolumeControlsProps) {
     return (
         <div className="flex items-center justify-end gap-x-3 text-neutral-400">
             <SpeedControl
-                speed={playbackRate}
                 hasRecordings={hasRecordings}
                 onSpeedChange={onSpeedChange}
+                speed={playbackRate}
             />
 
             <button
+                aria-label="Auto Play"
                 className={cn(
                     'size-6 transition hover:text-white disabled:text-neutral-700',
                     isAutoPlay && 'text-white',
                 )}
-                onClick={onAutoPlay}
                 disabled={!hasRecordings}
-                aria-label="Auto Play"
+                onClick={onAutoPlay}
             >
                 <ListEnd />
             </button>
 
             <button
-                className="size-6 transition hover:text-white disabled:text-neutral-700"
-                onClick={onMute}
-                disabled={!hasRecordings}
                 aria-label="Volume"
+                className="size-6 transition hover:text-white disabled:text-neutral-700"
+                disabled={!hasRecordings}
+                onClick={onMute}
             >
                 {volume === 0 ? (
                     <Volume className="text-white" />
@@ -65,16 +65,16 @@ export function VolumeControls({
             <Slider
                 className="h-2 w-1/5"
                 defaultValue={[1]}
-                value={[volume]}
-                min={0}
+                disabled={!hasRecordings}
                 max={1}
-                step={0.01}
+                min={0}
                 onValueChange={(values: number[]) => {
                     if (values[0] !== undefined) {
                         onVolumeChange(values[0]);
                     }
                 }}
-                disabled={!hasRecordings}
+                step={0.01}
+                value={[volume]}
             />
         </div>
     );

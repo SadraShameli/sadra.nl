@@ -37,18 +37,18 @@ export default function CalculatorShell() {
     );
     const [portfolio, setPortfolio] = useState<PortfolioEntry[]>([
         {
-            id: 'default-apex-50k-eod',
-            firmId: FirmId.Apex,
-            planId: {
-                firm: FirmId.Apex,
-                accountSize: 50_000,
-                variant: 'eod' as const,
-            },
+            activationDiscountPercent: 0,
             count: 20,
             evalDiscountPercent: 0,
-            activationDiscountPercent: 0,
+            firmId: FirmId.Apex,
+            id: 'default-apex-50k-eod',
             linkActivationDiscount: false,
             memory: {},
+            planId: {
+                accountSize: 50_000,
+                firm: FirmId.Apex,
+                variant: 'eod' as const,
+            },
         },
     ]);
 
@@ -57,221 +57,220 @@ export default function CalculatorShell() {
             <SectionNav />
 
             <div
-                id="simulator"
-                data-section-label="Simulator"
                 className="flex scroll-mt-26 flex-col gap-6"
+                data-section-label="Simulator"
+                id="simulator"
             >
                 <div className="flex items-center justify-end gap-2">
                     <ShareLinkButton />
                     <SavedScenarios
-                        state={c.state}
                         firms={c.firms}
                         onLoad={c.applyState}
+                        state={c.state}
                     />
                 </div>
                 <Card className="flex flex-col gap-4 px-6 py-6">
                     <FirmPlanPicker
-                        firms={c.firms}
                         firm={c.state.firm}
-                        plan={c.state.plan}
+                        firms={c.firms}
                         onFirmChange={c.setFirm}
                         onPlanChange={c.setPlan}
+                        plan={c.state.plan}
                     />
                     <PlanStatsBadges plan={c.state.plan} />
                 </Card>
                 <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
                     <Card className="px-6 py-6">
                         <TradingInputs
-                            plan={c.state.plan}
-                            winrate={c.state.winrate}
-                            rrRatio={c.state.rrRatio}
-                            tradesPerDay={c.state.tradesPerDay}
-                            sizingMode={c.state.sizingMode}
-                            riskDollars={c.state.riskDollars}
-                            riskPercent={c.state.riskPercent}
-                            seed={c.state.seed}
-                            trials={c.state.trials}
-                            maxEvalDays={c.state.maxEvalDays}
-                            evalDiscountPercent={c.state.evalDiscountPercent}
                             activationDiscountPercent={
                                 c.state.activationDiscountPercent
-                            }
-                            linkActivationDiscount={
-                                c.state.linkActivationDiscount
                             }
                             commissionPerRoundTrip={
                                 c.state.commissionPerRoundTrip
                             }
-                            maxAttempts={c.state.maxAttempts}
                             copyAccounts={c.state.copyAccounts}
+                            dayStop={c.state.dayStop}
+                            evalDiscountPercent={c.state.evalDiscountPercent}
+                            firmDisplayName={c.state.firm.displayName}
+                            linkActivationDiscount={
+                                c.state.linkActivationDiscount
+                            }
+                            maxAttempts={c.state.maxAttempts}
                             maxCopyAccounts={c.state.firm.maxFundedAccounts(
                                 c.state.plan,
                             )}
-                            firmDisplayName={c.state.firm.displayName}
-                            dayStop={c.state.dayStop}
-                            onWinrateChange={c.setWinrate}
-                            onRrRatioChange={c.setRrRatio}
-                            onTradesPerDayChange={c.setTradesPerDay}
-                            onSizingModeChange={c.setSizingMode}
-                            onRiskDollarsChange={c.setRiskDollars}
-                            onRiskPercentChange={c.setRiskPercent}
-                            onSeedChange={c.setSeed}
-                            onTrialsChange={c.setTrials}
-                            onMaxEvalDaysChange={c.setMaxEvalDays}
-                            onEvalDiscountPercentChange={
-                                c.setEvalDiscountPercent
-                            }
+                            maxEvalDays={c.state.maxEvalDays}
                             onActivationDiscountPercentChange={
                                 c.setActivationDiscountPercent
-                            }
-                            onLinkActivationDiscountChange={
-                                c.setLinkActivationDiscount
                             }
                             onCommissionPerRoundTripChange={
                                 c.setCommissionPerRoundTrip
                             }
-                            onMaxAttemptsChange={c.setMaxAttempts}
                             onCopyAccountsChange={c.setCopyAccounts}
-                            onResetCoupon={c.resetCoupon}
                             onDayStopChange={c.setDayStop}
+                            onEvalDiscountPercentChange={
+                                c.setEvalDiscountPercent
+                            }
+                            onLinkActivationDiscountChange={
+                                c.setLinkActivationDiscount
+                            }
+                            onMaxAttemptsChange={c.setMaxAttempts}
+                            onMaxEvalDaysChange={c.setMaxEvalDays}
+                            onResetCoupon={c.resetCoupon}
+                            onRiskDollarsChange={c.setRiskDollars}
+                            onRiskPercentChange={c.setRiskPercent}
+                            onRrRatioChange={c.setRrRatio}
+                            onSeedChange={c.setSeed}
+                            onSizingModeChange={c.setSizingMode}
+                            onTradesPerDayChange={c.setTradesPerDay}
+                            onTrialsChange={c.setTrials}
+                            onWinrateChange={c.setWinrate}
+                            plan={c.state.plan}
+                            riskDollars={c.state.riskDollars}
+                            riskPercent={c.state.riskPercent}
+                            rrRatio={c.state.rrRatio}
+                            seed={c.state.seed}
+                            sizingMode={c.state.sizingMode}
+                            tradesPerDay={c.state.tradesPerDay}
+                            trials={c.state.trials}
+                            winrate={c.state.winrate}
                         />
                     </Card>
                     <ResultsPanel
-                        plan={c.state.plan}
-                        result={c.result}
-                        pinned={c.pinned?.result ?? null}
+                        isPending={c.isPending}
                         onPin={c.pinScenario}
                         onUnpin={c.unpinScenario}
-                        isPending={c.isPending}
+                        pinned={c.pinned?.result ?? null}
+                        plan={c.state.plan}
+                        result={c.result}
                     />
                 </div>
             </div>
 
             <div
-                id="strategy"
-                data-section-label="Strategy"
                 className="scroll-mt-26"
+                data-section-label="Strategy"
+                id="strategy"
             >
                 <StrategyAnalysis
+                    copyAccounts={c.state.copyAccounts}
+                    fundedHorizonDays={c.simInputs.fundedHorizonDays}
                     plan={c.state.plan}
                     result={c.result}
-                    winrate={c.state.winrate}
-                    rrRatio={c.state.rrRatio}
                     riskPerTrade={c.simInputs.riskPerTrade}
-                    fundedHorizonDays={c.simInputs.fundedHorizonDays}
-                    copyAccounts={c.state.copyAccounts}
+                    rrRatio={c.state.rrRatio}
+                    winrate={c.state.winrate}
                 />
             </div>
 
             <div
-                id="tail-risk"
-                data-section-label="Tail Risk"
                 className="scroll-mt-26"
+                data-section-label="Tail Risk"
+                id="tail-risk"
             >
                 <TailRiskPanel result={c.result} />
             </div>
 
             <div
-                id="portfolio"
-                data-section-label="Portfolio"
                 className="scroll-mt-26"
+                data-section-label="Portfolio"
+                id="portfolio"
             >
                 <PortfolioPanel
-                    firms={c.firms}
                     baseInputs={c.simInputs}
                     currentFirm={c.state.firm}
                     currentPlan={c.state.plan}
-                    portfolio={portfolio}
+                    firms={c.firms}
                     onPortfolioChange={setPortfolio}
+                    portfolio={portfolio}
                 />
             </div>
 
             <div
-                id="charts"
-                data-section-label="Charts"
                 className="flex scroll-mt-26 flex-col gap-3"
+                data-section-label="Charts"
+                id="charts"
             >
                 <div className="grid gap-3 md:grid-cols-2">
                     <PercentileBar
+                        description={kpiDescriptions.finalBalance}
+                        formatValue={formatCompactCurrency}
                         label="Final balance distribution"
                         p5={c.result.finalBalanceP5}
                         p25={c.result.finalBalanceP25}
                         p50={c.result.finalBalanceP50}
                         p75={c.result.finalBalanceP75}
                         p95={c.result.finalBalanceP95}
-                        formatValue={formatCompactCurrency}
-                        description={kpiDescriptions.finalBalance}
                         referenceLine={{
-                            value: c.state.plan.accountSize,
                             label: 'Starting balance',
+                            value: c.state.plan.accountSize,
                         }}
                     />
                     <PercentileBar
+                        description={kpiDescriptions.daysToPass}
+                        formatValue={formatDays}
                         label="Days to pass distribution"
                         p5={c.result.daysToPassP5}
                         p25={c.result.daysToPassP25}
                         p50={c.result.daysToPassP50}
                         p75={c.result.daysToPassP75}
                         p95={c.result.daysToPassP95}
-                        formatValue={formatDays}
-                        description={kpiDescriptions.daysToPass}
                     />
                 </div>
                 <ChartPanel
                     chartType={chartType}
+                    maxEvalDays={c.state.maxEvalDays}
                     onChartTypeChange={setChartType}
                     result={c.result}
                     totalTrials={c.state.trials}
-                    maxEvalDays={c.state.maxEvalDays}
                 />
             </div>
 
             <div
-                id="drawdown"
-                data-section-label="Drawdown"
                 className="scroll-mt-26"
+                data-section-label="Drawdown"
+                id="drawdown"
             >
                 <DrawdownDurationPanel result={c.result} />
             </div>
 
             <div
-                id="compounding"
-                data-section-label="Compounding"
                 className="scroll-mt-26"
+                data-section-label="Compounding"
+                id="compounding"
             >
                 <CompoundingPanel
-                    winrate={c.state.winrate}
-                    rrRatio={c.state.rrRatio}
-                    tradesPerDay={c.state.tradesPerDay}
                     riskPercent={
                         (c.simInputs.riskPerTrade / c.state.plan.accountSize) *
                         100
                     }
+                    rrRatio={c.state.rrRatio}
                     seed={c.state.seed}
                     startBalance={c.state.plan.accountSize}
+                    tradesPerDay={c.state.tradesPerDay}
+                    winrate={c.state.winrate}
                 />
             </div>
 
             <div
-                id="resilience"
-                data-section-label="Resilience"
                 className="scroll-mt-26"
+                data-section-label="Resilience"
+                id="resilience"
             >
                 <ResiliencePanel
                     plan={c.state.plan}
                     result={c.result}
-                    winrate={c.state.winrate}
                     riskPerTrade={c.simInputs.riskPerTrade}
+                    winrate={c.state.winrate}
                 />
             </div>
 
             <div
-                id="optimal-risk"
-                data-section-label="Optimal Risk"
                 className="scroll-mt-26"
+                data-section-label="Optimal Risk"
+                id="optimal-risk"
             >
                 <OptimalRiskTable
-                    plan={c.state.plan}
                     baseInputs={c.simInputs}
                     currentRiskPercent={
                         c.state.sizingMode === SizingMode.Percent
@@ -279,68 +278,69 @@ export default function CalculatorShell() {
                             : (c.state.riskDollars / c.state.plan.accountSize) *
                               100
                     }
+                    plan={c.state.plan}
                 />
             </div>
 
             <div
-                id="sensitivity"
-                data-section-label="Sensitivity"
                 className="scroll-mt-26"
+                data-section-label="Sensitivity"
+                id="sensitivity"
             >
                 <SensitivityHeatmap
-                    plan={c.state.plan}
                     baseInputs={c.simInputs}
-                    currentWinrate={c.state.winrate}
                     currentRR={c.state.rrRatio}
+                    currentWinrate={c.state.winrate}
+                    plan={c.state.plan}
                 />
             </div>
 
             <div
-                id="plan-comparison"
-                data-section-label="Plans"
                 className="scroll-mt-26"
+                data-section-label="Plans"
+                id="plan-comparison"
             >
                 <PlanComparisonTable
-                    firm={c.state.firm}
                     activePlan={c.state.plan}
                     baseInputs={c.simInputs}
+                    firm={c.state.firm}
                 />
             </div>
 
             <div
-                id="firm-comparison"
-                data-section-label="Firms"
                 className="scroll-mt-26"
+                data-section-label="Firms"
+                id="firm-comparison"
             >
                 <FirmComparisonTable
-                    firms={c.firms}
                     activeFirmId={c.state.firm.id}
-                    targetAccountSize={c.state.plan.accountSize}
                     baseInputs={c.simInputs}
+                    firms={c.firms}
+                    targetAccountSize={c.state.plan.accountSize}
                 />
             </div>
 
             <div
-                id="strategy-lab"
-                data-section-label="Strategy Lab"
                 className="scroll-mt-26"
+                data-section-label="Strategy Lab"
+                id="strategy-lab"
             >
                 <StrategyLabPanel
-                    plan={c.state.plan}
-                    seed={c.state.seed}
-                    maxEvalDays={c.state.maxEvalDays}
-                    fundedHorizonDays={c.state.fundedHorizonDays}
-                    commissionPerRoundTrip={c.state.commissionPerRoundTrip}
-                    evalDiscountPercent={c.state.evalDiscountPercent}
                     activationDiscountPercent={
                         c.state.activationDiscountPercent
                     }
+                    commissionPerRoundTrip={c.state.commissionPerRoundTrip}
+                    evalDiscountPercent={c.state.evalDiscountPercent}
+                    fundedHorizonDays={c.state.fundedHorizonDays}
                     linkActivationDiscount={c.state.linkActivationDiscount}
-                    scenarios={c.state.labScenarios}
-                    onUpdate={c.updateLabScenario}
-                    onRemove={c.removeLabScenario}
+                    maxEvalDays={c.state.maxEvalDays}
                     onAdd={c.addLabScenario}
+                    onRemove={c.removeLabScenario}
                     onReset={c.resetLabScenarios}
+                    onUpdate={c.updateLabScenario}
+                    plan={c.state.plan}
+                    scenarios={c.state.labScenarios}
+                    seed={c.state.seed}
                 />
             </div>
         </div>

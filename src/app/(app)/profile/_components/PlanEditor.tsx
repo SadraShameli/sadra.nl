@@ -21,6 +21,13 @@ import { GripVertical, Plus, Save, Trash2 } from 'lucide-react';
 import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
 
+import type {
+    ConfluenceKey,
+    TimeWindow,
+    TradingPlanConfig,
+    TradingPlanRow,
+} from '~/lib/trading-types';
+
 import { Alert, AlertDescription } from '~/components/ui/Alert';
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
@@ -32,21 +39,15 @@ import { Switch } from '~/components/ui/Switch';
 import { updateTradingPlanInputSchema } from '~/lib/schemas/trading';
 import { updateTradingPlan } from '~/lib/trading-actions';
 import { CONFLUENCE_GROUPS, WEIGHT_CATEGORIES } from '~/lib/trading-defaults';
-import type {
-    ConfluenceKey,
-    TimeWindow,
-    TradingPlanConfig,
-    TradingPlanRow,
-} from '~/lib/trading-types';
 
 const KNOCKOUT_LABELS: Record<keyof TradingPlanConfig['knockouts'], string> = {
-    outsideMacroWindow: 'Outside macro window',
-    bothSidedLiquidity: 'Both-sided liquidity',
-    slNotProtected: 'Stop loss under-protected',
-    dolAlreadyTaken: 'DOL already taken / invalidated',
-    revengeOrFomo: 'Revenge / FOMO impulse',
-    distracted: 'Distracted',
     boredomHunt: 'Boredom-driven setup hunt',
+    bothSidedLiquidity: 'Both-sided liquidity',
+    distracted: 'Distracted',
+    dolAlreadyTaken: 'DOL already taken / invalidated',
+    outsideMacroWindow: 'Outside macro window',
+    revengeOrFomo: 'Revenge / FOMO impulse',
+    slNotProtected: 'Stop loss under-protected',
 };
 
 export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
@@ -71,7 +72,7 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
         if (!over || active.id === over.id) return;
         const oldIndex = config.windows.findIndex((w) => w.id === active.id);
         const newIndex = config.windows.findIndex((w) => w.id === over.id);
-        if (oldIndex < 0 || newIndex < 0) return;
+        if (oldIndex === -1 || newIndex === -1) return;
         updateConfig('windows', arrayMove(config.windows, oldIndex, newIndex));
     };
 
@@ -99,9 +100,9 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
             return;
         }
         const parsed = updateTradingPlanInputSchema.safeParse({
-            planId: plan.id,
-            name: name.trim(),
             config,
+            name: name.trim(),
+            planId: plan.id,
         });
         if (!parsed.success) {
             const first = parsed.error.issues[0];
@@ -121,16 +122,16 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
         <div className="space-y-6">
             <section className="flex flex-col space-y-3">
                 <Label
-                    htmlFor="planName"
                     className="text-xs text-muted-foreground uppercase"
+                    htmlFor="planName"
                 >
                     Plan name
                 </Label>
                 <Input
                     id="planName"
-                    value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="My trading plan"
+                    value={name}
                 />
             </section>
 
@@ -139,10 +140,10 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                     Macro time windows
                 </h3>
                 <DndContext
-                    id="windows-dnd"
-                    sensors={sensors}
                     collisionDetection={closestCenter}
+                    id="windows-dnd"
                     onDragEnd={onWindowDragEnd}
+                    sensors={sensors}
                 >
                     <SortableContext
                         items={config.windows.map((w) => w.id)}
@@ -151,9 +152,8 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                         <div className="space-y-2">
                             {config.windows.map((w, i) => (
                                 <SortableWindowRow
-                                    key={w.id}
-                                    window={w}
                                     canDelete={config.windows.length > 1}
+                                    key={w.id}
                                     onChange={(patch) =>
                                         updateConfig(
                                             'windows',
@@ -172,26 +172,27 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                                             ),
                                         )
                                     }
+                                    window={w}
                                 />
                             ))}
                         </div>
                     </SortableContext>
                 </DndContext>
                 <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
                     onClick={() =>
                         updateConfig('windows', [
                             ...config.windows,
                             {
+                                end: '00:30',
                                 id: `w${Date.now()}`,
                                 label: 'New window',
                                 start: '00:00',
-                                end: '00:30',
                             },
                         ])
                     }
+                    size="sm"
+                    type="button"
+                    variant="outline"
                 >
                     <Plus className="mr-1 size-4" /> Add window
                 </Button>
@@ -203,54 +204,54 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                 </h3>
                 <div className="grid gap-3 sm:grid-cols-3">
                     <div>
-                        <Label htmlFor="fundedR" className="text-sm">
+                        <Label className="text-sm" htmlFor="fundedR">
                             Funded risk ($)
                         </Label>
                         <Input
-                            id="fundedR"
-                            type="number"
                             className="mt-2"
-                            value={config.risk.fundedDollars}
+                            id="fundedR"
                             onChange={(e) =>
                                 updateConfig('risk', {
                                     ...config.risk,
                                     fundedDollars: Number(e.target.value),
                                 })
                             }
+                            type="number"
+                            value={config.risk.fundedDollars}
                         />
                     </div>
                     <div>
-                        <Label htmlFor="evalR" className="text-sm">
+                        <Label className="text-sm" htmlFor="evalR">
                             Eval risk ($)
                         </Label>
                         <Input
-                            id="evalR"
-                            type="number"
                             className="mt-2"
-                            value={config.risk.evalDollars}
+                            id="evalR"
                             onChange={(e) =>
                                 updateConfig('risk', {
                                     ...config.risk,
                                     evalDollars: Number(e.target.value),
                                 })
                             }
+                            type="number"
+                            value={config.risk.evalDollars}
                         />
                     </div>
                     <div>
-                        <Label htmlFor="maxT" className="text-sm">
+                        <Label className="text-sm" htmlFor="maxT">
                             Max trades / window
                         </Label>
                         <Input
-                            id="maxT"
-                            type="number"
                             className="mt-2"
-                            value={config.risk.maxTradesPerWindow}
+                            id="maxT"
                             onChange={(e) =>
                                 updateConfig('risk', {
                                     ...config.risk,
                                     maxTradesPerWindow: Number(e.target.value),
                                 })
                             }
+                            type="number"
+                            value={config.risk.maxTradesPerWindow}
                         />
                     </div>
                 </div>
@@ -262,54 +263,51 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                 </h3>
                 <div className="grid gap-3 sm:grid-cols-2">
                     <div>
-                        <Label htmlFor="minRR" className="text-sm">
+                        <Label className="text-sm" htmlFor="minRR">
                             Minimum R:R
                         </Label>
                         <Input
-                            id="minRR"
-                            type="number"
-                            step="0.1"
                             className="mt-2"
-                            value={config.setup.minRR}
+                            id="minRR"
                             onChange={(e) =>
                                 updateConfig('setup', {
                                     ...config.setup,
                                     minRR: Number(e.target.value),
                                 })
                             }
+                            step="0.1"
+                            type="number"
+                            value={config.setup.minRR}
                         />
                     </div>
                     <div>
-                        <Label htmlFor="pdC" className="text-sm">
+                        <Label className="text-sm" htmlFor="pdC">
                             Required PD arrays at SL
                         </Label>
                         <Input
-                            id="pdC"
-                            type="number"
                             className="mt-2"
-                            value={config.setup.requiredPdArrays}
+                            id="pdC"
                             onChange={(e) =>
                                 updateConfig('setup', {
                                     ...config.setup,
                                     requiredPdArrays: Number(e.target.value),
                                 })
                             }
+                            type="number"
+                            value={config.setup.requiredPdArrays}
                         />
                     </div>
                 </div>
                 <div className="space-y-4">
                     <Label className="text-sm">Confluences</Label>
                     {CONFLUENCE_GROUPS.map((group) => (
-                        <div key={group.label} className="space-y-2">
+                        <div className="space-y-2" key={group.label}>
                             <div className="flex items-center justify-between gap-2">
                                 <p className="text-xs text-muted-foreground uppercase">
                                     {group.label}
                                 </p>
                                 <div className="flex items-center gap-2">
                                     <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
                                         onClick={() =>
                                             updateConfig('setup', {
                                                 ...config.setup,
@@ -322,13 +320,13 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                                                     ),
                                             })
                                         }
+                                        size="sm"
+                                        type="button"
+                                        variant="outline"
                                     >
                                         Clear
                                     </Button>
                                     <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
                                         onClick={() => {
                                             const rest =
                                                 config.setup.allowedConfluences.filter(
@@ -345,6 +343,9 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                                                 ],
                                             });
                                         }}
+                                        size="sm"
+                                        type="button"
+                                        variant="outline"
                                     >
                                         All
                                     </Button>
@@ -358,8 +359,8 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                                         );
                                     return (
                                         <label
-                                            key={c}
                                             className="flex cursor-pointer items-center gap-2 rounded-md border border-border/60 p-2 text-sm transition hover:border-border"
+                                            key={c}
                                         >
                                             <Checkbox
                                                 checked={active}
@@ -401,10 +402,10 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                     </Badge>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
-                    {WEIGHT_CATEGORIES.map(({ key, label, hint }) => (
+                    {WEIGHT_CATEGORIES.map(({ hint, key, label }) => (
                         <div
-                            key={key}
                             className="space-y-2 rounded-lg border border-border/60 p-3"
+                            key={key}
                         >
                             <div className="flex items-center justify-between">
                                 <Label className="text-sm">{label}</Label>
@@ -413,16 +414,16 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                                 </span>
                             </div>
                             <Slider
-                                value={[config.weights[key]]}
-                                min={0}
                                 max={40}
-                                step={1}
+                                min={0}
                                 onValueChange={([v]) =>
                                     updateConfig('weights', {
                                         ...config.weights,
                                         [key]: v ?? 0,
                                     })
                                 }
+                                step={1}
+                                value={[config.weights[key]]}
                             />
                             <p className="text-xs text-muted-foreground">
                                 {hint}
@@ -431,17 +432,17 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                     ))}
                 </div>
                 {!weightsValid && (
-                    <Alert variant="warning" persistent>
+                    <Alert persistent variant="warning">
                         <AlertDescription className="flex items-center justify-between gap-3">
                             <span>
                                 Weights must sum to 100. Currently{' '}
                                 {weightsSum.toFixed(0)}.
                             </span>
                             <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
                                 onClick={normalizeWeights}
+                                size="sm"
+                                type="button"
+                                variant="outline"
                             >
                                 Normalize
                             </Button>
@@ -461,8 +462,8 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                         >
                     ).map((k) => (
                         <label
-                            key={k}
                             className="flex cursor-pointer items-center justify-between rounded-md border border-border/60 p-3"
+                            key={k}
                         >
                             <span className="text-sm">
                                 {KNOCKOUT_LABELS[k]}
@@ -472,7 +473,7 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                                 onCheckedChange={(v) =>
                                     updateConfig('knockouts', {
                                         ...config.knockouts,
-                                        [k]: Boolean(v),
+                                        [k]: v,
                                     })
                                 }
                             />
@@ -483,8 +484,8 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
 
             <div className="flex justify-end gap-2">
                 <Button
-                    onClick={save}
                     disabled={pending || !weightsValid || !name.trim()}
+                    onClick={save}
                 >
                     <Save className="mr-1 size-4" />
                     {pending ? 'Saving…' : 'Save changes'}
@@ -495,68 +496,68 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
 }
 
 function SortableWindowRow({
-    window,
     canDelete,
     onChange,
     onDelete,
+    window,
 }: {
-    window: TimeWindow;
     canDelete: boolean;
     onChange: (patch: Partial<TimeWindow>) => void;
     onDelete: () => void;
+    window: TimeWindow;
 }) {
     const {
         attributes,
+        isDragging,
         listeners,
         setNodeRef,
         transform,
         transition,
-        isDragging,
     } = useSortable({ id: window.id });
 
     const style: React.CSSProperties = {
+        opacity: isDragging ? 0.6 : 1,
         transform: CSS.Transform.toString(transform),
         transition,
-        opacity: isDragging ? 0.6 : 1,
         zIndex: isDragging ? 10 : undefined,
     };
 
     return (
         <div
+            className="grid grid-cols-[auto_1fr_88px_88px_auto] items-center gap-2 rounded-lg border border-border/60 bg-background p-3"
             ref={setNodeRef}
             style={style}
-            className="grid grid-cols-[auto_1fr_88px_88px_auto] items-center gap-2 rounded-lg border border-border/60 bg-background p-3"
         >
             <button
-                type="button"
                 aria-label="Drag to reorder"
                 className="cursor-grab touch-none rounded-md p-1 text-muted-foreground transition hover:text-white active:cursor-grabbing"
+                type="button"
                 {...attributes}
                 {...listeners}
             >
                 <GripVertical className="size-4" />
             </button>
             <Input
-                value={window.label}
                 onChange={(e) => onChange({ label: e.target.value })}
                 placeholder="Label"
+                value={window.label}
             />
             <Input
+                onChange={(e) => onChange({ start: e.target.value })}
                 type="time"
                 value={window.start}
-                onChange={(e) => onChange({ start: e.target.value })}
             />
             <Input
+                onChange={(e) => onChange({ end: e.target.value })}
                 type="time"
                 value={window.end}
-                onChange={(e) => onChange({ end: e.target.value })}
             />
             <Button
-                variant="ghost"
+                disabled={!canDelete}
+                onClick={onDelete}
                 size="icon"
                 type="button"
-                onClick={onDelete}
-                disabled={!canDelete}
+                variant="ghost"
             >
                 <Trash2 className="size-4" />
             </Button>

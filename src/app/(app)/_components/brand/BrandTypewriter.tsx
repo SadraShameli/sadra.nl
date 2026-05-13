@@ -31,18 +31,7 @@ export default function BrandTypewriter({ onTransition }: Props) {
         const tick = () => {
             const word = WORDS[wordIdx] ?? '';
 
-            if (!erasing) {
-                if (charIdx < word.length) {
-                    charIdx++;
-                    setDisplayed(word.slice(0, charIdx));
-                    timer = setTimeout(tick, TYPE_MS);
-                } else {
-                    timer = setTimeout(() => {
-                        erasing = true;
-                        tick();
-                    }, HOLD_MS);
-                }
-            } else {
+            if (erasing) {
                 if (charIdx > 0) {
                     charIdx--;
                     setDisplayed(word.slice(0, charIdx));
@@ -52,6 +41,17 @@ export default function BrandTypewriter({ onTransition }: Props) {
                     erasing = false;
                     onTransition?.();
                     timer = setTimeout(tick, GAP_MS);
+                }
+            } else {
+                if (charIdx < word.length) {
+                    charIdx++;
+                    setDisplayed(word.slice(0, charIdx));
+                    timer = setTimeout(tick, TYPE_MS);
+                } else {
+                    timer = setTimeout(() => {
+                        erasing = true;
+                        tick();
+                    }, HOLD_MS);
                 }
             }
         };
@@ -65,12 +65,12 @@ export default function BrandTypewriter({ onTransition }: Props) {
             <span>{displayed}</span>
             <motion.span
                 animate={{ opacity: [1, 1, 0, 0] }}
+                className="ml-0.5 inline-block h-3 w-[1.5px] translate-y-px bg-white/40"
                 transition={{
                     duration: 1,
                     repeat: Infinity,
                     times: [0, 0.45, 0.45, 1],
                 }}
-                className="ml-0.5 inline-block h-3 w-[1.5px] translate-y-px bg-white/40"
             />
         </span>
     );

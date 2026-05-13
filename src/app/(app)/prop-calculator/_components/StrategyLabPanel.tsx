@@ -26,19 +26,19 @@ import { type LabScenario } from './types';
 import { useLabSimulation } from './useLabSimulation';
 
 interface StrategyLabPanelProps {
-    plan: Plan;
-    seed: number;
-    maxEvalDays: number;
-    fundedHorizonDays: number;
+    activationDiscountPercent: number;
     commissionPerRoundTrip: number;
     evalDiscountPercent: number;
-    activationDiscountPercent: number;
+    fundedHorizonDays: number;
     linkActivationDiscount: boolean;
-    scenarios: LabScenario[];
-    onUpdate: (id: string, patch: Partial<LabScenario>) => void;
-    onRemove: (id: string) => void;
+    maxEvalDays: number;
     onAdd: () => void;
+    onRemove: (id: string) => void;
     onReset: () => void;
+    onUpdate: (id: string, patch: Partial<LabScenario>) => void;
+    plan: Plan;
+    scenarios: LabScenario[];
+    seed: number;
 }
 
 const CORRELATION_LABEL: Record<CorrelationMode, string> = {
@@ -47,49 +47,36 @@ const CORRELATION_LABEL: Record<CorrelationMode, string> = {
     independent: 'Independent',
 };
 
-function describeDayStop(rule: DayStopRule): string {
-    switch (rule.kind) {
-        case 'none':
-            return 'Take all';
-        case 'first-win':
-            return 'Stop on win';
-        case 'after-k-losses':
-            return `Stop ${rule.k}L`;
-        case 'after-target':
-            return `Stop $${rule.dollars}`;
-    }
-}
-
 export default function StrategyLabPanel({
-    plan,
-    seed,
-    maxEvalDays,
-    fundedHorizonDays,
+    activationDiscountPercent,
     commissionPerRoundTrip,
     evalDiscountPercent,
-    activationDiscountPercent,
+    fundedHorizonDays,
     linkActivationDiscount,
-    scenarios,
-    onUpdate,
-    onRemove,
+    maxEvalDays,
     onAdd,
+    onRemove,
     onReset,
+    onUpdate,
+    plan,
+    scenarios,
+    seed,
 }: StrategyLabPanelProps) {
-    const { results, pending } = useLabSimulation({
-        plan,
-        seed,
-        maxEvalDays,
-        fundedHorizonDays,
-        commissionPerRoundTrip,
-        scenarios,
-        discountPercent: evalDiscountPercent,
+    const { pending, results } = useLabSimulation({
         activationDiscountPercent,
+        commissionPerRoundTrip,
+        discountPercent: evalDiscountPercent,
+        fundedHorizonDays,
         linkActivationDiscount,
+        maxEvalDays,
+        plan,
+        scenarios,
+        seed,
     });
 
     const verdict = useMemo(() => {
         if (results.size === 0) return null;
-        let best: { id: string; score: number; monthly: number } | null = null;
+        let best: null | { id: string; monthly: number; score: number } = null;
         for (const sc of scenarios) {
             const r = results.get(sc.id);
             if (!r) continue;
@@ -97,13 +84,13 @@ export default function StrategyLabPanel({
             if (!best || r.expectedMonthlyNet > best.monthly) {
                 best = {
                     id: sc.id,
-                    score: r.expectedMonthlyNet,
                     monthly: r.expectedMonthlyNet,
+                    score: r.expectedMonthlyNet,
                 };
             }
         }
         if (best) return best;
-        let fallback: { id: string; score: number; monthly: number } | null =
+        let fallback: null | { id: string; monthly: number; score: number } =
             null;
         for (const sc of scenarios) {
             const r = results.get(sc.id);
@@ -111,8 +98,8 @@ export default function StrategyLabPanel({
             if (!fallback || r.expectedMonthlyNet > fallback.monthly) {
                 fallback = {
                     id: sc.id,
-                    score: r.expectedMonthlyNet,
                     monthly: r.expectedMonthlyNet,
+                    score: r.expectedMonthlyNet,
                 };
             }
         }
@@ -169,15 +156,15 @@ export default function StrategyLabPanel({
                 </div>
                 <div className="flex items-center gap-2">
                     <Button
-                        size="sm"
-                        variant="ghost"
                         onClick={onReset}
+                        size="sm"
                         title="Reset to defaults"
+                        variant="ghost"
                     >
                         <RotateCcw className="size-3.5" />
                         <span className="ml-1 text-xs">Reset</span>
                     </Button>
-                    <Button size="sm" variant="outline" onClick={onAdd}>
+                    <Button onClick={onAdd} size="sm" variant="outline">
                         <Plus className="size-3.5" />
                         <span className="ml-1 text-xs">Add scenario</span>
                     </Button>
@@ -213,30 +200,28 @@ export default function StrategyLabPanel({
                             const r = results.get(sc.id);
                             return (
                                 <tr
-                                    key={sc.id}
                                     className={cn(
                                         'border-t border-border/40 align-top',
                                         verdict?.id === sc.id &&
                                             'bg-emerald-500/5',
                                     )}
+                                    key={sc.id}
                                 >
                                     <td className="px-2 py-2">
                                         <Input
-                                            value={sc.label}
+                                            className="h-7 w-32 text-xs"
                                             onChange={(e) =>
                                                 onUpdate(sc.id, {
                                                     label: e.target.value,
                                                 })
                                             }
-                                            className="h-7 w-32 text-xs"
+                                            value={sc.label}
                                         />
                                     </td>
                                     <td className="px-2 py-2">
                                         <Input
-                                            type="number"
+                                            className="h-7 w-20 text-xs"
                                             min={1}
-                                            step={50}
-                                            value={sc.riskPerTrade}
                                             onChange={(e) => {
                                                 const n = Number(
                                                     e.target.value,
@@ -246,16 +231,16 @@ export default function StrategyLabPanel({
                                                         riskPerTrade: n,
                                                     });
                                             }}
-                                            className="h-7 w-20 text-xs"
+                                            step={50}
+                                            type="number"
+                                            value={sc.riskPerTrade}
                                         />
                                     </td>
                                     <td className="px-2 py-2">
                                         <Input
-                                            type="number"
-                                            min={5}
+                                            className="h-7 w-16 text-xs"
                                             max={95}
-                                            step={1}
-                                            value={Math.round(sc.winrate * 100)}
+                                            min={5}
                                             onChange={(e) => {
                                                 const n =
                                                     Number(e.target.value) /
@@ -269,16 +254,16 @@ export default function StrategyLabPanel({
                                                         winrate: n,
                                                     });
                                             }}
-                                            className="h-7 w-16 text-xs"
+                                            step={1}
+                                            type="number"
+                                            value={Math.round(sc.winrate * 100)}
                                         />
                                     </td>
                                     <td className="px-2 py-2">
                                         <Input
-                                            type="number"
-                                            min={0.5}
+                                            className="h-7 w-16 text-xs"
                                             max={10}
-                                            step={0.5}
-                                            value={sc.rrRatio}
+                                            min={0.5}
                                             onChange={(e) => {
                                                 const n = Number(
                                                     e.target.value,
@@ -292,16 +277,16 @@ export default function StrategyLabPanel({
                                                         rrRatio: n,
                                                     });
                                             }}
-                                            className="h-7 w-16 text-xs"
+                                            step={0.5}
+                                            type="number"
+                                            value={sc.rrRatio}
                                         />
                                     </td>
                                     <td className="px-2 py-2">
                                         <Input
-                                            type="number"
-                                            min={1}
+                                            className="h-7 w-14 text-xs"
                                             max={20}
-                                            step={1}
-                                            value={sc.tradesPerDay}
+                                            min={1}
                                             onChange={(e) => {
                                                 const n = Math.floor(
                                                     Number(e.target.value),
@@ -315,16 +300,16 @@ export default function StrategyLabPanel({
                                                         tradesPerDay: n,
                                                     });
                                             }}
-                                            className="h-7 w-14 text-xs"
+                                            step={1}
+                                            type="number"
+                                            value={sc.tradesPerDay}
                                         />
                                     </td>
                                     <td className="px-2 py-2">
                                         <Input
-                                            type="number"
-                                            min={1}
+                                            className="h-7 w-14 text-xs"
                                             max={20}
-                                            step={1}
-                                            value={sc.accounts}
+                                            min={1}
                                             onChange={(e) => {
                                                 const n = Math.floor(
                                                     Number(e.target.value),
@@ -342,19 +327,21 @@ export default function StrategyLabPanel({
                                                         ),
                                                     });
                                             }}
-                                            className="h-7 w-14 text-xs"
+                                            step={1}
+                                            type="number"
+                                            value={sc.accounts}
                                         />
                                     </td>
                                     <td className="px-2 py-2">
                                         <Select
-                                            value={sc.correlation}
+                                            className="h-7 w-36 text-xs"
                                             onChange={(e) =>
                                                 onUpdate(sc.id, {
                                                     correlation: e.target
                                                         .value as CorrelationMode,
                                                 })
                                             }
-                                            className="h-7 w-36 text-xs"
+                                            value={sc.correlation}
                                             wrapperClassName="w-36"
                                         >
                                             {(
@@ -370,11 +357,12 @@ export default function StrategyLabPanel({
                                     </td>
                                     <td className="px-2 py-2">
                                         <Input
-                                            type="number"
-                                            min={1}
+                                            className="h-7 w-14 text-xs"
+                                            disabled={
+                                                sc.correlation !== 'grouped'
+                                            }
                                             max={sc.accounts}
-                                            step={1}
-                                            value={sc.groups}
+                                            min={1}
                                             onChange={(e) => {
                                                 const n = Math.floor(
                                                     Number(e.target.value),
@@ -388,21 +376,20 @@ export default function StrategyLabPanel({
                                                         groups: n,
                                                     });
                                             }}
-                                            disabled={
-                                                sc.correlation !== 'grouped'
-                                            }
-                                            className="h-7 w-14 text-xs"
+                                            step={1}
+                                            type="number"
+                                            value={sc.groups}
                                         />
                                     </td>
                                     <td className="px-2 py-2">
                                         <DayStopRulePicker
-                                            value={sc.dayStop}
+                                            compact
                                             onChange={(rule) =>
                                                 onUpdate(sc.id, {
                                                     dayStop: rule,
                                                 })
                                             }
-                                            compact
+                                            value={sc.dayStop}
                                         />
                                     </td>
                                     <td className="px-2 py-2 font-mono">
@@ -455,11 +442,11 @@ export default function StrategyLabPanel({
                                     </td>
                                     <td className="px-2 py-2">
                                         <Button
-                                            size="sm"
-                                            variant="ghost"
-                                            onClick={() => onRemove(sc.id)}
                                             disabled={scenarios.length <= 1}
+                                            onClick={() => onRemove(sc.id)}
+                                            size="sm"
                                             title="Remove scenario"
+                                            variant="ghost"
                                         >
                                             <X className="size-3.5" />
                                         </Button>
@@ -477,8 +464,8 @@ export default function StrategyLabPanel({
                     if (!r) {
                         return (
                             <div
-                                key={sc.id}
                                 className="rounded-md border border-border/40 bg-muted/10 px-3 py-2 text-xs text-muted-foreground"
+                                key={sc.id}
                             >
                                 {sc.label}: simulating…
                             </div>
@@ -486,8 +473,8 @@ export default function StrategyLabPanel({
                     }
                     return (
                         <div
-                            key={sc.id}
                             className="rounded-md border border-border/40 bg-muted/10 px-3 py-2"
+                            key={sc.id}
                         >
                             <div className="mb-1 flex items-center justify-between text-xs">
                                 <span className="font-semibold">
@@ -545,4 +532,21 @@ export default function StrategyLabPanel({
             )}
         </Card>
     );
+}
+
+function describeDayStop(rule: DayStopRule): string {
+    switch (rule.kind) {
+        case 'after-k-losses': {
+            return `Stop ${rule.k}L`;
+        }
+        case 'after-target': {
+            return `Stop $${rule.dollars}`;
+        }
+        case 'first-win': {
+            return 'Stop on win';
+        }
+        case 'none': {
+            return 'Take all';
+        }
+    }
 }

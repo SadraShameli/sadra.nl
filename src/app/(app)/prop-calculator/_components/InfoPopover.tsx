@@ -11,26 +11,26 @@ import {
 import { cn } from '~/lib/utils';
 
 interface InfoPopoverProps {
-    title: string;
     children: React.ReactNode;
     className?: string;
+    title: string;
 }
 
 export default function InfoPopover({
-    title,
     children,
     className,
+    title,
 }: InfoPopoverProps) {
     return (
         <Popover>
             <PopoverTrigger asChild>
                 <button
-                    type="button"
                     aria-label={`About ${title}`}
                     className={cn(
                         'inline-flex size-4 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground',
                         className,
                     )}
+                    type="button"
                 >
                     <Info className="size-3.5" />
                 </button>

@@ -1,11 +1,3 @@
-export function probStreakAtLeast(N: number, k: number, q: number): number {
-    if (k <= 0) return 1;
-    if (N < k || q <= 0) return 0;
-    if (q >= 1) return 1;
-    const expected = (N - k + 1) * Math.pow(q, k);
-    return 1 - Math.exp(-expected);
-}
-
 export function expectedMaxLossStreak(N: number, winrate: number): number {
     if (N <= 0) return 0;
     const q = 1 - winrate;
@@ -17,7 +9,38 @@ export function expectedMaxLossStreak(N: number, winrate: number): number {
     return Math.max(0, num / den);
 }
 
+export function probStreakAtLeast(N: number, k: number, q: number): number {
+    if (k <= 0) return 1;
+    if (N < k || q <= 0) return 0;
+    if (q >= 1) return 1;
+    const expected = (N - k + 1) * Math.pow(q, k);
+    return 1 - Math.exp(-expected);
+}
+
 const ruinCache = new Map<string, number>();
+
+export function binomialDistribution(N: number, p: number): number[] {
+    const out = Array.from({ length: N + 1 }, () => 0);
+    if (N <= 0) {
+        out[0] = 1;
+        return out;
+    }
+    const pp = Math.min(1, Math.max(0, p));
+    if (pp === 0) {
+        out[0] = 1;
+        return out;
+    }
+    if (pp === 1) {
+        out[N] = 1;
+        return out;
+    }
+    const logP = Math.log(pp);
+    const logQ = Math.log(1 - pp);
+    for (let k = 0; k <= N; k++) {
+        out[k] = Math.exp(logBinomCoef(N, k) + k * logP + (N - k) * logQ);
+    }
+    return out;
+}
 
 export function gamblersRuinAsymmetric(
     p: number,
@@ -40,13 +63,13 @@ export function gamblersRuinAsymmetric(
     const lo = -ddUnits;
     const hi = targetUnits;
     const total = hi - lo + 1;
-    const prev = new Array<number>(total).fill(0);
+    const prev = Array.from({ length: total }, () => 0);
     for (let i = 0; i < total; i++) {
         const x = lo + i;
         prev[i] = x >= hi ? 1 : 0;
     }
     const q = 1 - p;
-    const next = new Array<number>(total).fill(0);
+    const next = Array.from({ length: total }, () => 0);
     const maxIter = 4000;
     for (let iter = 0; iter < maxIter; iter++) {
         let maxDelta = 0;
@@ -62,64 +85,21 @@ export function gamblersRuinAsymmetric(
             }
             const upIdx = Math.min(total - 1, i + rUnits);
             const downIdx = Math.max(0, i - 1);
-            const upVal = lo + upIdx >= hi ? 1 : prev[upIdx]!;
-            const downVal = lo + downIdx <= lo ? 0 : prev[downIdx]!;
+            const upVal = lo + upIdx >= hi ? 1 : (prev[upIdx] ?? 0);
+            const downVal = lo + downIdx <= lo ? 0 : (prev[downIdx] ?? 0);
             const v = p * upVal + q * downVal;
-            const delta = Math.abs(v - prev[i]!);
+            const delta = Math.abs(v - (prev[i] ?? 0));
             if (delta > maxDelta) maxDelta = delta;
             next[i] = v;
         }
-        for (let i = 0; i < total; i++) prev[i] = next[i]!;
+        for (let i = 0; i < total; i++) prev[i] = next[i] ?? 0;
         if (maxDelta < 1e-9) break;
     }
 
     const startIdx = -lo;
-    const result = prev[startIdx]!;
+    const result = prev[startIdx] ?? 0;
     ruinCache.set(key, result);
     return result;
-}
-
-function logBinomCoef(n: number, k: number): number {
-    if (k < 0 || k > n) return -Infinity;
-    if (k === 0 || k === n) return 0;
-    let s = 0;
-    const kk = Math.min(k, n - k);
-    for (let i = 1; i <= kk; i++) {
-        s += Math.log(n - kk + i) - Math.log(i);
-    }
-    return s;
-}
-
-export function binomialDistribution(N: number, p: number): number[] {
-    const out = new Array<number>(N + 1).fill(0);
-    if (N <= 0) {
-        out[0] = 1;
-        return out;
-    }
-    const pp = Math.min(1, Math.max(0, p));
-    if (pp === 0) {
-        out[0] = 1;
-        return out;
-    }
-    if (pp === 1) {
-        out[N] = 1;
-        return out;
-    }
-    const logP = Math.log(pp);
-    const logQ = Math.log(1 - pp);
-    for (let k = 0; k <= N; k++) {
-        out[k] = Math.exp(logBinomCoef(N, k) + k * logP + (N - k) * logQ);
-    }
-    return out;
-}
-
-export function probAtLeastKofN(N: number, K: number, p: number): number {
-    if (K <= 0) return 1;
-    if (K > N) return 0;
-    const dist = binomialDistribution(N, p);
-    let s = 0;
-    for (let k = K; k <= N; k++) s += dist[k]!;
-    return s;
 }
 
 export function groupedPassDistribution(
@@ -127,7 +107,7 @@ export function groupedPassDistribution(
     groups: number,
     perGroupP: number,
 ): number[] {
-    const out = new Array<number>(N + 1).fill(0);
+    const out = Array.from({ length: N + 1 }, () => 0);
     if (N <= 0) {
         out[0] = 1;
         return out;
@@ -141,21 +121,42 @@ export function groupedPassDistribution(
     }
     out[0] = 1;
     let totalSeen = 0;
-    let working = out.slice();
+    let working = [...out];
     for (const size of groupSizes) {
-        const next = new Array<number>(N + 1).fill(0);
+        const next = Array.from({ length: N + 1 }, () => 0);
         const fail = 1 - perGroupP;
         const newTotal = totalSeen + size;
         for (let k = 0; k <= totalSeen; k++) {
-            const pk = working[k]!;
+            const pk = working[k] ?? 0;
             if (pk === 0) continue;
-            next[k]! += pk * fail;
+            next[k] = (next[k] ?? 0) + pk * fail;
             const idxPass = k + size;
-            if (idxPass <= N) next[idxPass]! += pk * perGroupP;
+            if (idxPass <= N)
+                next[idxPass] = (next[idxPass] ?? 0) + pk * perGroupP;
         }
         working = next;
         totalSeen = newTotal;
     }
-    for (let k = 0; k <= N; k++) out[k] = working[k]!;
+    for (let k = 0; k <= N; k++) out[k] = working[k] ?? 0;
     return out;
+}
+
+export function probAtLeastKofN(N: number, K: number, p: number): number {
+    if (K <= 0) return 1;
+    if (K > N) return 0;
+    const dist = binomialDistribution(N, p);
+    let s = 0;
+    for (let k = K; k <= N; k++) s += dist[k] ?? 0;
+    return s;
+}
+
+function logBinomCoef(n: number, k: number): number {
+    if (k < 0 || k > n) return -Infinity;
+    if (k === 0 || k === n) return 0;
+    let s = 0;
+    const kk = Math.min(k, n - k);
+    for (let i = 1; i <= kk; i++) {
+        s += Math.log(n - kk + i) - Math.log(i);
+    }
+    return s;
 }

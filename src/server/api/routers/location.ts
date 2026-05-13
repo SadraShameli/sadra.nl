@@ -12,7 +12,7 @@ import { getLocationProps, getLocationReadingsProps } from '..//types/zod';
 import { type Result } from '../types/types';
 import { getSensor } from './sensor';
 
-export async function getLocation(
+async function getLocation(
     input: z.infer<typeof getLocationProps>,
     ctx: ContextType,
 ): Promise<Result<typeof location.$inferSelect>> {
@@ -30,72 +30,16 @@ export async function getLocation(
     return { data: res };
 }
 
-export async function getDefaultLocation(
-    ctx: ContextType,
-): Promise<Result<typeof location.$inferSelect>> {
-    const res = await ctx.db.query.location.findFirst();
-
-    if (!res) {
-        return {
-            error: `No locations exist`,
-            status: 404,
-        };
-    }
-
-    return { data: res };
-}
-
 export const locationRouter = createTRPCRouter({
-    getLocations: publicProcedure.query(async ({ ctx }) => {
-        return { data: await ctx.db.query.location.findMany() };
-    }),
-
     getLocation: publicProcedure
         .input(getLocationProps)
-        .query(async ({ input, ctx }) => {
+        .query(async ({ ctx, input }) => {
             return await getLocation(input, ctx);
         }),
 
-    getLocationsWithReading: publicProcedure.query(async ({ ctx }) => {
-        const latestReading = await ctx.db
-            .select()
-            .from(reading)
-            .orderBy(desc(reading.id))
-            .limit(1);
-
-        const latestReadingDate = latestReading.at(-1)?.created_at;
-        if (!latestReadingDate) {
-            return { error: 'There are no readings' };
-        }
-
-        const period = 24;
-        const locations = (
-            await ctx.db
-                .select({ location })
-                .from(location)
-                .innerJoin(
-                    reading,
-                    and(
-                        eq(location.id, reading.location_id),
-                        gte(
-                            reading.created_at,
-                            new Date(
-                                latestReadingDate.getTime() -
-                                    period * 60 * 60 * 1000,
-                            ),
-                        ),
-                    ),
-                )
-                .groupBy(location.id)
-                .orderBy(location.id)
-        ).map((result) => result.location);
-
-        return { data: locations };
-    }),
-
     getLocationDevices: publicProcedure
         .input(getLocationProps)
-        .query(async ({ input, ctx }) => {
+        .query(async ({ ctx, input }) => {
             const location = await getLocation(input, ctx);
             if (!location.data) {
                 return location;
@@ -113,7 +57,7 @@ export const locationRouter = createTRPCRouter({
 
     getLocationReadings: publicProcedure
         .input(getLocationReadingsProps)
-        .query(async ({ input, ctx }) => {
+        .query(async ({ ctx, input }) => {
             const location = await getLocation(
                 { location_id: input.location.location_id },
                 ctx,
@@ -136,7 +80,7 @@ export const locationRouter = createTRPCRouter({
                         location.data
                             ? eq(reading.location_id, location.data.id)
                             : undefined,
-                        input?.sensor_id
+                        input.sensor_id
                             ? eq(reading.sensor_id, input.sensor_id)
                             : undefined,
                     ),
@@ -149,7 +93,7 @@ export const locationRouter = createTRPCRouter({
 
     getLocationRecordings: publicProcedure
         .input(getLocationProps)
-        .query(async ({ input, ctx }) => {
+        .query(async ({ ctx, input }) => {
             const location = await getLocation(
                 { location_id: input.location_id },
                 ctx,
@@ -160,21 +104,61 @@ export const locationRouter = createTRPCRouter({
             }
 
             const recordings = await ctx.db.query.recording.findMany({
+                columns: {
+                    created_at: true,
+                    device_id: true,
+                    file_name: true,
+                    id: true,
+                    location_id: true,
+                },
                 where: (recording) =>
                     location.data
                         ? eq(recording.location_id, location.data.id)
                         : undefined,
-                columns: {
-                    id: true,
-                    created_at: true,
-                    location_id: true,
-                    device_id: true,
-                    file_name: true,
-                },
             });
 
             return { data: recordings } as Result<
                 (typeof recording.$inferSelect)[]
             >;
         }),
+
+    getLocations: publicProcedure.query(async ({ ctx }) => {
+        return { data: await ctx.db.query.location.findMany() };
+    }),
+
+    getLocationsWithReading: publicProcedure.query(async ({ ctx }) => {
+        const latestReading = await ctx.db
+            .select()
+            .from(reading)
+            .orderBy(desc(reading.id))
+            .limit(1);
+
+        const latestReadingDate = latestReading.at(-1)?.created_at;
+        if (!latestReadingDate) {
+            return { error: 'There are no readings' };
+        }
+
+        const period = 24;
+        const rows = await ctx.db
+            .select({ location })
+            .from(location)
+            .innerJoin(
+                reading,
+                and(
+                    eq(location.id, reading.location_id),
+                    gte(
+                        reading.created_at,
+                        new Date(
+                            latestReadingDate.getTime() -
+                                period * 60 * 60 * 1000,
+                        ),
+                    ),
+                ),
+            )
+            .groupBy(location.id)
+            .orderBy(location.id);
+        const locations = rows.map((result) => result.location);
+
+        return { data: locations };
+    }),
 });

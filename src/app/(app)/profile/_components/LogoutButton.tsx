@@ -9,10 +9,10 @@ export function LogoutButton() {
     const [pending, startTransition] = useTransition();
     return (
         <Button
-            type="button"
-            variant="outline"
             disabled={pending}
             onClick={() => startTransition(() => logout())}
+            type="button"
+            variant="outline"
         >
             {pending ? 'Signing out…' : 'Sign out'}
         </Button>

@@ -5,53 +5,53 @@ import PlayIcon from '~/components/ui/Icons/Play';
 import { cn } from '~/lib/utils';
 
 interface PlaybackControlsProps {
-    isPlaying: boolean;
-    isLoading: boolean;
-    isShuffle: boolean;
-    isRepeat: boolean;
-    canGoPrevious: boolean;
     canGoNext: boolean;
+    canGoPrevious: boolean;
     hasRecordings: boolean;
-    onTogglePlayPause: () => void;
-    onPrevious: () => void;
+    isLoading: boolean;
+    isPlaying: boolean;
+    isRepeat: boolean;
+    isShuffle: boolean;
     onNext: () => void;
-    onShuffle: () => void;
+    onPrevious: () => void;
     onRepeat: () => void;
+    onShuffle: () => void;
+    onTogglePlayPause: () => void;
 }
 
 export function PlaybackControls({
-    isPlaying,
-    isLoading,
-    isShuffle,
-    isRepeat,
-    canGoPrevious,
     canGoNext,
+    canGoPrevious,
     hasRecordings,
-    onTogglePlayPause,
-    onPrevious,
+    isLoading,
+    isPlaying,
+    isRepeat,
+    isShuffle,
     onNext,
-    onShuffle,
+    onPrevious,
     onRepeat,
+    onShuffle,
+    onTogglePlayPause,
 }: PlaybackControlsProps) {
     return (
         <div className="flex items-center justify-center gap-x-7">
             <button
+                aria-label="Shuffle"
                 className={cn(
                     'size-6 text-neutral-400 transition hover:text-white disabled:text-neutral-700',
                     isShuffle && 'text-white',
                 )}
-                onClick={onShuffle}
                 disabled={!hasRecordings}
-                aria-label="Shuffle"
+                onClick={onShuffle}
             >
                 <ShuffleIcon />
             </button>
 
             <button
-                className="text-neutral-400 hover:text-white disabled:text-neutral-700"
-                onClick={onPrevious}
-                disabled={!hasRecordings || !canGoPrevious}
                 aria-label="Previous"
+                className="text-neutral-400 hover:text-white disabled:text-neutral-700"
+                disabled={!hasRecordings || !canGoPrevious}
+                onClick={onPrevious}
             >
                 <SkipBack className="size-6 transition" />
             </button>
@@ -59,8 +59,8 @@ export function PlaybackControls({
             <button
                 aria-label={isPlaying ? 'Pause' : 'Play'}
                 className="size-12 disabled:text-neutral-600"
-                onClick={onTogglePlayPause}
                 disabled={!hasRecordings || isLoading}
+                onClick={onTogglePlayPause}
             >
                 {isLoading ? (
                     <div className="size-6 animate-spin rounded-full border-2 border-current border-t-transparent" />
@@ -72,22 +72,22 @@ export function PlaybackControls({
             </button>
 
             <button
-                className="text-neutral-400 hover:text-white disabled:text-neutral-700"
-                onClick={onNext}
-                disabled={!hasRecordings || !canGoNext}
                 aria-label="Next"
+                className="text-neutral-400 hover:text-white disabled:text-neutral-700"
+                disabled={!hasRecordings || !canGoNext}
+                onClick={onNext}
             >
                 <SkipForward className="size-6 transition" />
             </button>
 
             <button
+                aria-label="Repeat"
                 className={cn(
                     'size-6 text-neutral-400 transition hover:text-white disabled:text-neutral-700',
                     isRepeat && 'text-white',
                 )}
-                onClick={onRepeat}
                 disabled={!hasRecordings}
-                aria-label="Repeat"
+                onClick={onRepeat}
             >
                 <Repeat />
             </button>

@@ -18,27 +18,10 @@ import { UpdateNameForm } from './_components/UpdateNameForm';
 import { UpdatePasswordForm } from './_components/UpdatePasswordForm';
 
 const pwMessages: Record<string, string> = {
-    pw_wrong: 'Current password is incorrect.',
-    pw_fail: 'Could not update password.',
     email_taken: 'That email is already in use by another account.',
+    pw_fail: 'Could not update password.',
+    pw_wrong: 'Current password is incorrect.',
 };
-
-function Avatar({
-    name,
-    email,
-}: {
-    name?: string | null;
-    email?: string | null;
-}) {
-    const letter = (name ?? email ?? '?')[0]!.toUpperCase();
-    return (
-        <div className="flex size-20 items-center justify-center rounded-full bg-white/10 ring-1 ring-white/20">
-            <span className="font-orbitron text-3xl font-bold text-white">
-                {letter}
-            </span>
-        </div>
-    );
-}
 
 export default async function ProfilePage({
     searchParams,
@@ -46,7 +29,7 @@ export default async function ProfilePage({
     searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
     const session = await auth();
-    if (!session?.user?.id) redirect('/login');
+    if (!session?.user.id) redirect('/login');
 
     const { error, success } = profileSearchSchema.parse(await searchParams);
 
@@ -65,7 +48,7 @@ export default async function ProfilePage({
         .where(eq(tradingPlans.userId, session.user.id))
         .orderBy(tradingPlans.sortOrder, desc(tradingPlans.updatedAt));
 
-    const { name, email } = user;
+    const { email, name } = user;
 
     const accountTab = (
         <>
@@ -112,8 +95,8 @@ export default async function ProfilePage({
                         </Alert>
                     )}
                     <UpdatePasswordForm
-                        hasPassword={!!user.password}
                         hasEmail={!!user.email}
+                        hasPassword={!!user.password}
                     />
                 </CardContent>
             </Card>
@@ -163,7 +146,7 @@ export default async function ProfilePage({
         <main className="container mx-auto py-16">
             <div className="mx-auto max-w-3xl space-y-8">
                 <div className="flex items-center gap-5">
-                    <Avatar name={name} email={email} />
+                    <Avatar email={email} name={name} />
                     <div>
                         <h1 className="text-2xl font-semibold text-white">
                             {name ?? 'No name set'}
@@ -181,5 +164,22 @@ export default async function ProfilePage({
                 />
             </div>
         </main>
+    );
+}
+
+function Avatar({
+    email,
+    name,
+}: {
+    email?: null | string;
+    name?: null | string;
+}) {
+    const letter = ((name ?? email ?? '?')[0] ?? '?').toUpperCase();
+    return (
+        <div className="flex size-20 items-center justify-center rounded-full bg-white/10 ring-1 ring-white/20">
+            <span className="font-orbitron text-3xl font-bold text-white">
+                {letter}
+            </span>
+        </div>
     );
 }

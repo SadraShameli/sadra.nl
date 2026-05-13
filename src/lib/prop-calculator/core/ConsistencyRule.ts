@@ -1,4 +1,4 @@
-export type ConsistencyScope = 'eval' | 'funded' | 'both' | 'none';
+export type ConsistencyScope = 'both' | 'eval' | 'funded' | 'none';
 
 export class ConsistencyRule {
     constructor(

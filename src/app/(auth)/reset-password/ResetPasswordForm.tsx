@@ -23,9 +23,9 @@ import {
 export function ResetPasswordForm({ token }: { token: string }) {
     const [pending, startTransition] = useTransition();
     const form = useForm<ResetPasswordInput>({
-        resolver: zodResolver(resetPasswordInputSchema),
-        defaultValues: { token, password: '', confirm: '' },
+        defaultValues: { confirm: '', password: '', token },
         mode: 'onTouched',
+        resolver: zodResolver(resetPasswordInputSchema),
     });
 
     const onSubmit = (data: ResetPasswordInput) => {
@@ -37,8 +37,8 @@ export function ResetPasswordForm({ token }: { token: string }) {
     return (
         <Form {...form}>
             <form
-                onSubmit={form.handleSubmit(onSubmit)}
                 className="flex flex-col gap-3"
+                onSubmit={form.handleSubmit(onSubmit)}
             >
                 <FormField
                     control={form.control}
@@ -48,9 +48,9 @@ export function ResetPasswordForm({ token }: { token: string }) {
                             <FormLabel>New password</FormLabel>
                             <FormControl>
                                 <Input
-                                    type="password"
-                                    placeholder="••••••••"
                                     autoComplete="new-password"
+                                    placeholder="••••••••"
+                                    type="password"
                                     {...field}
                                 />
                             </FormControl>
@@ -66,9 +66,9 @@ export function ResetPasswordForm({ token }: { token: string }) {
                             <FormLabel>Confirm password</FormLabel>
                             <FormControl>
                                 <Input
-                                    type="password"
-                                    placeholder="••••••••"
                                     autoComplete="new-password"
+                                    placeholder="••••••••"
+                                    type="password"
                                     {...field}
                                 />
                             </FormControl>
@@ -77,9 +77,9 @@ export function ResetPasswordForm({ token }: { token: string }) {
                     )}
                 />
                 <Button
-                    type="submit"
                     className="mt-7 w-full"
                     disabled={pending}
+                    type="submit"
                 >
                     {pending ? 'Resetting…' : 'Reset password'}
                 </Button>

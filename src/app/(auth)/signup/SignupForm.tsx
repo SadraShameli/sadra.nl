@@ -24,15 +24,15 @@ export function SignupForm() {
     const callbackUrl = searchParams.get('callbackUrl') ?? undefined;
 
     const form = useForm<SignupInput>({
-        resolver: zodResolver(signupInputSchema),
         defaultValues: {
-            name: '',
-            email: '',
-            password: '',
-            confirm: '',
             callbackUrl,
+            confirm: '',
+            email: '',
+            name: '',
+            password: '',
         },
         mode: 'onTouched',
+        resolver: zodResolver(signupInputSchema),
     });
 
     const onSubmit = (data: SignupInput) => {
@@ -44,8 +44,8 @@ export function SignupForm() {
     return (
         <Form {...form}>
             <form
-                onSubmit={form.handleSubmit(onSubmit)}
                 className="flex flex-col gap-3"
+                onSubmit={form.handleSubmit(onSubmit)}
             >
                 <FormField
                     control={form.control}
@@ -55,9 +55,9 @@ export function SignupForm() {
                             <FormLabel>Name</FormLabel>
                             <FormControl>
                                 <Input
-                                    type="text"
-                                    placeholder="Your name"
                                     autoComplete="name"
+                                    placeholder="Your name"
+                                    type="text"
                                     {...field}
                                 />
                             </FormControl>
@@ -73,9 +73,9 @@ export function SignupForm() {
                             <FormLabel>Email</FormLabel>
                             <FormControl>
                                 <Input
-                                    type="email"
-                                    placeholder="you@example.com"
                                     autoComplete="email"
+                                    placeholder="you@example.com"
+                                    type="email"
                                     {...field}
                                 />
                             </FormControl>
@@ -91,9 +91,9 @@ export function SignupForm() {
                             <FormLabel>Password</FormLabel>
                             <FormControl>
                                 <Input
-                                    type="password"
-                                    placeholder="••••••••"
                                     autoComplete="new-password"
+                                    placeholder="••••••••"
+                                    type="password"
                                     {...field}
                                 />
                             </FormControl>
@@ -109,9 +109,9 @@ export function SignupForm() {
                             <FormLabel>Confirm password</FormLabel>
                             <FormControl>
                                 <Input
-                                    type="password"
-                                    placeholder="••••••••"
                                     autoComplete="new-password"
+                                    placeholder="••••••••"
+                                    type="password"
                                     {...field}
                                 />
                             </FormControl>
@@ -120,9 +120,9 @@ export function SignupForm() {
                     )}
                 />
                 <Button
-                    type="submit"
                     className="mt-7 w-full"
                     disabled={pending}
+                    type="submit"
                 >
                     {pending ? 'Creating account…' : 'Create account'}
                 </Button>

@@ -5,26 +5,26 @@ import { Card } from '~/components/ui/Card';
 import InfoPopover from './InfoPopover';
 
 interface PercentileBarProps {
+    description: string;
+    formatValue: (n: number) => string;
     label: string;
     p5: number;
     p25: number;
     p50: number;
     p75: number;
     p95: number;
-    formatValue: (n: number) => string;
-    description: string;
-    referenceLine?: { value: number; label: string };
+    referenceLine?: { label: string; value: number };
 }
 
 export default function PercentileBar({
+    description,
+    formatValue,
     label,
     p5,
     p25,
     p50,
     p75,
     p95,
-    formatValue,
-    description,
     referenceLine,
 }: PercentileBarProps) {
     const rangeMin = Math.min(p5, referenceLine?.value ?? p5);
@@ -51,8 +51,8 @@ export default function PercentileBar({
                 />
                 {[p5, p95].map((v, i) => (
                     <div
-                        key={i}
                         className="absolute top-1/4 h-1/2 w-px bg-border"
+                        key={i}
                         style={{ left: `${pct(v)}%` }}
                     />
                 ))}

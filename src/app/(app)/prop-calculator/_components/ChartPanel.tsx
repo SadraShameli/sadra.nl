@@ -15,47 +15,47 @@ import { ChartType } from './types';
 
 interface ChartPanelProps {
     chartType: ChartType;
+    maxEvalDays: number;
     onChartTypeChange: (next: ChartType) => void;
     result: SimOutputs;
     totalTrials: number;
-    maxEvalDays: number;
 }
 
 const TITLES: Record<ChartType, string> = {
-    [ChartType.Equity]: 'Equity curves',
-    [ChartType.Drawdown]: 'Drawdown curves',
-    [ChartType.PassRate]: 'Cumulative pass rate by day',
-    [ChartType.FinalBalanceHistogram]: 'Final balance distribution',
     [ChartType.DaysToPassHistogram]: 'Days to pass distribution',
+    [ChartType.Drawdown]: 'Drawdown curves',
+    [ChartType.Equity]: 'Equity curves',
+    [ChartType.FinalBalanceHistogram]: 'Final balance distribution',
+    [ChartType.PassRate]: 'Cumulative pass rate by day',
 };
 
 const SUBTITLES: Record<ChartType, (result: SimOutputs) => string> = {
-    [ChartType.Equity]: (r) =>
-        `${r.sampleEquityCurves.length} sampled paths · median bold`,
-    [ChartType.Drawdown]: (r) =>
-        `${r.sampleEquityCurves.length} sampled paths · drawn from peak`,
-    [ChartType.PassRate]: (r) =>
-        `${r.daysToPassValues.length} passing trials cumulated`,
-    [ChartType.FinalBalanceHistogram]: (r) =>
-        `${r.finalBalances.length} trial outcomes`,
     [ChartType.DaysToPassHistogram]: (r) =>
         `${r.daysToPassValues.length} passing trials only`,
+    [ChartType.Drawdown]: (r) =>
+        `${r.sampleEquityCurves.length} sampled paths · drawn from peak`,
+    [ChartType.Equity]: (r) =>
+        `${r.sampleEquityCurves.length} sampled paths · median bold`,
+    [ChartType.FinalBalanceHistogram]: (r) =>
+        `${r.finalBalances.length} trial outcomes`,
+    [ChartType.PassRate]: (r) =>
+        `${r.daysToPassValues.length} passing trials cumulated`,
 };
 
 const DESCRIPTIONS: Record<ChartType, string> = {
-    [ChartType.Equity]: panelDescriptions.equity,
-    [ChartType.Drawdown]: panelDescriptions.drawdown,
-    [ChartType.PassRate]: panelDescriptions['pass-rate'],
-    [ChartType.FinalBalanceHistogram]: panelDescriptions['final-balance-hist'],
     [ChartType.DaysToPassHistogram]: panelDescriptions['days-to-pass-hist'],
+    [ChartType.Drawdown]: panelDescriptions.drawdown,
+    [ChartType.Equity]: panelDescriptions.equity,
+    [ChartType.FinalBalanceHistogram]: panelDescriptions['final-balance-hist'],
+    [ChartType.PassRate]: panelDescriptions['pass-rate'],
 };
 
 export default function ChartPanel({
     chartType,
+    maxEvalDays,
     onChartTypeChange,
     result,
     totalTrials,
-    maxEvalDays,
 }: ChartPanelProps) {
     return (
         <Card className="px-6 py-6">
@@ -73,8 +73,8 @@ export default function ChartPanel({
                         {SUBTITLES[chartType](result)}
                     </span>
                     <ChartTypeSelector
-                        value={chartType}
                         onChange={onChartTypeChange}
+                        value={chartType}
                     />
                 </div>
             </div>
@@ -87,9 +87,9 @@ export default function ChartPanel({
             )}
             {chartType === ChartType.PassRate && (
                 <PassRateByDayChartView
+                    maxEvalDays={maxEvalDays}
                     result={result}
                     totalTrials={totalTrials}
-                    maxEvalDays={maxEvalDays}
                 />
             )}
             {chartType === ChartType.FinalBalanceHistogram && (

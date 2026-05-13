@@ -3,6 +3,8 @@
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 
+import type { Outcome } from '~/lib/trading-types';
+
 import { Button } from '~/components/ui/Button';
 import {
     Dialog,
@@ -14,26 +16,25 @@ import {
 } from '~/components/ui/Dialog';
 import { Input } from '~/components/ui/Input';
 import { Label } from '~/components/ui/Label';
-import { RadioGroup, RadioGroupItem } from '~/components/ui/Radio-group';
+import { RadioGroup, RadioGroupItem } from '~/components/ui/RadioGroup';
 import { Textarea } from '~/components/ui/Textarea';
 import { recordAssessmentOutcome } from '~/lib/trading-actions';
-import type { Outcome } from '~/lib/trading-types';
 
-const OUTCOMES: { value: Outcome; label: string; tone: string }[] = [
-    { value: 'win', label: 'Win', tone: 'border-emerald-500/50' },
-    { value: 'loss', label: 'Loss', tone: 'border-rose-500/50' },
-    { value: 'breakeven', label: 'Breakeven', tone: 'border-amber-500/50' },
-    { value: 'no-trade', label: 'No trade', tone: 'border-border/60' },
+const OUTCOMES: { label: string; tone: string; value: Outcome }[] = [
+    { label: 'Win', tone: 'border-emerald-500/50', value: 'win' },
+    { label: 'Loss', tone: 'border-rose-500/50', value: 'loss' },
+    { label: 'Breakeven', tone: 'border-amber-500/50', value: 'breakeven' },
+    { label: 'No trade', tone: 'border-border/60', value: 'no-trade' },
 ];
 
 export function OutcomeDialog({
     assessmentId,
-    open,
     onOpenChange,
+    open,
 }: {
     assessmentId: string;
-    open: boolean;
     onOpenChange: (open: boolean) => void;
+    open: boolean;
 }) {
     const router = useRouter();
     const [pending, startTransition] = useTransition();
@@ -42,14 +43,14 @@ export function OutcomeDialog({
     const [notes, setNotes] = useState<string>('');
 
     const submit = () => {
-        const parsed = parseFloat(outcomeR);
-        const r = !outcomeR.trim() || isNaN(parsed) ? null : parsed;
+        const parsed = Number.parseFloat(outcomeR);
+        const r = !outcomeR.trim() || Number.isNaN(parsed) ? null : parsed;
         startTransition(async () => {
             await recordAssessmentOutcome({
                 id: assessmentId,
+                notes: notes.trim() || null,
                 outcome,
                 outcomeR: r,
-                notes: notes.trim() || null,
             });
             onOpenChange(false);
             router.refresh();
@@ -57,7 +58,7 @@ export function OutcomeDialog({
     };
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
+        <Dialog onOpenChange={onOpenChange} open={open}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>Record trade outcome</DialogTitle>
@@ -68,19 +69,19 @@ export function OutcomeDialog({
 
                 <div className="space-y-4">
                     <RadioGroup
-                        value={outcome}
-                        onValueChange={(v) => setOutcome(v as Outcome)}
                         className="grid grid-cols-2 gap-2"
+                        onValueChange={(v) => setOutcome(v as Outcome)}
+                        value={outcome}
                     >
                         {OUTCOMES.map((o) => (
                             <label
-                                key={o.value}
-                                htmlFor={`outcome-${o.value}`}
                                 className={`flex cursor-pointer items-center gap-2 rounded-md border p-3 text-sm transition ${
                                     outcome === o.value
                                         ? o.tone
                                         : 'border-border/60 hover:border-border'
                                 }`}
+                                htmlFor={`outcome-${o.value}`}
+                                key={o.value}
                             >
                                 <RadioGroupItem
                                     id={`outcome-${o.value}`}
@@ -92,44 +93,44 @@ export function OutcomeDialog({
                     </RadioGroup>
 
                     <div>
-                        <Label htmlFor="outcomeR" className="text-sm">
+                        <Label className="text-sm" htmlFor="outcomeR">
                             Actual R (optional)
                         </Label>
                         <Input
-                            id="outcomeR"
-                            type="number"
-                            step="0.1"
-                            placeholder="+2.0"
-                            value={outcomeR}
-                            onChange={(e) => setOutcomeR(e.target.value)}
                             className="mt-2"
+                            id="outcomeR"
+                            onChange={(e) => setOutcomeR(e.target.value)}
+                            placeholder="+2.0"
+                            step="0.1"
+                            type="number"
+                            value={outcomeR}
                         />
                     </div>
 
                     <div>
-                        <Label htmlFor="outcomeNotes" className="text-sm">
+                        <Label className="text-sm" htmlFor="outcomeNotes">
                             Notes
                         </Label>
                         <Textarea
-                            id="outcomeNotes"
-                            rows={3}
-                            placeholder="What happened, what worked, what to remember."
-                            value={notes}
-                            onChange={(e) => setNotes(e.target.value)}
                             className="mt-2"
+                            id="outcomeNotes"
+                            onChange={(e) => setNotes(e.target.value)}
+                            placeholder="What happened, what worked, what to remember."
+                            rows={3}
+                            value={notes}
                         />
                     </div>
                 </div>
 
                 <DialogFooter>
                     <Button
-                        variant="ghost"
-                        onClick={() => onOpenChange(false)}
                         disabled={pending}
+                        onClick={() => onOpenChange(false)}
+                        variant="ghost"
                     >
                         Cancel
                     </Button>
-                    <Button onClick={submit} disabled={pending}>
+                    <Button disabled={pending} onClick={submit}>
                         Save outcome
                     </Button>
                 </DialogFooter>

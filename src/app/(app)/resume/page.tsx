@@ -5,8 +5,8 @@ import { resumeContent } from '~/lib/content';
 import ResumeContent from '../_components/Resume/Resume';
 
 export const metadata: Metadata = {
-    title: resumeContent.metaTitle,
     description: resumeContent.metaDescription,
+    title: resumeContent.metaTitle,
 };
 
 export default function ResumePage() {
@@ -14,14 +14,14 @@ export default function ResumePage() {
         <main className="container grid w-full pt-spacing">
             <div className="my-content mx-auto">
                 <ResumeContent
-                    projectsSectionTitle={resumeContent.projectsSectionTitle}
+                    education={resumeContent.education}
+                    educationSectionTitle={resumeContent.educationSectionTitle}
+                    experience={resumeContent.experience}
                     experienceSectionTitle={
                         resumeContent.experienceSectionTitle
                     }
-                    educationSectionTitle={resumeContent.educationSectionTitle}
                     projects={resumeContent.projects}
-                    experience={resumeContent.experience}
-                    education={resumeContent.education}
+                    projectsSectionTitle={resumeContent.projectsSectionTitle}
                 />
             </div>
         </main>

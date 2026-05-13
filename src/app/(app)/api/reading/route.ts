@@ -25,8 +25,8 @@ export async function POST(request: NextRequest) {
         }
 
         return NextResponse.json(res, { status });
-    } catch (e) {
-        if (e instanceof ZodError) return zodErrorResponse(e);
-        return NextResponse.json({ error: String(e) }, { status: 500 });
+    } catch (error) {
+        if (error instanceof ZodError) return zodErrorResponse(error);
+        return NextResponse.json({ error: String(error) }, { status: 500 });
     }
 }

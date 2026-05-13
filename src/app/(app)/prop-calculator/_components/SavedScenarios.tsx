@@ -12,6 +12,7 @@ import {
 import { type PropFirm } from '~/lib/prop-calculator';
 
 import type { CalculatorState } from './types';
+
 import {
     decodeState,
     encodeState,
@@ -21,15 +22,15 @@ import {
 } from './urlState';
 
 interface SavedScenariosProps {
-    state: CalculatorState;
     firms: readonly PropFirm[];
     onLoad: (next: CalculatorState) => void;
+    state: CalculatorState;
 }
 
 export default function SavedScenarios({
-    state,
     firms,
     onLoad,
+    state,
 }: SavedScenariosProps) {
     const [scenarios, setScenarios] = useState<SavedScenarioRecord[]>([]);
     const [open, setOpen] = useState(false);
@@ -47,7 +48,7 @@ export default function SavedScenarios({
         const next: SavedScenarioRecord[] = [
             ...filtered,
             { name: trimmed, params, savedAt: Date.now() },
-        ].sort((a, b) => b.savedAt - a.savedAt);
+        ].toSorted((a, b) => b.savedAt - a.savedAt);
         persistScenarios(next);
         setScenarios(next);
         setName('');
@@ -81,12 +82,12 @@ export default function SavedScenarios({
     };
 
     return (
-        <Popover open={open} onOpenChange={setOpen}>
+        <Popover onOpenChange={setOpen} open={open}>
             <PopoverTrigger asChild>
                 <Button
-                    variant="outline"
-                    size="sm"
                     className="h-7 gap-1.5 px-2 text-xs"
+                    size="sm"
+                    variant="outline"
                 >
                     <Bookmark className="size-3.5" />
                     Saved scenarios
@@ -99,21 +100,21 @@ export default function SavedScenarios({
                     </div>
                     <div className="flex gap-2">
                         <input
-                            type="text"
-                            value={name}
+                            className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:border-input dark:bg-input/30"
                             onChange={(e) => setName(e.target.value)}
-                            placeholder="Name"
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter') handleSave();
                             }}
-                            className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:border-input dark:bg-input/30"
+                            placeholder="Name"
+                            type="text"
+                            value={name}
                         />
                         <Button
-                            type="button"
-                            size="sm"
                             className="h-8 px-3 text-xs"
-                            onClick={handleSave}
                             disabled={!name.trim()}
+                            onClick={handleSave}
+                            size="sm"
+                            type="button"
                         >
                             Save
                         </Button>
@@ -126,9 +127,9 @@ export default function SavedScenarios({
                             </span>
                             {scenarios.length > 0 && (
                                 <button
-                                    type="button"
-                                    onClick={handleClearAll}
                                     className="text-xs text-muted-foreground hover:text-rose-400"
+                                    onClick={handleClearAll}
+                                    type="button"
                                 >
                                     Clear all
                                 </button>
@@ -142,30 +143,30 @@ export default function SavedScenarios({
                             <ul className="flex flex-col gap-1">
                                 {scenarios.map((s) => (
                                     <li
-                                        key={s.name}
                                         className="flex items-center justify-between gap-2 rounded-md px-2 py-1 hover:bg-accent"
+                                        key={s.name}
                                     >
                                         <button
-                                            type="button"
-                                            onClick={() => handleLoad(s)}
                                             className="flex-1 text-left text-sm"
+                                            onClick={() => handleLoad(s)}
+                                            type="button"
                                         >
                                             {s.name}
                                         </button>
                                         <div className="flex items-center gap-1">
                                             <button
-                                                type="button"
-                                                onClick={() => handleReplace(s)}
                                                 aria-label={`Replace ${s.name} with current config`}
                                                 className="text-muted-foreground hover:text-foreground"
+                                                onClick={() => handleReplace(s)}
+                                                type="button"
                                             >
                                                 <RotateCcw className="size-3.5" />
                                             </button>
                                             <button
-                                                type="button"
-                                                onClick={() => handleDelete(s)}
                                                 aria-label={`Delete ${s.name}`}
                                                 className="text-muted-foreground hover:text-rose-400"
+                                                onClick={() => handleDelete(s)}
+                                                type="button"
                                             >
                                                 <Trash2 className="size-3.5" />
                                             </button>

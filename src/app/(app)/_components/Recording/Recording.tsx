@@ -60,11 +60,11 @@ export default function RecordingSection({
             <Card className="container">
                 <div className="flex flex-col gap-6 lg:grid lg:grid-cols-2 lg:items-center">
                     <video
-                        loop
                         autoPlay
+                        className="rounded-lg"
+                        loop
                         muted
                         playsInline
-                        className="rounded-lg"
                     >
                         <source src={decorVideoUrl} type="video/mp4" />
                     </video>
@@ -76,15 +76,15 @@ export default function RecordingSection({
                             </span>
                             <Button
                                 className="h-8 gap-1.5 text-xs"
-                                variant="outline"
-                                size="sm"
+                                disabled={!hasRecordings}
                                 onClick={() => {
                                     if (currentRecording) {
                                         window.location.href =
                                             GetRecordingURL(currentRecording);
                                     }
                                 }}
-                                disabled={!hasRecordings}
+                                size="sm"
+                                variant="outline"
                             >
                                 <Download className="size-3.5" />
                                 Download
@@ -92,68 +92,68 @@ export default function RecordingSection({
                         </div>
 
                         <RecordingList
-                            recordings={recordings.data}
                             currentIdx={currentRecordingIdx}
                             durations={durations}
                             onSelect={handleRecordingSelect}
+                            recordings={recordings.data}
                         />
 
                         <div className="space-y-3 border-t border-white/10 pt-4">
                             <PlaybackControls
-                                isPlaying={isPlaying}
-                                isLoading={isLoading}
-                                isShuffle={isShuffle}
-                                isRepeat={isRepeat}
-                                canGoPrevious={canGoPrevious}
                                 canGoNext={canGoNext}
+                                canGoPrevious={canGoPrevious}
                                 hasRecordings={hasRecordings}
-                                onTogglePlayPause={togglePlayPause}
-                                onPrevious={handlePrevious}
+                                isLoading={isLoading}
+                                isPlaying={isPlaying}
+                                isRepeat={isRepeat}
+                                isShuffle={isShuffle}
                                 onNext={handleNext}
-                                onShuffle={handleShuffle}
+                                onPrevious={handlePrevious}
                                 onRepeat={handleRepeat}
+                                onShuffle={handleShuffle}
+                                onTogglePlayPause={togglePlayPause}
                             />
 
                             <ProgressBar
-                                time={time}
                                 duration={duration}
                                 hasRecordings={hasRecordings}
                                 onTimeChange={handleTimeChange}
+                                time={time}
                             />
 
                             <VolumeControls
-                                volume={volume}
-                                isAutoPlay={isAutoPlay}
                                 hasRecordings={hasRecordings}
-                                playbackRate={playbackRate}
-                                onMute={toggleMute}
-                                onVolumeChange={handleVolumeChange}
+                                isAutoPlay={isAutoPlay}
                                 onAutoPlay={handleAutoPlay}
+                                onMute={toggleMute}
                                 onSpeedChange={handleSpeedChange}
+                                onVolumeChange={handleVolumeChange}
+                                playbackRate={playbackRate}
+                                volume={volume}
                             />
                         </div>
 
                         {hasRecordings && (
                             <audio
-                                preload="metadata"
-                                ref={audioRef}
-                                loop={isRepeat}
                                 aria-label="Recording playback"
-                                onEnded={handleAudioEnded}
-                                onTimeUpdate={(e) => {
-                                    setTime(e.currentTarget.currentTime);
-                                }}
-                                onLoadedMetadata={(e) => {
-                                    setDuration(e.currentTarget.duration);
-                                }}
+                                loop={isRepeat}
                                 onCanPlay={() => {
                                     if (isPlaying && audioRef.current?.paused) {
                                         void playAudio();
                                     }
                                 }}
+                                onEnded={handleAudioEnded}
                                 onError={(e) => {
                                     console.error('Audio error:', e);
                                 }}
+                                onLoadedMetadata={(e) => {
+                                    setDuration(e.currentTarget.duration);
+                                }}
+                                onTimeUpdate={(e) => {
+                                    setTime(e.currentTarget.currentTime);
+                                }}
+                                preload="metadata"
+                                ref={audioRef}
                             >
                                 <track kind="captions" />
                             </audio>

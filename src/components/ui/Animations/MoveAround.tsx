@@ -7,8 +7,8 @@ import {
 } from 'framer-motion';
 
 type MoveAroundProps = {
-    className?: string;
     children?: React.ReactNode;
+    className?: string;
 };
 
 const defaultAnimation: TargetAndTransition = {
@@ -29,13 +29,13 @@ const defaultTransition: Transition = {
 };
 
 export default function MoveAroundAnimation({
-    className,
     children,
+    className,
 }: MoveAroundProps) {
     return (
         <motion.div
-            className={className}
             animate={defaultAnimation}
+            className={className}
             transition={defaultTransition}
         >
             {children}

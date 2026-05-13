@@ -11,7 +11,7 @@ interface Props {
 }
 
 const chartConfig: ChartConfig = {
-    count: { label: 'Passing trials', color: 'hsl(142 76% 45%)' },
+    count: { color: 'hsl(142 76% 45%)', label: 'Passing trials' },
 };
 
 const BIN_COUNT = 20;
@@ -32,37 +32,37 @@ export default function DaysToPassHistogramView({ result }: Props) {
 
     return (
         <ChartContainer
-            config={chartConfig}
             className="aspect-16/7 min-h-125 w-full"
+            config={chartConfig}
         >
             <BarChart
                 data={bins}
-                margin={{ top: 10, right: 12, left: 0, bottom: 28 }}
+                margin={{ bottom: 28, left: 0, right: 12, top: 10 }}
             >
-                <CartesianGrid strokeDasharray="3 3" stroke="#ccc" />
+                <CartesianGrid stroke="#ccc" strokeDasharray="3 3" />
                 <XAxis
-                    dataKey="center"
-                    tickLine={false}
                     axisLine={false}
-                    tickMargin={6}
-                    tickFormatter={(v: number) => `${v.toFixed(0)}`}
+                    dataKey="center"
                     label={{
-                        value: 'Days to pass',
-                        position: 'bottom',
-                        offset: 12,
                         fontSize: 11,
+                        offset: 12,
+                        position: 'bottom',
+                        value: 'Days to pass',
                     }}
+                    tickFormatter={(v: number) => v.toFixed(0)}
+                    tickLine={false}
+                    tickMargin={6}
                 />
                 <YAxis
-                    tickLine={false}
                     axisLine={false}
-                    width={40}
                     label={{
-                        value: 'Trials',
                         angle: -90,
-                        position: 'insideLeft',
                         fontSize: 11,
+                        position: 'insideLeft',
+                        value: 'Trials',
                     }}
+                    tickLine={false}
+                    width={40}
                 />
                 <Bar
                     dataKey="count"

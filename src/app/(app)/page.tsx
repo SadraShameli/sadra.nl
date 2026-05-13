@@ -9,40 +9,20 @@ import AboutSection from './_components/About';
 import ReadingSection from './_components/Reading/Reading';
 import RecordingSection from './_components/Recording/Recording';
 
-function HeroToolChip({
-    href,
-    label,
-    icon: Icon,
-}: {
-    href: string;
-    label: string;
-    icon: LucideIcon;
-}) {
-    return (
-        <a
-            className="group inline-flex items-center gap-1.5 rounded-full border border-white/10 px-3 py-2 text-xs font-medium text-white no-underline transition hover:border-white/20 hover:bg-white/10 hover:text-white"
-            href={href}
-        >
-            <Icon className="size-3.5 shrink-0" strokeWidth={2} />
-            <span>{label}</span>
-        </a>
-    );
-}
-
 export default function HomePage() {
     const resumeHref = siteContent.resumeUrl;
-    const { heroImage, gallery } = homepageContent;
+    const { gallery, heroImage } = homepageContent;
 
     return (
         <main>
             <section className="container grid-cols-2 grid-rows-2 items-center gap-5 pt-spacing lg:-mt-17 lg:grid lg:h-screen lg:grid-rows-none lg:gap-20">
                 <Image
-                    className="aspect-square rounded-2xl object-cover"
-                    src={heroImage}
                     alt=""
-                    width={800}
+                    className="aspect-square rounded-2xl object-cover"
                     height={800}
                     priority
+                    src={heroImage}
+                    width={800}
                 />
 
                 <div className="flex flex-col pt-spacing-inner lg:mt-0">
@@ -57,18 +37,18 @@ export default function HomePage() {
                     <div className="mt-10 flex flex-wrap gap-2">
                         <HeroToolChip
                             href={resumeHref}
-                            label={homepageContent.ctaLabel}
                             icon={User}
+                            label={homepageContent.ctaLabel}
                         />
                         <HeroToolChip
                             href="/prop-calculator"
-                            label="Prop firm calculator"
                             icon={Calculator}
+                            label="Prop firm calculator"
                         />
                         <HeroToolChip
                             href="/trade-checklist"
-                            label="Trade checklist"
                             icon={ClipboardList}
+                            label="Trade checklist"
                         />
                     </div>
                 </div>
@@ -82,9 +62,9 @@ export default function HomePage() {
                 />
 
                 <video
+                    autoPlay
                     className="rounded-2xl pt-spacing-inner"
                     loop
-                    autoPlay
                     muted
                     playsInline
                 >
@@ -116,10 +96,30 @@ export default function HomePage() {
             <section className="container pt-spacing">
                 <SectionTitle text={homepageContent.aboutSectionTitle} />
                 <AboutSection
-                    spotifyEmbedUrl={homepageContent.aboutSpotifyEmbedUrl}
                     gallery={gallery}
+                    spotifyEmbedUrl={homepageContent.aboutSpotifyEmbedUrl}
                 />
             </section>
         </main>
+    );
+}
+
+function HeroToolChip({
+    href,
+    icon: Icon,
+    label,
+}: {
+    href: string;
+    icon: LucideIcon;
+    label: string;
+}) {
+    return (
+        <a
+            className="group inline-flex items-center gap-1.5 rounded-full border border-white/10 px-3 py-2 text-xs font-medium text-white no-underline transition hover:border-white/20 hover:bg-white/10 hover:text-white"
+            href={href}
+        >
+            <Icon className="size-3.5 shrink-0" strokeWidth={2} />
+            <span>{label}</span>
+        </a>
     );
 }

@@ -5,16 +5,16 @@ import { z } from 'zod';
 import { createTRPCRouter, protectedProcedure } from '~/server/api/trpc';
 import { sessions } from '~/server/db';
 
-const SESSION_COOKIE_NAMES = [
-    'authjs.session-token',
+const SESSION_COOKIE_NAMES = new Set([
     '__Secure-authjs.session-token',
-];
+    'authjs.session-token',
+]);
 
-function readCurrentSessionToken(headers: Headers): string | null {
+function readCurrentSessionToken(headers: Headers): null | string {
     const cookieHeader = headers.get('cookie') ?? '';
     for (const part of cookieHeader.split(';')) {
         const [name, ...rest] = part.trim().split('=');
-        if (name && SESSION_COOKIE_NAMES.includes(name)) {
+        if (name && SESSION_COOKIE_NAMES.has(name)) {
             return decodeURIComponent(rest.join('='));
         }
     }
@@ -25,12 +25,12 @@ export const sessionRouter = createTRPCRouter({
     list: protectedProcedure.query(async ({ ctx }) => {
         const rows = await ctx.db
             .select({
-                sessionToken: sessions.sessionToken,
-                expires: sessions.expires,
-                userAgent: sessions.userAgent,
-                ipAddress: sessions.ipAddress,
                 createdAt: sessions.createdAt,
+                expires: sessions.expires,
+                ipAddress: sessions.ipAddress,
                 lastUsedAt: sessions.lastUsedAt,
+                sessionToken: sessions.sessionToken,
+                userAgent: sessions.userAgent,
             })
             .from(sessions)
             .where(

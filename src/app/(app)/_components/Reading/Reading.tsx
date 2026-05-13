@@ -3,8 +3,8 @@
 import { keepPreviousData } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import {
-    AreaChart as ChartIcon,
     Calendar as CalendarIcon,
+    AreaChart as ChartIcon,
     Download,
     MapPin,
     SlidersHorizontal,
@@ -52,9 +52,9 @@ export default function ReadingSection() {
     const currentReading = api.reading.getReadingsInput.useQuery(
         currentLocation
             ? {
-                  location_id: currentLocation.id,
                   date_from: date?.from,
                   date_to: date?.to,
+                  location_id: currentLocation.id,
               }
             : undefined,
         { placeholderData: keepPreviousData },
@@ -62,7 +62,7 @@ export default function ReadingSection() {
 
     const sensors = useMemo(
         () => currentReading.data?.data?.map((reading) => reading.sensor),
-        [currentReading?.data],
+        [currentReading.data],
     );
 
     const locations = api.location.getLocations.useQuery();
@@ -79,14 +79,14 @@ export default function ReadingSection() {
         if (!sensors?.length) return;
         if (!currentSensor) {
             setCurrentSensor(sensors[0]?.name);
-        } else if (!sensors.find((s) => s.name === currentSensor)) {
+        } else if (!sensors.some((s) => s.name === currentSensor)) {
             setCurrentSensor(sensors.at(-1)?.name);
         }
     }, [sensors, currentSensor]);
 
     useEffect(() => {
         if (!currentLocation) {
-            setCurrentLocation(locations.data?.data?.at(-1));
+            setCurrentLocation(locations.data?.data.at(-1));
         }
     }, [currentLocation, locations]);
 
@@ -99,8 +99,8 @@ export default function ReadingSection() {
                 <Tabs
                     className="grid gap-y-5"
                     defaultValue={sensors?.at(0)?.name}
-                    value={currentSensor}
                     onValueChange={(value) => setCurrentSensor(value)}
+                    value={currentSensor}
                 >
                     <div className="flex flex-wrap justify-between gap-5">
                         <div
@@ -147,15 +147,15 @@ export default function ReadingSection() {
                                     </PopoverTrigger>
 
                                     <PopoverContent
-                                        className="mt-2 w-auto p-0"
                                         align="start"
+                                        className="mt-2 w-auto p-0"
                                     >
                                         <Calendar
-                                            mode="range"
                                             defaultMonth={date?.from}
-                                            selected={date}
-                                            onSelect={setDate}
+                                            mode="range"
                                             numberOfMonths={2}
+                                            onSelect={setDate}
+                                            selected={date}
                                         />
                                     </PopoverContent>
                                 </Popover>
@@ -176,35 +176,31 @@ export default function ReadingSection() {
 
                                     <DropdownMenuContent>
                                         <DropdownMenuRadioGroup
-                                            value={
-                                                currentLocation
-                                                    ? currentLocation.location_name
-                                                    : locations.data?.data?.at(
-                                                          -1,
-                                                      )?.location_name
-                                            }
                                             onValueChange={(value) => {
                                                 const loc =
-                                                    locations.data?.data?.find(
+                                                    locations.data?.data.find(
                                                         (l) =>
                                                             l.location_name ===
                                                             value,
                                                     );
                                                 setCurrentLocation(loc);
                                             }}
+                                            value={
+                                                currentLocation
+                                                    ? currentLocation.location_name
+                                                    : locations.data?.data.at(
+                                                          -1,
+                                                      )?.location_name
+                                            }
                                         >
-                                            {locations.data?.data?.map(
-                                                (loc) => (
-                                                    <DropdownMenuRadioItem
-                                                        value={
-                                                            loc.location_name
-                                                        }
-                                                        key={loc.location_name}
-                                                    >
-                                                        {loc.location_name}
-                                                    </DropdownMenuRadioItem>
-                                                ),
-                                            )}
+                                            {locations.data?.data.map((loc) => (
+                                                <DropdownMenuRadioItem
+                                                    key={loc.location_name}
+                                                    value={loc.location_name}
+                                                >
+                                                    {loc.location_name}
+                                                </DropdownMenuRadioItem>
+                                            ))}
                                         </DropdownMenuRadioGroup>
                                     </DropdownMenuContent>
                                 </DropdownMenu>
@@ -225,10 +221,10 @@ export default function ReadingSection() {
 
                                     <DropdownMenuContent>
                                         <DropdownMenuRadioGroup
-                                            value={granularity}
                                             onValueChange={(v) =>
                                                 setGranularity(v as Granularity)
                                             }
+                                            value={granularity}
                                         >
                                             {GRANULARITIES.map((g) => (
                                                 <DropdownMenuRadioItem
@@ -243,7 +239,6 @@ export default function ReadingSection() {
                                 </DropdownMenu>
 
                                 <Button
-                                    variant="outline"
                                     className="w-fit"
                                     disabled={!currentSensorData}
                                     onClick={() => {
@@ -258,6 +253,7 @@ export default function ReadingSection() {
                                             currentLocation?.location_name,
                                         );
                                     }}
+                                    variant="outline"
                                 >
                                     <Download className="mr-1 size-4" />
                                     Export CSV
@@ -269,8 +265,8 @@ export default function ReadingSection() {
                             <TabsList className="w-fit">
                                 {sensors.map((sensor) => (
                                     <TabsTrigger
-                                        value={sensor.name}
                                         key={sensor.name}
+                                        value={sensor.name}
                                     >
                                         {sensor.name}
                                     </TabsTrigger>
@@ -286,8 +282,8 @@ export default function ReadingSection() {
                         );
                         return (
                             <TabsContent
-                                value={reading.sensor.name}
                                 key={reading.sensor.name}
+                                value={reading.sensor.name}
                             >
                                 <div className="grid gap-5 text-sm leading-none font-semibold">
                                     <div className="grid gap-5 lg:grid-cols-2">
@@ -305,7 +301,7 @@ export default function ReadingSection() {
 
                                             <div className="mt-12 grid">
                                                 <AreaChartNew
-                                                    data={chartData}
+                                                    area={{ dataKey: 'value' }}
                                                     config={{
                                                         location: {
                                                             label: currentLocation?.location_name,
@@ -314,17 +310,17 @@ export default function ReadingSection() {
                                                             label: currentSensor,
                                                         },
                                                     }}
+                                                    data={chartData}
+                                                    tooltip={{
+                                                        labelKey: 'location',
+                                                        nameKey: 'sensor',
+                                                    }}
                                                     xAxis={{ dataKey: 'date' }}
                                                     yAxis={{
                                                         tickFormatter: (
                                                             value: number,
                                                         ) =>
                                                             `${value} ${sensors?.find((s) => s.name === currentSensor)?.unit}`,
-                                                    }}
-                                                    area={{ dataKey: 'value' }}
-                                                    tooltip={{
-                                                        labelKey: 'location',
-                                                        nameKey: 'sensor',
                                                     }}
                                                 />
                                             </div>

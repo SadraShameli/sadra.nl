@@ -1,13 +1,13 @@
 export interface AccountState {
-    startingBalance: number;
     balance: number;
+    bestDayProfit: number;
+    daysElapsed: number;
+    startingBalance: number;
     threshold: number;
     thresholdLocked: boolean;
     todayHigh: number;
     todayPnL: number;
     tradingDays: number;
-    bestDayProfit: number;
-    daysElapsed: number;
 }
 
 export function createInitialState(
@@ -15,15 +15,15 @@ export function createInitialState(
     initialThreshold: number,
 ): AccountState {
     return {
-        startingBalance,
         balance: startingBalance,
+        bestDayProfit: 0,
+        daysElapsed: 0,
+        startingBalance,
         threshold: initialThreshold,
         thresholdLocked: false,
         todayHigh: startingBalance,
         todayPnL: 0,
         tradingDays: 0,
-        bestDayProfit: 0,
-        daysElapsed: 0,
     };
 }
 

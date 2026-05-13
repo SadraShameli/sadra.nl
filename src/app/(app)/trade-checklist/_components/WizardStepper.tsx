@@ -1,5 +1,7 @@
 'use client';
 
+import type { z } from 'zod';
+
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight, Sparkles } from 'lucide-react';
@@ -10,7 +12,13 @@ import {
     useForm,
     useFormContext,
 } from 'react-hook-form';
-import type { z } from 'zod';
+
+import type {
+    Answers,
+    AssessmentResult,
+    TradingPlanRow,
+} from '~/lib/schemas/trading';
+import type { ConfluenceKey } from '~/lib/trading-types';
 
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
@@ -19,20 +27,14 @@ import { Checkbox } from '~/components/ui/Checkbox';
 import { Input } from '~/components/ui/Input';
 import { Label } from '~/components/ui/Label';
 import { Progress } from '~/components/ui/Progress';
-import { RadioGroup, RadioGroupItem } from '~/components/ui/Radio-group';
+import { RadioGroup, RadioGroupItem } from '~/components/ui/RadioGroup';
 import { Slider } from '~/components/ui/Slider';
 import { Switch } from '~/components/ui/Switch';
 import { Textarea } from '~/components/ui/Textarea';
-import { ToggleGroup, ToggleGroupItem } from '~/components/ui/Toggle-group';
-import type {
-    Answers,
-    AssessmentResult,
-    TradingPlanRow,
-} from '~/lib/schemas/trading';
+import { ToggleGroup, ToggleGroupItem } from '~/components/ui/ToggleGroup';
 import { answersSchema } from '~/lib/schemas/trading';
-import { CONFLUENCE_GROUPS, DEFAULT_DOL_TYPES } from '~/lib/trading-defaults';
+import { CONFLUENCE_GROUPS } from '~/lib/trading-defaults';
 import { findCurrentWindow, scoreAssessment } from '~/lib/trading-scoring';
-import type { ConfluenceKey } from '~/lib/trading-types';
 
 type FormValues = z.infer<typeof answersSchema>;
 
@@ -49,63 +51,52 @@ const stepIds = [
 ] as const;
 type StepId = (typeof stepIds)[number];
 
-const stepMeta: Record<StepId, { title: string; subtitle: string }> = {
-    mental: {
-        title: 'Pre-flight: mental state',
-        subtitle:
-            'Knockouts. Any flag here means stand down — execution risk outweighs setup quality.',
-    },
-    context: {
-        title: 'Session context',
-        subtitle: 'Macro window, account type, and quota status.',
-    },
+const stepMeta: Record<StepId, { subtitle: string; title: string }> = {
     bias: {
-        title: 'HTF → LTF bias',
         subtitle:
             'Read order flow top-down. Weekly first, then daily, then drop if needed.',
+        title: 'HTF → LTF bias',
+    },
+    context: {
+        subtitle: 'Macro window, account type, and quota status.',
+        title: 'Session context',
     },
     dol: {
-        title: 'Draw on liquidity',
         subtitle:
             'Where the market is going. A singular price level above or below.',
-    },
-    state: {
-        title: 'Market state',
-        subtitle:
-            'Recent sweeps, displacement direction, and whether the day favors reversal or continuation.',
+        title: 'Draw on liquidity',
     },
     entry: {
-        title: 'Entry quality',
         subtitle:
             'FVG anchor + confluences. The more PD arrays stacked, the higher the grade.',
-    },
-    sl: {
-        title: 'Stop-loss protection',
-        subtitle:
-            'SL must sit behind the required count of PD arrays. Otherwise: knockout.',
-    },
-    rr: {
-        title: 'Risk / reward',
-        subtitle: 'Target R after slippage vs your plan minimum.',
+        title: 'Entry quality',
     },
     finals: {
-        title: 'Final checks',
         subtitle: 'Late-stage red flags and free-form notes for the journal.',
+        title: 'Final checks',
+    },
+    mental: {
+        subtitle:
+            'Knockouts. Any flag here means stand down — execution risk outweighs setup quality.',
+        title: 'Pre-flight: mental state',
+    },
+    rr: {
+        subtitle: 'Target R after slippage vs your plan minimum.',
+        title: 'Risk / reward',
+    },
+    sl: {
+        subtitle:
+            'SL must sit behind the required count of PD arrays. Otherwise: knockout.',
+        title: 'Stop-loss protection',
+    },
+    state: {
+        subtitle:
+            'Recent sweeps, displacement direction, and whether the day favors reversal or continuation.',
+        title: 'Market state',
     },
 };
 
 const stepFields: Record<StepId, FieldPath<FormValues>[]> = {
-    mental: [
-        'mental.hesitation',
-        'mental.boredomHunt',
-        'mental.revengeOrFomo',
-        'mental.distracted',
-    ],
-    context: [
-        'context.windowId',
-        'context.accountType',
-        'context.windowQuotaUsed',
-    ],
     bias: [
         'bias.weekly',
         'bias.daily',
@@ -114,68 +105,44 @@ const stepFields: Record<StepId, FieldPath<FormValues>[]> = {
         'bias.fifteenMin',
         'bias.conviction',
     ],
+    context: [
+        'context.windowId',
+        'context.accountType',
+        'context.windowQuotaUsed',
+    ],
     dol: ['dol.type', 'dol.singular', 'dol.bothSided', 'dol.distanceR'],
+    entry: ['entry.onFvg', 'entry.confluences'],
+    finals: ['finals.dolAlreadyTaken', 'finals.overExtended', 'finals.notes'],
+    mental: [
+        'mental.hesitation',
+        'mental.boredomHunt',
+        'mental.revengeOrFomo',
+        'mental.distracted',
+    ],
+    rr: ['rr.targetR', 'rr.slippageR'],
+    sl: ['sl.ob', 'sl.bb', 'sl.swing'],
     state: [
         'state.opposingSweep',
         'state.displacement',
         'state.dayType',
         'state.setupType',
     ],
-    entry: ['entry.onFvg', 'entry.confluences'],
-    sl: ['sl.ob', 'sl.bb', 'sl.swing'],
-    rr: ['rr.targetR', 'rr.slippageR'],
-    finals: ['finals.dolAlreadyTaken', 'finals.overExtended', 'finals.notes'],
 };
 
-function buildDefaults(plan: TradingPlanRow): FormValues {
-    return {
-        mental: {
-            hesitation: false,
-            boredomHunt: false,
-            revengeOrFomo: false,
-            distracted: false,
-        },
-        context: {
-            windowId: findCurrentWindow(plan.config),
-            accountType: 'funded',
-            windowQuotaUsed: false,
-        },
-        bias: {
-            weekly: 'unclear',
-            daily: 'unclear',
-            fourHour: 'unclear',
-            oneHour: 'unclear',
-            fifteenMin: 'unclear',
-            conviction: 5,
-        },
-        dol: { type: 'None', singular: false, bothSided: false, distanceR: 2 },
-        state: {
-            opposingSweep: false,
-            displacement: 'none',
-            dayType: 'imbalanced',
-            setupType: 'continuation',
-        },
-        entry: { onFvg: true, confluences: [] },
-        sl: { ob: false, bb: false, swing: false },
-        rr: { targetR: plan.config.setup.minRR, slippageR: 0 },
-        finals: { dolAlreadyTaken: false, overExtended: false, notes: '' },
-    };
-}
-
 export function WizardStepper({
-    plan,
     onSubmit,
+    plan,
 }: {
-    plan: TradingPlanRow;
     onSubmit: (answers: Answers, result: AssessmentResult) => void;
+    plan: TradingPlanRow;
 }) {
     const methods = useForm<FormValues>({
-        resolver: zodResolver(answersSchema),
         defaultValues: useMemo(() => buildDefaults(plan), [plan]),
         mode: 'onChange',
+        resolver: zodResolver(answersSchema),
     });
     const [stepIdx, setStepIdx] = useState(0);
-    const stepId = stepIds[stepIdx]!;
+    const stepId = stepIds[stepIdx] ?? stepIds[0];
 
     const next = async () => {
         const valid = await methods.trigger(stepFields[stepId]);
@@ -201,7 +168,7 @@ export function WizardStepper({
                             <span className="tracking-wider uppercase">
                                 Step {stepIdx + 1} of {stepIds.length}
                             </span>
-                            <Badge variant="secondary" className="font-mono">
+                            <Badge className="font-mono" variant="secondary">
                                 {Math.round(progress)}%
                             </Badge>
                         </div>
@@ -219,10 +186,10 @@ export function WizardStepper({
 
                     <AnimatePresence mode="wait">
                         <motion.div
-                            key={stepId}
-                            initial={{ opacity: 0, x: 24 }}
                             animate={{ opacity: 1, x: 0 }}
                             exit={{ opacity: 0, x: -24 }}
+                            initial={{ opacity: 0, x: 24 }}
+                            key={stepId}
                             transition={{ duration: 0.2 }}
                         >
                             <StepBody plan={plan} stepId={stepId} />
@@ -231,24 +198,24 @@ export function WizardStepper({
 
                     <div className="flex items-center justify-between border-t border-border/50 pt-4">
                         <Button
+                            disabled={stepIdx === 0}
+                            onClick={back}
                             type="button"
                             variant="outline"
-                            onClick={back}
-                            disabled={stepIdx === 0}
                         >
                             <ArrowLeft className="mr-1 size-4" />
                             Back
                         </Button>
                         {stepIdx < stepIds.length - 1 ? (
-                            <Button type="button" onClick={next}>
+                            <Button onClick={next} type="button">
                                 Next
                                 <ArrowRight className="ml-1 size-4" />
                             </Button>
                         ) : (
                             <Button
-                                type="button"
-                                onClick={submit}
                                 className="bg-emerald-500 text-emerald-50 hover:bg-emerald-500/90"
+                                onClick={submit}
+                                type="button"
                             >
                                 <Sparkles className="mr-1 size-4" />
                                 Grade my setup
@@ -261,94 +228,131 @@ export function WizardStepper({
     );
 }
 
-function StepBody({ plan, stepId }: { plan: TradingPlanRow; stepId: StepId }) {
-    switch (stepId) {
-        case 'mental':
-            return <MentalStep />;
-        case 'context':
-            return <ContextStep plan={plan} />;
-        case 'bias':
-            return <BiasStep />;
-        case 'dol':
-            return <DolStep plan={plan} />;
-        case 'state':
-            return <StateStep />;
-        case 'entry':
-            return <EntryStep plan={plan} />;
-        case 'sl':
-            return <SlStep plan={plan} />;
-        case 'rr':
-            return <RrStep plan={plan} />;
-        case 'finals':
-            return <FinalsStep />;
-    }
-}
-
-function MentalStep() {
-    const { watch, setValue } = useFormContext<FormValues>();
-    const rows: {
-        name: keyof FormValues['mental'];
-        title: string;
-        rule: string;
-    }[] = [
-        {
-            name: 'hesitation',
-            title: 'Am I scared but the setup is valid?',
-            rule: 'If technicals are met — execute. Don’t wait for extra confirmation from fear.',
-        },
-        {
-            name: 'boredomHunt',
-            title: 'Am I inventing a trade because I want to trade?',
-            rule: 'If you hop timeframes hunting setups, it isn’t there. Walk away.',
-        },
-        {
-            name: 'revengeOrFomo',
-            title: 'Just missed a trade or took a loss?',
-            rule: 'Don’t chase fills or force trades to recoup. Wait for the next clean session.',
-        },
-        {
-            name: 'distracted',
-            title: 'Distracted by anything?',
-            rule: 'If full focus isn’t possible — do not trade.',
-        },
-    ];
-
+function BiasRow({
+    label,
+    name,
+}: {
+    label: string;
+    name:
+        | 'bias.daily'
+        | 'bias.fifteenMin'
+        | 'bias.fourHour'
+        | 'bias.oneHour'
+        | 'bias.weekly';
+}) {
+    const { setValue, watch } = useFormContext<FormValues>();
+    const value = watch(name);
     return (
-        <div className="space-y-3">
-            {rows.map((r) => {
-                const checked = watch(`mental.${r.name}`);
-                return (
-                    <label
-                        key={r.name}
-                        className="flex cursor-pointer items-start gap-3 rounded-lg border border-border/60 bg-card p-4 transition hover:border-border"
-                    >
-                        <Switch
-                            checked={checked}
-                            onCheckedChange={(v) =>
-                                setValue(`mental.${r.name}`, Boolean(v), {
-                                    shouldValidate: true,
-                                })
-                            }
-                            className="mt-0.5"
-                        />
-                        <div className="flex-1">
-                            <p className="text-sm font-medium text-white">
-                                {r.title}
-                            </p>
-                            <p className="mt-0.5 text-xs text-muted-foreground">
-                                {r.rule}
-                            </p>
-                        </div>
-                        {checked && <Badge variant="destructive">flag</Badge>}
-                    </label>
-                );
-            })}
+        <div className="flex items-center justify-between gap-4 rounded-lg border border-border/60 p-3">
+            <Label className="text-sm">{label}</Label>
+            <ToggleGroup
+                onValueChange={(v) =>
+                    v &&
+                    setValue(name, v as 'bearish' | 'bullish' | 'unclear', {
+                        shouldValidate: true,
+                    })
+                }
+                type="single"
+                value={value}
+            >
+                <ToggleGroupItem
+                    className="data-[state=on]:bg-emerald-500/20 data-[state=on]:text-emerald-500"
+                    value="bullish"
+                >
+                    Bull
+                </ToggleGroupItem>
+                <ToggleGroupItem
+                    className="data-[state=on]:bg-rose-500/20 data-[state=on]:text-rose-500"
+                    value="bearish"
+                >
+                    Bear
+                </ToggleGroupItem>
+                <ToggleGroupItem value="unclear">Unclear</ToggleGroupItem>
+            </ToggleGroup>
         </div>
     );
 }
 
+function BiasStep() {
+    const { setValue, watch } = useFormContext<FormValues>();
+    const conviction = watch('bias.conviction');
+    const weekly = watch('bias.weekly');
+    const daily = watch('bias.daily');
+    const fourHour = watch('bias.fourHour');
+    const showLtf =
+        weekly === 'unclear' && daily === 'unclear' && fourHour === 'unclear';
+
+    return (
+        <div className="space-y-3">
+            <BiasRow label="Weekly" name="bias.weekly" />
+            <BiasRow label="Daily" name="bias.daily" />
+            <BiasRow label="4H" name="bias.fourHour" />
+            {showLtf && (
+                <>
+                    <BiasRow label="1H" name="bias.oneHour" />
+                    <BiasRow label="15m" name="bias.fifteenMin" />
+                </>
+            )}
+            <div className="space-y-2 rounded-lg border border-border/60 p-4">
+                <div className="flex items-center justify-between">
+                    <Label className="text-sm">Bias conviction</Label>
+                    <span className="font-mono text-sm text-white">
+                        {conviction}/10
+                    </span>
+                </div>
+                <Slider
+                    max={10}
+                    min={1}
+                    onValueChange={([v]) =>
+                        setValue('bias.conviction', v ?? 5, {
+                            shouldValidate: true,
+                        })
+                    }
+                    step={1}
+                    value={[conviction]}
+                />
+            </div>
+        </div>
+    );
+}
+
+function buildDefaults(plan: TradingPlanRow): FormValues {
+    return {
+        bias: {
+            conviction: 5,
+            daily: 'unclear',
+            fifteenMin: 'unclear',
+            fourHour: 'unclear',
+            oneHour: 'unclear',
+            weekly: 'unclear',
+        },
+        context: {
+            accountType: 'funded',
+            windowId: findCurrentWindow(plan.config),
+            windowQuotaUsed: false,
+        },
+        dol: { bothSided: false, distanceR: 2, singular: false, type: 'None' },
+        entry: { confluences: [], onFvg: true },
+        finals: { dolAlreadyTaken: false, notes: '', overExtended: false },
+        mental: {
+            boredomHunt: false,
+            distracted: false,
+            hesitation: false,
+            revengeOrFomo: false,
+        },
+        rr: { slippageR: 0, targetR: plan.config.setup.minRR },
+        sl: { bb: false, ob: false, swing: false },
+        state: {
+            dayType: 'imbalanced',
+            displacement: 'none',
+            opposingSweep: false,
+            setupType: 'continuation',
+        },
+    };
+}
+
 function ContextStep({ plan }: { plan: TradingPlanRow }) {
-    const { watch, setValue } = useFormContext<FormValues>();
+    const { setValue, watch } = useFormContext<FormValues>();
     const windowId = watch('context.windowId');
     const accountType = watch('context.accountType');
     const quotaUsed = watch('context.windowQuotaUsed');
@@ -360,20 +364,20 @@ function ContextStep({ plan }: { plan: TradingPlanRow }) {
                     Current macro window
                 </Label>
                 <ToggleGroup
-                    type="single"
-                    value={windowId ?? ''}
+                    className="flex-wrap justify-start gap-2"
                     onValueChange={(v) =>
                         setValue('context.windowId', v || null, {
                             shouldValidate: true,
                         })
                     }
-                    className="flex-wrap justify-start gap-2"
+                    type="single"
+                    value={windowId ?? ''}
                 >
                     {plan.config.windows.map((w) => (
                         <ToggleGroupItem
+                            className="hover:bg-accent hover:text-foreground data-[state=on]:bg-accent data-[state=on]:text-foreground"
                             key={w.id}
                             value={w.id}
-                            className="hover:bg-accent hover:text-foreground data-[state=on]:bg-accent data-[state=on]:text-foreground"
                         >
                             <div className="text-left">
                                 <div className="font-mono text-xs">
@@ -398,34 +402,34 @@ function ContextStep({ plan }: { plan: TradingPlanRow }) {
                     Account type
                 </Label>
                 <RadioGroup
-                    value={accountType}
+                    className="grid grid-cols-2 gap-2"
                     onValueChange={(v) =>
                         setValue(
                             'context.accountType',
-                            v as 'funded' | 'eval',
+                            v as 'eval' | 'funded',
                             { shouldValidate: true },
                         )
                     }
-                    className="grid grid-cols-2 gap-2"
+                    value={accountType}
                 >
                     {[
                         {
-                            v: 'funded',
                             label: `Funded — $${plan.config.risk.fundedDollars}`,
+                            v: 'funded',
                         },
                         {
-                            v: 'eval',
                             label: `Eval — $${plan.config.risk.evalDollars}`,
+                            v: 'eval',
                         },
                     ].map((opt) => (
                         <label
-                            key={opt.v}
-                            htmlFor={`acct-${opt.v}`}
                             className={`flex cursor-pointer items-center gap-2 rounded-md border p-3 text-sm transition ${
                                 accountType === opt.v
                                     ? 'border-border bg-accent'
                                     : 'border-border/60 hover:border-border'
                             }`}
+                            htmlFor={`acct-${opt.v}`}
+                            key={opt.v}
                         >
                             <RadioGroupItem
                                 id={`acct-${opt.v}`}
@@ -450,95 +454,7 @@ function ContextStep({ plan }: { plan: TradingPlanRow }) {
                 <Switch
                     checked={quotaUsed}
                     onCheckedChange={(v) =>
-                        setValue('context.windowQuotaUsed', Boolean(v), {
-                            shouldValidate: true,
-                        })
-                    }
-                />
-            </div>
-        </div>
-    );
-}
-
-function BiasRow({
-    name,
-    label,
-}: {
-    name:
-        | 'bias.weekly'
-        | 'bias.daily'
-        | 'bias.fourHour'
-        | 'bias.oneHour'
-        | 'bias.fifteenMin';
-    label: string;
-}) {
-    const { watch, setValue } = useFormContext<FormValues>();
-    const value = watch(name);
-    return (
-        <div className="flex items-center justify-between gap-4 rounded-lg border border-border/60 p-3">
-            <Label className="text-sm">{label}</Label>
-            <ToggleGroup
-                type="single"
-                value={value}
-                onValueChange={(v) =>
-                    v &&
-                    setValue(name, v as 'bullish' | 'bearish' | 'unclear', {
-                        shouldValidate: true,
-                    })
-                }
-            >
-                <ToggleGroupItem
-                    value="bullish"
-                    className="data-[state=on]:bg-emerald-500/20 data-[state=on]:text-emerald-500"
-                >
-                    Bull
-                </ToggleGroupItem>
-                <ToggleGroupItem
-                    value="bearish"
-                    className="data-[state=on]:bg-rose-500/20 data-[state=on]:text-rose-500"
-                >
-                    Bear
-                </ToggleGroupItem>
-                <ToggleGroupItem value="unclear">Unclear</ToggleGroupItem>
-            </ToggleGroup>
-        </div>
-    );
-}
-
-function BiasStep() {
-    const { watch, setValue } = useFormContext<FormValues>();
-    const conviction = watch('bias.conviction');
-    const weekly = watch('bias.weekly');
-    const daily = watch('bias.daily');
-    const fourHour = watch('bias.fourHour');
-    const showLtf =
-        weekly === 'unclear' && daily === 'unclear' && fourHour === 'unclear';
-
-    return (
-        <div className="space-y-3">
-            <BiasRow name="bias.weekly" label="Weekly" />
-            <BiasRow name="bias.daily" label="Daily" />
-            <BiasRow name="bias.fourHour" label="4H" />
-            {showLtf && (
-                <>
-                    <BiasRow name="bias.oneHour" label="1H" />
-                    <BiasRow name="bias.fifteenMin" label="15m" />
-                </>
-            )}
-            <div className="space-y-2 rounded-lg border border-border/60 p-4">
-                <div className="flex items-center justify-between">
-                    <Label className="text-sm">Bias conviction</Label>
-                    <span className="font-mono text-sm text-white">
-                        {conviction}/10
-                    </span>
-                </div>
-                <Slider
-                    value={[conviction]}
-                    min={1}
-                    max={10}
-                    step={1}
-                    onValueChange={([v]) =>
-                        setValue('bias.conviction', v ?? 5, {
+                        setValue('context.windowQuotaUsed', v, {
                             shouldValidate: true,
                         })
                     }
@@ -549,7 +465,7 @@ function BiasStep() {
 }
 
 function DolStep({ plan }: { plan: TradingPlanRow }) {
-    const { watch, setValue } = useFormContext<FormValues>();
+    const { setValue, watch } = useFormContext<FormValues>();
     const type = watch('dol.type');
     const singular = watch('dol.singular');
     const bothSided = watch('dol.bothSided');
@@ -562,23 +478,21 @@ function DolStep({ plan }: { plan: TradingPlanRow }) {
                     DOL type
                 </Label>
                 <ToggleGroup
-                    type="single"
-                    value={type}
+                    className="flex-wrap justify-start gap-2"
                     onValueChange={(v) =>
                         v &&
                         setValue('dol.type', v as typeof type, {
                             shouldValidate: true,
                         })
                     }
-                    className="flex-wrap justify-start gap-2"
+                    type="single"
+                    value={type}
                 >
-                    {(
-                        plan.config.setup.allowedDolTypes ?? DEFAULT_DOL_TYPES
-                    ).map((t) => (
+                    {plan.config.setup.allowedDolTypes.map((t) => (
                         <ToggleGroupItem
+                            className="data-[state=on]:bg-emerald-500/20 data-[state=on]:text-emerald-500"
                             key={t}
                             value={t}
-                            className="data-[state=on]:bg-emerald-500/20 data-[state=on]:text-emerald-500"
                         >
                             {t}
                         </ToggleGroupItem>
@@ -593,7 +507,7 @@ function DolStep({ plan }: { plan: TradingPlanRow }) {
                 <Switch
                     checked={singular}
                     onCheckedChange={(v) =>
-                        setValue('dol.singular', Boolean(v), {
+                        setValue('dol.singular', v, {
                             shouldValidate: true,
                         })
                     }
@@ -610,7 +524,7 @@ function DolStep({ plan }: { plan: TradingPlanRow }) {
                 <Switch
                     checked={bothSided}
                     onCheckedChange={(v) =>
-                        setValue('dol.bothSided', Boolean(v), {
+                        setValue('dol.bothSided', v, {
                             shouldValidate: true,
                         })
                     }
@@ -618,184 +532,28 @@ function DolStep({ plan }: { plan: TradingPlanRow }) {
             </div>
 
             <div className="rounded-lg border border-border/60 p-4">
-                <Label htmlFor="distanceR" className="text-sm">
+                <Label className="text-sm" htmlFor="distanceR">
                     Distance to DOL (in R)
                 </Label>
                 <Input
+                    className="mt-2 text-white"
                     id="distanceR"
-                    type="number"
-                    step="0.1"
-                    value={Number.isNaN(distanceR) ? '' : distanceR}
                     onChange={(e) =>
                         setValue('dol.distanceR', e.target.valueAsNumber, {
                             shouldValidate: true,
                         })
                     }
-                    className="mt-2 text-white"
+                    step="0.1"
+                    type="number"
+                    value={Number.isNaN(distanceR) ? '' : distanceR}
                 />
-            </div>
-        </div>
-    );
-}
-
-function StateStep() {
-    const { watch, setValue } = useFormContext<FormValues>();
-    const sweep = watch('state.opposingSweep');
-    const displacement = watch('state.displacement');
-    const dayType = watch('state.dayType');
-    const setupType = watch('state.setupType');
-
-    const coherent =
-        (dayType === 'balanced' && setupType === 'reversal') ||
-        (dayType === 'imbalanced' && setupType === 'continuation');
-
-    return (
-        <div className="space-y-4">
-            <div className="flex items-center justify-between rounded-lg border border-border/60 p-4">
-                <div>
-                    <p className="text-sm font-medium text-white">
-                        Recent sweep of opposing liquidity
-                    </p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                        Did price recently take stops in the opposite direction?
-                    </p>
-                </div>
-                <Switch
-                    checked={sweep}
-                    onCheckedChange={(v) =>
-                        setValue('state.opposingSweep', Boolean(v), {
-                            shouldValidate: true,
-                        })
-                    }
-                />
-            </div>
-
-            <div>
-                <Label className="mb-2 block text-xs tracking-wider text-muted-foreground uppercase">
-                    Recent displacement direction
-                </Label>
-                <ToggleGroup
-                    type="single"
-                    value={displacement}
-                    onValueChange={(v) =>
-                        v &&
-                        setValue(
-                            'state.displacement',
-                            v as 'toward' | 'away' | 'none',
-                            { shouldValidate: true },
-                        )
-                    }
-                    className="justify-start gap-2"
-                >
-                    <ToggleGroupItem
-                        value="toward"
-                        className="data-[state=on]:bg-emerald-500/20 data-[state=on]:text-emerald-500"
-                    >
-                        Toward DOL
-                    </ToggleGroupItem>
-                    <ToggleGroupItem
-                        value="away"
-                        className="data-[state=on]:bg-rose-500/20 data-[state=on]:text-rose-500"
-                    >
-                        Away
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="none">None yet</ToggleGroupItem>
-                </ToggleGroup>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                    <Label className="mb-2 block text-xs tracking-wider text-muted-foreground uppercase">
-                        Day type
-                    </Label>
-                    <RadioGroup
-                        value={dayType}
-                        onValueChange={(v) =>
-                            setValue(
-                                'state.dayType',
-                                v as 'balanced' | 'imbalanced',
-                                { shouldValidate: true },
-                            )
-                        }
-                        className="space-y-1"
-                    >
-                        {[
-                            { v: 'balanced', label: 'Balanced' },
-                            { v: 'imbalanced', label: 'Imbalanced' },
-                        ].map((opt) => (
-                            <label
-                                key={opt.v}
-                                htmlFor={`day-${opt.v}`}
-                                className="flex cursor-pointer items-center gap-2 rounded-md border border-border/60 p-2 text-sm"
-                            >
-                                <RadioGroupItem
-                                    id={`day-${opt.v}`}
-                                    value={opt.v}
-                                />
-                                {opt.label}
-                            </label>
-                        ))}
-                    </RadioGroup>
-                </div>
-
-                <div>
-                    <Label className="mb-2 block text-xs tracking-wider text-muted-foreground uppercase">
-                        Setup type
-                    </Label>
-                    <RadioGroup
-                        value={setupType}
-                        onValueChange={(v) =>
-                            setValue(
-                                'state.setupType',
-                                v as 'reversal' | 'continuation',
-                                { shouldValidate: true },
-                            )
-                        }
-                        className="space-y-1"
-                    >
-                        {[
-                            {
-                                v: 'reversal',
-                                label: 'Reversal at range extreme',
-                            },
-                            {
-                                v: 'continuation',
-                                label: 'Continuation toward HTF',
-                            },
-                        ].map((opt) => (
-                            <label
-                                key={opt.v}
-                                htmlFor={`setup-${opt.v}`}
-                                className="flex cursor-pointer items-center gap-2 rounded-md border border-border/60 p-2 text-sm"
-                            >
-                                <RadioGroupItem
-                                    id={`setup-${opt.v}`}
-                                    value={opt.v}
-                                />
-                                {opt.label}
-                            </label>
-                        ))}
-                    </RadioGroup>
-                </div>
-            </div>
-
-            <div
-                className={`rounded-md border p-3 text-xs ${
-                    coherent
-                        ? 'border-emerald-500/40 bg-emerald-500/5 text-emerald-500'
-                        : 'border-amber-500/40 bg-amber-500/5 text-amber-500'
-                }`}
-            >
-                {coherent
-                    ? 'Day type and setup type form a coherent narrative.'
-                    : 'Mismatch: balanced days favor reversal, imbalanced days favor continuation.'}
             </div>
         </div>
     );
 }
 
 function EntryStep({ plan }: { plan: TradingPlanRow }) {
-    const { watch, setValue } = useFormContext<FormValues>();
+    const { setValue, watch } = useFormContext<FormValues>();
     const confluences = watch('entry.confluences');
 
     const toggle = (k: ConfluenceKey) => {
@@ -816,19 +574,16 @@ function EntryStep({ plan }: { plan: TradingPlanRow }) {
                     confluences.includes(c),
                 );
                 return (
-                    <div key={group.label} className="space-y-2">
+                    <div className="space-y-2" key={group.label}>
                         <div className="flex items-center justify-between gap-2">
                             <Label className="text-xs tracking-wider text-muted-foreground uppercase">
                                 {group.label}
-                                <Badge variant="secondary" className="ml-2">
+                                <Badge className="ml-2" variant="secondary">
                                     {groupSelected.length} selected
                                 </Badge>
                             </Label>
                             <div className="flex items-center gap-2">
                                 <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
                                     onClick={() =>
                                         setValue(
                                             'entry.confluences',
@@ -841,13 +596,13 @@ function EntryStep({ plan }: { plan: TradingPlanRow }) {
                                             { shouldValidate: true },
                                         )
                                     }
+                                    size="sm"
+                                    type="button"
+                                    variant="outline"
                                 >
                                     Clear
                                 </Button>
                                 <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
                                     onClick={() => {
                                         const rest = confluences.filter(
                                             (c) =>
@@ -861,6 +616,9 @@ function EntryStep({ plan }: { plan: TradingPlanRow }) {
                                             { shouldValidate: true },
                                         );
                                     }}
+                                    size="sm"
+                                    type="button"
+                                    variant="outline"
                                 >
                                     All
                                 </Button>
@@ -869,8 +627,8 @@ function EntryStep({ plan }: { plan: TradingPlanRow }) {
                         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                             {items.map((c) => (
                                 <label
-                                    key={c}
                                     className="flex cursor-pointer items-center gap-2 rounded-md border border-border/60 p-2 text-sm transition hover:border-border"
+                                    key={c}
                                 >
                                     <Checkbox
                                         checked={confluences.includes(c)}
@@ -887,8 +645,210 @@ function EntryStep({ plan }: { plan: TradingPlanRow }) {
     );
 }
 
+function FinalsStep() {
+    const { register, setValue, watch } = useFormContext<FormValues>();
+    const dolTaken = watch('finals.dolAlreadyTaken');
+    const overExtended = watch('finals.overExtended');
+
+    return (
+        <div className="space-y-4">
+            <div className="flex items-center justify-between rounded-lg border border-rose-500/30 bg-rose-500/5 p-4">
+                <div>
+                    <p className="text-sm text-white">
+                        DOL already taken or invalidated
+                    </p>
+                    <p className="mt-0.5 text-xs text-rose-500">
+                        Knockout. If yes, the trade is invalid.
+                    </p>
+                </div>
+                <Switch
+                    checked={dolTaken}
+                    onCheckedChange={(v) =>
+                        setValue('finals.dolAlreadyTaken', v, {
+                            shouldValidate: true,
+                        })
+                    }
+                />
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-border/60 p-4">
+                <div>
+                    <p className="text-sm text-white">
+                        Market already expanded too far
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                        Soft flag — late entries get penalized in scoring.
+                    </p>
+                </div>
+                <Switch
+                    checked={overExtended}
+                    onCheckedChange={(v) =>
+                        setValue('finals.overExtended', v, {
+                            shouldValidate: true,
+                        })
+                    }
+                />
+            </div>
+            <div className="rounded-lg border border-border/60 p-4">
+                <Label className="text-sm" htmlFor="notes">
+                    Notes
+                </Label>
+                <Textarea
+                    id="notes"
+                    placeholder="Free-form context for the journal."
+                    rows={4}
+                    {...register('finals.notes')}
+                    className="mt-2"
+                />
+            </div>
+        </div>
+    );
+}
+
+function MentalStep() {
+    const { setValue, watch } = useFormContext<FormValues>();
+    const rows: {
+        name: keyof FormValues['mental'];
+        rule: string;
+        title: string;
+    }[] = [
+        {
+            name: 'hesitation',
+            rule: 'If technicals are met — execute. Don’t wait for extra confirmation from fear.',
+            title: 'Am I scared but the setup is valid?',
+        },
+        {
+            name: 'boredomHunt',
+            rule: 'If you hop timeframes hunting setups, it isn’t there. Walk away.',
+            title: 'Am I inventing a trade because I want to trade?',
+        },
+        {
+            name: 'revengeOrFomo',
+            rule: 'Don’t chase fills or force trades to recoup. Wait for the next clean session.',
+            title: 'Just missed a trade or took a loss?',
+        },
+        {
+            name: 'distracted',
+            rule: 'If full focus isn’t possible — do not trade.',
+            title: 'Distracted by anything?',
+        },
+    ];
+
+    return (
+        <div className="space-y-3">
+            {rows.map((r) => {
+                const checked = watch(`mental.${r.name}`);
+                return (
+                    <label
+                        className="flex cursor-pointer items-start gap-3 rounded-lg border border-border/60 bg-card p-4 transition hover:border-border"
+                        key={r.name}
+                    >
+                        <Switch
+                            checked={checked}
+                            className="mt-0.5"
+                            onCheckedChange={(v) =>
+                                setValue(`mental.${r.name}`, v, {
+                                    shouldValidate: true,
+                                })
+                            }
+                        />
+                        <div className="flex-1">
+                            <p className="text-sm font-medium text-white">
+                                {r.title}
+                            </p>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                                {r.rule}
+                            </p>
+                        </div>
+                        {checked && <Badge variant="destructive">flag</Badge>}
+                    </label>
+                );
+            })}
+        </div>
+    );
+}
+
+function RrStep({ plan }: { plan: TradingPlanRow }) {
+    const { setValue, watch } = useFormContext<FormValues>();
+    const accountType = watch('context.accountType');
+    const targetR = watch('rr.targetR');
+    const slippageR = watch('rr.slippageR');
+    const dollars =
+        accountType === 'funded'
+            ? plan.config.risk.fundedDollars
+            : plan.config.risk.evalDollars;
+    const expected = Math.max(0, targetR - slippageR);
+
+    return (
+        <div className="space-y-4">
+            <div className="rounded-lg border border-border/60 p-4">
+                <p className="text-xs tracking-wider text-muted-foreground uppercase">
+                    Risk this trade
+                </p>
+                <p className="mt-1 font-mono text-2xl text-white">
+                    ${dollars.toLocaleString()}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                    Based on {accountType === 'funded' ? 'funded' : 'eval'}{' '}
+                    account selection.
+                </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-lg border border-border/60 p-4">
+                    <Label className="text-sm" htmlFor="targetR">
+                        Target R
+                    </Label>
+                    <Input
+                        className="mt-2 text-white"
+                        id="targetR"
+                        onChange={(e) =>
+                            setValue('rr.targetR', e.target.valueAsNumber, {
+                                shouldValidate: true,
+                            })
+                        }
+                        step="0.1"
+                        type="number"
+                        value={Number.isNaN(targetR) ? '' : targetR}
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                        Plan minimum: {plan.config.setup.minRR}R
+                    </p>
+                </div>
+                <div className="rounded-lg border border-border/60 p-4">
+                    <Label className="text-sm" htmlFor="slippageR">
+                        Expected slippage (R)
+                    </Label>
+                    <Input
+                        className="mt-2 text-white"
+                        id="slippageR"
+                        onChange={(e) =>
+                            setValue('rr.slippageR', e.target.valueAsNumber, {
+                                shouldValidate: true,
+                            })
+                        }
+                        step="0.05"
+                        type="number"
+                        value={Number.isNaN(slippageR) ? '' : slippageR}
+                    />
+                </div>
+            </div>
+            <div
+                className={`rounded-md border p-3 text-sm font-medium ${
+                    expected >= plan.config.setup.minRR
+                        ? 'border-emerald-500/40 bg-emerald-500/5 text-emerald-500'
+                        : 'border-rose-500/40 bg-rose-500/5 text-rose-500'
+                }`}
+            >
+                Expected net: {expected.toFixed(2)}R{' '}
+                {expected >= plan.config.setup.minRR
+                    ? '— meets minimum'
+                    : `— below plan minimum of ${plan.config.setup.minRR}R`}
+            </div>
+        </div>
+    );
+}
+
 function SlStep({ plan }: { plan: TradingPlanRow }) {
-    const { watch, setValue } = useFormContext<FormValues>();
+    const { setValue, watch } = useFormContext<FormValues>();
     const ob = watch('sl.ob');
     const bb = watch('sl.bb');
     const swing = watch('sl.swing');
@@ -897,24 +857,24 @@ function SlStep({ plan }: { plan: TradingPlanRow }) {
     const ok = count >= required;
 
     const rows: {
-        name: keyof FormValues['sl'];
-        label: string;
         hint: string;
+        label: string;
+        name: keyof FormValues['sl'];
     }[] = [
         {
-            name: 'ob',
-            label: 'Stop paired with Order Block',
             hint: 'SL sits behind a clear OB structure.',
+            label: 'Stop paired with Order Block',
+            name: 'ob',
         },
         {
-            name: 'bb',
-            label: 'Stop paired with Breaker Block',
             hint: 'SL sits behind a clear BB structure.',
+            label: 'Stop paired with Breaker Block',
+            name: 'bb',
         },
         {
-            name: 'swing',
-            label: 'Stop at clear swing point',
             hint: 'SL is at a defined swing high/low, not a random level.',
+            label: 'Stop at clear swing point',
+            name: 'swing',
         },
     ];
 
@@ -924,18 +884,18 @@ function SlStep({ plan }: { plan: TradingPlanRow }) {
                 const v = watch(`sl.${r.name}`);
                 return (
                     <div
-                        key={r.name}
                         className="flex items-center justify-between rounded-lg border border-border/60 p-4"
+                        key={r.name}
                     >
                         <div className="flex items-start gap-3">
                             <Checkbox
                                 checked={v}
+                                className="mt-0.5"
                                 onCheckedChange={(x) =>
                                     setValue(`sl.${r.name}`, Boolean(x), {
                                         shouldValidate: true,
                                     })
                                 }
-                                className="mt-0.5"
                             />
                             <div>
                                 <p className="text-sm font-medium text-white">
@@ -963,141 +923,190 @@ function SlStep({ plan }: { plan: TradingPlanRow }) {
     );
 }
 
-function RrStep({ plan }: { plan: TradingPlanRow }) {
-    const { watch, setValue } = useFormContext<FormValues>();
-    const accountType = watch('context.accountType');
-    const targetR = watch('rr.targetR');
-    const slippageR = watch('rr.slippageR');
-    const dollars =
-        accountType === 'funded'
-            ? plan.config.risk.fundedDollars
-            : plan.config.risk.evalDollars;
-    const expected = Math.max(0, targetR - slippageR);
+function StateStep() {
+    const { setValue, watch } = useFormContext<FormValues>();
+    const sweep = watch('state.opposingSweep');
+    const displacement = watch('state.displacement');
+    const dayType = watch('state.dayType');
+    const setupType = watch('state.setupType');
+
+    const coherent =
+        (dayType === 'balanced' && setupType === 'reversal') ||
+        (dayType === 'imbalanced' && setupType === 'continuation');
 
     return (
         <div className="space-y-4">
-            <div className="rounded-lg border border-border/60 p-4">
-                <p className="text-xs tracking-wider text-muted-foreground uppercase">
-                    Risk this trade
-                </p>
-                <p className="mt-1 font-mono text-2xl text-white">
-                    ${dollars.toLocaleString()}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                    Based on {accountType === 'funded' ? 'funded' : 'eval'}{' '}
-                    account selection.
-                </p>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-lg border border-border/60 p-4">
-                    <Label htmlFor="targetR" className="text-sm">
-                        Target R
-                    </Label>
-                    <Input
-                        id="targetR"
-                        type="number"
-                        step="0.1"
-                        value={Number.isNaN(targetR) ? '' : targetR}
-                        onChange={(e) =>
-                            setValue('rr.targetR', e.target.valueAsNumber, {
-                                shouldValidate: true,
-                            })
-                        }
-                        className="mt-2 text-white"
-                    />
-                    <p className="mt-1 text-xs text-muted-foreground">
-                        Plan minimum: {plan.config.setup.minRR}R
+            <div className="flex items-center justify-between rounded-lg border border-border/60 p-4">
+                <div>
+                    <p className="text-sm font-medium text-white">
+                        Recent sweep of opposing liquidity
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                        Did price recently take stops in the opposite direction?
                     </p>
                 </div>
-                <div className="rounded-lg border border-border/60 p-4">
-                    <Label htmlFor="slippageR" className="text-sm">
-                        Expected slippage (R)
+                <Switch
+                    checked={sweep}
+                    onCheckedChange={(v) =>
+                        setValue('state.opposingSweep', v, {
+                            shouldValidate: true,
+                        })
+                    }
+                />
+            </div>
+
+            <div>
+                <Label className="mb-2 block text-xs tracking-wider text-muted-foreground uppercase">
+                    Recent displacement direction
+                </Label>
+                <ToggleGroup
+                    className="justify-start gap-2"
+                    onValueChange={(v) =>
+                        v &&
+                        setValue(
+                            'state.displacement',
+                            v as 'away' | 'none' | 'toward',
+                            { shouldValidate: true },
+                        )
+                    }
+                    type="single"
+                    value={displacement}
+                >
+                    <ToggleGroupItem
+                        className="data-[state=on]:bg-emerald-500/20 data-[state=on]:text-emerald-500"
+                        value="toward"
+                    >
+                        Toward DOL
+                    </ToggleGroupItem>
+                    <ToggleGroupItem
+                        className="data-[state=on]:bg-rose-500/20 data-[state=on]:text-rose-500"
+                        value="away"
+                    >
+                        Away
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="none">None yet</ToggleGroupItem>
+                </ToggleGroup>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                    <Label className="mb-2 block text-xs tracking-wider text-muted-foreground uppercase">
+                        Day type
                     </Label>
-                    <Input
-                        id="slippageR"
-                        type="number"
-                        step="0.05"
-                        value={Number.isNaN(slippageR) ? '' : slippageR}
-                        onChange={(e) =>
-                            setValue('rr.slippageR', e.target.valueAsNumber, {
-                                shouldValidate: true,
-                            })
+                    <RadioGroup
+                        className="space-y-1"
+                        onValueChange={(v) =>
+                            setValue(
+                                'state.dayType',
+                                v as 'balanced' | 'imbalanced',
+                                { shouldValidate: true },
+                            )
                         }
-                        className="mt-2 text-white"
-                    />
+                        value={dayType}
+                    >
+                        {[
+                            { label: 'Balanced', v: 'balanced' },
+                            { label: 'Imbalanced', v: 'imbalanced' },
+                        ].map((opt) => (
+                            <label
+                                className="flex cursor-pointer items-center gap-2 rounded-md border border-border/60 p-2 text-sm"
+                                htmlFor={`day-${opt.v}`}
+                                key={opt.v}
+                            >
+                                <RadioGroupItem
+                                    id={`day-${opt.v}`}
+                                    value={opt.v}
+                                />
+                                {opt.label}
+                            </label>
+                        ))}
+                    </RadioGroup>
+                </div>
+
+                <div>
+                    <Label className="mb-2 block text-xs tracking-wider text-muted-foreground uppercase">
+                        Setup type
+                    </Label>
+                    <RadioGroup
+                        className="space-y-1"
+                        onValueChange={(v) =>
+                            setValue(
+                                'state.setupType',
+                                v as 'continuation' | 'reversal',
+                                { shouldValidate: true },
+                            )
+                        }
+                        value={setupType}
+                    >
+                        {[
+                            {
+                                label: 'Reversal at range extreme',
+                                v: 'reversal',
+                            },
+                            {
+                                label: 'Continuation toward HTF',
+                                v: 'continuation',
+                            },
+                        ].map((opt) => (
+                            <label
+                                className="flex cursor-pointer items-center gap-2 rounded-md border border-border/60 p-2 text-sm"
+                                htmlFor={`setup-${opt.v}`}
+                                key={opt.v}
+                            >
+                                <RadioGroupItem
+                                    id={`setup-${opt.v}`}
+                                    value={opt.v}
+                                />
+                                {opt.label}
+                            </label>
+                        ))}
+                    </RadioGroup>
                 </div>
             </div>
+
             <div
-                className={`rounded-md border p-3 text-sm font-medium ${
-                    expected >= plan.config.setup.minRR
+                className={`rounded-md border p-3 text-xs ${
+                    coherent
                         ? 'border-emerald-500/40 bg-emerald-500/5 text-emerald-500'
-                        : 'border-rose-500/40 bg-rose-500/5 text-rose-500'
+                        : 'border-amber-500/40 bg-amber-500/5 text-amber-500'
                 }`}
             >
-                Expected net: {expected.toFixed(2)}R{' '}
-                {expected >= plan.config.setup.minRR
-                    ? '— meets minimum'
-                    : `— below plan minimum of ${plan.config.setup.minRR}R`}
+                {coherent
+                    ? 'Day type and setup type form a coherent narrative.'
+                    : 'Mismatch: balanced days favor reversal, imbalanced days favor continuation.'}
             </div>
         </div>
     );
 }
 
-function FinalsStep() {
-    const { watch, setValue, register } = useFormContext<FormValues>();
-    const dolTaken = watch('finals.dolAlreadyTaken');
-    const overExtended = watch('finals.overExtended');
-
-    return (
-        <div className="space-y-4">
-            <div className="flex items-center justify-between rounded-lg border border-rose-500/30 bg-rose-500/5 p-4">
-                <div>
-                    <p className="text-sm text-white">
-                        DOL already taken or invalidated
-                    </p>
-                    <p className="mt-0.5 text-xs text-rose-500">
-                        Knockout. If yes, the trade is invalid.
-                    </p>
-                </div>
-                <Switch
-                    checked={dolTaken}
-                    onCheckedChange={(v) =>
-                        setValue('finals.dolAlreadyTaken', Boolean(v), {
-                            shouldValidate: true,
-                        })
-                    }
-                />
-            </div>
-            <div className="flex items-center justify-between rounded-lg border border-border/60 p-4">
-                <div>
-                    <p className="text-sm text-white">
-                        Market already expanded too far
-                    </p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                        Soft flag — late entries get penalized in scoring.
-                    </p>
-                </div>
-                <Switch
-                    checked={overExtended}
-                    onCheckedChange={(v) =>
-                        setValue('finals.overExtended', Boolean(v), {
-                            shouldValidate: true,
-                        })
-                    }
-                />
-            </div>
-            <div className="rounded-lg border border-border/60 p-4">
-                <Label htmlFor="notes" className="text-sm">
-                    Notes
-                </Label>
-                <Textarea
-                    id="notes"
-                    placeholder="Free-form context for the journal."
-                    rows={4}
-                    {...register('finals.notes')}
-                    className="mt-2"
-                />
-            </div>
-        </div>
-    );
+function StepBody({ plan, stepId }: { plan: TradingPlanRow; stepId: StepId }) {
+    switch (stepId) {
+        case 'bias': {
+            return <BiasStep />;
+        }
+        case 'context': {
+            return <ContextStep plan={plan} />;
+        }
+        case 'dol': {
+            return <DolStep plan={plan} />;
+        }
+        case 'entry': {
+            return <EntryStep plan={plan} />;
+        }
+        case 'finals': {
+            return <FinalsStep />;
+        }
+        case 'mental': {
+            return <MentalStep />;
+        }
+        case 'rr': {
+            return <RrStep plan={plan} />;
+        }
+        case 'sl': {
+            return <SlStep plan={plan} />;
+        }
+        case 'state': {
+            return <StateStep />;
+        }
+    }
 }

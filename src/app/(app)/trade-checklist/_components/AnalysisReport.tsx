@@ -13,14 +13,6 @@ import {
 } from 'lucide-react';
 import { useMemo, useState, useTransition } from 'react';
 
-import { Alert, AlertDescription } from '~/components/ui/Alert';
-import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import { Progress } from '~/components/ui/Progress';
-import { Separator } from '~/components/ui/Separator';
-import { saveAssessment } from '~/lib/trading-actions';
-import { WEIGHT_CATEGORIES } from '~/lib/trading-defaults';
 import type {
     Answers,
     AssessmentResult,
@@ -30,17 +22,26 @@ import type {
     TradingPlanRow,
 } from '~/lib/trading-types';
 
+import { Alert, AlertDescription } from '~/components/ui/Alert';
+import { Badge } from '~/components/ui/Badge';
+import { Button } from '~/components/ui/Button';
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
+import { Progress } from '~/components/ui/Progress';
+import { Separator } from '~/components/ui/Separator';
+import { saveAssessment } from '~/lib/trading-actions';
+import { WEIGHT_CATEGORIES } from '~/lib/trading-defaults';
+
 import { OutcomeDialog } from './OutcomeDialog';
 
 const gradeColor: Record<Grade, string> = {
-    'A+': 'text-emerald-400',
     A: 'text-emerald-400',
+    'A+': 'text-emerald-400',
     'A-': 'text-emerald-300',
-    'B+': 'text-emerald-300',
     B: 'text-amber-300',
+    'B+': 'text-emerald-300',
     'B-': 'text-amber-300',
-    'C+': 'text-amber-400',
     C: 'text-orange-400',
+    'C+': 'text-amber-400',
     'C-': 'text-orange-400',
     D: 'text-rose-500',
     F: 'text-rose-500',
@@ -48,40 +49,40 @@ const gradeColor: Record<Grade, string> = {
 
 const recoMeta: Record<
     Recommendation,
-    { label: string; tone: 'success' | 'warning' | 'destructive' }
+    { label: string; tone: 'destructive' | 'success' | 'warning' }
 > = {
-    'strong-take': { label: 'Strong take', tone: 'success' },
-    take: { label: 'Take', tone: 'success' },
+    'hard-skip': { label: 'Hard skip', tone: 'destructive' },
     marginal: { label: 'Marginal', tone: 'warning' },
     skip: { label: 'Skip', tone: 'destructive' },
-    'hard-skip': { label: 'Hard skip', tone: 'destructive' },
+    'strong-take': { label: 'Strong take', tone: 'success' },
+    take: { label: 'Take', tone: 'success' },
 };
 
 const recoBadgeVariant: Record<
-    'success' | 'warning' | 'destructive',
-    'default' | 'destructive' | 'secondary' | 'outline'
+    'destructive' | 'success' | 'warning',
+    'default' | 'destructive' | 'outline' | 'secondary'
 > = {
+    destructive: 'destructive',
     success: 'default',
     warning: 'secondary',
-    destructive: 'destructive',
 };
 
 export function AnalysisReport({
-    plan,
     answers,
-    result,
     history,
-    savedId,
-    onSaved,
     onRestart,
+    onSaved,
+    plan,
+    result,
+    savedId,
 }: {
-    plan: TradingPlanRow;
     answers: Answers;
-    result: AssessmentResult;
     history: TradeAssessmentRow[];
-    savedId: string | null;
-    onSaved: (id: string) => void;
     onRestart: () => void;
+    onSaved: (id: string) => void;
+    plan: TradingPlanRow;
+    result: AssessmentResult;
+    savedId: null | string;
 }) {
     const [savePending, startSave] = useTransition();
     const [outcomeOpen, setOutcomeOpen] = useState(false);
@@ -104,9 +105,9 @@ export function AnalysisReport({
         if (savedId) return;
         startSave(async () => {
             const { id } = await saveAssessment({
+                answers,
                 planId: plan.id,
                 planSnapshot: plan.config,
-                answers,
                 result,
             });
             onSaved(id);
@@ -115,19 +116,19 @@ export function AnalysisReport({
 
     return (
         <motion.div
-            initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25 }}
             className="space-y-6"
+            initial={{ opacity: 0, y: 8 }}
+            transition={{ duration: 0.25 }}
         >
             <Card className="overflow-hidden">
                 <CardContent className="grid gap-8 md:grid-cols-[auto_1fr]">
                     <div className="flex flex-col items-center justify-center">
                         <motion.div
-                            initial={{ scale: 0.6, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            transition={{ type: 'spring', stiffness: 200 }}
+                            animate={{ opacity: 1, scale: 1 }}
                             className={`font-orbitron text-[6rem] leading-none font-bold tracking-tight ${gradeColor[result.grade]}`}
+                            initial={{ opacity: 0, scale: 0.6 }}
+                            transition={{ stiffness: 200, type: 'spring' }}
                         >
                             {result.grade}
                         </motion.div>
@@ -139,8 +140,8 @@ export function AnalysisReport({
                     <div className="space-y-4">
                         <div>
                             <Badge
-                                variant={recoBadgeVariant[reco.tone]}
                                 className="text-sm uppercase"
+                                variant={recoBadgeVariant[reco.tone]}
                             >
                                 {reco.label}
                             </Badge>
@@ -190,7 +191,7 @@ export function AnalysisReport({
             </Card>
 
             {result.redFlags.length > 0 && (
-                <Alert variant="destructive" persistent>
+                <Alert persistent variant="destructive">
                     <AlertTriangle className="size-4" />
                     <AlertDescription>
                         <div className="font-medium">Red flags</div>
@@ -209,7 +210,7 @@ export function AnalysisReport({
                 </CardHeader>
                 <Separator />
                 <CardContent className="grid gap-4 sm:grid-cols-2">
-                    {WEIGHT_CATEGORIES.map(({ key, label, hint }) => {
+                    {WEIGHT_CATEGORIES.map(({ hint, key, label }) => {
                         const s = result.componentScores[key];
                         const pct =
                             s.max > 0
@@ -217,8 +218,8 @@ export function AnalysisReport({
                                 : 0;
                         return (
                             <div
-                                key={key}
                                 className="rounded-lg border border-border/60 p-3"
+                                key={key}
                             >
                                 <div className="flex items-baseline justify-between">
                                     <p className="text-sm font-medium text-white">
@@ -228,7 +229,7 @@ export function AnalysisReport({
                                         {s.earned.toFixed(1)} / {s.max}
                                     </p>
                                 </div>
-                                <Progress value={pct} className="mt-2" />
+                                <Progress className="mt-2" value={pct} />
                                 <p className="mt-1.5 text-xs text-muted-foreground">
                                     {s.note || hint}
                                 </p>
@@ -252,8 +253,8 @@ export function AnalysisReport({
                             <ul className="space-y-2 text-sm">
                                 {result.strengths.map((s, i) => (
                                     <li
-                                        key={i}
                                         className="flex items-start gap-2"
+                                        key={i}
                                     >
                                         <ArrowRight className="mt-0.5 size-4 shrink-0 text-emerald-500" />
                                         <span>{s}</span>
@@ -281,8 +282,8 @@ export function AnalysisReport({
                             <ul className="space-y-2 text-sm">
                                 {result.weaknesses.map((w, i) => (
                                     <li
-                                        key={i}
                                         className="flex items-start gap-2"
+                                        key={i}
                                     >
                                         <ArrowRight className="mt-0.5 size-4 shrink-0 text-rose-500" />
                                         <span>{w}</span>
@@ -310,7 +311,7 @@ export function AnalysisReport({
                     <CardContent>
                         <ul className="space-y-2 text-sm">
                             {result.improvements.map((imp, i) => (
-                                <li key={i} className="flex items-start gap-2">
+                                <li className="flex items-start gap-2" key={i}>
                                     <ArrowRight className="mt-0.5 size-4 shrink-0 text-sky-400" />
                                     <span>{imp}</span>
                                 </li>
@@ -336,24 +337,24 @@ export function AnalysisReport({
                             />
                             <Stat
                                 label="Win rate"
-                                value={`${(comparable.winRate * 100).toFixed(0)}%`}
                                 tone={
                                     comparable.winRate >= 0.55
                                         ? 'good'
                                         : undefined
                                 }
+                                value={`${(comparable.winRate * 100).toFixed(0)}%`}
                             />
                             <Stat
                                 label="Avg R"
-                                value={`${comparable.avgR > 0 ? '+' : ''}${comparable.avgR.toFixed(2)}`}
                                 tone={comparable.avgR > 0 ? 'good' : 'bad'}
+                                value={`${comparable.avgR > 0 ? '+' : ''}${comparable.avgR.toFixed(2)}`}
                             />
                             <Stat
                                 label="Expectancy"
-                                value={`${comparable.expectancy > 0 ? '+' : ''}${comparable.expectancy.toFixed(2)}R`}
                                 tone={
                                     comparable.expectancy > 0 ? 'good' : 'bad'
                                 }
+                                value={`${comparable.expectancy > 0 ? '+' : ''}${comparable.expectancy.toFixed(2)}R`}
                             />
                         </div>
                     ) : (
@@ -368,15 +369,15 @@ export function AnalysisReport({
             </Card>
 
             <div className="flex flex-wrap items-center justify-end gap-2 pt-4">
-                <Button variant="ghost" onClick={onRestart}>
+                <Button onClick={onRestart} variant="ghost">
                     <RotateCcw className="mr-1 size-4" />
                     Restart
                 </Button>
                 {savedId ? (
                     <>
                         <Badge
-                            variant="secondary"
                             className="font-mono text-xs"
+                            variant="secondary"
                         >
                             <BookmarkCheck className="mr-1 size-3" />
                             Saved
@@ -388,19 +389,19 @@ export function AnalysisReport({
                 ) : (
                     <>
                         <Button
-                            variant="outline"
-                            onClick={persist}
                             disabled={savePending}
+                            onClick={persist}
+                            variant="outline"
                         >
                             <Save className="mr-1 size-4" />
                             Save assessment
                         </Button>
                         <Button
+                            disabled={savePending}
                             onClick={() => {
                                 persist();
                                 setOutcomeOpen(true);
                             }}
-                            disabled={savePending}
                         >
                             Save &amp; record outcome
                         </Button>
@@ -411,22 +412,64 @@ export function AnalysisReport({
             {savedId && (
                 <OutcomeDialog
                     assessmentId={savedId}
-                    open={outcomeOpen}
                     onOpenChange={setOutcomeOpen}
+                    open={outcomeOpen}
                 />
             )}
         </motion.div>
     );
 }
 
+function comparableStats(grade: Grade, history: TradeAssessmentRow[]) {
+    const peers = history.filter(
+        (h) => h.grade === grade && h.outcome !== null,
+    );
+    const sample = peers.length;
+    if (sample === 0) {
+        return { avgR: 0, expectancy: 0, sample, winRate: 0 };
+    }
+    const wins = peers.filter((p) => p.outcome === 'win').length;
+    const winRate = wins / sample;
+    const rs = peers
+        .map((p) => p.outcomeR)
+        .filter((r): r is number => typeof r === 'number');
+    const avgR = rs.length > 0 ? rs.reduce((s, r) => s + r, 0) / rs.length : 0;
+    return { avgR, expectancy: avgR, sample, winRate };
+}
+
+function recommendationHeadline(
+    rec: Recommendation,
+    sized: number,
+    base: number,
+): string {
+    switch (rec) {
+        case 'hard-skip': {
+            return 'Hard skip — do not trade.';
+        }
+        case 'marginal': {
+            if (sized === 0) return 'Sit this one out.';
+            return `Marginal setup — consider reduced size ($${sized.toLocaleString()} vs $${base.toLocaleString()} standard).`;
+        }
+        case 'skip': {
+            return 'Skip this setup.';
+        }
+        case 'strong-take': {
+            return `Take this trade at full risk ($${sized.toLocaleString()}).`;
+        }
+        case 'take': {
+            return `Take this trade ($${sized.toLocaleString()}).`;
+        }
+    }
+}
+
 function Stat({
     label,
-    value,
     tone,
+    value,
 }: {
     label: string;
+    tone?: 'bad' | 'good';
     value: string;
-    tone?: 'good' | 'bad';
 }) {
     const color =
         tone === 'good'
@@ -445,41 +488,4 @@ function Stat({
             </p>
         </div>
     );
-}
-
-function comparableStats(grade: Grade, history: TradeAssessmentRow[]) {
-    const peers = history.filter(
-        (h) => h.grade === grade && h.outcome !== null,
-    );
-    const sample = peers.length;
-    if (sample === 0) {
-        return { sample, winRate: 0, avgR: 0, expectancy: 0 };
-    }
-    const wins = peers.filter((p) => p.outcome === 'win').length;
-    const winRate = wins / sample;
-    const rs = peers
-        .map((p) => p.outcomeR)
-        .filter((r): r is number => typeof r === 'number');
-    const avgR = rs.length > 0 ? rs.reduce((s, r) => s + r, 0) / rs.length : 0;
-    return { sample, winRate, avgR, expectancy: avgR };
-}
-
-function recommendationHeadline(
-    rec: Recommendation,
-    sized: number,
-    base: number,
-): string {
-    switch (rec) {
-        case 'strong-take':
-            return `Take this trade at full risk ($${sized.toLocaleString()}).`;
-        case 'take':
-            return `Take this trade ($${sized.toLocaleString()}).`;
-        case 'marginal':
-            if (sized === 0) return 'Sit this one out.';
-            return `Marginal setup — consider reduced size ($${sized.toLocaleString()} vs $${base.toLocaleString()} standard).`;
-        case 'skip':
-            return 'Skip this setup.';
-        case 'hard-skip':
-            return 'Hard skip — do not trade.';
-    }
 }

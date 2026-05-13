@@ -23,8 +23,8 @@ export default async function ForgotPasswordPage({
         <div className="flex min-h-screen items-center justify-center px-4">
             <div className="w-full max-w-sm">
                 <Link
-                    href="/"
                     className="mb-8 block text-center font-orbitron text-lg font-semibold tracking-widest text-white"
+                    href="/"
                 >
                     sadra.nl
                 </Link>
@@ -51,8 +51,8 @@ export default async function ForgotPasswordPage({
                     <CardFooter className="mt-2 flex flex-col gap-3">
                         <p className="text-center text-sm text-muted-foreground">
                             <Link
-                                href="/login"
                                 className="text-foreground underline underline-offset-4 hover:opacity-70"
+                                href="/login"
                             >
                                 Back to sign in
                             </Link>

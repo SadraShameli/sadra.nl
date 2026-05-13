@@ -24,8 +24,8 @@ export default function SocialsSection() {
 
                             <div className="mx-auto py-8 lg:py-16">
                                 <Link
-                                    href={profile.url}
                                     aria-label={profile.title}
+                                    href={profile.url}
                                 >
                                     <div className="size-12 transition hover:opacity-50">
                                         {profile.icon}

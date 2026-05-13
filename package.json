@@ -5,15 +5,16 @@
     "type": "module",
     "scripts": {
         "build": "next build",
-        "check": "eslint . --cache --cache-strategy content && tsc --noEmit",
+        "check": "bun run format:write && eslint . && bun run stylelint && bun run typecheck && bun run knip",
         "db:generate": "drizzle-kit generate",
         "db:migrate": "drizzle-kit migrate",
         "db:push": "drizzle-kit push",
         "db:seed": "bun --env-file .env ./src/server/db/seed.ts",
         "db:studio": "drizzle-kit studio",
         "dev": "next dev",
-        "format": "prettier --check \"**/*.{ts,tsx,js,jsx,mjs,cjs,mdx,md,json,yml,yaml}\" --cache",
-        "format:write": "prettier --write \"**/*.{ts,tsx,js,jsx,mjs,cjs,mdx,md,json,yml,yaml}\" --cache",
+        "format": "prettier --check \"**/*.{ts,tsx,js,jsx,mjs,cjs,mdx,md,json,yml,yaml}\"",
+        "format:write": "prettier --write \"**/*.{ts,tsx,js,jsx,mjs,cjs,mdx,md,json,yml,yaml}\"",
+        "knip": "knip",
         "ncu": "bunx npm-check-updates --interactive --format group",
         "prepare": "husky",
         "preview": "next build && next start",
@@ -24,17 +25,17 @@
     },
     "lint-staged": {
         "*.{ts,tsx,js,jsx,mjs,cjs}": [
-            "eslint --fix --cache --cache-strategy content",
-            "prettier --write --cache"
+            "eslint --fix",
+            "prettier --write"
         ],
         "*.{css,scss}": [
             "stylelint --fix --quiet"
         ],
         "*.{md,mdx,yml,yaml}": [
-            "prettier --write --cache"
+            "prettier --write"
         ],
         "*.json": [
-            "prettier --write --cache"
+            "prettier --write"
         ],
         "package.json": [
             "sort-package-json"
@@ -74,6 +75,7 @@
         "bcryptjs": "^3.0.3",
         "caniuse-lite": "^1.0.30001792",
         "class-variance-authority": "^0.7.1",
+        "clsx": "^2.1.1",
         "date-fns": "^4.1.0",
         "drizzle-orm": "^0.45.2",
         "drizzle-zod": "^0.8.3",
@@ -102,32 +104,31 @@
         "zod": "^4.4.3"
     },
     "devDependencies": {
-        "@eslint/eslintrc": "^3.3.5",
-        "@eslint/js": "^10.0.1",
+        "@next/eslint-plugin-next": "^16.2.6",
         "@tailwindcss/postcss": "^4.3.0",
         "@tailwindcss/typography": "^0.5.19",
         "@types/bcryptjs": "^3.0.0",
-        "@types/eslint": "^9.6.1",
         "@types/node": "^25.7.0",
         "@types/pg": "^8.20.0",
         "@types/react": "^19.2.14",
         "@types/react-dom": "^19.2.3",
-        "@typescript-eslint/eslint-plugin": "^8.59.3",
-        "@typescript-eslint/parser": "^8.59.3",
         "@vercel/analytics": "^2.0.1",
         "@vercel/speed-insights": "^2.0.0",
         "cssnano": "^8.0.1",
         "cssnano-preset-default": "^8.0.1",
         "drizzle-kit": "^0.31.10",
         "eslint": "^10.3.0",
-        "eslint-config-next": "^16.2.6",
         "eslint-plugin-drizzle": "^0.2.3",
         "eslint-plugin-jsx-a11y": "^6.10.2",
-        "eslint-plugin-simple-import-sort": "^13.0.0",
-        "eslint-plugin-tailwindcss": "^3.18.3",
+        "eslint-plugin-perfectionist": "^5.9.0",
+        "eslint-plugin-promise": "^7.3.0",
+        "eslint-plugin-react-hooks": "^7.0.1",
+        "eslint-plugin-unicorn": "^64.0.0",
         "husky": "^9.1.7",
+        "knip": "^6.13.1",
         "lint-staged": "^17.0.4",
         "postcss": "^8.5.14",
+        "postcss-scss": "^4.0.9",
         "prettier": "^3.8.3",
         "prettier-plugin-tailwindcss": "^0.8.0",
         "sass": "^1.99.0",
@@ -137,7 +138,6 @@
         "stylelint-order": "^8.1.1",
         "tailwind-merge": "^3.6.0",
         "tailwindcss": "^4.3.0",
-        "tailwindcss-animate": "^1.0.7",
         "typescript": "^6.0.3",
         "typescript-eslint": "^8.59.3"
     },

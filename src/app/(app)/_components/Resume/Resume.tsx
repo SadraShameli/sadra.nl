@@ -1,40 +1,41 @@
-import SectionTitle from '~/components/SectionTitle';
 import type { ResumeSectionView } from '~/lib/content';
+
+import SectionTitle from '~/components/SectionTitle';
 
 import ResumeItem from './ResumeItem';
 
 export type ResumeContentProps = {
-    projectsSectionTitle: string;
-    experienceSectionTitle: string;
-    educationSectionTitle: string;
-    projects: ResumeSectionView[];
-    experience: ResumeSectionView[];
     education: ResumeSectionView[];
+    educationSectionTitle: string;
+    experience: ResumeSectionView[];
+    experienceSectionTitle: string;
+    projects: ResumeSectionView[];
+    projectsSectionTitle: string;
 };
 
 export default function ResumeContent({
-    projectsSectionTitle,
-    experienceSectionTitle,
-    educationSectionTitle,
-    projects,
-    experience,
     education,
+    educationSectionTitle,
+    experience,
+    experienceSectionTitle,
+    projects,
+    projectsSectionTitle,
 }: ResumeContentProps) {
     return (
         <div className="grid gap-y-10">
             <section>
                 <SectionTitle text={projectsSectionTitle} />
-                <ResumeItem title="Projects" sections={projects} />
+                <ResumeItem sections={projects} title="Projects" />
             </section>
 
             <section className="pt-spacing">
                 <SectionTitle text={experienceSectionTitle} />
-                <ResumeItem title="Experience" sections={experience} />
+                <ResumeItem sections={experience} title="Experience" />
             </section>
 
             <section className="pt-spacing">
                 <SectionTitle text={educationSectionTitle} />
-                <ResumeItem title="Education" sections={education} />
+                <ResumeItem sections={education} title="Education" />
             </section>
         </div>
     );

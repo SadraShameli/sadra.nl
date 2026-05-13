@@ -23,30 +23,30 @@ import {
 } from '~/lib/schemas/auth';
 
 export function UpdatePasswordForm({
-    hasPassword,
     hasEmail,
+    hasPassword,
 }: {
-    hasPassword: boolean;
     hasEmail: boolean;
+    hasPassword: boolean;
 }) {
     const [pending, startTransition] = useTransition();
 
     const changeForm = useForm<UpdatePasswordInput>({
-        resolver: zodResolver(updatePasswordInputSchema),
-        defaultValues: { current: '', password: '', confirm: '' },
+        defaultValues: { confirm: '', current: '', password: '' },
         mode: 'onTouched',
+        resolver: zodResolver(updatePasswordInputSchema),
     });
 
     const setForm = useForm<SetPasswordInput>({
-        resolver: zodResolver(setPasswordInputSchema),
-        defaultValues: { password: '', confirm: '' },
+        defaultValues: { confirm: '', password: '' },
         mode: 'onTouched',
+        resolver: zodResolver(setPasswordInputSchema),
     });
 
     const onChangeSubmit = (data: UpdatePasswordInput) => {
         startTransition(async () => {
             await updatePassword(data);
-            changeForm.reset({ current: '', password: '', confirm: '' });
+            changeForm.reset({ confirm: '', current: '', password: '' });
         });
     };
 
@@ -69,8 +69,8 @@ export function UpdatePasswordForm({
         return (
             <Form {...setForm}>
                 <form
-                    onSubmit={setForm.handleSubmit(onSetSubmit)}
                     className="flex flex-col gap-3"
+                    onSubmit={setForm.handleSubmit(onSetSubmit)}
                 >
                     <FormField
                         control={setForm.control}
@@ -80,9 +80,9 @@ export function UpdatePasswordForm({
                                 <FormLabel>Password</FormLabel>
                                 <FormControl>
                                     <Input
-                                        type="password"
-                                        placeholder="••••••••"
                                         autoComplete="new-password"
+                                        placeholder="••••••••"
+                                        type="password"
                                         {...field}
                                     />
                                 </FormControl>
@@ -98,9 +98,9 @@ export function UpdatePasswordForm({
                                 <FormLabel>Confirm password</FormLabel>
                                 <FormControl>
                                     <Input
-                                        type="password"
-                                        placeholder="••••••••"
                                         autoComplete="new-password"
+                                        placeholder="••••••••"
+                                        type="password"
                                         {...field}
                                     />
                                 </FormControl>
@@ -109,9 +109,9 @@ export function UpdatePasswordForm({
                         )}
                     />
                     <Button
-                        type="submit"
                         className="mt-2 self-start"
                         disabled={pending}
+                        type="submit"
                     >
                         {pending ? 'Setting…' : 'Set password'}
                     </Button>
@@ -123,8 +123,8 @@ export function UpdatePasswordForm({
     return (
         <Form {...changeForm}>
             <form
-                onSubmit={changeForm.handleSubmit(onChangeSubmit)}
                 className="flex flex-col gap-3"
+                onSubmit={changeForm.handleSubmit(onChangeSubmit)}
             >
                 <FormField
                     control={changeForm.control}
@@ -134,9 +134,9 @@ export function UpdatePasswordForm({
                             <FormLabel>Current password</FormLabel>
                             <FormControl>
                                 <Input
-                                    type="password"
-                                    placeholder="••••••••"
                                     autoComplete="current-password"
+                                    placeholder="••••••••"
+                                    type="password"
                                     {...field}
                                 />
                             </FormControl>
@@ -152,9 +152,9 @@ export function UpdatePasswordForm({
                             <FormLabel>New password</FormLabel>
                             <FormControl>
                                 <Input
-                                    type="password"
-                                    placeholder="••••••••"
                                     autoComplete="new-password"
+                                    placeholder="••••••••"
+                                    type="password"
                                     {...field}
                                 />
                             </FormControl>
@@ -170,9 +170,9 @@ export function UpdatePasswordForm({
                             <FormLabel>Confirm new password</FormLabel>
                             <FormControl>
                                 <Input
-                                    type="password"
-                                    placeholder="••••••••"
                                     autoComplete="new-password"
+                                    placeholder="••••••••"
+                                    type="password"
                                     {...field}
                                 />
                             </FormControl>
@@ -181,9 +181,9 @@ export function UpdatePasswordForm({
                     )}
                 />
                 <Button
-                    type="submit"
                     className="mt-2 self-start"
                     disabled={pending}
+                    type="submit"
                 >
                     {pending ? 'Changing…' : 'Change password'}
                 </Button>

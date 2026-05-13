@@ -9,20 +9,20 @@ import {
 } from '~/components/ui/Chart';
 
 type AreaChartNewProps = {
-    data: unknown[] | undefined;
+    area: {
+        dataKey: string;
+    };
     config: ChartConfig;
+    data: undefined | unknown[];
+    tooltip: {
+        labelKey: string;
+        nameKey: string;
+    };
     xAxis: {
         dataKey: string;
     };
     yAxis: {
         tickFormatter: (value: number, index: number) => string;
-    };
-    area: {
-        dataKey: string;
-    };
-    tooltip: {
-        labelKey: string;
-        nameKey: string;
     };
 };
 
@@ -33,7 +33,7 @@ export default function AreaChartNew(props: AreaChartNewProps) {
         <ChartContainer className="h-full w-full" config={props.config}>
             <AreaChart data={props.data}>
                 <defs>
-                    <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient id={id} x1="0" x2="0" y1="0" y2="1">
                         <stop
                             offset="5%"
                             stopColor="#525151"
@@ -49,32 +49,32 @@ export default function AreaChartNew(props: AreaChartNewProps) {
                 </defs>
 
                 <XAxis
+                    axisLine={false}
                     dataKey={props.xAxis.dataKey}
                     tickLine={false}
                     tickMargin={10}
-                    axisLine={false}
                 />
 
                 <YAxis
-                    tickLine={false}
                     axisLine={false}
                     tickFormatter={props.yAxis.tickFormatter}
+                    tickLine={false}
                 />
 
                 <Area
                     dataKey={props.area.dataKey}
-                    type="monotone"
-                    stroke="#a3a3a3"
-                    fillOpacity={1}
                     fill={`url(#${id})`}
+                    fillOpacity={1}
+                    stroke="#a3a3a3"
+                    type="monotone"
                 />
 
                 <ChartTooltip
                     content={
                         <ChartTooltipContent
+                            indicator="line"
                             labelKey={props.tooltip.labelKey}
                             nameKey={props.tooltip.nameKey}
-                            indicator="line"
                         />
                     }
                 />

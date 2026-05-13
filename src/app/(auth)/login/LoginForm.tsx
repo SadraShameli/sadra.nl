@@ -24,9 +24,9 @@ export function LoginForm() {
     const callbackUrl = searchParams.get('callbackUrl') ?? undefined;
 
     const form = useForm<LoginInput>({
-        resolver: zodResolver(loginInputSchema),
-        defaultValues: { email: '', password: '', callbackUrl },
+        defaultValues: { callbackUrl, email: '', password: '' },
         mode: 'onTouched',
+        resolver: zodResolver(loginInputSchema),
     });
 
     const onSubmit = (data: LoginInput) => {
@@ -38,8 +38,8 @@ export function LoginForm() {
     return (
         <Form {...form}>
             <form
-                onSubmit={form.handleSubmit(onSubmit)}
                 className="flex flex-col gap-3"
+                onSubmit={form.handleSubmit(onSubmit)}
             >
                 <FormField
                     control={form.control}
@@ -49,9 +49,9 @@ export function LoginForm() {
                             <FormLabel>Email</FormLabel>
                             <FormControl>
                                 <Input
-                                    type="email"
-                                    placeholder="you@example.com"
                                     autoComplete="email"
+                                    placeholder="you@example.com"
+                                    type="email"
                                     {...field}
                                 />
                             </FormControl>
@@ -67,9 +67,9 @@ export function LoginForm() {
                             <FormLabel>Password</FormLabel>
                             <FormControl>
                                 <Input
-                                    type="password"
-                                    placeholder="••••••••"
                                     autoComplete="current-password"
+                                    placeholder="••••••••"
+                                    type="password"
                                     {...field}
                                 />
                             </FormControl>
@@ -78,9 +78,9 @@ export function LoginForm() {
                     )}
                 />
                 <Button
-                    type="submit"
                     className="mt-7 w-full"
                     disabled={pending}
+                    type="submit"
                 >
                     {pending ? 'Signing in…' : 'Sign in'}
                 </Button>

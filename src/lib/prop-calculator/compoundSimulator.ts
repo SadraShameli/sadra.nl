@@ -2,30 +2,30 @@ import { mulberry32 } from './rng';
 import { percentile } from './stats';
 
 export interface CompoundInputs {
-    winrate: number;
-    rrRatio: number;
-    tradesPerDay: number;
     riskFraction: number;
-    tradingDays: number;
-    trials: number;
+    rrRatio: number;
     seed: number;
     startBalance: number;
+    tradesPerDay: number;
+    tradingDays: number;
+    trials: number;
+    winrate: number;
 }
 
 export interface CompoundOutputs {
     days: number[];
-    p5: number[];
-    p25: number[];
-    p50: number[];
-    p75: number[];
-    p95: number[];
+    daysToDouble: null | number;
+    daysToTriple: null | number;
     finalP5: number;
     finalP25: number;
     finalP50: number;
     finalP75: number;
     finalP95: number;
-    daysToDouble: number | null;
-    daysToTriple: number | null;
+    p5: number[];
+    p25: number[];
+    p50: number[];
+    p75: number[];
+    p95: number[];
     ruinProb: number;
 }
 
@@ -33,14 +33,14 @@ const STEP = 5;
 
 export function simulateCompound(inputs: CompoundInputs): CompoundOutputs {
     const {
-        winrate,
-        rrRatio,
-        tradesPerDay,
         riskFraction,
-        tradingDays,
-        trials,
+        rrRatio,
         seed,
         startBalance,
+        tradesPerDay,
+        tradingDays,
+        trials,
+        winrate,
     } = inputs;
 
     const rng = mulberry32(seed);
@@ -62,7 +62,8 @@ export function simulateCompound(inputs: CompoundInputs): CompoundOutputs {
         let bal = startBalance;
         let doubled = false;
         let tripled = false;
-        const path = sampledPaths[t]!;
+        const path = sampledPaths[t];
+        if (!path) continue;
         path[0] = bal;
         let stepIdx = 1;
 
@@ -110,25 +111,25 @@ export function simulateCompound(inputs: CompoundInputs): CompoundOutputs {
         p95.push(percentile(vals, 95));
     }
 
-    const medianDays = (buf: number[]): number | null => {
+    const medianDays = (buf: number[]): null | number => {
         if (buf.length < trials * 0.5) return null;
         return percentile(buf, 50);
     };
 
     return {
         days,
-        p5,
-        p25,
-        p50,
-        p75,
-        p95,
+        daysToDouble: medianDays(daysToDoubleBuf),
+        daysToTriple: medianDays(daysToTripleBuf),
         finalP5: percentile(finalBalances, 5),
         finalP25: percentile(finalBalances, 25),
         finalP50: percentile(finalBalances, 50),
         finalP75: percentile(finalBalances, 75),
         finalP95: percentile(finalBalances, 95),
-        daysToDouble: medianDays(daysToDoubleBuf),
-        daysToTriple: medianDays(daysToTripleBuf),
+        p5,
+        p25,
+        p50,
+        p75,
+        p95,
         ruinProb: ruinCount / trials,
     };
 }

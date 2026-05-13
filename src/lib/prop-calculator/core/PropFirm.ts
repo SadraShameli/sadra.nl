@@ -1,14 +1,12 @@
-import { FirmId } from './FirmId';
+import { type FirmId } from './FirmId';
 import { type Plan } from './Plan';
 import { type PlanId, planIdEquals } from './PlanId';
 
-export { FirmId };
-
 export abstract class PropFirm {
-    abstract readonly id: FirmId;
     abstract readonly displayName: string;
-    abstract readonly website: string;
+    abstract readonly id: FirmId;
     abstract readonly plans: readonly Plan[];
+    abstract readonly website: string;
 
     findPlan(planId: PlanId): Plan | undefined {
         return this.plans.find((p) => planIdEquals(p.id, planId));
@@ -16,3 +14,5 @@ export abstract class PropFirm {
 
     abstract maxFundedAccounts(plan: Plan): number;
 }
+
+export { FirmId } from './FirmId';
