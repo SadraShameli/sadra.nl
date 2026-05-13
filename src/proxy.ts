@@ -15,5 +15,6 @@ export default auth((req) => {
 });
 
 export const config = {
-    matcher: [String.raw`/((?!_next|favicon.ico|.*\..*).*)`],
+    // eslint-disable-next-line unicorn/prefer-string-raw
+    matcher: ['/((?!_next|favicon.ico|.*\\..*).*)'],
 };

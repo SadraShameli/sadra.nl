@@ -142,7 +142,7 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
     adapter: buildAdapter(),
     callbacks: {
         async jwt({ account, token, user }) {
-            if (user.id && account) {
+            if (account && typeof user.id === 'string') {
                 const meta = await readRequestMetadata();
                 const sessionToken = crypto.randomUUID();
                 const expires = new Date(Date.now() + SESSION_TTL_MS);
