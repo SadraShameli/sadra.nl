@@ -1,7 +1,6 @@
 import {
     serializePlanId,
     type DayStopRule,
-    type FirmId,
     type PropFirm,
 } from '~/lib/prop-calculator';
 
@@ -105,7 +104,7 @@ export function decodeState(
     firms: readonly PropFirm[],
     fallback: CalculatorState,
 ): CalculatorState {
-    const firmId = params.get('firm') as FirmId | null;
+    const firmId = params.get('firm');
     const planSerial = params.get('plan');
     const firm = firmId ? firms.find((f) => f.id === firmId) : undefined;
     const plan =

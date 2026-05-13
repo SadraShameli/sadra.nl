@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, ChevronDown, History, Pencil } from 'lucide-react';
+import { Check, ChevronDown, History, Pencil, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
@@ -15,7 +15,11 @@ import {
 } from '~/components/ui/Popover';
 import { ScrollArea } from '~/components/ui/ScrollArea';
 import { Separator } from '~/components/ui/Separator';
-import { setActiveTradingPlan } from '~/lib/trading-actions';
+import {
+    deleteAllAssessments,
+    deleteAssessment,
+    setActiveTradingPlan,
+} from '~/lib/trading-actions';
 import type {
     Answers,
     AssessmentResult,
@@ -44,9 +48,40 @@ export function ChecklistShell({
     plans: TradingPlanRow[];
     history: TradeAssessmentRow[];
 }) {
+    const router = useRouter();
     const [submission, setSubmission] = useState<SubmissionState>({
         status: 'editing',
     });
+    const [deletePending, startDelete] = useTransition();
+
+    const handleSelect = (row: TradeAssessmentRow) => {
+        setSubmission({
+            status: 'graded',
+            answers: row.answers,
+            result: row.result,
+            savedId: row.id,
+        });
+    };
+
+    const handleDelete = (id: string) => {
+        startDelete(async () => {
+            await deleteAssessment(id);
+            if (submission.status === 'graded' && submission.savedId === id) {
+                setSubmission({ status: 'editing' });
+            }
+            router.refresh();
+        });
+    };
+
+    const handleClearAll = () => {
+        startDelete(async () => {
+            await deleteAllAssessments();
+            if (submission.status === 'graded') {
+                setSubmission({ status: 'editing' });
+            }
+            router.refresh();
+        });
+    };
 
     return (
         <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -55,6 +90,7 @@ export function ChecklistShell({
 
                 {submission.status === 'editing' ? (
                     <WizardStepper
+                        key={activePlan.id}
                         plan={activePlan}
                         onSubmit={(answers, result) =>
                             setSubmission({
@@ -72,13 +108,14 @@ export function ChecklistShell({
                         result={submission.result}
                         history={history}
                         savedId={submission.savedId}
-                        onSaved={(id) =>
+                        onSaved={(id) => {
                             setSubmission((s) =>
                                 s.status === 'graded'
                                     ? { ...s, savedId: id }
                                     : s,
-                            )
-                        }
+                            );
+                            router.refresh();
+                        }}
                         onRestart={() => setSubmission({ status: 'editing' })}
                     />
                 )}
@@ -91,12 +128,29 @@ export function ChecklistShell({
                             <History className="size-4" />
                             Recent
                         </CardTitle>
-                        <Badge variant="secondary">{history.length}</Badge>
+                        <div className="flex items-center gap-2">
+                            <Badge variant="secondary">{history.length}</Badge>
+                            {history.length > 0 && (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="size-7"
+                                    disabled={deletePending}
+                                    onClick={handleClearAll}
+                                >
+                                    <Trash2 className="size-3.5 text-muted-foreground" />
+                                </Button>
+                            )}
+                        </div>
                     </CardHeader>
                     <Separator />
                     <CardContent className="p-0">
                         <ScrollArea className="h-115">
-                            <HistoryStrip history={history} />
+                            <HistoryStrip
+                                history={history}
+                                onSelect={handleSelect}
+                                onDelete={handleDelete}
+                            />
                         </ScrollArea>
                     </CardContent>
                 </Card>
@@ -125,7 +179,7 @@ function PlanHeader({
 
     return (
         <Card className="bg-black">
-            <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
+            <CardContent className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <p className="text-xs tracking-wider text-muted-foreground uppercase">
                         Active plan

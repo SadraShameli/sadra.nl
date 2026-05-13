@@ -99,18 +99,21 @@ export async function deleteTradingPlan(planId: string): Promise<void> {
 
 export async function setActiveTradingPlan(planId: string): Promise<void> {
     const userId = await requireUserId();
-
-    await db
-        .update(tradingPlans)
-        .set({ isActive: false })
-        .where(eq(tradingPlans.userId, userId));
-
-    await db
-        .update(tradingPlans)
-        .set({ isActive: true })
-        .where(
-            and(eq(tradingPlans.id, planId), eq(tradingPlans.userId, userId)),
-        );
+    await db.transaction(async (tx) => {
+        await tx
+            .update(tradingPlans)
+            .set({ isActive: false })
+            .where(eq(tradingPlans.userId, userId));
+        await tx
+            .update(tradingPlans)
+            .set({ isActive: true })
+            .where(
+                and(
+                    eq(tradingPlans.id, planId),
+                    eq(tradingPlans.userId, userId),
+                ),
+            );
+    });
 }
 
 export async function setActiveAndRedirectProfile(
@@ -204,6 +207,13 @@ export async function deleteAssessment(id: string): Promise<void> {
                 eq(tradeAssessments.userId, userId),
             ),
         );
+}
+
+export async function deleteAllAssessments(): Promise<void> {
+    const userId = await requireUserId();
+    await db
+        .delete(tradeAssessments)
+        .where(eq(tradeAssessments.userId, userId));
 }
 
 export async function reorderTradingPlans(orderedIds: string[]): Promise<void> {

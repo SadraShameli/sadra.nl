@@ -1,3 +1,8 @@
+import {
+    DOL_CONFLUENCE_KEYS,
+    DOL_TYPE_VALUES,
+    ENTRY_CONFLUENCE_KEYS,
+} from './trading-types';
 import type {
     ConfluenceGroup,
     Grade,
@@ -52,13 +57,13 @@ export const WEIGHT_CATEGORIES: {
 ];
 
 export const CONFLUENCE_GROUPS: ConfluenceGroup[] = [
-    { label: 'Entry', items: ['OB', 'BB', 'IFVG'] },
-    { label: 'Liquidity', items: ['REH/REL', 'Trendline liquidity'] },
-    { label: 'Gaps', items: ['NWOG', 'NDOG', 'ORG'] },
-    { label: 'Discount / Premium', items: ['OTE'] },
+    { label: 'Entry confluences', items: [...ENTRY_CONFLUENCE_KEYS] },
+    { label: 'Draw on liquidity', items: [...DOL_CONFLUENCE_KEYS] },
 ];
 
 export const CONFLUENCE_OPTIONS = CONFLUENCE_GROUPS.flatMap((g) => g.items);
+
+export const DEFAULT_DOL_TYPES = [...DOL_TYPE_VALUES];
 
 export const PLAN_TIMEZONE = 'America/New_York';
 
@@ -77,17 +82,8 @@ export const DEFAULT_PLAN: TradingPlanConfig = {
     setup: {
         minRR: 2,
         requiredPdArrays: 3,
-        allowedConfluences: [
-            'OB',
-            'BB',
-            'IFVG',
-            'REH/REL',
-            'Trendline liquidity',
-            'NWOG',
-            'NDOG',
-            'ORG',
-            'OTE',
-        ],
+        allowedConfluences: [...ENTRY_CONFLUENCE_KEYS, ...DOL_CONFLUENCE_KEYS],
+        allowedDolTypes: [...DOL_TYPE_VALUES],
     },
     weights: {
         mental: 15,

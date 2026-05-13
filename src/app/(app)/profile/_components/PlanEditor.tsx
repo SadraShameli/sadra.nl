@@ -18,7 +18,6 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Plus, Save, Trash2 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 
 import { Alert, AlertDescription } from '~/components/ui/Alert';
@@ -49,7 +48,6 @@ const KNOCKOUT_LABELS: Record<keyof TradingPlanConfig['knockouts'], string> = {
 };
 
 export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
-    const router = useRouter();
     const [pending, startTransition] = useTransition();
     const [name, setName] = useState(plan.name);
     const [config, setConfig] = useState<TradingPlanConfig>(plan.config);
@@ -98,7 +96,6 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
         if (!name.trim()) return;
         startTransition(async () => {
             await updateTradingPlan(plan.id, name.trim(), config);
-            router.refresh();
         });
     };
 
@@ -286,9 +283,55 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                     <Label className="text-sm">Confluences</Label>
                     {CONFLUENCE_GROUPS.map((group) => (
                         <div key={group.label} className="space-y-2">
-                            <p className="text-xs text-muted-foreground uppercase">
-                                {group.label}
-                            </p>
+                            <div className="flex items-center justify-between gap-2">
+                                <p className="text-xs text-muted-foreground uppercase">
+                                    {group.label}
+                                </p>
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() =>
+                                            updateConfig('setup', {
+                                                ...config.setup,
+                                                allowedConfluences:
+                                                    config.setup.allowedConfluences.filter(
+                                                        (x: ConfluenceKey) =>
+                                                            !group.items.includes(
+                                                                x,
+                                                            ),
+                                                    ),
+                                            })
+                                        }
+                                    >
+                                        Clear
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                            const rest =
+                                                config.setup.allowedConfluences.filter(
+                                                    (x: ConfluenceKey) =>
+                                                        !group.items.includes(
+                                                            x,
+                                                        ),
+                                                );
+                                            updateConfig('setup', {
+                                                ...config.setup,
+                                                allowedConfluences: [
+                                                    ...rest,
+                                                    ...group.items,
+                                                ],
+                                            });
+                                        }}
+                                    >
+                                        All
+                                    </Button>
+                                </div>
+                            </div>
                             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                                 {group.items.map((c) => {
                                     const active =

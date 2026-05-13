@@ -15,16 +15,31 @@ export type WeightCategory =
     | 'sl'
     | 'rr';
 
+export const ENTRY_CONFLUENCE_KEYS = [
+    'OB',
+    'BB',
+    'IFVG',
+    'OTE',
+    'VAH',
+    'VAL',
+    'POC',
+] as const;
+
+export const DOL_CONFLUENCE_KEYS = [
+    'REH/REL',
+    'Trendline liquidity',
+    'NWOG',
+    'NDOG',
+    'ORG',
+] as const;
+
+export const DOL_TYPE_VALUES = [...DOL_CONFLUENCE_KEYS, 'None'] as const;
+
 export type ConfluenceKey =
-    | 'OB'
-    | 'BB'
-    | 'IFVG'
-    | 'REH/REL'
-    | 'Trendline liquidity'
-    | 'NWOG'
-    | 'NDOG'
-    | 'ORG'
-    | 'OTE';
+    | (typeof ENTRY_CONFLUENCE_KEYS)[number]
+    | (typeof DOL_CONFLUENCE_KEYS)[number];
+
+export type DolType = (typeof DOL_TYPE_VALUES)[number];
 
 export type ConfluenceGroup = {
     label: string;
@@ -34,8 +49,6 @@ export type ConfluenceGroup = {
 export type AccountType = 'funded' | 'eval';
 
 export type BiasDirection = 'bullish' | 'bearish' | 'unclear';
-
-export type DolType = 'REH' | 'REL' | 'Imbalance' | 'FVG' | 'EQ' | 'None';
 
 export type DayType = 'balanced' | 'imbalanced';
 
@@ -76,6 +89,7 @@ export type TradingPlanConfig = {
         minRR: number;
         requiredPdArrays: number;
         allowedConfluences: ConfluenceKey[];
+        allowedDolTypes: DolType[];
     };
     weights: Record<WeightCategory, number>;
     knockouts: {

@@ -4,10 +4,10 @@ import { Tag } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 
 import {
+    serializePlanId,
     simulate,
     type FirmId,
     type Plan,
-    serializePlanId,
     type PropFirm,
     type SimInputs,
     type SimOutputs,
@@ -77,6 +77,7 @@ export default function PortfolioPanel({
         fundedHorizonDays: baseInputs.fundedHorizonDays,
         attempts: baseInputs.maxAttempts ?? 1,
         trials: baseInputs.trials,
+        dayStop: baseInputs.dayStop,
     });
 
     const [debouncedKey, setDebouncedKey] = useState(simKey);
@@ -638,7 +639,7 @@ function PortfolioRow({
                     out &&
                         (out.expectedMonthlyNet >= 0
                             ? 'text-emerald-400'
-                            : 'text-red-400'),
+                            : 'text-rose-400'),
                 )}
             >
                 {out ? formatCurrency(out.expectedMonthlyNet) : '—'}
@@ -691,7 +692,7 @@ function SummaryCard({
                     positive === true
                         ? 'text-emerald-400'
                         : positive === false
-                          ? 'text-red-400'
+                          ? 'text-rose-400'
                           : 'text-foreground',
                 )}
             >

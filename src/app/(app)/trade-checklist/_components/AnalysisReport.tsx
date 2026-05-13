@@ -42,7 +42,7 @@ const gradeColor: Record<Grade, string> = {
     'C+': 'text-amber-400',
     C: 'text-orange-400',
     'C-': 'text-orange-400',
-    D: 'text-rose-400',
+    D: 'text-rose-500',
     F: 'text-rose-500',
 };
 
@@ -121,7 +121,7 @@ export function AnalysisReport({
             className="space-y-6"
         >
             <Card className="overflow-hidden">
-                <CardContent className="grid gap-8 pt-6 md:grid-cols-[auto_1fr]">
+                <CardContent className="grid gap-8 md:grid-cols-[auto_1fr]">
                     <div className="flex flex-col items-center justify-center">
                         <motion.div
                             initial={{ scale: 0.6, opacity: 0 }}
@@ -140,7 +140,7 @@ export function AnalysisReport({
                         <div>
                             <Badge
                                 variant={recoBadgeVariant[reco.tone]}
-                                className="text-sm tracking-wider uppercase"
+                                className="text-sm uppercase"
                             >
                                 {reco.label}
                             </Badge>
@@ -177,10 +177,10 @@ export function AnalysisReport({
                                 <p className="text-xs tracking-wider text-rose-500 uppercase">
                                     Recommended risk
                                 </p>
-                                <p className="mt-1 font-mono text-3xl font-bold text-rose-200">
+                                <p className="mt-1 font-mono text-3xl font-bold text-white">
                                     $0
                                 </p>
-                                <p className="mt-1 text-xs text-rose-200/80">
+                                <p className="mt-1 text-xs text-rose-500">
                                     Do not trade this setup.
                                 </p>
                             </div>
@@ -208,7 +208,7 @@ export function AnalysisReport({
                     <CardTitle className="text-base">Scorecard</CardTitle>
                 </CardHeader>
                 <Separator />
-                <CardContent className="grid gap-4 pt-4 sm:grid-cols-2">
+                <CardContent className="grid gap-4 sm:grid-cols-2">
                     {WEIGHT_CATEGORIES.map(({ key, label, hint }) => {
                         const s = result.componentScores[key as WeightCategory];
                         const pct =
@@ -239,15 +239,15 @@ export function AnalysisReport({
             </Card>
 
             <div className="grid gap-4 md:grid-cols-2">
-                <Card className="border-l-4 border-l-emerald-500/60">
+                <Card className="border-l-4 border-l-emerald-500">
                     <CardHeader className="flex flex-row items-center gap-2 space-y-0">
-                        <CheckCircle2 className="size-4 text-emerald-400" />
+                        <CheckCircle2 className="size-4 text-emerald-500" />
                         <CardTitle className="text-base">
                             Why to take it
                         </CardTitle>
                     </CardHeader>
                     <Separator />
-                    <CardContent className="pt-4">
+                    <CardContent>
                         {result.strengths.length > 0 ? (
                             <ul className="space-y-2 text-sm">
                                 {result.strengths.map((s, i) => (
@@ -255,7 +255,7 @@ export function AnalysisReport({
                                         key={i}
                                         className="flex items-start gap-2"
                                     >
-                                        <ArrowRight className="mt-0.5 size-4 shrink-0 text-emerald-400" />
+                                        <ArrowRight className="mt-0.5 size-4 shrink-0 text-emerald-500" />
                                         <span>{s}</span>
                                     </li>
                                 ))}
@@ -268,15 +268,15 @@ export function AnalysisReport({
                     </CardContent>
                 </Card>
 
-                <Card className="border-l-4 border-l-rose-500/60">
+                <Card className="border-l-4 border-l-rose-500">
                     <CardHeader className="flex flex-row items-center gap-2 space-y-0">
-                        <XCircle className="size-4 text-rose-400" />
+                        <XCircle className="size-4 text-rose-500" />
                         <CardTitle className="text-base">
                             Why to skip it
                         </CardTitle>
                     </CardHeader>
                     <Separator />
-                    <CardContent className="pt-4">
+                    <CardContent>
                         {result.weaknesses.length > 0 ? (
                             <ul className="space-y-2 text-sm">
                                 {result.weaknesses.map((w, i) => (
@@ -284,7 +284,7 @@ export function AnalysisReport({
                                         key={i}
                                         className="flex items-start gap-2"
                                     >
-                                        <ArrowRight className="mt-0.5 size-4 shrink-0 text-rose-400" />
+                                        <ArrowRight className="mt-0.5 size-4 shrink-0 text-rose-500" />
                                         <span>{w}</span>
                                     </li>
                                 ))}
@@ -299,15 +299,15 @@ export function AnalysisReport({
             </div>
 
             {result.improvements.length > 0 && (
-                <Card className="border-l-4 border-l-sky-500/60">
+                <Card className="border-l-4 border-l-sky-500">
                     <CardHeader className="flex flex-row items-center gap-2 space-y-0">
-                        <Sparkles className="size-4 text-sky-400" />
+                        <Sparkles className="size-4 text-sky-500" />
                         <CardTitle className="text-base">
                             How to upgrade this setup
                         </CardTitle>
                     </CardHeader>
                     <Separator />
-                    <CardContent className="pt-4">
+                    <CardContent>
                         <ul className="space-y-2 text-sm">
                             {result.improvements.map((imp, i) => (
                                 <li key={i} className="flex items-start gap-2">
@@ -327,7 +327,7 @@ export function AnalysisReport({
                     </CardTitle>
                 </CardHeader>
                 <Separator />
-                <CardContent className="pt-4">
+                <CardContent>
                     {comparable.sample >= 3 ? (
                         <div className="grid gap-3 sm:grid-cols-4">
                             <Stat
@@ -367,7 +367,7 @@ export function AnalysisReport({
                 </CardContent>
             </Card>
 
-            <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/50 pt-4">
+            <div className="flex flex-wrap items-center justify-end gap-2 pt-4">
                 <Button variant="ghost" onClick={onRestart}>
                     <RotateCcw className="mr-1 size-4" />
                     Restart

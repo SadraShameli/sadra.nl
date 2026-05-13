@@ -42,7 +42,8 @@ export function OutcomeDialog({
     const [notes, setNotes] = useState<string>('');
 
     const submit = () => {
-        const r = outcomeR.trim() === '' ? null : Number(outcomeR);
+        const parsed = parseFloat(outcomeR);
+        const r = !outcomeR.trim() || isNaN(parsed) ? null : parsed;
         startTransition(async () => {
             await recordAssessmentOutcome(
                 assessmentId,

@@ -24,7 +24,9 @@ import { Slider } from '~/components/ui/Slider';
 import { Switch } from '~/components/ui/Switch';
 import { Textarea } from '~/components/ui/Textarea';
 import { ToggleGroup, ToggleGroupItem } from '~/components/ui/Toggle-group';
+import { CONFLUENCE_GROUPS, DEFAULT_DOL_TYPES } from '~/lib/trading-defaults';
 import { findCurrentWindow, scoreAssessment } from '~/lib/trading-scoring';
+import { DOL_TYPE_VALUES } from '~/lib/trading-types';
 import type {
     Answers,
     AssessmentResult,
@@ -34,7 +36,7 @@ import type {
 
 const biasEnum = z.enum(['bullish', 'bearish', 'unclear']);
 const accountEnum = z.enum(['funded', 'eval']);
-const dolEnum = z.enum(['REH', 'REL', 'Imbalance', 'FVG', 'EQ', 'None']);
+const dolEnum = z.enum(DOL_TYPE_VALUES);
 const dayEnum = z.enum(['balanced', 'imbalanced']);
 const setupEnum = z.enum(['reversal', 'continuation']);
 const displacementEnum = z.enum(['toward', 'away', 'none']);
@@ -327,7 +329,7 @@ function StepBody({ plan, stepId }: { plan: TradingPlanRow; stepId: StepId }) {
         case 'bias':
             return <BiasStep />;
         case 'dol':
-            return <DolStep />;
+            return <DolStep plan={plan} />;
         case 'state':
             return <StateStep />;
         case 'entry':
@@ -444,7 +446,7 @@ function ContextStep({ plan }: { plan: TradingPlanRow }) {
                     ))}
                 </ToggleGroup>
                 {!windowId && (
-                    <p className="mt-2 text-xs text-rose-400">
+                    <p className="mt-2 text-xs text-rose-500">
                         Outside macro window — knockout active.
                     </p>
                 )}
@@ -605,7 +607,7 @@ function BiasStep() {
     );
 }
 
-function DolStep() {
+function DolStep({ plan }: { plan: TradingPlanRow }) {
     const { watch, setValue } = useFormContext<FormValues>();
     const type = watch('dol.type');
     const singular = watch('dol.singular');
@@ -630,19 +632,12 @@ function DolStep() {
                     className="flex-wrap justify-start gap-2"
                 >
                     {(
-                        [
-                            'REH',
-                            'REL',
-                            'Imbalance',
-                            'FVG',
-                            'EQ',
-                            'None',
-                        ] as const
+                        plan.config.setup.allowedDolTypes ?? DEFAULT_DOL_TYPES
                     ).map((t) => (
                         <ToggleGroupItem
                             key={t}
                             value={t}
-                            className="data-[state=on]:border-emerald-500 data-[state=on]:bg-emerald-500/10"
+                            className="data-[state=on]:bg-emerald-500/20 data-[state=on]:text-emerald-500"
                         >
                             {t}
                         </ToggleGroupItem>
@@ -870,62 +865,83 @@ function EntryStep({ plan }: { plan: TradingPlanRow }) {
     };
 
     return (
-        <div className="space-y-4">
-            <div className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                    <Label className="text-xs tracking-wider text-muted-foreground uppercase">
-                        Confluences at entry
-                        <Badge variant="secondary" className="ml-2">
-                            {confluences.length} selected
-                        </Badge>
-                    </Label>
-                    <div className="flex items-center gap-2">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                                setValue('entry.confluences', [], {
-                                    shouldValidate: true,
-                                })
-                            }
-                        >
-                            Clear
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                                setValue(
-                                    'entry.confluences',
-                                    plan.config.setup.allowedConfluences,
-                                    { shouldValidate: true },
-                                )
-                            }
-                        >
-                            All
-                        </Button>
+        <div className="space-y-5">
+            {CONFLUENCE_GROUPS.map((group) => {
+                const items = group.items.filter((c) =>
+                    plan.config.setup.allowedConfluences.includes(c),
+                );
+                if (items.length === 0) return null;
+                const groupSelected = items.filter((c) =>
+                    confluences.includes(c),
+                );
+                return (
+                    <div key={group.label} className="space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                            <Label className="text-xs tracking-wider text-muted-foreground uppercase">
+                                {group.label}
+                                <Badge variant="secondary" className="ml-2">
+                                    {groupSelected.length} selected
+                                </Badge>
+                            </Label>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() =>
+                                        setValue(
+                                            'entry.confluences',
+                                            confluences.filter(
+                                                (c) =>
+                                                    !items.includes(
+                                                        c as ConfluenceKey,
+                                                    ),
+                                            ),
+                                            { shouldValidate: true },
+                                        )
+                                    }
+                                >
+                                    Clear
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                        const rest = confluences.filter(
+                                            (c) =>
+                                                !items.includes(
+                                                    c as ConfluenceKey,
+                                                ),
+                                        );
+                                        setValue(
+                                            'entry.confluences',
+                                            [...rest, ...items],
+                                            { shouldValidate: true },
+                                        );
+                                    }}
+                                >
+                                    All
+                                </Button>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                            {items.map((c) => (
+                                <label
+                                    key={c}
+                                    className="flex cursor-pointer items-center gap-2 rounded-md border border-border/60 p-2 text-sm transition hover:border-border"
+                                >
+                                    <Checkbox
+                                        checked={confluences.includes(c)}
+                                        onCheckedChange={() => toggle(c)}
+                                    />
+                                    {c}
+                                </label>
+                            ))}
+                        </div>
                     </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                    {plan.config.setup.allowedConfluences.map((c) => {
-                        const active = confluences.includes(c);
-                        return (
-                            <label
-                                key={c}
-                                className="flex cursor-pointer items-center gap-2 rounded-md border border-border/60 p-2 text-sm transition hover:border-border"
-                            >
-                                <Checkbox
-                                    checked={active}
-                                    onCheckedChange={() => toggle(c)}
-                                />
-                                {c}
-                            </label>
-                        );
-                    })}
-                </div>
-            </div>
+                );
+            })}
         </div>
     );
 }

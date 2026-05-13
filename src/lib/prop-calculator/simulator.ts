@@ -612,7 +612,10 @@ export function simulate(inputs: SimInputs): SimOutputs {
             daysToPassSum += r.daysToPass;
             daysToPassArr.push(r.daysToPass);
         }
-        if (r.firstPayoutDay !== null) {
+        if (
+            r.firstPayoutDay !== null &&
+            (r.outcome === 'pass-clean' || r.outcome === 'pass-violation')
+        ) {
             firstPayoutSum += r.firstPayoutDay;
             firstPayoutCount += 1;
         }
