@@ -378,7 +378,7 @@ function PortfolioRow({
     const maxAccounts = firm.maxFundedAccounts(plan);
 
     function handleFirmChange(firmId: string) {
-        const newFirm = firms.find((f) => f.id === firmId);
+        const newFirm = firms.find((f) => f.id === (firmId as FirmId));
         const firstPlan = newFirm?.plans[0];
         if (!newFirm || !firstPlan) return;
         onUpdate(entry.id, {

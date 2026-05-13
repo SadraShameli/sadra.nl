@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { z, ZodError } from 'zod';
+import { z, type ZodError } from 'zod';
 
 export const positiveIntIdSchema = z.coerce.number().int().positive();
 

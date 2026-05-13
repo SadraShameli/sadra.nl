@@ -169,7 +169,7 @@ export default function TradeJournal() {
     );
 
     const zClass =
-        !stats || stats.zScore === null
+        stats?.zScore == null
             ? 'text-muted-foreground'
             : stats.zScore >= 1.645
               ? 'text-emerald-400'
@@ -363,14 +363,14 @@ export default function TradeJournal() {
                                             strokeOpacity={0.5}
                                         />
                                         <Tooltip
-                                            formatter={(v: any) => {
+                                            formatter={(v: unknown) => {
                                                 const n = v as number;
                                                 return [
                                                     `${n >= 0 ? '+' : ''}${n.toFixed(2)}R`,
                                                     'Cumulative R',
                                                 ];
                                             }}
-                                            labelFormatter={(l: any) =>
+                                            labelFormatter={(l: unknown) =>
                                                 `Trade #${l as number}`
                                             }
                                         />
@@ -443,11 +443,11 @@ export default function TradeJournal() {
                                                 strokeOpacity={0.5}
                                             />
                                             <Tooltip
-                                                formatter={(v: any) => [
+                                                formatter={(v: unknown) => [
                                                     formatPercent(v as number),
                                                     '20-trade WR',
                                                 ]}
-                                                labelFormatter={(l: any) =>
+                                                labelFormatter={(l: unknown) =>
                                                     `Trade #${l as number}`
                                                 }
                                             />

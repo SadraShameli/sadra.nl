@@ -11,12 +11,14 @@ import { sendPasswordResetEmail } from '~/lib/email';
 import {
     forgotPasswordInputSchema,
     loginInputSchema,
+    magicLinkInputSchema,
     resetPasswordInputSchema,
     signupInputSchema,
     updateNameInputSchema,
     updatePasswordInputSchema,
     type ForgotPasswordInput,
     type LoginInput,
+    type MagicLinkInput,
     type ResetPasswordInput,
     type SignupInput,
     type UpdateNameInput,
@@ -97,7 +99,7 @@ export async function requestPasswordReset(
             expiresAt,
         });
 
-        await sendPasswordResetEmail(user.email, rawToken);
+        await sendPasswordResetEmail(data.email, rawToken);
     }
 
     redirect('/forgot-password?sent=1');
@@ -132,6 +134,24 @@ export async function resetPassword(input: ResetPasswordInput): Promise<void> {
 
 export async function logout(): Promise<void> {
     await signOut({ redirectTo: '/' });
+}
+
+export async function signInWithGoogle(): Promise<void> {
+    await signIn('google', { redirectTo: '/' });
+}
+
+export async function signInWithGithub(): Promise<void> {
+    await signIn('github', { redirectTo: '/' });
+}
+
+export async function signInWithMagicLink(
+    input: MagicLinkInput,
+): Promise<void> {
+    const data = magicLinkInputSchema.parse(input);
+    await signIn('nodemailer', {
+        email: data.email,
+        redirectTo: '/',
+    });
 }
 
 export async function updateName(input: UpdateNameInput): Promise<void> {

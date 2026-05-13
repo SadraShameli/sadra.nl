@@ -311,7 +311,9 @@ export default function CompoundingPanel({
                                             Month{' '}
                                             {typeof label === 'number'
                                                 ? label
-                                                : String(label ?? '')}
+                                                : typeof label === 'string'
+                                                  ? label
+                                                  : ''}
                                         </p>
                                         <div className="grid gap-1.5">
                                             {order

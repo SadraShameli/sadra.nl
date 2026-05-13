@@ -8,7 +8,9 @@ import {
     CardHeader,
     CardTitle,
 } from '~/components/ui/Card';
+import { env } from '~/env';
 import { signupSearchSchema } from '~/lib/schemas/url';
+import { OAuthButtons } from '../_components/OAuthButtons';
 import { SignupForm } from './SignupForm';
 
 const errorMessages: Record<string, string> = {
@@ -46,6 +48,14 @@ export default async function SignupPage({
                                 </AlertDescription>
                             </Alert>
                         )}
+                        <OAuthButtons
+                            hasGoogle={Boolean(
+                                env.AUTH_GOOGLE_ID && env.AUTH_GOOGLE_SECRET,
+                            )}
+                            hasGithub={Boolean(
+                                env.AUTH_GITHUB_ID && env.AUTH_GITHUB_SECRET,
+                            )}
+                        />
                         <SignupForm />
                     </CardContent>
                     <CardFooter className="mt-2 flex flex-col gap-3">

@@ -10,6 +10,10 @@ export const env = createEnv({
         AUTH_SECRET: z.string().min(32),
         LETTERMINT_PROJECT_TOKEN: z.string().min(1),
         RESEND_API_KEY: z.string().min(1),
+        AUTH_GOOGLE_ID: z.string().min(1).optional(),
+        AUTH_GOOGLE_SECRET: z.string().min(1).optional(),
+        AUTH_GITHUB_ID: z.string().min(1).optional(),
+        AUTH_GITHUB_SECRET: z.string().min(1).optional(),
     },
 
     client: {
@@ -23,6 +27,10 @@ export const env = createEnv({
         AUTH_SECRET: process.env.AUTH_SECRET,
         LETTERMINT_PROJECT_TOKEN: process.env.LETTERMINT_PROJECT_TOKEN,
         RESEND_API_KEY: process.env.RESEND_API_KEY,
+        AUTH_GOOGLE_ID: process.env.AUTH_GOOGLE_ID,
+        AUTH_GOOGLE_SECRET: process.env.AUTH_GOOGLE_SECRET,
+        AUTH_GITHUB_ID: process.env.AUTH_GITHUB_ID,
+        AUTH_GITHUB_SECRET: process.env.AUTH_GITHUB_SECRET,
     },
 
     skipValidation: !!process.env.SKIP_ENV_VALIDATION,

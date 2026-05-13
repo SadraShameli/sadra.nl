@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const profileTabSchema = z
-    .enum(['account', 'trading-plan'])
+    .enum(['account', 'security', 'trading-plan'])
     .catch('account');
 
 export type ProfileTab = z.infer<typeof profileTabSchema>;

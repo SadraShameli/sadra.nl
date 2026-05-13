@@ -4,20 +4,9 @@ import drizzle from 'eslint-plugin-drizzle';
 // @ts-ignore
 import nextPlugin from '@next/eslint-plugin-next';
 import hooks from 'eslint-plugin-react-hooks';
-// @ts-ignore
-import tailwind from 'eslint-plugin-tailwindcss';
 
 export default tseslint.config(
     { ignores: ['.next'] },
-    ...tailwind.configs['flat/recommended'],
-    {
-        settings: {
-            tailwindcss: {
-                config: {},
-                cssFiles: ['./src/styles/styles.css'],
-            },
-        },
-    },
     {
         files: ['**/*.ts', '**/*.tsx'],
         plugins: {
@@ -58,10 +47,6 @@ export default tseslint.config(
                 'error',
                 { drizzleObjectName: ['db', 'ctx.db'] },
             ],
-            'tailwindcss/classnames-order': 'off',
-            'tailwindcss/no-unnecessary-arbitrary-value': 'error',
-            'tailwindcss/enforces-shorthand': 'error',
-            'tailwindcss/enforces-negative-arbitrary-values': 'error',
         },
         settings: {
             react: { version: 'detect' },

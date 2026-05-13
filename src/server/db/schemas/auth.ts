@@ -1,5 +1,11 @@
 import { sql } from 'drizzle-orm';
-import { text, timestamp, varchar } from 'drizzle-orm/pg-core';
+import {
+    integer,
+    primaryKey,
+    text,
+    timestamp,
+    varchar,
+} from 'drizzle-orm/pg-core';
 
 import { createTable } from './main';
 
@@ -8,7 +14,7 @@ export const users = createTable('user', {
         .primaryKey()
         .$defaultFn(() => crypto.randomUUID()),
     name: varchar('name', { length: 256 }),
-    email: varchar('email', { length: 256 }).notNull().unique(),
+    email: varchar('email', { length: 256 }).unique(),
     password: varchar('password', { length: 256 }),
     image: varchar('image', { length: 256 }),
     emailVerified: timestamp('email_verified', { withTimezone: true }),
@@ -28,3 +34,49 @@ export const passwordResetTokens = createTable('password_reset_token', {
         .default(sql`CURRENT_TIMESTAMP`)
         .notNull(),
 });
+
+export const accounts = createTable(
+    'account',
+    {
+        userId: text('user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        type: text('type').notNull(),
+        provider: text('provider').notNull(),
+        providerAccountId: text('provider_account_id').notNull(),
+        refresh_token: text('refresh_token'),
+        access_token: text('access_token'),
+        expires_at: integer('expires_at'),
+        token_type: text('token_type'),
+        scope: text('scope'),
+        id_token: text('id_token'),
+        session_state: text('session_state'),
+    },
+    (t) => [primaryKey({ columns: [t.provider, t.providerAccountId] })],
+);
+
+export const sessions = createTable('session', {
+    sessionToken: text('session_token').primaryKey(),
+    userId: text('user_id')
+        .notNull()
+        .references(() => users.id, { onDelete: 'cascade' }),
+    expires: timestamp('expires', { withTimezone: true }).notNull(),
+    userAgent: text('user_agent'),
+    ipAddress: text('ip_address'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+        .default(sql`CURRENT_TIMESTAMP`)
+        .notNull(),
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true })
+        .default(sql`CURRENT_TIMESTAMP`)
+        .notNull(),
+});
+
+export const verificationTokens = createTable(
+    'verification_token',
+    {
+        identifier: text('identifier').notNull(),
+        token: text('token').notNull(),
+        expires: timestamp('expires', { withTimezone: true }).notNull(),
+    },
+    (t) => [primaryKey({ columns: [t.identifier, t.token] })],
+);

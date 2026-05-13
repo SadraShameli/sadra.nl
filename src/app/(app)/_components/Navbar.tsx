@@ -40,7 +40,7 @@ function SocialIcon({ platform }: { platform: string }) {
 
 export default function Navbar({ session }: { session: Session | null }) {
     const { navBrand, socialLinks } = siteContent;
-    const [glitchTrigger, setGlitchTrigger] = useState(0);
+    const [, setGlitchTrigger] = useState(0);
 
     const handleTransition = useCallback(() => {
         setGlitchTrigger((n) => n + 1);

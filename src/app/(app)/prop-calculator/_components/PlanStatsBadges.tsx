@@ -43,7 +43,7 @@ export default function PlanStatsBadges({ plan }: PlanStatsBadgesProps) {
     );
     const hasConsistency = plan.consistency !== null;
     const consistencyPct = hasConsistency
-        ? (plan.consistency!.maxBestDayShare * 100).toFixed(0)
+        ? (plan.consistency.maxBestDayShare * 100).toFixed(0)
         : null;
 
     return (

@@ -8,8 +8,10 @@ import {
     CardHeader,
     CardTitle,
 } from '~/components/ui/Card';
+import { env } from '~/env';
 import { loginSearchSchema } from '~/lib/schemas/url';
-import { LoginForm } from './LoginForm';
+import { OAuthButtons } from '../_components/OAuthButtons';
+import { SignInMethodTabs } from '../_components/SignInMethodTabs';
 
 export default async function LoginPage({
     searchParams,
@@ -47,7 +49,15 @@ export default async function LoginPage({
                                 </AlertDescription>
                             </Alert>
                         )}
-                        <LoginForm />
+                        <OAuthButtons
+                            hasGoogle={Boolean(
+                                env.AUTH_GOOGLE_ID && env.AUTH_GOOGLE_SECRET,
+                            )}
+                            hasGithub={Boolean(
+                                env.AUTH_GITHUB_ID && env.AUTH_GITHUB_SECRET,
+                            )}
+                        />
+                        <SignInMethodTabs />
                         <div className="mt-1 text-right">
                             <Link
                                 href="/forgot-password"

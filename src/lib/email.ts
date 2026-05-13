@@ -24,3 +24,19 @@ export async function sendPasswordResetEmail(to: string, token: string) {
         await resend.emails.send({ from: FROM, to, subject, html });
     }
 }
+
+export async function sendMagicLinkEmail(to: string, url: string) {
+    const subject = 'Sign in to sadra.nl';
+    const html = `
+<p>Hi,</p>
+<p>Click the link below to sign in. It expires in 24 hours.</p>
+<p><a href="${url}">Sign in to sadra.nl</a></p>
+<p>If you didn't request this, you can ignore this email.</p>
+    `.trim();
+
+    try {
+        await lettermint.from(FROM).to(to).subject(subject).html(html).send();
+    } catch {
+        await resend.emails.send({ from: FROM, to, subject, html });
+    }
+}

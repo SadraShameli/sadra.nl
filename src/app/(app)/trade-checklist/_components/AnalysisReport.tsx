@@ -28,7 +28,6 @@ import type {
     Recommendation,
     TradeAssessmentRow,
     TradingPlanRow,
-    WeightCategory,
 } from '~/lib/trading-types';
 import { OutcomeDialog } from './OutcomeDialog';
 
@@ -210,7 +209,7 @@ export function AnalysisReport({
                 <Separator />
                 <CardContent className="grid gap-4 sm:grid-cols-2">
                     {WEIGHT_CATEGORIES.map(({ key, label, hint }) => {
-                        const s = result.componentScores[key as WeightCategory];
+                        const s = result.componentScores[key];
                         const pct =
                             s.max > 0
                                 ? Math.min(100, (s.earned / s.max) * 100)

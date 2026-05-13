@@ -1,15 +1,15 @@
+import { z } from 'zod';
+import {
+    serializePlanId,
+    type DayStopRule,
+    type PropFirm,
+} from '~/lib/prop-calculator';
 import {
     dayStopRuleSchema,
     labScenarioSchema,
     savedScenarioRecordSchema,
     type SavedScenarioRecord as SavedScenarioRecordSchema,
 } from '~/lib/schemas/url';
-import {
-    serializePlanId,
-    type DayStopRule,
-    type PropFirm,
-} from '~/lib/prop-calculator';
-import { z } from 'zod';
 
 import type { CalculatorState, LabScenario } from './types';
 import { SizingMode } from './types';
@@ -86,7 +86,9 @@ export function decodeState(
 ): CalculatorState {
     const firmId = params.get('firm');
     const planSerial = params.get('plan');
-    const firm = firmId ? firms.find((f) => f.id === firmId) : undefined;
+    const firm = firmId
+        ? firms.find((f) => (f.id as string) === firmId)
+        : undefined;
     const plan =
         firm && planSerial
             ? firm.plans.find((p) => serializePlanId(p.id) === planSerial)
@@ -114,7 +116,7 @@ export function decodeState(
         try {
             const parsed: unknown = JSON.parse(base64UrlDecode(dsParam));
             const ok = dayStopRuleSchema.safeParse(parsed);
-            if (ok.success) dayStop = ok.data as DayStopRule;
+            if (ok.success) dayStop = ok.data;
         } catch {}
     }
 
@@ -124,7 +126,7 @@ export function decodeState(
         try {
             const parsed: unknown = JSON.parse(base64UrlDecode(labParam));
             const ok = labScenarioArraySchema.safeParse(parsed);
-            if (ok.success) labScenarios = ok.data as LabScenario[];
+            if (ok.success) labScenarios = ok.data;
         } catch {}
     }
 

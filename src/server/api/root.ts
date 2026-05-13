@@ -5,6 +5,7 @@ import { locationRouter } from './routers/location';
 import { readingRouter } from './routers/reading';
 import { recordingsRouter } from './routers/recording';
 import { sensorRouter } from './routers/sensor';
+import { sessionRouter } from './routers/session';
 
 export const appRouter = createTRPCRouter({
     location: locationRouter,
@@ -12,6 +13,7 @@ export const appRouter = createTRPCRouter({
     device: deviceRouter,
     reading: readingRouter,
     recording: recordingsRouter,
+    session: sessionRouter,
 });
 
 export type AppRouter = typeof appRouter;

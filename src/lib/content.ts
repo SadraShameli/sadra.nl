@@ -11,7 +11,18 @@ import SensorHubImage from '~/assets/images/units.jpg';
 import type { StaticImageData } from 'next/image';
 
 import type { GalleryItem } from '~/app/(app)/_components/GallerySection';
-import type { ResumeSectionView } from '~/lib/cms';
+
+export type ResumeSectionView = {
+    title: string;
+    role?: string | null;
+    date: string;
+    url?: string | null;
+    location?: { title: string; url?: string | null };
+    summary?: string | null;
+    highlights?: string[];
+    skills?: string[];
+    imageUrl?: string;
+};
 
 type SiteData = {
     metaTitle: string;

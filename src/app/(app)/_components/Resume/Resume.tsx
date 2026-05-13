@@ -1,5 +1,5 @@
 import SectionTitle from '~/components/SectionTitle';
-import type { ResumeSectionView } from '~/lib/cms';
+import type { ResumeSectionView } from '~/lib/content';
 
 import ResumeItem from './ResumeItem';
 

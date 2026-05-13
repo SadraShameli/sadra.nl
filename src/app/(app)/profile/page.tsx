@@ -11,6 +11,7 @@ import { db, tradingPlans, users } from '~/server/db';
 import { DeleteAccountDialog } from './_components/DeleteAccountDialog';
 import { LogoutButton } from './_components/LogoutButton';
 import { ProfileTabs } from './_components/ProfileTabs';
+import { SessionsList } from './_components/SessionsList';
 import { TradingPlanTab } from './_components/TradingPlanTab';
 import { UpdateNameForm } from './_components/UpdateNameForm';
 import { UpdatePasswordForm } from './_components/UpdatePasswordForm';
@@ -138,6 +139,17 @@ export default async function ProfilePage({
 
     const tradingPlanTab = <TradingPlanTab plans={plans} />;
 
+    const securityTab = (
+        <Card>
+            <CardHeader>
+                <CardTitle>Active sessions</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <SessionsList />
+            </CardContent>
+        </Card>
+    );
+
     return (
         <main className="container mx-auto py-16">
             <div className="mx-auto max-w-3xl space-y-8">
@@ -153,6 +165,7 @@ export default async function ProfilePage({
 
                 <ProfileTabs
                     accountTab={accountTab}
+                    securityTab={securityTab}
                     tradingPlanTab={tradingPlanTab}
                 />
             </div>

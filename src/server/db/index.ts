@@ -7,7 +7,13 @@ import * as authSchema from './schemas/auth';
 import * as schema from './schemas/main';
 import * as tradingSchema from './schemas/trading';
 
-export { passwordResetTokens, users } from './schemas/auth';
+export {
+    accounts,
+    passwordResetTokens,
+    sessions,
+    users,
+    verificationTokens,
+} from './schemas/auth';
 export { tradeAssessments, tradingPlans } from './schemas/trading';
 
 const globalForDb = globalThis as unknown as {

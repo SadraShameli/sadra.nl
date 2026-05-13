@@ -1,7 +1,13 @@
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import { z } from 'zod';
 
-import { passwordResetTokens, users } from '~/server/db/schemas/auth';
+import {
+    accounts,
+    passwordResetTokens,
+    sessions,
+    users,
+    verificationTokens,
+} from '~/server/db/schemas/auth';
 
 export const emailSchema = z.email().max(256).toLowerCase();
 
@@ -27,6 +33,16 @@ export type UserInsert = z.infer<typeof userInsertSchema>;
 export const passwordResetTokenRowSchema =
     createSelectSchema(passwordResetTokens);
 export type PasswordResetTokenRow = z.infer<typeof passwordResetTokenRowSchema>;
+
+export const accountRowSchema = createSelectSchema(accounts);
+export type AccountRow = z.infer<typeof accountRowSchema>;
+
+export const sessionRowSchema = createSelectSchema(sessions);
+export type SessionRow = z.infer<typeof sessionRowSchema>;
+
+export const verificationTokenRowSchema =
+    createSelectSchema(verificationTokens);
+export type VerificationTokenRow = z.infer<typeof verificationTokenRowSchema>;
 
 export const loginInputSchema = z.object({
     email: emailSchema,
@@ -54,6 +70,12 @@ export const forgotPasswordInputSchema = z.object({
 });
 
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordInputSchema>;
+
+export const magicLinkInputSchema = z.object({
+    email: emailSchema,
+});
+
+export type MagicLinkInput = z.infer<typeof magicLinkInputSchema>;
 
 export const resetPasswordInputSchema = z
     .object({

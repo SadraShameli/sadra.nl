@@ -137,14 +137,6 @@ export async function setActiveTradingPlan(
     });
 }
 
-export async function setActiveAndRedirectProfile(
-    input: PlanIdActionInput,
-): Promise<void> {
-    const { planId } = planIdActionSchema.parse(input);
-    await setActiveTradingPlan({ planId });
-    redirect(`/profile?tab=trading-plan&plan=${planId}&success=plan_activated`);
-}
-
 export async function cloneTradingPlan(
     input: PlanIdActionInput,
 ): Promise<void> {

@@ -10,7 +10,7 @@ import {
     useForm,
     useFormContext,
 } from 'react-hook-form';
-import { z } from 'zod';
+import type { z } from 'zod';
 
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
@@ -24,12 +24,12 @@ import { Slider } from '~/components/ui/Slider';
 import { Switch } from '~/components/ui/Switch';
 import { Textarea } from '~/components/ui/Textarea';
 import { ToggleGroup, ToggleGroupItem } from '~/components/ui/Toggle-group';
-import { answersSchema } from '~/lib/schemas/trading';
 import type {
     Answers,
     AssessmentResult,
     TradingPlanRow,
 } from '~/lib/schemas/trading';
+import { answersSchema } from '~/lib/schemas/trading';
 import { CONFLUENCE_GROUPS, DEFAULT_DOL_TYPES } from '~/lib/trading-defaults';
 import { findCurrentWindow, scoreAssessment } from '~/lib/trading-scoring';
 import type { ConfluenceKey } from '~/lib/trading-types';
@@ -186,8 +186,8 @@ export function WizardStepper({
     const back = () => stepIdx > 0 && setStepIdx((i) => i - 1);
 
     const submit = methods.handleSubmit((values) => {
-        const result = scoreAssessment(plan.config, values as Answers);
-        onSubmit(values as Answers, result);
+        const result = scoreAssessment(plan.config, values);
+        onSubmit(values, result);
     });
 
     const progress = ((stepIdx + 1) / stepIds.length) * 100;
