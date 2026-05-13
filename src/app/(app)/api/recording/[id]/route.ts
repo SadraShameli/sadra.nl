@@ -1,18 +1,23 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { ZodError } from 'zod';
 
+import {
+    idPathParamSchema,
+    parseRouteParams,
+    recordingBlobSchema,
+    zodErrorResponse,
+} from '~/lib/schemas/api';
 import { applyAudioFilters } from '~/server/helpers/Audio';
 import { api } from '~/trpc/server';
 
-type RequestProps = {
-    id: string;
-};
-
 export async function GET(
     request: NextRequest,
-    { params }: { params: Promise<RequestProps> },
+    { params }: { params: Promise<{ id: string }> },
 ) {
-    const requestParams = await params;
-    const res = await api.recording.getRecording({ id: +requestParams.id });
+    const parsed = parseRouteParams(idPathParamSchema, await params);
+    if (parsed.response) return parsed.response;
+
+    const res = await api.recording.getRecording({ id: parsed.data.id });
 
     if (res.data) {
         return new Response(new Uint8Array(res.data.file), {
@@ -31,22 +36,28 @@ export async function GET(
 
 export async function POST(
     request: NextRequest,
-    { params }: { params: Promise<RequestProps> },
+    { params }: { params: Promise<{ id: string }> },
 ) {
-    const requestParams = await params;
-    const buffer = Buffer.from(await (await request.blob()).arrayBuffer());
-    const normalizedBuffer = applyAudioFilters(buffer);
+    const parsed = parseRouteParams(idPathParamSchema, await params);
+    if (parsed.response) return parsed.response;
 
-    const res = await api.recording.createRecording({
-        device: { device_id: +requestParams.id },
-        recording: normalizedBuffer,
-    });
+    try {
+        const blob = recordingBlobSchema.parse(await request.blob());
+        const buffer = Buffer.from(await blob.arrayBuffer());
+        const normalizedBuffer = applyAudioFilters(buffer);
 
-    if (res.status == 201) {
-        return new NextResponse(null, { status: res.status });
+        const res = await api.recording.createRecording({
+            device: { device_id: parsed.data.id },
+            recording: normalizedBuffer,
+        });
+
+        if (res.status == 201) {
+            return new NextResponse(null, { status: res.status });
+        }
+
+        return NextResponse.json(res, { status: res.status });
+    } catch (e) {
+        if (e instanceof ZodError) return zodErrorResponse(e);
+        return NextResponse.json({ error: String(e) }, { status: 500 });
     }
-
-    return NextResponse.json(res, {
-        status: res.status,
-    });
 }

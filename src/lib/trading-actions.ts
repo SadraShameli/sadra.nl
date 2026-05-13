@@ -4,13 +4,23 @@ import { and, desc, eq } from 'drizzle-orm';
 import { redirect } from 'next/navigation';
 
 import { auth } from '~/lib/auth';
+import {
+    assessmentIdActionSchema,
+    createTradingPlanInputSchema,
+    planIdActionSchema,
+    recordAssessmentOutcomeInputSchema,
+    reorderTradingPlansInputSchema,
+    saveAssessmentInputSchema,
+    updateTradingPlanInputSchema,
+    type AssessmentIdActionInput,
+    type CreateTradingPlanInput,
+    type PlanIdActionInput,
+    type RecordAssessmentOutcomeInput,
+    type ReorderTradingPlansInput,
+    type SaveAssessmentInput,
+    type UpdateTradingPlanInput,
+} from '~/lib/schemas/trading';
 import { DEFAULT_PLAN } from '~/lib/trading-defaults';
-import type {
-    Answers,
-    AssessmentResult,
-    Outcome,
-    TradingPlanConfig,
-} from '~/lib/trading-types';
 import { db, tradeAssessments, tradingPlans } from '~/server/db';
 
 async function requireUserId(): Promise<string> {
@@ -19,10 +29,11 @@ async function requireUserId(): Promise<string> {
     return session.user.id;
 }
 
-export async function createTradingPlan(formData: FormData): Promise<void> {
+export async function createTradingPlan(
+    input: CreateTradingPlanInput,
+): Promise<void> {
+    const data = createTradingPlanInputSchema.parse(input);
     const userId = await requireUserId();
-    const name = ((formData.get('name') as string) ?? '').trim();
-    if (!name) redirect('/profile?tab=trading-plan&error=plan_name_required');
 
     const existing = await db
         .select({ id: tradingPlans.id })
@@ -35,7 +46,7 @@ export async function createTradingPlan(formData: FormData): Promise<void> {
         .insert(tradingPlans)
         .values({
             userId,
-            name,
+            name: data.name,
             isActive: shouldBeActive,
             config: DEFAULT_PLAN,
         })
@@ -47,21 +58,28 @@ export async function createTradingPlan(formData: FormData): Promise<void> {
 }
 
 export async function updateTradingPlan(
-    planId: string,
-    name: string,
-    config: TradingPlanConfig,
+    input: UpdateTradingPlanInput,
 ): Promise<void> {
+    const data = updateTradingPlanInputSchema.parse(input);
     const userId = await requireUserId();
     await db
         .update(tradingPlans)
-        .set({ name, config, updatedAt: new Date() })
+        .set({ name: data.name, config: data.config, updatedAt: new Date() })
         .where(
-            and(eq(tradingPlans.id, planId), eq(tradingPlans.userId, userId)),
+            and(
+                eq(tradingPlans.id, data.planId),
+                eq(tradingPlans.userId, userId),
+            ),
         );
-    redirect(`/profile?tab=trading-plan&plan=${planId}&success=plan_saved`);
+    redirect(
+        `/profile?tab=trading-plan&plan=${data.planId}&success=plan_saved`,
+    );
 }
 
-export async function deleteTradingPlan(planId: string): Promise<void> {
+export async function deleteTradingPlan(
+    input: PlanIdActionInput,
+): Promise<void> {
+    const { planId } = planIdActionSchema.parse(input);
     const userId = await requireUserId();
 
     const all = await db
@@ -97,7 +115,10 @@ export async function deleteTradingPlan(planId: string): Promise<void> {
     redirect('/profile?tab=trading-plan&success=plan_deleted');
 }
 
-export async function setActiveTradingPlan(planId: string): Promise<void> {
+export async function setActiveTradingPlan(
+    input: PlanIdActionInput,
+): Promise<void> {
+    const { planId } = planIdActionSchema.parse(input);
     const userId = await requireUserId();
     await db.transaction(async (tx) => {
         await tx
@@ -117,13 +138,17 @@ export async function setActiveTradingPlan(planId: string): Promise<void> {
 }
 
 export async function setActiveAndRedirectProfile(
-    planId: string,
+    input: PlanIdActionInput,
 ): Promise<void> {
-    await setActiveTradingPlan(planId);
+    const { planId } = planIdActionSchema.parse(input);
+    await setActiveTradingPlan({ planId });
     redirect(`/profile?tab=trading-plan&plan=${planId}&success=plan_activated`);
 }
 
-export async function cloneTradingPlan(planId: string): Promise<void> {
+export async function cloneTradingPlan(
+    input: PlanIdActionInput,
+): Promise<void> {
+    const { planId } = planIdActionSchema.parse(input);
     const userId = await requireUserId();
 
     const [source] = await db
@@ -151,53 +176,52 @@ export async function cloneTradingPlan(planId: string): Promise<void> {
     redirect(`/profile?tab=trading-plan&plan=${copy!.id}&success=plan_cloned`);
 }
 
-export async function saveAssessment(payload: {
-    planId: string | null;
-    planSnapshot: TradingPlanConfig;
-    answers: Answers;
-    result: AssessmentResult;
-}): Promise<{ id: string }> {
+export async function saveAssessment(
+    input: SaveAssessmentInput,
+): Promise<{ id: string }> {
+    const data = saveAssessmentInputSchema.parse(input);
     const userId = await requireUserId();
     const [row] = await db
         .insert(tradeAssessments)
         .values({
             userId,
-            planId: payload.planId,
-            planSnapshot: payload.planSnapshot,
-            answers: payload.answers,
-            result: payload.result,
-            score: payload.result.score,
-            grade: payload.result.grade,
-            recommendation: payload.result.recommendation,
+            planId: data.planId,
+            planSnapshot: data.planSnapshot,
+            answers: data.answers,
+            result: data.result,
+            score: data.result.score,
+            grade: data.result.grade,
+            recommendation: data.result.recommendation,
         })
         .returning({ id: tradeAssessments.id });
     return { id: row!.id };
 }
 
 export async function recordAssessmentOutcome(
-    id: string,
-    outcome: Outcome,
-    outcomeR: number | null,
-    notes: string | null,
+    input: RecordAssessmentOutcomeInput,
 ): Promise<void> {
+    const data = recordAssessmentOutcomeInputSchema.parse(input);
     const userId = await requireUserId();
     await db
         .update(tradeAssessments)
         .set({
-            outcome,
-            outcomeR,
-            outcomeNotes: notes,
+            outcome: data.outcome,
+            outcomeR: data.outcomeR,
+            outcomeNotes: data.notes,
             outcomeRecordedAt: new Date(),
         })
         .where(
             and(
-                eq(tradeAssessments.id, id),
+                eq(tradeAssessments.id, data.id),
                 eq(tradeAssessments.userId, userId),
             ),
         );
 }
 
-export async function deleteAssessment(id: string): Promise<void> {
+export async function deleteAssessment(
+    input: AssessmentIdActionInput,
+): Promise<void> {
+    const { id } = assessmentIdActionSchema.parse(input);
     const userId = await requireUserId();
     await db
         .delete(tradeAssessments)
@@ -216,16 +240,19 @@ export async function deleteAllAssessments(): Promise<void> {
         .where(eq(tradeAssessments.userId, userId));
 }
 
-export async function reorderTradingPlans(orderedIds: string[]): Promise<void> {
+export async function reorderTradingPlans(
+    input: ReorderTradingPlansInput,
+): Promise<void> {
+    const data = reorderTradingPlansInputSchema.parse(input);
     const userId = await requireUserId();
     await db.transaction(async (tx) => {
-        for (let i = 0; i < orderedIds.length; i++) {
+        for (let i = 0; i < data.orderedIds.length; i++) {
             await tx
                 .update(tradingPlans)
                 .set({ sortOrder: i })
                 .where(
                     and(
-                        eq(tradingPlans.id, orderedIds[i]!),
+                        eq(tradingPlans.id, data.orderedIds[i]!),
                         eq(tradingPlans.userId, userId),
                     ),
                 );

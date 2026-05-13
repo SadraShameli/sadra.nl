@@ -2,9 +2,11 @@ import { desc, eq } from 'drizzle-orm';
 import { type Metadata } from 'next';
 import { redirect } from 'next/navigation';
 
+import { z } from 'zod';
+
 import { auth } from '~/lib/auth';
+import { tradeAssessmentRowSchema } from '~/lib/schemas/trading';
 import { ensureUserHasPlan } from '~/lib/trading-actions';
-import type { TradeAssessmentRow, TradingPlanRow } from '~/lib/trading-types';
 import { db, tradeAssessments, tradingPlans } from '~/server/db';
 import { ChecklistShell } from './_components/ChecklistShell';
 
@@ -23,21 +25,20 @@ export default async function TradeChecklistPage() {
 
     await ensureUserHasPlan();
 
-    const plans = (await db
+    const plans = await db
         .select()
         .from(tradingPlans)
         .where(eq(tradingPlans.userId, userId))
-        .orderBy(
-            tradingPlans.sortOrder,
-            desc(tradingPlans.updatedAt),
-        )) as TradingPlanRow[];
+        .orderBy(tradingPlans.sortOrder, desc(tradingPlans.updatedAt));
 
-    const history = (await db
+    const historyRows = await db
         .select()
         .from(tradeAssessments)
         .where(eq(tradeAssessments.userId, userId))
         .orderBy(desc(tradeAssessments.createdAt))
-        .limit(50)) as TradeAssessmentRow[];
+        .limit(50);
+
+    const history = z.array(tradeAssessmentRowSchema).parse(historyRows);
 
     const active = plans.find((p) => p.isActive) ?? plans[0]!;
 

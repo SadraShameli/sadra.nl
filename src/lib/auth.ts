@@ -1,8 +1,9 @@
+import { compare } from 'bcryptjs';
 import { eq } from 'drizzle-orm';
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
-import { compare } from 'bcryptjs';
 
+import { credentialsSchema, jwtTokenSchema } from '~/lib/schemas/session';
 import { db, users } from '~/server/db';
 
 export const { auth, signIn, signOut, handlers } = NextAuth({
@@ -13,9 +14,9 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
                 password: { label: 'Password', type: 'password' },
             },
             async authorize(credentials) {
-                const email = credentials?.email as string | undefined;
-                const password = credentials?.password as string | undefined;
-                if (!email || !password) return null;
+                const parsed = credentialsSchema.safeParse(credentials);
+                if (!parsed.success) return null;
+                const { email, password } = parsed.data;
 
                 const [user] = await db
                     .select()
@@ -43,7 +44,10 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
             return token;
         },
         session({ session, token }) {
-            if (token.id) session.user.id = token.id as string;
+            const parsed = jwtTokenSchema.safeParse(token);
+            if (parsed.success && parsed.data.id) {
+                session.user.id = parsed.data.id;
+            }
             return session;
         },
     },

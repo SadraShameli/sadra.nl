@@ -1,20 +1,3 @@
-export type TimeWindow = {
-    id: string;
-    label: string;
-    start: string;
-    end: string;
-};
-
-export type WeightCategory =
-    | 'mental'
-    | 'context'
-    | 'bias'
-    | 'dol'
-    | 'state'
-    | 'entry'
-    | 'sl'
-    | 'rr';
-
 export const ENTRY_CONFLUENCE_KEYS = [
     'OB',
     'BB',
@@ -35,169 +18,91 @@ export const DOL_CONFLUENCE_KEYS = [
 
 export const DOL_TYPE_VALUES = [...DOL_CONFLUENCE_KEYS, 'None'] as const;
 
+export const ACCOUNT_TYPE_VALUES = ['funded', 'eval'] as const;
+
+export const BIAS_DIRECTION_VALUES = ['bullish', 'bearish', 'unclear'] as const;
+
+export const DAY_TYPE_VALUES = ['balanced', 'imbalanced'] as const;
+
+export const SETUP_TYPE_VALUES = ['reversal', 'continuation'] as const;
+
+export const DISPLACEMENT_DIRECTION_VALUES = [
+    'toward',
+    'away',
+    'none',
+] as const;
+
+export const GRADE_VALUES = [
+    'A+',
+    'A',
+    'A-',
+    'B+',
+    'B',
+    'B-',
+    'C+',
+    'C',
+    'C-',
+    'D',
+    'F',
+] as const;
+
+export const RECOMMENDATION_VALUES = [
+    'strong-take',
+    'take',
+    'marginal',
+    'skip',
+    'hard-skip',
+] as const;
+
+export const OUTCOME_VALUES = ['win', 'loss', 'breakeven', 'no-trade'] as const;
+
+export const WEIGHT_CATEGORY_VALUES = [
+    'mental',
+    'context',
+    'bias',
+    'dol',
+    'state',
+    'entry',
+    'sl',
+    'rr',
+] as const;
+
 export type ConfluenceKey =
     | (typeof ENTRY_CONFLUENCE_KEYS)[number]
     | (typeof DOL_CONFLUENCE_KEYS)[number];
 
 export type DolType = (typeof DOL_TYPE_VALUES)[number];
 
+export type AccountType = (typeof ACCOUNT_TYPE_VALUES)[number];
+
+export type BiasDirection = (typeof BIAS_DIRECTION_VALUES)[number];
+
+export type DayType = (typeof DAY_TYPE_VALUES)[number];
+
+export type SetupType = (typeof SETUP_TYPE_VALUES)[number];
+
+export type DisplacementDirection =
+    (typeof DISPLACEMENT_DIRECTION_VALUES)[number];
+
+export type Grade = (typeof GRADE_VALUES)[number];
+
+export type Recommendation = (typeof RECOMMENDATION_VALUES)[number];
+
+export type Outcome = (typeof OUTCOME_VALUES)[number];
+
+export type WeightCategory = (typeof WEIGHT_CATEGORY_VALUES)[number];
+
 export type ConfluenceGroup = {
     label: string;
     items: ConfluenceKey[];
 };
 
-export type AccountType = 'funded' | 'eval';
-
-export type BiasDirection = 'bullish' | 'bearish' | 'unclear';
-
-export type DayType = 'balanced' | 'imbalanced';
-
-export type SetupType = 'reversal' | 'continuation';
-
-export type DisplacementDirection = 'toward' | 'away' | 'none';
-
-export type Grade =
-    | 'A+'
-    | 'A'
-    | 'A-'
-    | 'B+'
-    | 'B'
-    | 'B-'
-    | 'C+'
-    | 'C'
-    | 'C-'
-    | 'D'
-    | 'F';
-
-export type Recommendation =
-    | 'strong-take'
-    | 'take'
-    | 'marginal'
-    | 'skip'
-    | 'hard-skip';
-
-export type Outcome = 'win' | 'loss' | 'breakeven' | 'no-trade';
-
-export type TradingPlanConfig = {
-    windows: TimeWindow[];
-    risk: {
-        fundedDollars: number;
-        evalDollars: number;
-        maxTradesPerWindow: number;
-    };
-    setup: {
-        minRR: number;
-        requiredPdArrays: number;
-        allowedConfluences: ConfluenceKey[];
-        allowedDolTypes: DolType[];
-    };
-    weights: Record<WeightCategory, number>;
-    knockouts: {
-        outsideMacroWindow: boolean;
-        bothSidedLiquidity: boolean;
-        slNotProtected: boolean;
-        dolAlreadyTaken: boolean;
-        revengeOrFomo: boolean;
-        distracted: boolean;
-        boredomHunt: boolean;
-    };
-};
-
-export type Answers = {
-    mental: {
-        hesitation: boolean;
-        boredomHunt: boolean;
-        revengeOrFomo: boolean;
-        distracted: boolean;
-    };
-    context: {
-        windowId: string | null;
-        accountType: AccountType;
-        windowQuotaUsed: boolean;
-    };
-    bias: {
-        weekly: BiasDirection;
-        daily: BiasDirection;
-        fourHour: BiasDirection;
-        oneHour: BiasDirection;
-        fifteenMin: BiasDirection;
-        conviction: number;
-    };
-    dol: {
-        type: DolType;
-        singular: boolean;
-        bothSided: boolean;
-        distanceR: number;
-    };
-    state: {
-        opposingSweep: boolean;
-        displacement: DisplacementDirection;
-        dayType: DayType;
-        setupType: SetupType;
-    };
-    entry: {
-        onFvg: boolean;
-        confluences: ConfluenceKey[];
-    };
-    sl: {
-        ob: boolean;
-        bb: boolean;
-        swing: boolean;
-    };
-    rr: {
-        targetR: number;
-        slippageR: number;
-    };
-    finals: {
-        dolAlreadyTaken: boolean;
-        overExtended: boolean;
-        notes: string;
-    };
-};
-
-export type ComponentScore = {
-    earned: number;
-    max: number;
-    label: string;
-    note: string;
-};
-
-export type AssessmentResult = {
-    grade: Grade;
-    score: number;
-    recommendation: Recommendation;
-    suggestedSizeMultiplier: number;
-    componentScores: Record<WeightCategory, ComponentScore>;
-    strengths: string[];
-    weaknesses: string[];
-    redFlags: string[];
-    improvements: string[];
-};
-
-export type TradingPlanRow = {
-    id: string;
-    userId: string;
-    name: string;
-    isActive: boolean;
-    sortOrder: number;
-    config: TradingPlanConfig;
-    createdAt: Date;
-    updatedAt: Date;
-};
-
-export type TradeAssessmentRow = {
-    id: string;
-    userId: string;
-    planId: string | null;
-    planSnapshot: TradingPlanConfig;
-    answers: Answers;
-    result: AssessmentResult;
-    score: number;
-    grade: string;
-    recommendation: string;
-    outcome: string | null;
-    outcomeR: number | null;
-    outcomeNotes: string | null;
-    outcomeRecordedAt: Date | null;
-    createdAt: Date;
-};
+export type {
+    Answers,
+    AssessmentResult,
+    ComponentScore,
+    TimeWindow,
+    TradeAssessmentRow,
+    TradingPlanConfig,
+    TradingPlanRow,
+} from '~/lib/schemas/trading';

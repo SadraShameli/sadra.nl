@@ -1,7 +1,8 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { type z } from 'zod';
+import { ZodError } from 'zod';
 
-import { type createReadingProps } from '~/server/api/types/zod';
+import { zodErrorResponse } from '~/lib/schemas/api';
+import { createReadingProps } from '~/lib/schemas/sensor';
 import { api } from '~/trpc/server';
 
 export async function GET() {
@@ -11,13 +12,8 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
     try {
-        const body = (await request.json()) as z.infer<
-            typeof createReadingProps
-        >;
-        const res = await api.reading.createReading({
-            device_id: body.device_id,
-            sensors: body.sensors,
-        });
+        const body = createReadingProps.parse(await request.json());
+        const res = await api.reading.createReading(body);
 
         const status =
             'status' in res && typeof res.status === 'number'
@@ -30,6 +26,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json(res, { status });
     } catch (e) {
+        if (e instanceof ZodError) return zodErrorResponse(e);
         return NextResponse.json({ error: String(e) }, { status: 500 });
     }
 }

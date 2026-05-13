@@ -157,39 +157,38 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
         const next = arrayMove(orderedPlans, oldIndex, newIndex);
         setOrderedPlans(next);
         startPlanAction(async () => {
-            await reorderTradingPlans(next.map((p) => p.id));
+            await reorderTradingPlans({ orderedIds: next.map((p) => p.id) });
             router.refresh();
         });
     };
 
     const create = () => {
-        if (!newName.trim()) return;
-        const fd = new FormData();
-        fd.set('name', newName.trim());
+        const name = newName.trim();
+        if (!name) return;
         startCreate(async () => {
-            await createTradingPlan(fd);
+            await createTradingPlan({ name });
         });
     };
 
-    const setActive = (id: string) => {
-        setPendingActionId(id);
+    const setActive = (planId: string) => {
+        setPendingActionId(planId);
         startPlanAction(async () => {
-            await setActiveTradingPlan(id);
+            await setActiveTradingPlan({ planId });
             router.refresh();
         });
     };
 
-    const clone = (id: string) => {
-        setPendingActionId(id);
+    const clone = (planId: string) => {
+        setPendingActionId(planId);
         startPlanAction(async () => {
-            await cloneTradingPlan(id);
+            await cloneTradingPlan({ planId });
         });
     };
 
-    const remove = (id: string) => {
-        setPendingActionId(id);
+    const remove = (planId: string) => {
+        setPendingActionId(planId);
         startPlanAction(async () => {
-            await deleteTradingPlan(id);
+            await deleteTradingPlan({ planId });
         });
     };
 

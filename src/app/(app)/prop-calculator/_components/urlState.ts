@@ -1,8 +1,15 @@
 import {
+    dayStopRuleSchema,
+    labScenarioSchema,
+    savedScenarioRecordSchema,
+    type SavedScenarioRecord as SavedScenarioRecordSchema,
+} from '~/lib/schemas/url';
+import {
     serializePlanId,
     type DayStopRule,
     type PropFirm,
 } from '~/lib/prop-calculator';
+import { z } from 'zod';
 
 import type { CalculatorState, LabScenario } from './types';
 import { SizingMode } from './types';
@@ -38,35 +45,8 @@ function base64UrlDecode(s: string): string {
     }
 }
 
-function isDayStopRule(v: unknown): v is DayStopRule {
-    if (!v || typeof v !== 'object') return false;
-    const kind = (v as { kind?: unknown }).kind;
-    if (kind === 'none' || kind === 'first-win') return true;
-    if (kind === 'after-k-losses')
-        return typeof (v as { k?: unknown }).k === 'number';
-    if (kind === 'after-target')
-        return typeof (v as { dollars?: unknown }).dollars === 'number';
-    return false;
-}
-
-function isLabScenario(v: unknown): v is LabScenario {
-    if (!v || typeof v !== 'object') return false;
-    const o = v as Partial<LabScenario>;
-    return (
-        typeof o.id === 'string' &&
-        typeof o.label === 'string' &&
-        typeof o.riskPerTrade === 'number' &&
-        typeof o.winrate === 'number' &&
-        typeof o.rrRatio === 'number' &&
-        typeof o.tradesPerDay === 'number' &&
-        typeof o.accounts === 'number' &&
-        (o.correlation === 'copy' ||
-            o.correlation === 'grouped' ||
-            o.correlation === 'independent') &&
-        typeof o.groups === 'number' &&
-        isDayStopRule(o.dayStop)
-    );
-}
+const labScenarioArraySchema = z.array(labScenarioSchema);
+const savedScenarioArraySchema = z.array(savedScenarioRecordSchema);
 
 export function encodeState(state: CalculatorState): URLSearchParams {
     const p = new URLSearchParams();
@@ -133,7 +113,8 @@ export function decodeState(
     if (dsParam) {
         try {
             const parsed: unknown = JSON.parse(base64UrlDecode(dsParam));
-            if (isDayStopRule(parsed)) dayStop = parsed;
+            const ok = dayStopRuleSchema.safeParse(parsed);
+            if (ok.success) dayStop = ok.data as DayStopRule;
         } catch {}
     }
 
@@ -142,8 +123,8 @@ export function decodeState(
     if (labParam) {
         try {
             const parsed: unknown = JSON.parse(base64UrlDecode(labParam));
-            if (Array.isArray(parsed) && parsed.every(isLabScenario))
-                labScenarios = parsed;
+            const ok = labScenarioArraySchema.safeParse(parsed);
+            if (ok.success) labScenarios = ok.data as LabScenario[];
         } catch {}
     }
 
@@ -177,11 +158,7 @@ export function decodeState(
 
 const SCENARIOS_KEY = 'propCalc.scenarios.v1';
 
-export interface SavedScenarioRecord {
-    name: string;
-    savedAt: number;
-    params: string;
-}
+export type SavedScenarioRecord = SavedScenarioRecordSchema;
 
 export function loadScenarios(): SavedScenarioRecord[] {
     if (typeof window === 'undefined') return [];
@@ -189,15 +166,8 @@ export function loadScenarios(): SavedScenarioRecord[] {
         const raw = window.localStorage.getItem(SCENARIOS_KEY);
         if (!raw) return [];
         const parsed: unknown = JSON.parse(raw);
-        if (!Array.isArray(parsed)) return [];
-        return parsed.filter(
-            (item): item is SavedScenarioRecord =>
-                typeof item === 'object' &&
-                item !== null &&
-                'name' in item &&
-                'savedAt' in item &&
-                'params' in item,
-        );
+        const ok = savedScenarioArraySchema.safeParse(parsed);
+        return ok.success ? ok.data : [];
     } catch {
         return [];
     }

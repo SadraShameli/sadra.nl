@@ -1,9 +1,6 @@
-import { AuthError } from 'next-auth';
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
 
 import { Alert, AlertDescription } from '~/components/ui/Alert';
-import { Button } from '~/components/ui/Button';
 import {
     Card,
     CardContent,
@@ -11,31 +8,15 @@ import {
     CardHeader,
     CardTitle,
 } from '~/components/ui/Card';
-import { Input } from '~/components/ui/Input';
-import { signIn } from '~/lib/auth';
-
-async function login(formData: FormData) {
-    'use server';
-    try {
-        await signIn('credentials', {
-            email: formData.get('email'),
-            password: formData.get('password'),
-            redirectTo: '/',
-        });
-    } catch (error) {
-        if (error instanceof AuthError) {
-            redirect('/login?error=invalid');
-        }
-        throw error;
-    }
-}
+import { loginSearchSchema } from '~/lib/schemas/url';
+import { LoginForm } from './LoginForm';
 
 export default async function LoginPage({
     searchParams,
 }: {
-    searchParams: Promise<{ error?: string; success?: string }>;
+    searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-    const { error, success } = await searchParams;
+    const { error, success } = loginSearchSchema.parse(await searchParams);
 
     return (
         <div className="flex min-h-screen items-center justify-center px-4">
@@ -50,79 +31,43 @@ export default async function LoginPage({
                     <CardHeader>
                         <CardTitle>Sign in</CardTitle>
                     </CardHeader>
-                    <form action={login}>
-                        <CardContent className="flex flex-col gap-3">
-                            {success === 'reset' && (
-                                <Alert variant="success">
-                                    <AlertDescription>
-                                        Password reset — sign in with your new
-                                        password.
-                                    </AlertDescription>
-                                </Alert>
-                            )}
-                            {error && (
-                                <Alert variant="destructive">
-                                    <AlertDescription>
-                                        Invalid email or password.
-                                    </AlertDescription>
-                                </Alert>
-                            )}
-                            <div className="flex flex-col gap-1.5">
-                                <label
-                                    htmlFor="email"
-                                    className="text-sm font-medium"
-                                >
-                                    Email
-                                </label>
-                                <Input
-                                    id="email"
-                                    name="email"
-                                    type="email"
-                                    placeholder="you@example.com"
-                                    required
-                                    autoComplete="email"
-                                />
-                            </div>
-                            <div className="flex flex-col gap-1.5">
-                                <div className="flex items-center justify-between">
-                                    <label
-                                        htmlFor="password"
-                                        className="text-sm font-medium"
-                                    >
-                                        Password
-                                    </label>
-                                    <Link
-                                        href="/forgot-password"
-                                        className="text-xs text-muted-foreground underline underline-offset-4 hover:opacity-70"
-                                    >
-                                        Forgot password?
-                                    </Link>
-                                </div>
-                                <Input
-                                    id="password"
-                                    name="password"
-                                    type="password"
-                                    placeholder="••••••••"
-                                    required
-                                    autoComplete="current-password"
-                                />
-                            </div>
-                        </CardContent>
-                        <CardFooter className="mt-10 flex flex-col gap-3">
-                            <Button type="submit" className="w-full">
-                                Sign in
-                            </Button>
-                            <p className="text-center text-sm text-muted-foreground">
-                                No account?{' '}
-                                <Link
-                                    href="/signup"
-                                    className="text-foreground underline underline-offset-4 hover:opacity-70"
-                                >
-                                    Sign up
-                                </Link>
-                            </p>
-                        </CardFooter>
-                    </form>
+                    <CardContent className="flex flex-col gap-3">
+                        {success === 'reset' && (
+                            <Alert variant="success">
+                                <AlertDescription>
+                                    Password reset — sign in with your new
+                                    password.
+                                </AlertDescription>
+                            </Alert>
+                        )}
+                        {error && (
+                            <Alert variant="destructive">
+                                <AlertDescription>
+                                    Invalid email or password.
+                                </AlertDescription>
+                            </Alert>
+                        )}
+                        <LoginForm />
+                        <div className="mt-1 text-right">
+                            <Link
+                                href="/forgot-password"
+                                className="text-xs text-muted-foreground underline underline-offset-4 hover:opacity-70"
+                            >
+                                Forgot password?
+                            </Link>
+                        </div>
+                    </CardContent>
+                    <CardFooter className="mt-2 flex flex-col gap-3">
+                        <p className="text-center text-sm text-muted-foreground">
+                            No account?{' '}
+                            <Link
+                                href="/signup"
+                                className="text-foreground underline underline-offset-4 hover:opacity-70"
+                            >
+                                Sign up
+                            </Link>
+                        </p>
+                    </CardFooter>
                 </Card>
             </div>
         </div>

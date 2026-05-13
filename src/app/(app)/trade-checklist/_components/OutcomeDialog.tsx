@@ -45,12 +45,12 @@ export function OutcomeDialog({
         const parsed = parseFloat(outcomeR);
         const r = !outcomeR.trim() || isNaN(parsed) ? null : parsed;
         startTransition(async () => {
-            await recordAssessmentOutcome(
-                assessmentId,
+            await recordAssessmentOutcome({
+                id: assessmentId,
                 outcome,
-                r,
-                notes.trim() || null,
-            );
+                outcomeR: r,
+                notes: notes.trim() || null,
+            });
             onOpenChange(false);
             router.refresh();
         });

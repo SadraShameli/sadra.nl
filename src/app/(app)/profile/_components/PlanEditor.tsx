@@ -19,6 +19,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Plus, Save, Trash2 } from 'lucide-react';
 import { useState, useTransition } from 'react';
+import { toast } from 'sonner';
 
 import { Alert, AlertDescription } from '~/components/ui/Alert';
 import { Badge } from '~/components/ui/Badge';
@@ -28,6 +29,7 @@ import { Input } from '~/components/ui/Input';
 import { Label } from '~/components/ui/Label';
 import { Slider } from '~/components/ui/Slider';
 import { Switch } from '~/components/ui/Switch';
+import { updateTradingPlanInputSchema } from '~/lib/schemas/trading';
 import { updateTradingPlan } from '~/lib/trading-actions';
 import { CONFLUENCE_GROUPS, WEIGHT_CATEGORIES } from '~/lib/trading-defaults';
 import type {
@@ -92,10 +94,26 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
     };
 
     const save = () => {
-        if (!weightsValid) return;
-        if (!name.trim()) return;
+        if (!weightsValid) {
+            toast.error('Weights must sum to 100.');
+            return;
+        }
+        const parsed = updateTradingPlanInputSchema.safeParse({
+            planId: plan.id,
+            name: name.trim(),
+            config,
+        });
+        if (!parsed.success) {
+            const first = parsed.error.issues[0];
+            toast.error(
+                first
+                    ? `${first.path.join('.') || 'plan'}: ${first.message}`
+                    : 'Invalid plan config',
+            );
+            return;
+        }
         startTransition(async () => {
-            await updateTradingPlan(plan.id, name.trim(), config);
+            await updateTradingPlan(parsed.data);
         });
     };
 

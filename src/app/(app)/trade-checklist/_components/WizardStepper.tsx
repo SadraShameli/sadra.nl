@@ -24,74 +24,15 @@ import { Slider } from '~/components/ui/Slider';
 import { Switch } from '~/components/ui/Switch';
 import { Textarea } from '~/components/ui/Textarea';
 import { ToggleGroup, ToggleGroupItem } from '~/components/ui/Toggle-group';
-import { CONFLUENCE_GROUPS, DEFAULT_DOL_TYPES } from '~/lib/trading-defaults';
-import { findCurrentWindow, scoreAssessment } from '~/lib/trading-scoring';
-import { DOL_TYPE_VALUES } from '~/lib/trading-types';
+import { answersSchema } from '~/lib/schemas/trading';
 import type {
     Answers,
     AssessmentResult,
-    ConfluenceKey,
     TradingPlanRow,
-} from '~/lib/trading-types';
-
-const biasEnum = z.enum(['bullish', 'bearish', 'unclear']);
-const accountEnum = z.enum(['funded', 'eval']);
-const dolEnum = z.enum(DOL_TYPE_VALUES);
-const dayEnum = z.enum(['balanced', 'imbalanced']);
-const setupEnum = z.enum(['reversal', 'continuation']);
-const displacementEnum = z.enum(['toward', 'away', 'none']);
-
-const answersSchema = z.object({
-    mental: z.object({
-        hesitation: z.boolean(),
-        boredomHunt: z.boolean(),
-        revengeOrFomo: z.boolean(),
-        distracted: z.boolean(),
-    }),
-    context: z.object({
-        windowId: z.string().nullable(),
-        accountType: accountEnum,
-        windowQuotaUsed: z.boolean(),
-    }),
-    bias: z.object({
-        weekly: biasEnum,
-        daily: biasEnum,
-        fourHour: biasEnum,
-        oneHour: biasEnum,
-        fifteenMin: biasEnum,
-        conviction: z.number().min(1).max(10),
-    }),
-    dol: z.object({
-        type: dolEnum,
-        singular: z.boolean(),
-        bothSided: z.boolean(),
-        distanceR: z.number().min(0),
-    }),
-    state: z.object({
-        opposingSweep: z.boolean(),
-        displacement: displacementEnum,
-        dayType: dayEnum,
-        setupType: setupEnum,
-    }),
-    entry: z.object({
-        onFvg: z.boolean(),
-        confluences: z.array(z.string()),
-    }),
-    sl: z.object({
-        ob: z.boolean(),
-        bb: z.boolean(),
-        swing: z.boolean(),
-    }),
-    rr: z.object({
-        targetR: z.number().min(0),
-        slippageR: z.number().min(0),
-    }),
-    finals: z.object({
-        dolAlreadyTaken: z.boolean(),
-        overExtended: z.boolean(),
-        notes: z.string(),
-    }),
-});
+} from '~/lib/schemas/trading';
+import { CONFLUENCE_GROUPS, DEFAULT_DOL_TYPES } from '~/lib/trading-defaults';
+import { findCurrentWindow, scoreAssessment } from '~/lib/trading-scoring';
+import type { ConfluenceKey } from '~/lib/trading-types';
 
 type FormValues = z.infer<typeof answersSchema>;
 

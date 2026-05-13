@@ -65,7 +65,7 @@ export function ChecklistShell({
 
     const handleDelete = (id: string) => {
         startDelete(async () => {
-            await deleteAssessment(id);
+            await deleteAssessment({ id });
             if (submission.status === 'graded' && submission.savedId === id) {
                 setSubmission({ status: 'editing' });
             }
@@ -172,7 +172,7 @@ function PlanHeader({
     const switchPlan = (planId: string) => {
         if (planId === activePlan.id) return;
         startTransition(async () => {
-            await setActiveTradingPlan(planId);
+            await setActiveTradingPlan({ planId });
             router.refresh();
         });
     };

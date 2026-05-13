@@ -2,28 +2,21 @@ import { desc, eq } from 'drizzle-orm';
 import { redirect } from 'next/navigation';
 
 import { Alert, AlertDescription } from '~/components/ui/Alert';
-import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import { Input } from '~/components/ui/Input';
 import { Separator } from '~/components/ui/Separator';
 import { auth } from '~/lib/auth';
-import { logout, updateName, updatePassword } from '~/lib/auth-actions';
+import { profileSearchSchema } from '~/lib/schemas/url';
 import { ensureUserHasPlan } from '~/lib/trading-actions';
-import type { TradingPlanRow } from '~/lib/trading-types';
 import { db, tradingPlans, users } from '~/server/db';
 import { DeleteAccountDialog } from './_components/DeleteAccountDialog';
+import { LogoutButton } from './_components/LogoutButton';
 import { ProfileTabs } from './_components/ProfileTabs';
 import { TradingPlanTab } from './_components/TradingPlanTab';
-
-const nameMessages: Record<string, string> = {
-    name_required: 'Name cannot be empty.',
-    name_unchanged: 'No changes to save.',
-};
+import { UpdateNameForm } from './_components/UpdateNameForm';
+import { UpdatePasswordForm } from './_components/UpdatePasswordForm';
 
 const pwMessages: Record<string, string> = {
     pw_wrong: 'Current password is incorrect.',
-    pw_mismatch: 'New passwords do not match.',
-    pw_short: 'Password must be at least 8 characters.',
     pw_fail: 'Could not update password.',
 };
 
@@ -47,16 +40,12 @@ function Avatar({
 export default async function ProfilePage({
     searchParams,
 }: {
-    searchParams: Promise<{
-        error?: string;
-        success?: string;
-        tab?: string;
-    }>;
+    searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
     const session = await auth();
     if (!session?.user?.id) redirect('/login');
 
-    const { error, success } = await searchParams;
+    const { error, success } = profileSearchSchema.parse(await searchParams);
 
     const [user] = await db
         .select()
@@ -67,14 +56,11 @@ export default async function ProfilePage({
 
     await ensureUserHasPlan();
 
-    const plans = (await db
+    const plans = await db
         .select()
         .from(tradingPlans)
         .where(eq(tradingPlans.userId, session.user.id))
-        .orderBy(
-            tradingPlans.sortOrder,
-            desc(tradingPlans.updatedAt),
-        )) as TradingPlanRow[];
+        .orderBy(tradingPlans.sortOrder, desc(tradingPlans.updatedAt));
 
     const { name, email } = user;
 
@@ -85,19 +71,6 @@ export default async function ProfilePage({
                     <CardTitle>Profile</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    {error && nameMessages[error] && (
-                        <Alert
-                            variant={
-                                error === 'name_unchanged'
-                                    ? 'warning'
-                                    : 'destructive'
-                            }
-                        >
-                            <AlertDescription>
-                                {nameMessages[error]}
-                            </AlertDescription>
-                        </Alert>
-                    )}
                     {success === 'name' && (
                         <Alert variant="success">
                             <AlertDescription>
@@ -105,42 +78,10 @@ export default async function ProfilePage({
                             </AlertDescription>
                         </Alert>
                     )}
-                    <form action={updateName} className="flex flex-col gap-3">
-                        <input
-                            type="hidden"
-                            name="currentName"
-                            value={name ?? ''}
-                        />
-                        <div className="flex flex-col gap-1.5">
-                            <label
-                                htmlFor="name"
-                                className="text-sm font-medium"
-                            >
-                                Display name
-                            </label>
-                            <Input
-                                id="name"
-                                name="name"
-                                type="text"
-                                defaultValue={name ?? ''}
-                                placeholder="Your name"
-                                required
-                                autoComplete="name"
-                            />
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                            <label className="text-sm font-medium">Email</label>
-                            <Input
-                                value={email ?? ''}
-                                disabled
-                                readOnly
-                                className="opacity-50"
-                            />
-                        </div>
-                        <Button type="submit" className="self-start">
-                            Save changes
-                        </Button>
-                    </form>
+                    <UpdateNameForm
+                        currentName={name ?? ''}
+                        email={email ?? ''}
+                    />
                 </CardContent>
             </Card>
 
@@ -163,63 +104,7 @@ export default async function ProfilePage({
                             </AlertDescription>
                         </Alert>
                     )}
-                    <form
-                        action={updatePassword}
-                        className="flex flex-col gap-3"
-                    >
-                        <div className="flex flex-col gap-1.5">
-                            <label
-                                htmlFor="current"
-                                className="text-sm font-medium"
-                            >
-                                Current password
-                            </label>
-                            <Input
-                                id="current"
-                                name="current"
-                                type="password"
-                                placeholder="••••••••"
-                                required
-                                autoComplete="current-password"
-                            />
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                            <label
-                                htmlFor="password"
-                                className="text-sm font-medium"
-                            >
-                                New password
-                            </label>
-                            <Input
-                                id="password"
-                                name="password"
-                                type="password"
-                                placeholder="••••••••"
-                                required
-                                minLength={8}
-                                autoComplete="new-password"
-                            />
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                            <label
-                                htmlFor="confirm"
-                                className="text-sm font-medium"
-                            >
-                                Confirm new password
-                            </label>
-                            <Input
-                                id="confirm"
-                                name="confirm"
-                                type="password"
-                                placeholder="••••••••"
-                                required
-                                autoComplete="new-password"
-                            />
-                        </div>
-                        <Button type="submit" className="self-start">
-                            Change password
-                        </Button>
-                    </form>
+                    <UpdatePasswordForm />
                 </CardContent>
             </Card>
 
@@ -232,11 +117,7 @@ export default async function ProfilePage({
                                 You will be signed out of your account.
                             </p>
                         </div>
-                        <form action={logout}>
-                            <Button type="submit" variant="outline">
-                                Sign out
-                            </Button>
-                        </form>
+                        <LogoutButton />
                     </div>
                     <Separator className="mt-6" />
                     <div className="mt-6 flex items-center justify-between">

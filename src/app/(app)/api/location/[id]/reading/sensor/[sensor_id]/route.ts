@@ -1,21 +1,18 @@
 import { type NextRequest, NextResponse } from 'next/server';
 
+import { idSensorPathParamSchema, parseRouteParams } from '~/lib/schemas/api';
 import { api } from '~/trpc/server';
-
-type RequestProps = {
-    id: string;
-    sensor_id: string;
-};
 
 export async function GET(
     request: NextRequest,
-    { params }: { params: Promise<RequestProps> },
+    { params }: { params: Promise<{ id: string; sensor_id: string }> },
 ) {
-    const requestParams = await params;
+    const parsed = parseRouteParams(idSensorPathParamSchema, await params);
+    if (parsed.response) return parsed.response;
 
     const res = await api.location.getLocationReadings({
-        location: { location_id: +requestParams.id },
-        sensor_id: +requestParams.sensor_id,
+        location: { location_id: parsed.data.id },
+        sensor_id: parsed.data.sensor_id,
     });
 
     if (!res.data) {

@@ -1,19 +1,17 @@
 import { type NextRequest, NextResponse } from 'next/server';
 
+import { idPathParamSchema, parseRouteParams } from '~/lib/schemas/api';
 import { api } from '~/trpc/server';
-
-type RequestProps = {
-    id: string;
-};
 
 export async function GET(
     request: NextRequest,
-    { params }: { params: Promise<RequestProps> },
+    { params }: { params: Promise<{ id: string }> },
 ) {
-    const requestParams = await params;
+    const parsed = parseRouteParams(idPathParamSchema, await params);
+    if (parsed.response) return parsed.response;
 
     const res = await api.location.getLocationReadings({
-        location: { location_id: +requestParams.id },
+        location: { location_id: parsed.data.id },
     });
 
     if (!res.data) {

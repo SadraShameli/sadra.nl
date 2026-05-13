@@ -10,6 +10,7 @@ import {
     XAxis,
     YAxis,
 } from 'recharts';
+import { z } from 'zod';
 
 import { simulateCompound } from '~/lib/prop-calculator/compoundSimulator';
 import { cn } from '~/lib/utils';
@@ -23,6 +24,13 @@ import {
 
 import { formatCompactCurrency, formatPercent } from './helpers';
 import InfoPopover from './InfoPopover';
+
+const tooltipEntrySchema = z.object({
+    dataKey: z.string(),
+    value: z.number(),
+});
+
+type TooltipEntry = z.infer<typeof tooltipEntrySchema>;
 
 interface CompoundingPanelProps {
     winrate: number;
@@ -259,7 +267,15 @@ export default function CompoundingPanel({
                             }
                         />
                         <ChartTooltip
-                            content={({ active, payload, label }: any) => {
+                            content={({
+                                active,
+                                payload,
+                                label,
+                            }: {
+                                active?: boolean;
+                                payload?: readonly unknown[];
+                                label?: unknown;
+                            }) => {
                                 if (!active || !payload?.length) return null;
                                 const keyLabel: Record<string, string> = {
                                     p95: 'P95',
@@ -275,16 +291,27 @@ export default function CompoundingPanel({
                                     'p25',
                                     'p5',
                                 ];
-                                const byKey = Object.fromEntries(
-                                    (payload as any[]).map((p) => [
-                                        p.dataKey,
-                                        p.value,
-                                    ]),
+                                const entries: TooltipEntry[] = payload.flatMap(
+                                    (p) => {
+                                        const r =
+                                            tooltipEntrySchema.safeParse(p);
+                                        return r.success ? [r.data] : [];
+                                    },
                                 );
+                                const byKey: Record<string, number> =
+                                    Object.fromEntries(
+                                        entries.map((e) => [
+                                            e.dataKey,
+                                            e.value,
+                                        ]),
+                                    );
                                 return (
                                     <div className="grid min-w-[8rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl">
                                         <p className="text-xs font-medium">
-                                            Month {label as number}
+                                            Month{' '}
+                                            {typeof label === 'number'
+                                                ? label
+                                                : String(label ?? '')}
                                         </p>
                                         <div className="grid gap-1.5">
                                             {order
@@ -302,9 +329,7 @@ export default function CompoundingPanel({
                                                         </span>
                                                         <span className="font-mono font-medium tabular-nums">
                                                             {formatCompactCurrency(
-                                                                byKey[
-                                                                    k
-                                                                ] as number,
+                                                                byKey[k]!,
                                                             )}
                                                         </span>
                                                     </div>
