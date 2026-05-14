@@ -9,6 +9,8 @@ import {
     assessmentIdActionSchema,
     type CreateTradingPlanInput,
     createTradingPlanInputSchema,
+    type DeletePrepInput,
+    deletePrepInputSchema,
     type PlanIdActionInput,
     planIdActionSchema,
     type RecordAssessmentOutcomeInput,
@@ -17,11 +19,19 @@ import {
     reorderTradingPlansInputSchema,
     type SaveAssessmentInput,
     saveAssessmentInputSchema,
+    type SavePrepInput,
+    savePrepInputSchema,
     type UpdateTradingPlanInput,
     updateTradingPlanInputSchema,
 } from '~/lib/schemas/trading';
 import { DEFAULT_PLAN } from '~/lib/trading-defaults';
-import { db, tradeAssessments, tradingPlans } from '~/server/db';
+import { PREP_CHECK_KEYS } from '~/lib/trading-types';
+import {
+    dailyPreparations,
+    db,
+    tradeAssessments,
+    tradingPlans,
+} from '~/server/db';
 
 export async function cloneTradingPlan(
     input: PlanIdActionInput,
@@ -106,6 +116,19 @@ export async function deleteAssessment(
         );
 }
 
+export async function deletePrep(input: DeletePrepInput): Promise<void> {
+    const data = deletePrepInputSchema.parse(input);
+    const userId = await requireUserId();
+    await db
+        .delete(dailyPreparations)
+        .where(
+            and(
+                eq(dailyPreparations.userId, userId),
+                eq(dailyPreparations.date, data.date),
+            ),
+        );
+}
+
 export async function deleteTradingPlan(
     input: PlanIdActionInput,
 ): Promise<void> {
@@ -183,6 +206,9 @@ export async function recordAssessmentOutcome(
     const updated = await db
         .update(tradeAssessments)
         .set({
+            actualRiskTaken: data.actualRiskTaken,
+            executionDeviations: data.executionDeviations,
+            followedPlan: data.followedPlan,
             outcome: data.outcome,
             outcomeNotes: data.notes,
             outcomeR: data.outcomeR,
@@ -240,6 +266,33 @@ export async function saveAssessment(
         .returning({ id: tradeAssessments.id });
     if (!row) throw new Error('Failed to record assessment');
     return { id: row.id };
+}
+
+export async function savePrep(input: SavePrepInput): Promise<void> {
+    const data = savePrepInputSchema.parse(input);
+    const userId = await requireUserId();
+    const completed = PREP_CHECK_KEYS.filter((k) => data.checks[k]).length;
+    const score = (completed / PREP_CHECK_KEYS.length) * 100;
+    await db
+        .insert(dailyPreparations)
+        .values({
+            checks: data.checks,
+            date: data.date,
+            notes: data.notes,
+            planId: data.planId,
+            score,
+            userId,
+        })
+        .onConflictDoUpdate({
+            set: {
+                checks: data.checks,
+                notes: data.notes,
+                planId: data.planId,
+                score,
+                updatedAt: new Date(),
+            },
+            target: [dailyPreparations.userId, dailyPreparations.date],
+        });
 }
 
 export async function setActiveTradingPlan(

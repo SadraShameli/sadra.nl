@@ -3,11 +3,11 @@
 import { useMemo } from 'react';
 
 import { Card } from '~/components/ui/Card';
+import InfoPopover from '~/components/ui/InfoPopover';
+import { formatCurrency, formatPercent } from '~/lib/format';
 import { type Plan, type SimOutputs } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utils';
 
-import { formatCurrency, formatPercent } from './helpers';
-import InfoPopover from './InfoPopover';
 import { panelDescriptions } from './kpiDescriptions';
 import { probStreakAtLeast } from './lab/labMath';
 

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 
 import { Card } from '~/components/ui/Card';
+import { formatCompactCurrency, formatDays } from '~/lib/format';
 import { FirmId } from '~/lib/prop-calculator';
 
 import ChartPanel from './ChartPanel';
@@ -10,7 +11,6 @@ import CompoundingPanel from './CompoundingPanel';
 import DrawdownDurationPanel from './DrawdownDurationPanel';
 import FirmComparisonTable from './FirmComparisonTable';
 import FirmPlanPicker from './FirmPlanPicker';
-import { formatCompactCurrency, formatDays } from './helpers';
 import { kpiDescriptions } from './kpiDescriptions';
 import OptimalRiskTable from './OptimalRiskTable';
 import PercentileBar from './PercentileBar';

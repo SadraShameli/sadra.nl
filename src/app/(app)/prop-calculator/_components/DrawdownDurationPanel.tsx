@@ -3,11 +3,10 @@
 import { useMemo } from 'react';
 
 import { Card } from '~/components/ui/Card';
+import InfoPopover from '~/components/ui/InfoPopover';
+import { formatDays, formatPercent } from '~/lib/format';
 import { type SimOutputs } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utils';
-
-import { formatDays, formatPercent } from './helpers';
-import InfoPopover from './InfoPopover';
 
 interface DdEpisode {
     depthPct: number;

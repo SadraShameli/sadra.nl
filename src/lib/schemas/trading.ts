@@ -7,13 +7,18 @@ import {
     DAY_TYPE_VALUES,
     DISPLACEMENT_DIRECTION_VALUES,
     DOL_TYPE_VALUES,
+    EXECUTION_DEVIATION_VALUES,
     GRADE_VALUES,
     OUTCOME_VALUES,
     RECOMMENDATION_VALUES,
     SETUP_TYPE_VALUES,
     WEIGHT_CATEGORY_VALUES,
 } from '~/lib/trading-types';
-import { tradeAssessments, tradingPlans } from '~/server/db/schemas/trading';
+import {
+    dailyPreparations,
+    tradeAssessments,
+    tradingPlans,
+} from '~/server/db/schemas/trading';
 
 export const accountTypeSchema = z.enum(ACCOUNT_TYPE_VALUES);
 export const biasDirectionSchema = z.enum(BIAS_DIRECTION_VALUES);
@@ -27,6 +32,7 @@ export const gradeSchema = z.enum(GRADE_VALUES);
 export const recommendationSchema = z.enum(RECOMMENDATION_VALUES);
 export const outcomeSchema = z.enum(OUTCOME_VALUES);
 export const weightCategorySchema = z.enum(WEIGHT_CATEGORY_VALUES);
+export const executionDeviationSchema = z.enum(EXECUTION_DEVIATION_VALUES);
 
 const ENTRY_CONFLUENCE_KEYS = [
     'OB',
@@ -195,6 +201,7 @@ export type TradingPlanRow = z.infer<typeof tradingPlanRowSchema>;
 
 export const tradeAssessmentRowSchema = createSelectSchema(tradeAssessments, {
     answers: answersSchema,
+    executionDeviations: z.array(executionDeviationSchema).nullable(),
     outcome: outcomeSchema.nullable(),
     planSnapshot: tradingPlanConfigSchema,
     result: assessmentResultSchema,
@@ -245,6 +252,9 @@ export type SaveAssessmentInput = z.infer<typeof saveAssessmentInputSchema>;
 export const assessmentIdSchema = z.uuid();
 
 export const recordAssessmentOutcomeInputSchema = z.object({
+    actualRiskTaken: z.number().nullable(),
+    executionDeviations: z.array(executionDeviationSchema).nullable(),
+    followedPlan: z.boolean().nullable(),
     id: assessmentIdSchema,
     notes: z.string().nullable(),
     outcome: outcomeSchema,
@@ -257,3 +267,35 @@ export type RecordAssessmentOutcomeInput = z.infer<
 
 export const assessmentIdActionSchema = z.object({ id: assessmentIdSchema });
 export type AssessmentIdActionInput = z.infer<typeof assessmentIdActionSchema>;
+
+export const prepChecksSchema = z.object({
+    accountRiskReset: z.boolean(),
+    economicEventsChecked: z.boolean(),
+    htfBiasConfirmed: z.boolean(),
+    journalReviewed: z.boolean(),
+    keyLevelsMarked: z.boolean(),
+    mentalCheckIn: z.boolean(),
+    setupPlanWritten: z.boolean(),
+});
+
+export type PrepChecksParsed = z.infer<typeof prepChecksSchema>;
+
+export const dailyPreparationRowSchema = createSelectSchema(dailyPreparations, {
+    checks: prepChecksSchema,
+});
+
+export type DailyPreparationRow = z.infer<typeof dailyPreparationRowSchema>;
+
+const dateStringSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'YYYY-MM-DD');
+
+export const savePrepInputSchema = z.object({
+    checks: prepChecksSchema,
+    date: dateStringSchema,
+    notes: z.string().nullable(),
+    planId: planIdSchema.nullable(),
+});
+
+export type SavePrepInput = z.infer<typeof savePrepInputSchema>;
+
+export const deletePrepInputSchema = z.object({ date: dateStringSchema });
+export type DeletePrepInput = z.infer<typeof deletePrepInputSchema>;

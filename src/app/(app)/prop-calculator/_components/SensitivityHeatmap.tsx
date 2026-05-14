@@ -3,11 +3,11 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { Card } from '~/components/ui/Card';
+import InfoPopover from '~/components/ui/InfoPopover';
+import { formatCompactCurrency, formatPercent } from '~/lib/format';
 import { type Plan, type SimInputs, simulate } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utils';
 
-import { formatCompactCurrency, formatPercent } from './helpers';
-import InfoPopover from './InfoPopover';
 import { panelDescriptions } from './kpiDescriptions';
 
 const WINRATES = [0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6] as const;

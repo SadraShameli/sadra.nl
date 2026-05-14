@@ -13,10 +13,9 @@ import {
 
 import { Card } from '~/components/ui/Card';
 import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
+import InfoPopover from '~/components/ui/InfoPopover';
+import { formatPercent, formatR } from '~/lib/format';
 import { cn } from '~/lib/utils';
-
-import { formatPercent, formatR } from './helpers';
-import InfoPopover from './InfoPopover';
 
 const PLACEHOLDER = `Paste your trade results in R-multiples, one per line or comma-separated.
 

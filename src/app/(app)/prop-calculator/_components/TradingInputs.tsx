@@ -10,15 +10,15 @@ import {
     PopoverTrigger,
 } from '~/components/ui/Popover';
 import { Slider } from '~/components/ui/Slider';
-import { type DayStopRule, type Plan } from '~/lib/prop-calculator';
-import { cn } from '~/lib/utils';
-
-import DayStopRulePicker from './DayStopRulePicker';
 import {
     formatCompactCurrency,
     formatCurrency,
     formatPercent,
-} from './helpers';
+} from '~/lib/format';
+import { type DayStopRule, type Plan } from '~/lib/prop-calculator';
+import { cn } from '~/lib/utils';
+
+import DayStopRulePicker from './DayStopRulePicker';
 import { SizingMode } from './types';
 
 interface TradingInputsProps {

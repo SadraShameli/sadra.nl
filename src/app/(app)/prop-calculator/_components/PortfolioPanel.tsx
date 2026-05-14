@@ -4,6 +4,7 @@ import { Tag } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 
 import { Card } from '~/components/ui/Card';
+import InfoPopover from '~/components/ui/InfoPopover';
 import { Input } from '~/components/ui/Input';
 import {
     Popover,
@@ -11,6 +12,12 @@ import {
     PopoverTrigger,
 } from '~/components/ui/Popover';
 import { Select } from '~/components/ui/Select';
+import {
+    formatCompactCurrency,
+    formatCurrency,
+    formatDays,
+    formatPercent,
+} from '~/lib/format';
 import {
     type FirmId,
     type Plan,
@@ -22,13 +29,6 @@ import {
 } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utils';
 
-import {
-    formatCompactCurrency,
-    formatCurrency,
-    formatDays,
-    formatPercent,
-} from './helpers';
-import InfoPopover from './InfoPopover';
 import { panelDescriptions } from './kpiDescriptions';
 import { type PortfolioEntry } from './types';
 

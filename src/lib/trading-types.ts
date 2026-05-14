@@ -67,6 +67,28 @@ export const WEIGHT_CATEGORY_VALUES = [
     'rr',
 ] as const;
 
+export const EXECUTION_DEVIATION_VALUES = [
+    'sized-down',
+    'sized-up',
+    'moved-stop-early',
+    'moved-stop-to-be',
+    'exited-before-target',
+    'exited-past-target',
+    'entered-late',
+    'chased-entry',
+    'no-fill',
+] as const;
+
+export const PREP_CHECK_KEYS = [
+    'htfBiasConfirmed',
+    'keyLevelsMarked',
+    'economicEventsChecked',
+    'accountRiskReset',
+    'mentalCheckIn',
+    'journalReviewed',
+    'setupPlanWritten',
+] as const;
+
 export type AccountType = (typeof ACCOUNT_TYPE_VALUES)[number];
 
 export type BiasDirection = (typeof BIAS_DIRECTION_VALUES)[number];
@@ -87,9 +109,15 @@ export type DisplacementDirection =
 
 export type DolType = (typeof DOL_TYPE_VALUES)[number];
 
+export type ExecutionDeviation = (typeof EXECUTION_DEVIATION_VALUES)[number];
+
 export type Grade = (typeof GRADE_VALUES)[number];
 
 export type Outcome = (typeof OUTCOME_VALUES)[number];
+
+export type PrepCheckKey = (typeof PREP_CHECK_KEYS)[number];
+
+export type PrepChecks = Record<PrepCheckKey, boolean>;
 
 export type Recommendation = (typeof RECOMMENDATION_VALUES)[number];
 

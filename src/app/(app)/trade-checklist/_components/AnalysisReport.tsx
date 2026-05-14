@@ -2,7 +2,6 @@
 
 import { motion } from 'framer-motion';
 import {
-    AlertTriangle,
     ArrowRight,
     BookmarkCheck,
     CheckCircle2,
@@ -22,7 +21,6 @@ import type {
     TradingPlanRow,
 } from '~/lib/trading-types';
 
-import { Alert, AlertDescription } from '~/components/ui/Alert';
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
@@ -176,6 +174,18 @@ export function AnalysisReport({
                                     ).toFixed(0)}
                                     % of standard plan risk.
                                 </p>
+                                {result.redFlags.length > 0 && (
+                                    <ul className="mt-3 space-y-1 border-t border-emerald-500/20 pt-3">
+                                        {result.redFlags.map((flag, i) => (
+                                            <li
+                                                className="text-xs text-amber-300"
+                                                key={i}
+                                            >
+                                                · {flag}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
                             </div>
                         ) : (
                             <div className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-4">
@@ -188,25 +198,23 @@ export function AnalysisReport({
                                 <p className="mt-1 text-xs text-rose-500">
                                     Do not trade this setup.
                                 </p>
+                                {result.redFlags.length > 0 && (
+                                    <ul className="mt-3 space-y-1 border-t border-rose-500/20 pt-3">
+                                        {result.redFlags.map((flag, i) => (
+                                            <li
+                                                className="text-xs text-rose-300"
+                                                key={i}
+                                            >
+                                                · {flag}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
                             </div>
                         )}
                     </div>
                 </CardContent>
             </Card>
-
-            {result.redFlags.length > 0 && (
-                <Alert persistent variant="destructive">
-                    <AlertTriangle className="size-4" />
-                    <AlertDescription>
-                        <div className="font-medium">Red flags</div>
-                        <ul className="mt-2 list-disc space-y-1 pl-5">
-                            {result.redFlags.map((flag, i) => (
-                                <li key={i}>{flag}</li>
-                            ))}
-                        </ul>
-                    </AlertDescription>
-                </Alert>
-            )}
 
             <Card>
                 <CardHeader>

@@ -5,8 +5,14 @@ import { useMemo } from 'react';
 
 import { Button } from '~/components/ui/Button';
 import { Card } from '~/components/ui/Card';
+import InfoPopover from '~/components/ui/InfoPopover';
 import { Input } from '~/components/ui/Input';
 import { Select } from '~/components/ui/Select';
+import {
+    formatCompactCurrency,
+    formatCurrency,
+    formatPercent,
+} from '~/lib/format';
 import {
     type CorrelationMode,
     type DayStopRule,
@@ -16,12 +22,6 @@ import { cn } from '~/lib/utils';
 
 import AccountsPassedDistributionChart from './AccountsPassedDistributionChart';
 import DayStopRulePicker from './DayStopRulePicker';
-import {
-    formatCompactCurrency,
-    formatCurrency,
-    formatPercent,
-} from './helpers';
-import InfoPopover from './InfoPopover';
 import { type LabScenario } from './types';
 import { useLabSimulation } from './useLabSimulation';
 

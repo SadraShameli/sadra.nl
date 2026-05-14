@@ -3,16 +3,16 @@
 import { useMemo } from 'react';
 
 import { Card } from '~/components/ui/Card';
-import { type Plan, type SimOutputs } from '~/lib/prop-calculator';
-import { cn } from '~/lib/utils';
-
+import InfoPopover from '~/components/ui/InfoPopover';
 import {
     formatCompactCurrency,
     formatCurrency,
     formatPercent,
     formatR,
-} from './helpers';
-import InfoPopover from './InfoPopover';
+} from '~/lib/format';
+import { type Plan, type SimOutputs } from '~/lib/prop-calculator';
+import { cn } from '~/lib/utils';
+
 import { panelDescriptions } from './kpiDescriptions';
 
 interface StrategyAnalysisProps {

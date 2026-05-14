@@ -98,9 +98,8 @@ export default function ReadingSection() {
             <Card className="container flex min-h-[538.81px] flex-col">
                 <Tabs
                     className="grid gap-y-5"
-                    defaultValue={sensors?.at(0)?.name}
                     onValueChange={(value) => setCurrentSensor(value)}
-                    value={currentSensor}
+                    value={currentSensor ?? ''}
                 >
                     <div className="flex flex-wrap justify-between gap-5">
                         <div

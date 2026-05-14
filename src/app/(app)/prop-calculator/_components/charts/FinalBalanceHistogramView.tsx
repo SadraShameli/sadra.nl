@@ -10,10 +10,9 @@ import {
 } from 'recharts';
 
 import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
+import { formatCompactCurrency } from '~/lib/format';
 import { type SimOutputs } from '~/lib/prop-calculator';
 import { histogram } from '~/lib/prop-calculator/stats';
-
-import { formatCompactCurrency } from '../helpers';
 
 interface Props {
     result: SimOutputs;

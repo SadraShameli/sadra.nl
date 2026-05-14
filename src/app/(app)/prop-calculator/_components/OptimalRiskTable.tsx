@@ -3,6 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Card } from '~/components/ui/Card';
+import InfoPopover from '~/components/ui/InfoPopover';
+import {
+    formatCurrency,
+    formatDays,
+    formatPercent,
+    formatStreak,
+} from '~/lib/format';
 import {
     type Plan,
     type SimInputs,
@@ -11,13 +18,6 @@ import {
 } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utils';
 
-import {
-    formatCurrency,
-    formatDays,
-    formatPercent,
-    formatStreak,
-} from './helpers';
-import InfoPopover from './InfoPopover';
 import { panelDescriptions } from './kpiDescriptions';
 
 const RISK_LEVELS = [0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 4, 5] as const;

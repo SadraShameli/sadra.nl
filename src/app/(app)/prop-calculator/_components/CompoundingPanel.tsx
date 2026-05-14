@@ -17,11 +17,10 @@ import {
     ChartContainer,
     ChartTooltip,
 } from '~/components/ui/Chart';
+import InfoPopover from '~/components/ui/InfoPopover';
+import { formatCompactCurrency, formatPercent } from '~/lib/format';
 import { simulateCompound } from '~/lib/prop-calculator/compoundSimulator';
 import { cn } from '~/lib/utils';
-
-import { formatCompactCurrency, formatPercent } from './helpers';
-import InfoPopover from './InfoPopover';
 
 const tooltipEntrySchema = z.object({
     dataKey: z.string(),

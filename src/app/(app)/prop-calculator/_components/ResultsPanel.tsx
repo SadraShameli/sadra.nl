@@ -4,9 +4,7 @@ import { Pin, PinOff } from 'lucide-react';
 
 import { Button } from '~/components/ui/Button';
 import { Card } from '~/components/ui/Card';
-import { type Plan, type SimOutputs } from '~/lib/prop-calculator';
-import { cn } from '~/lib/utils';
-
+import InfoPopover from '~/components/ui/InfoPopover';
 import {
     formatCompactCurrency,
     formatCurrency,
@@ -14,8 +12,10 @@ import {
     formatDelta,
     formatPercent,
     formatStreak,
-} from './helpers';
-import InfoPopover from './InfoPopover';
+} from '~/lib/format';
+import { type Plan, type SimOutputs } from '~/lib/prop-calculator';
+import { cn } from '~/lib/utils';
+
 import { kpiDescriptions } from './kpiDescriptions';
 
 interface CostBreakdownBodyProps {

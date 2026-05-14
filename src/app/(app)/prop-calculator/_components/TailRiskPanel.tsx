@@ -3,12 +3,11 @@
 import { useMemo } from 'react';
 
 import { Card } from '~/components/ui/Card';
+import InfoPopover from '~/components/ui/InfoPopover';
+import { formatCompactCurrency, formatPercent } from '~/lib/format';
 import { type SimOutputs } from '~/lib/prop-calculator';
 import { percentile } from '~/lib/prop-calculator/stats';
 import { cn } from '~/lib/utils';
-
-import { formatCompactCurrency, formatPercent } from './helpers';
-import InfoPopover from './InfoPopover';
 
 interface TailRiskPanelProps {
     result: SimOutputs;

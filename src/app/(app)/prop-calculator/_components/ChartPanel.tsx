@@ -1,6 +1,7 @@
 'use client';
 
 import { Card } from '~/components/ui/Card';
+import InfoPopover from '~/components/ui/InfoPopover';
 import { type SimOutputs } from '~/lib/prop-calculator';
 
 import DaysToPassHistogramView from './charts/DaysToPassHistogramView';
@@ -9,7 +10,6 @@ import EquityCurveChartView from './charts/EquityCurveChartView';
 import FinalBalanceHistogramView from './charts/FinalBalanceHistogramView';
 import PassRateByDayChartView from './charts/PassRateByDayChartView';
 import ChartTypeSelector from './ChartTypeSelector';
-import InfoPopover from './InfoPopover';
 import { panelDescriptions } from './kpiDescriptions';
 import { ChartType } from './types';
 

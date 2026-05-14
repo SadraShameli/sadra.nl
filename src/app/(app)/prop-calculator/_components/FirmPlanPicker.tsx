@@ -1,14 +1,13 @@
 'use client';
 
 import { Select } from '~/components/ui/Select';
+import { formatCompactCurrency } from '~/lib/format';
 import {
     type FirmId,
     type Plan,
     type PropFirm,
     serializePlanId,
 } from '~/lib/prop-calculator';
-
-import { formatCompactCurrency } from './helpers';
 
 interface FirmPlanPickerProps {
     firm: PropFirm;

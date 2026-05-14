@@ -15,7 +15,11 @@ export {
     users,
     verificationTokens,
 } from './schemas/auth';
-export { tradeAssessments, tradingPlans } from './schemas/trading';
+export {
+    dailyPreparations,
+    tradeAssessments,
+    tradingPlans,
+} from './schemas/trading';
 
 const globalForDb = globalThis as unknown as {
     pool: pg.Pool | undefined;

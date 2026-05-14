@@ -1,8 +1,7 @@
 'use client';
 
 import { Card } from '~/components/ui/Card';
-
-import InfoPopover from './InfoPopover';
+import InfoPopover from '~/components/ui/InfoPopover';
 
 interface PercentileBarProps {
     description: string;
