@@ -78,6 +78,7 @@ export const getRecordingProps = z.object({
 
 export const createRecordingProps = z.object({
     device: getDeviceProps,
+    duration_seconds: z.number().nonnegative().nullable(),
     recording: z.instanceof(Buffer).refine((buffer) => buffer.length, {
         message: 'No recording provided',
     }),

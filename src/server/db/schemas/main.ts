@@ -99,6 +99,7 @@ export const recording = createTable(
         device_id: integer('device_id')
             .notNull()
             .references(() => device.id),
+        duration_seconds: real('duration_seconds'),
         file: bytea('file').notNull(),
         file_name: varchar('file_name', { length: 256 }).notNull(),
         id: serial('id').primaryKey(),

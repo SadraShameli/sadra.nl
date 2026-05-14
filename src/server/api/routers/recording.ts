@@ -43,6 +43,7 @@ async function getRecordingNoFile(
         columns: {
             created_at: true,
             device_id: true,
+            duration_seconds: true,
             file_name: true,
             id: true,
             location_id: true,
@@ -56,6 +57,7 @@ async function getRecordingsNoFile(ctx: ContextType) {
         columns: {
             created_at: true,
             device_id: true,
+            duration_seconds: true,
             file_name: true,
             id: true,
             location_id: true,
@@ -75,6 +77,7 @@ export const recordingsRouter = createTRPCRouter({
 
             await ctx.db.insert(recording).values({
                 device_id: device.data.id,
+                duration_seconds: input.duration_seconds,
                 file: input.recording,
                 file_name: getRecordingFileName(new Date()),
                 location_id: device.data.location_id,

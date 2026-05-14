@@ -156,15 +156,19 @@ class AudioFile {
     }
 }
 
-export function applyAudioFilters(samplesBuffer: Buffer): Buffer {
+export function applyAudioFilters(samplesBuffer: Buffer): {
+    buffer: Buffer;
+    durationSeconds: null | number;
+} {
     const audio = new AudioFile(samplesBuffer);
+    const durationSeconds = getDurationSeconds(audio);
 
     if (!audio.isLinearPcm16()) {
-        return samplesBuffer;
+        return { buffer: samplesBuffer, durationSeconds };
     }
 
     audio.normalizeToPeak();
-    return audio.getBuffer();
+    return { buffer: audio.getBuffer(), durationSeconds };
 }
 
 function decodeImaAdpcmBlocks(
@@ -227,4 +231,10 @@ function decodeImaAdpcmBlocks(
     }
 
     return out;
+}
+
+function getDurationSeconds(audio: AudioFile): null | number {
+    if (audio.sampleRate <= 0 || audio.numChannels <= 0) return null;
+    if (audio.samples.length === 0) return null;
+    return audio.samples.length / audio.numChannels / audio.sampleRate;
 }

@@ -21,8 +21,6 @@ export function useAudioPlayer({ recordings }: UseAudioPlayerProps) {
     const [currentRecordingIdx, setCurrentRecordingIdx] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
     const [playbackRate, setPlaybackRate] = useState<PlaybackSpeed>(1);
-    const [durations, setDurations] = useState<Map<string, number>>(new Map());
-    const fetchedDurationsRef = useRef<Set<string>>(new Set());
 
     const safeCurrentIdx = Math.max(
         0,
@@ -218,38 +216,6 @@ export function useAudioPlayer({ recordings }: UseAudioPlayerProps) {
     }, []);
 
     useEffect(() => {
-        if (!recordings?.length) return;
-        let active = true;
-        const cleanups: Array<() => void> = [];
-        for (const recording of recordings) {
-            const key = String(recording.id);
-            if (fetchedDurationsRef.current.has(key)) continue;
-            fetchedDurationsRef.current.add(key);
-            const a = new Audio();
-            a.preload = 'metadata';
-            a.src = GetRecordingURL(recording);
-
-            // eslint-disable-next-line unicorn/consistent-function-scoping
-            const onMetadata = () => {
-                if (active) {
-                    setDurations((prev) => new Map(prev).set(key, a.duration));
-                }
-                a.src = '';
-            };
-
-            a.addEventListener('loadedmetadata', onMetadata);
-            cleanups.push(() => {
-                a.removeEventListener('loadedmetadata', onMetadata);
-                a.src = '';
-            });
-        }
-        return () => {
-            active = false;
-            for (const cleanup of cleanups) cleanup();
-        };
-    }, [recordings]);
-
-    useEffect(() => {
         function onKeyDown(e: KeyboardEvent) {
             if (
                 e.target instanceof HTMLInputElement ||
@@ -309,7 +275,6 @@ export function useAudioPlayer({ recordings }: UseAudioPlayerProps) {
         currentRecording,
         currentRecordingIdx: safeCurrentIdx,
         duration,
-        durations,
         handleAudioEnded,
         handleAutoPlay,
         handleNext,

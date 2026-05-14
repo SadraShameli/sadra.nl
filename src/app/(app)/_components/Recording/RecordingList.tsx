@@ -10,14 +10,12 @@ import { ConvertSecondsToString } from './helpers';
 
 interface RecordingListProps {
     currentIdx: number;
-    durations: Map<string, number>;
     onSelect: (recording: RecordingSummary) => void;
     recordings: RecordingSummary[] | undefined;
 }
 
 export function RecordingList({
     currentIdx,
-    durations,
     onSelect,
     recordings,
 }: RecordingListProps) {
@@ -58,7 +56,7 @@ export function RecordingList({
                             {filtered.map((recording) => {
                                 const isCurrent =
                                     recording.id === currentRecordingId;
-                                const dur = durations.get(String(recording.id));
+                                const dur = recording.duration_seconds;
                                 return (
                                     <button
                                         className={cn(
@@ -78,7 +76,7 @@ export function RecordingList({
                                         <span className="min-w-0 flex-1 truncate text-left">
                                             {recording.file_name}
                                         </span>
-                                        {dur !== undefined && (
+                                        {dur != null && (
                                             <span
                                                 className={cn(
                                                     'shrink-0 text-xs tabular-nums transition-colors',

@@ -25,7 +25,6 @@ export default function RecordingSection({
         currentRecording,
         currentRecordingIdx,
         duration,
-        durations,
         handleAudioEnded,
         handleAutoPlay,
         handleNext,
@@ -93,7 +92,6 @@ export default function RecordingSection({
 
                         <RecordingList
                             currentIdx={currentRecordingIdx}
-                            durations={durations}
                             onSelect={handleRecordingSelect}
                             recordings={recordings.data}
                         />
