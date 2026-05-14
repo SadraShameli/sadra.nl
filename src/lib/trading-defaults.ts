@@ -121,5 +121,4 @@ export const GRADE_THRESHOLDS: {
     { grade: 'C', min: 55 },
     { grade: 'C-', min: 50 },
     { grade: 'D', min: 40 },
-    { grade: 'D', min: 0 },
 ];

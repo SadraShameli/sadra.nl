@@ -180,7 +180,7 @@ export async function recordAssessmentOutcome(
 ): Promise<void> {
     const data = recordAssessmentOutcomeInputSchema.parse(input);
     const userId = await requireUserId();
-    await db
+    const updated = await db
         .update(tradeAssessments)
         .set({
             outcome: data.outcome,
@@ -193,7 +193,11 @@ export async function recordAssessmentOutcome(
                 eq(tradeAssessments.id, data.id),
                 eq(tradeAssessments.userId, userId),
             ),
-        );
+        )
+        .returning({ id: tradeAssessments.id });
+    if (updated.length === 0) {
+        throw new Error('Assessment not found or access denied');
+    }
 }
 
 export async function reorderTradingPlans(

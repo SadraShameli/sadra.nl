@@ -198,7 +198,8 @@ export function simulate(inputs: SimInputs): SimOutputs {
 
     const trialResults: TrialResult[] = [];
     for (let i = 0; i < trials; i++) {
-        const captureEquity = i < SAMPLE_CURVE_COUNT;
+        const stride = Math.max(1, Math.floor(trials / SAMPLE_CURVE_COUNT));
+        const captureEquity = i % stride === 0;
         trialResults.push(
             simulateTrial(
                 plan,

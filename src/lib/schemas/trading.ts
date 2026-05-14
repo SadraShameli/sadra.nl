@@ -51,12 +51,17 @@ const CONFLUENCE_KEY_VALUES = [
 
 export const confluenceKeySchema = z.enum(CONFLUENCE_KEY_VALUES);
 
-export const timeWindowSchema = z.object({
-    end: z.string().regex(/^\d{2}:\d{2}$/, 'HH:MM'),
-    id: z.string().min(1),
-    label: z.string().max(64),
-    start: z.string().regex(/^\d{2}:\d{2}$/, 'HH:MM'),
-});
+export const timeWindowSchema = z
+    .object({
+        end: z.string().regex(/^\d{2}:\d{2}$/, 'HH:MM'),
+        id: z.string().min(1),
+        label: z.string().max(64),
+        start: z.string().regex(/^\d{2}:\d{2}$/, 'HH:MM'),
+    })
+    .refine((w) => w.start < w.end, {
+        message: 'Start must be before end',
+        path: ['start'],
+    });
 
 export type TimeWindow = z.infer<typeof timeWindowSchema>;
 
@@ -78,8 +83,8 @@ export const tradingPlanConfigSchema = z.object({
     setup: z.object({
         allowedConfluences: z.array(confluenceKeySchema),
         allowedDolTypes: z.array(dolTypeSchema),
-        minRR: z.number().nonnegative(),
-        requiredPdArrays: z.number().nonnegative(),
+        minRR: z.number().positive(),
+        requiredPdArrays: z.number().int().min(1),
     }),
     weights: z.object({
         bias: z.number().nonnegative(),

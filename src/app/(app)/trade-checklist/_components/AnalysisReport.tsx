@@ -101,8 +101,11 @@ export function AnalysisReport({
         [result.grade, history],
     );
 
-    const persist = () => {
-        if (savedId) return;
+    const persist = (onComplete?: () => void) => {
+        if (savedId) {
+            onComplete?.();
+            return;
+        }
         startSave(async () => {
             const { id } = await saveAssessment({
                 answers,
@@ -111,6 +114,7 @@ export function AnalysisReport({
                 result,
             });
             onSaved(id);
+            onComplete?.();
         });
     };
 
@@ -390,7 +394,7 @@ export function AnalysisReport({
                     <>
                         <Button
                             disabled={savePending}
-                            onClick={persist}
+                            onClick={() => persist()}
                             variant="outline"
                         >
                             <Save className="mr-1 size-4" />
@@ -398,10 +402,7 @@ export function AnalysisReport({
                         </Button>
                         <Button
                             disabled={savePending}
-                            onClick={() => {
-                                persist();
-                                setOutcomeOpen(true);
-                            }}
+                            onClick={() => persist(() => setOutcomeOpen(true))}
                         >
                             Save &amp; record outcome
                         </Button>

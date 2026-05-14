@@ -301,7 +301,11 @@ export default function StrategyAnalysis({
                             bench={pfBench(ratios.profitFactor)}
                             color={pfColor(ratios.profitFactor)}
                             label="Profit factor"
-                            value={ratios.profitFactor.toFixed(2)}
+                            value={
+                                Number.isFinite(ratios.profitFactor)
+                                    ? ratios.profitFactor.toFixed(2)
+                                    : '∞'
+                            }
                         />
                         <RatioCard
                             bench={sharpeBench(ratios.sharpe)}
