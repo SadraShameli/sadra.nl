@@ -140,6 +140,20 @@ class AudioFile {
     isLinearPcm16(): boolean {
         return this.audioFormat === WAV_FORMAT_PCM && this.bitsPerSample === 16;
     }
+
+    normalizeToPeak() {
+        let max = 0;
+        for (const sample of this.samples) {
+            const abs = Math.abs(sample);
+            if (abs > max) max = abs;
+        }
+        if (max === 0) return;
+
+        const scale = 32_767 / max;
+        for (let i = 0; i < this.samples.length; i++) {
+            this.samples[i] = (this.samples[i] ?? 0) * scale;
+        }
+    }
 }
 
 export function applyAudioFilters(samplesBuffer: Buffer): Buffer {
@@ -149,6 +163,7 @@ export function applyAudioFilters(samplesBuffer: Buffer): Buffer {
         return samplesBuffer;
     }
 
+    audio.normalizeToPeak();
     return audio.getBuffer();
 }
 
