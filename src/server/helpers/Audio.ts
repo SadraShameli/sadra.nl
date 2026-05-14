@@ -164,57 +164,85 @@ const C_weighting = new SoundFilter(-0.491_647_169_337_14, [
     { A1: 0.377_580_004_742_081_8, A2: -0.035_636_575_668_043, B1: -2, B2: 1 },
 ]);
 
+const WAV_FORMAT_PCM = 0x00_01;
+
 class AudioFile {
-    audioFormat: number;
-    bitsPerSample: number;
-    blockAlign: number;
-    byteRate: number;
-    chunkId: string;
-    chunkSize: number;
-    format: string;
-    numChannels: number;
-    sampleRate: number;
-    samples: Int16Array;
-    subchunk1Id: string;
-    subchunk1Size: number;
-    subchunk2Id: string;
-    subchunk2Size: number;
+    audioFormat = 0;
+    bitsPerSample = 0;
+    blockAlign = 0;
+    byteRate = 0;
+    dataLength = 0;
+    dataOffset = 0;
+    numChannels = 0;
+    sampleRate = 0;
+    samples: Int16Array = new Int16Array(0);
 
     constructor(file: Buffer) {
-        this.chunkId = file.toString('ascii', 0, 4);
-        this.chunkSize = file.readUInt32LE(4);
-        this.format = file.toString('ascii', 8, 12);
-        this.subchunk1Id = file.toString('ascii', 12, 16);
-        this.subchunk1Size = file.readUInt32LE(16);
-        this.audioFormat = file.readUInt16LE(20);
-        this.numChannels = file.readUInt16LE(22);
-        this.sampleRate = file.readUInt32LE(24);
-        this.byteRate = file.readUInt32LE(28);
-        this.blockAlign = file.readUInt16LE(32);
-        this.bitsPerSample = file.readUInt16LE(34);
-        this.subchunk2Id = file.toString('ascii', 36, 40);
-        this.subchunk2Size = file.readUInt32LE(40);
+        if (file.length < 12) {
+            throw new Error('WAV: file too short');
+        }
+        if (file.toString('ascii', 0, 4) !== 'RIFF') {
+            throw new Error('WAV: missing RIFF marker');
+        }
+        if (file.toString('ascii', 8, 12) !== 'WAVE') {
+            throw new Error('WAV: missing WAVE marker');
+        }
 
-        const dataStart = 44;
-        const dataLength = this.subchunk2Size;
-        const audioData = file.subarray(dataStart, dataStart + dataLength);
+        let offset = 12;
+        let fmtFound = false;
+        let dataFound = false;
 
-        this.samples = new Int16Array(dataLength / 2);
-        for (let i = 0; i < this.samples.length; i++) {
-            this.samples[i] = audioData.readInt16LE(i * 2);
+        while (offset + 8 <= file.length && !(fmtFound && dataFound)) {
+            const chunkId = file.toString('ascii', offset, offset + 4);
+            const chunkSize = file.readUInt32LE(offset + 4);
+            const chunkDataStart = offset + 8;
+
+            if (chunkDataStart + chunkSize > file.length) break;
+
+            if (chunkId === 'fmt ' && chunkSize >= 16) {
+                this.audioFormat = file.readUInt16LE(chunkDataStart);
+                this.numChannels = file.readUInt16LE(chunkDataStart + 2);
+                this.sampleRate = file.readUInt32LE(chunkDataStart + 4);
+                this.byteRate = file.readUInt32LE(chunkDataStart + 8);
+                this.blockAlign = file.readUInt16LE(chunkDataStart + 12);
+                this.bitsPerSample = file.readUInt16LE(chunkDataStart + 14);
+                fmtFound = true;
+            } else if (chunkId === 'data') {
+                this.dataOffset = chunkDataStart;
+                this.dataLength = chunkSize;
+                dataFound = true;
+            }
+
+            const advance = chunkSize + (chunkSize & 1);
+            offset = chunkDataStart + advance;
+        }
+
+        if (!fmtFound) throw new Error('WAV: missing fmt chunk');
+        if (!dataFound) throw new Error('WAV: missing data chunk');
+
+        if (this.isLinearPcm16()) {
+            const audioData = file.subarray(
+                this.dataOffset,
+                this.dataOffset + this.dataLength,
+            );
+            this.samples = new Int16Array(audioData.length >> 1);
+            for (let i = 0; i < this.samples.length; i++) {
+                this.samples[i] = audioData.readInt16LE(i * 2);
+            }
         }
     }
 
     getBuffer() {
-        const buffer = Buffer.alloc(44 + this.subchunk2Size);
+        const dataBytes = this.samples.length * 2;
+        const buffer = Buffer.alloc(44 + dataBytes);
 
         buffer.write('RIFF', 0);
-        buffer.writeUInt32LE(this.chunkSize, 4);
+        buffer.writeUInt32LE(36 + dataBytes, 4);
         buffer.write('WAVE', 8);
 
         buffer.write('fmt ', 12);
         buffer.writeUInt32LE(16, 16);
-        buffer.writeUInt16LE(1, 20);
+        buffer.writeUInt16LE(WAV_FORMAT_PCM, 20);
         buffer.writeUInt16LE(this.numChannels, 22);
         buffer.writeUInt32LE(this.sampleRate, 24);
         buffer.writeUInt32LE(this.byteRate, 28);
@@ -222,7 +250,7 @@ class AudioFile {
         buffer.writeUInt16LE(this.bitsPerSample, 34);
 
         buffer.write('data', 36);
-        buffer.writeUInt32LE(this.subchunk2Size, 40);
+        buffer.writeUInt32LE(dataBytes, 40);
 
         let offset = 44;
         for (const sample of this.samples) {
@@ -233,13 +261,19 @@ class AudioFile {
         return buffer;
     }
 
+    isLinearPcm16(): boolean {
+        return this.audioFormat === WAV_FORMAT_PCM && this.bitsPerSample === 16;
+    }
+
     normalize() {
         let max = 0;
         for (const sample of this.samples) {
-            if (Math.abs(sample) > max) {
-                max = sample;
+            const abs = Math.abs(sample);
+            if (abs > max) {
+                max = abs;
             }
         }
+        if (max === 0) return;
 
         const scaleFactor = 32_767 / max;
         for (let i = 0; i < this.samples.length; i++) {
@@ -250,6 +284,11 @@ class AudioFile {
 
 export function applyAudioFilters(samplesBuffer: Buffer): Buffer {
     const audio = new AudioFile(samplesBuffer);
+
+    if (!audio.isLinearPcm16()) {
+        return samplesBuffer;
+    }
+
     DC_Blocker.filter(audio.samples);
     INMP441.filter(audio.samples);
     audio.normalize();
