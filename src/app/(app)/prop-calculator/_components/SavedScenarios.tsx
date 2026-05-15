@@ -10,6 +10,7 @@ import {
     PopoverTrigger,
 } from '~/components/ui/Popover';
 import { type PropFirm } from '~/lib/prop-calculator';
+import { cn } from '~/lib/utils';
 
 import type { CalculatorState } from './types';
 
@@ -140,10 +141,18 @@ export default function SavedScenarios({
                                 No saved scenarios yet.
                             </p>
                         ) : (
-                            <ul className="flex flex-col gap-1">
+                            <ul
+                                className={cn(
+                                    'app-prop-calculator__saved-scenarios-list',
+                                    'flex flex-col gap-1',
+                                )}
+                            >
                                 {scenarios.map((s) => (
                                     <li
-                                        className="flex items-center justify-between gap-2 rounded-md px-2 py-1 hover:bg-accent"
+                                        className={cn(
+                                            'app-prop-calculator__saved-scenario-item',
+                                            'flex items-center justify-between gap-2 rounded-md px-2 py-1 hover:bg-accent',
+                                        )}
                                         key={s.name}
                                     >
                                         <button

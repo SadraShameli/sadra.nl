@@ -28,6 +28,7 @@ import { Progress } from '~/components/ui/Progress';
 import { Separator } from '~/components/ui/Separator';
 import { saveAssessment } from '~/lib/trading-actions';
 import { WEIGHT_CATEGORIES } from '~/lib/trading-defaults';
+import { cn } from '~/lib/utils';
 
 import { OutcomeDialog } from './OutcomeDialog';
 
@@ -119,7 +120,7 @@ export function AnalysisReport({
     return (
         <motion.div
             animate={{ opacity: 1, y: 0 }}
-            className="space-y-6"
+            className={cn('app-trade-checklist__analysis-report', 'space-y-6')}
             initial={{ opacity: 0, y: 8 }}
             transition={{ duration: 0.25 }}
         >
@@ -262,7 +263,12 @@ export function AnalysisReport({
                     <Separator />
                     <CardContent>
                         {result.strengths.length > 0 ? (
-                            <ul className="space-y-2 text-sm">
+                            <ul
+                                className={cn(
+                                    'app-trade-checklist__strengths-list',
+                                    'space-y-2 text-sm',
+                                )}
+                            >
                                 {result.strengths.map((s, i) => (
                                     <li
                                         className="flex items-start gap-2"
@@ -291,7 +297,12 @@ export function AnalysisReport({
                     <Separator />
                     <CardContent>
                         {result.weaknesses.length > 0 ? (
-                            <ul className="space-y-2 text-sm">
+                            <ul
+                                className={cn(
+                                    'app-trade-checklist__weaknesses-list',
+                                    'space-y-2 text-sm',
+                                )}
+                            >
                                 {result.weaknesses.map((w, i) => (
                                     <li
                                         className="flex items-start gap-2"

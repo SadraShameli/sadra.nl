@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 export default function ResumePage() {
     return (
-        <main className="container grid w-full pt-spacing">
+        <main className={`app-resume container grid w-full pt-spacing`}>
             <div className="my-content mx-auto">
                 <ResumeContent
                     education={resumeContent.education}

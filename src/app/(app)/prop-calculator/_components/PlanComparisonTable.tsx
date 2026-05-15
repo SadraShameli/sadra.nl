@@ -69,7 +69,9 @@ export default function PlanComparisonTable({
     }, [rows]);
 
     return (
-        <Card className="px-5 py-4">
+        <Card
+            className={cn('app-prop-calculator__plan-comparison', 'px-5 py-4')}
+        >
             <div className="mb-3 flex items-baseline justify-between gap-2">
                 <div className="flex items-center gap-2">
                     <h3 className="text-sm font-semibold">
@@ -86,7 +88,12 @@ export default function PlanComparisonTable({
                 </span>
             </div>
             <div className="overflow-x-auto">
-                <table className="w-full min-w-max text-xs whitespace-nowrap tabular-nums">
+                <table
+                    className={cn(
+                        'app-prop-calculator__plan-comparison-table',
+                        'w-full min-w-max text-xs whitespace-nowrap tabular-nums',
+                    )}
+                >
                     <thead className="text-muted-foreground">
                         <tr className="text-left">
                             <th className="py-1 pr-3 font-medium">Plan</th>

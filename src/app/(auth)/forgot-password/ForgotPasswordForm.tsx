@@ -37,7 +37,7 @@ export function ForgotPasswordForm() {
     return (
         <Form {...form}>
             <form
-                className="flex flex-col gap-3"
+                className={`app-auth__forgot-form flex flex-col gap-3`}
                 onSubmit={form.handleSubmit(onSubmit)}
             >
                 <FormField

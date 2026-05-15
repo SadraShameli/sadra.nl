@@ -19,6 +19,7 @@ import {
     componentScoreCorrelation,
     type LightAssessment,
 } from '~/lib/trading-analytics';
+import { cn } from '~/lib/utils';
 
 const CATEGORIES: { key: WeightCategory; label: string }[] = [
     { key: 'mental', label: 'Mental state' },
@@ -54,7 +55,12 @@ export function ComponentCorrelationChart({
     const totalWithData = data.reduce((s, d) => s + d.count, 0);
 
     return (
-        <div className="space-y-3">
+        <div
+            className={cn(
+                'app-trade-checklist__correlation-chart',
+                'space-y-3',
+            )}
+        >
             <div className="flex flex-wrap items-center gap-3">
                 <span className="text-xs tracking-wider text-muted-foreground uppercase">
                     Component

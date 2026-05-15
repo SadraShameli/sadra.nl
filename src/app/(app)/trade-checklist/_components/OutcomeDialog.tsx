@@ -92,7 +92,13 @@ export function OutcomeDialog({
 
     return (
         <Dialog onOpenChange={onOpenChange} open={open}>
-            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
+            <DialogContent
+                className={cn(
+                    'app-trade-checklist__outcome-dialog',
+                    'max-h-[90vh] overflow-y-auto sm:max-w-md',
+                )}
+                data-state={open ? 'open' : 'closed'}
+            >
                 <DialogHeader>
                     <DialogTitle>Record trade outcome</DialogTitle>
                     <DialogDescription>
@@ -156,7 +162,11 @@ export function OutcomeDialog({
 
                     <div className="rounded-md border border-border/40">
                         <button
-                            className="flex w-full items-center justify-between px-3 py-2 text-sm hover:bg-accent/30"
+                            className={cn(
+                                'app-trade-checklist__outcome-execution-toggle',
+                                'flex w-full items-center justify-between px-3 py-2 text-sm hover:bg-accent/30',
+                            )}
+                            data-state={executionOpen ? 'open' : 'closed'}
                             onClick={() => setExecutionOpen((o) => !o)}
                             type="button"
                         >

@@ -5,6 +5,7 @@ import {
     DropdownMenuRadioItem,
     DropdownMenuTrigger,
 } from '~/components/ui/DropDown';
+import { cn } from '~/lib/utils';
 
 import { PLAYBACK_SPEEDS, type PlaybackSpeed } from './types';
 
@@ -23,7 +24,10 @@ export function SpeedControl({
         <DropdownMenu>
             <DropdownMenuTrigger
                 aria-label="Playback speed"
-                className="w-8 text-center text-sm font-semibold text-neutral-400 tabular-nums transition hover:text-white disabled:cursor-not-allowed disabled:text-neutral-700"
+                className={cn(
+                    'app-recording__speed',
+                    'w-8 text-center text-sm font-semibold text-neutral-400 tabular-nums transition hover:text-white disabled:cursor-not-allowed disabled:text-neutral-700',
+                )}
                 disabled={!hasRecordings}
             >
                 {speed}×

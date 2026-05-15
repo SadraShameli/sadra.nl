@@ -10,6 +10,7 @@ import {
 } from '~/components/ui/Card';
 import { env } from '~/env';
 import { loginSearchSchema } from '~/lib/schemas/url';
+import { cn } from '~/lib/utils';
 
 import { OAuthButtons } from '../_components/OAuthButtons';
 import { SignInMethodTabs } from '../_components/SignInMethodTabs';
@@ -22,10 +23,18 @@ export default async function LoginPage({
     const { error, success } = loginSearchSchema.parse(await searchParams);
 
     return (
-        <div className="flex min-h-screen items-center justify-center px-4">
+        <div
+            className={cn(
+                'app-auth__page',
+                'flex min-h-screen items-center justify-center px-4',
+            )}
+        >
             <div className="w-full max-w-sm">
                 <Link
-                    className="mb-8 block text-center font-orbitron text-lg font-semibold tracking-widest text-white"
+                    className={cn(
+                        'app-auth__logo',
+                        'mb-8 block text-center font-orbitron text-lg font-semibold tracking-widest text-white',
+                    )}
                     href="/"
                 >
                     sadra.nl

@@ -8,6 +8,7 @@ import {
     type PropFirm,
     serializePlanId,
 } from '~/lib/prop-calculator';
+import { cn } from '~/lib/utils';
 
 interface FirmPlanPickerProps {
     firm: PropFirm;
@@ -25,7 +26,12 @@ export default function FirmPlanPicker({
     plan,
 }: FirmPlanPickerProps) {
     return (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div
+            className={cn(
+                'app-prop-calculator__firm-plan-picker',
+                'grid gap-4 md:grid-cols-2',
+            )}
+        >
             <div>
                 <label
                     className="mb-2 block text-xs font-medium text-muted-foreground"

@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { auth } from '~/lib/auth';
 import { tradeAssessmentRowSchema } from '~/lib/schemas/trading';
 import { ensureUserHasPlan } from '~/lib/trading-actions';
+import { cn } from '~/lib/utils';
 import { db, tradeAssessments, tradingPlans } from '~/server/db';
 
 import { JournalView } from '../_components/JournalView';
@@ -39,7 +40,12 @@ export default async function TradeJournalPage() {
     const history = z.array(tradeAssessmentRowSchema).parse(rawRows);
 
     return (
-        <main className="container pt-spacing pb-24">
+        <main
+            className={cn(
+                'app-trade-checklist__journal-view',
+                'container pt-spacing pb-24',
+            )}
+        >
             <header className="mb-8">
                 <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
                     Journal

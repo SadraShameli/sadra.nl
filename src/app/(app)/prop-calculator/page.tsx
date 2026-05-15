@@ -1,5 +1,7 @@
 import { type Metadata } from 'next';
 
+import { cn } from '~/lib/utils';
+
 import CalculatorShell from './_components/CalculatorShell';
 
 export const metadata: Metadata = {
@@ -10,7 +12,9 @@ export const metadata: Metadata = {
 
 export default function PropCalculatorPage() {
     return (
-        <main className="container pt-spacing pb-24">
+        <main
+            className={cn('app-prop-calculator', 'container pt-spacing pb-24')}
+        >
             <header className="mb-8">
                 <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
                     Futures Prop Firm Calculator

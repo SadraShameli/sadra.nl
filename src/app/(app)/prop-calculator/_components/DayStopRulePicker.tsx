@@ -3,6 +3,7 @@
 import { Input } from '~/components/ui/Input';
 import { Select } from '~/components/ui/Select';
 import { type DayStopRule } from '~/lib/prop-calculator';
+import { cn } from '~/lib/utils';
 
 interface DayStopRulePickerProps {
     compact?: boolean;
@@ -59,7 +60,10 @@ export default function DayStopRulePicker({
 
     return (
         <div
-            className={compact ? 'flex flex-col gap-1' : 'flex flex-col gap-2'}
+            className={cn(
+                'app-prop-calculator__day-stop-picker',
+                compact ? 'flex flex-col gap-1' : 'flex flex-col gap-2',
+            )}
         >
             <Select
                 aria-label="Day stop rule"

@@ -20,7 +20,9 @@ export function CalendarHeatmap({ assessments, month }: CalendarHeatmapProps) {
     );
 
     return (
-        <div className="space-y-2">
+        <div
+            className={cn('app-trade-checklist__calendar-heatmap', 'space-y-2')}
+        >
             <div className="grid grid-cols-7 gap-1 text-center text-xs text-muted-foreground">
                 {DAY_LABELS.map((d) => (
                     <div className="py-1" key={d}>
@@ -94,6 +96,9 @@ export function CalendarHeatmap({ assessments, month }: CalendarHeatmapProps) {
                             if (isClickable && cell.inMonth) {
                                 return (
                                     <Link
+                                        className={cn(
+                                            'app-trade-checklist__calendar-day-link',
+                                        )}
                                         href={`/trade-checklist/journal?date=${cell.date}`}
                                         key={cell.date}
                                     >

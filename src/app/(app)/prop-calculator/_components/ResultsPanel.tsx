@@ -114,9 +114,11 @@ export default function ResultsPanel({
     return (
         <div
             className={cn(
+                'app-prop-calculator__results',
                 'flex flex-col gap-4 transition-opacity',
                 isPending && 'opacity-60',
             )}
+            data-state={isPending ? 'pending' : 'idle'}
         >
             <div className="flex items-center justify-between">
                 {pinned ? (

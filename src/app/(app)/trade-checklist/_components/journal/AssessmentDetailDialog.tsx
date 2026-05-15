@@ -15,6 +15,7 @@ import { Progress } from '~/components/ui/Progress';
 import { ScrollArea } from '~/components/ui/ScrollArea';
 import { Separator } from '~/components/ui/Separator';
 import { WEIGHT_CATEGORIES } from '~/lib/trading-defaults';
+import { cn } from '~/lib/utils';
 
 interface AssessmentDetailDialogProps {
     onClose: () => void;
@@ -36,7 +37,10 @@ export function AssessmentDetailDialog({
         <Dialog onOpenChange={(open) => !open && onClose()} open>
             <DialogContent
                 aria-describedby={undefined}
-                className="max-h-[90vh] sm:max-w-2xl"
+                className={cn(
+                    'app-trade-checklist__assessment-dialog',
+                    'max-h-[90vh] sm:max-w-2xl',
+                )}
             >
                 <DialogHeader>
                     <DialogTitle className="flex items-baseline gap-3">
@@ -169,7 +173,12 @@ export function AssessmentDetailDialog({
                                 <p className="mb-2 text-xs tracking-wider text-rose-400 uppercase">
                                     Red flags
                                 </p>
-                                <ul className="space-y-1 text-sm text-rose-300">
+                                <ul
+                                    className={cn(
+                                        'app-trade-checklist__red-flags-list',
+                                        'space-y-1 text-sm text-rose-300',
+                                    )}
+                                >
                                     {result.redFlags.map((f, i) => (
                                         <li key={i}>· {f}</li>
                                     ))}

@@ -35,6 +35,7 @@ import { ToggleGroup, ToggleGroupItem } from '~/components/ui/ToggleGroup';
 import { answersSchema } from '~/lib/schemas/trading';
 import { CONFLUENCE_GROUPS } from '~/lib/trading-defaults';
 import { findCurrentWindow, scoreAssessment } from '~/lib/trading-scoring';
+import { cn } from '~/lib/utils';
 
 type FormValues = z.infer<typeof answersSchema>;
 
@@ -161,7 +162,7 @@ export function WizardStepper({
 
     return (
         <FormProvider {...methods}>
-            <Card>
+            <Card className={cn('app-trade-checklist__wizard')}>
                 <CardContent className="space-y-6">
                     <div className="space-y-3">
                         <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
@@ -196,8 +197,14 @@ export function WizardStepper({
                         </motion.div>
                     </AnimatePresence>
 
-                    <div className="flex items-center justify-between border-t border-border/50 pt-4">
+                    <div
+                        className={cn(
+                            'app-trade-checklist__wizard-nav',
+                            'flex items-center justify-between border-t border-border/50 pt-4',
+                        )}
+                    >
                         <Button
+                            className={cn('app-trade-checklist__wizard-back')}
                             disabled={stepIdx === 0}
                             onClick={back}
                             type="button"
@@ -207,13 +214,22 @@ export function WizardStepper({
                             Back
                         </Button>
                         {stepIdx < stepIds.length - 1 ? (
-                            <Button onClick={next} type="button">
+                            <Button
+                                className={cn(
+                                    'app-trade-checklist__wizard-next',
+                                )}
+                                onClick={next}
+                                type="button"
+                            >
                                 Next
                                 <ArrowRight className="ml-1 size-4" />
                             </Button>
                         ) : (
                             <Button
-                                className="bg-emerald-500 text-emerald-50 hover:bg-emerald-500/90"
+                                className={cn(
+                                    'app-trade-checklist__wizard-submit',
+                                    'bg-emerald-500 text-emerald-50 hover:bg-emerald-500/90',
+                                )}
                                 onClick={submit}
                                 type="button"
                             >

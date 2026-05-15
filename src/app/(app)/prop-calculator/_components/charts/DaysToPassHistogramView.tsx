@@ -5,6 +5,7 @@ import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
 import { type SimOutputs } from '~/lib/prop-calculator';
 import { histogram } from '~/lib/prop-calculator/stats';
+import { cn } from '~/lib/utils';
 
 interface Props {
     result: SimOutputs;
@@ -32,7 +33,10 @@ export default function DaysToPassHistogramView({ result }: Props) {
 
     return (
         <ChartContainer
-            className="aspect-16/7 min-h-125 w-full"
+            className={cn(
+                'app-prop-calculator__days-to-pass-histogram',
+                'aspect-16/7 min-h-125 w-full',
+            )}
             config={chartConfig}
         >
             <BarChart

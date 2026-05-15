@@ -43,8 +43,18 @@ export default function SensitivityHeatmap({
     const { cells, pending } = useSensitivityGrid(plan, baseInputs);
 
     return (
-        <div className="grid gap-3 lg:grid-cols-2">
-            <Card className="px-5 py-4">
+        <div
+            className={cn(
+                'app-prop-calculator__sensitivity-heatmap',
+                'grid gap-3 lg:grid-cols-2',
+            )}
+        >
+            <Card
+                className={cn(
+                    'app-prop-calculator__sensitivity-pass',
+                    'px-5 py-4',
+                )}
+            >
                 <div className="mb-3 flex items-baseline justify-between gap-2">
                     <div className="flex items-center gap-2">
                         <h3 className="text-sm font-semibold">
@@ -67,7 +77,12 @@ export default function SensitivityHeatmap({
                     metric="pass"
                 />
             </Card>
-            <Card className="px-5 py-4">
+            <Card
+                className={cn(
+                    'app-prop-calculator__sensitivity-net',
+                    'px-5 py-4',
+                )}
+            >
                 <div className="mb-3 flex items-baseline justify-between gap-2">
                     <div className="flex items-center gap-2">
                         <h3 className="text-sm font-semibold">

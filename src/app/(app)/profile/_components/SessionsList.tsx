@@ -10,6 +10,7 @@ import { UAParser } from 'ua-parser-js';
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Separator } from '~/components/ui/Separator';
+import { cn } from '~/lib/utils';
 import { api } from '~/trpc/react';
 
 export function SessionsList() {
@@ -41,7 +42,7 @@ export function SessionsList() {
     const hasOthers = rows.some((r) => !r.current);
 
     return (
-        <div className="space-y-3">
+        <div className={cn('app-profile__sessions', 'space-y-3')}>
             {rows.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                     No active sessions.
@@ -59,7 +60,11 @@ export function SessionsList() {
                         );
                         return (
                             <div
-                                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-background p-3"
+                                className={cn(
+                                    'app-profile__session-item',
+                                    'flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-background p-3',
+                                )}
+                                data-state={row.current ? 'current' : undefined}
                                 key={row.sessionToken}
                             >
                                 <div className="flex min-w-0 items-center gap-3">

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 import { Alert, AlertDescription } from '~/components/ui/Alert';
+import { cn } from '~/lib/utils';
 
 export const dynamic = 'force-dynamic';
 import {
@@ -13,10 +14,18 @@ import {
 
 export default function VerifyRequestPage() {
     return (
-        <div className="flex min-h-screen items-center justify-center px-4">
+        <div
+            className={cn(
+                'app-auth__page',
+                'flex min-h-screen items-center justify-center px-4',
+            )}
+        >
             <div className="w-full max-w-sm">
                 <Link
-                    className="mb-8 block text-center font-orbitron text-lg font-semibold tracking-widest text-white"
+                    className={cn(
+                        'app-auth__logo',
+                        'mb-8 block text-center font-orbitron text-lg font-semibold tracking-widest text-white',
+                    )}
                     href="/"
                 >
                     sadra.nl

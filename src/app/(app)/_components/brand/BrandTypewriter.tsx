@@ -3,6 +3,8 @@
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 
+import { cn } from '~/lib/utils';
+
 const WORDS = [
     '// daytrader',
     '// developer',
@@ -61,7 +63,12 @@ export default function BrandTypewriter({ onTransition }: Props) {
     }, [onTransition]);
 
     return (
-        <span className="flex items-center font-mono text-xs text-white/40">
+        <span
+            className={cn(
+                'app-brand__typewriter',
+                'flex items-center font-mono text-xs text-white/40',
+            )}
+        >
             <span>{displayed}</span>
             <motion.span
                 animate={{ opacity: [1, 1, 0, 0] }}

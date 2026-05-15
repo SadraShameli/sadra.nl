@@ -66,6 +66,7 @@ import {
     reorderTradingPlans,
     setActiveTradingPlan,
 } from '~/lib/trading-actions';
+import { cn } from '~/lib/utils';
 
 import { PlanEditor } from './PlanEditor';
 
@@ -195,7 +196,7 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
     };
 
     return (
-        <div className="space-y-6">
+        <div className={cn('app-profile__trading-plans', 'space-y-6')}>
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
                     <CardTitle>Your trading plans</CardTitle>
@@ -349,7 +350,11 @@ function SortablePlanRow({
 
     return (
         <div
-            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-background p-3 transition-colors"
+            className={cn(
+                'app-profile__plan-row',
+                'flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-background p-3 transition-colors',
+            )}
+            data-state={plan.isActive ? 'active' : undefined}
             ref={setNodeRef}
             style={style}
         >

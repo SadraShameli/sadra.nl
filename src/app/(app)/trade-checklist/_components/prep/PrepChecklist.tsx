@@ -17,6 +17,7 @@ import {
     type PrepCheckKey,
     type PrepChecks,
 } from '~/lib/trading-types';
+import { cn } from '~/lib/utils';
 
 const CHECK_META: Record<PrepCheckKey, { hint: string; label: string }> = {
     accountRiskReset: {
@@ -100,7 +101,7 @@ export function PrepChecklist({
     };
 
     return (
-        <div className="space-y-4">
+        <div className={cn('app-trade-checklist__prep-checklist', 'space-y-4')}>
             <div>
                 <div className="flex items-baseline justify-between">
                     <span className="text-xs tracking-wider text-muted-foreground uppercase">
@@ -114,12 +115,16 @@ export function PrepChecklist({
                 <Progress className="mt-2 h-2" value={score} />
             </div>
 
-            <ul className="space-y-2">
+            <ul className={cn('app-trade-checklist__prep-items', 'space-y-2')}>
                 {PREP_CHECK_KEYS.map((key) => {
                     const meta = CHECK_META[key];
                     return (
                         <li
-                            className="flex items-center gap-3 rounded-md border border-border/40 p-3"
+                            className={cn(
+                                'app-trade-checklist__prep-item',
+                                'flex items-center gap-3 rounded-md border border-border/40 p-3',
+                            )}
+                            data-state={checks[key] ? 'checked' : 'unchecked'}
                             key={key}
                         >
                             <div className="min-w-0 flex-1">

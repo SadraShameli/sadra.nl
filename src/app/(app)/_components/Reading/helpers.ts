@@ -1,35 +1,14 @@
-export type Granularity = 'daily' | 'hourly' | 'raw';
+export type Granularity = 'day' | 'hour' | 'month' | 'raw' | 'week';
 
 type DataPoint = { date: string; value: number };
 
 export const GRANULARITIES: { label: string; value: Granularity }[] = [
     { label: 'Raw', value: 'raw' },
-    { label: 'Hourly avg', value: 'hourly' },
-    { label: 'Daily avg', value: 'daily' },
+    { label: 'Hourly', value: 'hour' },
+    { label: 'Daily', value: 'day' },
+    { label: 'Weekly', value: 'week' },
+    { label: 'Monthly', value: 'month' },
 ];
-
-export function aggregateReadings(
-    readings: DataPoint[],
-    granularity: Granularity,
-): DataPoint[] {
-    if (granularity === 'raw') return readings;
-
-    const groups = new Map<string, number[]>();
-    for (const r of readings) {
-        const key = granularityKey(r.date, granularity);
-        const bucket = groups.get(key) ?? [];
-        bucket.push(r.value);
-        groups.set(key, bucket);
-    }
-
-    return [...groups.entries()].map(([date, values]) => ({
-        date,
-        value:
-            Math.round(
-                (values.reduce((sum, v) => sum + v, 0) / values.length) * 100,
-            ) / 100,
-    }));
-}
 
 export function exportReadingsToCSV(
     readings: DataPoint[],
@@ -66,16 +45,6 @@ function buildFilename(
     const location = sanitizeSegment(locationName ?? 'all_locations');
     const sensor = sanitizeSegment(sensorName);
     return `readings_${location}_${sensor}_${datePart}.csv`;
-}
-
-function granularityKey(date: string, granularity: Granularity): string {
-    const trimmed = date.trim();
-    if (granularity === 'daily') {
-        return trimmed.split(',')[0]?.trim() ?? trimmed;
-    }
-    const [dayMonth, time] = trimmed.split(', ');
-    const hour = time?.split(':')[0] ?? '0';
-    return `${dayMonth ?? ''}, ${hour}:00`;
 }
 
 function sanitizeSegment(s: string): string {

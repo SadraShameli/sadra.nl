@@ -108,13 +108,17 @@ export default function SectionNav() {
 
     return createPortal(
         <div
-            className="relative container mx-auto flex overflow-x-auto"
+            className={cn(
+                'app-prop-calculator__section-nav',
+                'relative container mx-auto flex overflow-x-auto',
+            )}
             ref={navRef}
             style={{ scrollbarWidth: 'none' }}
         >
             {sections.map(({ id, label }) => (
                 <button
                     className={cn(
+                        'app-prop-calculator__section-nav-btn',
                         'relative shrink-0 px-3 py-2 text-xs font-medium whitespace-nowrap transition-colors duration-300 ease-[cubic-bezier(0.25,0.46,0.45,0.94)]',
                         active === id
                             ? 'text-white'

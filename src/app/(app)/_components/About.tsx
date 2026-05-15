@@ -1,4 +1,5 @@
 import { Card } from '~/components/ui/Card';
+import { cn } from '~/lib/utils';
 
 import GallerySection, { type GalleryItem } from './GallerySection';
 
@@ -10,7 +11,7 @@ export default function AboutSection({
     spotifyEmbedUrl: string;
 }) {
     return (
-        <div className="pt-spacing-inner">
+        <div className={cn('app-home__about-card', 'pt-spacing-inner')}>
             <Card>
                 <div className="grid gap-y-5">
                     <GallerySection items={gallery} />
@@ -18,8 +19,10 @@ export default function AboutSection({
                     <div className="mx-auto mb-spacing-inner lg:mb-0 lg:w-1/2">
                         <iframe
                             allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                            allowFullScreen
-                            className="min-w-full rounded-2xl"
+                            className={cn(
+                                'app-home__spotify',
+                                'min-w-full rounded-2xl',
+                            )}
                             height={152}
                             loading="lazy"
                             src={spotifyEmbedUrl}

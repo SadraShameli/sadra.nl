@@ -1,4 +1,5 @@
 import { Slider } from '~/components/ui/Slider';
+import { cn } from '~/lib/utils';
 
 import { ConvertSecondsToString } from './helpers';
 
@@ -16,13 +17,21 @@ export function ProgressBar({
     time,
 }: ProgressBarProps) {
     return (
-        <div className="col-span-2 mt-5 grid grid-cols-6 items-center gap-x-3 leading-none font-semibold">
+        <div
+            className={cn(
+                'app-recording__progress',
+                'col-span-2 mt-5 grid grid-cols-6 items-center gap-x-3 leading-none font-semibold',
+            )}
+        >
             <span className="col-span-1 text-right text-sm">
                 {ConvertSecondsToString(time)}
             </span>
 
             <Slider
-                className="col-span-4 h-1/3"
+                className={cn(
+                    'app-recording__progress-slider',
+                    'col-span-4 h-1/3',
+                )}
                 defaultValue={[0]}
                 disabled={!hasRecordings}
                 max={duration + 0.01}

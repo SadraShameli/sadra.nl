@@ -1,10 +1,11 @@
 'use client';
 
-import { keepPreviousData } from '@tanstack/react-query';
+import { keepPreviousData, skipToken } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import {
     Calendar as CalendarIcon,
     AreaChart as ChartIcon,
+    Cpu,
     Download,
     MapPin,
     SlidersHorizontal,
@@ -32,11 +33,10 @@ import {
 } from '~/components/ui/Popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
 import { cn } from '~/lib/utils';
-import { type location } from '~/server/db/schemas/main';
+import { type device, type location } from '~/server/db/schemas/main';
 import { api } from '~/trpc/react';
 
 import {
-    aggregateReadings,
     exportReadingsToCSV,
     GRANULARITIES,
     type Granularity,
@@ -46,14 +46,18 @@ export default function ReadingSection() {
     const [date, setDate] = useState<DateRange>();
     const [currentLocation, setCurrentLocation] =
         useState<typeof location.$inferSelect>();
+    const [currentDevice, setCurrentDevice] =
+        useState<typeof device.$inferSelect>();
     const [currentSensor, setCurrentSensor] = useState<string>();
-    const [granularity, setGranularity] = useState<Granularity>('raw');
+    const [granularity, setGranularity] = useState<Granularity>('hour');
 
     const currentReading = api.reading.getReadingsInput.useQuery(
         currentLocation
             ? {
                   date_from: date?.from,
                   date_to: date?.to,
+                  device_id: currentDevice?.device_id,
+                  granularity,
                   location_id: currentLocation.id,
               }
             : undefined,
@@ -66,6 +70,17 @@ export default function ReadingSection() {
     );
 
     const locations = api.location.getLocations.useQuery();
+
+    const devices = api.location.getLocationDevices.useQuery(
+        currentLocation
+            ? { location_id: currentLocation.location_id }
+            : skipToken,
+    );
+
+    const deviceList = useMemo(() => {
+        const d = devices.data?.data;
+        return Array.isArray(d) ? d : [];
+    }, [devices.data]);
 
     const currentSensorData = useMemo(
         () =>
@@ -90,11 +105,15 @@ export default function ReadingSection() {
         }
     }, [currentLocation, locations]);
 
+    useEffect(() => {
+        setCurrentDevice(undefined);
+    }, [currentLocation]);
+
     const currentGranularityLabel =
         GRANULARITIES.find((g) => g.value === granularity)?.label ?? 'Raw';
 
     return (
-        <div className="pt-spacing-inner">
+        <div className={cn('app-reading', 'pt-spacing-inner')}>
             <Card className="container flex min-h-[538.81px] flex-col">
                 <Tabs
                     className="grid gap-y-5"
@@ -113,6 +132,7 @@ export default function ReadingSection() {
                                     <PopoverTrigger asChild>
                                         <Button
                                             className={cn(
+                                                'app-reading__date-picker',
                                                 'w-75 justify-start text-left font-normal',
                                                 !date &&
                                                     'text-muted-foreground',
@@ -165,7 +185,10 @@ export default function ReadingSection() {
                                         disabled={!locations.data?.data}
                                     >
                                         <Button
-                                            className="w-fit"
+                                            className={cn(
+                                                'app-reading__location-picker',
+                                                'w-fit',
+                                            )}
                                             variant="outline"
                                         >
                                             <MapPin className="mr-1 size-5" />
@@ -207,10 +230,62 @@ export default function ReadingSection() {
                                 <DropdownMenu>
                                     <DropdownMenuTrigger
                                         asChild
+                                        disabled={deviceList.length === 0}
+                                    >
+                                        <Button
+                                            className={cn(
+                                                'app-reading__device-picker',
+                                                'w-fit',
+                                            )}
+                                            variant="outline"
+                                        >
+                                            <Cpu className="mr-1 size-5" />
+                                            {currentDevice?.name ??
+                                                'All devices'}
+                                        </Button>
+                                    </DropdownMenuTrigger>
+
+                                    <DropdownMenuContent>
+                                        <DropdownMenuRadioGroup
+                                            onValueChange={(value) => {
+                                                if (value === '__all__') {
+                                                    setCurrentDevice(undefined);
+                                                    return;
+                                                }
+                                                const d = deviceList.find(
+                                                    (x) => x.name === value,
+                                                );
+                                                setCurrentDevice(d);
+                                            }}
+                                            value={
+                                                currentDevice?.name ?? '__all__'
+                                            }
+                                        >
+                                            <DropdownMenuRadioItem value="__all__">
+                                                All devices
+                                            </DropdownMenuRadioItem>
+                                            {deviceList.map((d) => (
+                                                <DropdownMenuRadioItem
+                                                    key={d.device_id}
+                                                    value={d.name}
+                                                >
+                                                    {d.name}
+                                                </DropdownMenuRadioItem>
+                                            ))}
+                                        </DropdownMenuRadioGroup>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger
+                                        asChild
                                         disabled={!currentReading.data?.data}
                                     >
                                         <Button
-                                            className="w-fit"
+                                            className={cn(
+                                                'app-reading__granularity-picker',
+                                                'w-fit',
+                                            )}
                                             variant="outline"
                                         >
                                             <SlidersHorizontal className="mr-1 size-4" />
@@ -238,15 +313,15 @@ export default function ReadingSection() {
                                 </DropdownMenu>
 
                                 <Button
-                                    className="w-fit"
+                                    className={cn(
+                                        'app-reading__export',
+                                        'w-fit',
+                                    )}
                                     disabled={!currentSensorData}
                                     onClick={() => {
                                         if (!currentSensorData) return;
                                         exportReadingsToCSV(
-                                            aggregateReadings(
-                                                currentSensorData.readings,
-                                                granularity,
-                                            ),
+                                            currentSensorData.readings,
                                             currentSensorData.sensor.name,
                                             currentSensorData.sensor.unit,
                                             currentLocation?.location_name,
@@ -275,10 +350,7 @@ export default function ReadingSection() {
                     </div>
 
                     {currentReading.data?.data?.map((reading) => {
-                        const chartData = aggregateReadings(
-                            reading.readings,
-                            granularity,
-                        );
+                        const chartData = reading.readings;
                         return (
                             <TabsContent
                                 key={reading.sensor.name}
@@ -288,6 +360,7 @@ export default function ReadingSection() {
                                     <div className="grid gap-5 lg:grid-cols-2">
                                         <div
                                             className={cn(
+                                                'app-reading__chart',
                                                 'relative rounded-xl border p-5',
                                                 currentReading.isRefetching &&
                                                     'shimmer',
@@ -328,6 +401,7 @@ export default function ReadingSection() {
                                         <div className="grid grid-cols-2 gap-5">
                                             <div
                                                 className={cn(
+                                                    'app-reading__latest',
                                                     'relative flex rounded-xl bg-muted p-5',
                                                     currentReading.isRefetching &&
                                                         'shimmer',
@@ -346,12 +420,13 @@ export default function ReadingSection() {
                                             <div className="grid gap-5">
                                                 <div
                                                     className={cn(
+                                                        'app-reading__period-high',
                                                         'relative flex min-h-36 rounded-xl bg-muted p-5',
                                                         currentReading.isRefetching &&
                                                             'shimmer',
                                                     )}
                                                 >
-                                                    <div className="absolute">{`${reading.period}h high`}</div>
+                                                    <div className="absolute">{`${reading.period_label} high`}</div>
 
                                                     <div className="m-auto text-xl whitespace-nowrap lg:text-3xl">
                                                         {`${reading.highest} ${reading.sensor.unit}`}
@@ -360,13 +435,14 @@ export default function ReadingSection() {
 
                                                 <div
                                                     className={cn(
+                                                        'app-reading__period-low',
                                                         'relative min-h-36 rounded-xl bg-muted p-5',
                                                         currentReading.isRefetching &&
                                                             'shimmer',
                                                     )}
                                                 >
                                                     <div className="flex h-full">
-                                                        <div className="absolute">{`${reading.period}h low`}</div>
+                                                        <div className="absolute">{`${reading.period_label} low`}</div>
 
                                                         <div className="m-auto text-xl whitespace-nowrap lg:text-3xl">
                                                             {`${reading.lowest} ${reading.sensor.unit}`}

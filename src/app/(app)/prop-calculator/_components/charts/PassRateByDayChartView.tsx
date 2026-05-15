@@ -4,6 +4,7 @@ import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 
 import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
 import { type SimOutputs } from '~/lib/prop-calculator';
+import { cn } from '~/lib/utils';
 
 interface Props {
     maxEvalDays: number;
@@ -41,7 +42,10 @@ export default function PassRateByDayChartView({
 
     return (
         <ChartContainer
-            className="aspect-16/7 min-h-125 w-full"
+            className={cn(
+                'app-prop-calculator__pass-rate-chart',
+                'aspect-16/7 min-h-125 w-full',
+            )}
             config={chartConfig}
         >
             <AreaChart

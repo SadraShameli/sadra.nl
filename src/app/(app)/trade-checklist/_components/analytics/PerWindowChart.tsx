@@ -6,6 +6,7 @@ import { Bar, BarChart, Cell, LabelList, XAxis, YAxis } from 'recharts';
 import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
 import { formatPercent } from '~/lib/format';
 import { type LightAssessment, perWindowStats } from '~/lib/trading-analytics';
+import { cn } from '~/lib/utils';
 
 const chartConfig: ChartConfig = {
     winRate: { color: 'hsl(var(--chart-1))', label: 'Win rate' },
@@ -32,7 +33,10 @@ export function PerWindowChart({
 
     return (
         <ChartContainer
-            className="aspect-16/7 min-h-72 w-full"
+            className={cn(
+                'app-trade-checklist__per-window-chart',
+                'aspect-16/7 min-h-72 w-full',
+            )}
             config={chartConfig}
         >
             <BarChart

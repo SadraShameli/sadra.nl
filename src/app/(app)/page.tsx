@@ -4,6 +4,7 @@ import Image from 'next/image';
 import SectionDescription from '~/components/SectionDescription';
 import SectionTitle from '~/components/SectionTitle';
 import { homepageContent, siteContent } from '~/lib/content';
+import { cn } from '~/lib/utils';
 
 import AboutSection from './_components/About';
 import ReadingSection from './_components/Reading/Reading';
@@ -14,11 +15,19 @@ export default function HomePage() {
     const { gallery, heroImage } = homepageContent;
 
     return (
-        <main>
-            <section className="container grid-cols-2 grid-rows-2 items-center gap-5 pt-spacing lg:-mt-17 lg:grid lg:h-screen lg:grid-rows-none lg:gap-20">
+        <main className={'app-home'}>
+            <section
+                className={cn(
+                    'app-home__hero',
+                    'container grid-cols-2 grid-rows-2 items-center gap-5 pt-spacing lg:-mt-17 lg:grid lg:h-screen lg:grid-rows-none lg:gap-20',
+                )}
+            >
                 <Image
                     alt=""
-                    className="aspect-square rounded-2xl object-cover"
+                    className={cn(
+                        'app-home__hero-image',
+                        'aspect-square rounded-2xl object-cover',
+                    )}
                     height={800}
                     priority
                     src={heroImage}
@@ -54,7 +63,9 @@ export default function HomePage() {
                 </div>
             </section>
 
-            <section className="container py-spacing">
+            <section
+                className={cn('app-home__sensor-hub', 'container py-spacing')}
+            >
                 <SectionTitle text={homepageContent.sensorHubTitle} />
 
                 <SectionDescription
@@ -63,7 +74,10 @@ export default function HomePage() {
 
                 <video
                     autoPlay
-                    className="rounded-2xl pt-spacing-inner"
+                    className={cn(
+                        'app-home__sensor-hub-video',
+                        'rounded-2xl pt-spacing-inner',
+                    )}
                     loop
                     muted
                     playsInline
@@ -75,7 +89,9 @@ export default function HomePage() {
                 </video>
             </section>
 
-            <section className="container py-spacing">
+            <section
+                className={cn('app-home__recordings', 'container py-spacing')}
+            >
                 <SectionTitle text={homepageContent.recordingsTitle} />
                 <SectionDescription
                     text={homepageContent.recordingsDescription}
@@ -85,7 +101,9 @@ export default function HomePage() {
                 />
             </section>
 
-            <section className="container py-spacing">
+            <section
+                className={cn('app-home__readings', 'container py-spacing')}
+            >
                 <SectionTitle text={homepageContent.readingsTitle} />
                 <SectionDescription
                     text={homepageContent.readingsDescription}
@@ -93,7 +111,7 @@ export default function HomePage() {
                 <ReadingSection />
             </section>
 
-            <section className="container pt-spacing">
+            <section className={cn('app-home__about', 'container pt-spacing')}>
                 <SectionTitle text={homepageContent.aboutSectionTitle} />
                 <AboutSection
                     gallery={gallery}
@@ -115,7 +133,10 @@ function HeroToolChip({
 }) {
     return (
         <a
-            className="group inline-flex items-center gap-1.5 rounded-full border border-white/10 px-3 py-2 text-xs font-medium text-white no-underline transition hover:border-white/20 hover:bg-white/10 hover:text-white"
+            className={cn(
+                'app-home__cta-link',
+                'group inline-flex items-center gap-1.5 rounded-full border border-white/10 px-3 py-2 text-xs font-medium text-white no-underline transition hover:border-white/20 hover:bg-white/10 hover:text-white',
+            )}
             href={href}
         >
             <Icon className="size-3.5 shrink-0" strokeWidth={2} />

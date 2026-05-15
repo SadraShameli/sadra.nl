@@ -27,6 +27,7 @@ import {
     deleteAssessment,
     setActiveTradingPlan,
 } from '~/lib/trading-actions';
+import { cn } from '~/lib/utils';
 
 import { AnalysisReport } from './AnalysisReport';
 import { HistoryStrip } from './HistoryStrip';
@@ -86,7 +87,12 @@ export function ChecklistShell({
     };
 
     return (
-        <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+        <div
+            className={cn(
+                'app-trade-checklist__hub',
+                'grid gap-6 lg:grid-cols-[1fr_320px]',
+            )}
+        >
             <div className="space-y-6">
                 <PlanHeader activePlan={activePlan} plans={plans} />
 
@@ -123,7 +129,12 @@ export function ChecklistShell({
                 )}
             </div>
 
-            <aside className="space-y-4">
+            <aside
+                className={cn(
+                    'app-trade-checklist__history-aside',
+                    'space-y-4',
+                )}
+            >
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
                         <CardTitle className="flex items-center gap-2 text-base">
@@ -213,7 +224,15 @@ function PlanHeader({
                                 <div className="space-y-1">
                                     {plans.map((p) => (
                                         <button
-                                            className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-accent"
+                                            className={cn(
+                                                'app-trade-checklist__plan-switch-item',
+                                                'flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-accent',
+                                            )}
+                                            data-state={
+                                                p.id === activePlan.id
+                                                    ? 'active'
+                                                    : 'inactive'
+                                            }
                                             key={p.id}
                                             onClick={() => switchPlan(p.id)}
                                             type="button"

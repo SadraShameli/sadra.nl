@@ -7,6 +7,7 @@ import type { LightAssessment } from '~/lib/trading-analytics';
 
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
+import { cn } from '~/lib/utils';
 
 import { CalendarHeatmap } from './calendar/CalendarHeatmap';
 import { DayOfWeekChart } from './calendar/DayOfWeekChart';
@@ -22,7 +23,7 @@ export function CalendarView({ assessments, month }: CalendarViewProps) {
     const nextMonth = shiftMonth(month, 1);
 
     return (
-        <div className="space-y-6">
+        <div className={cn('app-trade-checklist__calendar-view', 'space-y-6')}>
             <StreaksPanel assessments={assessments} />
 
             <Card>

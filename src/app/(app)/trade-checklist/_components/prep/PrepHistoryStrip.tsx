@@ -22,7 +22,12 @@ export function PrepHistoryStrip({
     const days = lastDays(today, 30).toReversed();
 
     return (
-        <div className="grid grid-cols-10 gap-1.5 sm:grid-cols-15 md:grid-cols-30">
+        <div
+            className={cn(
+                'app-trade-checklist__prep-history-strip',
+                'grid grid-cols-10 gap-1.5 sm:grid-cols-15 md:grid-cols-30',
+            )}
+        >
             {days.map((d) => {
                 const row = map.get(d) ?? null;
                 const score = row?.score ?? null;
@@ -32,6 +37,7 @@ export function PrepHistoryStrip({
                 return (
                     <button
                         className={cn(
+                            'app-trade-checklist__prep-history-day',
                             'flex aspect-square flex-col items-center justify-center rounded-md border text-xs transition',
                             scoreTone(score),
                             isSelected && 'ring-2 ring-foreground',
@@ -39,6 +45,7 @@ export function PrepHistoryStrip({
                                 !isSelected &&
                                 'ring-1 ring-foreground/50',
                         )}
+                        data-state={isSelected ? 'selected' : 'idle'}
                         key={d}
                         onClick={() => onSelect(d)}
                         title={`${d}${score === null ? ' · no prep' : ` · ${score.toFixed(0)}%`}`}

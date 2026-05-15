@@ -6,6 +6,7 @@ import { Bar, BarChart, Cell, LabelList, XAxis, YAxis } from 'recharts';
 import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
 import { formatPercent } from '~/lib/format';
 import { type LightAssessment, winRateByGrade } from '~/lib/trading-analytics';
+import { cn } from '~/lib/utils';
 
 const chartConfig: ChartConfig = {
     winRate: { color: 'hsl(var(--chart-1))', label: 'Win rate' },
@@ -30,7 +31,10 @@ export function WinRateByGradeChart({
 
     return (
         <ChartContainer
-            className="aspect-16/7 min-h-80 w-full"
+            className={cn(
+                'app-trade-checklist__win-rate-chart',
+                'aspect-16/7 min-h-80 w-full',
+            )}
             config={chartConfig}
         >
             <BarChart

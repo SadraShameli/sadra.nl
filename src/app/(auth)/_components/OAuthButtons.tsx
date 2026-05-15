@@ -7,6 +7,7 @@ import { Button } from '~/components/ui/Button';
 import GithubIcon from '~/components/ui/Icons/Github';
 import GoogleIcon from '~/components/ui/Icons/Google';
 import { signInWithGithub, signInWithGoogle } from '~/lib/auth-actions';
+import { cn } from '~/lib/utils';
 
 export function OAuthButtons({
     hasGithub,
@@ -23,10 +24,10 @@ export function OAuthButtons({
     if (!hasGoogle && !hasGithub) return null;
 
     return (
-        <div className="flex flex-col gap-2">
+        <div className={cn('app-auth__oauth-buttons', 'flex flex-col gap-2')}>
             {hasGoogle && (
                 <Button
-                    className="w-full"
+                    className={cn('app-auth__oauth-google', 'w-full')}
                     disabled={pendingGoogle}
                     onClick={() =>
                         startGoogle(() => signInWithGoogle({ callbackUrl }))
@@ -40,7 +41,7 @@ export function OAuthButtons({
             )}
             {hasGithub && (
                 <Button
-                    className="w-full"
+                    className={cn('app-auth__oauth-github', 'w-full')}
                     disabled={pendingGithub}
                     onClick={() =>
                         startGithub(() => signInWithGithub({ callbackUrl }))

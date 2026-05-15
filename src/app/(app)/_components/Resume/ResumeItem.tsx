@@ -22,7 +22,7 @@ type ResumeProps = {
 
 export default function ResumeItem({ sections, title }: ResumeProps) {
     return (
-        <RevealAnimation className="pt-spacing-inner">
+        <RevealAnimation className={cn('app-resume__item', 'pt-spacing-inner')}>
             <Card className="container">
                 <div className="mt-sp grid max-w-3xl gap-y-10 py-spacing-inner lg:py-0">
                     {sections.map((section, index) => {
@@ -38,7 +38,10 @@ export default function ResumeItem({ sections, title }: ResumeProps) {
                                     >
                                         <Image
                                             alt={`${title} picture`}
-                                            className="mb-12 rounded-2xl"
+                                            className={cn(
+                                                'app-resume__item-image',
+                                                'mb-12 rounded-2xl',
+                                            )}
                                             height={600}
                                             src={section.imageUrl}
                                             unoptimized
@@ -57,7 +60,10 @@ export default function ResumeItem({ sections, title }: ResumeProps) {
                                 >
                                     {section.url ? (
                                         <Link
-                                            className="flex w-fit items-center border-b border-dashed border-transparent text-2xl leading-none font-semibold text-white transition hover:border-current"
+                                            className={cn(
+                                                'app-resume__item-link',
+                                                'flex w-fit items-center border-b border-dashed border-transparent text-2xl leading-none font-semibold text-white transition hover:border-current',
+                                            )}
                                             href={section.url}
                                         >
                                             <ExternalLink />
@@ -114,12 +120,20 @@ export default function ResumeItem({ sections, title }: ResumeProps) {
                                 ) : null}
 
                                 {section.highlights?.length ? (
-                                    <ul className="mt-2 grid gap-y-3">
+                                    <ul
+                                        className={cn(
+                                            'app-resume__highlights',
+                                            'mt-2 grid gap-y-3',
+                                        )}
+                                    >
                                         {section.highlights.map(
                                             (highlight, hi) => {
                                                 return (
                                                     <li
-                                                        className="flex text-justify"
+                                                        className={cn(
+                                                            'app-resume__highlight',
+                                                            'flex text-justify',
+                                                        )}
                                                         key={`${hi}-${highlight}`}
                                                     >
                                                         <div className="mt-0.5 mr-1">
@@ -136,11 +150,19 @@ export default function ResumeItem({ sections, title }: ResumeProps) {
                                 {section.skills?.length ? (
                                     <div className="mt-5 flex items-center font-semibold">
                                         <Cog className="size-5 shrink-0" />
-                                        <ul className="ml-2 flex flex-wrap gap-x-1">
+                                        <ul
+                                            className={cn(
+                                                'app-resume__skills',
+                                                'ml-2 flex flex-wrap gap-x-1',
+                                            )}
+                                        >
                                             {section.skills.map((skill, si) => {
                                                 return (
                                                     <li
-                                                        className="after:content-[','] last:after:hidden"
+                                                        className={cn(
+                                                            'app-resume__skill',
+                                                            "after:content-[','] last:after:hidden",
+                                                        )}
                                                         key={`${si}-${skill}`}
                                                     >
                                                         {skill}

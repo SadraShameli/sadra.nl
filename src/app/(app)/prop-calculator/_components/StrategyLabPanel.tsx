@@ -112,7 +112,7 @@ export default function StrategyLabPanel({
     const verdictResult = verdict ? results.get(verdict.id) : null;
 
     return (
-        <Card className="px-5 py-4">
+        <Card className={cn('app-prop-calculator__strategy-lab', 'px-5 py-4')}>
             <div className="mb-3 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                     <h3 className="text-sm font-semibold">
@@ -172,7 +172,12 @@ export default function StrategyLabPanel({
             </div>
 
             <div className="overflow-x-auto">
-                <table className="w-full min-w-max text-xs whitespace-nowrap tabular-nums">
+                <table
+                    className={cn(
+                        'app-prop-calculator__strategy-lab-table',
+                        'w-full min-w-max text-xs whitespace-nowrap tabular-nums',
+                    )}
+                >
                     <thead className="text-muted-foreground">
                         <tr className="text-left">
                             <th className="px-2 py-1 font-medium">Label</th>

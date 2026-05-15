@@ -217,7 +217,12 @@ export default function StrategyAnalysis({
         : '∞';
 
     return (
-        <Card className="px-5 py-5">
+        <Card
+            className={cn(
+                'app-prop-calculator__strategy-analysis',
+                'px-5 py-5',
+            )}
+        >
             <div className="mb-4 flex items-center gap-2">
                 <h3 className="text-sm font-semibold">Strategy Analysis</h3>
                 <InfoPopover title="Strategy analysis">
@@ -226,7 +231,9 @@ export default function StrategyAnalysis({
             </div>
 
             <div className="flex flex-col gap-6">
-                <section>
+                <section
+                    className={cn('app-prop-calculator__strategy-returns')}
+                >
                     <SectionHeader
                         description={panelDescriptions.returnsBreakdown}
                         title="Returns Breakdown"
@@ -291,7 +298,11 @@ export default function StrategyAnalysis({
 
                 <div className="border-t border-border/40" />
 
-                <section>
+                <section
+                    className={cn(
+                        'app-prop-calculator__strategy-risk-adjusted',
+                    )}
+                >
                     <SectionHeader
                         description={panelDescriptions.riskReturn}
                         title="Risk-Adjusted Returns"
@@ -378,7 +389,7 @@ export default function StrategyAnalysis({
 
                 <div className="border-t border-border/40" />
 
-                <section>
+                <section className={cn('app-prop-calculator__strategy-edge')}>
                     <SectionHeader
                         description={panelDescriptions.strategyDNA}
                         title="Edge"

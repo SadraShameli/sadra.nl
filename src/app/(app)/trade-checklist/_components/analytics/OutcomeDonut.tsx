@@ -8,6 +8,7 @@ import {
     type LightAssessment,
     outcomeDistribution,
 } from '~/lib/trading-analytics';
+import { cn } from '~/lib/utils';
 
 const COLORS: Record<string, string> = {
     breakeven: 'hsl(45 93% 47%)',
@@ -49,7 +50,12 @@ export function OutcomeDonut({
     }
 
     return (
-        <div className="flex items-center gap-4">
+        <div
+            className={cn(
+                'app-trade-checklist__outcome-donut',
+                'flex items-center gap-4',
+            )}
+        >
             <ChartContainer className="size-56 shrink-0" config={chartConfig}>
                 <PieChart>
                     <Pie
@@ -76,7 +82,10 @@ export function OutcomeDonut({
             <ul className="flex-1 space-y-2 text-sm">
                 {data.map((d) => (
                     <li
-                        className="flex items-center justify-between gap-3"
+                        className={cn(
+                            'app-trade-checklist__outcome-donut-item',
+                            'flex items-center justify-between gap-3',
+                        )}
                         key={d.outcome}
                     >
                         <span className="flex items-center gap-2">

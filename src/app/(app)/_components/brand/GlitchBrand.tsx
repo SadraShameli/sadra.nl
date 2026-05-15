@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
+import { cn } from '~/lib/utils';
+
 const CHARS = String.raw`!<>-\/[]{}=+*^?#@$%`;
 
 interface Props {
@@ -61,7 +63,7 @@ export default function GlitchBrand({
     }, [trigger]);
 
     return (
-        <Link className={className} href={href}>
+        <Link className={cn('app-brand__glitch', className)} href={href}>
             {display}
         </Link>
     );

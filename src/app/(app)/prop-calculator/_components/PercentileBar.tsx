@@ -2,6 +2,7 @@
 
 import { Card } from '~/components/ui/Card';
 import InfoPopover from '~/components/ui/InfoPopover';
+import { cn } from '~/lib/utils';
 
 interface PercentileBarProps {
     description: string;
@@ -32,7 +33,12 @@ export default function PercentileBar({
     const pct = (v: number) => ((v - rangeMin) / span) * 100;
 
     return (
-        <Card className="gap-2 px-5 py-4">
+        <Card
+            className={cn(
+                'app-prop-calculator__percentile-bar',
+                'gap-2 px-5 py-4',
+            )}
+        >
             <div className="flex items-center justify-between">
                 <span className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
                     {label}

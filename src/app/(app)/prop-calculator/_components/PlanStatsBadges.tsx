@@ -1,6 +1,7 @@
 'use client';
 
 import { type Plan } from '~/lib/prop-calculator';
+import { cn } from '~/lib/utils';
 
 interface BadgeProps {
     label: string;
@@ -23,7 +24,12 @@ export default function PlanStatsBadges({ plan }: PlanStatsBadgesProps) {
         : null;
 
     return (
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs">
+        <div
+            className={cn(
+                'app-prop-calculator__plan-stats-badges',
+                'flex flex-wrap items-center gap-x-5 gap-y-1 text-xs',
+            )}
+        >
             <Badge
                 label="PT:DD"
                 value={`${ptdd.toFixed(2)}×`}

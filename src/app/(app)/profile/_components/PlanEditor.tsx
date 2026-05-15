@@ -39,6 +39,7 @@ import { Switch } from '~/components/ui/Switch';
 import { updateTradingPlanInputSchema } from '~/lib/schemas/trading';
 import { updateTradingPlan } from '~/lib/trading-actions';
 import { CONFLUENCE_GROUPS, WEIGHT_CATEGORIES } from '~/lib/trading-defaults';
+import { cn } from '~/lib/utils';
 
 const KNOCKOUT_LABELS: Record<keyof TradingPlanConfig['knockouts'], string> = {
     boredomHunt: 'Boredom-driven setup hunt',
@@ -119,8 +120,13 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
     };
 
     return (
-        <div className="space-y-6">
-            <section className="flex flex-col space-y-3">
+        <div className={cn('app-profile__plan-editor', 'space-y-6')}>
+            <section
+                className={cn(
+                    'app-profile__plan-name',
+                    'flex flex-col space-y-3',
+                )}
+            >
                 <Label
                     className="text-xs text-muted-foreground uppercase"
                     htmlFor="planName"
@@ -135,7 +141,7 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                 />
             </section>
 
-            <section className="space-y-3">
+            <section className={cn('app-profile__plan-windows', 'space-y-3')}>
                 <h3 className="text-xs text-muted-foreground uppercase">
                     Macro time windows
                 </h3>
@@ -198,7 +204,7 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                 </Button>
             </section>
 
-            <section className="space-y-3">
+            <section className={cn('app-profile__plan-risk', 'space-y-3')}>
                 <h3 className="text-xs text-muted-foreground uppercase">
                     Risk
                 </h3>
@@ -257,7 +263,7 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                 </div>
             </section>
 
-            <section className="space-y-3">
+            <section className={cn('app-profile__plan-setup', 'space-y-3')}>
                 <h3 className="text-xs text-muted-foreground uppercase">
                     Setup requirements
                 </h3>
@@ -392,7 +398,7 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                 </div>
             </section>
 
-            <section className="space-y-3">
+            <section className={cn('app-profile__plan-weights', 'space-y-3')}>
                 <div className="flex items-center justify-between">
                     <h3 className="text-xs text-muted-foreground uppercase">
                         Scoring weights
@@ -451,7 +457,7 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                 )}
             </section>
 
-            <section className="space-y-3">
+            <section className={cn('app-profile__plan-knockouts', 'space-y-3')}>
                 <h3 className="text-xs text-muted-foreground uppercase">
                     Knockout rules
                 </h3>

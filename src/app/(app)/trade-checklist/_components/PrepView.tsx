@@ -6,6 +6,7 @@ import type { DailyPreparationRow } from '~/lib/schemas/trading';
 import type { PrepChecks } from '~/lib/trading-types';
 
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
+import { cn } from '~/lib/utils';
 
 import { PrepChecklist } from './prep/PrepChecklist';
 import { PrepHistoryStrip } from './prep/PrepHistoryStrip';
@@ -43,7 +44,7 @@ export function PrepView({ activePlanId, history, today }: PrepViewProps) {
     const initialNotes = selectedRow?.notes ?? '';
 
     return (
-        <div className="space-y-6">
+        <div className={cn('app-trade-checklist__prep-view', 'space-y-6')}>
             <Card>
                 <CardHeader>
                     <CardTitle className="text-base">

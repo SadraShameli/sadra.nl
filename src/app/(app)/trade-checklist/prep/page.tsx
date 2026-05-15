@@ -7,6 +7,7 @@ import { auth } from '~/lib/auth';
 import { dailyPreparationRowSchema } from '~/lib/schemas/trading';
 import { ensureUserHasPlan } from '~/lib/trading-actions';
 import { PLAN_TIMEZONE } from '~/lib/trading-defaults';
+import { cn } from '~/lib/utils';
 import { dailyPreparations, db, tradingPlans } from '~/server/db';
 
 import { PrepView } from '../_components/PrepView';
@@ -50,7 +51,12 @@ export default async function PreMarketPrepPage() {
     const activePlanId = plans[0]?.id ?? null;
 
     return (
-        <main className="container pt-spacing pb-24">
+        <main
+            className={cn(
+                'app-trade-checklist__prep-view',
+                'container pt-spacing pb-24',
+            )}
+        >
             <header className="mb-8">
                 <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
                     Pre-market prep

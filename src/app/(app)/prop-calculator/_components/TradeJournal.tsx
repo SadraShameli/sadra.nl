@@ -160,7 +160,7 @@ export default function TradeJournal() {
         : '';
 
     return (
-        <Card className="px-5 py-5">
+        <Card className={cn('app-prop-calculator__trade-journal', 'px-5 py-5')}>
             <div className="mb-4 flex items-center gap-2">
                 <h3 className="text-sm font-semibold">
                     Trade Journal & Edge Verifier
@@ -178,7 +178,10 @@ export default function TradeJournal() {
 
             <div className="flex flex-col gap-5">
                 <textarea
-                    className="w-full resize-y rounded-md border border-border bg-muted/20 px-3 py-2 font-mono text-xs text-foreground placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary focus:outline-none"
+                    className={cn(
+                        'app-prop-calculator__trade-journal-input',
+                        'w-full resize-y rounded-md border border-border bg-muted/20 px-3 py-2 font-mono text-xs text-foreground placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary focus:outline-none',
+                    )}
                     onChange={(e) => setRaw(e.target.value)}
                     placeholder={PLACEHOLDER}
                     rows={5}
@@ -287,7 +290,11 @@ export default function TradeJournal() {
                         </div>
 
                         <div className="grid gap-5 lg:grid-cols-2">
-                            <div>
+                            <div
+                                className={cn(
+                                    'app-prop-calculator__journal-equity-chart',
+                                )}
+                            >
                                 <p className="mb-2 text-[10px] font-medium tracking-wide text-muted-foreground/70 uppercase">
                                     Cumulative R equity curve
                                 </p>
@@ -355,7 +362,11 @@ export default function TradeJournal() {
                             </div>
 
                             {stats.rollingWR.length >= 3 && (
-                                <div>
+                                <div
+                                    className={cn(
+                                        'app-prop-calculator__journal-rolling-wr-chart',
+                                    )}
+                                >
                                     <p className="mb-2 text-[10px] font-medium tracking-wide text-muted-foreground/70 uppercase">
                                         Rolling 20-trade win rate (edge drift)
                                     </p>

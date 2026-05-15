@@ -18,7 +18,11 @@ export function DeleteAccountDialog() {
     return (
         <AlertDialog>
             <AlertDialogTrigger asChild>
-                <Button type="button" variant="destructive">
+                <Button
+                    className={'app-profile__delete-account'}
+                    type="button"
+                    variant="destructive"
+                >
                     Delete account
                 </Button>
             </AlertDialogTrigger>

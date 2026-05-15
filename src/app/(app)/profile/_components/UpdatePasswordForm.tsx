@@ -69,7 +69,7 @@ export function UpdatePasswordForm({
         return (
             <Form {...setForm}>
                 <form
-                    className="flex flex-col gap-3"
+                    className={`app-profile__password-form flex flex-col gap-3`}
                     onSubmit={setForm.handleSubmit(onSetSubmit)}
                 >
                     <FormField
@@ -123,7 +123,7 @@ export function UpdatePasswordForm({
     return (
         <Form {...changeForm}>
             <form
-                className="flex flex-col gap-3"
+                className={`app-profile__password-form flex flex-col gap-3`}
                 onSubmit={changeForm.handleSubmit(onChangeSubmit)}
             >
                 <FormField

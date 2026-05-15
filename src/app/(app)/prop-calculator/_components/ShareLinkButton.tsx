@@ -4,6 +4,7 @@ import { Check, Link2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { Button } from '~/components/ui/Button';
+import { cn } from '~/lib/utils';
 
 export default function ShareLinkButton() {
     const [copied, setCopied] = useState(false);
@@ -26,7 +27,11 @@ export default function ShareLinkButton() {
 
     return (
         <Button
-            className="h-7 gap-1.5 px-2 text-xs"
+            className={cn(
+                'app-prop-calculator__share-link',
+                'h-7 gap-1.5 px-2 text-xs',
+            )}
+            data-state={copied ? 'copied' : 'idle'}
             onClick={handleCopy}
             size="sm"
             variant="outline"

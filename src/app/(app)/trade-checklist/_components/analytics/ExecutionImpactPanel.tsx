@@ -38,7 +38,12 @@ export function ExecutionImpactPanel({
         impact && impact.followed.count >= 3 && impact.deviated.count >= 3;
 
     return (
-        <div className="space-y-4">
+        <div
+            className={cn(
+                'app-trade-checklist__execution-impact-panel',
+                'space-y-4',
+            )}
+        >
             <div>
                 <p className="text-xs tracking-wider text-muted-foreground uppercase">
                     Plan-followed vs deviated
@@ -96,7 +101,12 @@ export function ExecutionImpactPanel({
                         No deviations recorded yet.
                     </p>
                 ) : (
-                    <ul className="mt-2 divide-y divide-border/40 rounded-md border border-border/40">
+                    <ul
+                        className={cn(
+                            'app-trade-checklist__deviations-list',
+                            'mt-2 divide-y divide-border/40 rounded-md border border-border/40',
+                        )}
+                    >
                         {freq.map((d) => (
                             <li
                                 className="flex items-center justify-between gap-3 px-3 py-2 text-sm"

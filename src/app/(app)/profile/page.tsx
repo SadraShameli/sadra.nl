@@ -7,6 +7,7 @@ import { Separator } from '~/components/ui/Separator';
 import { auth } from '~/lib/auth';
 import { profileSearchSchema } from '~/lib/schemas/url';
 import { ensureUserHasPlan } from '~/lib/trading-actions';
+import { cn } from '~/lib/utils';
 import { db, tradingPlans, users } from '~/server/db';
 
 import { DeleteAccountDialog } from './_components/DeleteAccountDialog';
@@ -143,7 +144,7 @@ export default async function ProfilePage({
     );
 
     return (
-        <main className="container mx-auto py-16">
+        <main className={cn('app-profile', 'container mx-auto py-16')}>
             <div className="mx-auto max-w-3xl space-y-8">
                 <div className="flex items-center gap-5">
                     <Avatar email={email} name={name} />
@@ -176,7 +177,12 @@ function Avatar({
 }) {
     const letter = ((name ?? email ?? '?')[0] ?? '?').toUpperCase();
     return (
-        <div className="flex size-20 items-center justify-center rounded-full bg-white/10 ring-1 ring-white/20">
+        <div
+            className={cn(
+                'app-profile__avatar',
+                'flex size-20 items-center justify-center rounded-full bg-white/10 ring-1 ring-white/20',
+            )}
+        >
             <span className="font-orbitron text-3xl font-bold text-white">
                 {letter}
             </span>

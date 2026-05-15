@@ -109,7 +109,9 @@ export default function TradingInputs({
             : `≈ ${formatCurrency(computedRisk)} on $${(accountSize / 1000).toFixed(0)}K`;
 
     return (
-        <div className="flex flex-col gap-5">
+        <div
+            className={cn('app-prop-calculator__inputs', 'flex flex-col gap-5')}
+        >
             <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold">Your trading system</h3>
                 <Popover>

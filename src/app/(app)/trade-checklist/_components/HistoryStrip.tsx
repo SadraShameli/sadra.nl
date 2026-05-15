@@ -8,6 +8,7 @@ import type { Grade, TradeAssessmentRow } from '~/lib/trading-types';
 
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
+import { cn } from '~/lib/utils';
 
 const gradeColor: Partial<Record<Grade, string>> = {
     A: 'text-emerald-400',
@@ -74,7 +75,7 @@ export function HistoryStrip({
     const rows = sortedRows(history, sortMode);
 
     return (
-        <div>
+        <div className={cn('app-trade-checklist__history-strip')}>
             <div className="flex items-center gap-1 border-b border-border/40 px-4 py-2">
                 {(['newest', 'oldest', 'grade'] as SortMode[]).map((m) => (
                     <button
@@ -95,7 +96,12 @@ export function HistoryStrip({
                     </button>
                 ))}
             </div>
-            <ul className="divide-y divide-border/40">
+            <ul
+                className={cn(
+                    'app-trade-checklist__history-list',
+                    'divide-y divide-border/40',
+                )}
+            >
                 {rows.map((row) => {
                     const out = row.outcome ? outcomeBadge[row.outcome] : null;
                     return (
@@ -104,7 +110,10 @@ export function HistoryStrip({
                             key={row.id}
                         >
                             <button
-                                className="min-w-0 flex-1 text-left"
+                                className={cn(
+                                    'app-trade-checklist__history-item',
+                                    'min-w-0 flex-1 text-left',
+                                )}
                                 onClick={() => onSelect(row)}
                                 type="button"
                             >

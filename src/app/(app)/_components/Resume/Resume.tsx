@@ -1,6 +1,7 @@
 import type { ResumeSectionView } from '~/lib/content';
 
 import SectionTitle from '~/components/SectionTitle';
+import { cn } from '~/lib/utils';
 
 import ResumeItem from './ResumeItem';
 
@@ -22,18 +23,18 @@ export default function ResumeContent({
     projectsSectionTitle,
 }: ResumeContentProps) {
     return (
-        <div className="grid gap-y-10">
-            <section>
+        <div className={cn('app-resume__content', 'grid gap-y-10')}>
+            <section className={'app-resume__projects'}>
                 <SectionTitle text={projectsSectionTitle} />
                 <ResumeItem sections={projects} title="Projects" />
             </section>
 
-            <section className="pt-spacing">
+            <section className={cn('app-resume__experience', 'pt-spacing')}>
                 <SectionTitle text={experienceSectionTitle} />
                 <ResumeItem sections={experience} title="Experience" />
             </section>
 
-            <section className="pt-spacing">
+            <section className={cn('app-resume__education', 'pt-spacing')}>
                 <SectionTitle text={educationSectionTitle} />
                 <ResumeItem sections={education} title="Education" />
             </section>

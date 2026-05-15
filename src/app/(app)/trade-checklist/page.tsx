@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { auth } from '~/lib/auth';
 import { tradeAssessmentRowSchema } from '~/lib/schemas/trading';
 import { ensureUserHasPlan } from '~/lib/trading-actions';
+import { cn } from '~/lib/utils';
 import { db, tradeAssessments, tradingPlans } from '~/server/db';
 
 import { ChecklistShell } from './_components/ChecklistShell';
@@ -44,7 +45,12 @@ export default async function TradeChecklistPage() {
     if (!active) redirect('/profile?tab=trading-plan');
 
     return (
-        <main className="container pt-spacing pb-24">
+        <main
+            className={cn(
+                'app-trade-checklist__hub',
+                'container pt-spacing pb-24',
+            )}
+        >
             <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">

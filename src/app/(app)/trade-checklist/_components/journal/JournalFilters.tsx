@@ -97,7 +97,12 @@ export function JournalFilters({
         state.singleDate !== null;
 
     return (
-        <div className="space-y-4 rounded-lg border border-border/40 bg-card/60 p-4">
+        <div
+            className={cn(
+                'app-trade-checklist__journal-filters',
+                'space-y-4 rounded-lg border border-border/40 bg-card/60 p-4',
+            )}
+        >
             <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
                 <Input
                     onChange={(e) =>

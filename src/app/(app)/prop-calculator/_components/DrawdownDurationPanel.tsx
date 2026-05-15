@@ -90,7 +90,12 @@ export default function DrawdownDurationPanel({
               : 'text-rose-400';
 
     return (
-        <Card className="px-5 py-5">
+        <Card
+            className={cn(
+                'app-prop-calculator__drawdown-duration',
+                'px-5 py-5',
+            )}
+        >
             <div className="mb-4 flex items-center gap-2">
                 <h3 className="text-sm font-semibold">
                     Drawdown Duration & Recovery
@@ -151,7 +156,12 @@ export default function DrawdownDurationPanel({
                         Recovery tax (loss needs more gain to break even)
                     </p>
                     <div className="overflow-x-auto">
-                        <table className="w-full text-xs tabular-nums">
+                        <table
+                            className={cn(
+                                'app-prop-calculator__recovery-tax-table',
+                                'w-full text-xs tabular-nums',
+                            )}
+                        >
                             <thead>
                                 <tr className="border-b border-border/40 text-left text-muted-foreground">
                                     <th className="py-1.5 pr-8 font-medium">

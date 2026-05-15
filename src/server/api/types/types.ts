@@ -9,6 +9,7 @@ export interface GetReadingsRecord {
     latestReading: ReadingRecord;
     lowest: number;
     period: number;
+    period_label: string;
     readings: ReadingRecord[];
     sensor: typeof sensor.$inferSelect;
 }

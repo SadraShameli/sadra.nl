@@ -16,6 +16,7 @@ import {
     gradeCalibration,
     type LightAssessment,
 } from '~/lib/trading-analytics';
+import { cn } from '~/lib/utils';
 
 const chartConfig: ChartConfig = {
     avgR: { color: 'hsl(var(--chart-2))', label: 'Avg outcome R' },
@@ -42,7 +43,10 @@ export function GradeCalibrationChart({
 
     return (
         <ChartContainer
-            className="aspect-16/7 min-h-80 w-full"
+            className={cn(
+                'app-trade-checklist__grade-calibration-chart',
+                'aspect-16/7 min-h-80 w-full',
+            )}
             config={chartConfig}
         >
             <BarChart

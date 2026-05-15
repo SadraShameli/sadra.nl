@@ -40,6 +40,23 @@ export const getLocationProps = z.object({
     location_id: z.number().int().positive(),
 });
 
+export const granularitySchema = z.enum([
+    'raw',
+    'hour',
+    'day',
+    'week',
+    'month',
+]);
+export type Granularity = z.infer<typeof granularitySchema>;
+
+export const getReadingsQueryProps = z.object({
+    date_from: z.date().optional(),
+    date_to: z.date().optional(),
+    device_id: z.number().int().positive().optional(),
+    granularity: granularitySchema.default('hour'),
+    location_id: z.number().int().positive(),
+});
+
 export const getLocationReadingsProps = z.object({
     location: getLocationProps,
     sensor_id: z.number().int().positive().optional(),

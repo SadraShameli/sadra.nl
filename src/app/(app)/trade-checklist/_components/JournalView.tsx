@@ -8,6 +8,7 @@ import type { TradeAssessmentRow } from '~/lib/trading-types';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent } from '~/components/ui/Card';
 import { dateKey, filterAssessments } from '~/lib/trading-analytics';
+import { cn } from '~/lib/utils';
 
 import { AssessmentDetailDialog } from './journal/AssessmentDetailDialog';
 import {
@@ -135,7 +136,7 @@ export function JournalView({ history, plans }: JournalViewProps) {
         state.singleDate !== null;
 
     return (
-        <div className="space-y-4">
+        <div className={cn('app-trade-checklist__journal-view', 'space-y-4')}>
             <JournalFilters
                 onChange={updateState}
                 onClear={clear}
@@ -168,7 +169,12 @@ export function JournalView({ history, plans }: JournalViewProps) {
                 </Card>
             ) : (
                 <Card>
-                    <ul className="divide-y divide-border/40">
+                    <ul
+                        className={cn(
+                            'app-trade-checklist__journal-list',
+                            'divide-y divide-border/40',
+                        )}
+                    >
                         {visible.map((row) => (
                             <JournalRow
                                 key={row.id}

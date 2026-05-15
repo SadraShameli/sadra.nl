@@ -6,6 +6,7 @@ import type { LightAssessment } from '~/lib/trading-analytics';
 
 import { auth } from '~/lib/auth';
 import { ensureUserHasPlan } from '~/lib/trading-actions';
+import { cn } from '~/lib/utils';
 import { db, tradeAssessments, tradingPlans } from '~/server/db';
 
 import { AnalyticsDashboard } from '../_components/AnalyticsDashboard';
@@ -68,7 +69,12 @@ export default async function TradeAnalyticsPage() {
     }));
 
     return (
-        <main className="container pt-spacing pb-24">
+        <main
+            className={cn(
+                'app-trade-checklist__analytics-dashboard',
+                'container pt-spacing pb-24',
+            )}
+        >
             <header className="mb-8">
                 <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
                     Analytics

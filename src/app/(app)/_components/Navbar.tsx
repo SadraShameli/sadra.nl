@@ -10,6 +10,7 @@ import InstagramIcon from '~/components/ui/Icons/Instagram';
 import WhatsAppIcon from '~/components/ui/Icons/WhatsApp';
 import YoutubeIcon from '~/components/ui/Icons/Youtube';
 import { siteContent } from '~/lib/content';
+import { cn } from '~/lib/utils';
 
 import BrandTypewriter from './brand/BrandTypewriter';
 
@@ -22,11 +23,19 @@ export default function Navbar({ session }: { session: null | Session }) {
     }, []);
 
     return (
-        <nav className="sticky top-0 right-0 left-0 z-50 bg-black/75 backdrop-blur-2xl backdrop-saturate-200">
+        <nav
+            className={cn(
+                'app-shell__navbar',
+                'sticky top-0 right-0 left-0 z-50 bg-black/75 backdrop-blur-2xl backdrop-saturate-200',
+            )}
+        >
             <div className="container mx-auto flex items-center justify-between py-5">
                 <div className="flex items-center gap-3">
                     <Link
-                        className="font-orbitron text-lg font-semibold tracking-widest text-white"
+                        className={cn(
+                            'app-shell__brand',
+                            'font-orbitron text-lg font-semibold tracking-widest text-white',
+                        )}
                         href="/"
                     >
                         {navBrand}
@@ -38,7 +47,10 @@ export default function Navbar({ session }: { session: null | Session }) {
                     {socialLinks.map((profile) => (
                         <Link
                             aria-label={profile.platform}
-                            className="flex size-5 items-center justify-center transition hover:opacity-50"
+                            className={cn(
+                                'app-shell__social-link',
+                                'flex size-5 items-center justify-center transition hover:opacity-50',
+                            )}
                             href={profile.url}
                             key={`${profile.platform}-${profile.url}`}
                         >
@@ -48,14 +60,17 @@ export default function Navbar({ session }: { session: null | Session }) {
 
                     <Link
                         aria-label={session?.user ? 'Profile' : 'Sign in'}
-                        className="flex size-5 items-center justify-center text-white transition hover:opacity-60"
+                        className={cn(
+                            'app-shell__account-link',
+                            'flex size-5 items-center justify-center text-white transition hover:opacity-60',
+                        )}
                         href={session?.user ? '/profile' : '/login'}
                     >
                         <User className="size-5" strokeWidth={1.75} />
                     </Link>
                 </div>
             </div>
-            <div id="navbar-subnav-slot" />
+            <div className={'app-shell__subnav-slot'} id="navbar-subnav-slot" />
         </nav>
     );
 }

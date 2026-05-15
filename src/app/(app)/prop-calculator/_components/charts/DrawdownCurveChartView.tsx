@@ -12,6 +12,7 @@ import {
 import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
 import { formatCompactCurrency } from '~/lib/format';
 import { type SimOutputs } from '~/lib/prop-calculator';
+import { cn } from '~/lib/utils';
 
 interface Props {
     result: SimOutputs;
@@ -39,7 +40,10 @@ export default function DrawdownCurveChartView({ result }: Props) {
 
     return (
         <ChartContainer
-            className="aspect-16/7 min-h-125 w-full"
+            className={cn(
+                'app-prop-calculator__drawdown-curve-chart',
+                'aspect-16/7 min-h-125 w-full',
+            )}
             config={chartConfig}
         >
             <LineChart

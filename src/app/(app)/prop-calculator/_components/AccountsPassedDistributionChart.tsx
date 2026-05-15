@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 
 import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
+import { cn } from '~/lib/utils';
 
 interface Props {
     distribution: number[];
@@ -30,7 +31,12 @@ export default function AccountsPassedDistributionChart({
     const data = distribution.map((p, k) => ({ k, p }));
     const maxP = data.reduce((m, d) => Math.max(d.p, m), 0);
     return (
-        <div className="h-44 w-full">
+        <div
+            className={cn(
+                'app-prop-calculator__accounts-passed-chart',
+                'h-44 w-full',
+            )}
+        >
             <ChartContainer className="h-full w-full" config={chartConfig}>
                 <BarChart
                     data={data}

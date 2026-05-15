@@ -5,6 +5,7 @@ import { formatDistanceToNow } from 'date-fns';
 import type { Grade } from '~/lib/trading-types';
 
 import { Badge } from '~/components/ui/Badge';
+import { cn } from '~/lib/utils';
 
 const gradeColor: Partial<Record<Grade, string>> = {
     A: 'text-emerald-400',
@@ -51,7 +52,7 @@ interface JournalRowProps {
 export function JournalRow({ onSelect, row }: JournalRowProps) {
     const out = row.outcome ? outcomeMeta[row.outcome] : null;
     return (
-        <li>
+        <li className={cn('app-trade-checklist__journal-row')}>
             <button
                 className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-accent/30"
                 onClick={onSelect}

@@ -93,7 +93,12 @@ export function KpiTiles({ assessments }: { assessments: LightAssessment[] }) {
     ];
 
     return (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+        <div
+            className={cn(
+                'app-trade-checklist__kpi-tiles',
+                'grid grid-cols-2 gap-3 md:grid-cols-5',
+            )}
+        >
             {tiles.map((t) => (
                 <Card className="p-4" key={t.label}>
                     <p className="text-xs tracking-wider text-muted-foreground uppercase">

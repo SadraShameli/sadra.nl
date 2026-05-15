@@ -108,7 +108,7 @@ export default function CompoundingPanel({
         ((out.finalP50 / startBalance) ** (252 / horizon.days) - 1) * 100;
 
     return (
-        <Card className="px-5 py-5">
+        <Card className={cn('app-prop-calculator__compounding', 'px-5 py-5')}>
             <div className="mb-4 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                     <h3 className="text-sm font-semibold">
@@ -201,7 +201,10 @@ export default function CompoundingPanel({
                 </div>
 
                 <ChartContainer
-                    className="aspect-16/7 min-h-125 w-full"
+                    className={cn(
+                        'app-prop-calculator__compounding-chart',
+                        'aspect-16/7 min-h-125 w-full',
+                    )}
                     config={chartConfig}
                 >
                     <ComposedChart

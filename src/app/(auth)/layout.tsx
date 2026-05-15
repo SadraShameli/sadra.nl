@@ -20,6 +20,7 @@ export default function AuthLayout({
         <html className="dark antialiased" lang="en">
             <body
                 className={cn(
+                    'app-auth',
                     orbitron.variable,
                     GeistSans.variable,
                     'bg-background text-foreground',

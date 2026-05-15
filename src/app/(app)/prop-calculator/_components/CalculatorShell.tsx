@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Card } from '~/components/ui/Card';
 import { formatCompactCurrency, formatDays } from '~/lib/format';
 import { FirmId } from '~/lib/prop-calculator';
+import { cn } from '~/lib/utils';
 
 import ChartPanel from './ChartPanel';
 import CompoundingPanel from './CompoundingPanel';
@@ -53,11 +54,19 @@ export default function CalculatorShell() {
     ]);
 
     return (
-        <div className="mb-10 flex flex-col gap-6">
+        <div
+            className={cn(
+                'app-prop-calculator__shell',
+                'mb-10 flex flex-col gap-6',
+            )}
+        >
             <SectionNav />
 
             <div
-                className="flex scroll-mt-26 flex-col gap-6"
+                className={cn(
+                    'app-prop-calculator__section-simulator',
+                    'flex scroll-mt-26 flex-col gap-6',
+                )}
                 data-section-label="Simulator"
                 id="simulator"
             >
@@ -148,7 +157,10 @@ export default function CalculatorShell() {
             </div>
 
             <div
-                className="scroll-mt-26"
+                className={cn(
+                    'app-prop-calculator__section-strategy',
+                    'scroll-mt-26',
+                )}
                 data-section-label="Strategy"
                 id="strategy"
             >
@@ -164,7 +176,10 @@ export default function CalculatorShell() {
             </div>
 
             <div
-                className="scroll-mt-26"
+                className={cn(
+                    'app-prop-calculator__section-tail-risk',
+                    'scroll-mt-26',
+                )}
                 data-section-label="Tail Risk"
                 id="tail-risk"
             >
@@ -172,7 +187,10 @@ export default function CalculatorShell() {
             </div>
 
             <div
-                className="scroll-mt-26"
+                className={cn(
+                    'app-prop-calculator__section-portfolio',
+                    'scroll-mt-26',
+                )}
                 data-section-label="Portfolio"
                 id="portfolio"
             >
@@ -187,7 +205,10 @@ export default function CalculatorShell() {
             </div>
 
             <div
-                className="flex scroll-mt-26 flex-col gap-3"
+                className={cn(
+                    'app-prop-calculator__section-charts',
+                    'flex scroll-mt-26 flex-col gap-3',
+                )}
                 data-section-label="Charts"
                 id="charts"
             >
@@ -227,7 +248,10 @@ export default function CalculatorShell() {
             </div>
 
             <div
-                className="scroll-mt-26"
+                className={cn(
+                    'app-prop-calculator__section-drawdown',
+                    'scroll-mt-26',
+                )}
                 data-section-label="Drawdown"
                 id="drawdown"
             >
@@ -235,7 +259,10 @@ export default function CalculatorShell() {
             </div>
 
             <div
-                className="scroll-mt-26"
+                className={cn(
+                    'app-prop-calculator__section-compounding',
+                    'scroll-mt-26',
+                )}
                 data-section-label="Compounding"
                 id="compounding"
             >
@@ -253,7 +280,10 @@ export default function CalculatorShell() {
             </div>
 
             <div
-                className="scroll-mt-26"
+                className={cn(
+                    'app-prop-calculator__section-resilience',
+                    'scroll-mt-26',
+                )}
                 data-section-label="Resilience"
                 id="resilience"
             >
@@ -266,7 +296,10 @@ export default function CalculatorShell() {
             </div>
 
             <div
-                className="scroll-mt-26"
+                className={cn(
+                    'app-prop-calculator__section-optimal-risk',
+                    'scroll-mt-26',
+                )}
                 data-section-label="Optimal Risk"
                 id="optimal-risk"
             >
@@ -283,7 +316,10 @@ export default function CalculatorShell() {
             </div>
 
             <div
-                className="scroll-mt-26"
+                className={cn(
+                    'app-prop-calculator__section-sensitivity',
+                    'scroll-mt-26',
+                )}
                 data-section-label="Sensitivity"
                 id="sensitivity"
             >
@@ -296,7 +332,10 @@ export default function CalculatorShell() {
             </div>
 
             <div
-                className="scroll-mt-26"
+                className={cn(
+                    'app-prop-calculator__section-plan-comparison',
+                    'scroll-mt-26',
+                )}
                 data-section-label="Plans"
                 id="plan-comparison"
             >
@@ -308,7 +347,10 @@ export default function CalculatorShell() {
             </div>
 
             <div
-                className="scroll-mt-26"
+                className={cn(
+                    'app-prop-calculator__section-firm-comparison',
+                    'scroll-mt-26',
+                )}
                 data-section-label="Firms"
                 id="firm-comparison"
             >
@@ -321,7 +363,10 @@ export default function CalculatorShell() {
             </div>
 
             <div
-                className="scroll-mt-26"
+                className={cn(
+                    'app-prop-calculator__section-strategy-lab',
+                    'scroll-mt-26',
+                )}
                 data-section-label="Strategy Lab"
                 id="strategy-lab"
             >

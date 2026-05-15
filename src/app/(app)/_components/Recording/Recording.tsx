@@ -4,6 +4,7 @@ import { Download } from 'lucide-react';
 
 import { Button } from '~/components/ui/Button';
 import { Card } from '~/components/ui/Card';
+import { cn } from '~/lib/utils';
 import { api } from '~/trpc/react';
 
 import { GetRecordingURL } from './helpers';
@@ -55,12 +56,12 @@ export default function RecordingSection({
     const canGoNext = currentRecordingIdx < (recordings.data?.length ?? 0) - 1;
 
     return (
-        <div className="pt-spacing-inner">
+        <section className={cn('app-recording', 'pt-spacing-inner')}>
             <Card className="container">
                 <div className="flex flex-col gap-6 lg:grid lg:grid-cols-2 lg:items-center">
                     <video
                         autoPlay
-                        className="rounded-lg"
+                        className={cn('app-recording__video', 'rounded-lg')}
                         loop
                         muted
                         playsInline
@@ -74,7 +75,10 @@ export default function RecordingSection({
                                 Recordings
                             </span>
                             <Button
-                                className="h-8 gap-1.5 text-xs"
+                                className={cn(
+                                    'app-recording__download',
+                                    'h-8 gap-1.5 text-xs',
+                                )}
                                 disabled={!hasRecordings}
                                 onClick={() => {
                                     if (currentRecording) {
@@ -134,6 +138,7 @@ export default function RecordingSection({
                         {hasRecordings && (
                             <audio
                                 aria-label="Recording playback"
+                                className={'app-recording__audio'}
                                 loop={isRepeat}
                                 onCanPlay={() => {
                                     if (isPlaying && audioRef.current?.paused) {
@@ -159,6 +164,6 @@ export default function RecordingSection({
                     </div>
                 </div>
             </Card>
-        </div>
+        </section>
     );
 }

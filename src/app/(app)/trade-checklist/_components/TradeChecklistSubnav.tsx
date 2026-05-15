@@ -37,7 +37,12 @@ export function TradeChecklistSubnav() {
     if (!slot) return null;
 
     const bar = (
-        <div className="border-b border-border/40 bg-black/50 backdrop-blur-xl">
+        <nav
+            className={cn(
+                'app-trade-checklist__subnav',
+                'border-b border-border/40 bg-black/50 backdrop-blur-xl',
+            )}
+        >
             <div className="container mx-auto flex items-center gap-1 overflow-x-auto py-2">
                 {ITEMS.map((item) => {
                     const Icon = item.icon;
@@ -45,11 +50,13 @@ export function TradeChecklistSubnav() {
                     return (
                         <Link
                             className={cn(
+                                'app-trade-checklist__subnav-item',
                                 'inline-flex shrink-0 items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium tracking-wide whitespace-nowrap transition',
                                 active
                                     ? 'bg-accent text-foreground'
                                     : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
                             )}
+                            data-state={active ? 'active' : 'inactive'}
                             href={item.href}
                             key={item.href}
                         >
@@ -59,7 +66,7 @@ export function TradeChecklistSubnav() {
                     );
                 })}
             </div>
-        </div>
+        </nav>
     );
 
     return createPortal(bar, slot);

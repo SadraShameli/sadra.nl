@@ -37,7 +37,13 @@ export default async function RootLayout({
             lang="en"
         >
             <meta content="#000" name="theme-color" />
-            <body className={cn(orbitron.variable, GeistSans.variable)}>
+            <body
+                className={cn(
+                    'app-shell',
+                    orbitron.variable,
+                    GeistSans.variable,
+                )}
+            >
                 <TRPCReactProvider>
                     <Navbar session={session} />
                     <GridBackground />

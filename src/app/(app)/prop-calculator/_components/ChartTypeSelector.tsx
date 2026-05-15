@@ -32,7 +32,7 @@ export default function ChartTypeSelector({
     return (
         <Select
             aria-label="Chart type"
-            className="h-8 pr-8 text-xs"
+            className={`app-prop-calculator__chart-type-selector h-8 pr-8 text-xs`}
             onChange={(e) => onChange(e.target.value as ChartType)}
             value={value}
             wrapperClassName="w-full sm:w-auto"

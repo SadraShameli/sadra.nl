@@ -32,11 +32,19 @@ export function RecordingList({
     );
 
     return (
-        <div className="grid h-[27vh] grid-rows-[auto_1fr] gap-2 lg:h-[25vh]">
+        <div
+            className={cn(
+                'app-recording__list',
+                'grid h-[27vh] grid-rows-[auto_1fr] gap-2 lg:h-[25vh]',
+            )}
+        >
             <div className="relative">
                 <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-neutral-500" />
                 <input
-                    className="w-1/2 rounded-lg border border-white/10 bg-white/5 py-2 pr-3 pl-8 text-sm text-white outline-none placeholder:text-neutral-500 focus:border-white/25 disabled:cursor-not-allowed disabled:opacity-40"
+                    className={cn(
+                        'app-recording__list-search',
+                        'w-1/2 rounded-lg border border-white/10 bg-white/5 py-2 pr-3 pl-8 text-sm text-white outline-none placeholder:text-neutral-500 focus:border-white/25 disabled:cursor-not-allowed disabled:opacity-40',
+                    )}
                     disabled={!recordings?.length}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search…"
@@ -52,46 +60,60 @@ export function RecordingList({
                             No recordings match your search
                         </div>
                     ) : (
-                        <div className="space-y-0.5 pr-3">
+                        <ul
+                            className={cn(
+                                'app-recording__list-items',
+                                'space-y-0.5 pr-3',
+                            )}
+                        >
                             {filtered.map((recording) => {
                                 const isCurrent =
                                     recording.id === currentRecordingId;
                                 const dur = recording.duration_seconds;
                                 return (
-                                    <button
-                                        className={cn(
-                                            'group flex w-full items-center gap-x-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                                            isCurrent
-                                                ? 'bg-white/10 text-white'
-                                                : 'text-neutral-400 hover:bg-white/5 hover:text-white',
-                                        )}
-                                        key={recording.id}
-                                        onClick={() => onSelect(recording)}
-                                    >
-                                        {isCurrent ? (
-                                            <ArrowRight className="size-4 shrink-0" />
-                                        ) : (
-                                            <Music2 className="size-4 shrink-0" />
-                                        )}
-                                        <span className="min-w-0 flex-1 truncate text-left">
-                                            {recording.file_name}
-                                        </span>
-                                        {dur != null && (
-                                            <span
-                                                className={cn(
-                                                    'shrink-0 text-xs tabular-nums transition-colors',
-                                                    isCurrent
-                                                        ? 'text-white/50'
-                                                        : 'text-neutral-600 group-hover:text-neutral-400',
-                                                )}
-                                            >
-                                                {ConvertSecondsToString(dur)}
+                                    <li key={recording.id}>
+                                        <button
+                                            className={cn(
+                                                'app-recording__list-item',
+                                                'group flex w-full items-center gap-x-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                                                isCurrent
+                                                    ? 'bg-white/10 text-white'
+                                                    : 'text-neutral-400 hover:bg-white/5 hover:text-white',
+                                            )}
+                                            data-state={
+                                                isCurrent
+                                                    ? 'current'
+                                                    : undefined
+                                            }
+                                            onClick={() => onSelect(recording)}
+                                        >
+                                            {isCurrent ? (
+                                                <ArrowRight className="size-4 shrink-0" />
+                                            ) : (
+                                                <Music2 className="size-4 shrink-0" />
+                                            )}
+                                            <span className="min-w-0 flex-1 truncate text-left">
+                                                {recording.file_name}
                                             </span>
-                                        )}
-                                    </button>
+                                            {dur != null && (
+                                                <span
+                                                    className={cn(
+                                                        'shrink-0 text-xs tabular-nums transition-colors',
+                                                        isCurrent
+                                                            ? 'text-white/50'
+                                                            : 'text-neutral-600 group-hover:text-neutral-400',
+                                                    )}
+                                                >
+                                                    {ConvertSecondsToString(
+                                                        dur,
+                                                    )}
+                                                </span>
+                                            )}
+                                        </button>
+                                    </li>
                                 );
                             })}
-                        </div>
+                        </ul>
                     )
                 ) : (
                     <div className="flex h-full flex-col items-center justify-center pt-8 text-center text-xs text-neutral-500">

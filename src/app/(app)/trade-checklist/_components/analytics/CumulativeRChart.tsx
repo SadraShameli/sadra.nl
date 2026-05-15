@@ -15,6 +15,7 @@ import {
     cumulativeRSeries,
     type LightAssessment,
 } from '~/lib/trading-analytics';
+import { cn } from '~/lib/utils';
 
 const chartConfig: ChartConfig = {
     cumR: { color: 'hsl(var(--chart-1))', label: 'Cumulative R' },
@@ -37,7 +38,10 @@ export function CumulativeRChart({
 
     return (
         <ChartContainer
-            className="aspect-16/7 min-h-72 w-full"
+            className={cn(
+                'app-trade-checklist__cumulative-chart',
+                'aspect-16/7 min-h-72 w-full',
+            )}
             config={chartConfig}
         >
             <LineChart

@@ -28,7 +28,12 @@ export function VolumeControls({
     volume,
 }: VolumeControlsProps) {
     return (
-        <div className="flex items-center justify-end gap-x-3 text-neutral-400">
+        <div
+            className={cn(
+                'app-recording__volume-controls',
+                'flex items-center justify-end gap-x-3 text-neutral-400',
+            )}
+        >
             <SpeedControl
                 hasRecordings={hasRecordings}
                 onSpeedChange={onSpeedChange}
@@ -38,9 +43,11 @@ export function VolumeControls({
             <button
                 aria-label="Auto Play"
                 className={cn(
+                    'app-recording__autoplay',
                     'size-6 transition hover:text-white disabled:text-neutral-700',
                     isAutoPlay && 'text-white',
                 )}
+                data-state={isAutoPlay ? 'on' : 'off'}
                 disabled={!hasRecordings}
                 onClick={onAutoPlay}
             >
@@ -49,7 +56,11 @@ export function VolumeControls({
 
             <button
                 aria-label="Volume"
-                className="size-6 transition hover:text-white disabled:text-neutral-700"
+                className={cn(
+                    'app-recording__mute',
+                    'size-6 transition hover:text-white disabled:text-neutral-700',
+                )}
+                data-state={volume === 0 ? 'muted' : 'on'}
                 disabled={!hasRecordings}
                 onClick={onMute}
             >
@@ -63,7 +74,7 @@ export function VolumeControls({
             </button>
 
             <Slider
-                className="h-2 w-1/5"
+                className={cn('app-recording__volume-slider', 'h-2 w-1/5')}
                 defaultValue={[1]}
                 disabled={!hasRecordings}
                 max={1}

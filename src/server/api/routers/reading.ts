@@ -1,5 +1,5 @@
 import { format } from 'date-fns';
-import { and, asc, desc, eq, gte, inArray, lte } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import {
@@ -16,8 +16,9 @@ import {
 } from '../types/types';
 import {
     createReadingProps,
-    getLocationProps,
     getReadingProps,
+    getReadingsQueryProps,
+    type Granularity,
 } from '../types/zod';
 import { getDevice } from './device';
 import { getSensor } from './sensor';
@@ -37,6 +38,80 @@ async function getReading(
         };
 
     return { data: res };
+}
+
+const PERIOD_BY_GRANULARITY: Record<
+    Granularity,
+    { dateFormat: string; label: string; ms: number }
+> = {
+    day: { dateFormat: 'd MMM', label: '30d', ms: 30 * 24 * 60 * 60 * 1000 },
+    hour: {
+        dateFormat: 'd MMM, H:mm  ',
+        label: '24h',
+        ms: 24 * 60 * 60 * 1000,
+    },
+    month: {
+        dateFormat: 'MMM yyyy',
+        label: '12mo',
+        ms: 12 * 30 * 24 * 60 * 60 * 1000,
+    },
+    raw: { dateFormat: 'd MMM, H:mm  ', label: '1h', ms: 1 * 60 * 60 * 1000 },
+    week: {
+        dateFormat: 'd MMM',
+        label: '12w',
+        ms: 12 * 7 * 24 * 60 * 60 * 1000,
+    },
+};
+
+async function resolveDateRange(
+    input: z.infer<typeof getReadingsQueryProps>,
+    ctx: ContextType,
+): Promise<{ from: Date; to: Date }> {
+    const periodMs = PERIOD_BY_GRANULARITY[input.granularity].ms;
+
+    if (
+        input.date_from &&
+        input.date_to &&
+        input.date_from.getTime() !== input.date_to.getTime()
+    ) {
+        return { from: input.date_from, to: input.date_to };
+    }
+
+    if (input.date_from) {
+        return {
+            from: input.date_from,
+            to: new Date(input.date_from.getTime() + periodMs),
+        };
+    }
+
+    const latest = await ctx.db
+        .select({ created_at: reading.created_at })
+        .from(reading)
+        .where(eq(reading.location_id, input.location_id))
+        .orderBy(desc(reading.id))
+        .limit(1);
+
+    const anchor = latest.at(-1)?.created_at ?? new Date();
+    return {
+        from: new Date(anchor.getTime() - periodMs),
+        to: anchor,
+    };
+}
+
+async function resolveDeviceFk(
+    locationPkId: number,
+    devicePublicId: number | undefined,
+    ctx: ContextType,
+): Promise<number | undefined> {
+    if (!devicePublicId) return undefined;
+    const d = await ctx.db.query.device.findFirst({
+        where: (device) =>
+            and(
+                eq(device.device_id, devicePublicId),
+                eq(device.location_id, locationPkId),
+            ),
+    });
+    return d?.id;
 }
 
 export const readingRouter = createTRPCRouter({
@@ -85,103 +160,108 @@ export const readingRouter = createTRPCRouter({
     }),
 
     getReadingsInput: publicProcedure
-        .input(z.union([getLocationProps, z.undefined()]))
+        .input(z.union([getReadingsQueryProps, z.undefined()]))
         .query(async ({ ctx, input }): Promise<Result<GetReadingsRecord[]>> => {
-            const period = 24,
-                periodMS = period * 60 * 60 * 1000;
-
-            async function getLatestReadingDate() {
-                const latestReading = input
-                    ? await ctx.db
-                          .select()
-                          .from(reading)
-                          .where(eq(reading.location_id, input.location_id))
-                          .orderBy(desc(reading.id))
-                          .limit(1)
-                    : await ctx.db
-                          .select()
-                          .from(reading)
-                          .orderBy(desc(reading.id))
-                          .limit(1);
-
-                const latestReadingDate =
-                    latestReading.at(-1)?.created_at ?? new Date();
-                return new Date(latestReadingDate.getTime() - periodMS);
+            if (!input) {
+                return { error: 'No readings could be found' };
             }
 
-            const readings = await ctx.db
-                .select()
-                .from(reading)
-                .where(
-                    and(
-                        input && eq(reading.location_id, input.location_id),
-                        input?.date_from
-                            ? and(
-                                  gte(reading.created_at, input.date_from),
-                                  lte(
-                                      reading.created_at,
-                                      input.date_to &&
-                                          input.date_from.getTime() !==
-                                              input.date_to.getTime()
-                                          ? input.date_to
-                                          : new Date(
-                                                input.date_from.getTime() +
-                                                    periodMS,
-                                            ),
-                                  ),
-                              )
-                            : gte(
-                                  reading.created_at,
-                                  await getLatestReadingDate(),
-                              ),
-                    ),
-                )
-                .orderBy(asc(reading.id));
+            const { from, to } = await resolveDateRange(input, ctx);
+            const { dateFormat, label: periodLabel } =
+                PERIOD_BY_GRANULARITY[input.granularity];
+            const deviceFk = await resolveDeviceFk(
+                input.location_id,
+                input.device_id,
+                ctx,
+            );
 
-            if (readings.length === 0) {
-                return {
-                    error: 'No readings could be found',
-                };
-            }
+            const baseWhere = and(
+                eq(reading.location_id, input.location_id),
+                deviceFk === undefined
+                    ? undefined
+                    : eq(reading.device_id, deviceFk),
+                gte(reading.created_at, from),
+                lte(reading.created_at, to),
+            );
 
-            const sensorIDs = [
-                ...new Set(readings.map((reading) => reading.sensor_id)),
-            ];
-
-            const sensors = await ctx.db.query.sensor.findMany({
-                where: inArray(sensor.id, sensorIDs),
-            });
-
-            const readingsRecord: GetReadingsRecord[] = [];
-            sensors.map((sensor) => {
-                const filteredReadings: ReadingRecord[] = readings
-                    .filter((reading) => reading.sensor_id == sensor.id)
-                    .map((reading) => {
-                        return {
-                            date: format(reading.created_at, 'd MMM, H:mm  '),
-                            value: reading.value,
-                        };
-                    });
-
-                const lastReading = filteredReadings.at(-1);
-                if (lastReading) {
-                    return readingsRecord.push({
-                        highest: Math.max(
-                            ...filteredReadings.map((reading) => reading.value),
-                        ),
-                        latestReading: lastReading,
-                        lowest: Math.min(
-                            ...filteredReadings.map((reading) => reading.value),
-                        ),
-                        period: period,
-                        readings: filteredReadings,
-                        sensor: sensor,
-                    });
-                }
-            });
-
-            return {
-                data: readingsRecord,
+            type Bucketed = {
+                avg: number;
+                bucket: Date;
+                max: number;
+                min: number;
+                sensor_id: number;
             };
+
+            let rows: Bucketed[];
+
+            if (input.granularity === 'raw') {
+                const raw = await ctx.db
+                    .select({
+                        avg: reading.value,
+                        bucket: reading.created_at,
+                        max: reading.value,
+                        min: reading.value,
+                        sensor_id: reading.sensor_id,
+                    })
+                    .from(reading)
+                    .where(baseWhere)
+                    .orderBy(asc(reading.id));
+                rows = raw;
+            } else {
+                const trunc = sql<Date>`date_trunc(${input.granularity}, ${reading.created_at})`;
+                rows = await ctx.db
+                    .select({
+                        avg: sql<number>`avg(${reading.value})`,
+                        bucket: trunc,
+                        max: sql<number>`max(${reading.value})`,
+                        min: sql<number>`min(${reading.value})`,
+                        sensor_id: reading.sensor_id,
+                    })
+                    .from(reading)
+                    .where(baseWhere)
+                    .groupBy(sql`2`, reading.sensor_id)
+                    .orderBy(sql`2`);
+            }
+
+            if (rows.length === 0) {
+                return { error: 'No readings could be found' };
+            }
+
+            const sensorIds = [...new Set(rows.map((r) => r.sensor_id))];
+            const sensors = await ctx.db.query.sensor.findMany({
+                where: inArray(sensor.id, sensorIds),
+            });
+
+            const out: GetReadingsRecord[] = [];
+
+            for (const s of sensors) {
+                const points: ReadingRecord[] = rows
+                    .filter((r) => r.sensor_id === s.id)
+                    .map((r) => ({
+                        date: format(r.bucket, dateFormat),
+                        value: Math.round(r.avg * 100) / 100,
+                    }));
+                const lastPoint = points.at(-1);
+                if (!lastPoint) continue;
+
+                const sensorRows = rows.filter((r) => r.sensor_id === s.id);
+                out.push({
+                    highest:
+                        Math.round(
+                            Math.max(...sensorRows.map((r) => r.max)) * 100,
+                        ) / 100,
+                    latestReading: lastPoint,
+                    lowest:
+                        Math.round(
+                            Math.min(...sensorRows.map((r) => r.min)) * 100,
+                        ) / 100,
+                    period: 24,
+                    period_label: periodLabel,
+                    readings: points,
+                    sensor: s,
+                });
+            }
+
+            return { data: out };
         }),
 });

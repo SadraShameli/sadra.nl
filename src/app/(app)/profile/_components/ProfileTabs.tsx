@@ -4,6 +4,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { type ReactNode, useCallback, useEffect, useState } from 'react';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
+import { cn } from '~/lib/utils';
 
 const VALID_TABS = ['account', 'security', 'trading-plan'] as const;
 type TabValue = (typeof VALID_TABS)[number];
@@ -40,8 +41,17 @@ export function ProfileTabs({
     );
 
     return (
-        <Tabs className="" onValueChange={onChange} value={value}>
-            <TabsList className="mb-5 flex max-w-md gap-1">
+        <Tabs
+            className={'app-profile__tabs'}
+            onValueChange={onChange}
+            value={value}
+        >
+            <TabsList
+                className={cn(
+                    'app-profile__tabs-list',
+                    'mb-5 flex max-w-md gap-1',
+                )}
+            >
                 <TabsTrigger className="flex-1" value="account">
                     Account
                 </TabsTrigger>

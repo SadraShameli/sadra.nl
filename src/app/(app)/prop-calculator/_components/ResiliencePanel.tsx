@@ -60,7 +60,7 @@ export default function ResiliencePanel({
     const buffer = data.lossToler - data.p95;
 
     return (
-        <Card className="px-5 py-4">
+        <Card className={cn('app-prop-calculator__resilience', 'px-5 py-4')}>
             <div className="mb-3 flex items-center gap-2">
                 <h3 className="text-sm font-semibold">
                     Streak &amp; Drawdown Resilience
@@ -119,7 +119,12 @@ export default function ResiliencePanel({
             </div>
 
             <div className="overflow-x-auto">
-                <table className="w-full min-w-max text-xs whitespace-nowrap tabular-nums">
+                <table
+                    className={cn(
+                        'app-prop-calculator__resilience-table',
+                        'w-full min-w-max text-xs whitespace-nowrap tabular-nums',
+                    )}
+                >
                     <thead className="text-muted-foreground">
                         <tr className="text-left">
                             <th className="py-1 pr-4 font-medium">Streak</th>

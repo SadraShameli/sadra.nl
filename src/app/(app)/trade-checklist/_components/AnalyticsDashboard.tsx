@@ -6,6 +6,7 @@ import type { LightAssessment } from '~/lib/trading-analytics';
 
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { Select } from '~/components/ui/Select';
+import { cn } from '~/lib/utils';
 
 import { ComponentCorrelationChart } from './analytics/ComponentCorrelationChart';
 import { CumulativeRChart } from './analytics/CumulativeRChart';
@@ -48,7 +49,12 @@ export function AnalyticsDashboard({
     }
 
     return (
-        <div className="space-y-6">
+        <div
+            className={cn(
+                'app-trade-checklist__analytics-dashboard',
+                'space-y-6',
+            )}
+        >
             {plans.length > 1 && (
                 <div className="flex flex-wrap items-center gap-3">
                     <span className="text-xs tracking-wider text-muted-foreground uppercase">
