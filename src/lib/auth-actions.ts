@@ -7,7 +7,7 @@ import { redirect } from 'next/navigation';
 import { createHash, randomBytes } from 'node:crypto';
 
 import { auth, signIn, signOut } from '~/lib/auth';
-import { sendPasswordResetEmail } from '~/lib/email';
+import { sendPasswordResetEmail, sendSignUpNotification } from '~/lib/email';
 import { checkRateLimit } from '~/lib/rate-limit';
 import { isRedirectError } from '~/lib/redirect-error';
 import {
@@ -230,6 +230,10 @@ export async function signup(input: SignupInput): Promise<void> {
         }
         throw error;
     }
+
+    sendSignUpNotification(data.email, data.name).catch((error: unknown) =>
+        console.error('[auth] sign-up notification failed', error),
+    );
 
     try {
         await signIn('credentials', {

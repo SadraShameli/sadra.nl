@@ -12,7 +12,7 @@ import Email from 'next-auth/providers/nodemailer';
 import { headers } from 'next/headers';
 
 import { env } from '~/env';
-import { sendMagicLinkEmail } from '~/lib/email';
+import { sendMagicLinkEmail, sendSignUpNotification } from '~/lib/email';
 import { credentialsSchema } from '~/lib/schemas/session';
 import { accounts, db, sessions, users, verificationTokens } from '~/server/db';
 
@@ -180,6 +180,12 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
         },
     },
     events: {
+        async createUser({ user }) {
+            sendSignUpNotification(user.email ?? '', user.name).catch(
+                (error: unknown) =>
+                    console.error('[auth] sign-up notification failed', error),
+            );
+        },
         async signOut(message) {
             const token =
                 'token' in message && message.token

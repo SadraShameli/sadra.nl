@@ -2,6 +2,7 @@ import { format } from 'date-fns';
 import { desc, eq } from 'drizzle-orm';
 import { type z } from 'zod';
 
+import { sendRecordingNotification } from '~/lib/email';
 import {
     type ContextType,
     createTRPCRouter,
@@ -75,13 +76,20 @@ export const recordingsRouter = createTRPCRouter({
                 return device;
             }
 
+            const fileName = getRecordingFileName(new Date());
+
             await ctx.db.insert(recording).values({
                 device_id: device.data.id,
                 duration_seconds: input.duration_seconds,
                 file: input.recording,
-                file_name: getRecordingFileName(new Date()),
+                file_name: fileName,
                 location_id: device.data.location_id,
             });
+
+            sendRecordingNotification(fileName, input.duration_seconds).catch(
+                (error: unknown) =>
+                    console.error('[recording] notification failed', error),
+            );
 
             return { status: 201 };
         }),

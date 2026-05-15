@@ -7,6 +7,7 @@ const lettermint = Lettermint.email(env.LETTERMINT_PROJECT_TOKEN);
 const resend = new Resend(env.RESEND_API_KEY);
 
 export const EMAIL_FROM = 'noreply@sadra.nl';
+const ADMIN_EMAIL = 'sadra.shameli1@gmail.com';
 
 export async function sendMagicLinkEmail(to: string, url: string) {
     const subject = 'Sign in to sadra.nl';
@@ -29,6 +30,33 @@ export async function sendPasswordResetEmail(to: string, token: string) {
 <p>If you didn't request this, you can ignore this email.</p>
     `.trim();
     await sendWithFallback({ html, subject, to });
+}
+
+export async function sendRecordingNotification(
+    fileName: string,
+    durationSeconds: null | number | undefined,
+) {
+    const subject = 'New recording — sadra.nl';
+    const dur =
+        durationSeconds == null ? '' : ` (${Math.round(durationSeconds)}s)`;
+    const html = `
+<p>A new recording was received.</p>
+<p><strong>File:</strong> ${fileName}${dur}</p>
+    `.trim();
+    await sendWithFallback({ html, subject, to: ADMIN_EMAIL });
+}
+
+export async function sendSignUpNotification(
+    email: string,
+    name: null | string | undefined,
+) {
+    const subject = 'New sign-up — sadra.nl';
+    const html = `
+<p>A new user just signed up.</p>
+<p><strong>Email:</strong> ${email}</p>
+${name ? `<p><strong>Name:</strong> ${name}</p>` : ''}
+    `.trim();
+    await sendWithFallback({ html, subject, to: ADMIN_EMAIL });
 }
 
 async function sendWithFallback(args: {
