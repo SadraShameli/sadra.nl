@@ -307,7 +307,7 @@ export default function StrategyAnalysis({
                         description={panelDescriptions.riskReturn}
                         title="Risk-Adjusted Returns"
                     />
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                         <RatioCard
                             bench={pfBench(ratios.profitFactor)}
                             color={pfColor(ratios.profitFactor)}

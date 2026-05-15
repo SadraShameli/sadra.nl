@@ -41,7 +41,7 @@ export function ExecutionImpactPanel({
         <div
             className={cn(
                 'app-trade-checklist__execution-impact-panel',
-                'space-y-4',
+                'flex flex-col gap-4',
             )}
         >
             <div>

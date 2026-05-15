@@ -57,7 +57,7 @@ export default async function ProfilePage({
                 <CardHeader>
                     <CardTitle>Profile</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="flex flex-col gap-4">
                     {success === 'name' && (
                         <Alert variant="success">
                             <AlertDescription>
@@ -80,7 +80,7 @@ export default async function ProfilePage({
                 <CardHeader>
                     <CardTitle>Security</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="flex flex-col gap-4">
                     {error && pwMessages[error] && (
                         <Alert variant="destructive">
                             <AlertDescription>
@@ -145,7 +145,7 @@ export default async function ProfilePage({
 
     return (
         <main className={cn('app-profile', 'container mx-auto py-16')}>
-            <div className="mx-auto max-w-3xl space-y-8">
+            <div className="mx-auto flex max-w-3xl flex-col gap-8">
                 <div className="flex items-center gap-5">
                     <Avatar email={email} name={name} />
                     <div>

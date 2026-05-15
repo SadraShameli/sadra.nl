@@ -44,7 +44,12 @@ export function PrepView({ activePlanId, history, today }: PrepViewProps) {
     const initialNotes = selectedRow?.notes ?? '';
 
     return (
-        <div className={cn('app-trade-checklist__prep-view', 'space-y-6')}>
+        <div
+            className={cn(
+                'app-trade-checklist__prep-view',
+                'flex flex-col gap-6',
+            )}
+        >
             <Card>
                 <CardHeader>
                     <CardTitle className="text-base">

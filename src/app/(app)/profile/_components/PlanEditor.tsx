@@ -120,12 +120,9 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
     };
 
     return (
-        <div className={cn('app-profile__plan-editor', 'space-y-6')}>
+        <div className={cn('app-profile__plan-editor', 'flex flex-col gap-6')}>
             <section
-                className={cn(
-                    'app-profile__plan-name',
-                    'flex flex-col space-y-3',
-                )}
+                className={cn('app-profile__plan-name', 'flex flex-col gap-3')}
             >
                 <Label
                     className="text-xs text-muted-foreground uppercase"
@@ -141,7 +138,12 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                 />
             </section>
 
-            <section className={cn('app-profile__plan-windows', 'space-y-3')}>
+            <section
+                className={cn(
+                    'app-profile__plan-windows',
+                    'flex flex-col gap-3',
+                )}
+            >
                 <h3 className="text-xs text-muted-foreground uppercase">
                     Macro time windows
                 </h3>
@@ -155,7 +157,7 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                         items={config.windows.map((w) => w.id)}
                         strategy={verticalListSortingStrategy}
                     >
-                        <div className="space-y-2">
+                        <div className="flex flex-col gap-2">
                             {config.windows.map((w, i) => (
                                 <SortableWindowRow
                                     canDelete={config.windows.length > 1}
@@ -184,31 +186,36 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                         </div>
                     </SortableContext>
                 </DndContext>
-                <Button
-                    onClick={() =>
-                        updateConfig('windows', [
-                            ...config.windows,
-                            {
-                                end: '00:30',
-                                id: `w${Date.now()}`,
-                                label: 'New window',
-                                start: '00:00',
-                            },
-                        ])
-                    }
-                    size="sm"
-                    type="button"
-                    variant="outline"
-                >
-                    <Plus className="mr-1 size-4" /> Add window
-                </Button>
+                <div className="md:flex md:justify-end">
+                    <Button
+                        className="w-full md:w-auto"
+                        onClick={() =>
+                            updateConfig('windows', [
+                                ...config.windows,
+                                {
+                                    end: '00:30',
+                                    id: `w${Date.now()}`,
+                                    label: 'New window',
+                                    start: '00:00',
+                                },
+                            ])
+                        }
+                        size="sm"
+                        type="button"
+                        variant="outline"
+                    >
+                        <Plus className="mr-1 size-4" /> Add window
+                    </Button>
+                </div>
             </section>
 
-            <section className={cn('app-profile__plan-risk', 'space-y-3')}>
+            <section
+                className={cn('app-profile__plan-risk', 'flex flex-col gap-3')}
+            >
                 <h3 className="text-xs text-muted-foreground uppercase">
                     Risk
                 </h3>
-                <div className="grid gap-3 sm:grid-cols-3">
+                <div className="grid gap-3 md:grid-cols-3">
                     <div>
                         <Label className="text-sm" htmlFor="fundedR">
                             Funded risk ($)
@@ -263,11 +270,13 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                 </div>
             </section>
 
-            <section className={cn('app-profile__plan-setup', 'space-y-3')}>
+            <section
+                className={cn('app-profile__plan-setup', 'flex flex-col gap-3')}
+            >
                 <h3 className="text-xs text-muted-foreground uppercase">
                     Setup requirements
                 </h3>
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-3 md:grid-cols-2">
                     <div>
                         <Label className="text-sm" htmlFor="minRR">
                             Minimum R:R
@@ -304,10 +313,10 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                         />
                     </div>
                 </div>
-                <div className="space-y-4">
+                <div className="flex flex-col gap-4">
                     <Label className="text-sm">Confluences</Label>
                     {CONFLUENCE_GROUPS.map((group) => (
-                        <div className="space-y-2" key={group.label}>
+                        <div className="flex flex-col gap-2" key={group.label}>
                             <div className="flex items-center justify-between gap-2">
                                 <p className="text-xs text-muted-foreground uppercase">
                                     {group.label}
@@ -398,7 +407,12 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                 </div>
             </section>
 
-            <section className={cn('app-profile__plan-weights', 'space-y-3')}>
+            <section
+                className={cn(
+                    'app-profile__plan-weights',
+                    'flex flex-col gap-3',
+                )}
+            >
                 <div className="flex items-center justify-between">
                     <h3 className="text-xs text-muted-foreground uppercase">
                         Scoring weights
@@ -410,7 +424,7 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                 <div className="grid gap-3 sm:grid-cols-2">
                     {WEIGHT_CATEGORIES.map(({ hint, key, label }) => (
                         <div
-                            className="space-y-2 rounded-lg border border-border/60 p-3"
+                            className="flex flex-col gap-2 rounded-lg border border-border/60 p-3"
                             key={key}
                         >
                             <div className="flex items-center justify-between">
@@ -457,7 +471,12 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                 )}
             </section>
 
-            <section className={cn('app-profile__plan-knockouts', 'space-y-3')}>
+            <section
+                className={cn(
+                    'app-profile__plan-knockouts',
+                    'flex flex-col gap-3',
+                )}
+            >
                 <h3 className="text-xs text-muted-foreground uppercase">
                     Knockout rules
                 </h3>
@@ -530,43 +549,51 @@ function SortableWindowRow({
 
     return (
         <div
-            className="grid grid-cols-[auto_1fr_88px_88px_auto] items-center gap-2 rounded-lg border border-border/60 bg-background p-3"
+            className="flex flex-col gap-2 rounded-lg border border-border/60 bg-background p-3 md:flex-row md:items-center md:gap-2"
             ref={setNodeRef}
             style={style}
         >
-            <button
-                aria-label="Drag to reorder"
-                className="cursor-grab touch-none rounded-md p-1 text-muted-foreground transition hover:text-white active:cursor-grabbing"
-                type="button"
-                {...attributes}
-                {...listeners}
-            >
-                <GripVertical className="size-4" />
-            </button>
-            <Input
-                onChange={(e) => onChange({ label: e.target.value })}
-                placeholder="Label"
-                value={window.label}
-            />
-            <Input
-                onChange={(e) => onChange({ start: e.target.value })}
-                type="time"
-                value={window.start}
-            />
-            <Input
-                onChange={(e) => onChange({ end: e.target.value })}
-                type="time"
-                value={window.end}
-            />
-            <Button
-                disabled={!canDelete}
-                onClick={onDelete}
-                size="icon"
-                type="button"
-                variant="ghost"
-            >
-                <Trash2 className="size-4" />
-            </Button>
+            <div className="flex items-center gap-2 md:contents">
+                <button
+                    aria-label="Drag to reorder"
+                    className="shrink-0 cursor-grab touch-none rounded-md p-1 text-muted-foreground transition hover:text-white active:cursor-grabbing"
+                    type="button"
+                    {...attributes}
+                    {...listeners}
+                >
+                    <GripVertical className="size-4" />
+                </button>
+                <Input
+                    className="flex-1 md:w-72 md:flex-none"
+                    onChange={(e) => onChange({ label: e.target.value })}
+                    placeholder="Label"
+                    value={window.label}
+                />
+                <Button
+                    className="shrink-0 md:order-last"
+                    disabled={!canDelete}
+                    onClick={onDelete}
+                    size="icon"
+                    type="button"
+                    variant="ghost"
+                >
+                    <Trash2 className="size-4" />
+                </Button>
+            </div>
+            <div className="grid grid-cols-2 gap-2 md:contents">
+                <Input
+                    className="justify-center md:w-22 md:flex-none md:justify-start [&::-webkit-calendar-picker-indicator]:ml-0.5 md:[&::-webkit-calendar-picker-indicator]:ml-auto"
+                    onChange={(e) => onChange({ start: e.target.value })}
+                    type="time"
+                    value={window.start}
+                />
+                <Input
+                    className="justify-center md:w-22 md:flex-none md:justify-start [&::-webkit-calendar-picker-indicator]:ml-0.5 md:[&::-webkit-calendar-picker-indicator]:ml-auto"
+                    onChange={(e) => onChange({ end: e.target.value })}
+                    type="time"
+                    value={window.end}
+                />
+            </div>
         </div>
     );
 }

@@ -106,7 +106,7 @@ export function OutcomeDialog({
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="space-y-4">
+                <div className="flex flex-col gap-4">
                     <RadioGroup
                         className="grid grid-cols-2 gap-2"
                         onValueChange={(v) => setOutcome(v as Outcome)}
@@ -182,7 +182,7 @@ export function OutcomeDialog({
                         </button>
 
                         {executionOpen && (
-                            <div className="space-y-4 border-t border-border/40 p-3">
+                            <div className="flex flex-col gap-4 border-t border-border/40 p-3">
                                 <div>
                                     <Label
                                         className="text-sm"

@@ -19,7 +19,7 @@ export default function HomePage() {
             <section
                 className={cn(
                     'app-home__hero',
-                    'container grid-cols-2 grid-rows-2 items-center gap-5 pt-spacing lg:-mt-17 lg:grid lg:h-screen lg:grid-rows-none lg:gap-20',
+                    'container pt-spacing lg:-mt-17 lg:grid lg:h-screen lg:grid-cols-2 lg:items-center lg:gap-20',
                 )}
             >
                 <Image
@@ -35,7 +35,7 @@ export default function HomePage() {
                 />
 
                 <div className="flex flex-col pt-spacing-inner lg:mt-0">
-                    <h1 className="text-6xl font-semibold text-white lg:text-8xl lg:font-bold">
+                    <h1 className="text-5xl font-semibold text-white sm:text-6xl lg:text-8xl lg:font-bold">
                         {homepageContent.heroTitle}
                     </h1>
 

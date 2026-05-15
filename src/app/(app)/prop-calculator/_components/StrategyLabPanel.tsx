@@ -113,7 +113,7 @@ export default function StrategyLabPanel({
 
     return (
         <Card className={cn('app-prop-calculator__strategy-lab', 'px-5 py-4')}>
-            <div className="mb-3 flex items-center justify-between gap-2">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                     <h3 className="text-sm font-semibold">
                         Multi-account strategy lab
@@ -171,6 +171,9 @@ export default function StrategyLabPanel({
                 </div>
             </div>
 
+            <p className="mb-2 text-[11px] text-muted-foreground md:hidden">
+                swipe to see more →
+            </p>
             <div className="overflow-x-auto">
                 <table
                     className={cn(

@@ -93,7 +93,7 @@ export function ChecklistShell({
                 'grid gap-6 lg:grid-cols-[1fr_320px]',
             )}
         >
-            <div className="space-y-6">
+            <div className="flex flex-col gap-6">
                 <PlanHeader activePlan={activePlan} plans={plans} />
 
                 {submission.status === 'editing' ? (
@@ -132,11 +132,11 @@ export function ChecklistShell({
             <aside
                 className={cn(
                     'app-trade-checklist__history-aside',
-                    'space-y-4',
+                    'flex flex-col gap-4',
                 )}
             >
                 <Card>
-                    <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
+                    <CardHeader className="flex flex-row items-center justify-between gap-2">
                         <CardTitle className="flex items-center gap-2 text-base">
                             <History className="size-4" />
                             Recent
@@ -221,7 +221,7 @@ function PlanHeader({
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent align="end" className="w-72 p-2">
-                                <div className="space-y-1">
+                                <div className="flex flex-col gap-1">
                                     {plans.map((p) => (
                                         <button
                                             className={cn(

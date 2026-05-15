@@ -196,11 +196,13 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
     };
 
     return (
-        <div className={cn('app-profile__trading-plans', 'space-y-6')}>
+        <div
+            className={cn('app-profile__trading-plans', 'flex flex-col gap-6')}
+        >
             <Card>
-                <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
+                <CardHeader className="flex flex-wrap items-center justify-between gap-3">
                     <CardTitle>Your trading plans</CardTitle>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                         <Button asChild size="sm" variant="outline">
                             <Link href="/trade-checklist">
                                 Run checklist
@@ -257,10 +259,12 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
 
             {editing && (
                 <Card className="scroll-mt-4" ref={editorRef}>
-                    <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
-                        <CardTitle className="flex items-center gap-2">
-                            <Edit3 className="size-4" />
-                            Editing: {editing.name}
+                    <CardHeader className="flex items-center gap-2">
+                        <CardTitle className="flex min-w-0 items-center gap-2">
+                            <Edit3 className="size-4 shrink-0" />
+                            <span className="truncate">
+                                Editing: {editing.name}
+                            </span>
                         </CardTitle>
                     </CardHeader>
                     <Separator />
@@ -352,31 +356,37 @@ function SortablePlanRow({
         <div
             className={cn(
                 'app-profile__plan-row',
-                'flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-background p-3 transition-colors',
+                'flex flex-col gap-3 rounded-lg border border-border/60 bg-background p-3 transition-colors sm:flex-row sm:flex-wrap sm:items-center sm:justify-between',
             )}
             data-state={plan.isActive ? 'active' : undefined}
             ref={setNodeRef}
             style={style}
         >
-            <button
-                aria-label="Drag to reorder"
-                className="-ml-1 cursor-grab touch-none rounded-md p-1 text-muted-foreground transition hover:text-white active:cursor-grabbing"
-                type="button"
-                {...attributes}
-                {...listeners}
-            >
-                <GripVertical className="size-4" />
-            </button>
-            <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium text-white">{plan.name}</span>
-                    {plan.isActive && <Badge variant="default">Active</Badge>}
+            <div className="flex min-w-0 items-center gap-2">
+                <button
+                    aria-label="Drag to reorder"
+                    className="-ml-1 cursor-grab touch-none rounded-md p-1 text-muted-foreground transition hover:text-white active:cursor-grabbing"
+                    type="button"
+                    {...attributes}
+                    {...listeners}
+                >
+                    <GripVertical className="size-4" />
+                </button>
+                <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span className="truncate font-medium text-white">
+                            {plan.name}
+                        </span>
+                        {plan.isActive && (
+                            <Badge variant="default">Active</Badge>
+                        )}
+                    </div>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                        Updated {new Date(plan.updatedAt).toLocaleString()}
+                    </p>
                 </div>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                    Updated {new Date(plan.updatedAt).toLocaleString()}
-                </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
                 <Button
                     onClick={() => onEdit(plan.id)}
                     size="sm"

@@ -100,7 +100,7 @@ export default function RecordingSection({
                             recordings={recordings.data}
                         />
 
-                        <div className="space-y-3 border-t border-white/10 pt-4">
+                        <div className="flex flex-col gap-3 border-t border-white/10 pt-4">
                             <PlaybackControls
                                 canGoNext={canGoNext}
                                 canGoPrevious={canGoPrevious}

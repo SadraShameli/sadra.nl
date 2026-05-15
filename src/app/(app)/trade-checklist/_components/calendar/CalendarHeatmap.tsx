@@ -21,7 +21,10 @@ export function CalendarHeatmap({ assessments, month }: CalendarHeatmapProps) {
 
     return (
         <div
-            className={cn('app-trade-checklist__calendar-heatmap', 'space-y-2')}
+            className={cn(
+                'app-trade-checklist__calendar-heatmap',
+                'flex flex-col gap-2',
+            )}
         >
             <div className="grid grid-cols-7 gap-1 text-center text-xs text-muted-foreground">
                 {DAY_LABELS.map((d) => (
@@ -30,7 +33,7 @@ export function CalendarHeatmap({ assessments, month }: CalendarHeatmapProps) {
                     </div>
                 ))}
             </div>
-            <div className="space-y-1">
+            <div className="flex flex-col gap-1">
                 {weeks.map((week, wi) => (
                     <div className="grid grid-cols-7 gap-1" key={wi}>
                         {week.map((cell) => {
@@ -58,12 +61,12 @@ export function CalendarHeatmap({ assessments, month }: CalendarHeatmapProps) {
                                         )}
                                     </div>
                                     {cell.total > 0 && (
-                                        <div className="mt-auto flex items-center justify-between">
-                                            <span className="font-mono text-[10px] text-muted-foreground">
+                                        <div className="mt-auto flex flex-wrap items-center justify-between gap-1">
+                                            <span className="hidden font-mono text-[10px] text-muted-foreground sm:inline">
                                                 {cell.total} trade
                                                 {cell.total === 1 ? '' : 's'}
                                             </span>
-                                            <div className="flex gap-0.5">
+                                            <div className="flex flex-wrap gap-0.5">
                                                 {Array.from({
                                                     length: cell.wins,
                                                 }).map((_, i) => (

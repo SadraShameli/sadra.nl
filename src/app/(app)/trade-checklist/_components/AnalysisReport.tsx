@@ -120,7 +120,10 @@ export function AnalysisReport({
     return (
         <motion.div
             animate={{ opacity: 1, y: 0 }}
-            className={cn('app-trade-checklist__analysis-report', 'space-y-6')}
+            className={cn(
+                'app-trade-checklist__analysis-report',
+                'flex flex-col gap-6',
+            )}
             initial={{ opacity: 0, y: 8 }}
             transition={{ duration: 0.25 }}
         >
@@ -140,7 +143,7 @@ export function AnalysisReport({
                         </div>
                     </div>
 
-                    <div className="space-y-4">
+                    <div className="flex flex-col gap-4">
                         <div>
                             <Badge
                                 className="text-sm uppercase"
@@ -176,7 +179,7 @@ export function AnalysisReport({
                                     % of standard plan risk.
                                 </p>
                                 {result.redFlags.length > 0 && (
-                                    <ul className="mt-3 space-y-1 border-t border-emerald-500/20 pt-3">
+                                    <ul className="mt-3 flex flex-col gap-1 border-t border-emerald-500/20 pt-3">
                                         {result.redFlags.map((flag, i) => (
                                             <li
                                                 className="text-xs text-amber-300"
@@ -200,7 +203,7 @@ export function AnalysisReport({
                                     Do not trade this setup.
                                 </p>
                                 {result.redFlags.length > 0 && (
-                                    <ul className="mt-3 space-y-1 border-t border-rose-500/20 pt-3">
+                                    <ul className="mt-3 flex flex-col gap-1 border-t border-rose-500/20 pt-3">
                                         {result.redFlags.map((flag, i) => (
                                             <li
                                                 className="text-xs text-rose-300"
@@ -254,7 +257,7 @@ export function AnalysisReport({
 
             <div className="grid gap-4 md:grid-cols-2">
                 <Card className="border-l-4 border-l-emerald-500">
-                    <CardHeader className="flex flex-row items-center gap-2 space-y-0">
+                    <CardHeader className="flex flex-row items-center gap-2">
                         <CheckCircle2 className="size-4 text-emerald-500" />
                         <CardTitle className="text-base">
                             Why to take it
@@ -266,7 +269,7 @@ export function AnalysisReport({
                             <ul
                                 className={cn(
                                     'app-trade-checklist__strengths-list',
-                                    'space-y-2 text-sm',
+                                    'flex flex-col gap-2 text-sm',
                                 )}
                             >
                                 {result.strengths.map((s, i) => (
@@ -288,7 +291,7 @@ export function AnalysisReport({
                 </Card>
 
                 <Card className="border-l-4 border-l-rose-500">
-                    <CardHeader className="flex flex-row items-center gap-2 space-y-0">
+                    <CardHeader className="flex flex-row items-center gap-2">
                         <XCircle className="size-4 text-rose-500" />
                         <CardTitle className="text-base">
                             Why to skip it
@@ -300,7 +303,7 @@ export function AnalysisReport({
                             <ul
                                 className={cn(
                                     'app-trade-checklist__weaknesses-list',
-                                    'space-y-2 text-sm',
+                                    'flex flex-col gap-2 text-sm',
                                 )}
                             >
                                 {result.weaknesses.map((w, i) => (
@@ -324,7 +327,7 @@ export function AnalysisReport({
 
             {result.improvements.length > 0 && (
                 <Card className="border-l-4 border-l-sky-500">
-                    <CardHeader className="flex flex-row items-center gap-2 space-y-0">
+                    <CardHeader className="flex flex-row items-center gap-2">
                         <Sparkles className="size-4 text-sky-500" />
                         <CardTitle className="text-base">
                             How to upgrade this setup
@@ -332,7 +335,7 @@ export function AnalysisReport({
                     </CardHeader>
                     <Separator />
                     <CardContent>
-                        <ul className="space-y-2 text-sm">
+                        <ul className="flex flex-col gap-2 text-sm">
                             {result.improvements.map((imp, i) => (
                                 <li className="flex items-start gap-2" key={i}>
                                     <ArrowRight className="mt-0.5 size-4 shrink-0 text-sky-400" />

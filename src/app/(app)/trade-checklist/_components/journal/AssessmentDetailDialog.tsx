@@ -57,7 +57,7 @@ export function AssessmentDetailDialog({
                 </DialogHeader>
 
                 <ScrollArea className="max-h-[70vh]">
-                    <div className="space-y-4 pr-3">
+                    <div className="flex flex-col gap-4 pr-3">
                         <p className="text-xs text-muted-foreground">
                             {format(new Date(row.createdAt), 'PPpp')}
                             {windowLabel && ` · ${windowLabel}`}
@@ -93,7 +93,7 @@ export function AssessmentDetailDialog({
                                     (row.executionDeviations &&
                                         row.executionDeviations.length >
                                             0)) && (
-                                    <div className="mt-3 space-y-1.5 border-t border-border/40 pt-3">
+                                    <div className="mt-3 flex flex-col gap-1.5 border-t border-border/40 pt-3">
                                         <p className="text-xs tracking-wider text-muted-foreground uppercase">
                                             Execution
                                         </p>
@@ -176,7 +176,7 @@ export function AssessmentDetailDialog({
                                 <ul
                                     className={cn(
                                         'app-trade-checklist__red-flags-list',
-                                        'space-y-1 text-sm text-rose-300',
+                                        'flex flex-col gap-1 text-sm text-rose-300',
                                     )}
                                 >
                                     {result.redFlags.map((f, i) => (
@@ -191,7 +191,7 @@ export function AssessmentDetailDialog({
                                 <p className="mb-2 text-xs tracking-wider text-emerald-400 uppercase">
                                     Strengths
                                 </p>
-                                <ul className="space-y-1 text-sm text-emerald-200/90">
+                                <ul className="flex flex-col gap-1 text-sm text-emerald-200/90">
                                     {result.strengths.map((s, i) => (
                                         <li key={i}>· {s}</li>
                                     ))}
@@ -204,7 +204,7 @@ export function AssessmentDetailDialog({
                                 <p className="mb-2 text-xs tracking-wider text-amber-400 uppercase">
                                     Weaknesses
                                 </p>
-                                <ul className="space-y-1 text-sm text-amber-200/90">
+                                <ul className="flex flex-col gap-1 text-sm text-amber-200/90">
                                     {result.weaknesses.map((w, i) => (
                                         <li key={i}>· {w}</li>
                                     ))}

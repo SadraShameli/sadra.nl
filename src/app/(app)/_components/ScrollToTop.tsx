@@ -19,7 +19,7 @@ export default function ScrollToTop() {
             aria-label="Scroll to top"
             className={cn(
                 'app-scroll',
-                'fixed right-10 bottom-10 z-50 flex size-14 items-center justify-center rounded-full border border-border bg-background/80 shadow-lg backdrop-blur-sm',
+                'fixed right-4 bottom-4 z-50 flex size-12 items-center justify-center rounded-full border border-border bg-background/80 shadow-lg backdrop-blur-sm sm:right-10 sm:bottom-10 sm:size-14',
                 'transition-all duration-300 ease-in-out',
                 'hover:scale-110 hover:border-border/80 hover:bg-muted hover:text-foreground',
                 visible

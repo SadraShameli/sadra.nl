@@ -58,7 +58,7 @@ export function ComponentCorrelationChart({
         <div
             className={cn(
                 'app-trade-checklist__correlation-chart',
-                'space-y-3',
+                'flex flex-col gap-3',
             )}
         >
             <div className="flex flex-wrap items-center gap-3">

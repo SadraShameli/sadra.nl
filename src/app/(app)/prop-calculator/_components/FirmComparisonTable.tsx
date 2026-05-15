@@ -90,7 +90,7 @@ export default function FirmComparisonTable({
         <Card
             className={cn('app-prop-calculator__firm-comparison', 'px-5 py-4')}
         >
-            <div className="mb-3 flex items-baseline justify-between gap-2">
+            <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
                 <div className="flex items-center gap-2">
                     <h3 className="text-sm font-semibold">
                         Firm comparison at your inputs
@@ -105,6 +105,9 @@ export default function FirmComparisonTable({
                         : `closest plan to $${(targetAccountSize / 1000).toFixed(0)}K`}
                 </span>
             </div>
+            <p className="mb-2 text-[11px] text-muted-foreground md:hidden">
+                swipe to see more →
+            </p>
             <div className="overflow-x-auto">
                 <table
                     className={cn(

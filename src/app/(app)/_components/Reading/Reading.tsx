@@ -114,7 +114,7 @@ export default function ReadingSection() {
 
     return (
         <div className={cn('app-reading', 'pt-spacing-inner')}>
-            <Card className="container flex min-h-[538.81px] flex-col">
+            <Card className="container flex min-h-[400px] flex-col sm:min-h-[538.81px]">
                 <Tabs
                     className="grid gap-y-5"
                     onValueChange={(value) => setCurrentSensor(value)}
@@ -133,7 +133,7 @@ export default function ReadingSection() {
                                         <Button
                                             className={cn(
                                                 'app-reading__date-picker',
-                                                'w-75 justify-start text-left font-normal',
+                                                'w-full justify-start text-left font-normal sm:w-75',
                                                 !date &&
                                                     'text-muted-foreground',
                                             )}

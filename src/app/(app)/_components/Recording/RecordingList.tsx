@@ -43,7 +43,7 @@ export function RecordingList({
                 <input
                     className={cn(
                         'app-recording__list-search',
-                        'w-1/2 rounded-lg border border-white/10 bg-white/5 py-2 pr-3 pl-8 text-sm text-white outline-none placeholder:text-neutral-500 focus:border-white/25 disabled:cursor-not-allowed disabled:opacity-40',
+                        'w-full rounded-lg border border-white/10 bg-white/5 py-2 pr-3 pl-8 text-sm text-white outline-none placeholder:text-neutral-500 focus:border-white/25 disabled:cursor-not-allowed disabled:opacity-40 sm:w-1/2',
                     )}
                     disabled={!recordings?.length}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -63,7 +63,7 @@ export function RecordingList({
                         <ul
                             className={cn(
                                 'app-recording__list-items',
-                                'space-y-0.5 pr-3',
+                                'flex flex-col gap-0.5 pr-3',
                             )}
                         >
                             {filtered.map((recording) => {

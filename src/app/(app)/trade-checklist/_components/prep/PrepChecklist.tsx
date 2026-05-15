@@ -101,7 +101,12 @@ export function PrepChecklist({
     };
 
     return (
-        <div className={cn('app-trade-checklist__prep-checklist', 'space-y-4')}>
+        <div
+            className={cn(
+                'app-trade-checklist__prep-checklist',
+                'flex flex-col gap-4',
+            )}
+        >
             <div>
                 <div className="flex items-baseline justify-between">
                     <span className="text-xs tracking-wider text-muted-foreground uppercase">
@@ -115,7 +120,12 @@ export function PrepChecklist({
                 <Progress className="mt-2 h-2" value={score} />
             </div>
 
-            <ul className={cn('app-trade-checklist__prep-items', 'space-y-2')}>
+            <ul
+                className={cn(
+                    'app-trade-checklist__prep-items',
+                    'flex flex-col gap-2',
+                )}
+            >
                 {PREP_CHECK_KEYS.map((key) => {
                     const meta = CHECK_META[key];
                     return (

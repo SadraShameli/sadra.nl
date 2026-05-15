@@ -81,19 +81,21 @@ export default function PercentileBar({
                 )}
             </div>
 
-            <div className="grid grid-cols-5 gap-1 font-mono text-[10px] text-muted-foreground tabular-nums">
+            <div className="grid grid-cols-5 gap-1 font-mono text-[11px] text-muted-foreground tabular-nums md:text-[10px]">
                 <div>
-                    <div className="text-[9px] tracking-wide uppercase">P5</div>
+                    <div className="text-[10px] tracking-wide uppercase md:text-[9px]">
+                        P5
+                    </div>
                     <div className="text-foreground">{formatValue(p5)}</div>
                 </div>
                 <div>
-                    <div className="text-[9px] tracking-wide uppercase">
+                    <div className="text-[10px] tracking-wide uppercase md:text-[9px]">
                         P25
                     </div>
                     <div className="text-foreground">{formatValue(p25)}</div>
                 </div>
                 <div>
-                    <div className="text-[9px] tracking-wide uppercase">
+                    <div className="text-[10px] tracking-wide uppercase md:text-[9px]">
                         P50
                     </div>
                     <div className="font-semibold text-foreground">
@@ -101,13 +103,13 @@ export default function PercentileBar({
                     </div>
                 </div>
                 <div>
-                    <div className="text-[9px] tracking-wide uppercase">
+                    <div className="text-[10px] tracking-wide uppercase md:text-[9px]">
                         P75
                     </div>
                     <div className="text-foreground">{formatValue(p75)}</div>
                 </div>
                 <div>
-                    <div className="text-[9px] tracking-wide uppercase">
+                    <div className="text-[10px] tracking-wide uppercase md:text-[9px]">
                         P95
                     </div>
                     <div className="text-foreground">{formatValue(p95)}</div>

@@ -51,7 +51,7 @@ export default async function RootLayout({
                     <Footer />
                 </TRPCReactProvider>
 
-                <Toaster position="bottom-right" richColors />
+                <Toaster position="bottom-center" richColors />
                 <ScrollToTop />
                 <Analytics />
                 <SpeedInsights />

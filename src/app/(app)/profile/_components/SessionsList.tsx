@@ -9,7 +9,6 @@ import { UAParser } from 'ua-parser-js';
 
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
-import { Separator } from '~/components/ui/Separator';
 import { cn } from '~/lib/utils';
 import { api } from '~/trpc/react';
 
@@ -42,7 +41,7 @@ export function SessionsList() {
     const hasOthers = rows.some((r) => !r.current);
 
     return (
-        <div className={cn('app-profile__sessions', 'space-y-3')}>
+        <div className={cn('app-profile__sessions', 'flex flex-col gap-3')}>
             {rows.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                     No active sessions.
@@ -110,25 +109,22 @@ export function SessionsList() {
             )}
 
             {hasOthers && (
-                <>
-                    <Separator />
-                    <div className="flex justify-end">
-                        <Button
-                            disabled={pending || revokeAll.isPending}
-                            onClick={() =>
-                                startTransition(async () => {
-                                    await revokeAll.mutateAsync();
-                                    router.refresh();
-                                })
-                            }
-                            size="sm"
-                            variant="outline"
-                        >
-                            <LogOut className="mr-1 size-3.5" />
-                            Sign out everywhere else
-                        </Button>
-                    </div>
-                </>
+                <div className="flex justify-end">
+                    <Button
+                        disabled={pending || revokeAll.isPending}
+                        onClick={() =>
+                            startTransition(async () => {
+                                await revokeAll.mutateAsync();
+                                router.refresh();
+                            })
+                        }
+                        size="sm"
+                        variant="outline"
+                    >
+                        <LogOut className="mr-1 size-3.5" />
+                        Sign out everywhere else
+                    </Button>
+                </div>
             )}
         </div>
     );

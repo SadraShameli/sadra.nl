@@ -136,7 +136,12 @@ export function JournalView({ history, plans }: JournalViewProps) {
         state.singleDate !== null;
 
     return (
-        <div className={cn('app-trade-checklist__journal-view', 'space-y-4')}>
+        <div
+            className={cn(
+                'app-trade-checklist__journal-view',
+                'flex flex-col gap-4',
+            )}
+        >
             <JournalFilters
                 onChange={updateState}
                 onClear={clear}

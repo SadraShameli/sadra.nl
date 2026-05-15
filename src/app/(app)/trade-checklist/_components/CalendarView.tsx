@@ -23,11 +23,16 @@ export function CalendarView({ assessments, month }: CalendarViewProps) {
     const nextMonth = shiftMonth(month, 1);
 
     return (
-        <div className={cn('app-trade-checklist__calendar-view', 'space-y-6')}>
+        <div
+            className={cn(
+                'app-trade-checklist__calendar-view',
+                'flex flex-col gap-6',
+            )}
+        >
             <StreaksPanel assessments={assessments} />
 
             <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                <CardHeader className="flex flex-row items-center justify-between">
                     <CardTitle className="text-base">
                         {formatMonthLabel(month)}
                     </CardTitle>

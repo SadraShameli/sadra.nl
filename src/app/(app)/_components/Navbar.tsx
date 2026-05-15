@@ -43,7 +43,7 @@ export default function Navbar({ session }: { session: null | Session }) {
                     <BrandTypewriter onTransition={handleTransition} />
                 </div>
 
-                <div className="flex items-center gap-x-4 text-white lg:gap-x-6">
+                <div className="flex items-center gap-x-3 text-white sm:gap-x-4 lg:gap-x-6">
                     {socialLinks.map((profile) => (
                         <Link
                             aria-label={profile.platform}

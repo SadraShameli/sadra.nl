@@ -163,8 +163,8 @@ export function WizardStepper({
     return (
         <FormProvider {...methods}>
             <Card className={cn('app-trade-checklist__wizard')}>
-                <CardContent className="space-y-6">
-                    <div className="space-y-3">
+                <CardContent className="flex flex-col gap-6">
+                    <div className="flex flex-col gap-3">
                         <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
                             <span className="tracking-wider uppercase">
                                 Step {stepIdx + 1} of {stepIds.length}
@@ -299,7 +299,7 @@ function BiasStep() {
         weekly === 'unclear' && daily === 'unclear' && fourHour === 'unclear';
 
     return (
-        <div className="space-y-3">
+        <div className="flex flex-col gap-3">
             <BiasRow label="Weekly" name="bias.weekly" />
             <BiasRow label="Daily" name="bias.daily" />
             <BiasRow label="4H" name="bias.fourHour" />
@@ -309,7 +309,7 @@ function BiasStep() {
                     <BiasRow label="15m" name="bias.fifteenMin" />
                 </>
             )}
-            <div className="space-y-2 rounded-lg border border-border/60 p-4">
+            <div className="flex flex-col gap-2 rounded-lg border border-border/60 p-4">
                 <div className="flex items-center justify-between">
                     <Label className="text-sm">Bias conviction</Label>
                     <span className="font-mono text-sm text-white">
@@ -374,7 +374,7 @@ function ContextStep({ plan }: { plan: TradingPlanRow }) {
     const quotaUsed = watch('context.windowQuotaUsed');
 
     return (
-        <div className="space-y-5">
+        <div className="flex flex-col gap-5">
             <div>
                 <Label className="mb-2 block text-xs tracking-wider text-muted-foreground uppercase">
                     Current macro window
@@ -488,7 +488,7 @@ function DolStep({ plan }: { plan: TradingPlanRow }) {
     const distanceR = watch('dol.distanceR');
 
     return (
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4">
             <div>
                 <Label className="mb-2 block text-xs tracking-wider text-muted-foreground uppercase">
                     DOL type
@@ -580,7 +580,7 @@ function EntryStep({ plan }: { plan: TradingPlanRow }) {
     };
 
     return (
-        <div className="space-y-5">
+        <div className="flex flex-col gap-5">
             {CONFLUENCE_GROUPS.map((group) => {
                 const items = group.items.filter((c) =>
                     plan.config.setup.allowedConfluences.includes(c),
@@ -590,11 +590,11 @@ function EntryStep({ plan }: { plan: TradingPlanRow }) {
                     confluences.includes(c),
                 );
                 return (
-                    <div className="space-y-2" key={group.label}>
+                    <div className="flex flex-col gap-2" key={group.label}>
                         <div className="flex items-center justify-between gap-2">
-                            <Label className="text-xs tracking-wider text-muted-foreground uppercase">
+                            <Label className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs tracking-wider text-muted-foreground uppercase">
                                 {group.label}
-                                <Badge className="ml-2" variant="secondary">
+                                <Badge variant="secondary">
                                     {groupSelected.length} selected
                                 </Badge>
                             </Label>
@@ -667,7 +667,7 @@ function FinalsStep() {
     const overExtended = watch('finals.overExtended');
 
     return (
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between rounded-lg border border-rose-500/30 bg-rose-500/5 p-4">
                 <div>
                     <p className="text-sm text-white">
@@ -750,7 +750,7 @@ function MentalStep() {
     ];
 
     return (
-        <div className="space-y-3">
+        <div className="flex flex-col gap-3">
             {rows.map((r) => {
                 const checked = watch(`mental.${r.name}`);
                 return (
@@ -795,7 +795,7 @@ function RrStep({ plan }: { plan: TradingPlanRow }) {
     const expected = Math.max(0, targetR - slippageR);
 
     return (
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4">
             <div className="rounded-lg border border-border/60 p-4">
                 <p className="text-xs tracking-wider text-muted-foreground uppercase">
                     Risk this trade
@@ -895,7 +895,7 @@ function SlStep({ plan }: { plan: TradingPlanRow }) {
     ];
 
     return (
-        <div className="space-y-3">
+        <div className="flex flex-col gap-3">
             {rows.map((r) => {
                 const v = watch(`sl.${r.name}`);
                 return (
@@ -951,7 +951,7 @@ function StateStep() {
         (dayType === 'imbalanced' && setupType === 'continuation');
 
     return (
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between rounded-lg border border-border/60 p-4">
                 <div>
                     <p className="text-sm font-medium text-white">
@@ -1010,7 +1010,7 @@ function StateStep() {
                         Day type
                     </Label>
                     <RadioGroup
-                        className="space-y-1"
+                        className="flex flex-col gap-1"
                         onValueChange={(v) =>
                             setValue(
                                 'state.dayType',
@@ -1044,7 +1044,7 @@ function StateStep() {
                         Setup type
                     </Label>
                     <RadioGroup
-                        className="space-y-1"
+                        className="flex flex-col gap-1"
                         onValueChange={(v) =>
                             setValue(
                                 'state.setupType',

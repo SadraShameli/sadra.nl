@@ -187,7 +187,7 @@ export default function PortfolioPanel({
 
     return (
         <Card className={cn('app-prop-calculator__portfolio', 'px-5 py-4')}>
-            <div className="mb-3 flex items-center justify-between gap-2">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                     <h3 className="text-sm font-semibold">
                         Multi-firm portfolio
@@ -225,9 +225,9 @@ export default function PortfolioPanel({
                     expected monthly income.
                 </p>
             ) : (
-                <div className="space-y-4">
+                <div className="flex flex-col gap-4">
                     {totals && (
-                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
                             <SummaryCard
                                 info={{
                                     body: "Expected $ profit per month across all portfolio accounts after fees. Each row's expected monthly net × its account count, summed. Averaged over pass and bust outcomes.",
@@ -275,6 +275,9 @@ export default function PortfolioPanel({
                         </div>
                     )}
 
+                    <p className="mb-2 text-[11px] text-muted-foreground md:hidden">
+                        swipe to see more →
+                    </p>
                     <div className="overflow-x-auto">
                         <table
                             className={cn(

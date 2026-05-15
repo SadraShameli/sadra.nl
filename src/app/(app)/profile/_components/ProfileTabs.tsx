@@ -49,7 +49,7 @@ export function ProfileTabs({
             <TabsList
                 className={cn(
                     'app-profile__tabs-list',
-                    'mb-5 flex max-w-md gap-1',
+                    'mb-5 flex w-full gap-1 sm:max-w-md',
                 )}
             >
                 <TabsTrigger className="flex-1" value="account">
@@ -62,13 +62,13 @@ export function ProfileTabs({
                     Trading Plan
                 </TabsTrigger>
             </TabsList>
-            <TabsContent className="space-y-6" value="account">
+            <TabsContent className="flex flex-col gap-6" value="account">
                 {accountTab}
             </TabsContent>
-            <TabsContent className="space-y-6" value="security">
+            <TabsContent className="flex flex-col gap-6" value="security">
                 {securityTab}
             </TabsContent>
-            <TabsContent className="space-y-6" value="trading-plan">
+            <TabsContent className="flex flex-col gap-6" value="trading-plan">
                 {tradingPlanTab}
             </TabsContent>
         </Tabs>

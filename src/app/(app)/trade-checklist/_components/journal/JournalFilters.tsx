@@ -100,10 +100,10 @@ export function JournalFilters({
         <div
             className={cn(
                 'app-trade-checklist__journal-filters',
-                'space-y-4 rounded-lg border border-border/40 bg-card/60 p-4',
+                'flex flex-col gap-4 rounded-lg border border-border/40 bg-card/60 p-4',
             )}
         >
-            <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
+            <div className="grid gap-3 md:grid-cols-[1fr_auto_auto]">
                 <Input
                     onChange={(e) =>
                         onChange({
@@ -114,30 +114,32 @@ export function JournalFilters({
                     placeholder="Search notes…"
                     value={state.query ?? ''}
                 />
-                <Input
-                    aria-label="From"
-                    onChange={(e) =>
-                        onChange({
-                            ...state,
-                            dateFrom: e.target.value || null,
-                            singleDate: null,
-                        })
-                    }
-                    type="date"
-                    value={state.dateFrom ?? ''}
-                />
-                <Input
-                    aria-label="To"
-                    onChange={(e) =>
-                        onChange({
-                            ...state,
-                            dateTo: e.target.value || null,
-                            singleDate: null,
-                        })
-                    }
-                    type="date"
-                    value={state.dateTo ?? ''}
-                />
+                <div className="grid grid-cols-2 gap-3 md:contents">
+                    <Input
+                        aria-label="From"
+                        onChange={(e) =>
+                            onChange({
+                                ...state,
+                                dateFrom: e.target.value || null,
+                                singleDate: null,
+                            })
+                        }
+                        type="date"
+                        value={state.dateFrom ?? ''}
+                    />
+                    <Input
+                        aria-label="To"
+                        onChange={(e) =>
+                            onChange({
+                                ...state,
+                                dateTo: e.target.value || null,
+                                singleDate: null,
+                            })
+                        }
+                        type="date"
+                        value={state.dateTo ?? ''}
+                    />
+                </div>
             </div>
 
             <ChipRow
@@ -226,7 +228,7 @@ function ChipRow<T extends string>({
         }
     };
     return (
-        <div className="space-y-1">
+        <div className="flex flex-col gap-1">
             <span className="text-xs tracking-wider text-muted-foreground uppercase">
                 {label}
             </span>

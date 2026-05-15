@@ -66,7 +66,7 @@ export default function BrandTypewriter({ onTransition }: Props) {
         <span
             className={cn(
                 'app-brand__typewriter',
-                'flex items-center font-mono text-xs text-white/40',
+                'hidden items-center font-mono text-xs text-white/40 sm:flex',
             )}
         >
             <span>{displayed}</span>

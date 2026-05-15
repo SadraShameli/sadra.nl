@@ -109,7 +109,7 @@ export default function CompoundingPanel({
 
     return (
         <Card className={cn('app-prop-calculator__compounding', 'px-5 py-5')}>
-            <div className="mb-4 flex items-center justify-between gap-2">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                     <h3 className="text-sm font-semibold">
                         Compounding Growth Simulator
@@ -145,7 +145,7 @@ export default function CompoundingPanel({
             </div>
 
             <div className="flex flex-col gap-5">
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
                     <StatCell
                         label="Median final balance"
                         sub={`start: ${formatCompactCurrency(startBalance)}`}

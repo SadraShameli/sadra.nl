@@ -14,7 +14,7 @@ function Select({
     ...props
 }: SelectProps) {
     return (
-        <div className={cn('relative w-full', wrapperClassName)}>
+        <div className={cn('relative', wrapperClassName)}>
             <select
                 className={cn(
                     'h-9 w-full appearance-none rounded-md border border-input bg-background px-3 pr-9 text-sm shadow-xs transition-colors outline-none',

@@ -52,7 +52,7 @@ export function AnalyticsDashboard({
         <div
             className={cn(
                 'app-trade-checklist__analytics-dashboard',
-                'space-y-6',
+                'flex flex-col gap-6',
             )}
         >
             {plans.length > 1 && (

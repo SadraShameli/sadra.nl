@@ -70,7 +70,7 @@ export default function ResiliencePanel({
                 </InfoPopover>
             </div>
 
-            <div className="mb-4 grid grid-cols-3 gap-3">
+            <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div className="rounded-md border border-border/50 bg-muted/20 px-3 py-2">
                     <div className="text-[11px] text-muted-foreground">
                         Loss tolerance

@@ -94,7 +94,7 @@ export default function TailRiskPanel({ result }: TailRiskPanelProps) {
             </div>
 
             <div className="flex flex-col gap-5">
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-5">
                     <StatCell
                         label="VaR 95%"
                         sub="loss in 1-of-20 trials"

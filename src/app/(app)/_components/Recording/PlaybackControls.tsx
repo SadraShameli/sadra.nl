@@ -37,7 +37,7 @@ export function PlaybackControls({
         <div
             className={cn(
                 'app-recording__playback-controls',
-                'flex items-center justify-center gap-x-7',
+                'flex items-center justify-center gap-x-5 sm:gap-x-7',
             )}
         >
             <button

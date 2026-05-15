@@ -9,7 +9,7 @@ export default function SectionTitle({ className, text }: SectionTitleProps) {
     return (
         <h2
             className={cn(
-                'text-center text-3xl font-semibold lg:text-5xl',
+                'text-center text-3xl font-semibold sm:text-4xl lg:text-5xl',
                 className,
             )}
         >

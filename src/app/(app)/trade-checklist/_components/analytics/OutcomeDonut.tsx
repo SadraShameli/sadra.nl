@@ -53,7 +53,7 @@ export function OutcomeDonut({
         <div
             className={cn(
                 'app-trade-checklist__outcome-donut',
-                'flex items-center gap-4',
+                'flex flex-col items-center gap-4',
             )}
         >
             <ChartContainer className="size-56 shrink-0" config={chartConfig}>
@@ -79,7 +79,7 @@ export function OutcomeDonut({
                     </Pie>
                 </PieChart>
             </ChartContainer>
-            <ul className="flex-1 space-y-2 text-sm">
+            <ul className="flex flex-1 flex-col gap-2 text-sm">
                 {data.map((d) => (
                     <li
                         className={cn(

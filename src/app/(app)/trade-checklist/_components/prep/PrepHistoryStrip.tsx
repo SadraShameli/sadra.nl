@@ -25,7 +25,7 @@ export function PrepHistoryStrip({
         <div
             className={cn(
                 'app-trade-checklist__prep-history-strip',
-                'grid grid-cols-10 gap-1.5 sm:grid-cols-15 md:grid-cols-30',
+                'grid grid-cols-6 gap-1.5 sm:grid-cols-10 md:grid-cols-15 lg:grid-cols-30',
             )}
         >
             {days.map((d) => {

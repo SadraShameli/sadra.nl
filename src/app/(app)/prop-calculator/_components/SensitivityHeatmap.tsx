@@ -55,7 +55,7 @@ export default function SensitivityHeatmap({
                     'px-5 py-4',
                 )}
             >
-                <div className="mb-3 flex items-baseline justify-between gap-2">
+                <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
                     <div className="flex items-center gap-2">
                         <h3 className="text-sm font-semibold">
                             Pass% sensitivity
@@ -83,7 +83,7 @@ export default function SensitivityHeatmap({
                     'px-5 py-4',
                 )}
             >
-                <div className="mb-3 flex items-baseline justify-between gap-2">
+                <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
                     <div className="flex items-center gap-2">
                         <h3 className="text-sm font-semibold">
                             Monthly net sensitivity

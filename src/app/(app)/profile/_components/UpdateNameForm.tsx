@@ -90,7 +90,7 @@ export function UpdateNameForm({
                         </FormItem>
                     )}
                 />
-                <div className="space-y-2">
+                <div className="flex flex-col gap-2">
                     <Label>Email</Label>
                     {showEmailEditor ? (
                         <div className="flex flex-col gap-2 sm:flex-row">
