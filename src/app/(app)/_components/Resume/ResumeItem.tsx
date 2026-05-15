@@ -24,7 +24,7 @@ export default function ResumeItem({ sections, title }: ResumeProps) {
     return (
         <RevealAnimation className={cn('app-resume__item', 'pt-spacing-inner')}>
             <Card className="container">
-                <div className="mt-sp grid max-w-3xl gap-y-10 py-spacing-inner lg:py-0">
+                <div className="grid max-w-3xl gap-y-10 lg:py-0">
                     {sections.map((section, index) => {
                         return (
                             <div

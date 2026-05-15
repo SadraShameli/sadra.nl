@@ -1,12 +1,13 @@
 'use client';
 
+import { type ColumnDef } from '@tanstack/react-table';
+import { formatDistanceToNow } from 'date-fns';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useMemo, useState } from 'react';
 
 import type { TradeAssessmentRow } from '~/lib/trading-types';
 
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent } from '~/components/ui/Card';
+import { DataTable } from '~/components/ui/DataTable';
 import { dateKey, filterAssessments } from '~/lib/trading-analytics';
 import { cn } from '~/lib/utils';
 
@@ -15,14 +16,14 @@ import {
     JournalFilters,
     type JournalFilterState,
 } from './journal/JournalFilters';
-import { JournalRow } from './journal/JournalRow';
-
-const PAGE_SIZE = 50;
+import { JournalRowBody, type JournalRowData } from './journal/JournalRow';
 
 interface JournalViewProps {
     history: TradeAssessmentRow[];
     plans: { id: string; name: string }[];
 }
+
+type Row = JournalRowData & { raw: TradeAssessmentRow };
 
 export function JournalView({ history, plans }: JournalViewProps) {
     const router = useRouter();
@@ -31,7 +32,6 @@ export function JournalView({ history, plans }: JournalViewProps) {
         () => parseStateFromUrl(new URLSearchParams(searchParams.toString())),
         [searchParams],
     );
-    const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
     const [selectedRow, setSelectedRow] = useState<null | TradeAssessmentRow>(
         null,
     );
@@ -103,7 +103,6 @@ export function JournalView({ history, plans }: JournalViewProps) {
             const sp = buildSearchParams(next);
             const qs = sp.toString();
             router.replace(qs ? `?${qs}` : '?', { scroll: false });
-            setVisibleCount(PAGE_SIZE);
         },
         [router],
     );
@@ -122,7 +121,6 @@ export function JournalView({ history, plans }: JournalViewProps) {
             windowIds: [],
         });
 
-    const visible = filtered.slice(0, visibleCount);
     const hasFiltersActive =
         state.grades.length > 0 ||
         state.outcomes.length > 0 ||
@@ -134,6 +132,39 @@ export function JournalView({ history, plans }: JournalViewProps) {
         state.dateFrom !== null ||
         state.dateTo !== null ||
         state.singleDate !== null;
+
+    const columns = useMemo<ColumnDef<Row>[]>(
+        () => [
+            {
+                cell: ({ row }) => (
+                    <button
+                        className="-mx-2 -my-1 block w-full rounded px-2 py-1 text-left hover:bg-accent/30"
+                        onClick={() => setSelectedRow(row.original.raw)}
+                        type="button"
+                    >
+                        <JournalRowBody row={row.original} />
+                    </button>
+                ),
+                enableSorting: false,
+                header: 'Assessment',
+                id: 'assessment',
+            },
+            {
+                accessorFn: (r) => new Date(r.createdAt).getTime(),
+                cell: ({ row }) => (
+                    <span className="text-xs whitespace-nowrap text-muted-foreground">
+                        {formatDistanceToNow(new Date(row.original.createdAt), {
+                            addSuffix: true,
+                        })}
+                    </span>
+                ),
+                header: 'When',
+                id: 'when',
+                sortDescFirst: true,
+            },
+        ],
+        [],
+    );
 
     return (
         <div
@@ -162,47 +193,17 @@ export function JournalView({ history, plans }: JournalViewProps) {
                 )}
             </div>
 
-            {visible.length === 0 ? (
-                <Card>
-                    <CardContent className="py-12 text-center">
-                        <p className="text-sm text-muted-foreground">
-                            {hasFiltersActive
-                                ? 'No assessments match the current filters.'
-                                : 'No assessments yet — run the checklist first.'}
-                        </p>
-                    </CardContent>
-                </Card>
-            ) : (
-                <Card>
-                    <ul
-                        className={cn(
-                            'app-trade-checklist__journal-list',
-                            'divide-y divide-border/40',
-                        )}
-                    >
-                        {visible.map((row) => (
-                            <JournalRow
-                                key={row.id}
-                                onSelect={() => setSelectedRow(row.raw)}
-                                row={row}
-                            />
-                        ))}
-                    </ul>
-                </Card>
-            )}
-
-            {visible.length < filtered.length && (
-                <div className="flex justify-center">
-                    <Button
-                        onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
-                        variant="outline"
-                    >
-                        Load{' '}
-                        {Math.min(PAGE_SIZE, filtered.length - visible.length)}{' '}
-                        more
-                    </Button>
-                </div>
-            )}
+            <DataTable<Row, unknown>
+                columns={columns}
+                data={filtered}
+                emptyMessage={
+                    hasFiltersActive
+                        ? 'No assessments match the current filters.'
+                        : 'No assessments yet — run the checklist first.'
+                }
+                pageSize={25}
+                rowId={(r) => r.id}
+            />
 
             <AssessmentDetailDialog
                 onClose={() => setSelectedRow(null)}

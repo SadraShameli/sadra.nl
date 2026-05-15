@@ -1,8 +1,10 @@
 'use client';
 
+import { type ColumnDef } from '@tanstack/react-table';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Card } from '~/components/ui/Card';
+import { DataTable } from '~/components/ui/DataTable';
 import InfoPopover from '~/components/ui/InfoPopover';
 import { formatCurrency, formatDays, formatPercent } from '~/lib/format';
 import {
@@ -28,6 +30,7 @@ interface Row {
     firm: PropFirm;
     out: SimOutputs;
     plan: Plan;
+    score: number;
 }
 
 export default function FirmComparisonTable({
@@ -55,15 +58,34 @@ export default function FirmComparisonTable({
             const firmList = firmsRef.current;
             const targetSize = targetSizeRef.current;
             const trials = Math.min(500, inputs.trials);
-            const out: Row[] = [];
+            const partial: Omit<Row, 'score'>[] = [];
             for (const firm of firmList) {
                 const plan = pickPlan(firm, targetSize);
                 if (!plan) continue;
                 const sim = simulate({ ...inputs, plan, trials });
-                out.push({ firm, out: sim, plan });
+                partial.push({ firm, out: sim, plan });
             }
+            partial.sort(
+                (a, b) => b.out.expectedMonthlyNet - a.out.expectedMonthlyNet,
+            );
+            const bestNet =
+                partial.length === 0
+                    ? Number.NEGATIVE_INFINITY
+                    : Math.max(...partial.map((r) => r.out.expectedMonthlyNet));
+            const withScore: Row[] = partial.map((r) => ({
+                ...r,
+                score:
+                    bestNet > 0
+                        ? Math.max(
+                              1,
+                              Math.round(
+                                  (r.out.expectedMonthlyNet / bestNet) * 5,
+                              ),
+                          )
+                        : 1,
+            }));
             if (!cancelled) {
-                setRows(out);
+                setRows(withScore);
                 setPending(false);
             }
         }, 0);
@@ -73,17 +95,72 @@ export default function FirmComparisonTable({
         };
     }, [debouncedKey]);
 
-    const bestNet = useMemo(() => {
-        if (rows.length === 0) return -Infinity;
-        return Math.max(...rows.map((r) => r.out.expectedMonthlyNet));
-    }, [rows]);
-
-    const sorted = useMemo(
-        () =>
-            rows.toSorted(
-                (a, b) => b.out.expectedMonthlyNet - a.out.expectedMonthlyNet,
-            ),
-        [rows],
+    const columns = useMemo<ColumnDef<Row>[]>(
+        () => [
+            {
+                accessorFn: (r) => r.firm.displayName,
+                cell: ({ row }) => row.original.firm.displayName,
+                header: 'Firm',
+                id: 'firm',
+            },
+            {
+                accessorFn: (r) => r.plan.label,
+                cell: ({ row }) => (
+                    <span className="text-muted-foreground">
+                        {row.original.plan.label}
+                    </span>
+                ),
+                header: 'Plan',
+                id: 'plan',
+            },
+            {
+                accessorFn: (r) => r.out.passProbability,
+                cell: ({ row }) =>
+                    formatPercent(row.original.out.passProbability),
+                header: 'Pass%',
+                id: 'pass',
+            },
+            {
+                accessorFn: (r) => r.out.daysToPassP50,
+                cell: ({ row }) => formatDays(row.original.out.daysToPassP50),
+                header: 'Days',
+                id: 'days',
+            },
+            {
+                accessorFn: (r) => r.out.expectedTotalCost,
+                cell: ({ row }) =>
+                    formatCurrency(row.original.out.expectedTotalCost),
+                header: 'Cost',
+                id: 'cost',
+            },
+            {
+                accessorFn: (r) => r.out.expectedMonthlyNet,
+                cell: ({ row }) =>
+                    formatCurrency(row.original.out.expectedMonthlyNet),
+                header: 'Monthly net',
+                id: 'monthlyNet',
+            },
+            {
+                accessorFn: (r) => r.out.roiOnCost,
+                cell: ({ row }) => formatPercent(row.original.out.roiOnCost),
+                header: 'ROI',
+                id: 'roi',
+            },
+            {
+                accessorFn: (r) => r.score,
+                cell: ({ row }) => (
+                    <span className="text-amber-400">
+                        {'★'.repeat(row.original.score)}
+                        <span className="text-muted-foreground">
+                            {'★'.repeat(5 - row.original.score)}
+                        </span>
+                    </span>
+                ),
+                header: 'Score',
+                id: 'score',
+            },
+        ],
+        [],
     );
 
     return (
@@ -105,86 +182,20 @@ export default function FirmComparisonTable({
                         : `closest plan to $${(targetAccountSize / 1000).toFixed(0)}K`}
                 </span>
             </div>
-            <p className="mb-2 text-[11px] text-muted-foreground md:hidden">
-                swipe to see more →
-            </p>
-            <div className="overflow-x-auto">
-                <table
-                    className={cn(
-                        'app-prop-calculator__firm-comparison-table',
-                        'w-full min-w-max text-xs whitespace-nowrap tabular-nums',
-                    )}
-                >
-                    <thead className="text-muted-foreground">
-                        <tr className="text-left">
-                            <th className="py-1 pr-2 font-medium">Firm</th>
-                            <th className="py-1 pr-2 font-medium">Plan</th>
-                            <th className="py-1 pr-2 font-medium">Pass%</th>
-                            <th className="py-1 pr-2 font-medium">Days</th>
-                            <th className="py-1 pr-2 font-medium">Cost</th>
-                            <th className="py-1 pr-2 font-medium">
-                                Monthly net
-                            </th>
-                            <th className="py-1 pr-2 font-medium">ROI</th>
-                            <th className="py-1 pr-2 font-medium">Score</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {sorted.map(({ firm, out, plan }) => {
-                            const isActive = firm.id === activeFirmId;
-                            const score =
-                                bestNet > 0
-                                    ? Math.max(
-                                          1,
-                                          Math.round(
-                                              (out.expectedMonthlyNet /
-                                                  bestNet) *
-                                                  5,
-                                          ),
-                                      )
-                                    : 1;
-                            return (
-                                <tr
-                                    className={cn(
-                                        'border-t border-border/40 transition-colors',
-                                        isActive &&
-                                            'bg-primary/10 font-semibold text-foreground',
-                                    )}
-                                    key={firm.id}
-                                >
-                                    <td className="py-1.5 pr-2">
-                                        {firm.displayName}
-                                    </td>
-                                    <td className="py-1.5 pr-2 text-muted-foreground">
-                                        {plan.label}
-                                    </td>
-                                    <td className="py-1.5 pr-2">
-                                        {formatPercent(out.passProbability)}
-                                    </td>
-                                    <td className="py-1.5 pr-2">
-                                        {formatDays(out.daysToPassP50)}
-                                    </td>
-                                    <td className="py-1.5 pr-2">
-                                        {formatCurrency(out.expectedTotalCost)}
-                                    </td>
-                                    <td className="py-1.5 pr-2">
-                                        {formatCurrency(out.expectedMonthlyNet)}
-                                    </td>
-                                    <td className="py-1.5 pr-2">
-                                        {formatPercent(out.roiOnCost)}
-                                    </td>
-                                    <td className="py-1.5 pr-2 text-amber-400">
-                                        {'★'.repeat(score)}
-                                        <span className="text-muted-foreground">
-                                            {'★'.repeat(5 - score)}
-                                        </span>
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
-            </div>
+            <DataTable<Row, unknown>
+                className="app-prop-calculator__firm-comparison-table text-xs tabular-nums"
+                columns={columns}
+                data={rows}
+                emptyMessage={pending ? 'computing…' : 'No matching plans.'}
+                pageSize={null}
+                rowClassName={(r) =>
+                    r.firm.id === activeFirmId
+                        ? 'bg-primary/10 font-semibold text-foreground'
+                        : undefined
+                }
+                rowId={(r) => r.firm.id}
+                tableClassName="min-w-max whitespace-nowrap"
+            />
         </Card>
     );
 }

@@ -1,8 +1,10 @@
 'use client';
 
+import { type ColumnDef } from '@tanstack/react-table';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Card } from '~/components/ui/Card';
+import { DataTable } from '~/components/ui/DataTable';
 import InfoPopover from '~/components/ui/InfoPopover';
 import {
     formatCurrency,
@@ -29,6 +31,8 @@ interface OptimalRiskTableProps {
 }
 
 interface Row {
+    accountSize: number;
+    isBest: boolean;
     out: SimOutputs;
     riskPct: number;
 }
@@ -54,15 +58,23 @@ export default function OptimalRiskTable({
             const inputs = inputsRef.current;
             const accountSize = planRef.current.accountSize;
             const trials = Math.min(500, inputs.trials);
-            const results: Row[] = RISK_LEVELS.map((riskPct) => {
+            const partial = RISK_LEVELS.map((riskPct) => {
                 const riskDollars = (accountSize * riskPct) / 100;
                 const out = simulate({
                     ...inputs,
                     riskPerTrade: riskDollars,
                     trials,
                 });
-                return { out, riskPct };
+                return { accountSize, out, riskPct };
             });
+            const bestNet = partial.reduce(
+                (best, r) => Math.max(r.out.expectedMonthlyNet, best),
+                Number.NEGATIVE_INFINITY,
+            );
+            const results: Row[] = partial.map((r) => ({
+                ...r,
+                isBest: r.out.expectedMonthlyNet === bestNet,
+            }));
             if (!cancelled) {
                 setRows(results);
                 setPending(false);
@@ -74,14 +86,75 @@ export default function OptimalRiskTable({
         };
     }, [debouncedKey]);
 
-    const bestRow = useMemo(() => {
-        if (rows.length === 0) return null;
-        return rows.reduce((best, r) =>
-            r.out.expectedMonthlyNet > best.out.expectedMonthlyNet ? r : best,
-        );
-    }, [rows]);
+    const bestRow = useMemo(() => rows.find((r) => r.isBest) ?? null, [rows]);
 
     const closestRiskPct = nearestRisk(currentRiskPercent);
+
+    const columns = useMemo<ColumnDef<Row>[]>(
+        () => [
+            {
+                accessorFn: (r) => r.riskPct,
+                cell: ({ row }) => (
+                    <>
+                        {formatCurrency(
+                            (row.original.accountSize * row.original.riskPct) /
+                                100,
+                        )}
+                        <span className="ml-1 text-muted-foreground">
+                            ({row.original.riskPct}%)
+                        </span>
+                        {row.original.isBest &&
+                            row.original.riskPct !== closestRiskPct && (
+                                <span className="ml-1 text-emerald-400">★</span>
+                            )}
+                    </>
+                ),
+                header: 'Risk',
+                id: 'risk',
+            },
+            {
+                accessorFn: (r) => r.out.passProbability,
+                cell: ({ row }) =>
+                    formatPercent(row.original.out.passProbability),
+                header: 'Pass%',
+                id: 'pass',
+            },
+            {
+                accessorFn: (r) => r.out.bustProbability,
+                cell: ({ row }) =>
+                    formatPercent(row.original.out.bustProbability),
+                header: 'Bust%',
+                id: 'bust',
+            },
+            {
+                accessorFn: (r) => r.out.daysToPassP50,
+                cell: ({ row }) => formatDays(row.original.out.daysToPassP50),
+                header: 'Days P50',
+                id: 'days',
+            },
+            {
+                accessorFn: (r) => r.out.expectedMonthlyNet,
+                cell: ({ row }) =>
+                    formatCurrency(row.original.out.expectedMonthlyNet),
+                header: 'Monthly net',
+                id: 'monthlyNet',
+            },
+            {
+                accessorFn: (r) => r.out.roiOnCost,
+                cell: ({ row }) => formatPercent(row.original.out.roiOnCost),
+                header: 'ROI',
+                id: 'roi',
+            },
+            {
+                accessorFn: (r) => r.out.maxLosingStreakP95,
+                cell: ({ row }) =>
+                    formatStreak(row.original.out.maxLosingStreakP95),
+                header: 'Streak P95',
+                id: 'streak',
+            },
+        ],
+        [closestRiskPct],
+    );
 
     return (
         <Card className={cn('app-prop-calculator__optimal-risk', 'px-5 py-4')}>
@@ -103,81 +176,20 @@ export default function OptimalRiskTable({
                           )}`}
                 </span>
             </div>
-            <p className="mb-2 text-[11px] text-muted-foreground md:hidden">
-                swipe to see more →
-            </p>
-            <div className="overflow-x-auto">
-                <table
-                    className={cn(
-                        'app-prop-calculator__optimal-risk-table',
-                        'w-full min-w-max text-xs whitespace-nowrap tabular-nums',
-                    )}
-                >
-                    <thead className="text-muted-foreground">
-                        <tr className="text-left">
-                            <th className="py-1 pr-3 font-medium">Risk</th>
-                            <th className="py-1 pr-3 font-medium">Pass%</th>
-                            <th className="py-1 pr-3 font-medium">Bust%</th>
-                            <th className="py-1 pr-3 font-medium">Days P50</th>
-                            <th className="py-1 pr-3 font-medium">
-                                Monthly net
-                            </th>
-                            <th className="py-1 pr-3 font-medium">ROI</th>
-                            <th className="py-1 pr-3 font-medium">
-                                Streak P95
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {rows.map(({ out, riskPct }) => {
-                            const isCurrent = riskPct === closestRiskPct;
-                            const isBest = bestRow?.riskPct === riskPct;
-                            return (
-                                <tr
-                                    className={cn(
-                                        'border-t border-border/40 transition-colors',
-                                        isCurrent &&
-                                            'bg-primary/10 font-semibold text-foreground',
-                                    )}
-                                    key={riskPct}
-                                >
-                                    <td className="py-1.5 pr-3">
-                                        {formatCurrency(
-                                            (plan.accountSize * riskPct) / 100,
-                                        )}
-                                        <span className="ml-1 text-muted-foreground">
-                                            ({riskPct}%)
-                                        </span>
-                                        {isBest && !isCurrent && (
-                                            <span className="ml-1 text-emerald-400">
-                                                ★
-                                            </span>
-                                        )}
-                                    </td>
-                                    <td className="py-1.5 pr-3">
-                                        {formatPercent(out.passProbability)}
-                                    </td>
-                                    <td className="py-1.5 pr-3">
-                                        {formatPercent(out.bustProbability)}
-                                    </td>
-                                    <td className="py-1.5 pr-3">
-                                        {formatDays(out.daysToPassP50)}
-                                    </td>
-                                    <td className="py-1.5 pr-3">
-                                        {formatCurrency(out.expectedMonthlyNet)}
-                                    </td>
-                                    <td className="py-1.5 pr-3">
-                                        {formatPercent(out.roiOnCost)}
-                                    </td>
-                                    <td className="py-1.5 pr-3">
-                                        {formatStreak(out.maxLosingStreakP95)}
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
-            </div>
+            <DataTable<Row, unknown>
+                className="app-prop-calculator__optimal-risk-table text-xs tabular-nums"
+                columns={columns}
+                data={rows}
+                emptyMessage="No data yet."
+                pageSize={null}
+                rowClassName={(r) =>
+                    r.riskPct === closestRiskPct
+                        ? 'bg-primary/10 font-semibold text-foreground'
+                        : undefined
+                }
+                rowId={(r) => String(r.riskPct)}
+                tableClassName="min-w-max whitespace-nowrap"
+            />
         </Card>
     );
 }

@@ -1,16 +1,26 @@
 'use client';
 
+import { type ColumnDef } from '@tanstack/react-table';
 import { formatDistanceToNow } from 'date-fns';
 import { LogOut, Monitor, Smartphone } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useTransition } from 'react';
+import { useMemo, useTransition } from 'react';
 import { toast } from 'sonner';
 import { UAParser } from 'ua-parser-js';
 
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
+import { DataTable } from '~/components/ui/DataTable';
 import { cn } from '~/lib/utils';
 import { api } from '~/trpc/react';
+
+type Row = {
+    current: boolean;
+    ipAddress: null | string;
+    lastUsedAt: Date | string;
+    sessionToken: string;
+    userAgent: null | string;
+};
 
 export function SessionsList() {
     const router = useRouter();
@@ -31,83 +41,109 @@ export function SessionsList() {
         },
     });
 
+    const rows = sessionsQuery.data ?? [];
+    const hasOthers = rows.some((r) => !r.current);
+
+    const columns = useMemo<ColumnDef<Row>[]>(
+        () => [
+            {
+                cell: ({ row }) => {
+                    const { isMobile } = describeUserAgent(
+                        row.original.userAgent,
+                    );
+                    const Icon = isMobile ? Smartphone : Monitor;
+                    return <Icon className="size-4 text-muted-foreground" />;
+                },
+                enableSorting: false,
+                header: '',
+                id: 'icon',
+            },
+            {
+                cell: ({ row }) => {
+                    const { label } = describeUserAgent(row.original.userAgent);
+                    return (
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-medium text-white">
+                                {label}
+                            </span>
+                            {row.original.current && (
+                                <Badge variant="default">Current</Badge>
+                            )}
+                        </div>
+                    );
+                },
+                header: 'Session',
+                id: 'session',
+            },
+            {
+                cell: ({ row }) => (
+                    <span className="text-xs text-muted-foreground">
+                        {maskIp(row.original.ipAddress)}
+                    </span>
+                ),
+                enableSorting: false,
+                header: 'IP',
+                id: 'ip',
+            },
+            {
+                accessorFn: (row) => new Date(row.lastUsedAt).getTime(),
+                cell: ({ row }) => (
+                    <span className="text-xs text-muted-foreground">
+                        {formatDistanceToNow(
+                            new Date(row.original.lastUsedAt),
+                            {
+                                addSuffix: true,
+                            },
+                        )}
+                    </span>
+                ),
+                header: 'Last active',
+                id: 'lastUsedAt',
+            },
+            {
+                cell: ({ row }) =>
+                    row.original.current ? null : (
+                        <Button
+                            className="ml-auto"
+                            disabled={pending || revoke.isPending}
+                            onClick={() =>
+                                startTransition(() =>
+                                    revoke.mutateAsync({
+                                        sessionToken: row.original.sessionToken,
+                                    }),
+                                )
+                            }
+                            size="sm"
+                            variant="outline"
+                        >
+                            Revoke
+                        </Button>
+                    ),
+                enableSorting: false,
+                header: '',
+                id: 'actions',
+            },
+        ],
+        [pending, revoke],
+    );
+
     if (sessionsQuery.isLoading) {
         return (
             <p className="text-sm text-muted-foreground">Loading sessions…</p>
         );
     }
 
-    const rows = sessionsQuery.data ?? [];
-    const hasOthers = rows.some((r) => !r.current);
-
     return (
         <div className={cn('app-profile__sessions', 'flex flex-col gap-3')}>
-            {rows.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                    No active sessions.
-                </p>
-            ) : (
-                <div className="flex flex-col gap-2">
-                    {rows.map((row) => {
-                        const { isMobile, label } = describeUserAgent(
-                            row.userAgent,
-                        );
-                        const Icon = isMobile ? Smartphone : Monitor;
-                        const last = formatDistanceToNow(
-                            new Date(row.lastUsedAt),
-                            { addSuffix: true },
-                        );
-                        return (
-                            <div
-                                className={cn(
-                                    'app-profile__session-item',
-                                    'flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-background p-3',
-                                )}
-                                data-state={row.current ? 'current' : undefined}
-                                key={row.sessionToken}
-                            >
-                                <div className="flex min-w-0 items-center gap-3">
-                                    <Icon className="size-4 shrink-0 text-muted-foreground" />
-                                    <div className="min-w-0">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <span className="font-medium text-white">
-                                                {label}
-                                            </span>
-                                            {row.current && (
-                                                <Badge variant="default">
-                                                    Current
-                                                </Badge>
-                                            )}
-                                        </div>
-                                        <p className="mt-0.5 text-xs text-muted-foreground">
-                                            {maskIp(row.ipAddress)} · last
-                                            active {last}
-                                        </p>
-                                    </div>
-                                </div>
-                                {!row.current && (
-                                    <Button
-                                        className="ml-auto"
-                                        disabled={pending || revoke.isPending}
-                                        onClick={() =>
-                                            startTransition(() =>
-                                                revoke.mutateAsync({
-                                                    sessionToken:
-                                                        row.sessionToken,
-                                                }),
-                                            )
-                                        }
-                                        size="sm"
-                                        variant="outline"
-                                    >
-                                        Revoke
-                                    </Button>
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
+            <DataTable<Row, unknown>
+                columns={columns}
+                data={rows}
+                emptyMessage="No active sessions."
+                pageSize={null}
+                rowClassName={(r) => (r.current ? 'bg-primary/5' : undefined)}
+                rowId={(r) => r.sessionToken}
+                tableClassName="min-w-max whitespace-nowrap"
+            />
 
             {hasOthers && (
                 <div className="flex justify-end">

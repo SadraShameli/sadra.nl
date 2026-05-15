@@ -1,8 +1,10 @@
 'use client';
 
+import { type ColumnDef } from '@tanstack/react-table';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Card } from '~/components/ui/Card';
+import { DataTable } from '~/components/ui/DataTable';
 import InfoPopover from '~/components/ui/InfoPopover';
 import { formatCurrency, formatDays, formatPercent } from '~/lib/format';
 import {
@@ -23,8 +25,11 @@ interface PlanComparisonTableProps {
 }
 
 interface Row {
+    isBest: boolean;
     out: SimOutputs;
     plan: Plan;
+    ptdd: number;
+    score: number;
 }
 
 export default function PlanComparisonTable({
@@ -48,12 +53,32 @@ export default function PlanComparisonTable({
             const inputs = inputsRef.current;
             const plans = firmRef.current.plans;
             const trials = Math.min(500, inputs.trials);
-            const out: Row[] = plans.map((plan) => ({
+            const partial = plans.map((plan) => ({
                 out: simulate({ ...inputs, plan, trials }),
                 plan,
+                ptdd: plan.profitTarget / plan.drawdown.amount,
+            }));
+            const bestNet =
+                partial.length === 0
+                    ? Number.NEGATIVE_INFINITY
+                    : Math.max(...partial.map((r) => r.out.expectedMonthlyNet));
+            const withScore: Row[] = partial.map((r) => ({
+                ...r,
+                isBest:
+                    r.out.expectedMonthlyNet === bestNet &&
+                    bestNet > Number.NEGATIVE_INFINITY,
+                score:
+                    bestNet > 0
+                        ? Math.max(
+                              1,
+                              Math.round(
+                                  (r.out.expectedMonthlyNet / bestNet) * 5,
+                              ),
+                          )
+                        : 1,
             }));
             if (!cancelled) {
-                setRows(out);
+                setRows(withScore);
                 setPending(false);
             }
         }, 0);
@@ -63,10 +88,84 @@ export default function PlanComparisonTable({
         };
     }, [debouncedKey]);
 
-    const bestNet = useMemo(() => {
-        if (rows.length === 0) return -Infinity;
-        return Math.max(...rows.map((r) => r.out.expectedMonthlyNet));
-    }, [rows]);
+    const columns = useMemo<ColumnDef<Row>[]>(
+        () => [
+            {
+                accessorFn: (r) => r.plan.label,
+                cell: ({ row }) => row.original.plan.label,
+                header: 'Plan',
+                id: 'plan',
+            },
+            {
+                accessorFn: (r) => r.ptdd,
+                cell: ({ row }) => (
+                    <span
+                        className={cn(
+                            'font-mono',
+                            ptddColor(row.original.ptdd),
+                        )}
+                    >
+                        {row.original.ptdd.toFixed(2)}×
+                    </span>
+                ),
+                header: 'PT:DD',
+                id: 'ptdd',
+            },
+            {
+                accessorFn: (r) => r.out.passProbability,
+                cell: ({ row }) =>
+                    formatPercent(row.original.out.passProbability),
+                header: 'Pass%',
+                id: 'pass',
+            },
+            {
+                accessorFn: (r) => r.out.daysToPassP50,
+                cell: ({ row }) => formatDays(row.original.out.daysToPassP50),
+                header: 'Days',
+                id: 'days',
+            },
+            {
+                accessorFn: (r) => r.out.expectedGrossSpend,
+                cell: ({ row }) =>
+                    formatCurrency(row.original.out.expectedGrossSpend),
+                header: 'Exp. spend',
+                id: 'spend',
+            },
+            {
+                accessorFn: (r) => r.out.expectedMonthlyNet,
+                cell: ({ row }) =>
+                    formatCurrency(row.original.out.expectedMonthlyNet),
+                header: 'Monthly net',
+                id: 'monthlyNet',
+            },
+            {
+                accessorFn: (r) => r.out.roiOnCost,
+                cell: ({ row }) => formatPercent(row.original.out.roiOnCost),
+                header: 'ROI',
+                id: 'roi',
+            },
+            {
+                accessorFn: (r) => r.score,
+                cell: ({ row }) => {
+                    const isActive = row.original.plan === activePlan;
+                    return (
+                        <span className="text-amber-400">
+                            {'★'.repeat(row.original.score)}
+                            <span className="text-muted-foreground">
+                                {'★'.repeat(5 - row.original.score)}
+                            </span>
+                            {row.original.isBest && !isActive && (
+                                <span className="ml-1 text-emerald-400">★</span>
+                            )}
+                        </span>
+                    );
+                },
+                header: 'Score',
+                id: 'score',
+            },
+        ],
+        [activePlan],
+    );
 
     return (
         <Card
@@ -87,103 +186,20 @@ export default function PlanComparisonTable({
                         : `${rows.length} plan${rows.length === 1 ? '' : 's'}`}
                 </span>
             </div>
-            <p className="mb-2 text-[11px] text-muted-foreground md:hidden">
-                swipe to see more →
-            </p>
-            <div className="overflow-x-auto">
-                <table
-                    className={cn(
-                        'app-prop-calculator__plan-comparison-table',
-                        'w-full min-w-max text-xs whitespace-nowrap tabular-nums',
-                    )}
-                >
-                    <thead className="text-muted-foreground">
-                        <tr className="text-left">
-                            <th className="py-1 pr-3 font-medium">Plan</th>
-                            <th className="py-1 pr-3 font-medium">PT:DD</th>
-                            <th className="py-1 pr-3 font-medium">Pass%</th>
-                            <th className="py-1 pr-3 font-medium">Days</th>
-                            <th className="py-1 pr-3 font-medium">
-                                Exp. spend
-                            </th>
-                            <th className="py-1 pr-3 font-medium">
-                                Monthly net
-                            </th>
-                            <th className="py-1 pr-3 font-medium">ROI</th>
-                            <th className="py-1 pr-3 font-medium">Score</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {rows.map(({ out, plan }) => {
-                            const isActive = plan === activePlan;
-                            const ptdd =
-                                plan.profitTarget / plan.drawdown.amount;
-                            const score =
-                                bestNet > 0
-                                    ? Math.max(
-                                          1,
-                                          Math.round(
-                                              (out.expectedMonthlyNet /
-                                                  bestNet) *
-                                                  5,
-                                          ),
-                                      )
-                                    : 1;
-                            const isBest =
-                                out.expectedMonthlyNet === bestNet &&
-                                bestNet > -Infinity;
-                            return (
-                                <tr
-                                    className={cn(
-                                        'border-t border-border/40 transition-colors',
-                                        isActive &&
-                                            'bg-primary/10 font-semibold text-foreground',
-                                    )}
-                                    key={JSON.stringify(plan.id)}
-                                >
-                                    <td className="py-1.5 pr-3">
-                                        {plan.label}
-                                    </td>
-                                    <td
-                                        className={cn(
-                                            'py-1.5 pr-3 font-mono',
-                                            ptddColor(ptdd),
-                                        )}
-                                    >
-                                        {ptdd.toFixed(2)}×
-                                    </td>
-                                    <td className="py-1.5 pr-3">
-                                        {formatPercent(out.passProbability)}
-                                    </td>
-                                    <td className="py-1.5 pr-3">
-                                        {formatDays(out.daysToPassP50)}
-                                    </td>
-                                    <td className="py-1.5 pr-3">
-                                        {formatCurrency(out.expectedGrossSpend)}
-                                    </td>
-                                    <td className="py-1.5 pr-3">
-                                        {formatCurrency(out.expectedMonthlyNet)}
-                                    </td>
-                                    <td className="py-1.5 pr-3">
-                                        {formatPercent(out.roiOnCost)}
-                                    </td>
-                                    <td className="py-1.5 pr-3 text-amber-400">
-                                        {'★'.repeat(score)}
-                                        <span className="text-muted-foreground">
-                                            {'★'.repeat(5 - score)}
-                                        </span>
-                                        {isBest && !isActive && (
-                                            <span className="ml-1 text-emerald-400">
-                                                ★
-                                            </span>
-                                        )}
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
-            </div>
+            <DataTable<Row, unknown>
+                className="app-prop-calculator__plan-comparison-table text-xs tabular-nums"
+                columns={columns}
+                data={rows}
+                emptyMessage={pending ? 'computing…' : 'No plans.'}
+                pageSize={null}
+                rowClassName={(r) =>
+                    r.plan === activePlan
+                        ? 'bg-primary/10 font-semibold text-foreground'
+                        : undefined
+                }
+                rowId={(r) => JSON.stringify(r.plan.id)}
+                tableClassName="min-w-max whitespace-nowrap"
+            />
         </Card>
     );
 }

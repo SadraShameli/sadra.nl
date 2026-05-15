@@ -170,10 +170,6 @@ export default function StrategyLabPanel({
                     </Button>
                 </div>
             </div>
-
-            <p className="mb-2 text-[11px] text-muted-foreground md:hidden">
-                swipe to see more →
-            </p>
             <div className="overflow-x-auto">
                 <table
                     className={cn(

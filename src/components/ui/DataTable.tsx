@@ -38,9 +38,11 @@ export type DataTableProps<TData, TValue> = {
     isLoading?: boolean;
     onRowSelectionChange?: (rows: TData[]) => void;
     pageSize?: null | number;
+    rowClassName?: (row: TData) => string | undefined;
     rowId?: (row: TData) => string;
     rowSelection?: boolean;
     showFilter?: boolean;
+    tableClassName?: string;
 };
 
 export function DataTable<TData, TValue>({
@@ -53,9 +55,11 @@ export function DataTable<TData, TValue>({
     isLoading,
     onRowSelectionChange,
     pageSize = 10,
+    rowClassName,
     rowId,
     rowSelection: enableSelection = false,
     showFilter = false,
+    tableClassName,
 }: DataTableProps<TData, TValue>) {
     const [sorting, setSorting] = useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -121,7 +125,7 @@ export function DataTable<TData, TValue>({
                 </div>
             )}
             <div className="overflow-hidden rounded-lg border border-border/60 bg-background">
-                <Table>
+                <Table className={tableClassName}>
                     <TableHeader>
                         {table.getHeaderGroups().map((headerGroup) => (
                             <TableRow key={headerGroup.id}>
@@ -186,6 +190,7 @@ export function DataTable<TData, TValue>({
                         ) : (
                             table.getRowModel().rows.map((row) => (
                                 <TableRow
+                                    className={cn(rowClassName?.(row.original))}
                                     data-state={
                                         row.getIsSelected()
                                             ? 'selected'
