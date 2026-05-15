@@ -161,7 +161,7 @@ export default function TradeJournal() {
 
     return (
         <Card className={cn('app-prop-calculator__trade-journal', 'px-5 py-5')}>
-            <div className="mb-4 flex items-center gap-2">
+            <div className="flex items-center gap-2">
                 <h3 className="text-sm font-semibold">
                     Trade Journal & Edge Verifier
                 </h3>

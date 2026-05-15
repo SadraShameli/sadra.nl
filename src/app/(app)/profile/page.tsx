@@ -5,14 +5,17 @@ import { Alert, AlertDescription } from '~/components/ui/Alert';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { Separator } from '~/components/ui/Separator';
 import { auth } from '~/lib/auth';
+import { isAdminOrAbove, resolveRole } from '~/lib/auth-roles';
 import { profileSearchSchema } from '~/lib/schemas/url';
 import { ensureUserHasPlan } from '~/lib/trading-actions';
 import { cn } from '~/lib/utils';
 import { db, tradingPlans, users } from '~/server/db';
 
+import { AccountManagement } from './_components/AccountManagement';
 import { DeleteAccountDialog } from './_components/DeleteAccountDialog';
 import { LogoutButton } from './_components/LogoutButton';
 import { ProfileTabs } from './_components/ProfileTabs';
+import { SensorHubTab } from './_components/SensorHubTab';
 import { SessionsList } from './_components/SessionsList';
 import { TradingPlanTab } from './_components/TradingPlanTab';
 import { UpdateNameForm } from './_components/UpdateNameForm';
@@ -50,6 +53,8 @@ export default async function ProfilePage({
         .orderBy(tradingPlans.sortOrder, desc(tradingPlans.updatedAt));
 
     const { email, name } = user;
+    const role = resolveRole(user.email, user.role);
+    const isAdmin = isAdminOrAbove(role);
 
     const accountTab = (
         <>
@@ -102,6 +107,8 @@ export default async function ProfilePage({
                 </CardContent>
             </Card>
 
+            {isAdmin && <AccountManagement callerRole={role} />}
+
             <Card>
                 <CardContent>
                     <div className="flex items-center justify-between">
@@ -130,6 +137,7 @@ export default async function ProfilePage({
         </>
     );
 
+    const sensorHubTab = isAdmin ? <SensorHubTab /> : null;
     const tradingPlanTab = <TradingPlanTab plans={plans} />;
 
     const securityTab = (
@@ -161,6 +169,7 @@ export default async function ProfilePage({
                 <ProfileTabs
                     accountTab={accountTab}
                     securityTab={securityTab}
+                    sensorHubTab={sensorHubTab}
                     tradingPlanTab={tradingPlanTab}
                 />
             </div>

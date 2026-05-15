@@ -6,6 +6,7 @@ import { env } from '~/env';
 
 import * as authSchema from './schemas/auth';
 import * as schema from './schemas/main';
+import * as notificationSchema from './schemas/notification';
 import * as tradingSchema from './schemas/trading';
 
 export {
@@ -15,6 +16,7 @@ export {
     users,
     verificationTokens,
 } from './schemas/auth';
+export { notificationPreference } from './schemas/notification';
 export {
     dailyPreparations,
     tradeAssessments,
@@ -43,7 +45,12 @@ attachDatabasePool(pool);
 if (env.NODE_ENV !== 'production') globalForDb.pool = pool;
 
 export const db = drizzle(pool, {
-    schema: { ...schema, ...authSchema, ...tradingSchema },
+    schema: {
+        ...schema,
+        ...authSchema,
+        ...tradingSchema,
+        ...notificationSchema,
+    },
 });
 
 export async function endDb() {

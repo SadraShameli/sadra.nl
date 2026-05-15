@@ -223,7 +223,7 @@ export default function StrategyAnalysis({
                 'px-5 py-5',
             )}
         >
-            <div className="mb-4 flex items-center gap-2">
+            <div className="flex items-center gap-2">
                 <h3 className="text-sm font-semibold">Strategy Analysis</h3>
                 <InfoPopover title="Strategy analysis">
                     {panelDescriptions.strategyAnalysis}
@@ -649,7 +649,7 @@ function SectionHeader({
     title: string;
 }) {
     return (
-        <div className="mb-3 flex items-center gap-2">
+        <div className="flex items-center gap-2">
             <h4 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
                 {title}
             </h4>

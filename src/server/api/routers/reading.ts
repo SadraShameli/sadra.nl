@@ -2,12 +2,14 @@ import { format } from 'date-fns';
 import { and, asc, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
+import { buildReadingEmail, fanOutEvent } from '~/lib/notify';
 import {
+    adminProcedure,
     type ContextType,
     createTRPCRouter,
     publicProcedure,
 } from '~/server/api/trpc';
-import { reading, sensor } from '~/server/db/schemas/main';
+import { location, reading, sensor } from '~/server/db/schemas/main';
 
 import {
     type GetReadingsRecord,
@@ -20,7 +22,7 @@ import {
     getReadingsQueryProps,
     type Granularity,
 } from '../types/zod';
-import { getDevice } from './device';
+import { getOrCreateDevice } from './device';
 import { getSensor } from './sensor';
 
 async function getReading(
@@ -118,35 +120,76 @@ export const readingRouter = createTRPCRouter({
     createReading: publicProcedure
         .input(createReadingProps)
         .mutation(async ({ ctx, input }) => {
-            const device = await getDevice({ device_id: input.device_id }, ctx);
+            const dev = await getOrCreateDevice(input.device_id, ctx);
 
-            if (!device.data) {
-                return device;
-            }
+            const sensorReadings: {
+                name: string;
+                unit: null | string;
+                value: number;
+            }[] = [];
 
-            for (const sensor in input.sensors) {
-                const value = input.sensors[sensor];
+            for (const sensorKey in input.sensors) {
+                const value = input.sensors[sensorKey];
                 if (value == undefined) {
                     return {
-                        error: `No value provided for sensor ${sensor}`,
+                        error: `No value provided for sensor ${sensorKey}`,
                         status: 400,
                     };
                 }
 
-                const sensorResult = await getSensor({ id: +sensor }, ctx);
+                const sensorResult = await getSensor({ id: +sensorKey }, ctx);
                 if (!sensorResult.data) {
                     return sensorResult;
                 }
 
                 await ctx.db.insert(reading).values({
-                    device_id: device.data.id,
-                    location_id: device.data.location_id,
+                    device_id: dev.id,
+                    location_id: dev.locationId,
                     sensor_id: sensorResult.data.id,
                     value: value,
                 });
+
+                sensorReadings.push({
+                    name: sensorResult.data.name,
+                    unit: sensorResult.data.unit,
+                    value,
+                });
             }
 
+            const [loc] = await ctx.db
+                .select({ name: location.name })
+                .from(location)
+                .where(eq(location.id, dev.locationId))
+                .limit(1);
+
+            fanOutEvent(
+                'reading_created',
+                buildReadingEmail({
+                    deviceName: dev.name,
+                    locationName: loc?.name ?? null,
+                    sensorReadings,
+                }),
+            ).catch((error: unknown) =>
+                console.error('[reading] notify failed', error),
+            );
+
             return { status: 201 };
+        }),
+
+    delete: adminProcedure
+        .input(z.object({ id: z.number().int().positive() }))
+        .mutation(async ({ ctx, input }) => {
+            await ctx.db.delete(reading).where(eq(reading.id, input.id));
+            return { ok: true };
+        }),
+
+    deleteBulk: adminProcedure
+        .input(z.object({ ids: z.array(z.number().int().positive()).min(1) }))
+        .mutation(async ({ ctx, input }) => {
+            const result = await ctx.db
+                .delete(reading)
+                .where(inArray(reading.id, input.ids));
+            return { deleted: result.rowCount ?? input.ids.length };
         }),
 
     getReading: publicProcedure
@@ -263,5 +306,36 @@ export const readingRouter = createTRPCRouter({
             }
 
             return { data: out };
+        }),
+
+    listAdmin: adminProcedure
+        .input(
+            z.object({
+                device_id: z.number().int().positive().optional(),
+                limit: z.number().int().min(1).max(500).default(100),
+                location_id: z.number().int().positive().optional(),
+                offset: z.number().int().nonnegative().default(0),
+                sensor_id: z.number().int().positive().optional(),
+            }),
+        )
+        .query(async ({ ctx, input }) => {
+            const where = and(
+                input.location_id
+                    ? eq(reading.location_id, input.location_id)
+                    : undefined,
+                input.device_id
+                    ? eq(reading.device_id, input.device_id)
+                    : undefined,
+                input.sensor_id
+                    ? eq(reading.sensor_id, input.sensor_id)
+                    : undefined,
+            );
+            return await ctx.db
+                .select()
+                .from(reading)
+                .where(where)
+                .orderBy(desc(reading.id))
+                .limit(input.limit)
+                .offset(input.offset);
         }),
 });

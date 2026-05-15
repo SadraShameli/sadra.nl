@@ -87,6 +87,7 @@ export function SessionsList() {
                                 </div>
                                 {!row.current && (
                                     <Button
+                                        className="ml-auto"
                                         disabled={pending || revoke.isPending}
                                         onClick={() =>
                                             startTransition(() =>

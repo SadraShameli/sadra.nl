@@ -9,6 +9,7 @@ export default {
         './src/server/db/schemas/main.ts',
         './src/server/db/schemas/auth.ts',
         './src/server/db/schemas/trading.ts',
+        './src/server/db/schemas/notification.ts',
     ],
     tablesFilter: ['sadranl_*'],
 } satisfies Config;

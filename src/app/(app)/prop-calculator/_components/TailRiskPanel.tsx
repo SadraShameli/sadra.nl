@@ -79,7 +79,7 @@ export default function TailRiskPanel({ result }: TailRiskPanelProps) {
 
     return (
         <Card className={cn('app-prop-calculator__tail-risk', 'px-5 py-5')}>
-            <div className="mb-4 flex items-center gap-2">
+            <div className="flex items-center gap-2">
                 <h3 className="text-sm font-semibold">Tail Risk</h3>
                 <InfoPopover title="Tail Risk">
                     Value at Risk (VaR) and Conditional VaR (Expected Shortfall)

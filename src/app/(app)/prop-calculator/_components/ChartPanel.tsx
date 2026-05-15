@@ -60,7 +60,7 @@ export default function ChartPanel({
 }: ChartPanelProps) {
     return (
         <Card className={cn('app-prop-calculator__chart-panel', 'px-6 py-6')}>
-            <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                 <div className="flex items-center gap-2">
                     <h3 className="text-sm font-semibold">
                         {TITLES[chartType]}

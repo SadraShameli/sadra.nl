@@ -1,7 +1,14 @@
-import { and, desc, eq, gte } from 'drizzle-orm';
-import { type z } from 'zod';
+import { TRPCError } from '@trpc/server';
+import { and, desc, eq, gte, max } from 'drizzle-orm';
+import { z } from 'zod';
 
+import { buildLocationEmail, fanOutEvent } from '~/lib/notify';
 import {
+    locationCreateSchema,
+    locationUpdateSchema,
+} from '~/lib/schemas/sensor-hub';
+import {
+    adminProcedure,
     type ContextType,
     createTRPCRouter,
     publicProcedure,
@@ -11,6 +18,47 @@ import { location, reading, type recording } from '~/server/db/schemas/main';
 import { getLocationProps, getLocationReadingsProps } from '..//types/zod';
 import { type Result } from '../types/types';
 import { getSensor } from './sensor';
+
+const PLACEHOLDER_LOCATION_NAME = 'Unassigned';
+
+export async function getOrCreatePlaceholderLocation(
+    ctx: ContextType,
+): Promise<{ id: number; name: string }> {
+    const existing = await ctx.db.query.location.findFirst({
+        where: (l) => eq(l.name, PLACEHOLDER_LOCATION_NAME),
+    });
+    if (existing) {
+        return { id: existing.id, name: existing.name };
+    }
+    const [maxRow] = await ctx.db
+        .select({ value: max(location.location_id) })
+        .from(location);
+    const nextLocationId = (maxRow?.value ?? 0) + 1;
+    const [inserted] = await ctx.db
+        .insert(location)
+        .values({
+            location_id: nextLocationId,
+            location_name: 'auto',
+            name: PLACEHOLDER_LOCATION_NAME,
+        })
+        .returning({ id: location.id, name: location.name });
+    if (!inserted) {
+        throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to create placeholder location',
+        });
+    }
+    fanOutEvent(
+        'location_created',
+        buildLocationEmail({
+            locationId: nextLocationId,
+            locationName: PLACEHOLDER_LOCATION_NAME,
+        }),
+    ).catch((error: unknown) =>
+        console.error('[location] auto-provision notify failed', error),
+    );
+    return { id: inserted.id, name: inserted.name };
+}
 
 async function getLocation(
     input: z.infer<typeof getLocationProps>,
@@ -31,6 +79,32 @@ async function getLocation(
 }
 
 export const locationRouter = createTRPCRouter({
+    create: adminProcedure
+        .input(locationCreateSchema)
+        .mutation(async ({ ctx, input }) => {
+            const [inserted] = await ctx.db
+                .insert(location)
+                .values(input)
+                .returning({ id: location.id });
+            fanOutEvent(
+                'location_created',
+                buildLocationEmail({
+                    locationId: input.location_id,
+                    locationName: input.name,
+                }),
+            ).catch((error: unknown) =>
+                console.error('[location] create notify failed', error),
+            );
+            return { id: inserted?.id };
+        }),
+
+    delete: adminProcedure
+        .input(z.object({ id: z.number().int().positive() }))
+        .mutation(async ({ ctx, input }) => {
+            await ctx.db.delete(location).where(eq(location.id, input.id));
+            return { ok: true };
+        }),
+
     getLocation: publicProcedure
         .input(getLocationProps)
         .query(async ({ ctx, input }) => {
@@ -161,4 +235,18 @@ export const locationRouter = createTRPCRouter({
 
         return { data: locations };
     }),
+
+    listAdmin: adminProcedure.query(async ({ ctx }) => {
+        return await ctx.db.query.location.findMany({
+            orderBy: (l, { asc }) => [asc(l.location_id)],
+        });
+    }),
+
+    update: adminProcedure
+        .input(locationUpdateSchema)
+        .mutation(async ({ ctx, input }) => {
+            const { id, ...rest } = input;
+            await ctx.db.update(location).set(rest).where(eq(location.id, id));
+            return { ok: true };
+        }),
 });

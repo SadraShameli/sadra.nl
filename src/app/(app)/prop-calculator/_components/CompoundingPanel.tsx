@@ -109,7 +109,7 @@ export default function CompoundingPanel({
 
     return (
         <Card className={cn('app-prop-calculator__compounding', 'px-5 py-5')}>
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                     <h3 className="text-sm font-semibold">
                         Compounding Growth Simulator

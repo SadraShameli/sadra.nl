@@ -3,6 +3,7 @@ import superjson from 'superjson';
 import { z, ZodError } from 'zod';
 
 import { auth } from '~/lib/auth';
+import { isAdminOrAbove, isRoot } from '~/lib/auth-roles';
 import { db } from '~/server/db';
 
 export const createTRPCContext = async (opts: { headers: Headers }) => {
@@ -49,4 +50,18 @@ export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
             userId: ctx.session.user.id,
         },
     });
+});
+
+export const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
+    if (!isAdminOrAbove(ctx.session.user.role)) {
+        throw new TRPCError({ code: 'FORBIDDEN' });
+    }
+    return next();
+});
+
+export const rootProcedure = protectedProcedure.use(({ ctx, next }) => {
+    if (!isRoot(ctx.session.user.role)) {
+        throw new TRPCError({ code: 'FORBIDDEN' });
+    }
+    return next();
 });

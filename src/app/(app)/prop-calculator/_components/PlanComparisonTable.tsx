@@ -72,7 +72,7 @@ export default function PlanComparisonTable({
         <Card
             className={cn('app-prop-calculator__plan-comparison', 'px-5 py-4')}
         >
-            <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <div className="flex items-center gap-2">
                     <h3 className="text-sm font-semibold">
                         Plans within {firm.displayName}

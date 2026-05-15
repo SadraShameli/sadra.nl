@@ -96,7 +96,7 @@ export default function DrawdownDurationPanel({
                 'px-5 py-5',
             )}
         >
-            <div className="mb-4 flex items-center gap-2">
+            <div className="flex items-center gap-2">
                 <h3 className="text-sm font-semibold">
                     Drawdown Duration & Recovery
                 </h3>

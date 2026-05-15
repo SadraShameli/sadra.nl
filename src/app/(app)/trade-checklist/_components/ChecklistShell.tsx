@@ -192,7 +192,7 @@ function PlanHeader({
 
     return (
         <Card className="bg-black">
-            <CardContent className="flex flex-wrap items-center justify-between gap-3">
+            <CardContent className="flex justify-between">
                 <div>
                     <p className="text-xs tracking-wider text-muted-foreground uppercase">
                         Active plan

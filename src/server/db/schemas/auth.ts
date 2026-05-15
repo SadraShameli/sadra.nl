@@ -24,6 +24,7 @@ export const users = createTable(
         image: varchar('image', { length: 256 }),
         name: varchar('name', { length: 256 }),
         password: varchar('password', { length: 256 }),
+        role: varchar('role', { length: 16 }).notNull().default('user'),
     },
     (t) => [
         uniqueIndex('sadranl_user_email_lower_unique').on(

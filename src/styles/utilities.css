@@ -163,7 +163,6 @@
     @media (min-width: 768px) {
         margin-inline: auto;
         max-width: 768px;
-        padding-inline: 48px;
     }
 
     @media (min-width: 1024px) {
@@ -172,6 +171,5 @@
 
     @media (min-width: 1400px) {
         max-width: 1400px;
-        padding-inline: 64px;
     }
 }

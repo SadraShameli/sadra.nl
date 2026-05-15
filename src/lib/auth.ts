@@ -12,6 +12,7 @@ import Email from 'next-auth/providers/nodemailer';
 import { headers } from 'next/headers';
 
 import { env } from '~/env';
+import { resolveRole, ROOT_EMAIL } from '~/lib/auth-roles';
 import { sendMagicLinkEmail, sendSignUpNotification } from '~/lib/email';
 import { credentialsSchema } from '~/lib/schemas/session';
 import { accounts, db, sessions, users, verificationTokens } from '~/server/db';
@@ -167,6 +168,7 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
                     email: users.email,
                     image: users.image,
                     name: users.name,
+                    role: users.role,
                 })
                 .from(users)
                 .where(eq(users.id, userId))
@@ -176,11 +178,21 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
             session.user.name = row?.name ?? null;
             session.user.email = row?.email ?? '';
             session.user.image = row?.image ?? null;
+            session.user.role = resolveRole(row?.email, row?.role);
             return session;
         },
     },
     events: {
         async createUser({ user }) {
+            if (
+                user.email?.toLowerCase() === ROOT_EMAIL &&
+                typeof user.id === 'string'
+            ) {
+                await db
+                    .update(users)
+                    .set({ role: 'root' })
+                    .where(eq(users.id, user.id));
+            }
             sendSignUpNotification(user.email ?? '', user.name).catch(
                 (error: unknown) =>
                     console.error('[auth] sign-up notification failed', error),

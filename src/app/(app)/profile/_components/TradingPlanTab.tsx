@@ -17,6 +17,7 @@ import {
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { zodResolver } from '@hookform/resolvers/zod';
 import {
     Check,
     Copy,
@@ -30,6 +31,7 @@ import {
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
 import type { TradingPlanRow } from '~/lib/trading-types';
@@ -59,6 +61,10 @@ import {
 import { Input } from '~/components/ui/Input';
 import { Label } from '~/components/ui/Label';
 import { Separator } from '~/components/ui/Separator';
+import {
+    type TradingPlanCreateInput,
+    tradingPlanCreateSchema,
+} from '~/lib/schemas/sensor-hub';
 import {
     cloneTradingPlan,
     createTradingPlan,
@@ -95,7 +101,10 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
         return plans.find((p) => p.isActive)?.id ?? plans[0]?.id ?? null;
     });
     const [newDialogOpen, setNewDialogOpen] = useState(false);
-    const [newName, setNewName] = useState('');
+    const newPlanForm = useForm<TradingPlanCreateInput>({
+        defaultValues: { name: '' },
+        resolver: zodResolver(tradingPlanCreateSchema),
+    });
     const [creating, startCreate] = useTransition();
     const [pendingActionId, setPendingActionId] = useState<null | string>(null);
     const [pending, startPlanAction] = useTransition();
@@ -165,13 +174,12 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
         });
     };
 
-    const create = () => {
-        const name = newName.trim();
-        if (!name) return;
+    const create = newPlanForm.handleSubmit((values) => {
         startCreate(async () => {
-            await createTradingPlan({ name });
+            await createTradingPlan({ name: values.name });
+            newPlanForm.reset();
         });
-    };
+    });
 
     const setActive = (planId: string) => {
         setPendingActionId(planId);
@@ -200,7 +208,7 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
             className={cn('app-profile__trading-plans', 'flex flex-col gap-6')}
         >
             <Card>
-                <CardHeader className="flex flex-wrap items-center justify-between gap-3">
+                <CardHeader>
                     <CardTitle>Your trading plans</CardTitle>
                     <div className="flex flex-wrap items-center gap-2">
                         <Button asChild size="sm" variant="outline">
@@ -276,39 +284,43 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
 
             <Dialog onOpenChange={setNewDialogOpen} open={newDialogOpen}>
                 <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>New trading plan</DialogTitle>
-                        <DialogDescription>
-                            Starts from the default config — you can tune it
-                            after.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div>
-                        <Label className="text-sm" htmlFor="newPlanName">
-                            Name
-                        </Label>
-                        <Input
-                            className="mt-2"
-                            id="newPlanName"
-                            onChange={(e) => setNewName(e.target.value)}
-                            placeholder="Funded plan"
-                            value={newName}
-                        />
-                    </div>
-                    <DialogFooter>
-                        <Button
-                            onClick={() => setNewDialogOpen(false)}
-                            variant="ghost"
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            disabled={creating || !newName.trim()}
-                            onClick={create}
-                        >
-                            Create
-                        </Button>
-                    </DialogFooter>
+                    <form onSubmit={create}>
+                        <DialogHeader>
+                            <DialogTitle>New trading plan</DialogTitle>
+                            <DialogDescription>
+                                Starts from the default config — you can tune it
+                                after.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="mt-4">
+                            <Label className="text-sm" htmlFor="newPlanName">
+                                Name
+                            </Label>
+                            <Input
+                                className="mt-2"
+                                id="newPlanName"
+                                placeholder="Funded plan"
+                                {...newPlanForm.register('name')}
+                            />
+                            {newPlanForm.formState.errors.name && (
+                                <p className="mt-1.5 text-xs text-destructive">
+                                    {newPlanForm.formState.errors.name.message}
+                                </p>
+                            )}
+                        </div>
+                        <DialogFooter className="mt-4">
+                            <Button
+                                onClick={() => setNewDialogOpen(false)}
+                                type="button"
+                                variant="ghost"
+                            >
+                                Cancel
+                            </Button>
+                            <Button disabled={creating} type="submit">
+                                Create
+                            </Button>
+                        </DialogFooter>
+                    </form>
                 </DialogContent>
             </Dialog>
         </div>
