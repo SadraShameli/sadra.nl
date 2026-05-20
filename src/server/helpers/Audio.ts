@@ -15,6 +15,14 @@ const IMA_INDEX_TABLE = [
     -1, -1, -1, -1, 2, 4, 6, 8, -1, -1, -1, -1, 2, 4, 6, 8,
 ] as const;
 
+type Biquad = {
+    a1: number;
+    a2: number;
+    b0: number;
+    b1: number;
+    b2: number;
+};
+
 class AudioFile {
     audioFormat = 0;
     bitsPerSample = 0;
@@ -108,6 +116,39 @@ class AudioFile {
         }
     }
 
+    applyAWeighting() {
+        if (this.samples.length === 0 || this.sampleRate <= 0) return;
+        const biquads = aWeightingBiquads(this.sampleRate);
+        const floats = new Float64Array(this.samples.length);
+        for (let i = 0; i < this.samples.length; i++)
+            floats[i] = this.samples[i] ?? 0;
+
+        for (const bq of biquads) {
+            let x1 = 0;
+            let x2 = 0;
+            let y1 = 0;
+            let y2 = 0;
+            for (let i = 0; i < floats.length; i++) {
+                const x0 = floats[i] ?? 0;
+                const y0 =
+                    bq.b0 * x0 +
+                    bq.b1 * x1 +
+                    bq.b2 * x2 -
+                    bq.a1 * y1 -
+                    bq.a2 * y2;
+                floats[i] = y0;
+                x2 = x1;
+                x1 = x0;
+                y2 = y1;
+                y1 = y0;
+            }
+        }
+
+        for (const [i, float] of floats.entries()) {
+            this.samples[i] = clampInt16(Math.round(float));
+        }
+    }
+
     getBuffer() {
         const dataBytes = this.samples.length * 2;
         const buffer = Buffer.alloc(44 + dataBytes);
@@ -154,6 +195,18 @@ class AudioFile {
             this.samples[i] = (this.samples[i] ?? 0) * scale;
         }
     }
+
+    removeDcOffset() {
+        if (this.samples.length === 0) return;
+        let sum = 0;
+        for (const s of this.samples) sum += s;
+        const mean = sum / this.samples.length;
+        if (Math.abs(mean) < 0.5) return;
+        for (let i = 0; i < this.samples.length; i++) {
+            const v = (this.samples[i] ?? 0) - mean;
+            this.samples[i] = clampInt16(Math.round(v));
+        }
+    }
 }
 
 export function applyAudioFilters(samplesBuffer: Buffer): {
@@ -167,8 +220,93 @@ export function applyAudioFilters(samplesBuffer: Buffer): {
         return { buffer: samplesBuffer, durationSeconds };
     }
 
+    audio.removeDcOffset();
+    audio.applyAWeighting();
     audio.normalizeToPeak();
     return { buffer: audio.getBuffer(), durationSeconds };
+}
+
+export function aWeightingBiquads(sampleRate: number): Biquad[] {
+    const fs = sampleRate;
+    const c = 2 * fs;
+
+    const f1 = 20.598_997;
+    const f2 = 107.652_65;
+    const f3 = 737.862_23;
+    const f4 = 12_194.217;
+
+    const w1 = c * Math.tan((Math.PI * f1) / fs);
+    const w2 = c * Math.tan((Math.PI * f2) / fs);
+    const w3 = c * Math.tan((Math.PI * f3) / fs);
+    const w4 = c * Math.tan((Math.PI * f4) / fs);
+
+    const sections: Biquad[] = [
+        biquadFromAnalog([0, 0, 1], [w1 * w1, 2 * w1, 1], c),
+        biquadFromAnalog([0, 0, 1], [w4 * w4, 2 * w4, 1], c),
+        biquadFromAnalog([0, 1, 0], [w2, 1, 0], c),
+        biquadFromAnalog([0, 1, 0], [w3, 1, 0], c),
+    ];
+
+    const normFreq = 1000;
+    const omega = (2 * Math.PI * normFreq) / fs;
+    const cosw = Math.cos(omega);
+    const sinw = Math.sin(omega);
+
+    let mag = 1;
+    for (const s of sections) {
+        const num =
+            s.b0 * s.b0 +
+            s.b1 * s.b1 +
+            s.b2 * s.b2 +
+            2 * cosw * (s.b0 * s.b1 + s.b1 * s.b2) +
+            2 * (2 * cosw * cosw - 1) * s.b0 * s.b2;
+        const den =
+            1 +
+            s.a1 * s.a1 +
+            s.a2 * s.a2 +
+            2 * cosw * (s.a1 + s.a1 * s.a2) +
+            2 * (2 * cosw * cosw - 1) * s.a2;
+        mag *= Math.sqrt(Math.max(num, 0)) / Math.sqrt(Math.max(den, 1e-30));
+    }
+
+    void sinw;
+    const gain = mag > 0 ? 1 / mag : 1;
+    const first = sections[0];
+    if (first) {
+        first.b0 *= gain;
+        first.b1 *= gain;
+        first.b2 *= gain;
+    }
+    return sections;
+}
+
+function biquadFromAnalog(
+    b: [number, number, number],
+    a: [number, number, number],
+    c: number,
+): Biquad {
+    const c2 = c * c;
+    const B0 = b[0] + b[1] * c + b[2] * c2;
+    const B1 = 2 * b[0] - 2 * b[2] * c2;
+    const B2 = b[0] - b[1] * c + b[2] * c2;
+
+    const A0 = a[0] + a[1] * c + a[2] * c2;
+    const A1 = 2 * a[0] - 2 * a[2] * c2;
+    const A2 = a[0] - a[1] * c + a[2] * c2;
+
+    return {
+        a1: A1 / A0,
+        a2: A2 / A0,
+        b0: B0 / A0,
+        b1: B1 / A0,
+        b2: B2 / A0,
+    };
+}
+
+function clampInt16(value: number): number {
+    if (value > 32_767) return 32_767;
+    if (value < -32_768) return -32_768;
+    return value;
 }
 
 function decodeImaAdpcmBlocks(

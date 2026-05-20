@@ -8,6 +8,7 @@ import {
     CardHeader,
     CardTitle,
 } from '~/components/ui/Card';
+import { routes } from '~/lib/routes';
 import { forgotPasswordSearchSchema } from '~/lib/schemas/url';
 import { cn } from '~/lib/utils';
 
@@ -33,7 +34,7 @@ export default async function ForgotPasswordPage({
                         'app-auth__logo',
                         'mb-8 block text-center font-orbitron text-lg font-semibold tracking-widest text-white',
                     )}
-                    href="/"
+                    href={routes.home}
                 >
                     sadra.nl
                 </Link>
@@ -61,7 +62,7 @@ export default async function ForgotPasswordPage({
                         <p className="text-center text-sm text-muted-foreground">
                             <Link
                                 className="text-foreground underline underline-offset-4 hover:opacity-70"
-                                href="/login"
+                                href={routes.auth.login}
                             >
                                 Back to sign in
                             </Link>

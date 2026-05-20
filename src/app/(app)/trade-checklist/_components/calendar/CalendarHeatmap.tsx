@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useMemo } from 'react';
 
+import { routes, withQuery } from '~/lib/routes';
 import { dayCellGrid, type LightAssessment } from '~/lib/trading-analytics';
 import { cn } from '~/lib/utils';
 
@@ -102,7 +103,10 @@ export function CalendarHeatmap({ assessments, month }: CalendarHeatmapProps) {
                                         className={cn(
                                             'app-trade-checklist__calendar-day-link',
                                         )}
-                                        href={`/trade-checklist/journal?date=${cell.date}`}
+                                        href={withQuery(
+                                            routes.tradeChecklist.journal,
+                                            { date: cell.date },
+                                        )}
                                         key={cell.date}
                                     >
                                         {inner}

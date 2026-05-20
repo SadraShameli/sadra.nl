@@ -10,6 +10,7 @@ import { auth, signIn, signOut } from '~/lib/auth';
 import { sendPasswordResetEmail, sendSignUpNotification } from '~/lib/email';
 import { checkRateLimit } from '~/lib/rate-limit';
 import { isRedirectError } from '~/lib/redirect-error';
+import { routes, withQuery } from '~/lib/routes';
 import {
     callbackUrlSchema,
     type ForgotPasswordInput,
@@ -35,14 +36,14 @@ import {
 } from '~/lib/schemas/auth';
 import { db, passwordResetTokens, sessions, users } from '~/server/db';
 
-const DEFAULT_REDIRECT = '/';
+const DEFAULT_REDIRECT = routes.home;
 
 export async function deleteAccount(): Promise<void> {
     const session = await auth();
-    if (!session?.user.id) redirect('/login');
+    if (!session?.user.id) redirect(routes.auth.login);
 
     await db.delete(users).where(eq(users.id, session.user.id));
-    await signOut({ redirectTo: '/' });
+    await signOut({ redirectTo: routes.home });
 }
 
 export async function login(input: LoginInput): Promise<void> {
@@ -58,22 +59,21 @@ export async function login(input: LoginInput): Promise<void> {
         if (isRedirectError(error)) throw error;
         if (error instanceof CredentialsSignin) {
             redirect(
-                `/login?error=invalid${
-                    data.callbackUrl
-                        ? `&callbackUrl=${encodeURIComponent(data.callbackUrl)}`
-                        : ''
-                }`,
+                withQuery(routes.auth.login, {
+                    callbackUrl: data.callbackUrl,
+                    error: 'invalid',
+                }),
             );
         }
         if (error instanceof AuthError) {
-            redirect('/auth-error?error=sign_in');
+            redirect(withQuery(routes.auth.error, { error: 'sign_in' }));
         }
         throw error;
     }
 }
 
 export async function logout(): Promise<void> {
-    await signOut({ redirectTo: '/' });
+    await signOut({ redirectTo: routes.home });
 }
 
 export async function requestPasswordReset(
@@ -112,7 +112,7 @@ export async function requestPasswordReset(
         await sendPasswordResetEmail(data.email, rawToken);
     }
 
-    redirect('/forgot-password?sent=1');
+    redirect(withQuery(routes.auth.forgotPassword, { sent: 1 }));
 }
 
 export async function resetPassword(input: ResetPasswordInput): Promise<void> {
@@ -127,7 +127,7 @@ export async function resetPassword(input: ResetPasswordInput): Promise<void> {
         .limit(1);
 
     if (!row || row.expiresAt < new Date()) {
-        redirect('/reset-password?error=expired');
+        redirect(withQuery(routes.auth.resetPassword, { error: 'expired' }));
     }
 
     await db
@@ -141,13 +141,13 @@ export async function resetPassword(input: ResetPasswordInput): Promise<void> {
 
     await db.delete(sessions).where(eq(sessions.userId, row.userId));
 
-    redirect('/login?success=reset');
+    redirect(withQuery(routes.auth.login, { success: 'reset' }));
 }
 
 export async function setPassword(input: SetPasswordInput): Promise<void> {
     const data = setPasswordInputSchema.parse(input);
     const session = await auth();
-    if (!session?.user.id) redirect('/login');
+    if (!session?.user.id) redirect(routes.auth.login);
 
     const [user] = await db
         .select({ email: users.email, password: users.password })
@@ -156,14 +156,14 @@ export async function setPassword(input: SetPasswordInput): Promise<void> {
         .limit(1);
 
     if (!user || user.password || !user.email) {
-        redirect('/profile?error=pw_fail');
+        redirect(withQuery(routes.profile, { error: 'pw_fail' }));
     }
 
     await db
         .update(users)
         .set({ password: await hash(data.password, 12) })
         .where(eq(users.id, session.user.id));
-    redirect('/profile?success=password');
+    redirect(withQuery(routes.profile, { success: 'password' }));
 }
 
 export async function signInWithGithub(
@@ -196,7 +196,7 @@ export async function signInWithMagicLink(
         windowMs: 60 * 60 * 1000,
     });
     if (!allowed) {
-        redirect('/auth-error?error=rate_limited');
+        redirect(withQuery(routes.auth.error, { error: 'rate_limited' }));
     }
 
     try {
@@ -207,7 +207,7 @@ export async function signInWithMagicLink(
     } catch (error) {
         if (isRedirectError(error)) throw error;
         if (error instanceof AuthError) {
-            redirect('/auth-error?error=email_send');
+            redirect(withQuery(routes.auth.error, { error: 'email_send' }));
         }
         throw error;
     }
@@ -226,7 +226,7 @@ export async function signup(input: SignupInput): Promise<void> {
         });
     } catch (error) {
         if (isPgUniqueViolation(error)) {
-            redirect('/signup?error=taken');
+            redirect(withQuery(routes.auth.signup, { error: 'taken' }));
         }
         throw error;
     }
@@ -236,15 +236,14 @@ export async function signup(input: SignupInput): Promise<void> {
     );
 
     try {
-        await signIn('credentials', {
+        await signIn('nodemailer', {
             email: data.email,
-            password: data.password,
             redirectTo: target,
         });
     } catch (error) {
         if (isRedirectError(error)) throw error;
         if (error instanceof AuthError) {
-            redirect('/login?success=created');
+            redirect(withQuery(routes.auth.error, { error: 'email_send' }));
         }
         throw error;
     }
@@ -253,33 +252,33 @@ export async function signup(input: SignupInput): Promise<void> {
 export async function updateEmail(input: UpdateEmailInput): Promise<void> {
     const data = updateEmailInputSchema.parse(input);
     const session = await auth();
-    if (!session?.user.id) redirect('/login');
+    if (!session?.user.id) redirect(routes.auth.login);
 
     const [existing] = await db
         .select({ id: users.id })
         .from(users)
         .where(and(eq(users.email, data.email), ne(users.id, session.user.id)))
         .limit(1);
-    if (existing) redirect('/profile?error=email_taken');
+    if (existing) redirect(withQuery(routes.profile, { error: 'email_taken' }));
 
     await db
         .update(users)
         .set({ email: data.email })
         .where(eq(users.id, session.user.id));
-    redirect('/profile?success=email');
+    redirect(withQuery(routes.profile, { success: 'email' }));
 }
 
 export async function updateName(input: UpdateNameInput): Promise<void> {
     const data = updateNameInputSchema.parse(input);
 
     const session = await auth();
-    if (!session?.user.id) redirect('/login');
+    if (!session?.user.id) redirect(routes.auth.login);
 
     await db
         .update(users)
         .set({ name: data.name })
         .where(eq(users.id, session.user.id));
-    redirect('/profile?success=name');
+    redirect(withQuery(routes.profile, { success: 'name' }));
 }
 
 export async function updatePassword(
@@ -288,7 +287,7 @@ export async function updatePassword(
     const data = updatePasswordInputSchema.parse(input);
 
     const session = await auth();
-    if (!session?.user.id) redirect('/login');
+    if (!session?.user.id) redirect(routes.auth.login);
 
     const [user] = await db
         .select()
@@ -296,10 +295,11 @@ export async function updatePassword(
         .where(eq(users.id, session.user.id))
         .limit(1);
 
-    if (!user?.password) redirect('/profile?error=pw_fail');
+    if (!user?.password)
+        redirect(withQuery(routes.profile, { error: 'pw_fail' }));
 
     const valid = await compare(data.current, user.password);
-    if (!valid) redirect('/profile?error=pw_wrong');
+    if (!valid) redirect(withQuery(routes.profile, { error: 'pw_wrong' }));
 
     const newHash = await hash(data.password, 12);
     await db
@@ -309,7 +309,7 @@ export async function updatePassword(
 
     await db.delete(sessions).where(eq(sessions.userId, session.user.id));
 
-    redirect('/profile?success=password');
+    redirect(withQuery(routes.profile, { success: 'password' }));
 }
 
 function isPgUniqueViolation(error: unknown): boolean {

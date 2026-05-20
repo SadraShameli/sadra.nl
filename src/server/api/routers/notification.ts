@@ -8,6 +8,7 @@ import { notificationPreference } from '~/server/db';
 const eventTypeSchema = z.enum([
     'device_created',
     'location_created',
+    'loudness_alert',
     'reading_created',
     'recording_created',
 ]);
@@ -25,6 +26,7 @@ export const notificationRouter = createTRPCRouter({
         const out: Record<EventType, boolean> = {
             device_created: false,
             location_created: false,
+            loudness_alert: false,
             reading_created: false,
             recording_created: false,
         };

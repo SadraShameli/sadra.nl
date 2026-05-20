@@ -4,6 +4,7 @@ import { and, desc, eq } from 'drizzle-orm';
 import { redirect } from 'next/navigation';
 
 import { auth } from '~/lib/auth';
+import { profileTabs, routes, withQuery } from '~/lib/routes';
 import {
     type AssessmentIdActionInput,
     assessmentIdActionSchema,
@@ -48,7 +49,12 @@ export async function cloneTradingPlan(
         .limit(1);
 
     if (!source) {
-        redirect('/profile?tab=trading-plan&error=plan_not_found');
+        redirect(
+            withQuery(routes.profile, {
+                error: 'plan_not_found',
+                tab: profileTabs.tradingPlan,
+            }),
+        );
     }
 
     const [copy] = await db
@@ -62,7 +68,13 @@ export async function cloneTradingPlan(
         .returning({ id: tradingPlans.id });
 
     if (!copy) throw new Error('Failed to clone trading plan');
-    redirect(`/profile?tab=trading-plan&plan=${copy.id}&success=plan_cloned`);
+    redirect(
+        withQuery(routes.profile, {
+            plan: copy.id,
+            success: 'plan_cloned',
+            tab: profileTabs.tradingPlan,
+        }),
+    );
 }
 
 export async function createTradingPlan(
@@ -90,7 +102,11 @@ export async function createTradingPlan(
 
     if (!created) throw new Error('Failed to create trading plan');
     redirect(
-        `/profile?tab=trading-plan&plan=${created.id}&success=plan_created`,
+        withQuery(routes.profile, {
+            plan: created.id,
+            success: 'plan_created',
+            tab: profileTabs.tradingPlan,
+        }),
     );
 }
 
@@ -141,12 +157,22 @@ export async function deleteTradingPlan(
         .where(eq(tradingPlans.userId, userId));
 
     if (all.length <= 1) {
-        redirect('/profile?tab=trading-plan&error=plan_last_remaining');
+        redirect(
+            withQuery(routes.profile, {
+                error: 'plan_last_remaining',
+                tab: profileTabs.tradingPlan,
+            }),
+        );
     }
 
     const target = all.find((p) => p.id === planId);
     if (!target) {
-        redirect('/profile?tab=trading-plan&error=plan_not_found');
+        redirect(
+            withQuery(routes.profile, {
+                error: 'plan_not_found',
+                tab: profileTabs.tradingPlan,
+            }),
+        );
     }
 
     await db
@@ -165,7 +191,12 @@ export async function deleteTradingPlan(
         }
     }
 
-    redirect('/profile?tab=trading-plan&success=plan_deleted');
+    redirect(
+        withQuery(routes.profile, {
+            success: 'plan_deleted',
+            tab: profileTabs.tradingPlan,
+        }),
+    );
 }
 
 export async function ensureUserHasPlan(): Promise<{
@@ -332,12 +363,16 @@ export async function updateTradingPlan(
             ),
         );
     redirect(
-        `/profile?tab=trading-plan&plan=${data.planId}&success=plan_saved`,
+        withQuery(routes.profile, {
+            plan: data.planId,
+            success: 'plan_saved',
+            tab: profileTabs.tradingPlan,
+        }),
     );
 }
 
 async function requireUserId(): Promise<string> {
     const session = await auth();
-    if (!session?.user.id) redirect('/login');
+    if (!session?.user.id) redirect(routes.auth.login);
     return session.user.id;
 }

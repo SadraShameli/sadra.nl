@@ -1,10 +1,13 @@
 import { initTRPC, TRPCError } from '@trpc/server';
+import { and, eq, isNull } from 'drizzle-orm';
 import superjson from 'superjson';
 import { z, ZodError } from 'zod';
 
 import { auth } from '~/lib/auth';
 import { isAdminOrAbove, isRoot } from '~/lib/auth-roles';
 import { db } from '~/server/db';
+import { device } from '~/server/db/schemas/main';
+import { hashDeviceToken } from '~/server/helpers/DeviceToken';
 
 export const createTRPCContext = async (opts: { headers: Headers }) => {
     const session = await auth();
@@ -64,4 +67,50 @@ export const rootProcedure = protectedProcedure.use(({ ctx, next }) => {
         throw new TRPCError({ code: 'FORBIDDEN' });
     }
     return next();
+});
+
+export const deviceProcedure = t.procedure.use(async ({ ctx, next }) => {
+    const header =
+        ctx.headers.get('authorization') ??
+        ctx.headers.get('Authorization') ??
+        '';
+    const match = /^Bearer\s+(.+)$/i.exec(header.trim());
+    if (!match?.[1]) {
+        throw new TRPCError({
+            code: 'UNAUTHORIZED',
+            message: 'Missing device bearer token',
+        });
+    }
+    const tokenHash = await hashDeviceToken(match[1].trim());
+
+    const [row] = await ctx.db
+        .select({
+            device_id: device.device_id,
+            id: device.id,
+            location_id: device.location_id,
+            loudness_threshold: device.loudness_threshold,
+            name: device.name,
+        })
+        .from(device)
+        .where(
+            and(
+                eq(device.token_hash, tokenHash),
+                isNull(device.token_revoked_at),
+            ),
+        )
+        .limit(1);
+
+    if (!row) {
+        throw new TRPCError({
+            code: 'UNAUTHORIZED',
+            message: 'Invalid or revoked device token',
+        });
+    }
+
+    return next({
+        ctx: {
+            ...ctx,
+            device: row,
+        },
+    });
 });

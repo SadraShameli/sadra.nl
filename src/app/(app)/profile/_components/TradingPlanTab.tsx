@@ -61,6 +61,7 @@ import {
 import { Input } from '~/components/ui/Input';
 import { Label } from '~/components/ui/Label';
 import { Separator } from '~/components/ui/Separator';
+import { routes } from '~/lib/routes';
 import {
     type TradingPlanCreateInput,
     tradingPlanCreateSchema,
@@ -212,7 +213,7 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
                     <CardTitle>Your trading plans</CardTitle>
                     <div className="flex flex-wrap items-center gap-2">
                         <Button asChild size="sm" variant="outline">
-                            <Link href="/trade-checklist">
+                            <Link href={routes.tradeChecklist.index}>
                                 Run checklist
                                 <ExternalLink className="ml-1 size-3.5" />
                             </Link>

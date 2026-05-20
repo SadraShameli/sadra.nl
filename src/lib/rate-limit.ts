@@ -25,6 +25,11 @@ export async function checkRateLimit(args: {
     return true;
 }
 
+export function resetRateLimit(args: { bucket: string; key: string }): void {
+    const compoundKey = `${args.bucket}:${args.key.toLowerCase()}`;
+    buckets.delete(compoundKey);
+}
+
 function sweep(now: number): void {
     if (buckets.size < 1024) return;
     for (const [key, entry] of buckets) {

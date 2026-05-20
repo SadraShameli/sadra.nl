@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 
 import { Alert, AlertDescription } from '~/components/ui/Alert';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
+import { routes } from '~/lib/routes';
 import { resetPasswordSearchSchema } from '~/lib/schemas/url';
 import { cn } from '~/lib/utils';
 
@@ -22,7 +23,7 @@ export default async function ResetPasswordPage({
         await searchParams,
     );
 
-    if (!token && !error) redirect('/forgot-password');
+    if (!token && !error) redirect(routes.auth.forgotPassword);
 
     return (
         <div
@@ -37,7 +38,7 @@ export default async function ResetPasswordPage({
                         'app-auth__logo',
                         'mb-8 block text-center font-orbitron text-lg font-semibold tracking-widest text-white',
                     )}
-                    href="/"
+                    href={routes.home}
                 >
                     sadra.nl
                 </Link>
@@ -54,7 +55,7 @@ export default async function ResetPasswordPage({
                             </Alert>
                             <Link
                                 className="text-sm underline underline-offset-4 hover:opacity-70"
-                                href="/forgot-password"
+                                href={routes.auth.forgotPassword}
                             >
                                 Request a new link
                             </Link>

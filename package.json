@@ -22,6 +22,9 @@
         "start": "next start",
         "stylelint": "stylelint '**/*.{css,scss}'",
         "stylelint:fix": "stylelint '**/*.{css,scss}' --fix --quiet",
+        "test": "vitest run",
+        "test:e2e": "playwright test",
+        "test:watch": "vitest",
         "typecheck": "tsc --noEmit"
     },
     "lint-staged": {
@@ -107,6 +110,7 @@
     },
     "devDependencies": {
         "@next/eslint-plugin-next": "^16.2.6",
+        "@playwright/test": "^1.60.0",
         "@tailwindcss/postcss": "^4.3.0",
         "@tailwindcss/typography": "^0.5.19",
         "@types/bcryptjs": "^3.0.0",
@@ -116,6 +120,7 @@
         "@types/react-dom": "^19.2.3",
         "@vercel/analytics": "^2.0.1",
         "@vercel/speed-insights": "^2.0.0",
+        "@vitest/coverage-v8": "^4.1.7",
         "cssnano": "^8.0.1",
         "cssnano-preset-default": "^8.0.1",
         "drizzle-kit": "^0.31.10",
@@ -126,6 +131,7 @@
         "eslint-plugin-promise": "^7.3.0",
         "eslint-plugin-react-hooks": "^7.0.1",
         "eslint-plugin-unicorn": "^64.0.0",
+        "happy-dom": "^20.9.0",
         "husky": "^9.1.7",
         "knip": "^6.13.1",
         "lint-staged": "^17.0.4",
@@ -141,7 +147,8 @@
         "tailwind-merge": "^3.6.0",
         "tailwindcss": "^4.3.0",
         "typescript": "^6.0.3",
-        "typescript-eslint": "^8.59.3"
+        "typescript-eslint": "^8.59.3",
+        "vitest": "^4.1.7"
     },
     "trustedDependencies": [
         "@vercel/speed-insights"

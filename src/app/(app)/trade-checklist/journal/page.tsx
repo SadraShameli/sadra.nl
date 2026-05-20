@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 
 import { auth } from '~/lib/auth';
+import { routes } from '~/lib/routes';
 import { tradeAssessmentRowSchema } from '~/lib/schemas/trading';
 import { ensureUserHasPlan } from '~/lib/trading-actions';
 import { cn } from '~/lib/utils';
@@ -21,7 +22,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function TradeJournalPage() {
     const session = await auth();
-    if (!session?.user.id) redirect('/login');
+    if (!session?.user.id) redirect(routes.auth.login);
     const userId = session.user.id;
 
     await ensureUserHasPlan();

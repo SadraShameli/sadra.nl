@@ -1,11 +1,19 @@
 import { desc, eq } from 'drizzle-orm';
+import { type Metadata } from 'next';
 import { redirect } from 'next/navigation';
 
 import { Alert, AlertDescription } from '~/components/ui/Alert';
+
+export const metadata: Metadata = {
+    description: 'Manage your account, sessions and trading plan.',
+    robots: { follow: false, index: false },
+    title: 'Profile · sadra.nl',
+};
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { Separator } from '~/components/ui/Separator';
 import { auth } from '~/lib/auth';
 import { isAdminOrAbove, resolveRole } from '~/lib/auth-roles';
+import { routes } from '~/lib/routes';
 import { profileSearchSchema } from '~/lib/schemas/url';
 import { ensureUserHasPlan } from '~/lib/trading-actions';
 import { cn } from '~/lib/utils';
@@ -33,7 +41,7 @@ export default async function ProfilePage({
     searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
     const session = await auth();
-    if (!session?.user.id) redirect('/login');
+    if (!session?.user.id) redirect(routes.auth.login);
 
     const { error, success } = profileSearchSchema.parse(await searchParams);
 
@@ -42,7 +50,7 @@ export default async function ProfilePage({
         .from(users)
         .where(eq(users.id, session.user.id))
         .limit(1);
-    if (!user) redirect('/login');
+    if (!user) redirect(routes.auth.login);
 
     await ensureUserHasPlan();
 

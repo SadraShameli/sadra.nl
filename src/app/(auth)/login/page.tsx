@@ -9,6 +9,7 @@ import {
     CardTitle,
 } from '~/components/ui/Card';
 import { env } from '~/env';
+import { routes } from '~/lib/routes';
 import { loginSearchSchema } from '~/lib/schemas/url';
 import { cn } from '~/lib/utils';
 
@@ -35,7 +36,7 @@ export default async function LoginPage({
                         'app-auth__logo',
                         'mb-8 block text-center font-orbitron text-lg font-semibold tracking-widest text-white',
                     )}
-                    href="/"
+                    href={routes.home}
                 >
                     sadra.nl
                 </Link>
@@ -78,7 +79,7 @@ export default async function LoginPage({
                         <div className="mt-1 text-right">
                             <Link
                                 className="text-xs text-muted-foreground underline underline-offset-4 hover:opacity-70"
-                                href="/forgot-password"
+                                href={routes.auth.forgotPassword}
                             >
                                 Forgot password?
                             </Link>
@@ -89,7 +90,7 @@ export default async function LoginPage({
                             No account?{' '}
                             <Link
                                 className="text-foreground underline underline-offset-4 hover:opacity-70"
-                                href="/signup"
+                                href={routes.auth.signup}
                             >
                                 Sign up
                             </Link>

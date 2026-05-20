@@ -68,6 +68,19 @@ export interface DayCell {
     wins: number;
 }
 
+export interface DrawdownStats {
+    durationTrades: number;
+    maxDrawdownDollars: number;
+    maxDrawdownPct: number;
+    troughBalance: number;
+}
+
+export interface EquityPoint {
+    balance: number;
+    date: string;
+    drawdown: number;
+}
+
 export interface FilterCriteria {
     dateFrom?: null | string;
     dateTo?: null | string;
@@ -400,6 +413,93 @@ export function deviationFrequency(
             winRate: b.total > 0 ? b.wins / b.total : 0,
         }))
         .toSorted((a, b) => b.count - a.count);
+}
+
+export function drawdownStats(points: EquityPoint[]): DrawdownStats {
+    if (points.length === 0) {
+        return {
+            durationTrades: 0,
+            maxDrawdownDollars: 0,
+            maxDrawdownPct: 0,
+            troughBalance: 0,
+        };
+    }
+    let maxDdPct = 0;
+    let maxDdDollars = 0;
+    let trough = points[0]?.balance ?? 0;
+    let runStart = -1;
+    let worstRun = 0;
+    let peak = points[0]?.balance ?? 0;
+    let inDrawdown = false;
+    let currentRunStart = -1;
+
+    for (const [i, p] of points.entries()) {
+        if (p.balance >= peak) {
+            peak = p.balance;
+            if (inDrawdown) {
+                inDrawdown = false;
+                const runLen = i - currentRunStart;
+                if (runLen > worstRun) {
+                    worstRun = runLen;
+                    runStart = currentRunStart;
+                }
+            }
+        } else {
+            if (!inDrawdown) {
+                inDrawdown = true;
+                currentRunStart = i;
+            }
+            const ddDollars = peak - p.balance;
+            if (ddDollars > maxDdDollars) {
+                maxDdDollars = ddDollars;
+                trough = p.balance;
+            }
+            const ddPct = peak === 0 ? 0 : ddDollars / peak;
+            if (ddPct > maxDdPct) maxDdPct = ddPct;
+        }
+    }
+    if (inDrawdown) {
+        const runLen = points.length - currentRunStart;
+        if (runLen > worstRun) worstRun = runLen;
+    }
+    void runStart;
+
+    return {
+        durationTrades: worstRun,
+        maxDrawdownDollars: maxDdDollars,
+        maxDrawdownPct: maxDdPct,
+        troughBalance: trough,
+    };
+}
+
+export function equityCurveFromR(
+    rows: LightAssessment[],
+    opts: { dollarRiskPerTrade: number; startingBalance: number },
+): EquityPoint[] {
+    const valid = rows
+        .filter(
+            (r): r is LightAssessment & { outcomeR: number } =>
+                isCountedOutcome(r.outcome) &&
+                r.outcomeR !== null &&
+                Number.isFinite(r.outcomeR),
+        )
+        .toSorted(
+            (a, b) =>
+                toDate(a.createdAt).getTime() - toDate(b.createdAt).getTime(),
+        );
+
+    let balance = opts.startingBalance;
+    let peak = balance;
+    return valid.map((r) => {
+        balance += r.outcomeR * opts.dollarRiskPerTrade;
+        if (balance > peak) peak = balance;
+        const drawdown = peak === 0 ? 0 : 1 - balance / peak;
+        return {
+            balance,
+            date: toDate(r.createdAt).toISOString(),
+            drawdown,
+        };
+    });
 }
 
 export function executionImpactByGrade(rows: LightAssessment[]): {

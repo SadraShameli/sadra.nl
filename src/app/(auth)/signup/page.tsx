@@ -9,6 +9,7 @@ import {
     CardTitle,
 } from '~/components/ui/Card';
 import { env } from '~/env';
+import { routes } from '~/lib/routes';
 import { signupSearchSchema } from '~/lib/schemas/url';
 import { cn } from '~/lib/utils';
 
@@ -42,7 +43,7 @@ export default async function SignupPage({
                         'app-auth__logo',
                         'mb-8 block text-center font-orbitron text-lg font-semibold tracking-widest text-white',
                     )}
-                    href="/"
+                    href={routes.home}
                 >
                     sadra.nl
                 </Link>
@@ -73,7 +74,7 @@ export default async function SignupPage({
                             Already have an account?{' '}
                             <Link
                                 className="text-foreground underline underline-offset-4 hover:opacity-70"
-                                href="/login"
+                                href={routes.auth.login}
                             >
                                 Sign in
                             </Link>

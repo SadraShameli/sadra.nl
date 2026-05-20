@@ -1,5 +1,6 @@
 import { createCallerFactory, createTRPCRouter } from '~/server/api/trpc';
 
+import { contactRouter } from './routers/contact';
 import { deviceRouter } from './routers/device';
 import { locationRouter } from './routers/location';
 import { notificationRouter } from './routers/notification';
@@ -10,6 +11,7 @@ import { sessionRouter } from './routers/session';
 import { userRouter } from './routers/user';
 
 export const appRouter = createTRPCRouter({
+    contact: contactRouter,
     device: deviceRouter,
     location: locationRouter,
     notification: notificationRouter,

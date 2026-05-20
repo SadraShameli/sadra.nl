@@ -22,6 +22,7 @@ import {
 } from '~/components/ui/Popover';
 import { ScrollArea } from '~/components/ui/ScrollArea';
 import { Separator } from '~/components/ui/Separator';
+import { profileTabs, routes, withQuery } from '~/lib/routes';
 import {
     deleteAllAssessments,
     deleteAssessment,
@@ -203,7 +204,11 @@ function PlanHeader({
                 </div>
                 <div className="flex items-center gap-2">
                     <Button asChild size="sm" variant="outline">
-                        <Link href="/profile?tab=trading-plan">
+                        <Link
+                            href={withQuery(routes.profile, {
+                                tab: profileTabs.tradingPlan,
+                            })}
+                        >
                             <Pencil className="size-3.5" />
                             Edit plan
                         </Link>

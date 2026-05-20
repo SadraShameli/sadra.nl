@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import type { LightAssessment } from '~/lib/trading-analytics';
 
 import { auth } from '~/lib/auth';
+import { routes } from '~/lib/routes';
 import { ensureUserHasPlan } from '~/lib/trading-actions';
 import { cn } from '~/lib/utils';
 import { db, tradeAssessments } from '~/server/db';
@@ -27,7 +28,7 @@ export default async function TradeCalendarPage({
     searchParams,
 }: CalendarPageProps) {
     const session = await auth();
-    if (!session?.user.id) redirect('/login');
+    if (!session?.user.id) redirect(routes.auth.login);
     const userId = session.user.id;
 
     await ensureUserHasPlan();

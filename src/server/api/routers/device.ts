@@ -2,6 +2,7 @@ import { TRPCError } from '@trpc/server';
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 
+import { captureError } from '~/lib/logger';
 import { buildDeviceEmail, fanOutEvent } from '~/lib/notify';
 import {
     deviceCreateSchema,
@@ -11,9 +12,11 @@ import {
     adminProcedure,
     type ContextType,
     createTRPCRouter,
+    protectedProcedure,
     publicProcedure,
 } from '~/server/api/trpc';
 import { device, location, type recording } from '~/server/db/schemas/main';
+import { generateDeviceToken } from '~/server/helpers/DeviceToken';
 
 import { type GetDeviceProps, type Result } from '../types/types';
 import {
@@ -21,61 +24,7 @@ import {
     getDeviceReadingsProps,
     getDeviceRecordingsProps,
 } from '../types/zod';
-import { getOrCreatePlaceholderLocation } from './location';
 import { getSensor } from './sensor';
-
-export async function getOrCreateDevice(
-    publicDeviceId: number,
-    ctx: ContextType,
-): Promise<{ created: boolean; id: number; locationId: number; name: string }> {
-    const existing = await ctx.db.query.device.findFirst({
-        where: (d) => eq(d.device_id, publicDeviceId),
-    });
-    if (existing) {
-        return {
-            created: false,
-            id: existing.id,
-            locationId: existing.location_id,
-            name: existing.name,
-        };
-    }
-    const placeholder = await getOrCreatePlaceholderLocation(ctx);
-    const name = `Device ${publicDeviceId}`;
-    const [inserted] = await ctx.db
-        .insert(device)
-        .values({
-            device_id: publicDeviceId,
-            location_id: placeholder.id,
-            loudness_threshold: 0,
-            name,
-            register_interval: 0,
-        })
-        .returning({ id: device.id });
-    if (!inserted) {
-        throw new TRPCError({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: 'Failed to auto-provision device',
-        });
-    }
-
-    fanOutEvent(
-        'device_created',
-        buildDeviceEmail({
-            deviceId: publicDeviceId,
-            deviceName: name,
-            locationName: placeholder.name,
-        }),
-    ).catch((error: unknown) =>
-        console.error('[device] auto-provision notify failed', error),
-    );
-
-    return {
-        created: true,
-        id: inserted.id,
-        locationId: placeholder.id,
-        name,
-    };
-}
 
 async function getDevice(
     input: z.infer<typeof getDeviceProps>,
@@ -133,7 +82,7 @@ export const deviceRouter = createTRPCRouter({
                     locationName: loc.name,
                 }),
             ).catch((error: unknown) =>
-                console.error('[device] create notify failed', error),
+                captureError(error, { tag: 'device.notify' }),
             );
 
             return { id: inserted?.id };
@@ -244,15 +193,47 @@ export const deviceRouter = createTRPCRouter({
             >;
         }),
 
-    getDevices: publicProcedure.query(async ({ ctx }) => {
+    getDevices: protectedProcedure.query(async ({ ctx }) => {
         return { data: await ctx.db.query.device.findMany() };
     }),
+
+    issueToken: adminProcedure
+        .input(z.object({ id: z.number().int().positive() }))
+        .mutation(async ({ ctx, input }) => {
+            const { hash, token } = await generateDeviceToken();
+            const [row] = await ctx.db
+                .update(device)
+                .set({
+                    token_created_at: new Date(),
+                    token_hash: hash,
+                    token_revoked_at: null,
+                })
+                .where(eq(device.id, input.id))
+                .returning({ id: device.id });
+            if (!row) {
+                throw new TRPCError({
+                    code: 'NOT_FOUND',
+                    message: 'Device not found',
+                });
+            }
+            return { token };
+        }),
 
     listAdmin: adminProcedure.query(async ({ ctx }) => {
         return await ctx.db.query.device.findMany({
             orderBy: (d, { asc }) => [asc(d.location_id), asc(d.device_id)],
         });
     }),
+
+    revokeToken: adminProcedure
+        .input(z.object({ id: z.number().int().positive() }))
+        .mutation(async ({ ctx, input }) => {
+            await ctx.db
+                .update(device)
+                .set({ token_revoked_at: new Date() })
+                .where(eq(device.id, input.id));
+            return { ok: true };
+        }),
 
     update: adminProcedure
         .input(deviceUpdateSchema)

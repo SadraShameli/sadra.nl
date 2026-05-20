@@ -58,10 +58,14 @@ export const device = createTable(
         loudness_threshold: integer('loudness_threshold').notNull(),
         name: varchar('name', { length: 256 }).notNull(),
         register_interval: integer('register_interval').notNull(),
+        token_created_at: timestamp('token_created_at', { withTimezone: true }),
+        token_hash: varchar('token_hash', { length: 256 }),
+        token_revoked_at: timestamp('token_revoked_at', { withTimezone: true }),
     },
     (table) => [
         index('device_device_id_idx').on(table.device_id),
         index('device_location_id_idx').on(table.location_id),
+        index('device_token_hash_idx').on(table.token_hash),
     ],
 );
 

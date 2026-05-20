@@ -1,6 +1,6 @@
 'use client';
 
-import { Activity, Bell, Cpu, MapPin, Mic } from 'lucide-react';
+import { Activity, AlertTriangle, Bell, Cpu, MapPin, Mic } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
@@ -13,6 +13,7 @@ import { api } from '~/trpc/react';
 const ICONS: Record<EventType, React.ReactNode> = {
     device_created: <Cpu className="size-4" />,
     location_created: <MapPin className="size-4" />,
+    loudness_alert: <AlertTriangle className="size-4" />,
     reading_created: <Activity className="size-4" />,
     recording_created: <Mic className="size-4" />,
 };
@@ -20,6 +21,7 @@ const ICONS: Record<EventType, React.ReactNode> = {
 const DESCRIPTIONS: Record<EventType, string> = {
     device_created: 'When a new device is registered.',
     location_created: 'When a new location is created.',
+    loudness_alert: 'When a reading exceeds the device loudness threshold.',
     reading_created: 'When any sensor reading is recorded.',
     recording_created: 'When a new audio recording is uploaded.',
 };

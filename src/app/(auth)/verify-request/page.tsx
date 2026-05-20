@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 import { Alert, AlertDescription } from '~/components/ui/Alert';
+import { routes } from '~/lib/routes';
 import { cn } from '~/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -26,7 +27,7 @@ export default function VerifyRequestPage() {
                         'app-auth__logo',
                         'mb-8 block text-center font-orbitron text-lg font-semibold tracking-widest text-white',
                     )}
-                    href="/"
+                    href={routes.home}
                 >
                     sadra.nl
                 </Link>
@@ -47,7 +48,7 @@ export default function VerifyRequestPage() {
                             Didn&apos;t get the email? Check spam, then{' '}
                             <Link
                                 className="text-foreground underline underline-offset-4 hover:opacity-70"
-                                href="/login"
+                                href={routes.auth.login}
                             >
                                 try again
                             </Link>

@@ -35,6 +35,24 @@ export function buildLocationEmail(params: {
     };
 }
 
+export function buildLoudnessAlertEmail(params: {
+    deviceName: null | string;
+    locationName: null | string;
+    threshold: number;
+    value: number;
+}) {
+    return {
+        html: `
+<p>Loudness threshold exceeded.</p>
+<p><strong>Device:</strong> ${params.deviceName ?? '—'}</p>
+<p><strong>Location:</strong> ${params.locationName ?? '—'}</p>
+<p><strong>Value:</strong> ${params.value}</p>
+<p><strong>Threshold:</strong> ${params.threshold}</p>
+        `.trim(),
+        subject: 'Loudness alert — sadra.nl',
+    };
+}
+
 export function buildReadingEmail(params: {
     deviceName: null | string;
     locationName: null | string;

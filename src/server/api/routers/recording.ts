@@ -2,19 +2,20 @@ import { format } from 'date-fns';
 import { desc, eq } from 'drizzle-orm';
 import { z } from 'zod';
 
+import { captureError } from '~/lib/logger';
 import { buildRecordingEmail, fanOutEvent } from '~/lib/notify';
 import { recordingRenameSchema } from '~/lib/schemas/sensor-hub';
 import {
     adminProcedure,
     type ContextType,
     createTRPCRouter,
+    deviceProcedure,
     publicProcedure,
 } from '~/server/api/trpc';
 import { location, recording } from '~/server/db/schemas/main';
 
 import { type Result } from '../types/types';
 import { createRecordingProps, getRecordingProps } from '../types/zod';
-import { getOrCreateDevice } from './device';
 
 export function getRecordingFileName(date: Date) {
     return `${format(date, 'MMM d, y - HH.mm')}.wav`;
@@ -70,37 +71,42 @@ async function getRecordingsNoFile(ctx: ContextType) {
 }
 
 export const recordingsRouter = createTRPCRouter({
-    createRecording: publicProcedure
+    createRecording: deviceProcedure
         .input(createRecordingProps)
         .mutation(async ({ ctx, input }) => {
-            const dev = await getOrCreateDevice(input.device.device_id, ctx);
+            if (input.device.device_id !== ctx.device.device_id) {
+                return {
+                    error: 'Token does not match the device in the payload',
+                    status: 403,
+                };
+            }
 
             const fileName = getRecordingFileName(new Date());
 
             await ctx.db.insert(recording).values({
-                device_id: dev.id,
+                device_id: ctx.device.id,
                 duration_seconds: input.duration_seconds,
                 file: input.recording,
                 file_name: fileName,
-                location_id: dev.locationId,
+                location_id: ctx.device.location_id,
             });
 
             const [loc] = await ctx.db
                 .select({ name: location.name })
                 .from(location)
-                .where(eq(location.id, dev.locationId))
+                .where(eq(location.id, ctx.device.location_id))
                 .limit(1);
 
             fanOutEvent(
                 'recording_created',
                 buildRecordingEmail({
-                    deviceName: dev.name,
+                    deviceName: ctx.device.name,
                     durationSeconds: input.duration_seconds,
                     fileName,
                     locationName: loc?.name ?? null,
                 }),
             ).catch((error: unknown) =>
-                console.error('[recording] notify failed', error),
+                captureError(error, { tag: 'recording.notify' }),
             );
 
             return { status: 201 };

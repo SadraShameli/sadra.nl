@@ -1,14 +1,34 @@
 import { Calculator, ClipboardList, type LucideIcon, User } from 'lucide-react';
+import { type Metadata } from 'next';
 import Image from 'next/image';
 
 import SectionDescription from '~/components/SectionDescription';
 import SectionTitle from '~/components/SectionTitle';
 import { homepageContent, siteContent } from '~/lib/content';
+import { routes } from '~/lib/routes';
 import { cn } from '~/lib/utils';
 
 import AboutSection from './_components/About';
 import ReadingSection from './_components/Reading/Reading';
 import RecordingSection from './_components/Recording/Recording';
+
+export const metadata: Metadata = {
+    alternates: { canonical: '/' },
+    description: siteContent.metaDescription,
+    openGraph: {
+        description: siteContent.metaDescription,
+        siteName: 'sadra.nl',
+        title: siteContent.metaTitle,
+        type: 'website',
+        url: '/',
+    },
+    title: siteContent.metaTitle,
+    twitter: {
+        card: 'summary_large_image',
+        description: siteContent.metaDescription,
+        title: siteContent.metaTitle,
+    },
+};
 
 export default function HomePage() {
     const resumeHref = siteContent.resumeUrl;
@@ -23,7 +43,7 @@ export default function HomePage() {
                 )}
             >
                 <Image
-                    alt=""
+                    alt="Sadra Shameli — daytrader and developer"
                     className={cn(
                         'app-home__hero-image',
                         'aspect-square rounded-2xl object-cover',
@@ -50,12 +70,12 @@ export default function HomePage() {
                             label={homepageContent.ctaLabel}
                         />
                         <HeroToolChip
-                            href="/prop-calculator"
+                            href={routes.propCalculator}
                             icon={Calculator}
                             label="Prop firm calculator"
                         />
                         <HeroToolChip
-                            href="/trade-checklist"
+                            href={routes.tradeChecklist.index}
                             icon={ClipboardList}
                             label="Trade checklist"
                         />

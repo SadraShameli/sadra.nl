@@ -2,7 +2,15 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { type ColumnDef } from '@tanstack/react-table';
-import { Pencil, Plus, Sliders, Trash2 } from 'lucide-react';
+import {
+    Copy,
+    Key,
+    Pencil,
+    Plus,
+    ShieldOff,
+    Sliders,
+    Trash2,
+} from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -49,6 +57,9 @@ type DeviceRow = {
     loudness_threshold: number;
     name: string;
     register_interval: number;
+    token_created_at: Date | null;
+    token_hash: null | string;
+    token_revoked_at: Date | null;
 };
 
 type EditDeviceValues = {
@@ -83,12 +94,29 @@ export function DevicesPanel() {
             await utils.device.listAdmin.invalidate();
         },
     });
+    const issue = api.device.issueToken.useMutation({
+        onError: (err) => toast.error(err.message),
+        onSuccess: async () => {
+            await utils.device.listAdmin.invalidate();
+        },
+    });
+    const revoke = api.device.revokeToken.useMutation({
+        onError: (err) => toast.error(err.message),
+        onSuccess: async () => {
+            toast.success('Token revoked.');
+            await utils.device.listAdmin.invalidate();
+        },
+    });
 
     const [newOpen, setNewOpen] = useState(false);
     const [editing, setEditing] = useState<DeviceRow | null>(null);
     const [managingSensorsFor, setManagingSensorsFor] = useState<null | number>(
         null,
     );
+    const [issuedToken, setIssuedToken] = useState<null | {
+        deviceName: string;
+        token: string;
+    }>(null);
 
     const rows = devices.data ?? [];
     const locOptions = useMemo(() => locations.data ?? [], [locations.data]);
@@ -144,8 +172,75 @@ export function DevicesPanel() {
                 header: 'Interval',
             },
             {
+                cell: ({ row }) => {
+                    const d = row.original;
+                    if (d.token_revoked_at) {
+                        return (
+                            <span className="text-xs text-destructive">
+                                revoked
+                            </span>
+                        );
+                    }
+                    if (d.token_hash && d.token_created_at) {
+                        return (
+                            <span className="text-xs text-emerald-400">
+                                issued
+                            </span>
+                        );
+                    }
+                    return (
+                        <span className="text-xs text-muted-foreground">
+                            none
+                        </span>
+                    );
+                },
+                header: 'Token',
+                id: 'token',
+            },
+            {
                 cell: ({ row }) => (
                     <div className="flex justify-end gap-2">
+                        <Button
+                            disabled={
+                                issue.isPending &&
+                                issue.variables.id === row.original.id
+                            }
+                            onClick={() => {
+                                issue.mutate(
+                                    { id: row.original.id },
+                                    {
+                                        onSuccess: ({ token }) =>
+                                            setIssuedToken({
+                                                deviceName: row.original.name,
+                                                token,
+                                            }),
+                                    },
+                                );
+                            }}
+                            size="sm"
+                            title={
+                                row.original.token_hash
+                                    ? 'Rotate token'
+                                    : 'Issue token'
+                            }
+                            variant="outline"
+                        >
+                            <Key className="size-3.5" />
+                        </Button>
+                        {row.original.token_hash &&
+                            !row.original.token_revoked_at && (
+                                <Button
+                                    disabled={revoke.isPending}
+                                    onClick={() =>
+                                        revoke.mutate({ id: row.original.id })
+                                    }
+                                    size="sm"
+                                    title="Revoke token"
+                                    variant="outline"
+                                >
+                                    <ShieldOff className="size-3.5" />
+                                </Button>
+                            )}
                         <Button
                             onClick={() =>
                                 setManagingSensorsFor(row.original.id)
@@ -202,7 +297,7 @@ export function DevicesPanel() {
                 id: 'actions',
             },
         ],
-        [del, locMap],
+        [del, issue, locMap, revoke],
     );
 
     return (
@@ -268,6 +363,19 @@ export function DevicesPanel() {
                     <ManageSensorsDialog
                         deviceId={managingSensorsFor}
                         onClose={() => setManagingSensorsFor(null)}
+                    />
+                )}
+            </Dialog>
+
+            <Dialog
+                onOpenChange={(o) => !o && setIssuedToken(null)}
+                open={issuedToken !== null}
+            >
+                {issuedToken && (
+                    <IssuedTokenDialog
+                        deviceName={issuedToken.deviceName}
+                        onClose={() => setIssuedToken(null)}
+                        token={issuedToken.token}
                     />
                 )}
             </Dialog>
@@ -376,6 +484,51 @@ function Field({
             {children}
             {error && <p className="text-xs text-destructive">{error}</p>}
         </div>
+    );
+}
+
+function IssuedTokenDialog({
+    deviceName,
+    onClose,
+    token,
+}: {
+    deviceName: string;
+    onClose: () => void;
+    token: string;
+}) {
+    const copy = async () => {
+        try {
+            await navigator.clipboard.writeText(token);
+            toast.success('Token copied.');
+        } catch {
+            toast.error('Clipboard unavailable.');
+        }
+    };
+    return (
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>
+                    Device token for &ldquo;{deviceName}&rdquo;
+                </DialogTitle>
+            </DialogHeader>
+            <div className="mt-2 flex flex-col gap-3">
+                <p className="text-xs text-muted-foreground">
+                    Save this token somewhere safe and load it onto the device.
+                    Any previous token for this device is invalidated.
+                </p>
+                <code className="block rounded-md border border-border bg-muted/40 p-3 font-mono text-xs break-all">
+                    {token}
+                </code>
+            </div>
+            <DialogFooter className="mt-4">
+                <Button onClick={copy} type="button" variant="outline">
+                    <Copy className="mr-1 size-3.5" /> Copy
+                </Button>
+                <Button onClick={onClose} type="button">
+                    I&apos;ve saved it
+                </Button>
+            </DialogFooter>
+        </DialogContent>
     );
 }
 

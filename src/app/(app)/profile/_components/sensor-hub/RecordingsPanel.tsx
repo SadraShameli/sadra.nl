@@ -32,6 +32,7 @@ import { Input } from '~/components/ui/Input';
 import { Label } from '~/components/ui/Label';
 import { Select } from '~/components/ui/Select';
 import { Separator } from '~/components/ui/Separator';
+import { apiRoutes } from '~/lib/routes';
 import {
     type RecordingRenameInput,
     recordingRenameSchema,
@@ -162,7 +163,7 @@ export function RecordingsPanel() {
                         <Button asChild size="sm" variant="outline">
                             <a
                                 download={row.original.file_name}
-                                href={`/api/recording/${row.original.id}`}
+                                href={apiRoutes.recording(row.original.id)}
                                 title="Download"
                             >
                                 <Download className="size-3.5" />

@@ -1,12 +1,19 @@
+/* eslint-disable perfectionist/sort-modules */
 import { format } from 'date-fns';
 import { and, asc, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
-import { buildReadingEmail, fanOutEvent } from '~/lib/notify';
+import { captureError } from '~/lib/logger';
+import {
+    buildLoudnessAlertEmail,
+    buildReadingEmail,
+    fanOutEvent,
+} from '~/lib/notify';
 import {
     adminProcedure,
     type ContextType,
     createTRPCRouter,
+    deviceProcedure,
     publicProcedure,
 } from '~/server/api/trpc';
 import { location, reading, sensor } from '~/server/db/schemas/main';
@@ -22,8 +29,18 @@ import {
     getReadingsQueryProps,
     type Granularity,
 } from '../types/zod';
-import { getOrCreateDevice } from './device';
 import { getSensor } from './sensor';
+
+const ALERT_COOLDOWN_MS = 10 * 60 * 1000;
+const lastAlertAt = new Map<number, number>();
+
+function shouldAlert(deviceId: number): boolean {
+    const now = Date.now();
+    const prev = lastAlertAt.get(deviceId);
+    if (prev && now - prev < ALERT_COOLDOWN_MS) return false;
+    lastAlertAt.set(deviceId, now);
+    return true;
+}
 
 async function getReading(
     input: z.infer<typeof getReadingProps>,
@@ -117,13 +134,19 @@ async function resolveDeviceFk(
 }
 
 export const readingRouter = createTRPCRouter({
-    createReading: publicProcedure
+    createReading: deviceProcedure
         .input(createReadingProps)
         .mutation(async ({ ctx, input }) => {
-            const dev = await getOrCreateDevice(input.device_id, ctx);
+            if (input.device_id !== ctx.device.device_id) {
+                return {
+                    error: 'Token does not match the device in the payload',
+                    status: 403,
+                };
+            }
 
-            const sensorReadings: {
+            const resolved: {
                 name: string;
+                sensorId: number;
                 unit: null | string;
                 value: number;
             }[] = [];
@@ -136,42 +159,71 @@ export const readingRouter = createTRPCRouter({
                         status: 400,
                     };
                 }
-
                 const sensorResult = await getSensor({ id: +sensorKey }, ctx);
-                if (!sensorResult.data) {
-                    return sensorResult;
-                }
-
-                await ctx.db.insert(reading).values({
-                    device_id: dev.id,
-                    location_id: dev.locationId,
-                    sensor_id: sensorResult.data.id,
-                    value: value,
-                });
-
-                sensorReadings.push({
+                if (!sensorResult.data) return sensorResult;
+                resolved.push({
                     name: sensorResult.data.name,
+                    sensorId: sensorResult.data.id,
                     unit: sensorResult.data.unit,
                     value,
                 });
             }
 
+            await ctx.db.transaction(async (tx) => {
+                for (const r of resolved) {
+                    await tx.insert(reading).values({
+                        device_id: ctx.device.id,
+                        location_id: ctx.device.location_id,
+                        sensor_id: r.sensorId,
+                        value: r.value,
+                    });
+                }
+            });
+
             const [loc] = await ctx.db
                 .select({ name: location.name })
                 .from(location)
-                .where(eq(location.id, dev.locationId))
+                .where(eq(location.id, ctx.device.location_id))
                 .limit(1);
 
             fanOutEvent(
                 'reading_created',
                 buildReadingEmail({
-                    deviceName: dev.name,
+                    deviceName: ctx.device.name,
                     locationName: loc?.name ?? null,
-                    sensorReadings,
+                    sensorReadings: resolved.map((r) => ({
+                        name: r.name,
+                        unit: r.unit,
+                        value: r.value,
+                    })),
                 }),
             ).catch((error: unknown) =>
-                console.error('[reading] notify failed', error),
+                captureError(error, { tag: 'reading.notify' }),
             );
+
+            const threshold = ctx.device.loudness_threshold;
+            if (threshold > 0) {
+                const loudness = resolved.find((r) =>
+                    r.name.toLowerCase().includes('loudness'),
+                );
+                if (
+                    loudness &&
+                    loudness.value > threshold &&
+                    shouldAlert(ctx.device.id)
+                ) {
+                    fanOutEvent(
+                        'loudness_alert',
+                        buildLoudnessAlertEmail({
+                            deviceName: ctx.device.name,
+                            locationName: loc?.name ?? null,
+                            threshold,
+                            value: loudness.value,
+                        }),
+                    ).catch((error: unknown) =>
+                        captureError(error, { tag: 'reading.alert' }),
+                    );
+                }
+            }
 
             return { status: 201 };
         }),

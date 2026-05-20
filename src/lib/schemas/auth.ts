@@ -11,10 +11,48 @@ import {
 
 export const emailSchema = z.email().max(256).toLowerCase();
 
+const COMMON_PASSWORDS = new Set([
+    '111111',
+    '12345678',
+    '123456789',
+    '1234567890',
+    'abc123',
+    'admin',
+    'baseball',
+    'batman',
+    'dragon',
+    'football',
+    'iloveyou',
+    'letmein',
+    'master',
+    'monkey',
+    'password',
+    'password1',
+    'password123',
+    'princess',
+    'qwerty',
+    'qwerty123',
+    'shadow',
+    'sunshine',
+    'superman',
+    'trustno1',
+    'welcome',
+]);
+
 export const passwordSchema = z
     .string()
-    .min(8, 'Password must be at least 8 characters')
-    .max(256);
+    .min(12, 'Password must be at least 12 characters')
+    .max(256)
+    .refine((p) => /[a-z]/.test(p), {
+        message: 'Must contain a lowercase letter',
+    })
+    .refine((p) => /[A-Z]/.test(p), {
+        message: 'Must contain an uppercase letter',
+    })
+    .refine((p) => /\d/.test(p), { message: 'Must contain a digit' })
+    .refine((p) => !COMMON_PASSWORDS.has(p.toLowerCase()), {
+        message: 'Password is too common',
+    });
 
 export const displayNameSchema = z
     .string()

@@ -14,6 +14,8 @@ import { headers } from 'next/headers';
 import { env } from '~/env';
 import { resolveRole, ROOT_EMAIL } from '~/lib/auth-roles';
 import { sendMagicLinkEmail, sendSignUpNotification } from '~/lib/email';
+import { checkRateLimit, resetRateLimit } from '~/lib/rate-limit';
+import { routes } from '~/lib/routes';
 import { credentialsSchema } from '~/lib/schemas/session';
 import { accounts, db, sessions, users, verificationTokens } from '~/server/db';
 
@@ -80,6 +82,21 @@ const providers: NextAuthConfig['providers'] = [
             if (!parsed.success) return null;
             const { email, password } = parsed.data;
 
+            const meta = await readRequestMetadata();
+            const rlEmailOk = await checkRateLimit({
+                bucket: 'login:email',
+                key: email,
+                max: 10,
+                windowMs: 15 * 60 * 1000,
+            });
+            const rlIpOk = await checkRateLimit({
+                bucket: 'login:ip',
+                key: meta.ipAddress ?? 'unknown',
+                max: 30,
+                windowMs: 15 * 60 * 1000,
+            });
+            if (!rlEmailOk || !rlIpOk) return null;
+
             const [user] = await db
                 .select()
                 .from(users)
@@ -91,6 +108,9 @@ const providers: NextAuthConfig['providers'] = [
             const valid = await compare(password, user.password);
             if (!valid) return null;
 
+            if (!user.emailVerified) return null;
+
+            resetRateLimit({ bucket: 'login:email', key: email });
             return {
                 email: user.email,
                 id: user.id,
@@ -120,7 +140,6 @@ const googleSecret: string | undefined = env.AUTH_GOOGLE_SECRET;
 if (googleId && googleSecret) {
     providers.push(
         Google({
-            allowDangerousEmailAccountLinking: true,
             clientId: googleId,
             clientSecret: googleSecret,
         }),
@@ -132,7 +151,6 @@ const githubSecret: string | undefined = env.AUTH_GITHUB_SECRET;
 if (githubId && githubSecret) {
     providers.push(
         GitHub({
-            allowDangerousEmailAccountLinking: true,
             clientId: githubId,
             clientSecret: githubSecret,
         }),
@@ -245,9 +263,9 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
         },
     },
     pages: {
-        error: '/auth-error',
-        signIn: '/login',
-        verifyRequest: '/verify-request',
+        error: routes.auth.error,
+        signIn: routes.auth.login,
+        verifyRequest: routes.auth.verifyRequest,
     },
     providers,
     session: {
