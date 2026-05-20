@@ -1,10 +1,10 @@
 import { type MetadataRoute } from 'next';
 
-import { env } from '~/env';
 import { disallowedCrawlPaths } from '~/lib/site/routes';
+import { getPublicSiteOrigin } from '~/lib/site/url';
 
 export default function robots(): MetadataRoute.Robots {
-    const base = env.NEXT_PUBLIC_SERVER_URL.replace(/\/$/, '');
+    const base = getPublicSiteOrigin();
     return {
         host: base,
         rules: [

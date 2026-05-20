@@ -3,6 +3,7 @@ import { Resend } from 'resend';
 
 import { env } from '~/env';
 import { ROOT_EMAIL } from '~/lib/auth/roles';
+import { getPublicSiteOrigin } from '~/lib/site/url';
 
 let _lettermint: null | ReturnType<typeof Lettermint.email> = null;
 let _resend: null | Resend = null;
@@ -31,7 +32,7 @@ export async function sendMagicLinkEmail(to: string, url: string) {
 }
 
 export async function sendPasswordResetEmail(to: string, token: string) {
-    const url = `${env.NEXT_PUBLIC_SERVER_URL}/reset-password?token=${token}`;
+    const url = `${getPublicSiteOrigin()}/reset-password?token=${token}`;
     const subject = 'Reset your password — sadra.nl';
     const html = `
 <p>Hi,</p>

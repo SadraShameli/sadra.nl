@@ -7,10 +7,10 @@ import { type Metadata, type Viewport } from 'next';
 
 import GridBackground from '~/components/ui/GridBg';
 import { Toaster } from '~/components/ui/Sonner';
-import { env } from '~/env';
 import { orbitron } from '~/fonts';
 import { auth } from '~/lib/auth/config';
 import { siteContent } from '~/lib/site/content';
+import { getPublicSiteOrigin } from '~/lib/site/url';
 import { cn } from '~/lib/utils';
 import { TRPCReactProvider } from '~/trpc/react';
 
@@ -22,10 +22,12 @@ export const viewport: Viewport = {
     themeColor: '#000',
 };
 
+const siteOrigin = getPublicSiteOrigin();
+
 export const metadata: Metadata = {
     description: siteContent.metaDescription,
     icons: { icon: '/favicon.ico' },
-    metadataBase: new URL(env.NEXT_PUBLIC_SERVER_URL),
+    metadataBase: new URL(siteOrigin),
     openGraph: {
         description: siteContent.metaDescription,
         siteName: 'sadra.nl',
@@ -50,7 +52,7 @@ const personJsonLd = {
     jobTitle: siteContent.metaDescription,
     name: siteContent.metaTitle,
     sameAs: siteContent.socialLinks.map((s) => s.url),
-    url: env.NEXT_PUBLIC_SERVER_URL,
+    url: siteOrigin,
 };
 
 export default async function RootLayout({

@@ -1,10 +1,10 @@
 import { type MetadataRoute } from 'next';
 
-import { env } from '~/env';
 import { indexableRoutes, routes } from '~/lib/site/routes';
+import { getPublicSiteOrigin } from '~/lib/site/url';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-    const base = env.NEXT_PUBLIC_SERVER_URL.replace(/\/$/, '');
+    const base = getPublicSiteOrigin();
     const lastModified = new Date();
     return indexableRoutes.map((path) => ({
         changeFrequency: path === routes.home ? 'weekly' : 'monthly',
