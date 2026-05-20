@@ -4,7 +4,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
-import type { Grade, TradeAssessmentRow } from '~/lib/trading-types';
+import type { Grade, TradeAssessmentRow } from '~/lib/trading/types';
 
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';

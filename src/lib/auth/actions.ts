@@ -6,11 +6,10 @@ import { AuthError, CredentialsSignin } from 'next-auth';
 import { redirect } from 'next/navigation';
 import { createHash, randomBytes } from 'node:crypto';
 
-import { auth, signIn, signOut } from '~/lib/auth';
+import { auth, signIn, signOut } from '~/lib/auth/config';
+import { isRedirectError } from '~/lib/auth/redirect-error';
 import { sendPasswordResetEmail, sendSignUpNotification } from '~/lib/email';
-import { checkRateLimit } from '~/lib/rate-limit';
-import { isRedirectError } from '~/lib/redirect-error';
-import { routes, withQuery } from '~/lib/routes';
+import { checkRateLimit } from '~/lib/observability/rate-limit';
 import {
     callbackUrlSchema,
     type ForgotPasswordInput,
@@ -34,6 +33,7 @@ import {
     type UpdatePasswordInput,
     updatePasswordInputSchema,
 } from '~/lib/schemas/auth';
+import { routes, withQuery } from '~/lib/site/routes';
 import { db, passwordResetTokens, sessions, users } from '~/server/db';
 
 const DEFAULT_REDIRECT = routes.home;

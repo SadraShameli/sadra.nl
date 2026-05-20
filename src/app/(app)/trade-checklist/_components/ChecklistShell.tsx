@@ -10,7 +10,7 @@ import type {
     AssessmentResult,
     TradeAssessmentRow,
     TradingPlanRow,
-} from '~/lib/trading-types';
+} from '~/lib/trading/types';
 
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
@@ -22,12 +22,12 @@ import {
 } from '~/components/ui/Popover';
 import { ScrollArea } from '~/components/ui/ScrollArea';
 import { Separator } from '~/components/ui/Separator';
-import { profileTabs, routes, withQuery } from '~/lib/routes';
+import { profileTabs, routes, withQuery } from '~/lib/site/routes';
 import {
     deleteAllAssessments,
     deleteAssessment,
     setActiveTradingPlan,
-} from '~/lib/trading-actions';
+} from '~/lib/trading/actions';
 import { cn } from '~/lib/utils';
 
 import { AnalysisReport } from './AnalysisReport';

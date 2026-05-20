@@ -1,6 +1,6 @@
 'use client';
 
-import type { Grade } from '~/lib/trading-types';
+import type { Grade } from '~/lib/trading/types';
 
 import { Badge } from '~/components/ui/Badge';
 

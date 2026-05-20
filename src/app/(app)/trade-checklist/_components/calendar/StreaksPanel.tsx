@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 
 import { Card } from '~/components/ui/Card';
-import { computeStreaks, type LightAssessment } from '~/lib/trading-analytics';
+import { computeStreaks, type LightAssessment } from '~/lib/trading/analytics';
 import { cn } from '~/lib/utils';
 
 export function StreaksPanel({

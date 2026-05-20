@@ -9,8 +9,8 @@ import {
     CardTitle,
 } from '~/components/ui/Card';
 import { env } from '~/env';
-import { routes } from '~/lib/routes';
 import { loginSearchSchema } from '~/lib/schemas/url';
+import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utils';
 
 import { OAuthButtons } from '../_components/OAuthButtons';

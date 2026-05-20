@@ -15,7 +15,7 @@ import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
 import {
     gradeCalibration,
     type LightAssessment,
-} from '~/lib/trading-analytics';
+} from '~/lib/trading/analytics';
 import { cn } from '~/lib/utils';
 
 const chartConfig: ChartConfig = {

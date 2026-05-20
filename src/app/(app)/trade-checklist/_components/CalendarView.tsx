@@ -3,7 +3,7 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 
-import type { LightAssessment } from '~/lib/trading-analytics';
+import type { LightAssessment } from '~/lib/trading/analytics';
 
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';

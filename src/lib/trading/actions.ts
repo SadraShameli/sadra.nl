@@ -3,8 +3,7 @@
 import { and, desc, eq } from 'drizzle-orm';
 import { redirect } from 'next/navigation';
 
-import { auth } from '~/lib/auth';
-import { profileTabs, routes, withQuery } from '~/lib/routes';
+import { auth } from '~/lib/auth/config';
 import {
     type AssessmentIdActionInput,
     assessmentIdActionSchema,
@@ -25,8 +24,9 @@ import {
     type UpdateTradingPlanInput,
     updateTradingPlanInputSchema,
 } from '~/lib/schemas/trading';
-import { DEFAULT_PLAN } from '~/lib/trading-defaults';
-import { PREP_CHECK_KEYS } from '~/lib/trading-types';
+import { profileTabs, routes, withQuery } from '~/lib/site/routes';
+import { DEFAULT_PLAN } from '~/lib/trading/defaults';
+import { PREP_CHECK_KEYS } from '~/lib/trading/types';
 import {
     dailyPreparations,
     db,

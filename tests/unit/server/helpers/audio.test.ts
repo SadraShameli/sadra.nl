@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { applyAudioFilters, aWeightingBiquads } from './Audio';
+import { applyAudioFilters, aWeightingBiquads } from '~/server/helpers/audio';
 
 function makeWav(samples: Int16Array, sampleRate = 16_000): Buffer {
     const dataBytes = samples.length * 2;

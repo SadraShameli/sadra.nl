@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { Separator } from '~/components/ui/Separator';
 import { Switch } from '~/components/ui/Switch';
-import { EVENT_LABELS, EVENT_TYPES, type EventType } from '~/lib/notify-types';
+import { EVENT_LABELS, EVENT_TYPES, type EventType } from '~/lib/notify/types';
 import { cn } from '~/lib/utils';
 import { api } from '~/trpc/react';
 

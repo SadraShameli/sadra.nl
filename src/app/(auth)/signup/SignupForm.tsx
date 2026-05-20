@@ -15,7 +15,7 @@ import {
     FormMessage,
 } from '~/components/ui/Form';
 import { Input } from '~/components/ui/Input';
-import { signup } from '~/lib/auth-actions';
+import { signup } from '~/lib/auth/actions';
 import { type SignupInput, signupInputSchema } from '~/lib/schemas/auth';
 
 export function SignupForm() {

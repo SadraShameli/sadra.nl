@@ -1,7 +1,7 @@
 import { type MetadataRoute } from 'next';
 
 import { env } from '~/env';
-import { disallowedCrawlPaths } from '~/lib/routes';
+import { disallowedCrawlPaths } from '~/lib/site/routes';
 
 export default function robots(): MetadataRoute.Robots {
     const base = env.NEXT_PUBLIC_SERVER_URL.replace(/\/$/, '');

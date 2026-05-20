@@ -5,7 +5,7 @@ import { useMemo } from 'react';
 
 import { Button } from '~/components/ui/Button';
 import { Input } from '~/components/ui/Input';
-import { OUTCOME_VALUES, SETUP_TYPE_VALUES } from '~/lib/trading-types';
+import { OUTCOME_VALUES, SETUP_TYPE_VALUES } from '~/lib/trading/types';
 import { cn } from '~/lib/utils';
 
 export interface JournalFilterState {

@@ -9,8 +9,8 @@ import GridBackground from '~/components/ui/GridBg';
 import { Toaster } from '~/components/ui/Sonner';
 import { env } from '~/env';
 import { orbitron } from '~/fonts';
-import { auth } from '~/lib/auth';
-import { siteContent } from '~/lib/content';
+import { auth } from '~/lib/auth/config';
+import { siteContent } from '~/lib/site/content';
 import { cn } from '~/lib/utils';
 import { TRPCReactProvider } from '~/trpc/react';
 

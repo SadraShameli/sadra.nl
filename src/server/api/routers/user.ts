@@ -2,7 +2,7 @@ import { TRPCError } from '@trpc/server';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 
-import { isRoot, resolveRole, ROOT_EMAIL } from '~/lib/auth-roles';
+import { isRoot, resolveRole, ROOT_EMAIL } from '~/lib/auth/roles';
 import {
     adminProcedure,
     createTRPCRouter,

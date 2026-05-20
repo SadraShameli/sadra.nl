@@ -1,9 +1,9 @@
 import { TRPCError } from '@trpc/server';
 
-import { ROOT_EMAIL } from '~/lib/auth-roles';
+import { ROOT_EMAIL } from '~/lib/auth/roles';
 import { sendWithFallback } from '~/lib/email';
-import { captureError } from '~/lib/logger';
-import { checkRateLimit } from '~/lib/rate-limit';
+import { captureError } from '~/lib/observability/logger';
+import { checkRateLimit } from '~/lib/observability/rate-limit';
 import { contactInputSchema } from '~/lib/schemas/contact';
 import { createTRPCRouter, publicProcedure } from '~/server/api/trpc';
 

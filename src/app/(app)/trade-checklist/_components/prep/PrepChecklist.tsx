@@ -11,12 +11,12 @@ import { Label } from '~/components/ui/Label';
 import { Progress } from '~/components/ui/Progress';
 import { Switch } from '~/components/ui/Switch';
 import { Textarea } from '~/components/ui/Textarea';
-import { deletePrep, savePrep } from '~/lib/trading-actions';
+import { deletePrep, savePrep } from '~/lib/trading/actions';
 import {
     PREP_CHECK_KEYS,
     type PrepCheckKey,
     type PrepChecks,
-} from '~/lib/trading-types';
+} from '~/lib/trading/types';
 import { cn } from '~/lib/utils';
 
 const CHECK_META: Record<PrepCheckKey, { hint: string; label: string }> = {

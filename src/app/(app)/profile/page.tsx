@@ -11,11 +11,11 @@ export const metadata: Metadata = {
 };
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { Separator } from '~/components/ui/Separator';
-import { auth } from '~/lib/auth';
-import { isAdminOrAbove, resolveRole } from '~/lib/auth-roles';
-import { routes } from '~/lib/routes';
+import { auth } from '~/lib/auth/config';
+import { isAdminOrAbove, resolveRole } from '~/lib/auth/roles';
 import { profileSearchSchema } from '~/lib/schemas/url';
-import { ensureUserHasPlan } from '~/lib/trading-actions';
+import { routes } from '~/lib/site/routes';
+import { ensureUserHasPlan } from '~/lib/trading/actions';
 import { cn } from '~/lib/utils';
 import { db, tradingPlans, users } from '~/server/db';
 

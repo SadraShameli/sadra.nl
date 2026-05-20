@@ -5,7 +5,7 @@ import { Bar, BarChart, Cell, LabelList, XAxis, YAxis } from 'recharts';
 
 import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
 import { formatPercent } from '~/lib/format';
-import { dayOfWeekStats, type LightAssessment } from '~/lib/trading-analytics';
+import { dayOfWeekStats, type LightAssessment } from '~/lib/trading/analytics';
 import { cn } from '~/lib/utils';
 
 const chartConfig: ChartConfig = {

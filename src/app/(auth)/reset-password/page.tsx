@@ -3,8 +3,8 @@ import { redirect } from 'next/navigation';
 
 import { Alert, AlertDescription } from '~/components/ui/Alert';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import { routes } from '~/lib/routes';
 import { resetPasswordSearchSchema } from '~/lib/schemas/url';
+import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utils';
 
 import { ResetPasswordForm } from './ResetPasswordForm';

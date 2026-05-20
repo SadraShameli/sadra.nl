@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 
-import { type EventType } from '~/lib/notify-types';
+import { type EventType } from '~/lib/notify/types';
 import { adminProcedure, createTRPCRouter } from '~/server/api/trpc';
 import { notificationPreference } from '~/server/db';
 

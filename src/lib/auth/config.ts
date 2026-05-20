@@ -12,11 +12,11 @@ import Email from 'next-auth/providers/nodemailer';
 import { headers } from 'next/headers';
 
 import { env } from '~/env';
-import { resolveRole, ROOT_EMAIL } from '~/lib/auth-roles';
+import { resolveRole, ROOT_EMAIL } from '~/lib/auth/roles';
 import { sendMagicLinkEmail, sendSignUpNotification } from '~/lib/email';
-import { checkRateLimit, resetRateLimit } from '~/lib/rate-limit';
-import { routes } from '~/lib/routes';
+import { checkRateLimit, resetRateLimit } from '~/lib/observability/rate-limit';
 import { credentialsSchema } from '~/lib/schemas/session';
+import { routes } from '~/lib/site/routes';
 import { accounts, db, sessions, users, verificationTokens } from '~/server/db';
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;

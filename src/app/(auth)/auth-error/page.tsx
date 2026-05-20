@@ -8,8 +8,8 @@ import {
     CardHeader,
     CardTitle,
 } from '~/components/ui/Card';
-import { routes } from '~/lib/routes';
 import { authErrorSearchSchema } from '~/lib/schemas/url';
+import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utils';
 
 const errorMessages: Record<string, string> = {

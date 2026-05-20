@@ -18,7 +18,7 @@ import type {
     AssessmentResult,
     TradingPlanRow,
 } from '~/lib/schemas/trading';
-import type { ConfluenceKey } from '~/lib/trading-types';
+import type { ConfluenceKey } from '~/lib/trading/types';
 
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
@@ -33,8 +33,8 @@ import { Switch } from '~/components/ui/Switch';
 import { Textarea } from '~/components/ui/Textarea';
 import { ToggleGroup, ToggleGroupItem } from '~/components/ui/ToggleGroup';
 import { answersSchema } from '~/lib/schemas/trading';
-import { CONFLUENCE_GROUPS } from '~/lib/trading-defaults';
-import { findCurrentWindow, scoreAssessment } from '~/lib/trading-scoring';
+import { CONFLUENCE_GROUPS } from '~/lib/trading/defaults';
+import { findCurrentWindow, scoreAssessment } from '~/lib/trading/scoring';
 import { cn } from '~/lib/utils';
 
 type FormValues = z.infer<typeof answersSchema>;

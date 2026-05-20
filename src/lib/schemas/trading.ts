@@ -13,7 +13,7 @@ import {
     RECOMMENDATION_VALUES,
     SETUP_TYPE_VALUES,
     WEIGHT_CATEGORY_VALUES,
-} from '~/lib/trading-types';
+} from '~/lib/trading/types';
 import {
     dailyPreparations,
     tradeAssessments,

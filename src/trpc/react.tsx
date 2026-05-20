@@ -9,7 +9,7 @@ import SuperJSON from 'superjson';
 
 import type { AppRouter } from '~/server/api/root';
 
-import { getPublicSiteOrigin } from '~/lib/site-url';
+import { getPublicSiteOrigin } from '~/lib/site/url';
 
 import { createQueryClient } from './query-client';
 

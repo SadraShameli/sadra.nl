@@ -2,10 +2,20 @@ import { Lettermint } from 'lettermint';
 import { Resend } from 'resend';
 
 import { env } from '~/env';
-import { ROOT_EMAIL } from '~/lib/auth-roles';
+import { ROOT_EMAIL } from '~/lib/auth/roles';
 
-const lettermint = Lettermint.email(env.LETTERMINT_PROJECT_TOKEN);
-const resend = new Resend(env.RESEND_API_KEY);
+let _lettermint: null | ReturnType<typeof Lettermint.email> = null;
+let _resend: null | Resend = null;
+
+function getLettermint() {
+    _lettermint ??= Lettermint.email(env.LETTERMINT_PROJECT_TOKEN);
+    return _lettermint;
+}
+
+function getResend() {
+    _resend ??= new Resend(env.RESEND_API_KEY);
+    return _resend;
+}
 
 export const EMAIL_FROM = 'noreply@sadra.nl';
 
@@ -51,7 +61,7 @@ export async function sendWithFallback(args: {
     to: string;
 }) {
     try {
-        await lettermint
+        await getLettermint()
             .from(EMAIL_FROM)
             .to(args.to)
             .subject(args.subject)
@@ -59,7 +69,7 @@ export async function sendWithFallback(args: {
             .send();
     } catch (error) {
         try {
-            await resend.emails.send({
+            await getResend().emails.send({
                 from: EMAIL_FROM,
                 html: args.html,
                 subject: args.subject,

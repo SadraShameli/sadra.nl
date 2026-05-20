@@ -1,4 +1,4 @@
-import { auth } from '~/lib/auth';
+import { auth } from '~/lib/auth/config';
 
 const PRIVATE_PREFIXES = ['/profile', '/trade-checklist'];
 

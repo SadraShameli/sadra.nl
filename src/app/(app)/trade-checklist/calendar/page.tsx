@@ -2,11 +2,11 @@ import { desc, eq } from 'drizzle-orm';
 import { type Metadata } from 'next';
 import { redirect } from 'next/navigation';
 
-import type { LightAssessment } from '~/lib/trading-analytics';
+import type { LightAssessment } from '~/lib/trading/analytics';
 
-import { auth } from '~/lib/auth';
-import { routes } from '~/lib/routes';
-import { ensureUserHasPlan } from '~/lib/trading-actions';
+import { auth } from '~/lib/auth/config';
+import { routes } from '~/lib/site/routes';
+import { ensureUserHasPlan } from '~/lib/trading/actions';
 import { cn } from '~/lib/utils';
 import { db, tradeAssessments } from '~/server/db';
 

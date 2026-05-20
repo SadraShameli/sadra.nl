@@ -7,7 +7,7 @@ import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
 import {
     type LightAssessment,
     outcomeDistribution,
-} from '~/lib/trading-analytics';
+} from '~/lib/trading/analytics';
 import { cn } from '~/lib/utils';
 
 const COLORS: Record<string, string> = {

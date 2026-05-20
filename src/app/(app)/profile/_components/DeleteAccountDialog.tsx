@@ -12,7 +12,7 @@ import {
     AlertDialogTrigger,
 } from '~/components/ui/AlertDialog';
 import { Button } from '~/components/ui/Button';
-import { deleteAccount } from '~/lib/auth-actions';
+import { deleteAccount } from '~/lib/auth/actions';
 
 export function DeleteAccountDialog() {
     return (

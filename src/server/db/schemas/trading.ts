@@ -17,7 +17,7 @@ import type {
     ExecutionDeviation,
     PrepChecks,
     TradingPlanConfig,
-} from '~/lib/trading-types';
+} from '~/lib/trading/types';
 
 import { createTable } from './main';
 

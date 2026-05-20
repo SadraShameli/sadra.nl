@@ -4,8 +4,8 @@ import Image from 'next/image';
 
 import SectionDescription from '~/components/SectionDescription';
 import SectionTitle from '~/components/SectionTitle';
-import { homepageContent, siteContent } from '~/lib/content';
-import { routes } from '~/lib/routes';
+import { homepageContent, siteContent } from '~/lib/site/content';
+import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utils';
 
 import AboutSection from './_components/About';

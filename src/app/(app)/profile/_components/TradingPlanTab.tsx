@@ -34,7 +34,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
-import type { TradingPlanRow } from '~/lib/trading-types';
+import type { TradingPlanRow } from '~/lib/trading/types';
 
 import {
     AlertDialog,
@@ -61,18 +61,18 @@ import {
 import { Input } from '~/components/ui/Input';
 import { Label } from '~/components/ui/Label';
 import { Separator } from '~/components/ui/Separator';
-import { routes } from '~/lib/routes';
 import {
     type TradingPlanCreateInput,
     tradingPlanCreateSchema,
 } from '~/lib/schemas/sensor-hub';
+import { routes } from '~/lib/site/routes';
 import {
     cloneTradingPlan,
     createTradingPlan,
     deleteTradingPlan,
     reorderTradingPlans,
     setActiveTradingPlan,
-} from '~/lib/trading-actions';
+} from '~/lib/trading/actions';
 import { cn } from '~/lib/utils';
 
 import { PlanEditor } from './PlanEditor';

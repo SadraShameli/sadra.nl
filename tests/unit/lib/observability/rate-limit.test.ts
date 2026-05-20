@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { checkRateLimit, resetRateLimit } from './rate-limit';
+import { checkRateLimit, resetRateLimit } from '~/lib/observability/rate-limit';
 
 describe('checkRateLimit', () => {
     it('permits requests under the limit and blocks once exceeded', async () => {

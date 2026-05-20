@@ -14,7 +14,7 @@ import {
     FormMessage,
 } from '~/components/ui/Form';
 import { Input } from '~/components/ui/Input';
-import { requestPasswordReset } from '~/lib/auth-actions';
+import { requestPasswordReset } from '~/lib/auth/actions';
 import {
     type ForgotPasswordInput,
     forgotPasswordInputSchema,

@@ -6,7 +6,7 @@ import { useTransition } from 'react';
 import { Button } from '~/components/ui/Button';
 import GithubIcon from '~/components/ui/Icons/Github';
 import GoogleIcon from '~/components/ui/Icons/Google';
-import { signInWithGithub, signInWithGoogle } from '~/lib/auth-actions';
+import { signInWithGithub, signInWithGoogle } from '~/lib/auth/actions';
 import { cn } from '~/lib/utils';
 
 export function OAuthButtons({

@@ -14,7 +14,7 @@ import {
     FormMessage,
 } from '~/components/ui/Form';
 import { Input } from '~/components/ui/Input';
-import { resetPassword } from '~/lib/auth-actions';
+import { resetPassword } from '~/lib/auth/actions';
 import {
     type ResetPasswordInput,
     resetPasswordInputSchema,

@@ -1,7 +1,7 @@
 import { type MetadataRoute } from 'next';
 
 import { env } from '~/env';
-import { indexableRoutes, routes } from '~/lib/routes';
+import { indexableRoutes, routes } from '~/lib/site/routes';
 
 export default function sitemap(): MetadataRoute.Sitemap {
     const base = env.NEXT_PUBLIC_SERVER_URL.replace(/\/$/, '');

@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { decodeShareState, encodeShareState } from './share';
+import {
+    decodeShareState,
+    encodeShareState,
+} from '~/lib/prop-calculator/share';
 
 describe('share state codec', () => {
     const baseRaw = {

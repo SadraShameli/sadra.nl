@@ -1,7 +1,7 @@
 import { type Metadata } from 'next';
 import Link from 'next/link';
 
-import { routes } from '~/lib/routes';
+import { routes } from '~/lib/site/routes';
 
 export const metadata: Metadata = {
     description: 'How sadra.nl handles personal data.',

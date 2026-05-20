@@ -22,7 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { DataTable } from '~/components/ui/DataTable';
 import { Select } from '~/components/ui/Select';
 import { Separator } from '~/components/ui/Separator';
-import { type Role } from '~/lib/auth-roles';
+import { type Role } from '~/lib/auth/roles';
 import { cn } from '~/lib/utils';
 import { api } from '~/trpc/react';
 

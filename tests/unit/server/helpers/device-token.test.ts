@@ -4,7 +4,7 @@ import {
     generateDeviceToken,
     hashDeviceToken,
     isDeviceTokenShape,
-} from './DeviceToken';
+} from '~/server/helpers/device-token';
 
 describe('DeviceToken', () => {
     it('generates a token with the expected prefix and length', async () => {

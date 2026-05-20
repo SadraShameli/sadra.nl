@@ -15,7 +15,7 @@ import {
 } from '~/components/ui/Form';
 import { Input } from '~/components/ui/Input';
 import { Label } from '~/components/ui/Label';
-import { updateEmail, updateName } from '~/lib/auth-actions';
+import { updateEmail, updateName } from '~/lib/auth/actions';
 import {
     updateEmailInputSchema,
     type UpdateNameInput,

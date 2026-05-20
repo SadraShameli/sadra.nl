@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect } from 'react';
 
 import { Button } from '~/components/ui/Button';
-import { routes } from '~/lib/routes';
+import { routes } from '~/lib/site/routes';
 
 export default function AppError({
     error,

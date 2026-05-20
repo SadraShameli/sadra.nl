@@ -8,7 +8,7 @@ import {
     deviationFrequency,
     executionImpactByGrade,
     type LightAssessment,
-} from '~/lib/trading-analytics';
+} from '~/lib/trading/analytics';
 import { cn } from '~/lib/utils';
 
 const DEVIATION_LABELS: Record<string, string> = {

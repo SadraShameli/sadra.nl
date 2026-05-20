@@ -9,7 +9,7 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 
-import type { ResumeSectionView } from '~/lib/content';
+import type { ResumeSectionView } from '~/lib/site/content';
 
 import RevealAnimation from '~/components/ui/Animations/Reveal';
 import { Card } from '~/components/ui/Card';

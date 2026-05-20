@@ -3,12 +3,12 @@ import { format } from 'date-fns';
 import { and, asc, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
-import { captureError } from '~/lib/logger';
 import {
     buildLoudnessAlertEmail,
     buildReadingEmail,
     fanOutEvent,
 } from '~/lib/notify';
+import { captureError } from '~/lib/observability/logger';
 import {
     adminProcedure,
     type ContextType,

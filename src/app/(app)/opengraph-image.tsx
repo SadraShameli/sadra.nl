@@ -1,6 +1,6 @@
 import { ImageResponse } from 'next/og';
 
-import { siteContent } from '~/lib/content';
+import { siteContent } from '~/lib/site/content';
 
 export const alt = 'sadra.nl';
 export const contentType = 'image/png';

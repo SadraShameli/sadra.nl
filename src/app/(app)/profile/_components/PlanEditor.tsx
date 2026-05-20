@@ -26,7 +26,7 @@ import type {
     TimeWindow,
     TradingPlanConfig,
     TradingPlanRow,
-} from '~/lib/trading-types';
+} from '~/lib/trading/types';
 
 import { Alert, AlertDescription } from '~/components/ui/Alert';
 import { Badge } from '~/components/ui/Badge';
@@ -37,8 +37,8 @@ import { Label } from '~/components/ui/Label';
 import { Slider } from '~/components/ui/Slider';
 import { Switch } from '~/components/ui/Switch';
 import { updateTradingPlanInputSchema } from '~/lib/schemas/trading';
-import { updateTradingPlan } from '~/lib/trading-actions';
-import { CONFLUENCE_GROUPS, WEIGHT_CATEGORIES } from '~/lib/trading-defaults';
+import { updateTradingPlan } from '~/lib/trading/actions';
+import { CONFLUENCE_GROUPS, WEIGHT_CATEGORIES } from '~/lib/trading/defaults';
 import { cn } from '~/lib/utils';
 
 const KNOCKOUT_LABELS: Record<keyof TradingPlanConfig['knockouts'], string> = {

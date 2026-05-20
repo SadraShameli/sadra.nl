@@ -1,6 +1,6 @@
-import type { Grade, Outcome, WeightCategory } from '~/lib/trading-types';
+import type { Grade, Outcome, WeightCategory } from '~/lib/trading/types';
 
-import { PLAN_TIMEZONE } from '~/lib/trading-defaults';
+import { PLAN_TIMEZONE } from '~/lib/trading/defaults';
 
 export interface LightAssessment {
     actualRiskTaken?: null | number;

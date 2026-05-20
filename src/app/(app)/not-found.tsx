@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 import { Button } from '~/components/ui/Button';
-import { routes } from '~/lib/routes';
+import { routes } from '~/lib/site/routes';
 
 export default function NotFound() {
     return (

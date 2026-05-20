@@ -15,7 +15,7 @@ import {
     FormMessage,
 } from '~/components/ui/Form';
 import { Input } from '~/components/ui/Input';
-import { signInWithMagicLink } from '~/lib/auth-actions';
+import { signInWithMagicLink } from '~/lib/auth/actions';
 import { type MagicLinkInput, magicLinkInputSchema } from '~/lib/schemas/auth';
 
 export function MagicLinkForm() {

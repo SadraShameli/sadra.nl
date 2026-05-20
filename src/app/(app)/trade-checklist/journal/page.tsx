@@ -3,10 +3,10 @@ import { type Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 
-import { auth } from '~/lib/auth';
-import { routes } from '~/lib/routes';
+import { auth } from '~/lib/auth/config';
 import { tradeAssessmentRowSchema } from '~/lib/schemas/trading';
-import { ensureUserHasPlan } from '~/lib/trading-actions';
+import { routes } from '~/lib/site/routes';
+import { ensureUserHasPlan } from '~/lib/trading/actions';
 import { cn } from '~/lib/utils';
 import { db, tradeAssessments, tradingPlans } from '~/server/db';
 

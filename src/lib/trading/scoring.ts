@@ -6,9 +6,9 @@ import type {
     Recommendation,
     TradingPlanConfig,
     WeightCategory,
-} from './trading-types';
+} from './types';
 
-import { GRADE_THRESHOLDS, PLAN_TIMEZONE } from './trading-defaults';
+import { GRADE_THRESHOLDS, PLAN_TIMEZONE } from './defaults';
 
 const MENTAL_LABELS = {
     boredomHunt: 'boredom-driven setup hunt',

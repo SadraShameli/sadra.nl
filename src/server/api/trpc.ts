@@ -3,11 +3,11 @@ import { and, eq, isNull } from 'drizzle-orm';
 import superjson from 'superjson';
 import { z, ZodError } from 'zod';
 
-import { auth } from '~/lib/auth';
-import { isAdminOrAbove, isRoot } from '~/lib/auth-roles';
+import { auth } from '~/lib/auth/config';
+import { isAdminOrAbove, isRoot } from '~/lib/auth/roles';
 import { db } from '~/server/db';
 import { device } from '~/server/db/schemas/main';
-import { hashDeviceToken } from '~/server/helpers/DeviceToken';
+import { hashDeviceToken } from '~/server/helpers/device-token';
 
 export const createTRPCContext = async (opts: { headers: Headers }) => {
     const session = await auth();

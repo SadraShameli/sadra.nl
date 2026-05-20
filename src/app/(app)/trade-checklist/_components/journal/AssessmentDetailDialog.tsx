@@ -2,7 +2,7 @@
 
 import { format } from 'date-fns';
 
-import type { TradeAssessmentRow } from '~/lib/trading-types';
+import type { TradeAssessmentRow } from '~/lib/trading/types';
 
 import { Badge } from '~/components/ui/Badge';
 import {
@@ -14,7 +14,7 @@ import {
 import { Progress } from '~/components/ui/Progress';
 import { ScrollArea } from '~/components/ui/ScrollArea';
 import { Separator } from '~/components/ui/Separator';
-import { WEIGHT_CATEGORIES } from '~/lib/trading-defaults';
+import { WEIGHT_CATEGORIES } from '~/lib/trading/defaults';
 import { cn } from '~/lib/utils';
 
 interface AssessmentDetailDialogProps {

@@ -8,7 +8,7 @@ import {
     computeStreaks,
     expectancyR,
     type LightAssessment,
-} from '~/lib/trading-analytics';
+} from '~/lib/trading/analytics';
 import { cn } from '~/lib/utils';
 
 export function KpiTiles({ assessments }: { assessments: LightAssessment[] }) {

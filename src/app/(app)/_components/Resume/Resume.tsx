@@ -1,4 +1,4 @@
-import type { ResumeSectionView } from '~/lib/content';
+import type { ResumeSectionView } from '~/lib/site/content';
 
 import SectionTitle from '~/components/SectionTitle';
 import { cn } from '~/lib/utils';

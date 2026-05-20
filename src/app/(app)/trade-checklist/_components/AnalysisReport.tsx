@@ -19,15 +19,15 @@ import type {
     Recommendation,
     TradeAssessmentRow,
     TradingPlanRow,
-} from '~/lib/trading-types';
+} from '~/lib/trading/types';
 
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { Progress } from '~/components/ui/Progress';
 import { Separator } from '~/components/ui/Separator';
-import { saveAssessment } from '~/lib/trading-actions';
-import { WEIGHT_CATEGORIES } from '~/lib/trading-defaults';
+import { saveAssessment } from '~/lib/trading/actions';
+import { WEIGHT_CATEGORIES } from '~/lib/trading/defaults';
 import { cn } from '~/lib/utils';
 
 import { OutcomeDialog } from './OutcomeDialog';

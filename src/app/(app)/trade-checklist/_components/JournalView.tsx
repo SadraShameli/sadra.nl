@@ -5,10 +5,10 @@ import { formatDistanceToNow } from 'date-fns';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useMemo, useState } from 'react';
 
-import type { TradeAssessmentRow } from '~/lib/trading-types';
+import type { TradeAssessmentRow } from '~/lib/trading/types';
 
 import { DataTable } from '~/components/ui/DataTable';
-import { dateKey, filterAssessments } from '~/lib/trading-analytics';
+import { dateKey, filterAssessments } from '~/lib/trading/analytics';
 import { cn } from '~/lib/utils';
 
 import { AssessmentDetailDialog } from './journal/AssessmentDetailDialog';

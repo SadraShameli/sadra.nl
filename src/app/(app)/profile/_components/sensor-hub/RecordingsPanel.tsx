@@ -32,11 +32,11 @@ import { Input } from '~/components/ui/Input';
 import { Label } from '~/components/ui/Label';
 import { Select } from '~/components/ui/Select';
 import { Separator } from '~/components/ui/Separator';
-import { apiRoutes } from '~/lib/routes';
 import {
     type RecordingRenameInput,
     recordingRenameSchema,
 } from '~/lib/schemas/sensor-hub';
+import { apiRoutes } from '~/lib/site/routes';
 import { api } from '~/trpc/react';
 
 const ALL = '__all__';

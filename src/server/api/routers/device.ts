@@ -2,8 +2,8 @@ import { TRPCError } from '@trpc/server';
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 
-import { captureError } from '~/lib/logger';
 import { buildDeviceEmail, fanOutEvent } from '~/lib/notify';
+import { captureError } from '~/lib/observability/logger';
 import {
     deviceCreateSchema,
     deviceUpdateSchema,
@@ -16,7 +16,7 @@ import {
     publicProcedure,
 } from '~/server/api/trpc';
 import { device, location, type recording } from '~/server/db/schemas/main';
-import { generateDeviceToken } from '~/server/helpers/DeviceToken';
+import { generateDeviceToken } from '~/server/helpers/device-token';
 
 import { type GetDeviceProps, type Result } from '../types/types';
 import {

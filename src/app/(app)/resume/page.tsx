@@ -1,6 +1,6 @@
 import { type Metadata } from 'next';
 
-import { resumeContent } from '~/lib/content';
+import { resumeContent } from '~/lib/site/content';
 
 import ResumeContent from '../_components/Resume/Resume';
 import { PrintButton } from './PrintButton';

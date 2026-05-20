@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 
-import type { LightAssessment } from '~/lib/trading-analytics';
+import type { LightAssessment } from '~/lib/trading/analytics';
 
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { Select } from '~/components/ui/Select';

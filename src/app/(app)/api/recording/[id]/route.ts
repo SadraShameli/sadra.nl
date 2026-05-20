@@ -7,7 +7,7 @@ import {
     recordingBlobSchema,
     zodErrorResponse,
 } from '~/lib/schemas/api';
-import { applyAudioFilters } from '~/server/helpers/Audio';
+import { applyAudioFilters } from '~/server/helpers/audio';
 import { api } from '~/trpc/server';
 
 export async function GET(

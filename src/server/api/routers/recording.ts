@@ -2,8 +2,8 @@ import { format } from 'date-fns';
 import { desc, eq } from 'drizzle-orm';
 import { z } from 'zod';
 
-import { captureError } from '~/lib/logger';
 import { buildRecordingEmail, fanOutEvent } from '~/lib/notify';
+import { captureError } from '~/lib/observability/logger';
 import { recordingRenameSchema } from '~/lib/schemas/sensor-hub';
 import {
     adminProcedure,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { ApexTraderFunding } from './firms/apex/ApexTraderFunding';
-import { type SimInputs, simulate } from './simulator';
+import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFunding';
+import { type SimInputs, simulate } from '~/lib/prop-calculator/simulator';
 
 const firm = new ApexTraderFunding();
 const firstPlan = firm.plans[0];

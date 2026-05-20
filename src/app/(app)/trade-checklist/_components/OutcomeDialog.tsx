@@ -4,7 +4,7 @@ import { ChevronDown } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 
-import type { ExecutionDeviation, Outcome } from '~/lib/trading-types';
+import type { ExecutionDeviation, Outcome } from '~/lib/trading/types';
 
 import { Button } from '~/components/ui/Button';
 import {
@@ -20,7 +20,7 @@ import { Label } from '~/components/ui/Label';
 import { RadioGroup, RadioGroupItem } from '~/components/ui/RadioGroup';
 import { Switch } from '~/components/ui/Switch';
 import { Textarea } from '~/components/ui/Textarea';
-import { recordAssessmentOutcome } from '~/lib/trading-actions';
+import { recordAssessmentOutcome } from '~/lib/trading/actions';
 import { cn } from '~/lib/utils';
 
 const OUTCOMES: { label: string; tone: string; value: Outcome }[] = [

@@ -11,14 +11,14 @@ import {
     YAxis,
 } from 'recharts';
 
-import type { WeightCategory } from '~/lib/trading-types';
+import type { WeightCategory } from '~/lib/trading/types';
 
 import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
 import { Select } from '~/components/ui/Select';
 import {
     componentScoreCorrelation,
     type LightAssessment,
-} from '~/lib/trading-analytics';
+} from '~/lib/trading/analytics';
 import { cn } from '~/lib/utils';
 
 const CATEGORIES: { key: WeightCategory; label: string }[] = [

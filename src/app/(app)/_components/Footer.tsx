@@ -1,8 +1,8 @@
 import Link from 'next/link';
 
 import { SocialIcon } from '~/components/ui/SocialIcon';
-import { siteContent } from '~/lib/content';
-import { routes } from '~/lib/routes';
+import { siteContent } from '~/lib/site/content';
+import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utils';
 
 type Column = {
