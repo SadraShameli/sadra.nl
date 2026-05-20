@@ -25,7 +25,9 @@
         "test": "vitest run",
         "test:e2e": "playwright test",
         "test:watch": "vitest",
-        "typecheck": "tsc --noEmit"
+        "typecheck": "tsc --noEmit",
+        "verify": "bun run format && bun run lint && bun run stylelint && bun run typecheck && bun run knip && bun run test",
+        "verify:build": "SKIP_ENV_VALIDATION=true next build"
     },
     "lint-staged": {
         "*.{ts,tsx,js,jsx,mjs,cjs}": [
