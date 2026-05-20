@@ -37,7 +37,7 @@ export default function Footer() {
         <footer
             className={cn(
                 'app-shell__footer',
-                'relative mt-32 border-t border-white/5 bg-linear-to-b from-black to-black/95',
+                'relative mt-96 border-t border-white/5 bg-linear-to-b from-black to-black/95',
             )}
         >
             <div
@@ -45,7 +45,7 @@ export default function Footer() {
                 className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-white/15 to-transparent"
             />
             <div className="container mx-auto px-6 pt-16 pb-8">
-                <div className="grid gap-12 sm:grid-cols-[1.4fr_repeat(2,1fr)_auto]">
+                <div className="grid gap-10 md:grid-cols-[1.4fr_repeat(2,1fr)_auto] md:gap-12">
                     <div className="flex flex-col gap-4">
                         <Link
                             className="font-orbitron text-xl font-semibold tracking-widest text-white transition hover:opacity-70"
@@ -53,7 +53,7 @@ export default function Footer() {
                         >
                             {navBrand}
                         </Link>
-                        <p className="max-w-xs text-sm text-muted-foreground">
+                        <p className="text-sm text-muted-foreground md:max-w-xs">
                             {metaDescription}.
                         </p>
                     </div>
