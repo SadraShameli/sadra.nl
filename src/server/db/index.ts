@@ -27,7 +27,7 @@ const globalForDb = globalThis as unknown as {
     pool: pg.Pool | undefined;
 };
 
-type PoolMember = (...args: unknown[]) => unknown;
+const PLACEHOLDER_DB_URL = 'postgres://placeholder@localhost:5432/placeholder';
 
 function buildConnectionString(raw: string): string {
     const url = new URL(raw);
@@ -36,49 +36,31 @@ function buildConnectionString(raw: string): string {
     return url.toString();
 }
 
-function getPool(): pg.Pool {
-    if (globalForDb.pool) return globalForDb.pool;
-    const databaseUrl = env.DATABASE_URL;
-    if (!databaseUrl) {
-        throw new Error(
-            'DATABASE_URL is not configured. Set it before issuing DB queries.',
-        );
-    }
-    const pool = new pg.Pool({
-        connectionString: buildConnectionString(databaseUrl),
+const databaseUrl = env.DATABASE_URL;
+const pool =
+    globalForDb.pool ??
+    new pg.Pool({
+        connectionString: databaseUrl
+            ? buildConnectionString(databaseUrl)
+            : PLACEHOLDER_DB_URL,
         idleTimeoutMillis: 5000,
         max: 2,
         ssl: { rejectUnauthorized: false },
     });
-    attachDatabasePool(pool);
-    if (env.NODE_ENV !== 'production') globalForDb.pool = pool;
-    return pool;
-}
 
-export const db = drizzle(
-    new Proxy({} as pg.Pool, {
-        get(_target, prop) {
-            const target = getPool() as unknown as Record<string, PoolMember>;
-            const value = target[prop as string];
-            if (typeof value === 'function') {
-                return value.bind(target);
-            }
-            return value;
-        },
-    }),
-    {
-        schema: {
-            ...schema,
-            ...authSchema,
-            ...tradingSchema,
-            ...notificationSchema,
-        },
+attachDatabasePool(pool);
+
+if (env.NODE_ENV !== 'production') globalForDb.pool = pool;
+
+export const db = drizzle(pool, {
+    schema: {
+        ...schema,
+        ...authSchema,
+        ...tradingSchema,
+        ...notificationSchema,
     },
-);
+});
 
 export async function endDb() {
-    if (globalForDb.pool) {
-        await globalForDb.pool.end();
-        globalForDb.pool = undefined;
-    }
+    await pool.end();
 }
