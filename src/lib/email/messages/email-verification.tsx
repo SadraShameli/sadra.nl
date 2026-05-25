@@ -1,7 +1,7 @@
 import { Button, Heading, Text } from '@react-email/components';
+import { render } from '@react-email/render';
 
 import { EmailMessage } from '../message';
-import { renderEmailToHtml } from '../render';
 import { BaseEmail } from '../templates/base';
 
 export class EmailVerificationEmail extends EmailMessage {
@@ -17,7 +17,7 @@ export class EmailVerificationEmail extends EmailMessage {
     }
 
     async render(): Promise<string> {
-        return renderEmailToHtml(<EmailVerificationTemplate url={this.url} />);
+        return render(<EmailVerificationTemplate url={this.url} />);
     }
 }
 

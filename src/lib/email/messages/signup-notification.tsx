@@ -1,7 +1,7 @@
 import { Heading, Text } from '@react-email/components';
+import { render } from '@react-email/render';
 
 import { EmailMessage } from '../message';
-import { renderEmailToHtml } from '../render';
 import { BaseEmail } from '../templates/base';
 
 interface SignUpNotificationTemplateProps {
@@ -23,7 +23,7 @@ export class SignUpNotificationEmail extends EmailMessage {
     }
 
     async render(): Promise<string> {
-        return renderEmailToHtml(
+        return render(
             <SignUpNotificationTemplate email={this.email} name={this.name} />,
         );
     }

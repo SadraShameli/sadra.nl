@@ -1,7 +1,7 @@
 import { Heading, Text } from '@react-email/components';
+import { render } from '@react-email/render';
 
 import { EmailMessage } from '../message';
-import { renderEmailToHtml } from '../render';
 import { BaseEmail } from '../templates/base';
 
 interface DeviceCreatedTemplateProps {
@@ -23,7 +23,7 @@ export class DeviceCreatedEmail extends EmailMessage {
     }
 
     async render(): Promise<string> {
-        return renderEmailToHtml(<DeviceCreatedTemplate {...this.params} />);
+        return render(<DeviceCreatedTemplate {...this.params} />);
     }
 }
 

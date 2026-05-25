@@ -1,7 +1,7 @@
 import { Heading, Text } from '@react-email/components';
+import { render } from '@react-email/render';
 
 import { EmailMessage } from '../message';
-import { renderEmailToHtml } from '../render';
 import { BaseEmail } from '../templates/base';
 
 interface LocationCreatedTemplateProps {
@@ -22,7 +22,7 @@ export class LocationCreatedEmail extends EmailMessage {
     }
 
     async render(): Promise<string> {
-        return renderEmailToHtml(<LocationCreatedTemplate {...this.params} />);
+        return render(<LocationCreatedTemplate {...this.params} />);
     }
 }
 

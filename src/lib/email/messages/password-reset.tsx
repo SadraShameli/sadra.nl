@@ -1,7 +1,7 @@
 import { Button, Heading, Text } from '@react-email/components';
+import { render } from '@react-email/render';
 
 import { EmailMessage } from '../message';
-import { renderEmailToHtml } from '../render';
 import { BaseEmail } from '../templates/base';
 
 export class PasswordResetEmail extends EmailMessage {
@@ -17,7 +17,7 @@ export class PasswordResetEmail extends EmailMessage {
     }
 
     async render(): Promise<string> {
-        return renderEmailToHtml(<PasswordResetTemplate url={this.url} />);
+        return render(<PasswordResetTemplate url={this.url} />);
     }
 }
 

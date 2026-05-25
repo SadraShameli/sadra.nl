@@ -1,7 +1,7 @@
 import { Heading, Hr, Text } from '@react-email/components';
+import { render } from '@react-email/render';
 
 import { EmailMessage } from '../message';
-import { renderEmailToHtml } from '../render';
 import { BaseEmail } from '../templates/base';
 
 interface ContactFormTemplateProps {
@@ -30,7 +30,7 @@ export class ContactFormEmail extends EmailMessage {
     }
 
     async render(): Promise<string> {
-        return renderEmailToHtml(
+        return render(
             <ContactFormTemplate
                 email={this.senderEmail}
                 ip={this.ip}

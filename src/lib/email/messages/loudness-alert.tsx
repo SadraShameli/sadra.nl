@@ -1,7 +1,7 @@
 import { Heading, Text } from '@react-email/components';
+import { render } from '@react-email/render';
 
 import { EmailMessage } from '../message';
-import { renderEmailToHtml } from '../render';
 import { BaseEmail } from '../templates/base';
 
 interface LoudnessAlertTemplateProps {
@@ -24,7 +24,7 @@ export class LoudnessAlertEmail extends EmailMessage {
     }
 
     async render(): Promise<string> {
-        return renderEmailToHtml(<LoudnessAlertTemplate {...this.params} />);
+        return render(<LoudnessAlertTemplate {...this.params} />);
     }
 }
 

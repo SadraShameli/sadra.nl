@@ -1,7 +1,7 @@
 import { Button, Heading, Text } from '@react-email/components';
+import { render } from '@react-email/render';
 
 import { EmailMessage } from '../message';
-import { renderEmailToHtml } from '../render';
 import { BaseEmail } from '../templates/base';
 
 export class MagicLinkEmail extends EmailMessage {
@@ -17,7 +17,7 @@ export class MagicLinkEmail extends EmailMessage {
     }
 
     async render(): Promise<string> {
-        return renderEmailToHtml(<MagicLinkTemplate url={this.url} />);
+        return render(<MagicLinkTemplate url={this.url} />);
     }
 }
 
