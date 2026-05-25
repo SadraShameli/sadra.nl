@@ -1,0 +1,20 @@
+{
+    "$schema": "https://unpkg.com/knip@latest/schema.json",
+    "entry": [
+        "src/components/ui/**/*.{ts,tsx}",
+        "src/lib/**/*.{ts,tsx}",
+        "src/trpc/**/*.{ts,tsx}",
+        "src/app/\\(app\\)/prop-calculator/_components/**/*.{ts,tsx}",
+        "src/server/db/relations.ts",
+        "src/server/db/seeds/**/*.ts"
+    ],
+    "ignore": ["src/app/(app)/_components/brand/GlitchBrand.tsx"],
+    "ignoreDependencies": [
+        "baseline-browser-mapping",
+        "caniuse-lite",
+        "cssnano",
+        "cssnano-preset-default",
+        "pino-pretty",
+        "sharp"
+    ]
+}

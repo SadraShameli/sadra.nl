@@ -1,0 +1,256 @@
+'use client';
+
+import { type ColumnDef } from '@tanstack/react-table';
+import { endOfDay, format, startOfDay, subDays } from 'date-fns';
+import { ExternalLink, Trophy } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { type DateRange } from 'react-day-picker';
+
+import { Badge } from '~/components/ui/Badge';
+import { Button } from '~/components/ui/Button';
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
+import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
+import { DataTable } from '~/components/ui/DataTable';
+import { DateRangePicker } from '~/components/ui/DatePicker';
+import { EmptyState } from '~/components/ui/EmptyState';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '~/components/ui/Select';
+import { WeightUnit } from '~/lib/lifting/format';
+import { PR_KIND_VALUES } from '~/lib/lifting/types';
+import { api, type RouterOutputs } from '~/trpc/react';
+
+type Exercise = RouterOutputs['lifting']['exercise']['get'];
+interface ExerciseDetailProps {
+    exercise: Exercise;
+}
+
+type PrRow = RouterOutputs['lifting']['analytics']['prTimeline'][number];
+
+const PR_KIND_ALL = '__all__';
+
+const PR_RANGE_VALUES = ['all', '7', '30', '90', '365'] as const;
+type PrRange = (typeof PR_RANGE_VALUES)[number];
+const PR_RANGE_LABEL: Record<PrRange, string> = {
+    '7': 'Last 7 days',
+    '30': 'Last 30 days',
+    '90': 'Last 90 days',
+    '365': 'Last year',
+    all: 'All time',
+};
+
+export function ExerciseDetail({ exercise }: ExerciseDetailProps) {
+    const prs = api.lifting.analytics.prTimeline.useQuery({ id: exercise.id });
+    const settings = api.lifting.settings.get.useQuery();
+    const unitWeight = settings.data?.unitWeight ?? 'kg';
+
+    const [prKindFilter, setPrKindFilter] = useState<string>(PR_KIND_ALL);
+    const [prRange, setPrRange] = useState<PrRange>('all');
+    const [prCustomRange, setPrCustomRange] = useState<DateRange | undefined>();
+
+    const filteredPrs = useMemo(() => {
+        let rows = prs.data ?? [];
+        if (prKindFilter !== PR_KIND_ALL) {
+            rows = rows.filter((pr) => pr.kind === prKindFilter);
+        }
+        if (prCustomRange?.from) {
+            const from = startOfDay(prCustomRange.from);
+            const to = prCustomRange.to
+                ? endOfDay(prCustomRange.to)
+                : endOfDay(prCustomRange.from);
+            return rows.filter((pr) => {
+                const d = new Date(pr.achievedAt);
+                return d >= from && d <= to;
+            });
+        }
+        if (prRange === 'all') return rows;
+        const since = subDays(new Date(), Number(prRange));
+        return rows.filter((pr) => new Date(pr.achievedAt) >= since);
+    }, [prs.data, prKindFilter, prRange, prCustomRange]);
+
+    const handlePresetChange = (v: PrRange) => {
+        setPrRange(v);
+        setPrCustomRange(undefined);
+    };
+
+    const handleCustomRangeChange = (range: DateRange | undefined) => {
+        setPrCustomRange(range);
+        if (range?.from) setPrRange('all');
+    };
+
+    const prFiltersActive =
+        prRange !== 'all' ||
+        Boolean(prCustomRange?.from) ||
+        prKindFilter !== PR_KIND_ALL;
+
+    const resetPrFilters = () => {
+        setPrRange('all');
+        setPrCustomRange(undefined);
+        setPrKindFilter(PR_KIND_ALL);
+    };
+
+    const columns = useMemo<ColumnDef<PrRow>[]>(
+        () => [
+            {
+                accessorKey: 'kind',
+                cell: ({ row }) => (
+                    <Badge variant="warning">
+                        {row.original.kind.replaceAll('_', ' ')}
+                    </Badge>
+                ),
+                header: 'Kind',
+            },
+            {
+                cell: ({ row }) => (
+                    <span className="block text-right font-semibold tabular-nums">
+                        {WeightUnit.format(row.original.weightKg, unitWeight)} ×{' '}
+                        {row.original.reps}
+                    </span>
+                ),
+                header: () => <span className="block text-right">Lift</span>,
+                id: 'lift',
+            },
+            {
+                accessorKey: 'achievedAt',
+                cell: ({ row }) => (
+                    <span className="block text-right text-muted-foreground tabular-nums">
+                        {format(new Date(row.original.achievedAt), 'MMM d')}
+                    </span>
+                ),
+                header: () => <span className="block text-right">Date</span>,
+            },
+        ],
+        [unitWeight],
+    );
+
+    return (
+        <div className="flex flex-col gap-8">
+            <header>
+                <p className="text-xs tracking-wide text-muted-foreground uppercase">
+                    {exercise.equipment} · {exercise.primaryMuscle}
+                </p>
+                <h1 className="mt-1 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                    {exercise.name}
+                </h1>
+                {exercise.instructions && (
+                    <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
+                        {exercise.instructions}
+                    </p>
+                )}
+            </header>
+
+            {exercise.videoUrl && (
+                <Button
+                    asChild
+                    className="w-fit gap-2"
+                    type="button"
+                    variant="outline"
+                >
+                    <a
+                        href={exercise.videoUrl}
+                        rel="noreferrer"
+                        target="_blank"
+                    >
+                        <ExternalLink className="size-4" />
+                        Watch demo
+                    </a>
+                </Button>
+            )}
+
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+                        <Trophy className="size-4" /> Personal records
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <DataTable
+                        columns={columns}
+                        data={filteredPrs}
+                        emptyState={
+                            <EmptyState
+                                description={
+                                    prFiltersActive
+                                        ? 'No PRs match these filters.'
+                                        : 'Log some sets and your PRs will show up here.'
+                                }
+                                icon={Trophy}
+                                title="No PRs yet"
+                            />
+                        }
+                        filterPlaceholder="Search PRs"
+                        headerActions={
+                            <div className="flex flex-col gap-2">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <ClearFiltersButton
+                                        active={prFiltersActive}
+                                        className="hidden md:flex"
+                                        onReset={resetPrFilters}
+                                    />
+                                    <Select
+                                        onValueChange={setPrKindFilter}
+                                        value={prKindFilter}
+                                    >
+                                        <SelectTrigger className="h-8 w-36 text-xs">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value={PR_KIND_ALL}>
+                                                All kinds
+                                            </SelectItem>
+                                            {PR_KIND_VALUES.map((k) => (
+                                                <SelectItem key={k} value={k}>
+                                                    <span className="capitalize">
+                                                        {k.replaceAll('_', ' ')}
+                                                    </span>
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <Select
+                                        onValueChange={(v) =>
+                                            handlePresetChange(v as PrRange)
+                                        }
+                                        value={prCustomRange ? 'all' : prRange}
+                                    >
+                                        <SelectTrigger className="h-8 w-36 text-xs">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {PR_RANGE_VALUES.map((r) => (
+                                                <SelectItem key={r} value={r}>
+                                                    {PR_RANGE_LABEL[r]}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <DateRangePicker
+                                        align="end"
+                                        className="h-8 text-xs"
+                                        onChange={handleCustomRangeChange}
+                                        placeholder="Custom range"
+                                        value={prCustomRange}
+                                    />
+                                </div>
+                                <ClearFiltersButton
+                                    active={prFiltersActive}
+                                    className="md:hidden"
+                                    onReset={resetPrFilters}
+                                />
+                            </div>
+                        }
+                        isLoading={prs.isLoading}
+                        pageSize={null}
+                        rowId={(r) => r.id}
+                        showFilter
+                        skeletonRows={4}
+                    />
+                </CardContent>
+            </Card>
+        </div>
+    );
+}

@@ -1,0 +1,73 @@
+import type { BookingDirection, VatCode } from '../providers/eboekhouden/enums';
+
+export interface Booking {
+    amountEur: number;
+    bank: LedgerRef;
+    counterpartLedger: LedgerRef;
+    counterpartName: string;
+    date: ISODate;
+    direction: BookingDirection;
+    notes: string[];
+    txnId: string;
+    vatCode: VatCode;
+}
+
+export interface ConversionResult {
+    bookings: Booking[];
+    matches: MatchAudit[];
+    skippedCurrency: number;
+    unknowns: UnknownMerchant[];
+}
+
+export interface DateRange {
+    end: ISODate;
+    start: ISODate;
+}
+
+export type ISODate = string;
+
+export interface LedgerRef {
+    id: number;
+    label: string;
+}
+
+export interface MatchAudit {
+    count: number;
+    direction: BookingDirection;
+    matchedDisplay: string;
+    rawName: string;
+    totalEur: number;
+}
+
+export interface RawTransaction {
+    date: ISODate;
+    direction: BookingDirection;
+    merchant: string;
+    sourceAmount: number;
+    sourceCurrency: string;
+    sourceFee: number;
+    sourceFeeCurrency: null | string;
+    sourceId: string;
+    txnId: string;
+}
+
+export interface UnknownMerchant {
+    count: number;
+    direction: BookingDirection;
+    firstSeen: ISODate;
+    lastSeen: ISODate;
+    rawName: string;
+}
+
+export const dateRangeFromList = (dates: ISODate[]): DateRange | null => {
+    const sorted = dates.toSorted();
+    const first = sorted[0];
+    const last = sorted.at(-1);
+    if (first === undefined || last === undefined) return null;
+    return { end: last, start: first };
+};
+
+export {
+    type BookingDirection,
+    type VatCode,
+} from '../providers/eboekhouden/enums';

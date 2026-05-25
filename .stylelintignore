@@ -1,0 +1,7 @@
+.next/
+.vercel/
+out/
+build/
+coverage/
+node_modules/
+public/
