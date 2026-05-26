@@ -134,17 +134,15 @@ export const styles = StyleSheet.create({
     sectionContent: {
         width: COLUMN_CONTENT_WIDTH,
     },
-    sectionHead: {
-        alignItems: 'baseline',
-        flexDirection: 'row',
-    },
     sectionLabel: {
         color: MUTED,
         fontSize: 8,
         fontWeight: 600,
-        paddingRight: 18,
         textAlign: 'right',
         textTransform: 'uppercase',
+    },
+    sectionLabelCol: {
+        paddingRight: 18,
         width: COLUMN_LABEL_WIDTH,
     },
     skill: {

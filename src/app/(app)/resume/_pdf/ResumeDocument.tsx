@@ -11,7 +11,6 @@ import {
     Text,
     View,
 } from '@react-pdf/renderer';
-import { Children } from 'react';
 
 import {
     type PortfolioSectionView,
@@ -387,35 +386,12 @@ function Section({
     title: string;
     wrap?: boolean;
 }) {
-    if (!wrap) {
-        return (
-            <View style={styles.section} wrap={false}>
-                <Text style={styles.sectionLabel}>{title}</Text>
-                <View style={styles.sectionContent}>{children}</View>
-            </View>
-        );
-    }
-
-    const items = Children.toArray(children);
-    if (items.length <= 1) {
-        return (
-            <View style={styles.section} wrap={false}>
-                <Text style={styles.sectionLabel}>{title}</Text>
-                <View style={styles.sectionContent}>{children}</View>
-            </View>
-        );
-    }
-
     return (
-        <View style={{ marginBottom: 14 }}>
-            {items.map((item, i) => (
-                <View key={i} style={styles.sectionHead}>
-                    <Text style={styles.sectionLabel}>
-                        {i === 0 ? title : ''}
-                    </Text>
-                    <View style={styles.sectionContent}>{item}</View>
-                </View>
-            ))}
+        <View style={styles.section} wrap={wrap}>
+            <View style={styles.sectionLabelCol}>
+                <Text style={styles.sectionLabel}>{title}</Text>
+            </View>
+            <View style={styles.sectionContent}>{children}</View>
         </View>
     );
 }

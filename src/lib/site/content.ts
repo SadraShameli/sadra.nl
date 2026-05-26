@@ -378,9 +378,9 @@ export const resumeVariants: Record<ResumeVariantKey, ResumeVariant> = {
         key: 'fullstack',
         label: 'Full-stack developer',
         projects: [
+            projectTradingBot,
             projectSadraNl,
             projectMinoMarkt,
-            projectTradingBot,
             projectSensorHub,
             projectProjectAI,
         ],
