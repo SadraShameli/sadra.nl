@@ -3,6 +3,7 @@ import { and, asc, eq } from 'drizzle-orm';
 import 'server-only';
 import { z } from 'zod';
 
+import { classifyTransaction } from '~/lib/accounting/core/orchestrator';
 import {
     getCredentialDescriptor,
     listCredentialDescriptors,
@@ -15,6 +16,11 @@ import {
 import '~/lib/accounting/providers/index';
 import { getProvider } from '~/lib/accounting/providers/provider';
 import '~/lib/accounting/sources/index';
+import {
+    type ApiSource,
+    findApiSourceByCredentialKind,
+    getSource,
+} from '~/lib/accounting/sources/source';
 import { openSecret, sealSecret } from '~/lib/crypto/secrets';
 import { captureError } from '~/lib/observability/logger';
 import {
@@ -136,6 +142,26 @@ function requireAccountingSession(cred: LoadedCredential) {
         });
     }
     return { descriptor, provider };
+}
+
+function requireTransactionSource(cred: LoadedCredential): ApiSource {
+    const descriptor = getCredentialDescriptor(cred.kind);
+    if (!descriptor) {
+        throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: `Unknown credential kind "${cred.kind}"`,
+        });
+    }
+    const source = descriptor.transactionSourceId
+        ? getSource(descriptor.transactionSourceId)
+        : findApiSourceByCredentialKind(cred.kind);
+    if (source?.kind !== 'api') {
+        throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: `Credential "${descriptor.label}" has no transaction source`,
+        });
+    }
+    return source;
 }
 
 export const accountingRouter = createTRPCRouter({
@@ -440,5 +466,33 @@ export const accountingRouter = createTRPCRouter({
             counts[row.kind] = (counts[row.kind] ?? 0) + 1;
         }
         return counts;
+    }),
+
+    transactions: createTRPCRouter({
+        list: rootProcedure
+            .input(
+                z.object({
+                    credentialId: z.uuid(),
+                    from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+                    to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+                }),
+            )
+            .query(async ({ ctx, input }) => {
+                const cred = await loadCredentialOrThrow(
+                    input.credentialId,
+                    ctx.userId,
+                );
+                const source = requireTransactionSource(cred);
+                const txns = await source.fetch({
+                    from: input.from,
+                    meta: cred.meta,
+                    secret: cred.secret,
+                    to: input.to,
+                });
+                return txns.map((tx) => ({
+                    ...tx,
+                    match: classifyTransaction(tx),
+                }));
+            }),
     }),
 });

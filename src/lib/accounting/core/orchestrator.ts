@@ -8,6 +8,7 @@ import type {
     LedgerRef,
     MatchAudit,
     RawTransaction,
+    TransactionMatch,
     UnknownMerchant,
 } from './types';
 
@@ -151,6 +152,18 @@ export function buildBookings(input: BuildBookingsInput): ConversionResult {
         });
 
     return { bookings, matches, skippedCurrency, unknowns };
+}
+
+export function classifyTransaction(
+    tx: RawTransaction,
+): null | TransactionMatch {
+    const resolved = resolveRule(tx);
+    if (!resolved) return null;
+    return {
+        display: resolved.display,
+        ledgerId: resolved.ledger.id,
+        ledgerLabel: resolved.ledger.label,
+    };
 }
 
 export function collectDates(

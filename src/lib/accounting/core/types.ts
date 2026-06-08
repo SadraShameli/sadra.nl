@@ -51,6 +51,12 @@ export interface RawTransaction {
     txnId: string;
 }
 
+export interface TransactionMatch {
+    display: string;
+    ledgerId: number;
+    ledgerLabel: string;
+}
+
 export interface UnknownMerchant {
     count: number;
     direction: BookingDirection;

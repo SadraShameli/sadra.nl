@@ -9,12 +9,13 @@ import {
     Send,
     StopCircle,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 import type {
     Booking,
     ConversionResult,
+    LedgerRef,
     RawTransaction,
 } from '~/lib/accounting/core/types';
 import type { CredentialDescriptor } from '~/lib/accounting/credentials/index';
@@ -480,11 +481,34 @@ function ResultsView({
     result: ConversionResult;
     setPushOpen: (open: boolean) => void;
 }) {
-    const bookings: Booking[] = result.bookings;
     const postable =
         accountingCredentialId.length > 0 &&
         accountingDescriptor?.role === 'accounting';
     const targetLabel = accountingDescriptor?.label ?? 'accounting backend';
+
+    const [bookings, setBookings] = useState<Booking[]>(result.bookings);
+    useEffect(() => {
+        setBookings(result.bookings);
+    }, [result]);
+
+    const editBooking = useCallback((txnId: string, patch: Partial<Booking>) => {
+        setBookings((prev) =>
+            prev.map((b) => (b.txnId === txnId ? { ...b, ...patch } : b)),
+        );
+    }, []);
+
+    const ledgersQ = api.accounting.ledgers.list.useQuery(
+        { credentialId: accountingCredentialId },
+        { enabled: postable },
+    );
+    const ledgerOptions = useMemo<LedgerRef[]>(
+        () =>
+            (ledgersQ.data ?? []).map((l) => ({
+                id: l.externalId,
+                label: `${l.code} ${l.description}`,
+            })),
+        [ledgersQ.data],
+    );
 
     return (
         <div className="flex flex-col gap-4">
@@ -560,7 +584,11 @@ function ResultsView({
                                 </TabsTrigger>
                             </TabsList>
                             <TabsContent className="mt-4" value="bookings">
-                                <BookingsTable result={result} />
+                                <BookingsTable
+                                    bookings={bookings}
+                                    ledgerOptions={ledgerOptions}
+                                    onEdit={editBooking}
+                                />
                             </TabsContent>
                             <TabsContent
                                 className="mt-4"

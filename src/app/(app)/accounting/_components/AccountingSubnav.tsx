@@ -1,6 +1,12 @@
 'use client';
 
-import { BookOpen, KeyRound, LayoutDashboard, ListChecks } from 'lucide-react';
+import {
+    ArrowLeftRight,
+    BookOpen,
+    KeyRound,
+    LayoutDashboard,
+    ListChecks,
+} from 'lucide-react';
 
 import {
     RouteSubnav,
@@ -23,6 +29,11 @@ const ITEMS: readonly RouteSubnavItem[] = [
         href: routes.accounting.ledgers,
         icon: BookOpen,
         label: 'Ledgers',
+    },
+    {
+        href: routes.accounting.transactions,
+        icon: ArrowLeftRight,
+        label: 'Transactions',
     },
     {
         href: routes.accounting.mutations,

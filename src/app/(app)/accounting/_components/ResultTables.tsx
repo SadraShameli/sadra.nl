@@ -1,6 +1,7 @@
 'use client';
 
 import { type ColumnDef } from '@tanstack/react-table';
+import { ChevronsUpDown } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { type DateRange } from 'react-day-picker';
 
@@ -8,16 +9,32 @@ import type {
     Booking,
     BookingDirection,
     ConversionResult,
+    LedgerRef,
     MatchAudit,
     UnknownMerchant,
 } from '~/lib/accounting/core/types';
 
 import { Badge } from '~/components/ui/Badge';
+import { Button } from '~/components/ui/Button';
 import { Card, CardContent } from '~/components/ui/Card';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from '~/components/ui/Command';
 import { DataTable } from '~/components/ui/DataTable';
 import { DateRangePicker } from '~/components/ui/DatePicker';
 import { EmptyState } from '~/components/ui/EmptyState';
+import { Input } from '~/components/ui/Input';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '~/components/ui/Popover';
 import {
     Select,
     SelectContent,
@@ -133,7 +150,15 @@ interface PerCounterpartRow {
     total: number;
 }
 
-export function BookingsTable({ result }: { result: ConversionResult }) {
+export function BookingsTable({
+    bookings,
+    ledgerOptions,
+    onEdit,
+}: {
+    bookings: Booking[];
+    ledgerOptions: LedgerRef[];
+    onEdit: (txnId: string, patch: Partial<Booking>) => void;
+}) {
     const [direction, setDirection] = useState<DirectionFilter>(ALL);
     const [vatCode, setVatCode] = useState<string>(ALL);
     const [counterpart, setCounterpart] = useState<string>(ALL);
@@ -141,15 +166,15 @@ export function BookingsTable({ result }: { result: ConversionResult }) {
 
     const counterpartOptions = useMemo(
         () =>
-            [
-                ...new Set(result.bookings.map((b) => b.counterpartName)),
-            ].toSorted((a, b) => a.localeCompare(b)),
-        [result.bookings],
+            [...new Set(bookings.map((b) => b.counterpartName))].toSorted(
+                (a, b) => a.localeCompare(b),
+            ),
+        [bookings],
     );
 
     const rows = useMemo(
         () =>
-            result.bookings.filter((b) => {
+            bookings.filter((b) => {
                 if (direction !== ALL && b.direction !== direction)
                     return false;
                 if (vatCode !== ALL && b.vatCode !== vatCode) return false;
@@ -158,7 +183,7 @@ export function BookingsTable({ result }: { result: ConversionResult }) {
                 if (!isoInRange(b.date, dateRange)) return false;
                 return true;
             }),
-        [result.bookings, direction, vatCode, counterpart, dateRange],
+        [bookings, direction, vatCode, counterpart, dateRange],
     );
 
     const hasFilters =
@@ -188,13 +213,54 @@ export function BookingsTable({ result }: { result: ConversionResult }) {
             {
                 accessorKey: 'direction',
                 cell: ({ row }) => (
-                    <DirectionBadge direction={row.original.direction} />
+                    <Select
+                        onValueChange={(v) =>
+                            onEdit(row.original.txnId, {
+                                direction: v as BookingDirection,
+                            })
+                        }
+                        value={row.original.direction}
+                    >
+                        <SelectTrigger className="h-8 w-24 text-xs">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="IN">IN</SelectItem>
+                            <SelectItem value="OUT">OUT</SelectItem>
+                        </SelectContent>
+                    </Select>
                 ),
                 header: 'Dir',
             },
             {
                 accessorKey: 'counterpartName',
+                cell: ({ row }) => (
+                    <Input
+                        className="h-8 w-40 text-xs"
+                        onChange={(e) =>
+                            onEdit(row.original.txnId, {
+                                counterpartName: e.target.value,
+                            })
+                        }
+                        value={row.original.counterpartName}
+                    />
+                ),
                 header: 'Counterpart',
+            },
+            {
+                accessorKey: 'counterpartLedger',
+                cell: ({ row }) => (
+                    <LedgerCombobox
+                        onChange={(ledger) =>
+                            onEdit(row.original.txnId, {
+                                counterpartLedger: ledger,
+                            })
+                        }
+                        options={ledgerOptions}
+                        value={row.original.counterpartLedger}
+                    />
+                ),
+                header: 'Ledger',
             },
             {
                 accessorKey: 'amountEur',
@@ -214,9 +280,23 @@ export function BookingsTable({ result }: { result: ConversionResult }) {
             {
                 accessorKey: 'vatCode',
                 cell: ({ row }) => (
-                    <Badge variant="outline">
-                        {VAT_CODE_LABEL[row.original.vatCode]}
-                    </Badge>
+                    <Select
+                        onValueChange={(v) =>
+                            onEdit(row.original.txnId, { vatCode: v as VatCode })
+                        }
+                        value={row.original.vatCode}
+                    >
+                        <SelectTrigger className="h-8 w-44 text-xs">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {VAT_CODES.map((c) => (
+                                <SelectItem key={c} value={c}>
+                                    {VAT_CODE_LABEL[c]}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                 ),
                 header: 'VAT',
             },
@@ -239,10 +319,10 @@ export function BookingsTable({ result }: { result: ConversionResult }) {
                 header: 'Reference',
             },
         ],
-        [],
+        [ledgerOptions, onEdit],
     );
 
-    if (result.bookings.length === 0) {
+    if (bookings.length === 0) {
         return (
             <EmptyState
                 description="No bookings produced from this run."
@@ -724,6 +804,55 @@ export function UnknownsTable({ result }: { result: ConversionResult }) {
             rowId={(r) => `${r.direction}|${r.rawName}`}
             showFilter
         />
+    );
+}
+
+function LedgerCombobox({
+    onChange,
+    options,
+    value,
+}: {
+    onChange: (ledger: LedgerRef) => void;
+    options: LedgerRef[];
+    value: LedgerRef;
+}) {
+    const [open, setOpen] = useState(false);
+    return (
+        <Popover onOpenChange={setOpen} open={open}>
+            <PopoverTrigger asChild>
+                <Button
+                    className="h-8 w-48 justify-between text-xs font-normal"
+                    disabled={options.length === 0}
+                    type="button"
+                    variant="outline"
+                >
+                    <span className="truncate">{value.label}</span>
+                    <ChevronsUpDown className="size-3 opacity-50" />
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-72 p-0">
+                <Command>
+                    <CommandInput placeholder="Search ledgers…" />
+                    <CommandList>
+                        <CommandEmpty>No ledger found.</CommandEmpty>
+                        <CommandGroup>
+                            {options.map((opt) => (
+                                <CommandItem
+                                    key={opt.id}
+                                    onSelect={() => {
+                                        onChange(opt);
+                                        setOpen(false);
+                                    }}
+                                    value={opt.label}
+                                >
+                                    {opt.label}
+                                </CommandItem>
+                            ))}
+                        </CommandGroup>
+                    </CommandList>
+                </Command>
+            </PopoverContent>
+        </Popover>
     );
 }
 
