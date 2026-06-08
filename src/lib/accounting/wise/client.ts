@@ -127,7 +127,10 @@ export class WiseClient {
             const parsed = activitiesSchema.parse(body);
             let stop = false;
             for (const a of parsed.activities) {
-                if (a.type !== 'CARD_PAYMENT' || a.status !== 'COMPLETED')
+                if (
+                    !['CARD_PAYMENT', 'DIRECT_DEBIT'].includes(a.type) ||
+                    a.status !== 'COMPLETED'
+                )
                     continue;
                 const created = parseDatetimeIso(a.createdOn);
                 const createdDate = created.slice(0, 10);

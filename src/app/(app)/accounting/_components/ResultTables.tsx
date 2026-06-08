@@ -374,15 +374,11 @@ export function MatchAuditTable({ result }: { result: ConversionResult }) {
                         {row.original.rawName}
                     </span>
                 ),
-                header: 'Raw name (from CSV / API)',
+                header: 'Raw name',
             },
             {
                 accessorKey: 'matchedDisplay',
-                cell: ({ row }) => (
-                    <Badge className="bg-cyan-500/10 text-cyan-200">
-                        {row.original.matchedDisplay}
-                    </Badge>
-                ),
+                cell: ({ row }) => <Badge>{row.original.matchedDisplay}</Badge>,
                 header: 'Matched as',
             },
             {
