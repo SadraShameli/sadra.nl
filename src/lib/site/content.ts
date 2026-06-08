@@ -28,7 +28,6 @@ export type PortfolioSectionView = {
 
 type HomepageData = {
     aboutSectionTitle: string;
-    aboutSpotifyEmbed: string;
     ctaLabel: string;
     gallery: GalleryItem[];
     heroImage: StaticImageData;
@@ -118,8 +117,6 @@ export const siteContent: SiteData = {
 
 export const homepageContent: HomepageData = {
     aboutSectionTitle: 'More about me',
-    aboutSpotifyEmbed:
-        '<iframe style="border-radius:12px" src="https://open.spotify.com/embed/track/4kjI1gwQZRKNDkw1nI475M?utm_source=generator&theme=0" width="100%" height="152" frameBorder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>',
     ctaLabel: 'Portfolio',
     gallery: [
         { alt: 'Spain Pool', src: SpainPoolImage.src },

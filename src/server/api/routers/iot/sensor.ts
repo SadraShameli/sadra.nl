@@ -116,12 +116,13 @@ export const sensorRouter = createTRPCRouter({
                 .delete(sensorsToDevices)
                 .where(eq(sensorsToDevices.device_id, input.deviceId));
             if (input.sensorIds.length > 0) {
-                await ctx.db.insert(sensorsToDevices).values(
+                const q = ctx.db.insert(sensorsToDevices).values(
                     input.sensorIds.map((sensor_id) => ({
                         device_id: input.deviceId,
                         sensor_id,
                     })),
                 );
+                await q;
             }
             return { ok: true };
         }),

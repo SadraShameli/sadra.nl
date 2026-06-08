@@ -27,14 +27,16 @@ export default class SeedSensor extends DatabaseSeeder {
             .filter((v) => !knownUnits.has(v))
             .map((value) => ({ value }));
         if (unitsToInsert.length > 0) {
-            await db.insert(sensorUnit).values(unitsToInsert);
+            const q1 = db.insert(sensorUnit).values(unitsToInsert);
+            await q1;
         }
 
         const existing = await db.select({ name: sensor.name }).from(sensor);
         const existingNames = new Set(existing.map((s) => s.name));
         const toInsert = SENSORS.filter((s) => !existingNames.has(s.name));
         if (toInsert.length > 0) {
-            await db.insert(sensor).values(toInsert);
+            const q2 = db.insert(sensor).values(toInsert);
+            await q2;
         }
     }
 }

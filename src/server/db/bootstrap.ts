@@ -17,11 +17,7 @@ function shouldUseSsl(raw: string): boolean {
         const url = new URL(raw);
         const sslmode = url.searchParams.get('sslmode');
         if (sslmode === 'disable') return false;
-        if (
-            url.hostname === 'localhost' ||
-            url.hostname === '127.0.0.1' ||
-            url.hostname === '::1'
-        ) {
+        if (['127.0.0.1', '::1', 'localhost'].includes(url.hostname)) {
             return false;
         }
         return true;

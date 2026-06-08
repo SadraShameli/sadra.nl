@@ -17,7 +17,7 @@ export default class SeedRecording extends DatabaseSeeder {
             .where(eq(recording.device_id, 2))
             .limit(1);
         if (existing) return;
-        await db.insert(recording).values([
+        const q = db.insert(recording).values([
             {
                 device_id: 2,
                 file: Buffer.from(fs.readFileSync('src/assets/wav/1.wav')),
@@ -43,6 +43,7 @@ export default class SeedRecording extends DatabaseSeeder {
                 location_id: 1,
             },
         ]);
+        await q;
     }
 }
 

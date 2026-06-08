@@ -1,6 +1,6 @@
 import { createCallerFactory, createTRPCRouter } from '~/server/api/trpc';
 
-import { accountingImporterRouter } from './routers/accounting-importer';
+import { accountingRouter } from './routers/accounting';
 import { contactRouter } from './routers/contact';
 import { deviceRouter } from './routers/iot/device';
 import { locationRouter } from './routers/iot/location';
@@ -12,7 +12,7 @@ import { liftingRouter } from './routers/lifting';
 import { userRouter } from './routers/user';
 
 export const appRouter = createTRPCRouter({
-    accountingImporter: accountingImporterRouter,
+    accounting: accountingRouter,
     contact: contactRouter,
     device: deviceRouter,
     lifting: liftingRouter,

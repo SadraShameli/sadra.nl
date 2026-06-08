@@ -53,13 +53,11 @@ export default function GlitchBrand({
 
         schedule();
         return () => clearTimeout(timer);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [text]);
 
     useEffect(() => {
         if (trigger === 0) return;
         runBurst();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [trigger]);
 
     return (

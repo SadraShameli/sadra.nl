@@ -120,13 +120,14 @@ export const recordingsRouter = createTRPCRouter({
 
             const fileName = getRecordingFileName(new Date());
 
-            await ctx.db.insert(recording).values({
+            const q = ctx.db.insert(recording).values({
                 device_id: ctx.device.id,
                 duration_seconds: input.duration_seconds,
                 file: input.recording,
                 file_name: fileName,
                 location_id: ctx.device.location_id,
             });
+            await q;
 
             const [loc] = await ctx.db
                 .select({ name: location.name })

@@ -113,11 +113,10 @@ export function SetRow({
 
     useEffect(() => {
         form.reset(deriveDefaults(set, unitWeight, unitDistance));
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [set.id, unitWeight, unitDistance]);
 
     const stepInDisplay =
-        unitWeight === 'kg' ? weightStepKg : weightStepKg / 0.453_592_37;
+        unitWeight === 'kg' ? weightStepKg : weightStepKg / 0.45359237;
 
     const rpeValue = form.watch('rpe');
     const rirValue = form.watch('rir');

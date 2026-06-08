@@ -22,6 +22,5 @@ export default function middleware(req: NextRequest) {
 }
 
 export const config = {
-    // eslint-disable-next-line unicorn/prefer-string-raw
-    matcher: ['/((?!_next|favicon.ico|.*\\..*).*)'],
+    matcher: ['/((?!_next|favicon.ico|.*[.].*).*)'],
 };

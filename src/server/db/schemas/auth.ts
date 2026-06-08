@@ -20,7 +20,6 @@ export const user = createTable(
         image: text('image'),
         name: text('name').notNull(),
         role: text('role').$type<Role>().notNull().default('user'),
-        spotifyEmbed: text('spotify_embed'),
         updatedAt: timestamp('updated_at', { withTimezone: true })
             .default(sql`CURRENT_TIMESTAMP`)
             .notNull(),

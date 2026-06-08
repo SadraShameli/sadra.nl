@@ -80,7 +80,7 @@ export default function SectionNav() {
 
     useEffect(() => {
         const btn = navRef.current?.querySelector<HTMLElement>(
-            `[data-section="${active}"]`,
+            `[data-section="${CSS.escape(active)}"]`,
         );
         if (!btn) return;
         btn.scrollIntoView({

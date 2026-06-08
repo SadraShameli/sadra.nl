@@ -42,6 +42,7 @@ export type DataTableProps<TData, TValue> = {
     filterPosition?: 'bottom' | 'top';
     footer?: React.ReactNode;
     headerActions?: React.ReactNode;
+    initialSorting?: SortingState;
     isLoading?: boolean;
     onRowSelectionChange?: (rows: TData[]) => void;
     pageSize?: null | number;
@@ -64,6 +65,7 @@ export function DataTable<TData, TValue>({
     filterPosition = 'top',
     footer,
     headerActions,
+    initialSorting,
     isLoading,
     onRowSelectionChange,
     pageSize = 10,
@@ -74,7 +76,7 @@ export function DataTable<TData, TValue>({
     skeletonRows = 5,
     tableClassName,
 }: DataTableProps<TData, TValue>) {
-    const [sorting, setSorting] = useState<SortingState>([]);
+    const [sorting, setSorting] = useState<SortingState>(initialSorting ?? []);
     const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
     const [globalFilter, setGlobalFilter] = useState('');
     const [rowSelection, setRowSelection] = useState<RowSelectionState>({});

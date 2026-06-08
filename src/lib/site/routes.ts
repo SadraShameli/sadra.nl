@@ -1,9 +1,9 @@
 export const routes = {
-    accountingImporter: {
-        connections: '/accounting-importer/connections',
-        index: '/accounting-importer',
-        ledgers: '/accounting-importer/ledgers',
-        mutations: '/accounting-importer/mutations',
+    accounting: {
+        connections: '/accounting/connections',
+        index: '/accounting',
+        ledgers: '/accounting/ledgers',
+        mutations: '/accounting/mutations',
     },
     auth: {
         error: '/auth-error',
@@ -52,10 +52,10 @@ export const routes = {
 } as const;
 
 export const apiRoutes = {
-    accountingImporter: {
-        post: '/api/accounting-importer/post',
-        run: '/api/accounting-importer/run',
-        upload: '/api/accounting-importer/upload',
+    accounting: {
+        post: '/api/accounting/post',
+        run: '/api/accounting/run',
+        upload: '/api/accounting/upload',
     },
     health: '/api/health',
     recording: (id: number | string) => `/api/recording/${id}` as const,
@@ -80,7 +80,7 @@ export const disallowedCrawlPaths: readonly string[] = [
     '/api/',
     routes.profile,
     routes.auth.error,
-    routes.accountingImporter.index,
+    routes.accounting.index,
     routes.lifting.index,
 ];
 

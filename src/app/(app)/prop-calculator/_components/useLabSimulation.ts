@@ -161,7 +161,6 @@ export function useLabSimulation(args: Args): {
             cancelled = true;
             clearTimeout(handle);
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [debouncedKey]);
 
     return { pending, results };

@@ -20,9 +20,8 @@ export function KpiTiles({ assessments }: { assessments: LightAssessment[] }) {
                 (a) =>
                     a.outcomeR !== null &&
                     Number.isFinite(a.outcomeR) &&
-                    (a.outcome === 'win' ||
-                        a.outcome === 'loss' ||
-                        a.outcome === 'breakeven'),
+                    a.outcome !== null &&
+                    ['breakeven', 'loss', 'win'].includes(a.outcome),
             )
             .reduce((s, a) => s + (a.outcomeR ?? 0), 0);
         return {

@@ -60,7 +60,7 @@ const LIFTING_ITEM: NavItem = {
     tab: 'lifting',
 };
 const ACCOUNTING_ITEM: NavItem = {
-    href: routes.accountingImporter.index,
+    href: routes.accounting.index,
     icon: Receipt,
     label: 'Accounting',
 };

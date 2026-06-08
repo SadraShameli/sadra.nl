@@ -1,5 +1,5 @@
-import 'server-only';
 import { and, asc, eq, inArray } from 'drizzle-orm';
+import 'server-only';
 
 import type { PrKind } from '~/lib/lifting/types';
 import type { db as DbType } from '~/server/db';
@@ -18,12 +18,8 @@ export class PrSyncService {
     constructor(private readonly db: typeof DbType) {}
 
     private static isWorkingType(type: string): boolean {
-        return (
-            type === 'working' ||
-            type === 'topset' ||
-            type === 'backoff' ||
-            type === 'amrap' ||
-            type === 'failure'
+        return ['amrap', 'backoff', 'failure', 'topset', 'working'].includes(
+            type,
         );
     }
 
@@ -125,7 +121,8 @@ export class PrSyncService {
             );
 
         if (prRows.length > 0) {
-            await this.db.insert(liftingPersonalRecord).values(prRows);
+            const q = this.db.insert(liftingPersonalRecord).values(prRows);
+            await q;
         }
 
         const allIds = ordered.map((s) => s.id);

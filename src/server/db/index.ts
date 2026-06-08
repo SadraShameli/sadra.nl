@@ -5,7 +5,7 @@ import pg from 'pg';
 import { env } from '~/env';
 
 import * as relationsModule from './relations';
-import * as accountingImporterSchema from './schemas/accounting-importer';
+import * as accountingSchema from './schemas/accounting';
 import * as authSchema from './schemas/auth';
 import * as schema from './schemas/iot';
 import * as liftingSchema from './schemas/lifting';
@@ -13,7 +13,7 @@ import * as mainSchema from './schemas/main';
 import * as notificationSchema from './schemas/notification';
 import * as tradingSchema from './schemas/trading';
 
-export { accountingImporterCredential } from './schemas/accounting-importer';
+export { accountingCredential } from './schemas/accounting';
 export { account, user } from './schemas/auth';
 export {
     liftingExercise,
@@ -54,11 +54,7 @@ function shouldUseSsl(raw: string): boolean {
         const url = new URL(raw);
         const sslmode = url.searchParams.get('sslmode');
         if (sslmode === 'disable') return false;
-        if (
-            url.hostname === 'localhost' ||
-            url.hostname === '127.0.0.1' ||
-            url.hostname === '::1'
-        ) {
+        if (['127.0.0.1', '::1', 'localhost'].includes(url.hostname)) {
             return false;
         }
         return true;
@@ -99,7 +95,7 @@ export const db = drizzle(pool, {
         ...authSchema,
         ...tradingSchema,
         ...notificationSchema,
-        ...accountingImporterSchema,
+        ...accountingSchema,
         ...liftingSchema,
         ...relationsModule,
     },

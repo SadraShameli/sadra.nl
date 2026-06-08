@@ -31,7 +31,7 @@ export function PrepHistoryStrip({
             {days.map((d) => {
                 const row = map.get(d) ?? null;
                 const score = row?.score ?? null;
-                const dayNum = Number(d.split('-')[2]);
+                const dayNum = Number(d.split('-', 3)[2]);
                 const isToday = d === today;
                 const isSelected = d === selectedDate;
                 return (

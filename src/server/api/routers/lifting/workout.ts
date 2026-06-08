@@ -148,7 +148,8 @@ export const liftingWorkoutRouter = createTRPCRouter({
                 }));
             });
             if (setRows.length > 0) {
-                await ctx.db.insert(liftingSet).values(setRows);
+                const q = ctx.db.insert(liftingSet).values(setRows);
+                await q;
             }
 
             return { id: created.id };
@@ -377,9 +378,10 @@ export const liftingWorkoutRouter = createTRPCRouter({
                         })
                         .filter((r): r is NonNullable<typeof r> => r !== null);
                     if (wexRows.length > 0) {
-                        await ctx.db
+                        const q = ctx.db
                             .insert(liftingWorkoutExercise)
                             .values(wexRows);
+                        await q;
                     }
                 }
             }

@@ -72,7 +72,7 @@ describe('displayNameSchema', () => {
 
     it('rejects empty / whitespace-only names', () => {
         expect(displayNameSchema.safeParse('').success).toBe(false);
-        expect(displayNameSchema.safeParse('   ').success).toBe(false);
+        expect(displayNameSchema.safeParse(' '.repeat(3)).success).toBe(false);
     });
 });
 
@@ -93,7 +93,7 @@ describe('callbackUrlSchema (same-origin guard)', () => {
             false,
         );
         expect(
-            callbackUrlSchema.safeParse('http://evil.test/path').success,
+            callbackUrlSchema.safeParse('https://evil.test/path').success,
         ).toBe(false);
     });
 

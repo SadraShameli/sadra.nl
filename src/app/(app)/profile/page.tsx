@@ -24,7 +24,6 @@ import {
 } from './_components/profileTabs';
 import { SensorHubTab } from './_components/SensorHubTab';
 import { SessionsList } from './_components/SessionsList';
-import { SiteSettingsCard } from './_components/SiteSettingsCard';
 import { TradingPlanTab } from './_components/TradingPlanTab';
 import { UpdateNameForm } from './_components/UpdateNameForm';
 import { UpdatePasswordForm } from './_components/UpdatePasswordForm';
@@ -150,8 +149,6 @@ export default async function ProfilePage({
                     </CardContent>
                 </Card>
             </div>
-
-            {userIsRoot && <SiteSettingsCard />}
 
             <Card>
                 <CardHeader>

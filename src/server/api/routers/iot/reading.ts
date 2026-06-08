@@ -196,12 +196,13 @@ export const readingRouter = createTRPCRouter({
 
             await ctx.db.transaction(async (tx) => {
                 for (const r of resolved) {
-                    await tx.insert(reading).values({
+                    const q = tx.insert(reading).values({
                         device_id: ctx.device.id,
                         location_id: ctx.device.location_id,
                         sensor_id: r.sensorId,
                         value: r.value,
                     });
+                    await q;
                 }
             });
 

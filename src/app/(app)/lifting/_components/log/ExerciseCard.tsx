@@ -82,9 +82,7 @@ export function ExerciseCard({
         onSuccess: invalidate,
     });
 
-    const lastSet = [...wex.sets]
-        .toReversed()
-        .find((s) => s.completedAt !== null);
+    const lastSet = wex.sets.findLast((s) => s.completedAt !== null);
     const targetRestSeconds =
         wex.exercise.defaultRestSeconds ?? defaultRestSeconds;
 

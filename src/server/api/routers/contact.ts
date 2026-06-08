@@ -16,7 +16,7 @@ export const contactRouter = createTRPCRouter({
             }
 
             const ip =
-                ctx.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+                ctx.headers.get('x-forwarded-for')?.split(',', 1)[0]?.trim() ??
                 ctx.headers.get('x-real-ip') ??
                 'unknown';
             const okEmail = await checkRateLimit({

@@ -38,7 +38,7 @@ export function CalendarHeatmap({ assessments, month }: CalendarHeatmapProps) {
                 {weeks.map((week, wi) => (
                     <div className="grid grid-cols-7 gap-1" key={wi}>
                         {week.map((cell) => {
-                            const dayNum = Number(cell.date.split('-')[2]);
+                            const dayNum = Number(cell.date.split('-', 3)[2]);
                             const isClickable = cell.total > 0;
                             const inner = (
                                 <div

@@ -279,11 +279,10 @@ export default function CompoundingPanel({
                                     <div className="grid min-w-[8rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl">
                                         <p className="text-xs font-medium">
                                             Month{' '}
-                                            {typeof label === 'number'
+                                            {typeof label === 'number' ||
+                                            typeof label === 'string'
                                                 ? label
-                                                : typeof label === 'string'
-                                                  ? label
-                                                  : ''}
+                                                : ''}
                                         </p>
                                         <div className="grid gap-1.5">
                                             {order

@@ -1,6 +1,6 @@
 import type { UnitDistance, UnitLength, UnitWeight } from '~/lib/lifting/types';
 
-export const KG_PER_LB = 0.453_592_37;
+export const KG_PER_LB = 0.45359237;
 export const CM_PER_IN = 2.54;
 export const M_PER_MI = 1609.344;
 

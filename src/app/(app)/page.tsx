@@ -8,7 +8,6 @@ import { Badge } from '~/components/ui/Badge';
 import { homepageContent, siteContent } from '~/lib/site/content';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utils';
-import { api } from '~/trpc/server';
 
 import AboutSection from './_components/About';
 import ReadingSection from './_components/Reading/Reading';
@@ -34,8 +33,6 @@ export const metadata: Metadata = {
 
 export default async function HomePage() {
     const { gallery, heroImage } = homepageContent;
-    const spotifyEmbed = await api.user.settings.getSpotifyEmbed();
-
     return (
         <main className={'app-home'}>
             <section
@@ -136,7 +133,7 @@ export default async function HomePage() {
 
             <section className={cn('app-home__about', 'container pt-spacing')}>
                 <SectionTitle text={homepageContent.aboutSectionTitle} />
-                <AboutSection gallery={gallery} spotifyEmbed={spotifyEmbed} />
+                <AboutSection gallery={gallery} />
             </section>
         </main>
     );

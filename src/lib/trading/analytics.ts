@@ -273,7 +273,7 @@ export function dayCellGrid(
             wins: 0,
         };
         cell.total += 1;
-        // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check
+
         switch (r.outcome) {
             case 'breakeven': {
                 cell.breakevens += 1;
@@ -283,11 +283,15 @@ export function dayCellGrid(
                 cell.losses += 1;
                 break;
             }
+            case null: {
+                break;
+            }
             case 'win': {
                 cell.wins += 1;
                 break;
             }
         }
+
         if (r.outcomeR !== null && Number.isFinite(r.outcomeR))
             cell.rSum += r.outcomeR;
         if (
@@ -638,13 +642,8 @@ export function outcomeDistribution(rows: LightAssessment[]): {
     let total = 0;
     for (const r of rows) {
         if (r.outcome === null) continue;
-        if (
-            r.outcome === 'win' ||
-            r.outcome === 'loss' ||
-            r.outcome === 'breakeven' ||
-            r.outcome === 'no-trade'
-        ) {
-            counts[r.outcome] += 1;
+        if (['breakeven', 'loss', 'no-trade', 'win'].includes(r.outcome)) {
+            counts[r.outcome as keyof typeof counts] += 1;
             total += 1;
         }
     }
@@ -728,7 +727,7 @@ function emptyImpactBucket(): ImpactBucket {
 }
 
 function isCountedOutcome(o: null | string): o is Outcome {
-    return o === 'win' || o === 'loss' || o === 'breakeven';
+    return (['win', 'loss', 'breakeven'] as Array<null | string>).includes(o);
 }
 
 function summarizeImpactBucket(b: ImpactBucket): {

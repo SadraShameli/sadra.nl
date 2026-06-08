@@ -142,7 +142,6 @@ export default function PortfolioPanel({
             cancelled = true;
             clearTimeout(handle);
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [debouncedKey]);
 
     const totals = useMemo(() => {

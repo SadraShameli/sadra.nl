@@ -133,13 +133,12 @@ export const deviceRouter = createTRPCRouter({
                         ),
                 });
 
-                const readingsRecord: [string, number][] = [];
-                readings.map((reading) => {
-                    readingsRecord.push([
+                const readingsRecord: [string, number][] = readings.map(
+                    (reading) => [
                         `${reading.created_at.getHours()}:${reading.created_at.getMinutes()}`,
                         reading.value,
-                    ]);
-                });
+                    ],
+                );
 
                 return { data: readingsRecord };
             }
@@ -152,13 +151,12 @@ export const deviceRouter = createTRPCRouter({
                 },
             });
 
-            const readingsRecord: [string, number][] = [];
-            readings.map((reading) => {
-                readingsRecord.push([
+            const readingsRecord: [string, number][] = readings.map(
+                (reading) => [
                     `${reading.created_at.getHours()}:${reading.created_at.getMinutes()}`,
                     reading.value,
-                ]);
-            });
+                ],
+            );
 
             return { data: readingsRecord };
         }),

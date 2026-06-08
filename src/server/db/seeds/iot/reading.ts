@@ -15,7 +15,7 @@ export default class SeedReading extends DatabaseSeeder {
             .where(eq(reading.device_id, 1))
             .limit(1);
         if (existing) return;
-        await db.insert(reading).values([
+        const q = db.insert(reading).values([
             {
                 device_id: 1,
                 location_id: 1,
@@ -59,5 +59,6 @@ export default class SeedReading extends DatabaseSeeder {
                 value: 2731,
             },
         ]);
+        await q;
     }
 }

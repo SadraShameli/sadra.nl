@@ -8,10 +8,7 @@ export const PROFILE_TAB_VALUES = [
     'users',
 ] as const;
 
-export const profileTabSchema = z
-    .enum(PROFILE_TAB_VALUES)
-    // eslint-disable-next-line unicorn/prefer-top-level-await
-    .catch('account');
+export const profileTabSchema = z.enum(PROFILE_TAB_VALUES).catch('account');
 
 export type ProfileTab = z.infer<typeof profileTabSchema>;
 

@@ -181,7 +181,7 @@ export function useAudioPlayer({ recordings }: UseAudioPlayerProps) {
             audio.current.volume = volume;
             audio.current.playbackRate = playbackRate;
         }
-    }, [safeCurrentIdx, recordings]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [safeCurrentIdx, recordings]);
 
     useEffect(() => {
         if (audio.current) {
