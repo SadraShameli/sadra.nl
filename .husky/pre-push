@@ -1,4 +1,0 @@
-set -e
-
-bun run verify
-bun run verify:build

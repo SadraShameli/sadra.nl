@@ -1,7 +1,1 @@
-echo "Running pre-commit hook";
-
-echo "Running lint-staged";
-bunx lint-staged;
-
-echo "Running type checks";
-bun run typecheck;
+bun run verify
