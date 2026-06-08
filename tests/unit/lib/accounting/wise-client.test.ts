@@ -47,10 +47,13 @@ describe('WiseClient.listCardTransactions', () => {
         expect(txns[0]).toMatchObject({ isRefund: false, merchant: 'Netflix' });
     });
 
-    it('includes DIRECT_DEBIT activities', async () => {
+    it('includes DIRECT_DEBIT_TRANSACTION activities', async () => {
         const client = new WiseClient('tok', {
             fetch: mockFetch([
-                activity({ title: 'Spotify', type: 'DIRECT_DEBIT' }),
+                activity({
+                    title: 'STRATO GmbH',
+                    type: 'DIRECT_DEBIT_TRANSACTION',
+                }),
             ]),
         });
         const txns = await client.listCardTransactions({
@@ -59,7 +62,10 @@ describe('WiseClient.listCardTransactions', () => {
             to: TO,
         });
         expect(txns).toHaveLength(1);
-        expect(txns[0]).toMatchObject({ isRefund: false, merchant: 'Spotify' });
+        expect(txns[0]).toMatchObject({
+            isRefund: false,
+            merchant: 'STRATO GmbH',
+        });
     });
 
     it('excludes other activity types', async () => {
@@ -77,7 +83,10 @@ describe('WiseClient.listCardTransactions', () => {
     it('excludes non-COMPLETED activities', async () => {
         const client = new WiseClient('tok', {
             fetch: mockFetch([
-                activity({ status: 'PENDING', type: 'DIRECT_DEBIT' }),
+                activity({
+                    status: 'PENDING',
+                    type: 'DIRECT_DEBIT_TRANSACTION',
+                }),
             ]),
         });
         const txns = await client.listCardTransactions({
@@ -91,7 +100,10 @@ describe('WiseClient.listCardTransactions', () => {
     it('treats negative primaryAmount as non-refund', async () => {
         const client = new WiseClient('tok', {
             fetch: mockFetch([
-                activity({ primaryAmount: '-99.00 USD', type: 'DIRECT_DEBIT' }),
+                activity({
+                    primaryAmount: '-99.00 USD',
+                    type: 'DIRECT_DEBIT_TRANSACTION',
+                }),
             ]),
         });
         const txns = await client.listCardTransactions({

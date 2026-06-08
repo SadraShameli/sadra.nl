@@ -22,7 +22,8 @@ import {
 } from '~/lib/accounting/providers/eboekhouden/enums';
 import { api } from '~/trpc/react';
 
-import { ProviderCredentialPicker } from './ProviderCredentialPicker';
+import { ActiveConnectionNote } from './ActiveConnectionNote';
+import { useActiveCredentials } from './useActiveCredentials';
 
 type Ledger = {
     category: string;
@@ -49,7 +50,8 @@ const LEDGER_CATEGORY_LABEL: Record<LedgerCategory, string> = {
 };
 
 export function LedgersBrowser() {
-    const [credentialId, setCredentialId] = useState<string>('');
+    const { accounting } = useActiveCredentials();
+    const credentialId = accounting?.id ?? '';
     const [category, setCategory] = useState<string>(ALL);
 
     const ledgersQ = api.accounting.ledgers.list.useQuery(
@@ -148,11 +150,9 @@ export function LedgersBrowser() {
                                     className="hidden md:flex"
                                     onReset={reset}
                                 />
-                                <ProviderCredentialPicker
-                                    credentialRole="accounting"
-                                    inline
-                                    onChange={setCredentialId}
-                                    value={credentialId}
+                                <ActiveConnectionNote
+                                    credential={accounting}
+                                    roleNoun="accounting credential"
                                 />
                                 <Select
                                     onValueChange={setCategory}

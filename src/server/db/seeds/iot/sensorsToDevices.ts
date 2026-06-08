@@ -1,6 +1,6 @@
-import { db } from '../..';
-import { sensorsToDevices } from '../../schemas/iot';
-import { DatabaseSeeder } from '../../types';
+import { db } from '~/server/db';
+import { sensorsToDevices } from '~/server/db/schemas/iot';
+import { DatabaseSeeder } from '~/server/db/types';
 
 export default class SeedSensorsToDevices extends DatabaseSeeder {
     readonly name = 'iot:sensors-to-devices';

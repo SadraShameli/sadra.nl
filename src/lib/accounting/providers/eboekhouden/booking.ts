@@ -1,4 +1,5 @@
-import type { Booking } from '../../core/types';
+import type { Booking } from '~/lib/accounting/core/types';
+
 import type { CreateMutationRequestPayload } from './schemas';
 
 import { IN_EX_VAT, MUTATION_TYPES, requiresExcludingVat } from './enums';

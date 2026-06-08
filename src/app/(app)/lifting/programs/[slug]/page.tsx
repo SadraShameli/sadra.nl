@@ -1,12 +1,11 @@
 import { type Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 
+import { ProgramDetail } from '~/app/(app)/lifting/_components/ProgramDetail';
 import { getServerSession } from '~/lib/auth/server';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utils';
 import { api, HydrateClient } from '~/trpc/server';
-
-import { ProgramDetail } from '../../_components/ProgramDetail';
 
 interface PageProps {
     params: Promise<{ slug: string }>;

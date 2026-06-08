@@ -13,19 +13,19 @@ import {
     deviceProcedure,
     publicProcedure,
 } from '~/server/api/trpc';
-import { location, reading, sensor } from '~/server/db/schemas/iot';
-
 import {
     type GetReadingsRecord,
     type ReadingRecord,
     type Result,
-} from '../../types/types';
+} from '~/server/api/types/types';
 import {
     createReadingProps,
     getReadingProps,
     getReadingsQueryProps,
     type Granularity,
-} from '../../types/zod';
+} from '~/server/api/types/zod';
+import { location, reading, sensor } from '~/server/db/schemas/iot';
+
 import { getSensor } from './sensor';
 
 const ALERT_COOLDOWN_MS = 10 * 60 * 1000;

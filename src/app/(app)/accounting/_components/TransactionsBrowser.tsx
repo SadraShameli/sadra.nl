@@ -25,8 +25,9 @@ import {
 } from '~/components/ui/Select';
 import { api } from '~/trpc/react';
 
+import { ActiveConnectionNote } from './ActiveConnectionNote';
 import { DirectionBadge } from './DirectionBadge';
-import { ProviderCredentialPicker } from './ProviderCredentialPicker';
+import { useActiveCredentials } from './useActiveCredentials';
 
 const ALL = '__all__';
 const MATCHED = '__matched__';
@@ -50,9 +51,9 @@ const defaultRange = (): DateRange => {
 };
 
 export function TransactionsBrowser() {
-    const [credentialId, setCredentialId] = useState<string>('');
-    const [accountingCredentialId, setAccountingCredentialId] =
-        useState<string>('');
+    const { accounting, source } = useActiveCredentials();
+    const credentialId = source?.id ?? '';
+    const accountingCredentialId = accounting?.id ?? '';
     const [directionFilter, setDirectionFilter] = useState<string>(ALL);
     const [matchFilter, setMatchFilter] = useState<string>(ALL);
     const [dateRange, setDateRange] = useState<DateRange | undefined>(
@@ -227,18 +228,13 @@ export function TransactionsBrowser() {
                                     className="hidden md:flex"
                                     onReset={reset}
                                 />
-                                <ProviderCredentialPicker
-                                    credentialRole="transactions"
-                                    inline
-                                    onChange={setCredentialId}
-                                    value={credentialId}
+                                <ActiveConnectionNote
+                                    credential={source}
+                                    roleNoun="transaction source"
                                 />
-                                <ProviderCredentialPicker
-                                    allowEmpty
-                                    credentialRole="accounting"
-                                    inline
-                                    onChange={setAccountingCredentialId}
-                                    value={accountingCredentialId}
+                                <ActiveConnectionNote
+                                    credential={accounting}
+                                    roleNoun="accounting credential"
                                 />
                                 <DateRangePicker
                                     align="end"

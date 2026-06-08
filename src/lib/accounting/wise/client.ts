@@ -128,7 +128,10 @@ export class WiseClient {
             let stop = false;
             for (const a of parsed.activities) {
                 if (
-                    !['CARD_PAYMENT', 'DIRECT_DEBIT'].includes(a.type) ||
+                    !(
+                        a.type === 'CARD_PAYMENT' ||
+                        a.type.startsWith('DIRECT_DEBIT')
+                    ) ||
                     a.status !== 'COMPLETED'
                 )
                     continue;

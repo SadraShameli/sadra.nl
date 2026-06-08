@@ -13,11 +13,13 @@ import {
     deviceProcedure,
     publicProcedure,
 } from '~/server/api/trpc';
+import { type Result } from '~/server/api/types/types';
+import {
+    createRecordingProps,
+    getRecordingProps,
+} from '~/server/api/types/zod';
 import { location, recording } from '~/server/db/schemas/iot';
 import { applyAudioFilters } from '~/server/helpers/audio';
-
-import { type Result } from '../../types/types';
-import { createRecordingProps, getRecordingProps } from '../../types/zod';
 
 async function getRecording(
     input: z.infer<typeof getRecordingProps>,

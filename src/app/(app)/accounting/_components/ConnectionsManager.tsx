@@ -9,6 +9,7 @@ import {
     Loader2,
     Pencil,
     Plus,
+    Star,
     Trash2,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -16,7 +17,10 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { type z } from 'zod';
 
-import type { CredentialDescriptor } from '~/lib/accounting/credentials/index';
+import type {
+    CredentialDescriptor,
+    CredentialRole,
+} from '~/lib/accounting/credentials/index';
 import type { CredentialKind } from '~/lib/accounting/credentials/registry';
 
 import { Badge } from '~/components/ui/Badge';
@@ -51,16 +55,26 @@ import { CredentialFormFields, defaultMetaFor } from './CredentialFormFields';
 type StoredCredential = {
     createdAt: Date | string;
     id: string;
+    isActive: boolean;
     kind: CredentialKind;
     label: string;
     lastUsedAt: Date | null | string;
     meta: Record<string, unknown>;
 };
 
+const ROLE_ORDER: readonly CredentialRole[] = ['accounting', 'transactions'];
+const ROLE_SECTION_LABEL: Record<CredentialRole, string> = {
+    accounting: 'Accounting',
+    transactions: 'Transaction sources',
+};
+
 export function ConnectionsManager() {
     const utils = api.useUtils();
     const credentialsQ = api.accounting.credentials.list.useQuery();
     const testMut = api.accounting.credentials.test.useMutation();
+    const setActiveMut = api.accounting.credentials.setActive.useMutation({
+        onSuccess: () => utils.accounting.credentials.list.invalidate(),
+    });
     const deleteMut = api.accounting.credentials.delete.useMutation({
         onSuccess: async () => {
             await utils.accounting.credentials.list.invalidate();
@@ -71,9 +85,141 @@ export function ConnectionsManager() {
     const descriptors = useMemo(() => listCredentialDescriptors(), []);
     const [editing, setEditing] = useState<null | StoredCredential>(null);
 
+    const grouped = useMemo(() => {
+        const byRole: Record<CredentialRole, StoredCredential[]> = {
+            accounting: [],
+            transactions: [],
+        };
+        for (const c of credentialsQ.data ?? []) {
+            const role = getCredentialDescriptor(c.kind)?.role;
+            if (role) byRole[role].push(c);
+        }
+        return byRole;
+    }, [credentialsQ.data]);
+
     const refresh = async () => {
         await utils.accounting.credentials.list.invalidate();
         await utils.accounting.summary.invalidate();
+    };
+
+    const renderCard = (
+        cred: StoredCredential,
+        isActive: boolean,
+        canSetActive: boolean,
+    ) => {
+        const descriptor = getCredentialDescriptor(cred.kind);
+        const isTesting = testMut.isPending && testMut.variables.id === cred.id;
+        const isDeleting =
+            deleteMut.isPending && deleteMut.variables.id === cred.id;
+        const isActivating =
+            setActiveMut.isPending && setActiveMut.variables.id === cred.id;
+        return (
+            <Card key={cred.id}>
+                <CardContent className="flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex min-w-0 flex-col gap-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-semibold text-foreground">
+                                {cred.label}
+                            </span>
+                            <CredentialBadge kind={cred.kind} />
+                            {isActive && (
+                                <Badge variant="success">Active</Badge>
+                            )}
+                            <MetaSummaryBadges
+                                descriptor={descriptor}
+                                meta={cred.meta}
+                            />
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                            Added{' '}
+                            {format(new Date(cred.createdAt), 'd MMM yyyy')}
+                            {cred.lastUsedAt &&
+                                ` · last used ${format(new Date(cred.lastUsedAt), 'd MMM yyyy HH:mm')}`}
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        {canSetActive && !isActive && (
+                            <Button
+                                disabled={isActivating}
+                                onClick={async () => {
+                                    await setActiveMut.mutateAsync({
+                                        id: cred.id,
+                                    });
+                                    toast.success(
+                                        `${cred.label} is now active`,
+                                    );
+                                }}
+                                size="sm"
+                                variant="outline"
+                            >
+                                {isActivating ? (
+                                    <Loader2 className="size-3 animate-spin" />
+                                ) : (
+                                    <Star className="size-3" />
+                                )}
+                                Set active
+                            </Button>
+                        )}
+                        <Button
+                            disabled={isTesting}
+                            onClick={async () => {
+                                const res = await testMut.mutateAsync({
+                                    id: cred.id,
+                                });
+                                if (res.ok) {
+                                    toast.success(
+                                        `${cred.label}: OK · ${res.detail} · ${res.latencyMs}ms`,
+                                    );
+                                    await utils.accounting.credentials.list.invalidate();
+                                } else {
+                                    toast.error(`${cred.label}: ${res.detail}`);
+                                }
+                            }}
+                            size="sm"
+                            variant="outline"
+                        >
+                            {isTesting ? (
+                                <Loader2 className="size-3 animate-spin" />
+                            ) : (
+                                <CheckCircle2 className="size-3" />
+                            )}
+                            Test
+                        </Button>
+                        <Button
+                            disabled={!descriptor}
+                            onClick={() => setEditing(cred)}
+                            size="sm"
+                            variant="outline"
+                        >
+                            <Pencil className="size-3" />
+                            Edit
+                        </Button>
+                        <Button
+                            disabled={isDeleting}
+                            onClick={async () => {
+                                if (
+                                    !globalThis.confirm(
+                                        `Delete "${cred.label}"?`,
+                                    )
+                                ) {
+                                    return;
+                                }
+                                await deleteMut.mutateAsync({ id: cred.id });
+                                toast.success('Credential deleted');
+                            }}
+                            size="sm"
+                            variant="ghost"
+                        >
+                            {isDeleting ? (
+                                <Loader2 className="size-3 animate-spin" />
+                            ) : (
+                                <Trash2 className="size-3" />
+                            )}
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
+        );
     };
 
     return (
@@ -104,106 +250,26 @@ export function ConnectionsManager() {
                 </Card>
             )}
 
-            <div className="flex flex-col gap-3">
-                {credentialsQ.data?.map((cred) => {
-                    const descriptor = getCredentialDescriptor(cred.kind);
-                    const isTesting =
-                        testMut.isPending && testMut.variables.id === cred.id;
-                    const isDeleting =
-                        deleteMut.isPending &&
-                        deleteMut.variables.id === cred.id;
-                    return (
-                        <Card key={cred.id}>
-                            <CardContent className="flex flex-wrap items-center justify-between gap-4">
-                                <div className="flex min-w-0 flex-col gap-1">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <span className="font-semibold text-foreground">
-                                            {cred.label}
-                                        </span>
-                                        <CredentialBadge kind={cred.kind} />
-                                        <MetaSummaryBadges
-                                            descriptor={descriptor}
-                                            meta={cred.meta}
-                                        />
-                                    </div>
-                                    <div className="text-xs text-muted-foreground">
-                                        Added{' '}
-                                        {format(
-                                            new Date(cred.createdAt),
-                                            'd MMM yyyy',
-                                        )}
-                                        {cred.lastUsedAt &&
-                                            ` · last used ${format(new Date(cred.lastUsedAt), 'd MMM yyyy HH:mm')}`}
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <Button
-                                        disabled={isTesting}
-                                        onClick={async () => {
-                                            const res =
-                                                await testMut.mutateAsync({
-                                                    id: cred.id,
-                                                });
-                                            if (res.ok) {
-                                                toast.success(
-                                                    `${cred.label}: OK · ${res.detail} · ${res.latencyMs}ms`,
-                                                );
-                                                await utils.accounting.credentials.list.invalidate();
-                                            } else {
-                                                toast.error(
-                                                    `${cred.label}: ${res.detail}`,
-                                                );
-                                            }
-                                        }}
-                                        size="sm"
-                                        variant="outline"
-                                    >
-                                        {isTesting ? (
-                                            <Loader2 className="size-3 animate-spin" />
-                                        ) : (
-                                            <CheckCircle2 className="size-3" />
-                                        )}
-                                        Test
-                                    </Button>
-                                    <Button
-                                        disabled={!descriptor}
-                                        onClick={() => setEditing(cred)}
-                                        size="sm"
-                                        variant="outline"
-                                    >
-                                        <Pencil className="size-3" />
-                                        Edit
-                                    </Button>
-                                    <Button
-                                        disabled={isDeleting}
-                                        onClick={async () => {
-                                            if (
-                                                !globalThis.confirm(
-                                                    `Delete "${cred.label}"?`,
-                                                )
-                                            ) {
-                                                return;
-                                            }
-                                            await deleteMut.mutateAsync({
-                                                id: cred.id,
-                                            });
-                                            toast.success('Credential deleted');
-                                        }}
-                                        size="sm"
-                                        variant="ghost"
-                                    >
-                                        {isDeleting ? (
-                                            <Loader2 className="size-3 animate-spin" />
-                                        ) : (
-                                            <Trash2 className="size-3" />
-                                        )}
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    );
-                })}
-            </div>
+            {ROLE_ORDER.map((role) => {
+                const group = grouped[role];
+                if (group.length === 0) return null;
+                const activeId =
+                    group.find((c) => c.isActive)?.id ?? group[0]?.id;
+                return (
+                    <div className="flex flex-col gap-3" key={role}>
+                        <h2 className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
+                            {ROLE_SECTION_LABEL[role]}
+                        </h2>
+                        {group.map((cred) =>
+                            renderCard(
+                                cred,
+                                cred.id === activeId,
+                                group.length > 1,
+                            ),
+                        )}
+                    </div>
+                );
+            })}
 
             <EditCredentialDialog
                 credential={editing}

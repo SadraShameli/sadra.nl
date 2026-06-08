@@ -5,7 +5,7 @@ import {
     Plan,
     type PlanInit,
     PropFirm,
-} from '../../core';
+} from '~/lib/prop-calculator/core';
 
 class FundedNextPlan extends Plan {}
 

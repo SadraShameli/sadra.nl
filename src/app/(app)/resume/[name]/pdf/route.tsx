@@ -1,6 +1,8 @@
 import { renderToStream } from '@react-pdf/renderer';
 import { notFound } from 'next/navigation';
 
+import { registerFonts } from '~/app/(app)/resume/_pdf/fonts';
+import { ResumeDocument } from '~/app/(app)/resume/_pdf/ResumeDocument';
 import { isRoot } from '~/lib/auth/roles';
 import { getServerSession } from '~/lib/auth/server';
 import { resumeNameSchema, resumeSearchSchema } from '~/lib/schemas/resume';
@@ -14,9 +16,6 @@ import {
 } from '~/lib/site/content';
 import { routes } from '~/lib/site/routes';
 import { getPublicSiteOrigin } from '~/lib/site/url';
-
-import { registerFonts } from '../../_pdf/fonts';
-import { ResumeDocument } from '../../_pdf/ResumeDocument';
 
 const cvShow: Record<
     | 'education'

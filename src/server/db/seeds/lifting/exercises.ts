@@ -5,9 +5,12 @@ import type {
     MuscleGroup,
 } from '~/lib/lifting/types';
 
-import { db } from '../..';
-import { liftingExercise, liftingExerciseAlias } from '../../schemas/lifting';
-import { DatabaseSeeder } from '../../types';
+import { db } from '~/server/db';
+import {
+    liftingExercise,
+    liftingExerciseAlias,
+} from '~/server/db/schemas/lifting';
+import { DatabaseSeeder } from '~/server/db/types';
 
 interface SeedExercise {
     aliases: string[];

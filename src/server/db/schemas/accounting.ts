@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+    boolean,
     index,
     integer,
     jsonb,
@@ -24,6 +25,7 @@ export const accountingCredential = createTable(
             .default(sql`CURRENT_TIMESTAMP`)
             .notNull(),
         id: uuid('id').primaryKey().defaultRandom(),
+        isActive: boolean('is_active').default(false).notNull(),
         kind: varchar('kind', { length: 32 }).$type<CredentialKind>().notNull(),
         label: varchar('label', { length: 64 }).notNull(),
         lastUsedAt: timestamp('last_used_at', { withTimezone: true }),

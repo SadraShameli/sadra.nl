@@ -39,24 +39,16 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from '~/components/ui/Popover';
-import { Switch } from '~/components/ui/Switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
-import {
-    getCredentialDescriptor,
-    listCredentialDescriptorsByRole,
-    toneAccent,
-} from '~/lib/accounting/credentials/index';
+import { getCredentialDescriptor } from '~/lib/accounting/credentials/index';
 import { STAGES } from '~/lib/accounting/runner-types';
 import { DurationFormat } from '~/lib/lifting/format';
 import { apiRoutes } from '~/lib/site/routes';
 import { cn } from '~/lib/utils';
 import { api } from '~/trpc/react';
 
-import { ConnectionsHealth } from './ConnectionsHealth';
-import { CredentialBadge } from './CredentialBadge';
 import { CsvDropzone, type ParsedCsvFile } from './CsvDropzone';
 import { EventLog, type LogLine } from './EventLog';
-import { ProviderCredentialPicker } from './ProviderCredentialPicker';
 import { PushPanel } from './PushPanel';
 import { ResultsCharts } from './ResultsCharts';
 import {
@@ -67,6 +59,7 @@ import {
     UnknownsTable,
 } from './ResultTables';
 import { type StageState, StageStepper } from './StageStepper';
+import { useActiveCredentials } from './useActiveCredentials';
 import { useImportStream } from './useImportStream';
 
 const STAGE_LABELS: Record<Stage, string> = {
@@ -99,18 +92,10 @@ const formatIsoDate = (date: Date): string => {
 };
 
 export function AccountingDashboard() {
-    const credentialsQ = api.accounting.credentials.list.useQuery();
-    const transactionDescriptors = useMemo(
-        () => listCredentialDescriptorsByRole('transactions'),
-        [],
-    );
+    const { accounting, source } = useActiveCredentials();
+    const accountingCredentialId = accounting?.id ?? '';
 
     const [startDate, setStartDate] = useState<string>(defaultStart());
-    const [accountingCredentialId, setAccountingCredentialId] =
-        useState<string>('');
-    const [enabledSources, setEnabledSources] = useState<
-        Record<string, string | undefined>
-    >({});
     const [fetchingLastMutation, setFetchingLastMutation] = useState(false);
     const utils = api.useUtils();
     const [files, setFiles] = useState<ParsedCsvFile[]>([]);
@@ -124,11 +109,8 @@ export function AccountingDashboard() {
     }, [files]);
 
     const apiCredentialIds = useMemo(
-        () =>
-            Object.values(enabledSources).filter(
-                (id): id is string => typeof id === 'string' && id.length > 0,
-            ),
-        [enabledSources],
+        () => (source ? [source.id] : []),
+        [source],
     );
 
     const stageState = useMemo<Record<Stage, StageState>>(() => {
@@ -183,19 +165,6 @@ export function AccountingDashboard() {
         }
     }, [stream.events]);
 
-    useEffect(() => {
-        if (!credentialsQ.data) return;
-        setEnabledSources((prev) => {
-            if (Object.keys(prev).length > 0) return prev;
-            const next: Record<string, string | undefined> = {};
-            for (const desc of transactionDescriptors) {
-                const first = credentialsQ.data.find((c) => c.kind === desc.id);
-                if (first) next[desc.id] = first.id;
-            }
-            return next;
-        });
-    }, [credentialsQ.data, transactionDescriptors]);
-
     const handleAfterLastMutation = async () => {
         if (!accountingCredentialId) return;
         setFetchingLastMutation(true);
@@ -233,79 +202,39 @@ export function AccountingDashboard() {
         });
     };
 
-    const credentialKindMap = useMemo(() => {
-        const map = new Map<string, string>();
-        for (const c of credentialsQ.data ?? []) map.set(c.id, c.kind);
-        return map;
-    }, [credentialsQ.data]);
-
     return (
         <div className="flex flex-col gap-6">
-            <ConnectionsHealth />
-
             <Card>
                 <CardHeader>
                     <CardTitle className="text-base">Run controls</CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-5">
-                    <div className="grid gap-4 md:grid-cols-2">
-                        <div className="flex flex-col gap-2">
-                            <Label className="flex items-center gap-1.5 text-xs tracking-wider uppercase">
-                                <CalendarDays className="size-3" />
-                                Start date
-                            </Label>
-                            <div className="flex items-center gap-2">
-                                <StartDatePicker
-                                    onChange={setStartDate}
-                                    value={startDate}
-                                />
-                                <Button
-                                    disabled={
-                                        !accountingCredentialId ||
-                                        fetchingLastMutation
-                                    }
-                                    onClick={() =>
-                                        void handleAfterLastMutation()
-                                    }
-                                    size="sm"
-                                    title="Set to the day after the last posted mutation"
-                                    type="button"
-                                    variant="outline"
-                                >
-                                    <CalendarClock className="size-3.5" />
-                                    After last mutation
-                                </Button>
-                            </div>
+                    <div className="flex flex-col gap-2">
+                        <Label className="flex items-center gap-1.5 text-xs tracking-wider uppercase">
+                            <CalendarDays className="size-3" />
+                            Start date
+                        </Label>
+                        <div className="flex items-center gap-2">
+                            <StartDatePicker
+                                onChange={setStartDate}
+                                value={startDate}
+                            />
+                            <Button
+                                disabled={
+                                    !accountingCredentialId ||
+                                    fetchingLastMutation
+                                }
+                                onClick={() => void handleAfterLastMutation()}
+                                size="sm"
+                                title="Set to the day after the last posted mutation"
+                                type="button"
+                                variant="outline"
+                            >
+                                <CalendarClock className="size-3.5" />
+                                After last mutation
+                            </Button>
                         </div>
-
-                        <ProviderCredentialPicker
-                            allowEmpty
-                            credentialRole="accounting"
-                            onChange={setAccountingCredentialId}
-                            value={accountingCredentialId}
-                        />
                     </div>
-
-                    {transactionDescriptors.length > 0 && (
-                        <div className="flex flex-col gap-3">
-                            <Label className="text-xs tracking-wider uppercase">
-                                Live API sources
-                            </Label>
-                            {transactionDescriptors.map((descriptor) => (
-                                <ApiSourceRow
-                                    descriptor={descriptor}
-                                    key={descriptor.id}
-                                    onChange={(credentialId) =>
-                                        setEnabledSources((prev) => ({
-                                            ...prev,
-                                            [descriptor.id]: credentialId,
-                                        }))
-                                    }
-                                    value={enabledSources[descriptor.id] ?? ''}
-                                />
-                            ))}
-                        </div>
-                    )}
 
                     <div className="flex flex-col gap-2">
                         <Label className="text-xs tracking-wider uppercase">
@@ -361,12 +290,8 @@ export function AccountingDashboard() {
                 <ResultsView
                     accountingCredentialId={accountingCredentialId}
                     accountingDescriptor={
-                        accountingCredentialId
-                            ? getCredentialDescriptor(
-                                  credentialKindMap.get(
-                                      accountingCredentialId,
-                                  ) ?? '',
-                              )
+                        accounting
+                            ? getCredentialDescriptor(accounting.kind)
                             : undefined
                     }
                     onPushedComplete={async (s) => {
@@ -384,86 +309,6 @@ export function AccountingDashboard() {
                 />
             )}
         </div>
-    );
-}
-
-function ApiSourceRow({
-    descriptor,
-    onChange,
-    value,
-}: {
-    descriptor: CredentialDescriptor;
-    onChange: (credentialId?: string) => void;
-    value: string;
-}) {
-    const credentialsQ = api.accounting.credentials.list.useQuery();
-    const matching = (credentialsQ.data ?? []).filter(
-        (c) => c.kind === descriptor.id,
-    );
-    const enabled = value.length > 0;
-    const switchId = `enable-${descriptor.id}`;
-
-    return (
-        <Card className="gap-3 py-3">
-            <CardContent className="flex flex-col gap-3 px-3">
-                <div className="flex items-center justify-between gap-3">
-                    <Label
-                        className="flex items-center gap-2 text-sm"
-                        htmlFor={switchId}
-                    >
-                        <span
-                            className={cn(
-                                'text-sm',
-                                toneAccent(descriptor.tone),
-                            )}
-                        >
-                            ●
-                        </span>
-                        Fetch from <strong>{descriptor.label}</strong>
-                    </Label>
-                    <Switch
-                        checked={enabled}
-                        disabled={matching.length === 0}
-                        id={switchId}
-                        onCheckedChange={(next) => {
-                            if (!next) {
-                                onChange();
-                                return;
-                            }
-                            const first = matching[0];
-                            if (first) onChange(first.id);
-                        }}
-                    />
-                </div>
-                {enabled && matching.length > 1 && (
-                    <select
-                        className="rounded-md border border-input bg-background px-3 py-1.5 text-sm"
-                        onChange={(e) => onChange(e.target.value)}
-                        value={value}
-                    >
-                        {matching.map((c) => (
-                            <option key={c.id} value={c.id}>
-                                {c.label}
-                            </option>
-                        ))}
-                    </select>
-                )}
-                {matching.length === 0 && (
-                    <div className="flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground">
-                        <span>Add a</span>
-                        <CredentialBadge kind={descriptor.id} />
-                        <span>
-                            credential under Connections to enable this source.
-                        </span>
-                    </div>
-                )}
-                {descriptor.description && (
-                    <p className="text-[10px] text-muted-foreground">
-                        {descriptor.description}
-                    </p>
-                )}
-            </CardContent>
-        </Card>
     );
 }
 

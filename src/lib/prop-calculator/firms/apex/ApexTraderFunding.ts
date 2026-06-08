@@ -6,7 +6,7 @@ import {
     Plan,
     type PlanInit,
     PropFirm,
-} from '../../core';
+} from '~/lib/prop-calculator/core';
 
 class ApexPlan extends Plan {}
 

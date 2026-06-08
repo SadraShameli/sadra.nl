@@ -1,8 +1,8 @@
 import { eq } from 'drizzle-orm';
 
-import { db } from '../..';
-import { reading } from '../../schemas/iot';
-import { DatabaseSeeder } from '../../types';
+import { db } from '~/server/db';
+import { reading } from '~/server/db/schemas/iot';
+import { DatabaseSeeder } from '~/server/db/types';
 
 export default class SeedReading extends DatabaseSeeder {
     readonly name = 'iot:reading';

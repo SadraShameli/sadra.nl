@@ -16,15 +16,15 @@ import {
     protectedProcedure,
     publicProcedure,
 } from '~/server/api/trpc';
-import { device, location, type recording } from '~/server/db/schemas/iot';
-import { generateDeviceToken } from '~/server/helpers/device-token';
-
-import { type GetDeviceProps, type Result } from '../../types/types';
+import { type GetDeviceProps, type Result } from '~/server/api/types/types';
 import {
     getDeviceProps,
     getDeviceReadingsProps,
     getDeviceRecordingsProps,
-} from '../../types/zod';
+} from '~/server/api/types/zod';
+import { device, location, type recording } from '~/server/db/schemas/iot';
+import { generateDeviceToken } from '~/server/helpers/device-token';
+
 import { getSensor } from './sensor';
 
 async function getDevice(

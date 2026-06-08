@@ -1,0 +1,1 @@
+ALTER TABLE "sadranl_accounting_importer_credential" ADD COLUMN "is_active" boolean DEFAULT false NOT NULL;

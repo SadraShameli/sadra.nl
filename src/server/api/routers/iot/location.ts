@@ -14,10 +14,13 @@ import {
     createTRPCRouter,
     publicProcedure,
 } from '~/server/api/trpc';
+import { type Result } from '~/server/api/types/types';
+import {
+    getLocationProps,
+    getLocationReadingsProps,
+} from '~/server/api/types/zod';
 import { location, reading, type recording } from '~/server/db/schemas/iot';
 
-import { type Result } from '../../types/types';
-import { getLocationProps, getLocationReadingsProps } from '../../types/zod';
 import { getSensor } from './sensor';
 
 async function getLocation(

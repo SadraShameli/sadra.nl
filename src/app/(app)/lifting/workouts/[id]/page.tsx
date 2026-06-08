@@ -1,12 +1,11 @@
 import { type Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 
+import { WorkoutDetailView } from '~/app/(app)/lifting/_components/WorkoutDetail';
 import { getServerSession } from '~/lib/auth/server';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utils';
 import { api, HydrateClient } from '~/trpc/server';
-
-import { WorkoutDetailView } from '../../_components/WorkoutDetail';
 
 interface PageProps {
     params: Promise<{ id: string }>;

@@ -1,6 +1,7 @@
 import 'server-only';
 
-import type { Booking } from '../../core/types';
+import type { Booking } from '~/lib/accounting/core/types';
+
 import type {
     AccountingProvider,
     OpenSessionOptions,

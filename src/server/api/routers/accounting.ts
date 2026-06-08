@@ -1,5 +1,5 @@
 import { TRPCError } from '@trpc/server';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 import 'server-only';
 import { z } from 'zod';
 
@@ -9,6 +9,7 @@ import { classifyTransaction } from '~/lib/accounting/core/orchestrator';
 import {
     getCredentialDescriptor,
     listCredentialDescriptors,
+    listCredentialDescriptorsByRole,
 } from '~/lib/accounting/credentials/index';
 import '~/lib/accounting/credentials/server';
 import {
@@ -290,6 +291,7 @@ export const accountingRouter = createTRPCRouter({
                 .select({
                     createdAt: accountingCredential.createdAt,
                     id: accountingCredential.id,
+                    isActive: accountingCredential.isActive,
                     kind: accountingCredential.kind,
                     label: accountingCredential.label,
                     lastUsedAt: accountingCredential.lastUsedAt,
@@ -304,6 +306,42 @@ export const accountingRouter = createTRPCRouter({
                 );
             return rows;
         }),
+        setActive: rootProcedure
+            .input(credentialIdSchema)
+            .mutation(async ({ ctx, input }) => {
+                const cred = await loadCredentialOrThrow(input.id, ctx.userId);
+                const role = getCredentialDescriptor(cred.kind)?.role;
+                if (!role) {
+                    throw new TRPCError({
+                        code: 'BAD_REQUEST',
+                        message: `Unknown credential kind "${cred.kind}"`,
+                    });
+                }
+                const roleKinds = listCredentialDescriptorsByRole(role).map(
+                    (d) => d.id,
+                );
+                await ctx.db.transaction(async (tx) => {
+                    await tx
+                        .update(accountingCredential)
+                        .set({ isActive: false })
+                        .where(
+                            and(
+                                eq(accountingCredential.userId, ctx.userId),
+                                inArray(accountingCredential.kind, roleKinds),
+                            ),
+                        );
+                    await tx
+                        .update(accountingCredential)
+                        .set({ isActive: true })
+                        .where(
+                            and(
+                                eq(accountingCredential.id, input.id),
+                                eq(accountingCredential.userId, ctx.userId),
+                            ),
+                        );
+                });
+                return { ok: true };
+            }),
         test: rootProcedure
             .input(credentialIdSchema)
             .mutation(async ({ ctx, input }) => {

@@ -1,6 +1,6 @@
-import { db } from '../..';
-import { location } from '../../schemas/iot';
-import { DatabaseSeeder } from '../../types';
+import { db } from '~/server/db';
+import { location } from '~/server/db/schemas/iot';
+import { DatabaseSeeder } from '~/server/db/types';
 
 export default class SeedLocation extends DatabaseSeeder {
     readonly name = 'iot:location';

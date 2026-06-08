@@ -1,6 +1,6 @@
-import { db } from '../..';
-import { sensor, sensorUnit } from '../../schemas/iot';
-import { DatabaseSeeder } from '../../types';
+import { db } from '~/server/db';
+import { sensor, sensorUnit } from '~/server/db/schemas/iot';
+import { DatabaseSeeder } from '~/server/db/types';
 
 export default class SeedSensorUnit extends DatabaseSeeder {
     readonly name = 'iot:sensor_unit';

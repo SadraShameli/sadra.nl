@@ -1,8 +1,7 @@
 import { OFFICIAL_PROGRAMS } from '~/lib/lifting/programs/official';
-
-import { db } from '../..';
-import { liftingProgram } from '../../schemas/lifting';
-import { DatabaseSeeder } from '../../types';
+import { db } from '~/server/db';
+import { liftingProgram } from '~/server/db/schemas/lifting';
+import { DatabaseSeeder } from '~/server/db/types';
 
 export class SeedLiftingPrograms extends DatabaseSeeder {
     readonly name = 'lifting:programs';

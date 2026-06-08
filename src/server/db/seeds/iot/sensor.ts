@@ -1,6 +1,6 @@
-import { db } from '../..';
-import { sensor, sensorUnit } from '../../schemas/iot';
-import { DatabaseSeeder } from '../../types';
+import { db } from '~/server/db';
+import { sensor, sensorUnit } from '~/server/db/schemas/iot';
+import { DatabaseSeeder } from '~/server/db/types';
 
 const SENSORS: ReadonlyArray<{ name: string; unit: string }> = [
     { name: 'Temperature', unit: '°C' },

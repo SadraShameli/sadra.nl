@@ -7,7 +7,7 @@ import {
     type PlanId,
     type PlanInit,
     PropFirm,
-} from '../../core';
+} from '~/lib/prop-calculator/core';
 
 class MffuPlan extends Plan {}
 

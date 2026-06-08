@@ -10,8 +10,8 @@ import {
     accountingCredential,
     accountingRule,
     db,
-} from '../..';
-import { DatabaseSeeder } from '../../types';
+} from '~/server/db';
+import { DatabaseSeeder } from '~/server/db/types';
 
 interface LedgerRef {
     id: number;
@@ -93,6 +93,13 @@ const RULES: SeedRule[] = [
         ledger: SOFTWARE,
         match: 'anthropic',
         vatCode: 'BI_EU_INK',
+    },
+    {
+        direction: 'OUT',
+        display: 'STRATO',
+        ledger: SOFTWARE,
+        match: 'strato',
+        vatCode: 'HOOG_INK_21',
     },
     {
         direction: 'OUT',

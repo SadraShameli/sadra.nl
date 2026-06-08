@@ -12,10 +12,9 @@ import {
     createTRPCRouter,
     publicProcedure,
 } from '~/server/api/trpc';
+import { type Result } from '~/server/api/types/types';
+import { getSensorProps } from '~/server/api/types/zod';
 import { sensor, sensorsToDevices } from '~/server/db/schemas/iot';
-
-import { type Result } from '../../types/types';
-import { getSensorProps } from '../../types/zod';
 
 export async function getSensor(
     input: z.infer<typeof getSensorProps>,

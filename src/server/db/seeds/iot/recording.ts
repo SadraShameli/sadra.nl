@@ -2,9 +2,9 @@ import { format } from 'date-fns';
 import { eq } from 'drizzle-orm';
 import fs from 'node:fs';
 
-import { db } from '../..';
-import { recording } from '../../schemas/iot';
-import { DatabaseSeeder } from '../../types';
+import { db } from '~/server/db';
+import { recording } from '~/server/db/schemas/iot';
+import { DatabaseSeeder } from '~/server/db/types';
 
 export default class SeedRecording extends DatabaseSeeder {
     readonly name = 'iot:recording';

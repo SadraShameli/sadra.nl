@@ -19,7 +19,8 @@ import {
 import { MUTATION_TYPES } from '~/lib/accounting/providers/eboekhouden/enums';
 import { api } from '~/trpc/react';
 
-import { ProviderCredentialPicker } from './ProviderCredentialPicker';
+import { ActiveConnectionNote } from './ActiveConnectionNote';
+import { useActiveCredentials } from './useActiveCredentials';
 
 const ALL = '__all__';
 const FETCH_LIMIT = 100;
@@ -53,7 +54,8 @@ const TYPE_LABEL: Record<string, string> = Object.fromEntries(
 );
 
 export function MutationsBrowser() {
-    const [credentialId, setCredentialId] = useState<string>('');
+    const { accounting } = useActiveCredentials();
+    const credentialId = accounting?.id ?? '';
     const [typeFilter, setTypeFilter] = useState<string>(ALL);
 
     const mutationsQ = api.accounting.mutations.list.useQuery(
@@ -164,11 +166,9 @@ export function MutationsBrowser() {
                                     className="hidden md:flex"
                                     onReset={reset}
                                 />
-                                <ProviderCredentialPicker
-                                    credentialRole="accounting"
-                                    inline
-                                    onChange={setCredentialId}
-                                    value={credentialId}
+                                <ActiveConnectionNote
+                                    credential={accounting}
+                                    roleNoun="accounting credential"
                                 />
                                 <Select
                                     onValueChange={setTypeFilter}
