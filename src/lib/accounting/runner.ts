@@ -70,7 +70,7 @@ export async function* runPlan(input: PlanInput): AsyncIterable<ImportEvent> {
         yield { kind: 'done' };
         return;
     }
-    const datesForFx = collectDates(all, input.startDate);
+    const datesForFx = collectDates(all, input.startDate, input.rules);
     const range = dateRangeFromList(datesForFx);
     const rates = new EcbRateProvider({ fetchImpl: input.fetchImpl });
     if (range) {
@@ -109,11 +109,23 @@ export async function* runPlan(input: PlanInput): AsyncIterable<ImportEvent> {
     }
     const buildStart = Date.now();
     yield { kind: 'stage', stage: 'build', status: 'started' };
+    const bankByCurrency = new Map(
+        input.bankAccounts.map((b) => [b.currency, b.ledger]),
+    );
     const result = buildBookings({
+        bankByCurrency,
         rates,
+        rules: input.rules,
         start: input.startDate,
         transactions: all,
     });
+    if (result.missingBankCurrencies.length > 0) {
+        yield {
+            kind: 'log',
+            level: 'warn',
+            message: `Skipped ${result.skippedNoBank} transaction(s): no bank account configured for ${result.missingBankCurrencies.join(', ')}. Add it under Booking rules.`,
+        };
+    }
     yield {
         durationMs: Date.now() - buildStart,
         kind: 'stage',
@@ -206,7 +218,14 @@ export async function* runPush(input: PushInput): AsyncIterable<ImportEvent> {
 }
 
 function emptyResult(): ConversionResult {
-    return { bookings: [], matches: [], skippedCurrency: 0, unknowns: [] };
+    return {
+        bookings: [],
+        matches: [],
+        missingBankCurrencies: [],
+        skippedCurrency: 0,
+        skippedNoBank: 0,
+        unknowns: [],
+    };
 }
 
 async function* fetchFromApiCredential(

@@ -1,32 +1,23 @@
-import type { VatCode } from '../providers/eboekhouden/enums';
-import type { LedgerRef } from './types';
-
-export interface MerchantRule {
-    display: string;
-    ledger: LedgerRef;
-    match: string;
-    vatCode: VatCode;
-}
-
-export type PayoutRule = MerchantRule;
+import type { BookingDirection, BookingRule } from './types';
 
 const normalise = (s: null | string): string =>
     (s ?? '').toLowerCase().replaceAll(' ', '');
 
 export function findRule(
-    rules: readonly MerchantRule[],
-    candidate: null | string,
-): MerchantRule | null {
+    rules: readonly BookingRule[],
+    tx: { direction: BookingDirection; merchant: null | string },
+): BookingRule | null {
     for (const rule of rules) {
-        if (ruleMatches(rule, candidate)) return rule;
+        if (ruleMatches(rule, tx)) return rule;
     }
     return null;
 }
 
 export function ruleMatches(
-    rule: MerchantRule,
-    candidate: null | string,
+    rule: BookingRule,
+    tx: { direction: BookingDirection; merchant: null | string },
 ): boolean {
-    if (!candidate) return false;
-    return normalise(candidate).includes(rule.match);
+    if (rule.direction !== tx.direction) return false;
+    if (!tx.merchant) return false;
+    return normalise(tx.merchant).includes(normalise(rule.match));
 }

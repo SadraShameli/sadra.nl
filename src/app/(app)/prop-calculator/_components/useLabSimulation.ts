@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
     type MultiAccountResult,
@@ -47,6 +47,29 @@ export function useLabSimulation(args: Args): {
         scenarios,
         seed,
     } = args;
+
+    const latest = useRef({
+        activationDiscountPercent,
+        commissionPerRoundTrip,
+        discountPercent,
+        fundedHorizonDays,
+        linkActivationDiscount,
+        maxEvalDays,
+        plan,
+        scenarios,
+        seed,
+    });
+    latest.current = {
+        activationDiscountPercent,
+        commissionPerRoundTrip,
+        discountPercent,
+        fundedHorizonDays,
+        linkActivationDiscount,
+        maxEvalDays,
+        plan,
+        scenarios,
+        seed,
+    };
 
     const key = useMemo(
         () =>
@@ -96,6 +119,17 @@ export function useLabSimulation(args: Args): {
     const [pending, setPending] = useState(false);
 
     useEffect(() => {
+        const {
+            activationDiscountPercent,
+            commissionPerRoundTrip,
+            discountPercent,
+            fundedHorizonDays,
+            linkActivationDiscount,
+            maxEvalDays,
+            plan,
+            scenarios,
+            seed,
+        } = latest.current;
         if (scenarios.length === 0) {
             setResults(new Map());
             setPending(false);

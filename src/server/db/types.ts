@@ -10,22 +10,6 @@ export const bytea = customType<{
     },
 });
 
-export type SeederLogger = (line: string) => void;
-
-export interface SeederRunReport {
-    results: SeederRunResult[];
-    totalDurationMs: number;
-}
-
-interface SeederRunResult {
-    durationMs: number;
-    error?: string;
-    name: string;
-    status: SeederStatus;
-}
-
-type SeederStatus = 'failed' | 'ok' | 'skipped';
-
 export abstract class DatabaseSeeder {
     abstract readonly name: string;
     readonly priority: number = 100;
@@ -33,16 +17,11 @@ export abstract class DatabaseSeeder {
     abstract run(): Promise<void>;
 }
 
-const defaultLogger: SeederLogger = (line) => {
-    console.log(line);
-};
-
 export class SeederRegistry {
-    private readonly logger: SeederLogger;
     private readonly seeders: DatabaseSeeder[] = [];
 
-    constructor(logger: SeederLogger = defaultLogger) {
-        this.logger = logger;
+    names(): string[] {
+        return this.seeders.map((s) => s.name);
     }
 
     register(seeder: DatabaseSeeder): this {
@@ -60,43 +39,10 @@ export class SeederRegistry {
         return this;
     }
 
-    async runAll(): Promise<SeederRunReport> {
-        const ordered = [...this.seeders].toSorted(
-            (a, b) => a.priority - b.priority,
-        );
-        const results: SeederRunResult[] = [];
-        const overallStartMs = performance.now();
-
-        for (const seeder of ordered) {
-            const startedAtMs = performance.now();
-            this.logger(`▶ ${seeder.name}`);
-            try {
-                await seeder.run();
-                const durationMs = performance.now() - startedAtMs;
-                results.push({
-                    durationMs,
-                    name: seeder.name,
-                    status: 'ok',
-                });
-                this.logger(`✓ ${seeder.name} (${durationMs.toFixed(0)} ms)`);
-            } catch (error) {
-                const durationMs = performance.now() - startedAtMs;
-                const message =
-                    error instanceof Error ? error.message : String(error);
-                results.push({
-                    durationMs,
-                    error: message,
-                    name: seeder.name,
-                    status: 'failed',
-                });
-                this.logger(`✗ ${seeder.name} — ${message}`);
-                throw error;
-            }
-        }
-
-        return {
-            results,
-            totalDurationMs: performance.now() - overallStartMs,
-        };
+    select(filter?: (seeder: DatabaseSeeder) => boolean): DatabaseSeeder[] {
+        const selected = filter
+            ? this.seeders.filter((s) => filter(s))
+            : [...this.seeders];
+        return selected.toSorted((a, b) => a.priority - b.priority);
     }
 }

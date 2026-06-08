@@ -1,5 +1,7 @@
 import type {
+    BankAccount,
     Booking,
+    BookingRule,
     ConversionResult,
     ISODate,
     RawTransaction,
@@ -55,7 +57,9 @@ export type ImportEventKind = (typeof IMPORT_EVENT_KINDS)[number];
 
 export interface PlanInput {
     apiCredentials: DecryptedCredential[];
+    bankAccounts: BankAccount[];
     fetchImpl?: typeof fetch;
+    rules: BookingRule[];
     startDate: ISODate;
     uploadedTransactions: RawTransaction[];
 }

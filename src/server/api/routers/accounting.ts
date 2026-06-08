@@ -3,6 +3,8 @@ import { and, asc, eq } from 'drizzle-orm';
 import 'server-only';
 import { z } from 'zod';
 
+import type { BookingRule } from '~/lib/accounting/core/types';
+
 import { classifyTransaction } from '~/lib/accounting/core/orchestrator';
 import {
     getCredentialDescriptor,
@@ -24,12 +26,20 @@ import {
 import { openSecret, sealSecret } from '~/lib/crypto/secrets';
 import { captureError } from '~/lib/observability/logger';
 import {
+    bankAccountUpsertSchema,
     credentialCreateSchema,
     credentialIdSchema,
     credentialUpdateSchema,
+    ruleCreateSchema,
+    ruleUpdateSchema,
 } from '~/lib/schemas/accounting';
 import { createTRPCRouter, rootProcedure } from '~/server/api/trpc';
-import { accountingCredential, db } from '~/server/db';
+import {
+    accountingBankAccount,
+    accountingCredential,
+    accountingRule,
+    db,
+} from '~/server/db';
 
 const noop = (): void => undefined;
 
@@ -165,6 +175,72 @@ function requireTransactionSource(cred: LoadedCredential): ApiSource {
 }
 
 export const accountingRouter = createTRPCRouter({
+    bankAccounts: createTRPCRouter({
+        delete: rootProcedure
+            .input(z.object({ id: z.uuid() }))
+            .mutation(async ({ ctx, input }) => {
+                await ctx.db
+                    .delete(accountingBankAccount)
+                    .where(
+                        and(
+                            eq(accountingBankAccount.id, input.id),
+                            eq(accountingBankAccount.userId, ctx.userId),
+                        ),
+                    );
+                return { ok: true };
+            }),
+        list: rootProcedure
+            .input(z.object({ credentialId: z.uuid() }))
+            .query(async ({ ctx, input }) => {
+                const rows = await ctx.db
+                    .select()
+                    .from(accountingBankAccount)
+                    .where(
+                        and(
+                            eq(
+                                accountingBankAccount.credentialId,
+                                input.credentialId,
+                            ),
+                            eq(accountingBankAccount.userId, ctx.userId),
+                        ),
+                    )
+                    .orderBy(asc(accountingBankAccount.currency));
+                return rows.map((r) => ({
+                    currency: r.currency,
+                    id: r.id,
+                    ledger: { id: r.ledgerId, label: r.ledgerLabel },
+                }));
+            }),
+        upsert: rootProcedure
+            .input(bankAccountUpsertSchema)
+            .mutation(async ({ ctx, input }) => {
+                await loadCredentialOrThrow(input.credentialId, ctx.userId);
+                const q = ctx.db
+                    .insert(accountingBankAccount)
+                    .values({
+                        credentialId: input.credentialId,
+                        currency: input.currency,
+                        ledgerId: input.ledger.id,
+                        ledgerLabel: input.ledger.label,
+                        userId: ctx.userId,
+                    })
+                    .onConflictDoUpdate({
+                        set: {
+                            ledgerId: input.ledger.id,
+                            ledgerLabel: input.ledger.label,
+                            updatedAt: new Date(),
+                        },
+                        target: [
+                            accountingBankAccount.userId,
+                            accountingBankAccount.credentialId,
+                            accountingBankAccount.currency,
+                        ],
+                    });
+                await q;
+                return { ok: true };
+            }),
+    }),
+
     credentials: createTRPCRouter({
         create: rootProcedure
             .input(credentialCreateSchema)
@@ -456,6 +532,95 @@ export const accountingRouter = createTRPCRouter({
             }),
     }),
 
+    rules: createTRPCRouter({
+        create: rootProcedure
+            .input(ruleCreateSchema)
+            .mutation(async ({ ctx, input }) => {
+                await loadCredentialOrThrow(input.credentialId, ctx.userId);
+                const [row] = await ctx.db
+                    .insert(accountingRule)
+                    .values({
+                        credentialId: input.credentialId,
+                        direction: input.direction,
+                        display: input.display,
+                        ledgerId: input.ledger.id,
+                        ledgerLabel: input.ledger.label,
+                        match: input.match,
+                        userId: ctx.userId,
+                        vatCode: input.vatCode,
+                    })
+                    .returning({ id: accountingRule.id });
+                if (!row) {
+                    throw new TRPCError({
+                        code: 'INTERNAL_SERVER_ERROR',
+                        message: 'Could not create rule',
+                    });
+                }
+                return { id: row.id };
+            }),
+        delete: rootProcedure
+            .input(z.object({ id: z.uuid() }))
+            .mutation(async ({ ctx, input }) => {
+                await ctx.db
+                    .delete(accountingRule)
+                    .where(
+                        and(
+                            eq(accountingRule.id, input.id),
+                            eq(accountingRule.userId, ctx.userId),
+                        ),
+                    );
+                return { ok: true };
+            }),
+        list: rootProcedure
+            .input(z.object({ credentialId: z.uuid() }))
+            .query(async ({ ctx, input }) => {
+                const rows = await ctx.db
+                    .select()
+                    .from(accountingRule)
+                    .where(
+                        and(
+                            eq(accountingRule.credentialId, input.credentialId),
+                            eq(accountingRule.userId, ctx.userId),
+                        ),
+                    )
+                    .orderBy(asc(accountingRule.createdAt));
+                return rows.map((r) => ({
+                    direction: r.direction,
+                    display: r.display,
+                    id: r.id,
+                    ledger: { id: r.ledgerId, label: r.ledgerLabel },
+                    match: r.match,
+                    vatCode: r.vatCode,
+                }));
+            }),
+        update: rootProcedure
+            .input(ruleUpdateSchema)
+            .mutation(async ({ ctx, input }) => {
+                const patch: Record<string, unknown> = {
+                    updatedAt: new Date(),
+                };
+                if (input.direction !== undefined)
+                    patch.direction = input.direction;
+                if (input.display !== undefined) patch.display = input.display;
+                if (input.ledger !== undefined) {
+                    patch.ledgerId = input.ledger.id;
+                    patch.ledgerLabel = input.ledger.label;
+                }
+                if (input.match !== undefined) patch.match = input.match;
+                if (input.vatCode !== undefined) patch.vatCode = input.vatCode;
+                await ctx.db
+                    .update(accountingRule)
+                    .set(patch)
+                    .where(
+                        and(
+                            eq(accountingRule.id, input.id),
+                            eq(accountingRule.userId, ctx.userId),
+                        ),
+                    );
+                return { ok: true };
+            }),
+    }),
+
     summary: rootProcedure.query(async ({ ctx }) => {
         const rows = await ctx.db
             .select({ kind: accountingCredential.kind })
@@ -472,6 +637,7 @@ export const accountingRouter = createTRPCRouter({
         list: rootProcedure
             .input(
                 z.object({
+                    accountingCredentialId: z.uuid().optional(),
                     credentialId: z.uuid(),
                     from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
                     to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -483,16 +649,43 @@ export const accountingRouter = createTRPCRouter({
                     ctx.userId,
                 );
                 const source = requireTransactionSource(cred);
-                const txns = await source.fetch({
-                    from: input.from,
-                    meta: cred.meta,
-                    secret: cred.secret,
-                    to: input.to,
-                });
+                const [txns, rules] = await Promise.all([
+                    source.fetch({
+                        from: input.from,
+                        meta: cred.meta,
+                        secret: cred.secret,
+                        to: input.to,
+                    }),
+                    loadRules(input.accountingCredentialId, ctx.userId),
+                ]);
                 return txns.map((tx) => ({
                     ...tx,
-                    match: classifyTransaction(tx),
+                    match: classifyTransaction(tx, rules),
                 }));
             }),
     }),
 });
+
+async function loadRules(
+    credentialId: string | undefined,
+    userId: string,
+): Promise<BookingRule[]> {
+    if (!credentialId) return [];
+    const rows = await db
+        .select()
+        .from(accountingRule)
+        .where(
+            and(
+                eq(accountingRule.credentialId, credentialId),
+                eq(accountingRule.userId, userId),
+            ),
+        );
+    return rows.map((r) => ({
+        direction: r.direction,
+        display: r.display,
+        id: r.id,
+        ledger: { id: r.ledgerId, label: r.ledgerLabel },
+        match: r.match,
+        vatCode: r.vatCode,
+    }));
+}

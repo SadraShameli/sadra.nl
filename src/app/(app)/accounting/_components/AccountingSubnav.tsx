@@ -3,6 +3,7 @@
 import {
     ArrowLeftRight,
     BookOpen,
+    Filter,
     KeyRound,
     LayoutDashboard,
     ListChecks,
@@ -29,6 +30,11 @@ const ITEMS: readonly RouteSubnavItem[] = [
         href: routes.accounting.ledgers,
         icon: BookOpen,
         label: 'Ledgers',
+    },
+    {
+        href: routes.accounting.rules,
+        icon: Filter,
+        label: 'Booking rules',
     },
     {
         href: routes.accounting.transactions,

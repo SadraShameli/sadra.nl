@@ -2,6 +2,8 @@ import { and, eq } from 'drizzle-orm';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import type { BankAccount, BookingRule } from '~/lib/accounting/core/types';
+
 import { getCredentialDescriptor } from '~/lib/accounting/credentials/index';
 import { type DecryptedCredential, runPlan } from '~/lib/accounting/runner';
 import { asSseResponse } from '~/lib/accounting/sse';
@@ -11,7 +13,12 @@ import { openSecret } from '~/lib/crypto/secrets';
 import { captureError } from '~/lib/observability/logger';
 import { checkRateLimit } from '~/lib/observability/rate-limit';
 import { runPlanRequestSchema } from '~/lib/schemas/accounting';
-import { accountingCredential, db } from '~/server/db';
+import {
+    accountingBankAccount,
+    accountingCredential,
+    accountingRule,
+    db,
+} from '~/server/db';
 
 export async function POST(request: NextRequest) {
     const session = await getServerSession();
@@ -67,8 +74,15 @@ export async function POST(request: NextRequest) {
         }
     }
 
+    const { bankAccounts, rules } = await loadRoutingConfig(
+        input.accountingCredentialId,
+        userId,
+    );
+
     const stream = runPlan({
         apiCredentials,
+        bankAccounts,
+        rules,
         startDate: input.startDate,
         uploadedTransactions: input.uploadedTransactions,
     });
@@ -98,6 +112,47 @@ async function loadCredential(
     if (!row) return null;
     const secret = await openSecret(row.ciphertext);
     return { id: row.id, kind: row.kind, meta: row.meta, secret };
+}
+
+async function loadRoutingConfig(
+    credentialId: string | undefined,
+    userId: string,
+): Promise<{ bankAccounts: BankAccount[]; rules: BookingRule[] }> {
+    if (!credentialId) return { bankAccounts: [], rules: [] };
+    const [ruleRows, bankRows] = await Promise.all([
+        db
+            .select()
+            .from(accountingRule)
+            .where(
+                and(
+                    eq(accountingRule.credentialId, credentialId),
+                    eq(accountingRule.userId, userId),
+                ),
+            ),
+        db
+            .select()
+            .from(accountingBankAccount)
+            .where(
+                and(
+                    eq(accountingBankAccount.credentialId, credentialId),
+                    eq(accountingBankAccount.userId, userId),
+                ),
+            ),
+    ]);
+    return {
+        bankAccounts: bankRows.map((b) => ({
+            currency: b.currency,
+            ledger: { id: b.ledgerId, label: b.ledgerLabel },
+        })),
+        rules: ruleRows.map((r) => ({
+            direction: r.direction,
+            display: r.display,
+            id: r.id,
+            ledger: { id: r.ledgerId, label: r.ledgerLabel },
+            match: r.match,
+            vatCode: r.vatCode,
+        })),
+    };
 }
 
 export const runtime = 'nodejs';

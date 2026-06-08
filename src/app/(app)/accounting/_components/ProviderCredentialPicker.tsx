@@ -60,10 +60,10 @@ export function ProviderCredentialPicker({
             value={value === '' ? SENTINEL_NONE : value}
         >
             <SelectTrigger
-                className={inline ? 'h-8 w-56 text-xs' : 'w-72'}
+                className={inline ? 'h-8 w-56 shrink-0 text-xs' : 'w-72'}
                 id={id}
             >
-                <SelectValue />
+                <SelectValue placeholder={ROLE_LABEL[credentialRole]} />
             </SelectTrigger>
             <SelectContent>
                 {showEmptyOption && (

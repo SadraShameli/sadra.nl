@@ -18,6 +18,25 @@ export const VAT_CODES = [
 ] as const;
 export type VatCode = (typeof VAT_CODES)[number];
 
+export const VAT_CODE_LABEL: Record<VatCode, string> = {
+    AFST_VERK: 'Distance sales',
+    AFW: 'Deviating',
+    AFW_VERK: 'Deviating sales',
+    BI_EU_INK: 'Purchase — within EU',
+    BI_EU_VERK: 'Sales — within EU',
+    BI_EU_VERK_D: 'Sales — within EU (digital)',
+    BU_EU_INK: 'Purchase — outside EU',
+    BU_EU_VERK: 'Sales — outside EU',
+    GEEN: 'No VAT',
+    HOOG_INK_21: 'Purchase 21%',
+    HOOG_VERK_21: 'Sales 21%',
+    LAAG_INK_9: 'Purchase 9%',
+    LAAG_VERK_9: 'Sales 9%',
+    VERL_INK: 'Reverse charge purchase',
+    VERL_VERK: 'Reverse charge sales',
+    VERL_VERK_L9: 'Reverse charge sales 9%',
+};
+
 const REVERSE_CHARGE_CODES = new Set<VatCode>([
     'BI_EU_INK',
     'BU_EU_INK',

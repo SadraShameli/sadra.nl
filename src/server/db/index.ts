@@ -13,7 +13,11 @@ import * as mainSchema from './schemas/main';
 import * as notificationSchema from './schemas/notification';
 import * as tradingSchema from './schemas/trading';
 
-export { accountingCredential } from './schemas/accounting';
+export {
+    accountingBankAccount,
+    accountingCredential,
+    accountingRule,
+} from './schemas/accounting';
 export { account, user } from './schemas/auth';
 export {
     liftingExercise,

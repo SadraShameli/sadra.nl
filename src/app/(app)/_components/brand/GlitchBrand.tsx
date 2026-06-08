@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { cn } from '~/lib/utils';
 
@@ -22,24 +22,27 @@ export default function GlitchBrand({
 }: Props) {
     const [display, setDisplay] = useState(text);
 
-    const runBurst = (onDone?: () => void) => {
-        let frames = 0;
-        const total = 6 + Math.floor(Math.random() * 7);
-        let t: ReturnType<typeof setTimeout>;
+    const runBurst = useCallback(
+        (onDone?: () => void) => {
+            let frames = 0;
+            const total = 6 + Math.floor(Math.random() * 7);
+            let t: ReturnType<typeof setTimeout>;
 
-        const burst = () => {
-            if (frames < total) {
-                setDisplay(corrupt(text));
-                frames++;
-                t = setTimeout(burst, 50);
-            } else {
-                setDisplay(text);
-                onDone?.();
-            }
-        };
-        burst();
-        return () => clearTimeout(t);
-    };
+            const burst = () => {
+                if (frames < total) {
+                    setDisplay(corrupt(text));
+                    frames++;
+                    t = setTimeout(burst, 50);
+                } else {
+                    setDisplay(text);
+                    onDone?.();
+                }
+            };
+            burst();
+            return () => clearTimeout(t);
+        },
+        [text],
+    );
 
     useEffect(() => {
         let timer: ReturnType<typeof setTimeout>;
@@ -53,12 +56,12 @@ export default function GlitchBrand({
 
         schedule();
         return () => clearTimeout(timer);
-    }, [text]);
+    }, [runBurst]);
 
     useEffect(() => {
         if (trigger === 0) return;
         runBurst();
-    }, [trigger]);
+    }, [runBurst, trigger]);
 
     return (
         <Link className={cn('app-brand__glitch', className)} href={href}>

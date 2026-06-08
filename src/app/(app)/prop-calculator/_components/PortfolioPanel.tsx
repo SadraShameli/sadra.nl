@@ -2,7 +2,7 @@
 
 import { type ColumnDef } from '@tanstack/react-table';
 import { Tag } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent } from '~/components/ui/Card';
@@ -104,7 +104,11 @@ export default function PortfolioPanel({
         return () => clearTimeout(t);
     }, [simKey]);
 
+    const latest = useRef({ baseInputs, firms, portfolio });
+    latest.current = { baseInputs, firms, portfolio };
+
     useEffect(() => {
+        const { baseInputs, firms, portfolio } = latest.current;
         if (portfolio.length === 0) {
             setSimmed([]);
             setPending(false);

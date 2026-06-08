@@ -1,7 +1,6 @@
 'use client';
 
 import { type ColumnDef } from '@tanstack/react-table';
-import { ChevronsUpDown } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { type DateRange } from 'react-day-picker';
 
@@ -15,26 +14,12 @@ import type {
 } from '~/lib/accounting/core/types';
 
 import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
 import { Card, CardContent } from '~/components/ui/Card';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import {
-    Command,
-    CommandEmpty,
-    CommandGroup,
-    CommandInput,
-    CommandItem,
-    CommandList,
-} from '~/components/ui/Command';
 import { DataTable } from '~/components/ui/DataTable';
 import { DateRangePicker } from '~/components/ui/DatePicker';
 import { EmptyState } from '~/components/ui/EmptyState';
 import { Input } from '~/components/ui/Input';
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from '~/components/ui/Popover';
 import {
     Select,
     SelectContent,
@@ -43,34 +28,17 @@ import {
     SelectValue,
 } from '~/components/ui/Select';
 import {
+    VAT_CODE_LABEL,
     VAT_CODES,
     type VatCode,
 } from '~/lib/accounting/providers/eboekhouden/enums';
 import { cn } from '~/lib/utils';
 
 import { DirectionBadge } from './DirectionBadge';
+import { LedgerCombobox } from './LedgerCombobox';
 
 const ALL = '__all__';
 type DirectionFilter = BookingDirection | typeof ALL;
-
-const VAT_CODE_LABEL: Record<VatCode, string> = {
-    AFST_VERK: 'Distance sales',
-    AFW: 'Deviating',
-    AFW_VERK: 'Deviating sales',
-    BI_EU_INK: 'Purchase — within EU',
-    BI_EU_VERK: 'Sales — within EU',
-    BI_EU_VERK_D: 'Sales — within EU (digital)',
-    BU_EU_INK: 'Purchase — outside EU',
-    BU_EU_VERK: 'Sales — outside EU',
-    GEEN: 'No VAT',
-    HOOG_INK_21: 'Purchase 21%',
-    HOOG_VERK_21: 'Sales 21%',
-    LAAG_INK_9: 'Purchase 9%',
-    LAAG_VERK_9: 'Sales 9%',
-    VERL_INK: 'Reverse charge purchase',
-    VERL_VERK: 'Reverse charge sales',
-    VERL_VERK_L9: 'Reverse charge sales 9%',
-};
 
 function DirectionSelect({
     onChange,
@@ -282,7 +250,9 @@ export function BookingsTable({
                 cell: ({ row }) => (
                     <Select
                         onValueChange={(v) =>
-                            onEdit(row.original.txnId, { vatCode: v as VatCode })
+                            onEdit(row.original.txnId, {
+                                vatCode: v as VatCode,
+                            })
                         }
                         value={row.original.vatCode}
                     >
@@ -804,55 +774,6 @@ export function UnknownsTable({ result }: { result: ConversionResult }) {
             rowId={(r) => `${r.direction}|${r.rawName}`}
             showFilter
         />
-    );
-}
-
-function LedgerCombobox({
-    onChange,
-    options,
-    value,
-}: {
-    onChange: (ledger: LedgerRef) => void;
-    options: LedgerRef[];
-    value: LedgerRef;
-}) {
-    const [open, setOpen] = useState(false);
-    return (
-        <Popover onOpenChange={setOpen} open={open}>
-            <PopoverTrigger asChild>
-                <Button
-                    className="h-8 w-48 justify-between text-xs font-normal"
-                    disabled={options.length === 0}
-                    type="button"
-                    variant="outline"
-                >
-                    <span className="truncate">{value.label}</span>
-                    <ChevronsUpDown className="size-3 opacity-50" />
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-72 p-0">
-                <Command>
-                    <CommandInput placeholder="Search ledgers…" />
-                    <CommandList>
-                        <CommandEmpty>No ledger found.</CommandEmpty>
-                        <CommandGroup>
-                            {options.map((opt) => (
-                                <CommandItem
-                                    key={opt.id}
-                                    onSelect={() => {
-                                        onChange(opt);
-                                        setOpen(false);
-                                    }}
-                                    value={opt.label}
-                                >
-                                    {opt.label}
-                                </CommandItem>
-                            ))}
-                        </CommandGroup>
-                    </CommandList>
-                </Command>
-            </PopoverContent>
-        </Popover>
     );
 }
 

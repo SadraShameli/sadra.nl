@@ -51,6 +51,8 @@ const defaultRange = (): DateRange => {
 
 export function TransactionsBrowser() {
     const [credentialId, setCredentialId] = useState<string>('');
+    const [accountingCredentialId, setAccountingCredentialId] =
+        useState<string>('');
     const [directionFilter, setDirectionFilter] = useState<string>(ALL);
     const [matchFilter, setMatchFilter] = useState<string>(ALL);
     const [dateRange, setDateRange] = useState<DateRange | undefined>(
@@ -67,6 +69,7 @@ export function TransactionsBrowser() {
 
     const txnsQ = api.accounting.transactions.list.useQuery(
         {
+            accountingCredentialId: accountingCredentialId || undefined,
             credentialId,
             from: range?.from ?? '',
             to: range?.to ?? '',
@@ -230,9 +233,16 @@ export function TransactionsBrowser() {
                                     onChange={setCredentialId}
                                     value={credentialId}
                                 />
+                                <ProviderCredentialPicker
+                                    allowEmpty
+                                    credentialRole="accounting"
+                                    inline
+                                    onChange={setAccountingCredentialId}
+                                    value={accountingCredentialId}
+                                />
                                 <DateRangePicker
                                     align="end"
-                                    className="h-8 text-xs"
+                                    className="h-8 w-fit shrink-0 text-xs"
                                     onChange={setDateRange}
                                     placeholder="Any date"
                                     value={dateRange}
@@ -241,7 +251,7 @@ export function TransactionsBrowser() {
                                     onValueChange={setDirectionFilter}
                                     value={directionFilter}
                                 >
-                                    <SelectTrigger className="h-8 w-32 text-xs">
+                                    <SelectTrigger className="h-8 w-36 shrink-0 text-xs">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -256,7 +266,7 @@ export function TransactionsBrowser() {
                                     onValueChange={setMatchFilter}
                                     value={matchFilter}
                                 >
-                                    <SelectTrigger className="h-8 w-36 text-xs">
+                                    <SelectTrigger className="h-8 w-36 shrink-0 text-xs">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>

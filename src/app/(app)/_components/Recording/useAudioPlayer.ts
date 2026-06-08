@@ -181,7 +181,7 @@ export function useAudioPlayer({ recordings }: UseAudioPlayerProps) {
             audio.current.volume = volume;
             audio.current.playbackRate = playbackRate;
         }
-    }, [safeCurrentIdx, recordings]);
+    }, [playbackRate, recordings, safeCurrentIdx, volume]);
 
     useEffect(() => {
         if (audio.current) {

@@ -2,7 +2,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Check, MoreHorizontal, Trash2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
@@ -111,9 +111,11 @@ export function SetRow({
     const [deleteOpen, setDeleteOpen] = useState(false);
     const isCompleted = set.completedAt !== null;
 
+    const setRef = useRef(set);
+    setRef.current = set;
     useEffect(() => {
-        form.reset(deriveDefaults(set, unitWeight, unitDistance));
-    }, [set.id, unitWeight, unitDistance]);
+        form.reset(deriveDefaults(setRef.current, unitWeight, unitDistance));
+    }, [form, set.id, unitDistance, unitWeight]);
 
     const stepInDisplay =
         unitWeight === 'kg' ? weightStepKg : weightStepKg / 0.45359237;

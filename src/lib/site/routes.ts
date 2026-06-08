@@ -4,6 +4,7 @@ export const routes = {
         index: '/accounting',
         ledgers: '/accounting/ledgers',
         mutations: '/accounting/mutations',
+        rules: '/accounting/rules',
         transactions: '/accounting/transactions',
     },
     auth: {

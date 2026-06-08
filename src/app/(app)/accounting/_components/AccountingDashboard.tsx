@@ -222,6 +222,7 @@ export function AccountingDashboard() {
         setResult(null);
         await stream.start({
             body: JSON.stringify({
+                accountingCredentialId: accountingCredentialId || undefined,
                 apiCredentialIds,
                 startDate,
                 uploadedTransactions,
@@ -491,11 +492,14 @@ function ResultsView({
         setBookings(result.bookings);
     }, [result]);
 
-    const editBooking = useCallback((txnId: string, patch: Partial<Booking>) => {
-        setBookings((prev) =>
-            prev.map((b) => (b.txnId === txnId ? { ...b, ...patch } : b)),
-        );
-    }, []);
+    const editBooking = useCallback(
+        (txnId: string, patch: Partial<Booking>) => {
+            setBookings((prev) =>
+                prev.map((b) => (b.txnId === txnId ? { ...b, ...patch } : b)),
+            );
+        },
+        [],
+    );
 
     const ledgersQ = api.accounting.ledgers.list.useQuery(
         { credentialId: accountingCredentialId },

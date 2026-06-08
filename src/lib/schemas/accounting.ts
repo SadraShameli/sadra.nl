@@ -67,6 +67,7 @@ export const bookingSchema = z.object({
 });
 
 export const runPlanRequestSchema = z.object({
+    accountingCredentialId: z.uuid().optional(),
     apiCredentialIds: z.array(z.uuid()).default([]),
     startDate: isoDateSchema,
     uploadedTransactions: z.array(rawTransactionSchema).default([]),
@@ -76,3 +77,30 @@ export const runPushRequestSchema = z.object({
     accountingCredentialId: z.uuid(),
     bookings: z.array(bookingSchema).min(1),
 });
+
+export const ruleCreateSchema = z.object({
+    credentialId: z.uuid(),
+    direction: z.enum(BOOKING_DIRECTIONS),
+    display: z.string().min(1).max(128),
+    ledger: ledgerRefSchema,
+    match: z.string().min(1).max(256),
+    vatCode: z.enum(VAT_CODES),
+});
+export type RuleCreateInput = z.infer<typeof ruleCreateSchema>;
+
+export const ruleUpdateSchema = z.object({
+    direction: z.enum(BOOKING_DIRECTIONS).optional(),
+    display: z.string().min(1).max(128).optional(),
+    id: z.uuid(),
+    ledger: ledgerRefSchema.optional(),
+    match: z.string().min(1).max(256).optional(),
+    vatCode: z.enum(VAT_CODES).optional(),
+});
+export type RuleUpdateInput = z.infer<typeof ruleUpdateSchema>;
+
+export const bankAccountUpsertSchema = z.object({
+    credentialId: z.uuid(),
+    currency: z.string().min(1).max(8),
+    ledger: ledgerRefSchema,
+});
+export type BankAccountUpsertInput = z.infer<typeof bankAccountUpsertSchema>;

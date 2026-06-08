@@ -8,6 +8,20 @@
       "when": 1780907092536,
       "tag": "0000_fixed_rhino",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1780916300074,
+      "tag": "0001_goofy_sage",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1780918526927,
+      "tag": "0002_bouncy_monster_badoon",
+      "breakpoints": true
     }
   ]
 }

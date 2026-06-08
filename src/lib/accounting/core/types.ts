@@ -1,5 +1,10 @@
 import type { BookingDirection, VatCode } from '../providers/eboekhouden/enums';
 
+export interface BankAccount {
+    currency: string;
+    ledger: LedgerRef;
+}
+
 export interface Booking {
     amountEur: number;
     bank: LedgerRef;
@@ -12,10 +17,21 @@ export interface Booking {
     vatCode: VatCode;
 }
 
+export interface BookingRule {
+    direction: BookingDirection;
+    display: string;
+    id: string;
+    ledger: LedgerRef;
+    match: string;
+    vatCode: VatCode;
+}
+
 export interface ConversionResult {
     bookings: Booking[];
     matches: MatchAudit[];
+    missingBankCurrencies: string[];
     skippedCurrency: number;
+    skippedNoBank: number;
     unknowns: UnknownMerchant[];
 }
 

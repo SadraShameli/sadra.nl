@@ -3,6 +3,7 @@ import type { RateProvider } from '../rates/provider';
 import type {
     Booking,
     BookingDirection,
+    BookingRule,
     ConversionResult,
     ISODate,
     LedgerRef,
@@ -12,13 +13,13 @@ import type {
     UnknownMerchant,
 } from './types';
 
-import { wiseBank } from '../config/ledgers';
-import { MERCHANTS, PAYOUT_SOURCES } from '../config/rules';
 import { convertToEur, round2 } from './money';
 import { findRule } from './rules';
 
 export interface BuildBookingsInput {
+    bankByCurrency: Map<string, LedgerRef>;
     rates: RateProvider;
+    rules: readonly BookingRule[];
     start: ISODate;
     transactions: Iterable<RawTransaction>;
 }
@@ -34,25 +35,28 @@ interface Aggregate {
     vatCode: VatCode;
 }
 
-interface Resolved {
-    display: string;
-    ledger: LedgerRef;
-    vatCode: VatCode;
-}
 export function buildBookings(input: BuildBookingsInput): ConversionResult {
     const aggregates = new Map<string, Aggregate>();
     const unknownDates = new Map<string, ISODate[]>();
     const matchAmounts = new Map<string, number[]>();
+    const missingBank = new Set<string>();
     let skippedCurrency = 0;
+    let skippedNoBank = 0;
 
     for (const tx of input.transactions) {
         if (tx.date < input.start) continue;
-        const resolved = resolveRule(tx);
-        if (!resolved) {
+        const rule = findRule(input.rules, tx);
+        if (!rule) {
             const key = `${tx.merchant}|${tx.direction}`;
             const list = unknownDates.get(key);
             if (list) list.push(tx.date);
             else unknownDates.set(key, [tx.date]);
+            continue;
+        }
+        const bank = input.bankByCurrency.get(tx.sourceCurrency);
+        if (!bank) {
+            skippedNoBank += 1;
+            missingBank.add(tx.sourceCurrency);
             continue;
         }
         const { eur, note } = convertToEur(tx, input.rates);
@@ -61,7 +65,7 @@ export function buildBookings(input: BuildBookingsInput): ConversionResult {
             continue;
         }
 
-        const matchKey = `${tx.merchant}|${resolved.display}|${tx.direction}`;
+        const matchKey = `${tx.merchant}|${rule.display}|${tx.direction}`;
         const matchList = matchAmounts.get(matchKey);
         if (matchList) matchList.push(eur);
         else matchAmounts.set(matchKey, [eur]);
@@ -72,14 +76,14 @@ export function buildBookings(input: BuildBookingsInput): ConversionResult {
             existing.notes.push(note);
         } else {
             aggregates.set(tx.txnId, {
-                bank: wiseBank(tx.sourceCurrency),
-                counterpartLedger: resolved.ledger,
-                counterpartName: resolved.display,
+                bank,
+                counterpartLedger: rule.ledger,
+                counterpartName: rule.display,
                 date: tx.date,
                 direction: tx.direction,
                 eur,
                 notes: [note],
-                vatCode: resolved.vatCode,
+                vatCode: rule.vatCode,
             });
         }
     }
@@ -151,48 +155,38 @@ export function buildBookings(input: BuildBookingsInput): ConversionResult {
             return a.rawName.localeCompare(b.rawName);
         });
 
-    return { bookings, matches, skippedCurrency, unknowns };
+    return {
+        bookings,
+        matches,
+        missingBankCurrencies: [...missingBank].toSorted(),
+        skippedCurrency,
+        skippedNoBank,
+        unknowns,
+    };
 }
 
 export function classifyTransaction(
     tx: RawTransaction,
+    rules: readonly BookingRule[],
 ): null | TransactionMatch {
-    const resolved = resolveRule(tx);
-    if (!resolved) return null;
+    const rule = findRule(rules, tx);
+    if (!rule) return null;
     return {
-        display: resolved.display,
-        ledgerId: resolved.ledger.id,
-        ledgerLabel: resolved.ledger.label,
+        display: rule.display,
+        ledgerId: rule.ledger.id,
+        ledgerLabel: rule.ledger.label,
     };
 }
 
 export function collectDates(
     transactions: Iterable<RawTransaction>,
     start: ISODate,
+    rules: readonly BookingRule[],
 ): ISODate[] {
     const out: ISODate[] = [];
     for (const tx of transactions) {
         if (tx.date < start) continue;
-        if (resolveRule(tx) !== null) out.push(tx.date);
+        if (findRule(rules, tx) !== null) out.push(tx.date);
     }
     return out;
-}
-
-function resolveRule(tx: RawTransaction): null | Resolved {
-    if (tx.direction === 'OUT') {
-        const rule = findRule(MERCHANTS, tx.merchant);
-        if (!rule) return null;
-        return {
-            display: rule.display,
-            ledger: rule.ledger,
-            vatCode: rule.vatCode,
-        };
-    }
-    const payout = findRule(PAYOUT_SOURCES, tx.merchant);
-    if (!payout) return null;
-    return {
-        display: payout.display,
-        ledger: payout.ledger,
-        vatCode: payout.vatCode,
-    };
 }
