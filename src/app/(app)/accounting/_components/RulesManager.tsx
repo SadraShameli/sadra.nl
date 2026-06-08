@@ -1,7 +1,7 @@
 'use client';
 
 import { type ColumnDef } from '@tanstack/react-table';
-import { Filter, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Filter, Landmark, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -43,6 +43,12 @@ import { useActiveCredentials } from './useActiveCredentials';
 const ALL = '__all__';
 const VAT_NONE = '__none__';
 const toastError = (e: { message: string }) => toast.error(e.message);
+
+interface BankAccountView {
+    currency: string;
+    id: string;
+    ledger: LedgerRef;
+}
 
 interface RuleView {
     direction: BookingDirection;
@@ -97,6 +103,90 @@ export function RulesManager() {
     );
 }
 
+function BankAccountFormDialog({
+    credentialId,
+    ledgerOptions,
+    mode,
+    onClose,
+}: {
+    credentialId: string;
+    ledgerOptions: LedgerRef[];
+    mode: 'new' | BankAccountView;
+    onClose: () => void;
+}) {
+    const isEdit = mode !== 'new';
+    const utils = api.useUtils();
+    const invalidate = () =>
+        void utils.accounting.bankAccounts.list.invalidate({ credentialId });
+    const upsert = api.accounting.bankAccounts.upsert.useMutation({
+        onError: toastError,
+        onSuccess: () => {
+            invalidate();
+            onClose();
+        },
+    });
+    const del = api.accounting.bankAccounts.delete.useMutation({
+        onError: toastError,
+        onSuccess: invalidate,
+    });
+
+    const [currency, setCurrency] = useState(isEdit ? mode.currency : '');
+    const [ledger, setLedger] = useState<LedgerRef | null>(
+        isEdit ? mode.ledger : null,
+    );
+
+    const canSave =
+        currency.trim().length > 0 && ledger !== null && !upsert.isPending;
+
+    const submit = () => {
+        if (!ledger) return;
+        const next = currency.trim().toUpperCase();
+        if (isEdit && mode.currency !== next) del.mutate({ id: mode.id });
+        upsert.mutate({ credentialId, currency: next, ledger });
+    };
+
+    return (
+        <Dialog
+            onOpenChange={(o) => {
+                if (!o) onClose();
+            }}
+            open
+        >
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>
+                        {isEdit ? 'Edit bank account' : 'New bank account'}
+                    </DialogTitle>
+                </DialogHeader>
+                <div className="flex flex-col gap-3">
+                    <Field label="Currency">
+                        <Input
+                            className="h-8 text-xs"
+                            onChange={(e) =>
+                                setCurrency(e.target.value.toUpperCase())
+                            }
+                            placeholder="EUR"
+                            value={currency}
+                        />
+                    </Field>
+                    <Field label="Ledger">
+                        <LedgerCombobox
+                            onChange={setLedger}
+                            options={ledgerOptions}
+                            value={ledger}
+                        />
+                    </Field>
+                </div>
+                <DialogFooter>
+                    <Button disabled={!canSave} onClick={submit}>
+                        {isEdit ? 'Save changes' : 'Create account'}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 function BankAccountsCard({
     credentialId,
     ledgerOptions,
@@ -105,21 +195,67 @@ function BankAccountsCard({
     ledgerOptions: LedgerRef[];
 }) {
     const utils = api.useUtils();
-    const invalidate = () =>
-        void utils.accounting.bankAccounts.list.invalidate({ credentialId });
     const banksQ = api.accounting.bankAccounts.list.useQuery({ credentialId });
-    const upsert = api.accounting.bankAccounts.upsert.useMutation({
-        onError: toastError,
-        onSuccess: invalidate,
-    });
     const del = api.accounting.bankAccounts.delete.useMutation({
         onError: toastError,
-        onSuccess: invalidate,
+        onSuccess: () =>
+            void utils.accounting.bankAccounts.list.invalidate({
+                credentialId,
+            }),
     });
 
-    const [currency, setCurrency] = useState('');
-    const [ledger, setLedger] = useState<LedgerRef | null>(null);
-    const canAdd = currency.trim().length > 0 && ledger !== null;
+    const [form, setForm] = useState<'new' | BankAccountView | null>(null);
+    const rows = (banksQ.data ?? []) as BankAccountView[];
+
+    const columns = useMemo<ColumnDef<BankAccountView>[]>(
+        () => [
+            {
+                accessorKey: 'currency',
+                cell: ({ row }) => (
+                    <span className="font-mono text-xs">
+                        {row.original.currency}
+                    </span>
+                ),
+                enableSorting: true,
+                header: 'Currency',
+            },
+            {
+                accessorFn: (r) => r.ledger.label,
+                cell: ({ row }) => (
+                    <span className="font-mono text-[10px] text-muted-foreground">
+                        {row.original.ledger.label}
+                    </span>
+                ),
+                enableSorting: true,
+                header: 'Ledger',
+                id: 'ledger',
+            },
+            {
+                cell: ({ row }) => (
+                    <div className="flex items-center gap-1">
+                        <Button
+                            onClick={() => setForm(row.original)}
+                            size="icon"
+                            variant="ghost"
+                        >
+                            <Pencil className="size-3.5" />
+                        </Button>
+                        <Button
+                            onClick={() => del.mutate({ id: row.original.id })}
+                            size="icon"
+                            variant="ghost"
+                        >
+                            <Trash2 className="size-3.5" />
+                        </Button>
+                    </div>
+                ),
+                enableSorting: false,
+                header: '',
+                id: 'actions',
+            },
+        ],
+        [del],
+    );
 
     return (
         <Card>
@@ -127,62 +263,38 @@ function BankAccountsCard({
                 <CardTitle className="text-base">Bank accounts</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
-                {(banksQ.data ?? []).map((b) => (
-                    <div className="flex items-center gap-2" key={b.id}>
-                        <span className="w-16 font-mono text-xs">
-                            {b.currency}
-                        </span>
-                        <LedgerCombobox
-                            onChange={(l) =>
-                                upsert.mutate({
-                                    credentialId,
-                                    currency: b.currency,
-                                    ledger: l,
-                                })
-                            }
-                            options={ledgerOptions}
-                            value={b.ledger}
+                <DataTable
+                    columns={columns}
+                    data={rows}
+                    emptyState={
+                        <EmptyState
+                            description="Map a Wise currency to a ledger to start importing."
+                            icon={Landmark}
+                            title="No bank accounts"
                         />
+                    }
+                    headerActions={
                         <Button
-                            onClick={() => del.mutate({ id: b.id })}
-                            size="icon"
-                            variant="ghost"
+                            className="shrink-0"
+                            onClick={() => setForm('new')}
+                            size="sm"
                         >
-                            <Trash2 className="size-3.5" />
+                            <Plus className="size-3.5" /> Add account
                         </Button>
-                    </div>
-                ))}
-                <div className="flex items-center gap-2 border-t border-border/40 pt-3">
-                    <Input
-                        className="h-8 w-16 text-xs"
-                        onChange={(e) =>
-                            setCurrency(e.target.value.toUpperCase())
-                        }
-                        placeholder="EUR"
-                        value={currency}
+                    }
+                    initialSorting={[{ desc: false, id: 'currency' }]}
+                    isLoading={banksQ.isPending}
+                    pageSize={25}
+                    rowId={(r) => r.id}
+                />
+                {form !== null && (
+                    <BankAccountFormDialog
+                        credentialId={credentialId}
+                        ledgerOptions={ledgerOptions}
+                        mode={form}
+                        onClose={() => setForm(null)}
                     />
-                    <LedgerCombobox
-                        onChange={setLedger}
-                        options={ledgerOptions}
-                        value={ledger}
-                    />
-                    <Button
-                        disabled={!canAdd}
-                        onClick={() => {
-                            if (!ledger) return;
-                            upsert.mutate({
-                                credentialId,
-                                currency: currency.trim(),
-                                ledger,
-                            });
-                            setCurrency('');
-                            setLedger(null);
-                        }}
-                        size="sm"
-                    >
-                        <Plus className="size-3.5" /> Add
-                    </Button>
-                </div>
+                )}
             </CardContent>
         </Card>
     );

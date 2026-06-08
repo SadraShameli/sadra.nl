@@ -1,6 +1,7 @@
 'use client';
 
 import { type ColumnDef } from '@tanstack/react-table';
+import { Pencil } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { type DateRange } from 'react-day-picker';
 
@@ -14,10 +15,19 @@ import type {
 } from '~/lib/accounting/core/types';
 
 import { Badge } from '~/components/ui/Badge';
+import { Button } from '~/components/ui/Button';
 import { Card, CardContent } from '~/components/ui/Card';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
 import { DataTable } from '~/components/ui/DataTable';
 import { DateRangePicker } from '~/components/ui/DatePicker';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '~/components/ui/Dialog';
 import { EmptyState } from '~/components/ui/EmptyState';
 import { Input } from '~/components/ui/Input';
 import {
@@ -131,6 +141,7 @@ export function BookingsTable({
     const [vatCode, setVatCode] = useState<string>(ALL);
     const [counterpart, setCounterpart] = useState<string>(ALL);
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
+    const [editing, setEditing] = useState<Booking | null>(null);
 
     const counterpartOptions = useMemo(
         () =>
@@ -181,52 +192,25 @@ export function BookingsTable({
             {
                 accessorKey: 'direction',
                 cell: ({ row }) => (
-                    <Select
-                        onValueChange={(v) =>
-                            onEdit(row.original.txnId, {
-                                direction: v as BookingDirection,
-                            })
-                        }
-                        value={row.original.direction}
-                    >
-                        <SelectTrigger className="h-8 w-24 text-xs">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="IN">IN</SelectItem>
-                            <SelectItem value="OUT">OUT</SelectItem>
-                        </SelectContent>
-                    </Select>
+                    <DirectionBadge direction={row.original.direction} />
                 ),
                 header: 'Dir',
             },
             {
                 accessorKey: 'counterpartName',
                 cell: ({ row }) => (
-                    <Input
-                        className="h-8 w-40 text-xs"
-                        onChange={(e) =>
-                            onEdit(row.original.txnId, {
-                                counterpartName: e.target.value,
-                            })
-                        }
-                        value={row.original.counterpartName}
-                    />
+                    <span className="text-xs">
+                        {row.original.counterpartName}
+                    </span>
                 ),
                 header: 'Counterpart',
             },
             {
                 accessorKey: 'counterpartLedger',
                 cell: ({ row }) => (
-                    <LedgerCombobox
-                        onChange={(ledger) =>
-                            onEdit(row.original.txnId, {
-                                counterpartLedger: ledger,
-                            })
-                        }
-                        options={ledgerOptions}
-                        value={row.original.counterpartLedger}
-                    />
+                    <span className="font-mono text-[10px] text-muted-foreground">
+                        {row.original.counterpartLedger.label}
+                    </span>
                 ),
                 header: 'Ledger',
             },
@@ -248,25 +232,9 @@ export function BookingsTable({
             {
                 accessorKey: 'vatCode',
                 cell: ({ row }) => (
-                    <Select
-                        onValueChange={(v) =>
-                            onEdit(row.original.txnId, {
-                                vatCode: v as VatCode,
-                            })
-                        }
-                        value={row.original.vatCode}
-                    >
-                        <SelectTrigger className="h-8 w-44 text-xs">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {VAT_CODES.map((c) => (
-                                <SelectItem key={c} value={c}>
-                                    {VAT_CODE_LABEL[c]}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                    <Badge variant="outline">
+                        {VAT_CODE_LABEL[row.original.vatCode]}
+                    </Badge>
                 ),
                 header: 'VAT',
             },
@@ -288,8 +256,21 @@ export function BookingsTable({
                 ),
                 header: 'Reference',
             },
+            {
+                cell: ({ row }) => (
+                    <Button
+                        onClick={() => setEditing(row.original)}
+                        size="icon"
+                        variant="ghost"
+                    >
+                        <Pencil className="size-3.5" />
+                    </Button>
+                ),
+                header: '',
+                id: 'actions',
+            },
         ],
-        [ledgerOptions, onEdit],
+        [],
     );
 
     if (bookings.length === 0) {
@@ -301,80 +282,90 @@ export function BookingsTable({
         );
     }
     return (
-        <DataTable
-            belowFilter={
-                <ClearFiltersButton active={hasFilters} onReset={reset} />
-            }
-            columns={columns}
-            data={rows}
-            emptyState={
-                <EmptyState
-                    description="No bookings match the current filters."
-                    title="No matches"
+        <>
+            <DataTable
+                belowFilter={
+                    <ClearFiltersButton active={hasFilters} onReset={reset} />
+                }
+                columns={columns}
+                data={rows}
+                emptyState={
+                    <EmptyState
+                        description="No bookings match the current filters."
+                        title="No matches"
+                    />
+                }
+                filterPlaceholder="Filter bookings…"
+                filterPosition="bottom"
+                headerActions={
+                    <HeaderActionsShell>
+                        <FilterField label="Direction">
+                            <DirectionSelect
+                                onChange={setDirection}
+                                value={direction}
+                            />
+                        </FilterField>
+                        <FilterField label="VAT">
+                            <Select onValueChange={setVatCode} value={vatCode}>
+                                <SelectTrigger className="h-8 w-44 text-xs">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value={ALL}>
+                                        All VAT codes
+                                    </SelectItem>
+                                    {VAT_CODES.map((c) => (
+                                        <SelectItem key={c} value={c}>
+                                            {VAT_CODE_LABEL[c]}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </FilterField>
+                        <FilterField label="Counterpart">
+                            <Select
+                                onValueChange={setCounterpart}
+                                value={counterpart}
+                            >
+                                <SelectTrigger className="h-8 w-48 text-xs">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value={ALL}>
+                                        All counterparts
+                                    </SelectItem>
+                                    {counterpartOptions.map((c) => (
+                                        <SelectItem key={c} value={c}>
+                                            {c}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </FilterField>
+                        <FilterField label="Date range">
+                            <DateRangePicker
+                                align="end"
+                                className="h-8 text-xs"
+                                onChange={setDateRange}
+                                placeholder="Any date"
+                                value={dateRange}
+                            />
+                        </FilterField>
+                    </HeaderActionsShell>
+                }
+                pageSize={20}
+                rowId={(r) => r.txnId}
+                showFilter
+            />
+            {editing && (
+                <BookingEditDialog
+                    booking={editing}
+                    ledgerOptions={ledgerOptions}
+                    onClose={() => setEditing(null)}
+                    onSave={(patch) => onEdit(editing.txnId, patch)}
                 />
-            }
-            filterPlaceholder="Filter bookings…"
-            filterPosition="bottom"
-            headerActions={
-                <HeaderActionsShell>
-                    <FilterField label="Direction">
-                        <DirectionSelect
-                            onChange={setDirection}
-                            value={direction}
-                        />
-                    </FilterField>
-                    <FilterField label="VAT">
-                        <Select onValueChange={setVatCode} value={vatCode}>
-                            <SelectTrigger className="h-8 w-44 text-xs">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value={ALL}>
-                                    All VAT codes
-                                </SelectItem>
-                                {VAT_CODES.map((c) => (
-                                    <SelectItem key={c} value={c}>
-                                        {VAT_CODE_LABEL[c]}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </FilterField>
-                    <FilterField label="Counterpart">
-                        <Select
-                            onValueChange={setCounterpart}
-                            value={counterpart}
-                        >
-                            <SelectTrigger className="h-8 w-48 text-xs">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value={ALL}>
-                                    All counterparts
-                                </SelectItem>
-                                {counterpartOptions.map((c) => (
-                                    <SelectItem key={c} value={c}>
-                                        {c}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </FilterField>
-                    <FilterField label="Date range">
-                        <DateRangePicker
-                            align="end"
-                            className="h-8 text-xs"
-                            onChange={setDateRange}
-                            placeholder="Any date"
-                            value={dateRange}
-                        />
-                    </FilterField>
-                </HeaderActionsShell>
-            }
-            pageSize={20}
-            rowId={(r) => r.txnId}
-            showFilter
-        />
+            )}
+        </>
     );
 }
 
@@ -428,7 +419,11 @@ export function MatchAuditTable({ result }: { result: ConversionResult }) {
             },
             {
                 accessorKey: 'matchedDisplay',
-                cell: ({ row }) => <Badge>{row.original.matchedDisplay}</Badge>,
+                cell: ({ row }) => (
+                    <span className="text-xs">
+                        {row.original.matchedDisplay}
+                    </span>
+                ),
                 header: 'Matched as',
             },
             {
@@ -774,6 +769,105 @@ export function UnknownsTable({ result }: { result: ConversionResult }) {
             rowId={(r) => `${r.direction}|${r.rawName}`}
             showFilter
         />
+    );
+}
+
+function BookingEditDialog({
+    booking,
+    ledgerOptions,
+    onClose,
+    onSave,
+}: {
+    booking: Booking;
+    ledgerOptions: LedgerRef[];
+    onClose: () => void;
+    onSave: (patch: Partial<Booking>) => void;
+}) {
+    const [direction, setDirection] = useState<BookingDirection>(
+        booking.direction,
+    );
+    const [counterpartName, setCounterpartName] = useState(
+        booking.counterpartName,
+    );
+    const [counterpartLedger, setCounterpartLedger] = useState<LedgerRef>(
+        booking.counterpartLedger,
+    );
+    const [vatCode, setVatCode] = useState<VatCode>(booking.vatCode);
+
+    const save = () => {
+        onSave({ counterpartLedger, counterpartName, direction, vatCode });
+        onClose();
+    };
+
+    return (
+        <Dialog
+            onOpenChange={(o) => {
+                if (!o) onClose();
+            }}
+            open
+        >
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Edit booking</DialogTitle>
+                    <DialogDescription className="font-mono text-xs">
+                        {booking.date} · {formatEur(booking.amountEur)} ·{' '}
+                        {booking.txnId}
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="flex flex-col gap-3">
+                    <FilterField label="Direction">
+                        <Select
+                            onValueChange={(v) =>
+                                setDirection(v as BookingDirection)
+                            }
+                            value={direction}
+                        >
+                            <SelectTrigger className="h-8 w-full text-xs">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="IN">IN</SelectItem>
+                                <SelectItem value="OUT">OUT</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </FilterField>
+                    <FilterField label="Counterpart">
+                        <Input
+                            className="h-8 text-xs"
+                            onChange={(e) => setCounterpartName(e.target.value)}
+                            value={counterpartName}
+                        />
+                    </FilterField>
+                    <FilterField label="Ledger">
+                        <LedgerCombobox
+                            onChange={setCounterpartLedger}
+                            options={ledgerOptions}
+                            value={counterpartLedger}
+                        />
+                    </FilterField>
+                    <FilterField label="VAT">
+                        <Select
+                            onValueChange={(v) => setVatCode(v as VatCode)}
+                            value={vatCode}
+                        >
+                            <SelectTrigger className="h-8 w-full text-xs">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {VAT_CODES.map((c) => (
+                                    <SelectItem key={c} value={c}>
+                                        {VAT_CODE_LABEL[c]}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </FilterField>
+                </div>
+                <DialogFooter>
+                    <Button onClick={save}>Save changes</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }
 

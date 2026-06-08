@@ -3,13 +3,12 @@
 import { format as formatDate } from 'date-fns';
 import {
     AlertCircle,
-    CalendarClock,
     CalendarDays,
     PlayCircle,
     Send,
     StopCircle,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import type {
@@ -95,9 +94,16 @@ export function AccountingDashboard() {
     const { accounting, source } = useActiveCredentials();
     const accountingCredentialId = accounting?.id ?? '';
 
+    const latestDateQ = api.accounting.mutations.latestDate.useQuery(
+        { credentialId: accountingCredentialId },
+        { enabled: !!accountingCredentialId },
+    );
     const [startDate, setStartDate] = useState<string>(defaultStart());
-    const [fetchingLastMutation, setFetchingLastMutation] = useState(false);
-    const utils = api.useUtils();
+    const startDateTouched = useRef(false);
+    const handleStartDateChange = (v: string) => {
+        startDateTouched.current = true;
+        setStartDate(v);
+    };
     const [files, setFiles] = useState<ParsedCsvFile[]>([]);
     const [result, setResult] = useState<ConversionResult | null>(null);
     const [pushOpen, setPushOpen] = useState(false);
@@ -165,23 +171,15 @@ export function AccountingDashboard() {
         }
     }, [stream.events]);
 
-    const handleAfterLastMutation = async () => {
-        if (!accountingCredentialId) return;
-        setFetchingLastMutation(true);
-        try {
-            const latestDate =
-                await utils.accounting.mutations.latestDate.fetch({
-                    credentialId: accountingCredentialId,
-                });
-            if (!latestDate) return;
-            const date = parseIsoDate(latestDate);
-            if (!date) return;
-            date.setDate(date.getDate() + 1);
-            setStartDate(formatIsoDate(date));
-        } finally {
-            setFetchingLastMutation(false);
-        }
-    };
+    useEffect(() => {
+        if (startDateTouched.current) return;
+        const latest = latestDateQ.data;
+        if (!latest) return;
+        const date = parseIsoDate(latest);
+        if (!date) return;
+        date.setDate(date.getDate() + 1);
+        setStartDate(formatIsoDate(date));
+    }, [latestDateQ.data]);
 
     const runDisabled =
         stream.running ||
@@ -214,26 +212,10 @@ export function AccountingDashboard() {
                             <CalendarDays className="size-3" />
                             Start date
                         </Label>
-                        <div className="flex items-center gap-2">
-                            <StartDatePicker
-                                onChange={setStartDate}
-                                value={startDate}
-                            />
-                            <Button
-                                disabled={
-                                    !accountingCredentialId ||
-                                    fetchingLastMutation
-                                }
-                                onClick={() => void handleAfterLastMutation()}
-                                size="sm"
-                                title="Set to the day after the last posted mutation"
-                                type="button"
-                                variant="outline"
-                            >
-                                <CalendarClock className="size-3.5" />
-                                After last mutation
-                            </Button>
-                        </div>
+                        <StartDatePicker
+                            onChange={handleStartDateChange}
+                            value={startDate}
+                        />
                     </div>
 
                     <div className="flex flex-col gap-2">
@@ -473,7 +455,7 @@ function StartDatePicker({
         <Popover onOpenChange={setOpen} open={open}>
             <PopoverTrigger asChild>
                 <Button
-                    className="justify-start font-normal"
+                    className="w-fit justify-start font-normal"
                     type="button"
                     variant="outline"
                 >
