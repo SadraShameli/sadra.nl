@@ -4,7 +4,6 @@ import type {
     BookingRule,
     ConversionResult,
     ISODate,
-    RawTransaction,
 } from './core/types';
 
 export const STAGES = ['sources', 'fetch-fx', 'build', 'post'] as const;
@@ -61,7 +60,6 @@ export interface PlanInput {
     fetchImpl?: typeof fetch;
     rules: BookingRule[];
     startDate: ISODate;
-    uploadedTransactions: RawTransaction[];
 }
 
 export interface PushInput {

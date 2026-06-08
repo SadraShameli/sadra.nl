@@ -124,6 +124,26 @@ describe('buildBookings', () => {
         expect(outBooking?.counterpartLedger).toEqual(FUNDED);
     });
 
+    it('flags a card refund and routes it to the purchase ledger and VAT', () => {
+        const result = build([
+            tx({
+                direction: 'IN',
+                isRefund: true,
+                merchant: 'ApexFutures',
+                sourceAmount: 29.9,
+                sourceCurrency: 'USD',
+                txnId: 'card-3845452810',
+            }),
+        ]);
+        expect(result.bookings).toHaveLength(1);
+        const booking = result.bookings[0];
+        expect(booking?.isRefund).toBe(true);
+        expect(booking?.direction).toBe('IN');
+        expect(booking?.counterpartLedger).toEqual(FUNDED);
+        expect(booking?.vatCode).toBe('BU_EU_INK');
+        expect(booking?.bank).toEqual(WISE_USD);
+    });
+
     it('drops transactions before the start date', () => {
         const result = build([tx({ date: '2025-12-31', txnId: 'old' })]);
         expect(result.bookings).toHaveLength(0);

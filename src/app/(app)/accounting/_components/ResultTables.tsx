@@ -8,6 +8,7 @@ import { type DateRange } from 'react-day-picker';
 import type {
     Booking,
     BookingDirection,
+    BookingRule,
     ConversionResult,
     LedgerRef,
     MatchAudit,
@@ -37,6 +38,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '~/components/ui/Select';
+import { Switch } from '~/components/ui/Switch';
 import {
     VAT_CODE_LABEL,
     VAT_CODES,
@@ -132,10 +134,12 @@ export function BookingsTable({
     bookings,
     ledgerOptions,
     onEdit,
+    rules,
 }: {
     bookings: Booking[];
     ledgerOptions: LedgerRef[];
     onEdit: (txnId: string, patch: Partial<Booking>) => void;
+    rules: BookingRule[];
 }) {
     const [direction, setDirection] = useState<DirectionFilter>(ALL);
     const [vatCode, setVatCode] = useState<string>(ALL);
@@ -363,6 +367,7 @@ export function BookingsTable({
                     ledgerOptions={ledgerOptions}
                     onClose={() => setEditing(null)}
                     onSave={(patch) => onEdit(editing.txnId, patch)}
+                    rules={rules}
                 />
             )}
         </>
@@ -777,12 +782,33 @@ function BookingEditDialog({
     ledgerOptions,
     onClose,
     onSave,
+    rules,
 }: {
     booking: Booking;
     ledgerOptions: LedgerRef[];
     onClose: () => void;
     onSave: (patch: Partial<Booking>) => void;
+    rules: BookingRule[];
 }) {
+    const purchaseRule = useMemo(
+        () =>
+            rules.find(
+                (r) =>
+                    r.direction === 'OUT' &&
+                    r.display === booking.counterpartName,
+            ) ?? null,
+        [rules, booking.counterpartName],
+    );
+    const payoutRule = useMemo(
+        () =>
+            rules.find(
+                (r) =>
+                    r.direction === 'IN' &&
+                    r.display === booking.counterpartName,
+            ) ?? null,
+        [rules, booking.counterpartName],
+    );
+
     const [direction, setDirection] = useState<BookingDirection>(
         booking.direction,
     );
@@ -793,9 +819,29 @@ function BookingEditDialog({
         booking.counterpartLedger,
     );
     const [vatCode, setVatCode] = useState<VatCode>(booking.vatCode);
+    const [isRefund, setIsRefund] = useState(() => booking.isRefund === true);
+
+    const toggleRefund = (checked: boolean) => {
+        setIsRefund(checked);
+        if (checked && purchaseRule) {
+            setCounterpartLedger(purchaseRule.ledger);
+            setVatCode(purchaseRule.vatCode);
+        } else if (!checked) {
+            setCounterpartLedger(
+                payoutRule?.ledger ?? booking.counterpartLedger,
+            );
+            setVatCode(payoutRule?.vatCode ?? booking.vatCode);
+        }
+    };
 
     const save = () => {
-        onSave({ counterpartLedger, counterpartName, direction, vatCode });
+        onSave({
+            counterpartLedger,
+            counterpartName,
+            direction,
+            isRefund,
+            vatCode,
+        });
         onClose();
     };
 
@@ -831,6 +877,22 @@ function BookingEditDialog({
                             </SelectContent>
                         </Select>
                     </FilterField>
+                    {direction === 'IN' && (
+                        <FilterField label="Refund">
+                            <label className="flex items-center gap-2 text-xs">
+                                <Switch
+                                    checked={isRefund}
+                                    disabled={!purchaseRule}
+                                    onCheckedChange={toggleRefund}
+                                />
+                                <span className="text-muted-foreground">
+                                    {purchaseRule
+                                        ? `Reverse the purchase → ${purchaseRule.ledger.label}`
+                                        : 'No purchase rule for this counterpart'}
+                                </span>
+                            </label>
+                        </FilterField>
+                    )}
                     <FilterField label="Counterpart">
                         <Input
                             className="h-8 text-xs"

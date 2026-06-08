@@ -60,6 +60,7 @@ export const wiseApiSource: ApiSource = {
         const cardTxns: RawTransaction[] = cards.map((c) => ({
             date: c.created.slice(0, 10),
             direction: c.isRefund ? 'IN' : 'OUT',
+            isRefund: c.isRefund,
             merchant: c.merchant,
             sourceAmount: c.secondaryAmount,
             sourceCurrency: c.secondaryCurrency,

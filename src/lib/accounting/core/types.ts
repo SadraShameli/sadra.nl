@@ -12,6 +12,7 @@ export interface Booking {
     counterpartName: string;
     date: ISODate;
     direction: BookingDirection;
+    isRefund?: boolean;
     notes: string[];
     txnId: string;
     vatCode: VatCode;
@@ -58,6 +59,7 @@ export interface MatchAudit {
 export interface RawTransaction {
     date: ISODate;
     direction: BookingDirection;
+    isRefund?: boolean;
     merchant: string;
     sourceAmount: number;
     sourceCurrency: string;

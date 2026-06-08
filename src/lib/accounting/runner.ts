@@ -1,7 +1,6 @@
 import 'server-only';
 
 import './providers/index';
-import './sources/index';
 import type {
     DecryptedCredential,
     ImportEvent,
@@ -19,6 +18,7 @@ import {
 import { getCredentialDescriptor } from './credentials/index';
 import { getProvider } from './providers/provider';
 import { EcbRateProvider } from './rates/ecb';
+import './sources/index';
 import { findApiSourceByCredentialKind, getSource } from './sources/source';
 
 export type {
@@ -33,12 +33,7 @@ const todayIso = (): ISODate => new Date().toISOString().slice(0, 10);
 export async function* runPlan(input: PlanInput): AsyncIterable<ImportEvent> {
     const sourcesStart = Date.now();
     yield { kind: 'stage', stage: 'sources', status: 'started' };
-    const all: RawTransaction[] = [...input.uploadedTransactions];
-    yield {
-        kind: 'log',
-        level: 'info',
-        message: `Loaded ${input.uploadedTransactions.length} transaction(s) from uploaded CSVs.`,
-    };
+    const all: RawTransaction[] = [];
 
     for (const credential of input.apiCredentials) {
         for await (const event of fetchFromApiCredential(
@@ -63,8 +58,7 @@ export async function* runPlan(input: PlanInput): AsyncIterable<ImportEvent> {
         yield {
             kind: 'log',
             level: 'warn',
-            message:
-                'No transactions found. Upload CSVs or enable an API source.',
+            message: 'No transactions found.',
         };
         yield { kind: 'preview', result: emptyResult() };
         yield { kind: 'done' };

@@ -73,4 +73,24 @@ describe('rule matcher', () => {
         });
         expect(rule?.vatCode).toBe('BU_EU_VERK');
     });
+
+    it('routes a refund to the matching OUT purchase rule, not an IN rule', () => {
+        const rule = findRule(RULES, {
+            direction: 'IN',
+            isRefund: true,
+            merchant: 'TakeProfitTrader',
+        });
+        expect(rule?.display).toBe('TakeProfitTrader');
+        expect(rule?.vatCode).toBe('BU_EU_INK');
+    });
+
+    it('returns null for a refund with no matching purchase rule', () => {
+        expect(
+            findRule(RULES, {
+                direction: 'IN',
+                isRefund: true,
+                merchant: 'apex',
+            }),
+        ).toBeNull();
+    });
 });

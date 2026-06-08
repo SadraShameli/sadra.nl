@@ -98,4 +98,16 @@ describe('classifyTransaction', () => {
     it('returns null when there are no rules', () => {
         expect(classifyTransaction(tx({ merchant: 'Amazon' }), [])).toBeNull();
     });
+
+    it('classifies a card refund to the purchase ledger, not the payout ledger', () => {
+        const match = classifyTransaction(
+            tx({ direction: 'IN', isRefund: true, merchant: 'ApexFutures' }),
+            RULES,
+        );
+        expect(match).toEqual({
+            display: 'Apex (cost)',
+            ledgerId: FUNDED.id,
+            ledgerLabel: FUNDED.label,
+        });
+    });
 });

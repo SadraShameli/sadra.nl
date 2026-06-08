@@ -31,6 +31,7 @@ interface Aggregate {
     date: ISODate;
     direction: BookingDirection;
     eur: number;
+    isRefund: boolean;
     notes: string[];
     vatCode: VatCode;
 }
@@ -82,6 +83,7 @@ export function buildBookings(input: BuildBookingsInput): ConversionResult {
                 date: tx.date,
                 direction: tx.direction,
                 eur,
+                isRefund: tx.isRefund === true,
                 notes: [note],
                 vatCode: rule.vatCode,
             });
@@ -96,6 +98,7 @@ export function buildBookings(input: BuildBookingsInput): ConversionResult {
             counterpartName: agg.counterpartName,
             date: agg.date,
             direction: agg.direction,
+            isRefund: agg.isRefund,
             notes: agg.notes,
             txnId,
             vatCode: agg.vatCode,

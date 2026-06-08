@@ -5,10 +5,18 @@ const normalise = (s: null | string): string =>
 
 export function findRule(
     rules: readonly BookingRule[],
-    tx: { direction: BookingDirection; merchant: null | string },
+    tx: {
+        direction: BookingDirection;
+        isRefund?: boolean;
+        merchant: null | string;
+    },
 ): BookingRule | null {
+    const lookup = {
+        direction: tx.isRefund ? ('OUT' as const) : tx.direction,
+        merchant: tx.merchant,
+    };
     for (const rule of rules) {
-        if (ruleMatches(rule, tx)) return rule;
+        if (ruleMatches(rule, lookup)) return rule;
     }
     return null;
 }

@@ -37,18 +37,6 @@ export const isoDateSchema = z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected YYYY-MM-DD');
 
-export const rawTransactionSchema = z.object({
-    date: isoDateSchema,
-    direction: z.enum(BOOKING_DIRECTIONS),
-    merchant: z.string(),
-    sourceAmount: z.number(),
-    sourceCurrency: z.string().min(1).max(8),
-    sourceFee: z.number().default(0),
-    sourceFeeCurrency: z.string().min(1).max(8).nullable().default(null),
-    sourceId: z.string(),
-    txnId: z.string(),
-});
-
 export const ledgerRefSchema = z.object({
     id: z.number().int(),
     label: z.string(),
@@ -61,6 +49,7 @@ export const bookingSchema = z.object({
     counterpartName: z.string(),
     date: isoDateSchema,
     direction: z.enum(BOOKING_DIRECTIONS),
+    isRefund: z.boolean().optional(),
     notes: z.array(z.string()),
     txnId: z.string(),
     vatCode: z.enum(VAT_CODES),
@@ -70,7 +59,6 @@ export const runPlanRequestSchema = z.object({
     accountingCredentialId: z.uuid().optional(),
     apiCredentialIds: z.array(z.uuid()).default([]),
     startDate: isoDateSchema,
-    uploadedTransactions: z.array(rawTransactionSchema).default([]),
 });
 
 export const runPushRequestSchema = z.object({

@@ -84,7 +84,6 @@ export async function POST(request: NextRequest) {
         bankAccounts,
         rules,
         startDate: input.startDate,
-        uploadedTransactions: input.uploadedTransactions,
     });
 
     return asSseResponse(stream);

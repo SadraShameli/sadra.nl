@@ -50,4 +50,18 @@ describe('bookingToMutationPayload', () => {
             bookingToMutationPayload(baseBooking).checkPaymentReference,
         ).toBe(true);
     });
+
+    it('posts a refund as a negative MONEY_SENT keeping the purchase VAT code', () => {
+        const payload = bookingToMutationPayload({
+            ...baseBooking,
+            amountEur: 29.9,
+            counterpartName: 'Apex Trader Funding',
+            direction: 'IN',
+            isRefund: true,
+            vatCode: 'BU_EU_INK',
+        });
+        expect(payload.type).toBe(MUTATION_TYPES.MONEY_SENT);
+        expect(payload.rows[0]?.amount).toBe(-29.9);
+        expect(payload.rows[0]?.vatCode).toBe('BU_EU_INK');
+    });
 });

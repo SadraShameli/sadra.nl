@@ -1,9 +1,11 @@
 import type { RawTransaction } from '../core/types';
 
-export interface ApiSource extends SourceDescriptor {
+export interface ApiSource {
     readonly credentialKind: string;
     fetch(ctx: ApiSourceContext): Promise<RawTransaction[]>;
+    readonly id: string;
     readonly kind: 'api';
+    readonly label: string;
 }
 
 export interface ApiSourceContext {
@@ -14,58 +16,20 @@ export interface ApiSourceContext {
     to: string;
 }
 
-export interface CsvSource extends SourceDescriptor {
-    readonly kind: 'csv';
-    parse(text: string): RawTransaction[];
-    supports(headers: readonly string[]): boolean;
-}
-
-export const SOURCE_KINDS = ['api', 'csv'] as const;
-export interface SourceDescriptor {
-    readonly id: string;
-    readonly kind: SourceKind;
-    readonly label: string;
-}
-
-export type SourceKind = (typeof SOURCE_KINDS)[number];
-
-export type TransactionSource = ApiSource | CsvSource;
-
-const registry = new Map<string, TransactionSource>();
-
-export function detectCsvSource(headers: readonly string[]): CsvSource | null {
-    for (const source of listCsvSources()) {
-        if (source.supports(headers)) return source;
-    }
-    return null;
-}
+const registry = new Map<string, ApiSource>();
 
 export function findApiSourceByCredentialKind(
     credentialKind: string,
 ): ApiSource | undefined {
-    return listApiSources().find((s) => s.credentialKind === credentialKind);
+    return [...registry.values()].find(
+        (s) => s.credentialKind === credentialKind,
+    );
 }
 
-export function getSource(id: string): TransactionSource | undefined {
+export function getSource(id: string): ApiSource | undefined {
     return registry.get(id);
 }
 
-export function listApiSources(): ApiSource[] {
-    return [...registry.values()].filter(
-        (s): s is ApiSource => s.kind === 'api',
-    );
-}
-
-export function listCsvSources(): CsvSource[] {
-    return [...registry.values()].filter(
-        (s): s is CsvSource => s.kind === 'csv',
-    );
-}
-
-export function listSources(): TransactionSource[] {
-    return [...registry.values()];
-}
-
-export function registerSource(source: TransactionSource): void {
+export function registerSource(source: ApiSource): void {
     registry.set(source.id, source);
 }

@@ -9,10 +9,12 @@ export function bookingToMutationPayload(
     const inExVat = requiresExcludingVat(booking.vatCode)
         ? IN_EX_VAT.EXCLUDING
         : IN_EX_VAT.INCLUDING;
+    const isRefund = booking.isRefund === true;
     const type =
-        booking.direction === 'IN'
-            ? MUTATION_TYPES.MONEY_RECEIVED
-            : MUTATION_TYPES.MONEY_SENT;
+        isRefund || booking.direction === 'OUT'
+            ? MUTATION_TYPES.MONEY_SENT
+            : MUTATION_TYPES.MONEY_RECEIVED;
+    const amount = isRefund ? -booking.amountEur : booking.amountEur;
     return {
         checkPaymentReference: true,
         date: booking.date,
@@ -22,7 +24,7 @@ export function bookingToMutationPayload(
         paymentReference: booking.txnId.slice(0, 50),
         rows: [
             {
-                amount: booking.amountEur,
+                amount,
                 description:
                     `${booking.counterpartName} ${booking.txnId}`.slice(0, 50),
                 ledgerId: booking.counterpartLedger.id,

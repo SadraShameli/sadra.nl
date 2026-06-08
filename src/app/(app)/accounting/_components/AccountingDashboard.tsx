@@ -15,7 +15,6 @@ import type {
     Booking,
     ConversionResult,
     LedgerRef,
-    RawTransaction,
 } from '~/lib/accounting/core/types';
 import type { CredentialDescriptor } from '~/lib/accounting/credentials/index';
 import type { ImportEvent, Stage } from '~/lib/accounting/runner-types';
@@ -46,7 +45,6 @@ import { apiRoutes } from '~/lib/site/routes';
 import { cn } from '~/lib/utils';
 import { api } from '~/trpc/react';
 
-import { CsvDropzone, type ParsedCsvFile } from './CsvDropzone';
 import { EventLog, type LogLine } from './EventLog';
 import { PushPanel } from './PushPanel';
 import { ResultsCharts } from './ResultsCharts';
@@ -104,15 +102,10 @@ export function AccountingDashboard() {
         startDateTouched.current = true;
         setStartDate(v);
     };
-    const [files, setFiles] = useState<ParsedCsvFile[]>([]);
     const [result, setResult] = useState<ConversionResult | null>(null);
     const [pushOpen, setPushOpen] = useState(false);
 
     const stream = useImportStream<ImportEvent>();
-
-    const uploadedTransactions = useMemo<RawTransaction[]>(() => {
-        return files.filter((f) => !f.error).flatMap((f) => f.transactions);
-    }, [files]);
 
     const apiCredentialIds = useMemo(
         () => (source ? [source.id] : []),
@@ -181,9 +174,7 @@ export function AccountingDashboard() {
         setStartDate(formatIsoDate(date));
     }, [latestDateQ.data]);
 
-    const runDisabled =
-        stream.running ||
-        (uploadedTransactions.length === 0 && apiCredentialIds.length === 0);
+    const runDisabled = stream.running || apiCredentialIds.length === 0;
 
     const handleRun = async () => {
         setResult(null);
@@ -192,7 +183,6 @@ export function AccountingDashboard() {
                 accountingCredentialId: accountingCredentialId || undefined,
                 apiCredentialIds,
                 startDate,
-                uploadedTransactions,
             }),
             headers: { 'Content-Type': 'application/json' },
             method: 'POST',
@@ -206,26 +196,18 @@ export function AccountingDashboard() {
                 <CardHeader>
                     <CardTitle className="text-base">Run controls</CardTitle>
                 </CardHeader>
-                <CardContent className="flex flex-col gap-5">
-                    <div className="flex flex-col gap-2">
-                        <Label className="flex items-center gap-1.5 text-xs tracking-wider uppercase">
-                            <CalendarDays className="size-3" />
-                            Start date
-                        </Label>
-                        <StartDatePicker
-                            onChange={handleStartDateChange}
-                            value={startDate}
-                        />
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                        <Label className="text-xs tracking-wider uppercase">
-                            CSV exports
-                        </Label>
-                        <CsvDropzone onChange={setFiles} value={files} />
-                    </div>
-
-                    <div className="flex flex-wrap items-center justify-end gap-3">
+                <CardContent>
+                    <div className="flex flex-wrap items-end justify-between gap-3">
+                        <div className="flex flex-col gap-2">
+                            <Label className="flex items-center gap-1.5 text-xs tracking-wider uppercase">
+                                <CalendarDays className="size-3" />
+                                Start date
+                            </Label>
+                            <StartDatePicker
+                                onChange={handleStartDateChange}
+                                value={startDate}
+                            />
+                        </div>
                         <div className="flex items-center gap-2">
                             {stream.running ? (
                                 <Button
@@ -332,6 +314,10 @@ function ResultsView({
         { credentialId: accountingCredentialId },
         { enabled: postable },
     );
+    const rulesQ = api.accounting.rules.list.useQuery(
+        { credentialId: accountingCredentialId },
+        { enabled: postable },
+    );
     const ledgerOptions = useMemo<LedgerRef[]>(
         () =>
             (ledgersQ.data ?? []).map((l) => ({
@@ -419,6 +405,7 @@ function ResultsView({
                                     bookings={bookings}
                                     ledgerOptions={ledgerOptions}
                                     onEdit={editBooking}
+                                    rules={rulesQ.data ?? []}
                                 />
                             </TabsContent>
                             <TabsContent

@@ -57,7 +57,6 @@ export const apiRoutes = {
     accounting: {
         post: '/api/accounting/post',
         run: '/api/accounting/run',
-        upload: '/api/accounting/upload',
     },
     health: '/api/health',
     recording: (id: number | string) => `/api/recording/${id}` as const,
