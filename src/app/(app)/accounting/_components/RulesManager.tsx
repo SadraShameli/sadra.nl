@@ -44,6 +44,11 @@ const ALL = '__all__';
 const VAT_NONE = '__none__';
 const toastError = (e: { message: string }) => toast.error(e.message);
 
+export interface RuleFormDialogPrefill {
+    direction: BookingDirection;
+    match: string;
+}
+
 interface BankAccountView {
     currency: string;
     id: string;
@@ -57,6 +62,125 @@ interface RuleView {
     ledger: LedgerRef;
     match: string;
     vatCode: VatCode;
+}
+
+export function RuleFormDialog({
+    credentialId,
+    ledgerOptions,
+    mode,
+    onClose,
+}: {
+    credentialId: string;
+    ledgerOptions: LedgerRef[];
+    mode: 'new' | RuleFormDialogPrefill | RuleView;
+    onClose: () => void;
+}) {
+    const isEdit = mode !== 'new' && 'id' in mode;
+    const isPrefill = mode !== 'new' && !('id' in mode);
+    const utils = api.useUtils();
+    const settled = () => {
+        void utils.accounting.rules.list.invalidate({ credentialId });
+        onClose();
+    };
+    const create = api.accounting.rules.create.useMutation({
+        onError: toastError,
+        onSuccess: settled,
+    });
+    const update = api.accounting.rules.update.useMutation({
+        onError: toastError,
+        onSuccess: settled,
+    });
+
+    const [match, setMatch] = useState(isEdit || isPrefill ? mode.match : '');
+    const [direction, setDirection] = useState<BookingDirection>(
+        isEdit || isPrefill ? mode.direction : 'OUT',
+    );
+    const [display, setDisplay] = useState(isEdit ? mode.display : '');
+    const [ledger, setLedger] = useState<LedgerRef | null>(
+        isEdit ? mode.ledger : null,
+    );
+    const [vatCode, setVatCode] = useState<string>(
+        isEdit ? mode.vatCode : VAT_NONE,
+    );
+
+    const canSave =
+        match.trim().length > 0 &&
+        display.trim().length > 0 &&
+        ledger !== null &&
+        vatCode !== VAT_NONE;
+    const pending = create.isPending || update.isPending;
+
+    const submit = () => {
+        if (!ledger || vatCode === VAT_NONE) return;
+        const values = {
+            direction,
+            display: display.trim(),
+            ledger,
+            match: match.trim(),
+            vatCode: vatCode as VatCode,
+        };
+        if (isEdit) update.mutate({ id: mode.id, ...values });
+        else create.mutate({ credentialId, ...values });
+    };
+
+    return (
+        <Dialog
+            onOpenChange={(o) => {
+                if (!o) onClose();
+            }}
+            open
+        >
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>
+                        {isEdit ? 'Edit rule' : 'New rule'}
+                    </DialogTitle>
+                </DialogHeader>
+                <div className="flex flex-col gap-3">
+                    <Field label="Match (merchant contains)">
+                        <Input
+                            className="h-8 text-xs"
+                            onChange={(e) => setMatch(e.target.value)}
+                            placeholder="e.g. amazon"
+                            value={match}
+                        />
+                    </Field>
+                    <Field label="Direction">
+                        <DirectionSelect
+                            onChange={setDirection}
+                            value={direction}
+                        />
+                    </Field>
+                    <Field label="Counterpart name">
+                        <Input
+                            className="h-8 text-xs"
+                            onChange={(e) => setDisplay(e.target.value)}
+                            placeholder="e.g. Amazon EU"
+                            value={display}
+                        />
+                    </Field>
+                    <Field label="Ledger">
+                        <LedgerCombobox
+                            onChange={setLedger}
+                            options={ledgerOptions}
+                            value={ledger}
+                        />
+                    </Field>
+                    <Field label="VAT code">
+                        <VatSelect
+                            onChange={(v) => setVatCode(v)}
+                            value={vatCode === VAT_NONE ? '' : vatCode}
+                        />
+                    </Field>
+                </div>
+                <DialogFooter>
+                    <Button disabled={!canSave || pending} onClick={submit}>
+                        {isEdit ? 'Save changes' : 'Create rule'}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
 }
 
 export function RulesManager() {
@@ -337,124 +461,6 @@ function Field({
             </Label>
             {children}
         </div>
-    );
-}
-
-function RuleFormDialog({
-    credentialId,
-    ledgerOptions,
-    mode,
-    onClose,
-}: {
-    credentialId: string;
-    ledgerOptions: LedgerRef[];
-    mode: 'new' | RuleView;
-    onClose: () => void;
-}) {
-    const isEdit = mode !== 'new';
-    const utils = api.useUtils();
-    const settled = () => {
-        void utils.accounting.rules.list.invalidate({ credentialId });
-        onClose();
-    };
-    const create = api.accounting.rules.create.useMutation({
-        onError: toastError,
-        onSuccess: settled,
-    });
-    const update = api.accounting.rules.update.useMutation({
-        onError: toastError,
-        onSuccess: settled,
-    });
-
-    const [match, setMatch] = useState(isEdit ? mode.match : '');
-    const [direction, setDirection] = useState<BookingDirection>(
-        isEdit ? mode.direction : 'OUT',
-    );
-    const [display, setDisplay] = useState(isEdit ? mode.display : '');
-    const [ledger, setLedger] = useState<LedgerRef | null>(
-        isEdit ? mode.ledger : null,
-    );
-    const [vatCode, setVatCode] = useState<string>(
-        isEdit ? mode.vatCode : VAT_NONE,
-    );
-
-    const canSave =
-        match.trim().length > 0 &&
-        display.trim().length > 0 &&
-        ledger !== null &&
-        vatCode !== VAT_NONE;
-    const pending = create.isPending || update.isPending;
-
-    const submit = () => {
-        if (!ledger || vatCode === VAT_NONE) return;
-        const values = {
-            direction,
-            display: display.trim(),
-            ledger,
-            match: match.trim(),
-            vatCode: vatCode as VatCode,
-        };
-        if (isEdit) update.mutate({ id: mode.id, ...values });
-        else create.mutate({ credentialId, ...values });
-    };
-
-    return (
-        <Dialog
-            onOpenChange={(o) => {
-                if (!o) onClose();
-            }}
-            open
-        >
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>
-                        {isEdit ? 'Edit rule' : 'New rule'}
-                    </DialogTitle>
-                </DialogHeader>
-                <div className="flex flex-col gap-3">
-                    <Field label="Match (merchant contains)">
-                        <Input
-                            className="h-8 text-xs"
-                            onChange={(e) => setMatch(e.target.value)}
-                            placeholder="e.g. amazon"
-                            value={match}
-                        />
-                    </Field>
-                    <Field label="Direction">
-                        <DirectionSelect
-                            onChange={setDirection}
-                            value={direction}
-                        />
-                    </Field>
-                    <Field label="Counterpart name">
-                        <Input
-                            className="h-8 text-xs"
-                            onChange={(e) => setDisplay(e.target.value)}
-                            placeholder="e.g. Amazon EU"
-                            value={display}
-                        />
-                    </Field>
-                    <Field label="Ledger">
-                        <LedgerCombobox
-                            onChange={setLedger}
-                            options={ledgerOptions}
-                            value={ledger}
-                        />
-                    </Field>
-                    <Field label="VAT code">
-                        <VatSelect
-                            onChange={(v) => setVatCode(v)}
-                            value={vatCode === VAT_NONE ? '' : vatCode}
-                        />
-                    </Field>
-                </div>
-                <DialogFooter>
-                    <Button disabled={!canSave || pending} onClick={submit}>
-                        {isEdit ? 'Save changes' : 'Create rule'}
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
     );
 }
 

@@ -181,6 +181,20 @@ export function classifyTransaction(
     };
 }
 
+export function collectCurrencies(
+    transactions: Iterable<RawTransaction>,
+    start: ISODate,
+    rules: readonly BookingRule[],
+): string[] {
+    const out = new Set<string>();
+    for (const tx of transactions) {
+        if (tx.date < start) continue;
+        if (tx.sourceCurrency === 'EUR') continue;
+        if (findRule(rules, tx) !== null) out.add(tx.sourceCurrency);
+    }
+    return [...out];
+}
+
 export function collectDates(
     transactions: Iterable<RawTransaction>,
     start: ISODate,

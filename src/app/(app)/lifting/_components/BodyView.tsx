@@ -3,7 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { type ColumnDef } from '@tanstack/react-table';
 import { endOfDay, format, startOfDay, subDays } from 'date-fns';
-import { Plus, Ruler, Trash2 } from 'lucide-react';
+import { LineChart, Plus, Ruler, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { type DateRange } from 'react-day-picker';
 import { useForm } from 'react-hook-form';
@@ -22,6 +22,7 @@ import {
 } from '~/components/ui/AlertDialog';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
+import AreaChartNew from '~/components/ui/Chart/AreaChartNew';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
 import { DataTable } from '~/components/ui/DataTable';
 import { DatePicker, DateRangePicker } from '~/components/ui/DatePicker';
@@ -43,6 +44,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '~/components/ui/Select';
+import { Skeleton } from '~/components/ui/Skeleton';
 import { Textarea } from '~/components/ui/Textarea';
 import {
     Tooltip,
@@ -145,6 +147,8 @@ export function BodyView() {
 
             <BodyStatsCards stats={stats} />
 
+            <MeasurementTrendChart />
+
             <Card>
                 <CardHeader>
                     <CardTitle className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
@@ -228,6 +232,10 @@ export function BodyView() {
         </div>
     );
 }
+
+const TREND_CHART_CONFIG = {
+    value: { color: '#a3a3a3', label: 'Value' },
+} as const;
 
 function AddMeasurementCard({
     onCreate,
@@ -626,6 +634,81 @@ function MeasurementsHistoryTable({
             rowId={(r) => r.id}
             showFilter
         />
+    );
+}
+
+function MeasurementTrendChart() {
+    const [chartKind, setChartKind] = useState<MeasurementKind>('weight');
+
+    const trendData = api.lifting.measurement.list.useQuery({
+        kind: chartKind,
+    });
+
+    const chartPoints = useMemo(() => {
+        const rows = (trendData.data ?? []).toReversed();
+        return rows.map((r) => ({
+            date: format(new Date(r.takenAt), 'MMM d'),
+            unit: r.unit,
+            value: r.valueNumeric,
+        }));
+    }, [trendData.data]);
+
+    const latestUnit = chartPoints.at(-1)?.unit ?? '';
+
+    return (
+        <Card>
+            <CardHeader>
+                <div className="flex items-center justify-between gap-2">
+                    <CardTitle className="flex items-center gap-2 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+                        <LineChart className="size-4" /> Trend
+                    </CardTitle>
+                    <Select
+                        onValueChange={(v) =>
+                            setChartKind(v as MeasurementKind)
+                        }
+                        value={chartKind}
+                    >
+                        <SelectTrigger className="h-7 w-36 text-xs">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {MEASUREMENT_KIND_VALUES.map((k) => (
+                                <SelectItem key={k} value={k}>
+                                    <span className="capitalize">
+                                        {k.replaceAll('_', ' ')}
+                                    </span>
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </CardHeader>
+            <CardContent>
+                {trendData.isLoading ? (
+                    <Skeleton className="h-48 w-full rounded-md" />
+                ) : chartPoints.length === 0 ? (
+                    <EmptyState
+                        description="Log a measurement to see the trend chart."
+                        icon={LineChart}
+                        title="No data yet"
+                    />
+                ) : (
+                    <div className="h-48">
+                        <AreaChartNew
+                            area={{ dataKey: 'value' }}
+                            config={TREND_CHART_CONFIG}
+                            data={chartPoints}
+                            tooltip={{ labelKey: 'date', nameKey: 'value' }}
+                            xAxis={{ dataKey: 'date' }}
+                            yAxis={{
+                                tickFormatter: (v: number) =>
+                                    `${v} ${latestUnit}`,
+                            }}
+                        />
+                    </div>
+                )}
+            </CardContent>
+        </Card>
     );
 }
 

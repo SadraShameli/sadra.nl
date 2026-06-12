@@ -418,7 +418,17 @@ function ResultsView({
                                 <MatchAuditTable result={result} />
                             </TabsContent>
                             <TabsContent className="mt-4" value="unknowns">
-                                <UnknownsTable result={result} />
+                                <UnknownsTable
+                                    credentialId={
+                                        postable
+                                            ? accountingCredentialId
+                                            : undefined
+                                    }
+                                    ledgerOptions={
+                                        postable ? ledgerOptions : undefined
+                                    }
+                                    result={result}
+                                />
                             </TabsContent>
                         </Tabs>
                     )}

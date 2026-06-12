@@ -547,7 +547,16 @@ export const accountingRouter = createTRPCRouter({
             .input(
                 z.object({
                     credentialId: z.uuid(),
+                    dateFrom: z
+                        .string()
+                        .regex(/^\d{4}-\d{2}-\d{2}$/)
+                        .optional(),
+                    dateTo: z
+                        .string()
+                        .regex(/^\d{4}-\d{2}-\d{2}$/)
+                        .optional(),
                     limit: z.number().int().min(1).max(2000).default(20),
+                    offset: z.number().int().min(0).default(0),
                 }),
             )
             .query(async ({ ctx, input }) => {
@@ -562,7 +571,10 @@ export const accountingRouter = createTRPCRouter({
                 });
                 try {
                     return await session.listMutations({
+                        dateFrom: input.dateFrom,
+                        dateTo: input.dateTo,
                         limit: input.limit,
+                        offset: input.offset,
                     });
                 } finally {
                     await session.close().catch(noop);

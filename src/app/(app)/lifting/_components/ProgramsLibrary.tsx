@@ -4,7 +4,9 @@ import {
     ArrowRight,
     Calendar,
     Check,
+    ChevronDown,
     ChevronRight,
+    ChevronUp,
     LineChart,
     Pause,
     Pencil,
@@ -46,6 +48,7 @@ import {
 import { Skeleton } from '~/components/ui/Skeleton';
 import {
     PROGRAM_CATEGORY_VALUES,
+    type ProgramBlock,
     type ProgramCategory,
     USER_PROGRAM_STATUS,
     type UserProgramStatus,
@@ -366,6 +369,9 @@ function ActiveEnrollmentCard({
     program: ProgramRef | undefined;
 }) {
     const utils = api.useUtils();
+    const [previewOpen, setPreviewOpen] = useState(false);
+
+    const nextDay = api.lifting.program.nextDay.useQuery({ id: enrollment.id });
 
     const invalidate = () => utils.lifting.program.listMine.invalidate();
 
@@ -402,6 +408,9 @@ function ActiveEnrollmentCard({
           (enrollment.currentDay - 1)
         : 0;
     const pct = totalDays > 0 ? (completedDays / totalDays) * 100 : 0;
+
+    const isCompleted = enrollment.status === USER_PROGRAM_STATUS.COMPLETED;
+    const upcomingDay = nextDay.data?.day ?? null;
 
     return (
         <Card className="py-4">
@@ -444,6 +453,55 @@ function ActiveEnrollmentCard({
                     </div>
                     <Progress value={pct} />
                 </div>
+
+                <button
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => setPreviewOpen((o) => !o)}
+                    type="button"
+                >
+                    {previewOpen ? (
+                        <ChevronUp className="size-3.5" />
+                    ) : (
+                        <ChevronDown className="size-3.5" />
+                    )}
+                    {previewOpen ? 'Hide' : 'Preview'} upcoming session
+                </button>
+
+                {previewOpen && (
+                    <div className="rounded-md border border-border/50 bg-muted/20 p-3">
+                        {isCompleted ? (
+                            <p className="text-xs text-muted-foreground">
+                                Program completed: no more sessions.
+                            </p>
+                        ) : upcomingDay === null ? (
+                            <p className="text-xs text-muted-foreground">
+                                Rest day: no exercises scheduled.
+                            </p>
+                        ) : (
+                            <div className="flex flex-col gap-1.5">
+                                <p className="text-xs font-medium">
+                                    {upcomingDay.name ||
+                                        `Day ${enrollment.currentDay}`}
+                                    {upcomingDay.isDeload && (
+                                        <span className="ml-1.5 text-muted-foreground">
+                                            (deload)
+                                        </span>
+                                    )}
+                                </p>
+                                <ul className="flex flex-col gap-0.5">
+                                    {upcomingDay.blocks.map((b, i) => (
+                                        <li
+                                            className="text-xs text-muted-foreground"
+                                            key={`${b.kind}-${'exerciseSlug' in b ? b.exerciseSlug : i}`}
+                                        >
+                                            {blockLabel(b)}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 <div className="flex flex-wrap gap-2">
                     <Button
@@ -508,6 +566,26 @@ function ActiveEnrollmentCard({
             </CardContent>
         </Card>
     );
+}
+
+function blockLabel(block: ProgramBlock): string {
+    if (block.kind === 'straight') {
+        const rpe = block.rpe === undefined ? '' : ` @ RPE ${block.rpe}`;
+        return `${block.sets}×${block.reps} ${block.exerciseSlug.replaceAll('-', ' ')}${rpe}`;
+    }
+    if (block.kind === 'amrap') {
+        return `AMRAP ${block.exerciseSlug.replaceAll('-', ' ')}`;
+    }
+    if (block.kind === 'topset_backoff') {
+        return `${block.exerciseSlug.replaceAll('-', ' ')} top set + ${block.backoffSets}×${block.reps}`;
+    }
+    if (block.kind === 'pyramid') {
+        return `${block.exerciseSlug.replaceAll('-', ' ')} pyramid (${block.setSchemes.length} sets)`;
+    }
+    if (block.kind === 'emom') {
+        return `EMOM ${block.minutes}m: ${block.exerciseSlug.replaceAll('-', ' ')}`;
+    }
+    return `Superset (${block.group.length} exercises)`;
 }
 
 function EnrollmentCard({

@@ -1,7 +1,7 @@
 'use client';
 
 import { type ColumnDef } from '@tanstack/react-table';
-import { Pencil } from 'lucide-react';
+import { Pencil, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { type DateRange } from 'react-day-picker';
 
@@ -48,6 +48,7 @@ import { cn } from '~/lib/utils';
 
 import { DirectionBadge } from './DirectionBadge';
 import { LedgerCombobox } from './LedgerCombobox';
+import { RuleFormDialog, type RuleFormDialogPrefill } from './RulesManager';
 
 const ALL = '__all__';
 type DirectionFilter = BookingDirection | typeof ALL;
@@ -658,9 +659,20 @@ export function TotalPanel({ result }: { result: ConversionResult }) {
     );
 }
 
-export function UnknownsTable({ result }: { result: ConversionResult }) {
+export function UnknownsTable({
+    credentialId,
+    ledgerOptions,
+    result,
+}: {
+    credentialId?: string;
+    ledgerOptions?: LedgerRef[];
+    result: ConversionResult;
+}) {
     const [direction, setDirection] = useState<DirectionFilter>(ALL);
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
+    const [ruleDialog, setRuleDialog] = useState<null | RuleFormDialogPrefill>(
+        null,
+    );
 
     const rows = useMemo(
         () =>
@@ -678,6 +690,8 @@ export function UnknownsTable({ result }: { result: ConversionResult }) {
         setDirection(ALL);
         setDateRange(undefined);
     };
+
+    const canCreateRule = !!credentialId && !!ledgerOptions;
 
     const columns = useMemo<ColumnDef<UnknownMerchant>[]>(
         () => [
@@ -724,8 +738,30 @@ export function UnknownsTable({ result }: { result: ConversionResult }) {
                 ),
                 header: 'Last seen',
             },
+            ...(canCreateRule
+                ? ([
+                      {
+                          cell: ({ row }) => (
+                              <Button
+                                  onClick={() =>
+                                      setRuleDialog({
+                                          direction: row.original.direction,
+                                          match: row.original.rawName,
+                                      })
+                                  }
+                                  size="icon"
+                                  variant="ghost"
+                              >
+                                  <Plus className="size-3.5" />
+                              </Button>
+                          ),
+                          header: '',
+                          id: 'actions',
+                      },
+                  ] as ColumnDef<UnknownMerchant>[])
+                : []),
         ],
-        [],
+        [canCreateRule],
     );
 
     if (result.unknowns.length === 0) {
@@ -737,43 +773,53 @@ export function UnknownsTable({ result }: { result: ConversionResult }) {
         );
     }
     return (
-        <DataTable
-            belowFilter={
-                <ClearFiltersButton active={hasFilters} onReset={reset} />
-            }
-            columns={columns}
-            data={rows}
-            emptyState={
-                <EmptyState
-                    description="No unknowns match the current filters."
-                    title="No matches"
+        <>
+            <DataTable
+                belowFilter={
+                    <ClearFiltersButton active={hasFilters} onReset={reset} />
+                }
+                columns={columns}
+                data={rows}
+                emptyState={
+                    <EmptyState
+                        description="No unknowns match the current filters."
+                        title="No matches"
+                    />
+                }
+                filterPlaceholder="Filter unknowns…"
+                filterPosition="bottom"
+                headerActions={
+                    <HeaderActionsShell>
+                        <FilterField label="Direction">
+                            <DirectionSelect
+                                onChange={setDirection}
+                                value={direction}
+                            />
+                        </FilterField>
+                        <FilterField label="First seen">
+                            <DateRangePicker
+                                align="end"
+                                className="h-8 text-xs"
+                                onChange={setDateRange}
+                                placeholder="Any date"
+                                value={dateRange}
+                            />
+                        </FilterField>
+                    </HeaderActionsShell>
+                }
+                pageSize={20}
+                rowId={(r) => `${r.direction}|${r.rawName}`}
+                showFilter
+            />
+            {ruleDialog !== null && credentialId && ledgerOptions && (
+                <RuleFormDialog
+                    credentialId={credentialId}
+                    ledgerOptions={ledgerOptions}
+                    mode={ruleDialog}
+                    onClose={() => setRuleDialog(null)}
                 />
-            }
-            filterPlaceholder="Filter unknowns…"
-            filterPosition="bottom"
-            headerActions={
-                <HeaderActionsShell>
-                    <FilterField label="Direction">
-                        <DirectionSelect
-                            onChange={setDirection}
-                            value={direction}
-                        />
-                    </FilterField>
-                    <FilterField label="First seen">
-                        <DateRangePicker
-                            align="end"
-                            className="h-8 text-xs"
-                            onChange={setDateRange}
-                            placeholder="Any date"
-                            value={dateRange}
-                        />
-                    </FilterField>
-                </HeaderActionsShell>
-            }
-            pageSize={20}
-            rowId={(r) => `${r.direction}|${r.rawName}`}
-            showFilter
-        />
+            )}
+        </>
     );
 }
 

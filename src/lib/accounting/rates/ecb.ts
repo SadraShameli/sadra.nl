@@ -6,14 +6,20 @@ import type { RateProvider } from './provider';
 const ECB_BASE = 'https://data-api.ecb.europa.eu/service/data';
 const USER_AGENT = 'sadranl-accounting-importer/0.1';
 
+interface CachedCurrencyRange {
+    end: ISODate;
+    start: ISODate;
+}
+
 interface EcbProviderOptions {
     fetchImpl?: typeof fetch;
     timeoutMs?: number;
 }
 
 export class EcbRateProvider implements RateProvider {
+    private readonly cachedRanges = new Map<string, CachedCurrencyRange[]>();
     private readonly fetchImpl: typeof fetch;
-    private readonly rates = new Map<ISODate, number>();
+    private readonly ratesByCurrency = new Map<string, Map<ISODate, number>>();
     private readonly timeoutMs: number;
 
     constructor(opts: EcbProviderOptions = {}) {
@@ -21,8 +27,13 @@ export class EcbRateProvider implements RateProvider {
         this.timeoutMs = opts.timeoutMs ?? 30_000;
     }
 
-    async ensureRange(range: DateRange): Promise<void> {
-        const url = new URL(`${ECB_BASE}/EXR/D.USD.EUR.SP00.A`);
+    async ensureCurrencyRange(
+        currency: string,
+        range: DateRange,
+    ): Promise<void> {
+        if (this.isCached(currency, range)) return;
+
+        const url = new URL(`${ECB_BASE}/EXR/D.${currency}.EUR.SP00.A`);
         url.searchParams.set('startPeriod', range.start);
         url.searchParams.set('endPeriod', range.end);
         url.searchParams.set('format', 'csvdata');
@@ -43,32 +54,58 @@ export class EcbRateProvider implements RateProvider {
                 );
             }
             const csv = await resp.text();
-            ingestEcbCsv(csv, this.rates);
+            let sink = this.ratesByCurrency.get(currency);
+            if (!sink) {
+                sink = new Map<ISODate, number>();
+                this.ratesByCurrency.set(currency, sink);
+            }
+            ingestEcbCsv(csv, sink);
+            this.recordCached(currency, range);
         } finally {
             clearTimeout(timeout);
         }
     }
 
+    async ensureRange(range: DateRange): Promise<void> {
+        await this.ensureCurrencyRange('USD', range);
+    }
+
     rate(opts: { base: string; on: ISODate; quote: string }): number {
-        if (opts.base !== 'EUR' || opts.quote !== 'USD') {
+        if (opts.base !== 'EUR') {
             throw new Error(
-                `EcbRateProvider only supports EUR→USD, got ${opts.base}→${opts.quote}`,
+                `EcbRateProvider only supports EUR as base, got ${opts.base}`,
             );
         }
-        const exact = this.rates.get(opts.on);
+        const rates = this.ratesByCurrency.get(opts.quote);
+        if (!rates) {
+            throw new Error(`No ECB rates loaded for currency ${opts.quote}`);
+        }
+        const exact = rates.get(opts.on);
         if (exact !== undefined) return exact;
-        const earlier = [...this.rates.keys()]
+        const earlier = [...rates.keys()]
             .filter((k) => k <= opts.on)
             .toSorted();
         const fallback = earlier.at(-1);
         if (fallback === undefined) {
             throw new Error(`No ECB rate available on or before ${opts.on}`);
         }
-        const value = this.rates.get(fallback);
+        const value = rates.get(fallback);
         if (value === undefined) {
             throw new Error(`No ECB rate available on or before ${opts.on}`);
         }
         return value;
+    }
+
+    private isCached(currency: string, range: DateRange): boolean {
+        const ranges = this.cachedRanges.get(currency);
+        if (!ranges) return false;
+        return ranges.some((r) => r.start <= range.start && r.end >= range.end);
+    }
+
+    private recordCached(currency: string, range: DateRange): void {
+        const existing = this.cachedRanges.get(currency) ?? [];
+        existing.push({ end: range.end, start: range.start });
+        this.cachedRanges.set(currency, existing);
     }
 }
 

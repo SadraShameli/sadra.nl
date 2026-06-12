@@ -4,6 +4,7 @@ import type { Booking } from '~/lib/accounting/core/types';
 
 import type {
     AccountingProvider,
+    ListMutationsOptions,
     OpenSessionOptions,
     PostBookingResult,
     ProviderLedger,
@@ -94,15 +95,31 @@ class EBoekhoudenSession implements ProviderSession {
         return adapted;
     }
 
-    async listMutations(opts: { limit: number }): Promise<ProviderMutation[]> {
-        const rows = await this.mutations.list({ limit: opts.limit });
-        return rows
-            .map((m) => adaptMutation(m))
-            .toSorted((a, b) => {
-                if (a.date !== b.date) return a.date < b.date ? 1 : -1;
-                return b.externalId - a.externalId;
-            })
-            .slice(0, opts.limit);
+    async listMutations(
+        opts: ListMutationsOptions,
+    ): Promise<ProviderMutation[]> {
+        const hasDateFilter = Boolean(opts.dateFrom ?? opts.dateTo);
+        const rawOffset = hasDateFilter ? 0 : (opts.offset ?? 0);
+        const rawLimit = hasDateFilter ? 2000 : opts.limit;
+        const rows = await this.mutations.list({
+            limit: rawLimit,
+            offset: rawOffset,
+        });
+        let adapted = rows.map((m) => adaptMutation(m));
+        if (opts.dateFrom) {
+            const from = opts.dateFrom;
+            adapted = adapted.filter((m) => m.date >= from);
+        }
+        if (opts.dateTo) {
+            const to = opts.dateTo;
+            adapted = adapted.filter((m) => m.date <= to);
+        }
+        const sorted = adapted.toSorted((a, b) => {
+            if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+            return b.externalId - a.externalId;
+        });
+        const pageOffset = hasDateFilter ? (opts.offset ?? 0) : 0;
+        return sorted.slice(pageOffset, pageOffset + opts.limit);
     }
 
     async postBooking(booking: Booking): Promise<PostBookingResult> {

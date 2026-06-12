@@ -13,22 +13,24 @@ export function convertToEur(
     tx: RawTransaction,
     rates: RateProvider,
 ): ConvertedAmount {
-    if (tx.sourceCurrency === 'EUR') {
+    const cur = tx.sourceCurrency;
+    if (cur === 'EUR') {
         const fee = tx.sourceFeeCurrency === 'EUR' ? tx.sourceFee : 0;
         return {
             eur: round2(tx.sourceAmount + fee),
             note: `EUR+fee${fee.toFixed(2)}`,
         };
     }
-    if (tx.sourceCurrency === 'USD') {
-        const feeUsd = tx.sourceFeeCurrency === 'USD' ? tx.sourceFee : 0;
-        const rate = rates.rate({ base: 'EUR', on: tx.date, quote: 'USD' });
+    try {
+        const feeSameCur = tx.sourceFeeCurrency === cur ? tx.sourceFee : 0;
+        const rate = rates.rate({ base: 'EUR', on: tx.date, quote: cur });
         return {
-            eur: round2((tx.sourceAmount + feeUsd) / rate),
-            note: `USD@ECB${rate.toFixed(4)}`,
+            eur: round2((tx.sourceAmount + feeSameCur) / rate),
+            note: `${cur}@ECB${rate.toFixed(4)}`,
         };
+    } catch {
+        return { eur: null, note: `unsupported currency ${cur}` };
     }
-    return { eur: null, note: `unsupported currency ${tx.sourceCurrency}` };
 }
 
 export { round2 };

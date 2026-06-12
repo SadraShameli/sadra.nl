@@ -1,14 +1,15 @@
 'use client';
 
 import { type ColumnDef } from '@tanstack/react-table';
-import { endOfDay, format, startOfDay, subDays } from 'date-fns';
-import { ExternalLink, Trophy } from 'lucide-react';
+import { endOfDay, format, startOfDay, subDays, subMonths } from 'date-fns';
+import { ExternalLink, TrendingUp, Trophy } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { type DateRange } from 'react-day-picker';
 
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
+import AreaChartNew from '~/components/ui/Chart/AreaChartNew';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
 import { DataTable } from '~/components/ui/DataTable';
 import { DateRangePicker } from '~/components/ui/DatePicker';
@@ -20,6 +21,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '~/components/ui/Select';
+import { Skeleton } from '~/components/ui/Skeleton';
 import { WeightUnit } from '~/lib/lifting/format';
 import { PR_KIND_VALUES } from '~/lib/lifting/types';
 import { api, type RouterOutputs } from '~/trpc/react';
@@ -37,6 +39,19 @@ const PR_RANGE_VALUES = ['all', '7', '30', '90', '365'] as const;
 type PrRange = (typeof PR_RANGE_VALUES)[number];
 const PR_RANGE_LABEL: Record<PrRange, string> = {
     '7': 'Last 7 days',
+    '30': 'Last 30 days',
+    '90': 'Last 90 days',
+    '365': 'Last year',
+    all: 'All time',
+};
+
+const E1RM_CHART_CONFIG = {
+    e1rm: { color: '#a3a3a3', label: 'Est. 1RM' },
+} as const;
+
+const E1RM_RANGE_VALUES = ['30', '90', '365', 'all'] as const;
+type E1rmRange = (typeof E1RM_RANGE_VALUES)[number];
+const E1RM_RANGE_LABEL: Record<E1rmRange, string> = {
     '30': 'Last 30 days',
     '90': 'Last 90 days',
     '365': 'Last year',
@@ -161,6 +176,8 @@ export function ExerciseDetail({ exercise }: ExerciseDetailProps) {
                 </Button>
             )}
 
+            <E1rmTrendChart exerciseId={exercise.id} unitWeight={unitWeight} />
+
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
@@ -252,5 +269,92 @@ export function ExerciseDetail({ exercise }: ExerciseDetailProps) {
                 </CardContent>
             </Card>
         </div>
+    );
+}
+
+function E1rmTrendChart({
+    exerciseId,
+    unitWeight,
+}: {
+    exerciseId: string;
+    unitWeight: 'kg' | 'lb';
+}) {
+    const [range, setRange] = useState<E1rmRange>('90');
+
+    const queryRange = useMemo(() => {
+        if (range === 'all') return { exerciseId };
+        const to = new Date();
+        const from =
+            range === '30'
+                ? subDays(to, 30)
+                : range === '365'
+                  ? subMonths(to, 12)
+                  : subDays(to, 90);
+        return { exerciseId, from, to };
+    }, [exerciseId, range]);
+
+    const trend = api.lifting.analytics.e1rmTrend.useQuery(queryRange);
+
+    const chartData = useMemo(
+        () =>
+            (trend.data ?? []).map((d) => ({
+                date: format(new Date(d.date), 'MMM d'),
+                e1rm:
+                    Math.round(WeightUnit.toDisplay(d.e1rm, unitWeight) * 10) /
+                    10,
+            })),
+        [trend.data, unitWeight],
+    );
+
+    return (
+        <Card>
+            <CardHeader>
+                <div className="flex items-center justify-between gap-2">
+                    <CardTitle className="flex items-center gap-2 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+                        <TrendingUp className="size-4" /> Estimated 1RM trend
+                    </CardTitle>
+                    <Select
+                        onValueChange={(v) => setRange(v as E1rmRange)}
+                        value={range}
+                    >
+                        <SelectTrigger className="h-7 w-32 text-xs">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {E1RM_RANGE_VALUES.map((r) => (
+                                <SelectItem key={r} value={r}>
+                                    {E1RM_RANGE_LABEL[r]}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </CardHeader>
+            <CardContent>
+                {trend.isLoading ? (
+                    <Skeleton className="h-48 w-full rounded-md" />
+                ) : chartData.length === 0 ? (
+                    <EmptyState
+                        description="Log some sets for this exercise to see the estimated 1RM chart."
+                        icon={TrendingUp}
+                        title="No data yet"
+                    />
+                ) : (
+                    <div className="h-48">
+                        <AreaChartNew
+                            area={{ dataKey: 'e1rm' }}
+                            config={E1RM_CHART_CONFIG}
+                            data={chartData}
+                            tooltip={{ labelKey: 'date', nameKey: 'e1rm' }}
+                            xAxis={{ dataKey: 'date' }}
+                            yAxis={{
+                                tickFormatter: (v: number) =>
+                                    `${v} ${unitWeight}`,
+                            }}
+                        />
+                    </div>
+                )}
+            </CardContent>
+        </Card>
     );
 }

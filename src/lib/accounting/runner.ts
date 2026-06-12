@@ -8,7 +8,11 @@ import type {
     PushInput,
 } from './runner-types';
 
-import { buildBookings, collectDates } from './core/orchestrator';
+import {
+    buildBookings,
+    collectCurrencies,
+    collectDates,
+} from './core/orchestrator';
 import {
     type ConversionResult,
     dateRangeFromList,
@@ -67,16 +71,19 @@ export async function* runPlan(input: PlanInput): AsyncIterable<ImportEvent> {
     const datesForFx = collectDates(all, input.startDate, input.rules);
     const range = dateRangeFromList(datesForFx);
     const rates = new EcbRateProvider({ fetchImpl: input.fetchImpl });
-    if (range) {
+    const fxCurrencies = collectCurrencies(all, input.startDate, input.rules);
+    if (range && fxCurrencies.length > 0) {
         const fxStart = Date.now();
         yield {
             kind: 'stage',
-            message: `Fetching ECB rates ${range.start} → ${range.end}`,
+            message: `Fetching ECB rates ${range.start} → ${range.end} for ${fxCurrencies.join(', ')}`,
             stage: 'fetch-fx',
             status: 'started',
         };
         try {
-            await rates.ensureRange(range);
+            for (const currency of fxCurrencies) {
+                await rates.ensureCurrencyRange(currency, range);
+            }
             yield {
                 durationMs: Date.now() - fxStart,
                 kind: 'stage',
@@ -94,7 +101,7 @@ export async function* runPlan(input: PlanInput): AsyncIterable<ImportEvent> {
             yield { kind: 'done' };
             return;
         }
-    } else {
+    } else if (!range) {
         yield {
             kind: 'log',
             level: 'info',

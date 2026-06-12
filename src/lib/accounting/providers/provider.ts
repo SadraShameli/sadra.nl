@@ -6,6 +6,13 @@ export interface AccountingProvider {
     openSession(opts: OpenSessionOptions): Promise<ProviderSession>;
 }
 
+export interface ListMutationsOptions {
+    dateFrom?: string;
+    dateTo?: string;
+    limit: number;
+    offset?: number;
+}
+
 export interface OpenSessionOptions {
     fetchImpl?: typeof fetch;
     meta?: Record<string, unknown>;
@@ -45,7 +52,7 @@ export interface ProviderSession {
     close(): Promise<void>;
     latestMutationDate(): Promise<null | string>;
     listLedgers(opts?: { category?: string }): Promise<ProviderLedger[]>;
-    listMutations(opts: { limit: number }): Promise<ProviderMutation[]>;
+    listMutations(opts: ListMutationsOptions): Promise<ProviderMutation[]>;
     postBooking(booking: Booking): Promise<PostBookingResult>;
 }
 
