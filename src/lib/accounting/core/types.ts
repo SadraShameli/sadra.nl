@@ -14,6 +14,7 @@ export interface Booking {
     direction: BookingDirection;
     isRefund?: boolean;
     notes: string[];
+    sourceCurrency: string;
     txnId: string;
     vatCode: VatCode;
 }

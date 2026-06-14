@@ -176,32 +176,33 @@ export function PushPanel({
                         };
                         return (
                             <li
-                                className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-xs"
+                                className="flex flex-col gap-1 px-3 py-2 text-xs"
                                 key={b.txnId}
                             >
-                                <div className="flex min-w-0 items-center gap-2">
-                                    <RowIcon status={row.status} />
-                                    <span className="font-mono text-sky-300">
-                                        {b.txnId}
-                                    </span>
-                                    <span className="truncate text-muted-foreground">
-                                        {b.counterpartName} · {b.date}
-                                    </span>
-                                </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center justify-between gap-2">
+                                    <div className="flex min-w-0 items-center gap-2">
+                                        <RowIcon status={row.status} />
+                                        <span className="font-mono text-sky-300">
+                                            {b.txnId}
+                                        </span>
+                                        <span className="truncate text-muted-foreground">
+                                            {b.counterpartName} · {b.date}
+                                        </span>
+                                    </div>
                                     {row.status === 'posted' &&
                                         row.externalId !== undefined && (
                                             <Badge variant="success">
                                                 #{row.externalId}
                                             </Badge>
                                         )}
-                                    {row.status === 'failed' && (
-                                        <Badge variant="destructive">
-                                            {row.error?.slice(0, 80) ??
-                                                'failed'}
-                                        </Badge>
-                                    )}
                                 </div>
+                                {row.status === 'failed' && (
+                                    <div className="pl-5">
+                                        <Badge variant="destructive">
+                                            {row.error ?? 'failed'}
+                                        </Badge>
+                                    </div>
+                                )}
                             </li>
                         );
                     })}

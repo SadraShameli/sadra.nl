@@ -51,6 +51,7 @@ export const bookingSchema = z.object({
     direction: z.enum(BOOKING_DIRECTIONS),
     isRefund: z.boolean().optional(),
     notes: z.array(z.string()),
+    sourceCurrency: z.string(),
     txnId: z.string(),
     vatCode: z.enum(VAT_CODES),
 });

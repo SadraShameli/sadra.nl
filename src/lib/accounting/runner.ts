@@ -39,15 +39,18 @@ export async function* runPlan(input: PlanInput): AsyncIterable<ImportEvent> {
     yield { kind: 'stage', stage: 'sources', status: 'started' };
     const all: RawTransaction[] = [];
 
-    for (const credential of input.apiCredentials) {
-        for await (const event of fetchFromApiCredential(
-            credential,
-            input.startDate,
-            input.fetchImpl,
-        )) {
-            if (event.kind === 'data') all.push(...event.txns);
-            else yield event;
-        }
+    const fetches = await Promise.all(
+        input.apiCredentials.map((credential) =>
+            fetchFromApiCredential(
+                credential,
+                input.startDate,
+                input.fetchImpl,
+            ),
+        ),
+    );
+    for (const { events, txns } of fetches) {
+        for (const event of events) yield event;
+        all.push(...txns);
     }
 
     yield {
@@ -81,9 +84,11 @@ export async function* runPlan(input: PlanInput): AsyncIterable<ImportEvent> {
             status: 'started',
         };
         try {
-            for (const currency of fxCurrencies) {
-                await rates.ensureCurrencyRange(currency, range);
-            }
+            await Promise.all(
+                fxCurrencies.map((currency) =>
+                    rates.ensureCurrencyRange(currency, range),
+                ),
+            );
             yield {
                 durationMs: Date.now() - fxStart,
                 kind: 'stage',
@@ -183,20 +188,29 @@ export async function* runPush(input: PushInput): AsyncIterable<ImportEvent> {
         secret: input.accountingCredential.secret,
     });
     try {
+        const outcomes = await Promise.all(
+            input.bookings.map(async (booking) => {
+                try {
+                    const result = await session.postBooking(booking);
+                    return {
+                        externalId: result.externalId,
+                        kind: 'posted' as const,
+                        txnId: booking.txnId,
+                    };
+                } catch (error) {
+                    const message =
+                        error instanceof Error ? error.message : String(error);
+                    return {
+                        error: message,
+                        kind: 'failed' as const,
+                        txnId: booking.txnId,
+                    };
+                }
+            }),
+        );
         let done = 0;
-        for (const booking of input.bookings) {
-            try {
-                const result = await session.postBooking(booking);
-                yield {
-                    externalId: result.externalId,
-                    kind: 'posted',
-                    txnId: booking.txnId,
-                };
-            } catch (error) {
-                const message =
-                    error instanceof Error ? error.message : String(error);
-                yield { error: message, kind: 'failed', txnId: booking.txnId };
-            }
+        for (const outcome of outcomes) {
+            yield outcome;
             done += 1;
             yield {
                 current: done,
@@ -229,30 +243,30 @@ function emptyResult(): ConversionResult {
     };
 }
 
-async function* fetchFromApiCredential(
+async function fetchFromApiCredential(
     credential: DecryptedCredential,
     startDate: ISODate,
     fetchImpl?: typeof fetch,
-): AsyncIterable<ImportEvent | { kind: 'data'; txns: RawTransaction[] }> {
+): Promise<{ events: ImportEvent[]; txns: RawTransaction[] }> {
+    const events: ImportEvent[] = [];
     const descriptor = getCredentialDescriptor(credential.kind);
     const source = descriptor?.transactionSourceId
         ? getSource(descriptor.transactionSourceId)
         : findApiSourceByCredentialKind(credential.kind);
     if (source?.kind !== 'api') {
-        yield {
+        events.push({
             kind: 'log',
             level: 'warn',
             message: `No API source registered for credential kind "${credential.kind}"; skipping.`,
-        };
-        yield { kind: 'data', txns: [] };
-        return;
+        });
+        return { events, txns: [] };
     }
     const label = descriptor?.label ?? credential.kind;
-    yield {
+    events.push({
         kind: 'log',
         level: 'info',
         message: `Fetching ${label} transactions via API…`,
-    };
+    });
     try {
         const txns = await source.fetch({
             fetchImpl,
@@ -261,20 +275,20 @@ async function* fetchFromApiCredential(
             secret: credential.secret,
             to: todayIso(),
         });
-        yield {
+        events.push({
             kind: 'log',
             level: 'info',
             message: `${label} API returned ${txns.length} transaction(s).`,
-        };
-        yield { kind: 'data', txns };
+        });
+        return { events, txns };
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        yield {
+        events.push({
             kind: 'log',
             level: 'error',
             message: `${label} API fetch failed: ${message}`,
-        };
-        yield { kind: 'data', txns: [] };
+        });
+        return { events, txns: [] };
     }
 }
 

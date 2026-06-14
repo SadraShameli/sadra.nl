@@ -110,6 +110,13 @@ const RULES: SeedRule[] = [
     },
     {
         direction: 'OUT',
+        display: 'TradingView',
+        ledger: SOFTWARE,
+        match: 'tradingview',
+        vatCode: 'HOOG_INK_21',
+    },
+    {
+        direction: 'OUT',
         display: 'Wifimedia',
         ledger: HARDWARE,
         match: 'wifimedia',

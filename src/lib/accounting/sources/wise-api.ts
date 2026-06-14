@@ -23,18 +23,27 @@ export const wiseApiSource: ApiSource = {
             sandbox,
         });
 
-        const transfers = await client.listTransfers({
-            from: ctx.from,
-            profileId,
-            to: ctx.to,
-        });
+        const [transfers, cards] = await Promise.all([
+            client.listTransfers({ from: ctx.from, profileId, to: ctx.to }),
+            client.listCardTransactions({
+                from: ctx.from,
+                profileId,
+                to: ctx.to,
+            }),
+        ]);
 
-        const accountIds = new Set(transfers.map((t) => t.targetAccountId));
+        const uniqueAccountIds = [
+            ...new Set(transfers.map((t) => t.targetAccountId)),
+        ];
+        const recipientResults = await Promise.all(
+            uniqueAccountIds.map((id) => client.getRecipient(id)),
+        );
         const nameByAccount = new Map<number, string>();
-        for (const accountId of accountIds) {
-            const recipient = await client.getRecipient(accountId);
-            if (recipient?.accountHolderName) {
-                nameByAccount.set(accountId, recipient.accountHolderName);
+        for (const [id, r] of uniqueAccountIds.map(
+            (id, i) => [id, recipientResults[i]] as const,
+        )) {
+            if (r?.accountHolderName) {
+                nameByAccount.set(id, r.accountHolderName);
             }
         }
 
@@ -51,24 +60,26 @@ export const wiseApiSource: ApiSource = {
             sourceId: 'wise-api',
             txnId: String(t.id),
         }));
-
-        const cards = await client.listCardTransactions({
-            from: ctx.from,
-            profileId,
-            to: ctx.to,
+        const cardTxns: RawTransaction[] = cards.map((c) => {
+            const useSecondary =
+                c.primaryCurrency !== 'EUR' && c.secondaryCurrency === 'EUR';
+            return {
+                date: c.created.slice(0, 10),
+                direction: c.isRefund ? 'IN' : 'OUT',
+                isRefund: c.isRefund,
+                merchant: c.merchant,
+                sourceAmount: useSecondary
+                    ? c.secondaryAmount
+                    : c.primaryAmount,
+                sourceCurrency: useSecondary
+                    ? c.secondaryCurrency
+                    : c.primaryCurrency,
+                sourceFee: 0,
+                sourceFeeCurrency: null,
+                sourceId: 'wise-api',
+                txnId: `card-${c.id}`,
+            };
         });
-        const cardTxns: RawTransaction[] = cards.map((c) => ({
-            date: c.created.slice(0, 10),
-            direction: c.isRefund ? 'IN' : 'OUT',
-            isRefund: c.isRefund,
-            merchant: c.merchant,
-            sourceAmount: c.secondaryAmount,
-            sourceCurrency: c.secondaryCurrency,
-            sourceFee: 0,
-            sourceFeeCurrency: null,
-            sourceId: 'wise-api',
-            txnId: `card-${c.id}`,
-        }));
 
         return [...transferTxns, ...cardTxns];
     },

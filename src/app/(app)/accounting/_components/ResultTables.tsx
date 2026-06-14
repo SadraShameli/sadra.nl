@@ -145,12 +145,21 @@ export function BookingsTable({
     const [direction, setDirection] = useState<DirectionFilter>(ALL);
     const [vatCode, setVatCode] = useState<string>(ALL);
     const [counterpart, setCounterpart] = useState<string>(ALL);
+    const [currency, setCurrency] = useState<string>(ALL);
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
     const [editing, setEditing] = useState<Booking | null>(null);
 
     const counterpartOptions = useMemo(
         () =>
             [...new Set(bookings.map((b) => b.counterpartName))].toSorted(
+                (a, b) => a.localeCompare(b),
+            ),
+        [bookings],
+    );
+
+    const currencyOptions = useMemo(
+        () =>
+            [...new Set(bookings.map((b) => b.sourceCurrency))].toSorted(
                 (a, b) => a.localeCompare(b),
             ),
         [bookings],
@@ -164,22 +173,26 @@ export function BookingsTable({
                 if (vatCode !== ALL && b.vatCode !== vatCode) return false;
                 if (counterpart !== ALL && b.counterpartName !== counterpart)
                     return false;
+                if (currency !== ALL && b.sourceCurrency !== currency)
+                    return false;
                 if (!isoInRange(b.date, dateRange)) return false;
                 return true;
             }),
-        [bookings, direction, vatCode, counterpart, dateRange],
+        [bookings, direction, vatCode, counterpart, currency, dateRange],
     );
 
     const hasFilters =
         direction !== ALL ||
         vatCode !== ALL ||
         counterpart !== ALL ||
+        currency !== ALL ||
         Boolean(dateRange?.from);
 
     const reset = () => {
         setDirection(ALL);
         setVatCode(ALL);
         setCounterpart(ALL);
+        setCurrency(ALL);
         setDateRange(undefined);
     };
 
@@ -347,6 +360,28 @@ export function BookingsTable({
                                 </SelectContent>
                             </Select>
                         </FilterField>
+                        {currencyOptions.length > 1 && (
+                            <FilterField label="Currency">
+                                <Select
+                                    onValueChange={setCurrency}
+                                    value={currency}
+                                >
+                                    <SelectTrigger className="h-8 w-28 text-xs">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value={ALL}>
+                                            All currencies
+                                        </SelectItem>
+                                        {currencyOptions.map((c) => (
+                                            <SelectItem key={c} value={c}>
+                                                {c}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </FilterField>
+                        )}
                         <FilterField label="Date range">
                             <DateRangePicker
                                 align="end"

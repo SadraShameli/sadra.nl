@@ -13,6 +13,7 @@ const baseBooking: Booking = {
     date: '2026-02-01',
     direction: 'OUT',
     notes: ['EUR+fee0.50'],
+    sourceCurrency: 'EUR',
     txnId: 'TX-1234567890',
     vatCode: 'BI_EU_INK',
 };
@@ -35,13 +36,38 @@ describe('bookingToMutationPayload', () => {
         expect(payload.inExVat).toBe('EX');
     });
 
-    it('truncates description / payment reference to 50 chars', () => {
+    it('description matches row description: counterpart, txnId, source bank, conversion note', () => {
+        const payload = bookingToMutationPayload(baseBooking);
+        expect(payload.description).toBe(
+            'Anthropic Ireland | TX-1234567890 | Wise EUR | EUR+fee0.50',
+        );
+        expect(payload.description).toBe(payload.rows[0]?.description);
+    });
+
+    it('row description includes counterpart, txnId, source bank, and conversion note', () => {
+        const payload = bookingToMutationPayload(baseBooking);
+        expect(payload.rows[0]?.description).toBe(
+            'Anthropic Ireland | TX-1234567890 | Wise EUR | EUR+fee0.50',
+        );
+    });
+
+    it('description includes all notes when multiple conversions are joined', () => {
+        const payload = bookingToMutationPayload({
+            ...baseBooking,
+            notes: ['USD@ECB1.1595', 'EUR+fee0.00'],
+        });
+        expect(payload.description).toBe(
+            'Anthropic Ireland | TX-1234567890 | Wise EUR | USD@ECB1.1595 + EUR+fee0.00',
+        );
+    });
+
+    it('truncates description to 255 chars and paymentReference to 50 chars', () => {
         const long = bookingToMutationPayload({
             ...baseBooking,
-            counterpartName: 'X'.repeat(100),
+            counterpartName: 'X'.repeat(250),
             txnId: 'Y'.repeat(100),
         });
-        expect(long.description?.length).toBe(50);
+        expect(long.description?.length).toBeLessThanOrEqual(255);
         expect(long.paymentReference?.length).toBe(50);
     });
 

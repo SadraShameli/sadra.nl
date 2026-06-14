@@ -33,6 +33,7 @@ interface Aggregate {
     eur: number;
     isRefund: boolean;
     notes: string[];
+    sourceCurrency: string;
     vatCode: VatCode;
 }
 
@@ -85,6 +86,7 @@ export function buildBookings(input: BuildBookingsInput): ConversionResult {
                 eur,
                 isRefund: tx.isRefund === true,
                 notes: [note],
+                sourceCurrency: tx.sourceCurrency,
                 vatCode: rule.vatCode,
             });
         }
@@ -100,6 +102,7 @@ export function buildBookings(input: BuildBookingsInput): ConversionResult {
             direction: agg.direction,
             isRefund: agg.isRefund,
             notes: agg.notes,
+            sourceCurrency: agg.sourceCurrency,
             txnId,
             vatCode: agg.vatCode,
         }))
