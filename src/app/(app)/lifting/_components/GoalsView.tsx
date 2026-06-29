@@ -112,11 +112,7 @@ const STATUS_FILTER_VALUES = [
 ] as const;
 
 type StatusBadgeVariant =
-    | 'default'
-    | 'destructive'
-    | 'secondary'
-    | 'success'
-    | 'warning';
+    'default' | 'destructive' | 'secondary' | 'success' | 'warning';
 
 type StatusFilter = (typeof STATUS_FILTER_VALUES)[number];
 

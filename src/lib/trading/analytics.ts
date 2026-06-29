@@ -86,10 +86,7 @@ export interface FilterCriteria {
     dateTo?: null | string;
     grades?: string[];
     mentalFlags?: (
-        | 'boredomHunt'
-        | 'distracted'
-        | 'hesitation'
-        | 'revengeOrFomo'
+        'boredomHunt' | 'distracted' | 'hesitation' | 'revengeOrFomo'
     )[];
     outcomes?: string[];
     planIds?: string[];
