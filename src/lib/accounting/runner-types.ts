@@ -1,10 +1,10 @@
+import type { RunId } from '~/lib/accounting/core/ids';
+import type { RuleSet } from '~/lib/accounting/core/rules/rule-set';
 import type {
     BankAccount,
-    Booking,
-    BookingRule,
     ConversionResult,
     ISODate,
-} from './core/types';
+} from '~/lib/accounting/core/types';
 
 export const STAGES = ['sources', 'fetch-fx', 'build', 'post'] as const;
 export type Stage = (typeof STAGES)[number];
@@ -22,6 +22,7 @@ export const IMPORT_EVENT_KINDS = [
     'posted',
     'preview',
     'progress',
+    'run',
     'stage',
 ] as const;
 export interface DecryptedCredential {
@@ -29,6 +30,17 @@ export interface DecryptedCredential {
     kind: string;
     meta: Record<string, unknown>;
     secret: string;
+}
+
+export interface FileCredential {
+    id: string;
+    kind: string;
+    meta: Record<string, unknown>;
+}
+
+export interface FileInput {
+    content: string;
+    credential: FileCredential;
 }
 
 export type ImportEvent =
@@ -50,20 +62,25 @@ export type ImportEvent =
     | { externalId: number; kind: 'posted'; txnId: string }
     | { kind: 'done' }
     | { kind: 'log'; level: LogLevel; message: string }
-    | { kind: 'preview'; result: ConversionResult };
+    | { kind: 'preview'; result: ConversionResult }
+    | { kind: 'run'; runId: RunId };
 
 export type ImportEventKind = (typeof IMPORT_EVENT_KINDS)[number];
 
 export interface PlanInput {
+    accountingCredentialId?: string;
     apiCredentials: DecryptedCredential[];
     bankAccounts: BankAccount[];
     fetchImpl?: typeof fetch;
-    rules: BookingRule[];
+    fileInputs: FileInput[];
+    ruleSet: RuleSet;
     startDate: ISODate;
+    userId: string;
 }
 
 export interface PushInput {
     accountingCredential: DecryptedCredential;
-    bookings: Booking[];
     fetchImpl?: typeof fetch;
+    runId: RunId;
+    userId: string;
 }

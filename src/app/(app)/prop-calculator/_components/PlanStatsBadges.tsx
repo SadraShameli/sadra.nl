@@ -3,17 +3,17 @@
 import { type Plan } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utils';
 
-interface BadgeProps {
+interface BadgeProperties {
     label: string;
     value: string;
     valueClassName?: string;
 }
 
-interface PlanStatsBadgesProps {
+interface PlanStatsBadgesProperties {
     plan: Plan;
 }
 
-export default function PlanStatsBadges({ plan }: PlanStatsBadgesProps) {
+export default function PlanStatsBadges({ plan }: PlanStatsBadgesProperties) {
     const ptdd = plan.profitTarget / plan.drawdown.amount;
     const payoutPct = ((plan.payoutTiers[0]?.traderShare ?? 1) * 100).toFixed(
         0,
@@ -53,7 +53,7 @@ export default function PlanStatsBadges({ plan }: PlanStatsBadgesProps) {
     );
 }
 
-function Badge({ label, value, valueClassName }: BadgeProps) {
+function Badge({ label, value, valueClassName }: BadgeProperties) {
     return (
         <span className="flex items-center gap-1.5">
             <span className="text-muted-foreground">{label}</span>

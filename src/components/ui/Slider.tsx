@@ -8,14 +8,14 @@ import { cn } from '~/lib/utils';
 const Slider = React.forwardRef<
     React.ComponentRef<typeof SliderPrimitive.Root>,
     React.ComponentPropsWithoutRef<typeof SliderPrimitive.Root>
->(({ className, ...props }, ref) => (
+>(({ className, ...properties }, reference) => (
     <SliderPrimitive.Root
         className={cn(
             'relative flex w-full touch-none items-center select-none',
             className,
         )}
-        ref={ref}
-        {...props}
+        ref={reference}
+        {...properties}
     >
         <SliderPrimitive.Track className="relative h-2 w-full grow overflow-hidden rounded-full bg-secondary">
             <SliderPrimitive.Range className="absolute h-full bg-primary" />

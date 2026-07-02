@@ -13,12 +13,12 @@ import {
     Text,
 } from '@react-email/components';
 
-interface BaseEmailProps {
+interface BaseEmailProperties {
     children: ReactNode;
     preview: string;
 }
 
-export function BaseEmail({ children, preview }: BaseEmailProps) {
+export function BaseEmail({ children, preview }: BaseEmailProperties) {
     const year = new Date().getFullYear();
 
     return (

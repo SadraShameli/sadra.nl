@@ -91,8 +91,9 @@ export default function RecordingSection({
                                 disabled={!hasRecordings}
                                 onClick={() => {
                                     if (currentRecording) {
-                                        window.location.href =
-                                            GetRecordingURL(currentRecording);
+                                        window.location.assign(
+                                            GetRecordingURL(currentRecording),
+                                        );
                                     }
                                 }}
                                 size="icon"

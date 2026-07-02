@@ -14,7 +14,7 @@ import { cn } from '~/lib/utils';
 import { panelDescriptions } from './kpiDescriptions';
 import { probStreakAtLeast } from './lab/labMath';
 
-interface ResiliencePanelProps {
+interface ResiliencePanelProperties {
     plan: Plan;
     result: SimOutputs;
     riskPerTrade: number;
@@ -36,7 +36,7 @@ export default function ResiliencePanel({
     result,
     riskPerTrade,
     winrate,
-}: ResiliencePanelProps) {
+}: ResiliencePanelProperties) {
     const data = useMemo(() => {
         const dd = plan.drawdown.amount;
         const accountSize = plan.accountSize;

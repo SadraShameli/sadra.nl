@@ -1,34 +1,50 @@
 import 'server-only';
 
-import type { RawTransaction } from '../core/types';
+import type { RawTransaction } from '~/lib/accounting/core/types';
+import type { ApiSourceContext } from '~/lib/accounting/sources/source';
 
-import { WiseClient } from '../wise/client';
-import { type ApiSource, registerSource } from './source';
+import { currencyCodeSchema } from '~/lib/accounting/core/currency';
+import { isoDateSchema } from '~/lib/accounting/core/date';
+import { ApiSourceBase, SourceRegistry } from '~/lib/accounting/sources/source';
+import { WiseClient } from '~/lib/accounting/wise/client';
 
-export const wiseApiSource: ApiSource = {
-    credentialKind: 'wise',
-    async fetch(ctx) {
-        const sandbox =
-            typeof ctx.meta.sandbox === 'boolean' ? ctx.meta.sandbox : false;
+class WiseApiSource extends ApiSourceBase {
+    readonly credentialKind = 'wise';
+    readonly id = 'wise-api';
+    readonly label = 'Wise API';
+
+    protected async fetchRaw(
+        context: ApiSourceContext,
+    ): Promise<RawTransaction[]> {
+        const isSandbox =
+            typeof context.meta.sandbox === 'boolean'
+                ? context.meta.sandbox
+                : false;
         const profileId =
-            typeof ctx.meta.profileId === 'number' ? ctx.meta.profileId : null;
+            typeof context.meta.profileId === 'number'
+                ? context.meta.profileId
+                : null;
         if (profileId === null) {
             throw new Error(
                 'Wise credential is missing profileId — open Connections and pick a profile.',
             );
         }
 
-        const client = new WiseClient(ctx.secret, {
-            fetch: ctx.fetchImpl,
-            sandbox,
+        const client = new WiseClient(context.secret, {
+            fetch: context.fetchImpl,
+            sandbox: isSandbox,
         });
 
         const [transfers, cards] = await Promise.all([
-            client.listTransfers({ from: ctx.from, profileId, to: ctx.to }),
-            client.listCardTransactions({
-                from: ctx.from,
+            client.listTransfers({
+                from: context.from,
                 profileId,
-                to: ctx.to,
+                to: context.to,
+            }),
+            client.listCardTransactions({
+                from: context.from,
+                profileId,
+                to: context.to,
             }),
         ]);
 
@@ -40,7 +56,7 @@ export const wiseApiSource: ApiSource = {
         );
         const nameByAccount = new Map<number, string>();
         for (const [id, r] of uniqueAccountIds.map(
-            (id, i) => [id, recipientResults[i]] as const,
+            (id, index) => [id, recipientResults[index]] as const,
         )) {
             if (r?.accountHolderName) {
                 nameByAccount.set(id, r.accountHolderName);
@@ -48,32 +64,32 @@ export const wiseApiSource: ApiSource = {
         }
 
         const transferTxns: RawTransaction[] = transfers.map((t) => ({
-            date: t.created.slice(0, 10),
+            date: isoDateSchema.parse(t.created.slice(0, 10)),
             direction: 'OUT',
             merchant:
                 nameByAccount.get(t.targetAccountId) ??
                 String(t.targetAccountId),
             sourceAmount: t.sourceValue,
-            sourceCurrency: t.sourceCurrency,
+            sourceCurrency: currencyCodeSchema.parse(t.sourceCurrency),
             sourceFee: 0,
             sourceFeeCurrency: null,
             sourceId: 'wise-api',
             txnId: String(t.id),
         }));
         const cardTxns: RawTransaction[] = cards.map((c) => {
-            const useSecondary =
+            const isUseSecondary =
                 c.primaryCurrency !== 'EUR' && c.secondaryCurrency === 'EUR';
             return {
-                date: c.created.slice(0, 10),
+                date: isoDateSchema.parse(c.created.slice(0, 10)),
                 direction: c.isRefund ? 'IN' : 'OUT',
                 isRefund: c.isRefund,
                 merchant: c.merchant,
-                sourceAmount: useSecondary
+                sourceAmount: isUseSecondary
                     ? c.secondaryAmount
                     : c.primaryAmount,
-                sourceCurrency: useSecondary
-                    ? c.secondaryCurrency
-                    : c.primaryCurrency,
+                sourceCurrency: currencyCodeSchema.parse(
+                    isUseSecondary ? c.secondaryCurrency : c.primaryCurrency,
+                ),
                 sourceFee: 0,
                 sourceFeeCurrency: null,
                 sourceId: 'wise-api',
@@ -82,10 +98,9 @@ export const wiseApiSource: ApiSource = {
         });
 
         return [...transferTxns, ...cardTxns];
-    },
-    id: 'wise-api',
-    kind: 'api',
-    label: 'Wise API',
-};
+    }
+}
 
-registerSource(wiseApiSource);
+export const wiseApiSource = new WiseApiSource();
+
+SourceRegistry.instance().register(wiseApiSource);

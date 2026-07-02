@@ -19,7 +19,7 @@ import { cn } from '~/lib/utils';
 
 import { kpiDescriptions } from './kpiDescriptions';
 
-interface CostBreakdownBodyProps {
+interface CostBreakdownBodyProperties {
     plan: Plan;
     result: SimOutputs;
 }
@@ -29,7 +29,7 @@ interface DeltaChip {
     text: string;
 }
 
-interface KpiProps {
+interface KpiProperties {
     accent?: 'negative' | 'neutral' | 'positive';
     delta?: DeltaChip | null;
     info: { body: React.ReactNode; title: string };
@@ -38,7 +38,7 @@ interface KpiProps {
     value: string;
 }
 
-interface ResultsPanelProps {
+interface ResultsPanelProperties {
     isPending: boolean;
     onPin: () => void;
     onUnpin: () => void;
@@ -54,7 +54,7 @@ export default function ResultsPanel({
     pinned,
     plan,
     result,
-}: ResultsPanelProps) {
+}: ResultsPanelProperties) {
     const dPass = pinned
         ? formatDelta(result.passProbability, pinned.passProbability, 'percent')
         : null;
@@ -91,26 +91,26 @@ export default function ResultsPanel({
               text: dDays.text,
           }
         : null;
-    const passAccent: KpiProps['accent'] =
+    const passAccent: KpiProperties['accent'] =
         result.passProbability >= 0.6
             ? 'positive'
             : result.passProbability < 0.3
               ? 'negative'
               : 'neutral';
-    const netAccent: KpiProps['accent'] =
+    const netAccent: KpiProperties['accent'] =
         result.expectedMonthlyNet > 0
             ? 'positive'
             : result.expectedMonthlyNet < 0
               ? 'negative'
               : 'neutral';
 
-    const roiAccent: KpiProps['accent'] =
+    const roiAccent: KpiProperties['accent'] =
         result.roiOnCost > 0
             ? 'positive'
             : result.roiOnCost < 0
               ? 'negative'
               : 'neutral';
-    const showCycleEconomics = result.expectedAttempts > 1.01;
+    const isShowCycleEconomics = result.expectedAttempts > 1.01;
 
     return (
         <div
@@ -402,7 +402,7 @@ export default function ResultsPanel({
                 </div>
             </div>
 
-            {showCycleEconomics && (
+            {isShowCycleEconomics && (
                 <div>
                     <Eyebrow as="h3" className="mb-2">
                         Cycle economics
@@ -470,13 +470,13 @@ export default function ResultsPanel({
     );
 }
 
-function CostBreakdownBody({ plan, result }: CostBreakdownBodyProps) {
-    const cb = result.costBreakdown;
+function CostBreakdownBody({ plan, result }: CostBreakdownBodyProperties) {
+    const callback = result.costBreakdown;
     const evalListed = plan.fees.oneTimeEval;
     const activationListed = plan.fees.activation;
     const rows: { label: string; value: string }[] = [];
     if (evalListed > 0) {
-        const evalDiscounted = cb.perAccountEvalFee;
+        const evalDiscounted = callback.perAccountEvalFee;
         rows.push({
             label: 'Eval fee',
             value:
@@ -486,7 +486,7 @@ function CostBreakdownBody({ plan, result }: CostBreakdownBodyProps) {
         });
     }
     if (activationListed > 0) {
-        const activationDiscounted = cb.perAccountActivationFee;
+        const activationDiscounted = callback.perAccountActivationFee;
         rows.push({
             label: 'Activation',
             value:
@@ -495,16 +495,16 @@ function CostBreakdownBody({ plan, result }: CostBreakdownBodyProps) {
                     : formatCurrency(activationDiscounted),
         });
     }
-    if (cb.monthlySubsTotal > 0) {
+    if (callback.monthlySubsTotal > 0) {
         rows.push({
             label: 'Monthly subs',
-            value: formatCurrency(cb.monthlySubsTotal),
+            value: formatCurrency(callback.monthlySubsTotal),
         });
     }
-    if (cb.resetFeesTotal > 0) {
+    if (callback.resetFeesTotal > 0) {
         rows.push({
             label: 'Reset fees',
-            value: formatCurrency(cb.resetFeesTotal),
+            value: formatCurrency(callback.resetFeesTotal),
         });
     }
     return (
@@ -533,7 +533,14 @@ function CostBreakdownBody({ plan, result }: CostBreakdownBodyProps) {
     );
 }
 
-function Kpi({ accent = 'neutral', delta, info, label, sub, value }: KpiProps) {
+function Kpi({
+    accent = 'neutral',
+    delta,
+    info,
+    label,
+    sub,
+    value,
+}: KpiProperties) {
     const accentClass =
         accent === 'positive'
             ? 'text-emerald-400'

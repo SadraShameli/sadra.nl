@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
-import type { SecurityErrorType } from './enums';
+import type { SecurityErrorType } from '~/lib/accounting/providers/eboekhouden/enums';
 
-import { SECURITY_ERROR_TYPES } from './enums';
+import { SECURITY_ERROR_TYPES } from '~/lib/accounting/providers/eboekhouden/enums';
 
 export const apiErrorPayloadSchema = z.object({
     code: z.string().nullish(),

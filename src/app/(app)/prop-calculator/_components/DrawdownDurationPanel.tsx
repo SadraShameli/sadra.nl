@@ -17,7 +17,7 @@ interface DdEpisode {
     recoveryDays: null | number;
 }
 
-interface DrawdownDurationPanelProps {
+interface DrawdownDurationPanelProperties {
     result: SimOutputs;
 }
 
@@ -29,7 +29,7 @@ interface RecoveryRow {
 
 export default function DrawdownDurationPanel({
     result,
-}: DrawdownDurationPanelProps) {
+}: DrawdownDurationPanelProperties) {
     const m = useMemo(() => {
         const curves = result.sampleEquityCurves;
         if (curves.length === 0) return null;
@@ -47,13 +47,15 @@ export default function DrawdownDurationPanel({
             episodesPerPath.push(episodes.length);
             allEpisodes.push(...episodes);
             for (const ep of episodes) {
-                if (ep.recovered && ep.recoveryDays !== null) {
-                    recoveryTimes.push(ep.recoveryDays);
-                    if (ep.recoveryDays < ep.durationDays * 0.4) {
-                        vShapeCount++;
-                    }
-                    totalWithEpisodes++;
+                if (!ep.recovered || ep.recoveryDays === null) {
+                    continue;
                 }
+
+                recoveryTimes.push(ep.recoveryDays);
+                if (ep.recoveryDays < ep.durationDays * 0.4) {
+                    vShapeCount++;
+                }
+                totalWithEpisodes++;
             }
         }
 
@@ -177,40 +179,40 @@ function analyzeEquityCurve(path: number[]): {
     if (path.length === 0) return { episodes: [], underwaterPct: 0 };
 
     let peak = path[0] ?? 0;
-    let inDD = false;
+    let isInDD = false;
     let ddStart = 0;
     let ddTrough = peak;
-    let ddTroughIdx = 0;
+    let ddTroughIndex = 0;
     let underwaterDays = 0;
     const episodes: DdEpisode[] = [];
 
-    for (const [i, element] of path.entries()) {
+    for (const [index, element] of path.entries()) {
         const b = element;
         if (b > peak) peak = b;
 
         if (b < peak) {
             underwaterDays++;
-            if (!inDD) {
-                inDD = true;
-                ddStart = i;
+            if (!isInDD) {
+                isInDD = true;
+                ddStart = index;
                 ddTrough = b;
-                ddTroughIdx = i;
+                ddTroughIndex = index;
             } else if (b < ddTrough) {
                 ddTrough = b;
-                ddTroughIdx = i;
+                ddTroughIndex = index;
             }
-        } else if (inDD) {
+        } else if (isInDD) {
             episodes.push({
                 depthPct: peak > 0 ? (peak - ddTrough) / peak : 0,
-                durationDays: i - ddStart,
+                durationDays: index - ddStart,
                 recovered: true,
-                recoveryDays: i - ddTroughIdx,
+                recoveryDays: index - ddTroughIndex,
             });
-            inDD = false;
+            isInDD = false;
         }
     }
 
-    if (inDD) {
+    if (isInDD) {
         episodes.push({
             depthPct: peak > 0 ? (peak - ddTrough) / peak : 0,
             durationDays: path.length - ddStart,

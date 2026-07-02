@@ -1,12 +1,12 @@
 import { Badge } from '~/components/ui/Badge';
 import {
-    getCredentialDescriptor,
+    CredentialRegistry,
     toneClass,
 } from '~/lib/accounting/credentials/index';
 import { cn } from '~/lib/utils';
 
 export function CredentialBadge({ kind }: { kind: string }) {
-    const d = getCredentialDescriptor(kind);
+    const d = CredentialRegistry.instance().get(kind);
     if (!d) return <Badge variant="outline">{kind}</Badge>;
     return (
         <Badge

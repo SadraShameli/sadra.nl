@@ -2,7 +2,11 @@ import * as React from 'react';
 
 import { cn } from '~/lib/utils';
 
-function Input({ className, type, ...props }: React.ComponentProps<'input'>) {
+function Input({
+    className,
+    type,
+    ...properties
+}: React.ComponentProps<'input'>) {
     return (
         <input
             className={cn(
@@ -18,7 +22,7 @@ function Input({ className, type, ...props }: React.ComponentProps<'input'>) {
             )}
             data-slot="input"
             type={type}
-            {...props}
+            {...properties}
         />
     );
 }

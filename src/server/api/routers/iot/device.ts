@@ -29,9 +29,9 @@ import { getSensor } from './sensor';
 
 async function getDevice(
     input: z.infer<typeof getDeviceProps>,
-    ctx: ContextType,
+    context: ContextType,
 ): Promise<Result<GetDeviceProps>> {
-    const res = await ctx.db.query.device.findFirst({
+    const res = await context.db.query.device.findFirst({
         where: (device) => eq(device.device_id, input.device_id),
     });
 
@@ -41,7 +41,7 @@ async function getDevice(
             status: 404,
         };
 
-    const sensorRows = await ctx.db.query.sensorsToDevices.findMany({
+    const sensorRows = await context.db.query.sensorsToDevices.findMany({
         where: (row) => eq(row.device_id, res.id),
     });
     const sensors = sensorRows.map((sensor) => sensor.sensor_id);

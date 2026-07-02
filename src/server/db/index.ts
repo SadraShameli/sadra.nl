@@ -11,12 +11,14 @@ import * as schema from './schemas/iot';
 import * as liftingSchema from './schemas/lifting';
 import * as mainSchema from './schemas/main';
 import * as notificationSchema from './schemas/notification';
+import * as observabilitySchema from './schemas/observability';
 import * as tradingSchema from './schemas/trading';
 
 export {
     accountingBankAccount,
     accountingCredential,
     accountingRule,
+    accountingRun,
 } from './schemas/accounting';
 export { account, user } from './schemas/auth';
 export {
@@ -34,13 +36,14 @@ export {
     liftingWorkoutExercise,
 } from './schemas/lifting';
 export { notificationPreference } from './schemas/notification';
+export { rateLimitBucket } from './schemas/observability';
 export {
     dailyPreparations,
     tradeAssessments,
     tradingPlans,
 } from './schemas/trading';
 
-const globalForDb = globalThis as unknown as {
+const globalForDatabase = globalThis as unknown as {
     pool: pg.Pool | undefined;
 };
 
@@ -58,10 +61,7 @@ function shouldUseSsl(raw: string): boolean {
         const url = new URL(raw);
         const sslmode = url.searchParams.get('sslmode');
         if (sslmode === 'disable') return false;
-        if (['127.0.0.1', '::1', 'localhost'].includes(url.hostname)) {
-            return false;
-        }
-        return true;
+        return !['127.0.0.1', '::1', 'localhost'].includes(url.hostname);
     } catch {
         return true;
     }
@@ -69,7 +69,7 @@ function shouldUseSsl(raw: string): boolean {
 
 const databaseUrl = env.DATABASE_URL;
 const pool =
-    globalForDb.pool ??
+    globalForDatabase.pool ??
     new pg.Pool({
         connectionString: databaseUrl
             ? buildConnectionString(databaseUrl)
@@ -90,7 +90,7 @@ pool.on('error', (error) => {
 
 attachDatabasePool(pool);
 
-if (env.NODE_ENV !== 'production') globalForDb.pool = pool;
+if (env.NODE_ENV !== 'production') globalForDatabase.pool = pool;
 
 export const db = drizzle(pool, {
     schema: {
@@ -99,6 +99,7 @@ export const db = drizzle(pool, {
         ...authSchema,
         ...tradingSchema,
         ...notificationSchema,
+        ...observabilitySchema,
         ...accountingSchema,
         ...liftingSchema,
         ...relationsModule,

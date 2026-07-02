@@ -6,15 +6,15 @@ import { logger } from '~/lib/observability/logger';
 import { appRouter } from '~/server/api/root';
 import { createTRPCContext } from '~/server/api/trpc';
 
-const createContext = async (req: NextRequest) => {
+const createContext = async (request: NextRequest) => {
     return createTRPCContext({
-        headers: req.headers,
+        headers: request.headers,
     });
 };
 
-const handler = (req: NextRequest) =>
+const handler = (request: NextRequest) =>
     fetchRequestHandler({
-        createContext: () => createContext(req),
+        createContext: () => createContext(request),
         endpoint: '/api/trpc',
         onError:
             env.NODE_ENV === 'development'
@@ -32,7 +32,7 @@ const handler = (req: NextRequest) =>
                       });
                   }
                 : undefined,
-        req,
+        req: request,
         router: appRouter,
     });
 

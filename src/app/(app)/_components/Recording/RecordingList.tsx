@@ -8,7 +8,7 @@ import { cn } from '~/lib/utils';
 
 import type { RecordingSummary } from './types';
 
-interface RecordingListProps {
+interface RecordingListProperties {
     currentIdx: number;
     isPlaying: boolean;
     onSelect: (recording: RecordingSummary) => void;
@@ -20,7 +20,7 @@ export function RecordingList({
     isPlaying,
     onSelect,
     recordings,
-}: RecordingListProps) {
+}: RecordingListProperties) {
     const [searchQuery, setSearchQuery] = useState('');
 
     const currentRecordingId = recordings?.[currentIdx]?.id;

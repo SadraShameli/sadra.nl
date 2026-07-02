@@ -42,7 +42,7 @@ import { DurationFormat } from '~/lib/lifting/format';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
 
-interface HistoryViewProps {
+interface HistoryViewProperties {
     from: Date;
 }
 
@@ -67,7 +67,7 @@ const DURATION_OPTIONS = [
 type DurationFilter = (typeof DURATION_OPTIONS)[number]['value'];
 type StatusFilter = (typeof STATUS_OPTIONS)[number]['value'];
 
-export function HistoryView({ from }: HistoryViewProps) {
+export function HistoryView({ from }: HistoryViewProperties) {
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
     const [statusFilter, setStatusFilter] = useState<StatusFilter>(FILTER_ALL);
     const [durationFilter, setDurationFilter] =
@@ -76,7 +76,7 @@ export function HistoryView({ from }: HistoryViewProps) {
     const queryFrom = dateRange?.from ? startOfDay(dateRange.from) : from;
     const queryTo = dateRange?.to ? endOfDay(dateRange.to) : undefined;
 
-    const utils = api.useUtils();
+    const utilities = api.useUtils();
     const workouts = api.lifting.workout.list.useQuery({
         from: queryFrom,
         limit: 200,
@@ -84,10 +84,10 @@ export function HistoryView({ from }: HistoryViewProps) {
         to: queryTo,
     });
     const remove = api.lifting.workout.delete.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Workout deleted');
-            await utils.lifting.workout.list.invalidate();
+            await utilities.lifting.workout.list.invalidate();
         },
     });
 
@@ -96,9 +96,7 @@ export function HistoryView({ from }: HistoryViewProps) {
         return allRows.filter((w) => {
             if (statusFilter === 'completed' && !w.endedAt) return false;
             if (statusFilter === 'in-progress' && w.endedAt) return false;
-            if (!inDurationBucket(durationSeconds(w), durationFilter))
-                return false;
-            return true;
+            return inDurationBucket(durationSeconds(w), durationFilter);
         });
     }, [allRows, statusFilter, durationFilter]);
 

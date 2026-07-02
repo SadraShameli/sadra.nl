@@ -1,18 +1,28 @@
 'use client';
 
 import { type ColumnDef } from '@tanstack/react-table';
-import { Filter, Landmark, Pencil, Plus, Trash2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import {
+    ArrowDown,
+    ArrowUp,
+    Filter,
+    Landmark,
+    Pencil,
+    Plus,
+    Trash2,
+} from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { type DateRange } from 'react-day-picker';
 import { toast } from 'sonner';
 
+import type { MatchType } from '~/lib/accounting/core/rules/matcher';
 import type { BookingDirection, LedgerRef } from '~/lib/accounting/core/types';
-import type { VatCode } from '~/lib/accounting/providers/eboekhouden/enums';
 
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
 import { DataTable } from '~/components/ui/DataTable';
+import { DateRangePicker } from '~/components/ui/DatePicker';
 import {
     Dialog,
     DialogContent,
@@ -30,15 +40,13 @@ import {
     SelectTrigger,
     SelectValue,
 } from '~/components/ui/Select';
-import {
-    VAT_CODE_LABEL,
-    VAT_CODES,
-} from '~/lib/accounting/providers/eboekhouden/enums';
+import { MATCH_TYPES } from '~/lib/accounting/core/rules/matcher';
 import { api } from '~/trpc/react';
 
 import { DirectionBadge } from './DirectionBadge';
 import { LedgerCombobox } from './LedgerCombobox';
 import { useActiveCredentials } from './useActiveCredentials';
+import { type TaxCodeOption, useTaxCodes } from './useTaxCodes';
 
 const ALL = '__all__';
 const VAT_NONE = '__none__';
@@ -56,30 +64,53 @@ interface BankAccountView {
 }
 
 interface RuleView {
+    currency: null | string;
+    dateFrom: null | string;
+    dateTo: null | string;
     direction: BookingDirection;
     display: string;
     id: string;
     ledger: LedgerRef;
     match: string;
-    vatCode: VatCode;
+    matchType: MatchType;
+    maxAmount: null | number;
+    minAmount: null | number;
+    sortOrder: number;
+    taxCode: string;
 }
+
+const MATCH_TYPE_LABEL: Record<MatchType, string> = {
+    contains: 'Contains',
+    exact: 'Exact match',
+    regex: 'Regex',
+};
+
+const toIso = (d: Date): string => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+};
 
 export function RuleFormDialog({
     credentialId,
     ledgerOptions,
     mode,
     onClose,
+    sourceCredentialId,
 }: {
     credentialId: string;
     ledgerOptions: LedgerRef[];
     mode: 'new' | RuleFormDialogPrefill | RuleView;
     onClose: () => void;
+    sourceCredentialId?: string;
 }) {
     const isEdit = mode !== 'new' && 'id' in mode;
     const isPrefill = mode !== 'new' && !('id' in mode);
-    const utils = api.useUtils();
+    const { options: taxCodeOptions } = useTaxCodes(credentialId);
+    const utilities = api.useUtils();
     const settled = () => {
-        void utils.accounting.rules.list.invalidate({ credentialId });
+        void utilities.accounting.rules.list.invalidate({ credentialId });
         onClose();
     };
     const create = api.accounting.rules.create.useMutation({
@@ -99,25 +130,89 @@ export function RuleFormDialog({
     const [ledger, setLedger] = useState<LedgerRef | null>(
         isEdit ? mode.ledger : null,
     );
-    const [vatCode, setVatCode] = useState<string>(
-        isEdit ? mode.vatCode : VAT_NONE,
+    const [taxCode, setTaxCode] = useState<string>(
+        isEdit ? mode.taxCode : VAT_NONE,
+    );
+    const [matchType, setMatchType] = useState<MatchType>(
+        isEdit ? mode.matchType : 'contains',
+    );
+    const [minAmount, setMinAmount] = useState(
+        isEdit && mode.minAmount != null ? String(mode.minAmount) : '',
+    );
+    const [maxAmount, setMaxAmount] = useState(
+        isEdit && mode.maxAmount != null ? String(mode.maxAmount) : '',
+    );
+    const [currency, setCurrency] = useState(
+        isEdit && mode.currency ? mode.currency : '',
+    );
+    const [dateRange, setDateRange] = useState<DateRange | undefined>(
+        isEdit && (mode.dateFrom ?? mode.dateTo)
+            ? {
+                  from: mode.dateFrom ? new Date(mode.dateFrom) : undefined,
+                  to: mode.dateTo ? new Date(mode.dateTo) : undefined,
+              }
+            : undefined,
     );
 
     const canSave =
         match.trim().length > 0 &&
         display.trim().length > 0 &&
         ledger !== null &&
-        vatCode !== VAT_NONE;
-    const pending = create.isPending || update.isPending;
+        taxCode !== VAT_NONE;
+    const isPending = create.isPending || update.isPending;
+
+    const candidate = useMemo(
+        () => ({
+            currency: currency.trim() ? currency.trim().toUpperCase() : null,
+            dateFrom: dateRange?.from ? toIso(dateRange.from) : null,
+            dateTo: dateRange?.to ? toIso(dateRange.to) : null,
+            direction,
+            match: match.trim(),
+            matchType,
+            maxAmount: maxAmount.trim() ? Number(maxAmount) : null,
+            minAmount: minAmount.trim() ? Number(minAmount) : null,
+        }),
+        [
+            currency,
+            dateRange,
+            direction,
+            match,
+            matchType,
+            maxAmount,
+            minAmount,
+        ],
+    );
+    const [debounced, setDebounced] = useState(candidate);
+    useEffect(() => {
+        const id = setTimeout(() => setDebounced(candidate), 400);
+        return () => clearTimeout(id);
+    }, [candidate]);
+
+    const today = new Date();
+    const ninetyDaysAgo = new Date(today);
+    ninetyDaysAgo.setDate(today.getDate() - 90);
+    const backtestQ = api.accounting.rules.backtest.useQuery(
+        {
+            credentialId: sourceCredentialId ?? '',
+            from: toIso(ninetyDaysAgo),
+            to: toIso(today),
+            ...debounced,
+            currency: debounced.currency ?? undefined,
+            dateFrom: debounced.dateFrom ?? undefined,
+            dateTo: debounced.dateTo ?? undefined,
+            maxAmount: debounced.maxAmount ?? undefined,
+            minAmount: debounced.minAmount ?? undefined,
+        },
+        { enabled: !!sourceCredentialId && debounced.match.length > 0 },
+    );
 
     const submit = () => {
-        if (!ledger || vatCode === VAT_NONE) return;
+        if (!ledger || taxCode === VAT_NONE) return;
         const values = {
-            direction,
+            ...candidate,
             display: display.trim(),
             ledger,
-            match: match.trim(),
-            vatCode: vatCode as VatCode,
+            taxCode,
         };
         if (isEdit) update.mutate({ id: mode.id, ...values });
         else create.mutate({ credentialId, ...values });
@@ -145,6 +240,12 @@ export function RuleFormDialog({
                             value={match}
                         />
                     </Field>
+                    <Field label="Match type">
+                        <MatchTypeSelect
+                            onChange={setMatchType}
+                            value={matchType}
+                        />
+                    </Field>
                     <Field label="Direction">
                         <DirectionSelect
                             onChange={setDirection}
@@ -168,13 +269,55 @@ export function RuleFormDialog({
                     </Field>
                     <Field label="VAT code">
                         <VatSelect
-                            onChange={(v) => setVatCode(v)}
-                            value={vatCode === VAT_NONE ? '' : vatCode}
+                            onChange={(v) => setTaxCode(v)}
+                            options={taxCodeOptions}
+                            value={taxCode === VAT_NONE ? '' : taxCode}
                         />
                     </Field>
+                    <div className="grid grid-cols-2 gap-3">
+                        <Field label="Min amount (optional)">
+                            <Input
+                                className="h-8 text-xs"
+                                onChange={(e) => setMinAmount(e.target.value)}
+                                placeholder="e.g. 10"
+                                type="number"
+                                value={minAmount}
+                            />
+                        </Field>
+                        <Field label="Max amount (optional)">
+                            <Input
+                                className="h-8 text-xs"
+                                onChange={(e) => setMaxAmount(e.target.value)}
+                                placeholder="e.g. 500"
+                                type="number"
+                                value={maxAmount}
+                            />
+                        </Field>
+                    </div>
+                    <Field label="Currency (optional)">
+                        <Input
+                            className="h-8 text-xs"
+                            onChange={(e) =>
+                                setCurrency(e.target.value.toUpperCase())
+                            }
+                            placeholder="e.g. EUR"
+                            value={currency}
+                        />
+                    </Field>
+                    <Field label="Date range (optional)">
+                        <DateRangePicker
+                            className="h-8 w-full text-xs"
+                            onChange={setDateRange}
+                            placeholder="Any date"
+                            value={dateRange}
+                        />
+                    </Field>
+                    {sourceCredentialId && match.trim().length > 0 && (
+                        <BacktestPreview query={backtestQ} />
+                    )}
                 </div>
                 <DialogFooter>
-                    <Button disabled={!canSave || pending} onClick={submit}>
+                    <Button disabled={!canSave || isPending} onClick={submit}>
                         {isEdit ? 'Save changes' : 'Create rule'}
                     </Button>
                 </DialogFooter>
@@ -184,7 +327,7 @@ export function RuleFormDialog({
 }
 
 export function RulesManager() {
-    const { accounting } = useActiveCredentials();
+    const { accounting, source } = useActiveCredentials();
     const credentialId = accounting?.id ?? '';
 
     const ledgersQ = api.accounting.ledgers.list.useQuery(
@@ -211,6 +354,7 @@ export function RulesManager() {
                     <RulesCard
                         credentialId={credentialId}
                         ledgerOptions={ledgerOptions}
+                        sourceCredentialId={source?.id}
                     />
                 </>
             ) : (
@@ -227,6 +371,38 @@ export function RulesManager() {
     );
 }
 
+function BacktestPreview({
+    query,
+}: {
+    query: {
+        data?: {
+            matchCount: number;
+            totalByCurrency: Record<string, number>;
+            transactionCount: number;
+        };
+        isFetching: boolean;
+    };
+}) {
+    if (query.isFetching && !query.data) {
+        return (
+            <p className="text-[10px] text-muted-foreground">
+                Checking against the last 90 days…
+            </p>
+        );
+    }
+    if (!query.data) return null;
+    const totals = Object.entries(query.data.totalByCurrency)
+        .map(([code, amount]) => `${amount.toFixed(2)} ${code}`)
+        .join(', ');
+    return (
+        <p className="text-[10px] text-muted-foreground">
+            Would match <strong>{query.data.matchCount}</strong> of{' '}
+            {query.data.transactionCount} transaction(s) in the last 90 days
+            {totals ? `, totaling ${totals}` : ''}.
+        </p>
+    );
+}
+
 function BankAccountFormDialog({
     credentialId,
     ledgerOptions,
@@ -239,9 +415,11 @@ function BankAccountFormDialog({
     onClose: () => void;
 }) {
     const isEdit = mode !== 'new';
-    const utils = api.useUtils();
+    const utilities = api.useUtils();
     const invalidate = () =>
-        void utils.accounting.bankAccounts.list.invalidate({ credentialId });
+        void utilities.accounting.bankAccounts.list.invalidate({
+            credentialId,
+        });
     const upsert = api.accounting.bankAccounts.upsert.useMutation({
         onError: toastError,
         onSuccess: () => {
@@ -318,12 +496,12 @@ function BankAccountsCard({
     credentialId: string;
     ledgerOptions: LedgerRef[];
 }) {
-    const utils = api.useUtils();
+    const utilities = api.useUtils();
     const banksQ = api.accounting.bankAccounts.list.useQuery({ credentialId });
     const del = api.accounting.bankAccounts.delete.useMutation({
         onError: toastError,
         onSuccess: () =>
-            void utils.accounting.bankAccounts.list.invalidate({
+            void utilities.accounting.bankAccounts.list.invalidate({
                 credentialId,
             }),
     });
@@ -464,19 +642,50 @@ function Field({
     );
 }
 
+function MatchTypeSelect({
+    onChange,
+    value,
+}: {
+    onChange: (v: MatchType) => void;
+    value: MatchType;
+}) {
+    return (
+        <Select onValueChange={(v) => onChange(v as MatchType)} value={value}>
+            <SelectTrigger className="h-8 w-full text-xs">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+                {MATCH_TYPES.map((t) => (
+                    <SelectItem key={t} value={t}>
+                        {MATCH_TYPE_LABEL[t]}
+                    </SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
+    );
+}
+
 function RulesCard({
     credentialId,
     ledgerOptions,
+    sourceCredentialId,
 }: {
     credentialId: string;
     ledgerOptions: LedgerRef[];
+    sourceCredentialId?: string;
 }) {
-    const utils = api.useUtils();
+    const { labelOf, options: taxCodeOptions } = useTaxCodes(credentialId);
+    const utilities = api.useUtils();
     const rulesQ = api.accounting.rules.list.useQuery({ credentialId });
     const del = api.accounting.rules.delete.useMutation({
         onError: toastError,
         onSuccess: () =>
-            void utils.accounting.rules.list.invalidate({ credentialId }),
+            void utilities.accounting.rules.list.invalidate({ credentialId }),
+    });
+    const { mutate: reorderMutate } = api.accounting.rules.reorder.useMutation({
+        onError: toastError,
+        onSuccess: () =>
+            void utilities.accounting.rules.list.invalidate({ credentialId }),
     });
 
     const [form, setForm] = useState<'new' | null | RuleView>(null);
@@ -487,6 +696,24 @@ function RulesCard({
     const allRules = useMemo(
         () => (rulesQ.data ?? []) as RuleView[],
         [rulesQ.data],
+    );
+    const move = useCallback(
+        (id: string, dir: 'down' | 'up') => {
+            const index = allRules.findIndex((r) => r.id === id);
+            if (index === -1) return;
+            const swapWith = dir === 'up' ? index - 1 : index + 1;
+            const a = allRules[index];
+            const b = allRules[swapWith];
+            if (!a || !b) return;
+            const next = [...allRules];
+            next[index] = b;
+            next[swapWith] = a;
+            reorderMutate({
+                credentialId,
+                orderedIds: next.map((r) => r.id),
+            });
+        },
+        [allRules, credentialId, reorderMutate],
     );
     const ledgerLabels = useMemo(
         () =>
@@ -501,10 +728,8 @@ function RulesCard({
             allRules.filter((r) => {
                 if (directionFilter !== ALL && r.direction !== directionFilter)
                     return false;
-                if (vatFilter !== ALL && r.vatCode !== vatFilter) return false;
-                if (ledgerFilter !== ALL && r.ledger.label !== ledgerFilter)
-                    return false;
-                return true;
+                if (vatFilter !== ALL && r.taxCode !== vatFilter) return false;
+                return ledgerFilter === ALL || r.ledger.label === ledgerFilter;
             }),
         [allRules, directionFilter, vatFilter, ledgerFilter],
     );
@@ -554,40 +779,67 @@ function RulesCard({
                 id: 'ledger',
             },
             {
-                accessorKey: 'vatCode',
+                accessorKey: 'taxCode',
                 cell: ({ row }) => (
                     <Badge variant="outline">
-                        {VAT_CODE_LABEL[row.original.vatCode]}
+                        {labelOf(row.original.taxCode)}
                     </Badge>
                 ),
                 enableSorting: true,
                 header: 'VAT',
             },
             {
-                cell: ({ row }) => (
-                    <div className="flex items-center gap-1">
-                        <Button
-                            onClick={() => setForm(row.original)}
-                            size="icon"
-                            variant="ghost"
-                        >
-                            <Pencil className="size-3.5" />
-                        </Button>
-                        <Button
-                            onClick={() => del.mutate({ id: row.original.id })}
-                            size="icon"
-                            variant="ghost"
-                        >
-                            <Trash2 className="size-3.5" />
-                        </Button>
-                    </div>
-                ),
+                cell: ({ row }) => {
+                    const index = allRules.findIndex(
+                        (r) => r.id === row.original.id,
+                    );
+                    return (
+                        <div className="flex items-center gap-1">
+                            <Button
+                                disabled={hasFilters || index <= 0}
+                                onClick={() => move(row.original.id, 'up')}
+                                size="icon"
+                                variant="ghost"
+                            >
+                                <ArrowUp className="size-3.5" />
+                            </Button>
+                            <Button
+                                disabled={
+                                    hasFilters ||
+                                    index === -1 ||
+                                    index >= allRules.length - 1
+                                }
+                                onClick={() => move(row.original.id, 'down')}
+                                size="icon"
+                                variant="ghost"
+                            >
+                                <ArrowDown className="size-3.5" />
+                            </Button>
+                            <Button
+                                onClick={() => setForm(row.original)}
+                                size="icon"
+                                variant="ghost"
+                            >
+                                <Pencil className="size-3.5" />
+                            </Button>
+                            <Button
+                                onClick={() =>
+                                    del.mutate({ id: row.original.id })
+                                }
+                                size="icon"
+                                variant="ghost"
+                            >
+                                <Trash2 className="size-3.5" />
+                            </Button>
+                        </div>
+                    );
+                },
                 enableSorting: false,
                 header: '',
                 id: 'actions',
             },
         ],
-        [del],
+        [allRules, del, hasFilters, labelOf, move],
     );
 
     return (
@@ -662,9 +914,9 @@ function RulesCard({
                                     <SelectItem value={ALL}>
                                         All VAT codes
                                     </SelectItem>
-                                    {VAT_CODES.map((c) => (
-                                        <SelectItem key={c} value={c}>
-                                            {VAT_CODE_LABEL[c]}
+                                    {taxCodeOptions.map((o) => (
+                                        <SelectItem key={o.code} value={o.code}>
+                                            {o.label}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -678,10 +930,6 @@ function RulesCard({
                             </Button>
                         </div>
                     }
-                    initialSorting={[
-                        { desc: false, id: 'direction' },
-                        { desc: false, id: 'display' },
-                    ]}
                     isLoading={rulesQ.isPending}
                     pageSize={25}
                     rowId={(r) => r.id}
@@ -693,6 +941,7 @@ function RulesCard({
                         ledgerOptions={ledgerOptions}
                         mode={form}
                         onClose={() => setForm(null)}
+                        sourceCredentialId={sourceCredentialId}
                     />
                 )}
             </CardContent>
@@ -702,20 +951,22 @@ function RulesCard({
 
 function VatSelect({
     onChange,
+    options,
     value,
 }: {
-    onChange: (v: VatCode) => void;
+    onChange: (v: string) => void;
+    options: TaxCodeOption[];
     value: string;
 }) {
     return (
-        <Select onValueChange={(v) => onChange(v as VatCode)} value={value}>
+        <Select onValueChange={onChange} value={value}>
             <SelectTrigger className="h-8 w-full text-xs">
                 <SelectValue placeholder="VAT code" />
             </SelectTrigger>
             <SelectContent>
-                {VAT_CODES.map((c) => (
-                    <SelectItem key={c} value={c}>
-                        {VAT_CODE_LABEL[c]}
+                {options.map((o) => (
+                    <SelectItem key={o.code} value={o.code}>
+                        {o.label}
                     </SelectItem>
                 ))}
             </SelectContent>

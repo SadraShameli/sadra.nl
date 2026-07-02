@@ -9,7 +9,8 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import type { Booking, ConversionResult } from '~/lib/accounting/core/types';
+import type { RunId } from '~/lib/accounting/core/ids';
+import type { Booking } from '~/lib/accounting/core/types';
 import type { ImportEvent } from '~/lib/accounting/runner-types';
 
 import { Badge } from '~/components/ui/Badge';
@@ -17,16 +18,17 @@ import { Button } from '~/components/ui/Button';
 import { Card } from '~/components/ui/Card';
 import { Progress } from '~/components/ui/Progress';
 import { apiRoutes } from '~/lib/site/routes';
+import { api } from '~/trpc/react';
 
 import { useImportStream } from './useImportStream';
 
 type PostRowStatus = 'failed' | 'pending' | 'posted';
 
-interface Props {
+interface Properties {
     accountingCredentialId: null | string;
     bookings: Booking[];
     onCompleted: (summary: { failed: number; posted: number }) => void;
-    result: ConversionResult;
+    runId: null | RunId;
     targetLabel: string;
 }
 
@@ -41,19 +43,33 @@ export function PushPanel({
     accountingCredentialId,
     bookings,
     onCompleted,
-    result,
+    runId,
     targetLabel,
-}: Props) {
+}: Properties) {
     const [progress, setProgress] = useState<null | {
         current: number;
         total: number;
     }>(null);
     const stream = useImportStream<ImportEvent>();
+    const runQ = api.accounting.runs.get.useQuery(
+        { id: runId ?? '' },
+        { enabled: !!runId },
+    );
 
     const rowMap = useMemo(() => {
         const map = new Map<string, RowState>();
         for (const b of bookings)
             map.set(b.txnId, { status: 'pending', txnId: b.txnId });
+        for (const [txnId, outcome] of Object.entries(
+            runQ.data?.outcomes ?? {},
+        )) {
+            map.set(txnId, {
+                error: outcome.error,
+                externalId: outcome.externalId,
+                status: outcome.status,
+                txnId,
+            });
+        }
         for (const event of stream.events) {
             if (event.kind === 'posted') {
                 map.set(event.txnId, {
@@ -70,11 +86,15 @@ export function PushPanel({
             }
         }
         return map;
-    }, [bookings, stream.events]);
-    const completedSeenRef = useRef(0);
+    }, [bookings, runQ.data, stream.events]);
+    const completedSeenReference = useRef(0);
     useEffect(() => {
-        for (let i = completedSeenRef.current; i < stream.events.length; i++) {
-            const event = stream.events[i];
+        for (
+            let index = completedSeenReference.current;
+            index < stream.events.length;
+            index++
+        ) {
+            const event = stream.events[index];
             if (!event) continue;
             if (event.kind === 'progress' && event.stage === 'post') {
                 setProgress({ current: event.current, total: event.total });
@@ -89,16 +109,16 @@ export function PushPanel({
                 onCompleted({ failed, posted });
             }
         }
-        completedSeenRef.current = stream.events.length;
+        completedSeenReference.current = stream.events.length;
     }, [onCompleted, rowMap, stream.events]);
 
     const handleSend = async () => {
-        if (!accountingCredentialId) return;
+        if (!accountingCredentialId || !runId) return;
         setProgress({ current: 0, total: bookings.length });
         await stream.start({
             body: JSON.stringify({
                 accountingCredentialId,
-                bookings,
+                runId,
             }),
             headers: { 'Content-Type': 'application/json' },
             method: 'POST',
@@ -112,7 +132,7 @@ export function PushPanel({
     const postedCount = [...rowMap.values()].filter(
         (r) => r.status === 'posted',
     ).length;
-    const pending = stream.running;
+    const isPending = stream.running;
 
     return (
         <div className="flex flex-col gap-4">
@@ -122,10 +142,10 @@ export function PushPanel({
                     {bookings.length === 1 ? '' : 's'} to {targetLabel}.
                 </div>
                 <Button
-                    disabled={pending || !accountingCredentialId}
+                    disabled={isPending || !accountingCredentialId || !runId}
                     onClick={handleSend}
                 >
-                    {pending ? (
+                    {isPending ? (
                         <Loader2 className="size-3 animate-spin" />
                     ) : (
                         <Send className="size-3" />
@@ -210,7 +230,7 @@ export function PushPanel({
             </Card>
 
             <div className="text-[10px] text-muted-foreground">
-                {result.bookings.length} total booking(s) in this run.
+                {bookings.length} total booking(s) in this run.
             </div>
         </div>
     );

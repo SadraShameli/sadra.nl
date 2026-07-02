@@ -23,9 +23,9 @@ import { applyAudioFilters } from '~/server/helpers/audio';
 
 async function getRecording(
     input: z.infer<typeof getRecordingProps>,
-    ctx: ContextType,
+    context: ContextType,
 ): Promise<Result<typeof recording.$inferSelect>> {
-    const res = await ctx.db.query.recording.findFirst({
+    const res = await context.db.query.recording.findFirst({
         where: (recording) => eq(recording.id, input.id),
     });
 
@@ -45,9 +45,9 @@ function getRecordingFileName(date: Date) {
 
 async function getRecordingNoFile(
     input: z.infer<typeof getRecordingProps>,
-    ctx: ContextType,
+    context: ContextType,
 ) {
-    return await ctx.db.query.recording.findFirst({
+    return await context.db.query.recording.findFirst({
         columns: {
             created_at: true,
             device_id: true,
@@ -60,8 +60,8 @@ async function getRecordingNoFile(
     });
 }
 
-async function getRecordingsNoFile(ctx: ContextType) {
-    return await ctx.db.query.recording.findMany({
+async function getRecordingsNoFile(context: ContextType) {
+    return await context.db.query.recording.findMany({
         columns: {
             created_at: true,
             device_id: true,
@@ -84,13 +84,14 @@ export const recordingsRouter = createTRPCRouter({
             }),
         )
         .mutation(async ({ ctx, input }) => {
-            const dev = await ctx.db.query.device.findFirst({
+            const development = await ctx.db.query.device.findFirst({
                 columns: { id: true, location_id: true, name: true },
                 where: (d) => eq(d.id, input.deviceId),
             });
-            if (!dev) throw new Error(`Device ${input.deviceId} not found`);
-            const buf = Buffer.from(input.fileBase64, 'base64');
-            const { durationSeconds } = applyAudioFilters(buf);
+            if (!development)
+                throw new Error(`Device ${input.deviceId} not found`);
+            const buffer = Buffer.from(input.fileBase64, 'base64');
+            const { durationSeconds } = applyAudioFilters(buffer);
             if (durationSeconds === null) {
                 throw new Error(
                     'Could not read WAV header — file may be corrupted or not a PCM WAV.',
@@ -100,11 +101,11 @@ export const recordingsRouter = createTRPCRouter({
             const [row] = await ctx.db
                 .insert(recording)
                 .values({
-                    device_id: dev.id,
+                    device_id: development.id,
                     duration_seconds: durationSeconds,
-                    file: buf,
+                    file: buffer,
                     file_name: fileName,
-                    location_id: dev.location_id,
+                    location_id: development.location_id,
                 })
                 .returning({ id: recording.id });
             return { id: row?.id };

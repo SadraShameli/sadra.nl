@@ -56,10 +56,12 @@ export class EodTrailingDrawdown extends DrawdownStrategy {
     readonly kind = 'eod-trailing' as const;
 
     onDayClose(state: AccountState): void {
-        if (!state.thresholdLocked) {
-            this.ratchet(state, state.balance - this.init.amount);
-            this.maybeLock(state);
+        if (state.thresholdLocked) {
+            return;
         }
+
+        this.ratchet(state, state.balance - this.init.amount);
+        this.maybeLock(state);
     }
 
     onTrade(_state: AccountState, _tradePnL: number): void {
@@ -75,10 +77,12 @@ export class IntradayTrailingDrawdown extends DrawdownStrategy {
     }
 
     onTrade(state: AccountState, _tradePnL: number): void {
-        if (!state.thresholdLocked) {
-            this.ratchet(state, state.balance - this.init.amount);
-            this.maybeLock(state);
+        if (state.thresholdLocked) {
+            return;
         }
+
+        this.ratchet(state, state.balance - this.init.amount);
+        this.maybeLock(state);
     }
 }
 

@@ -73,45 +73,46 @@ type RecordingRow = {
 };
 
 export function RecordingsPanel() {
-    const utils = api.useUtils();
+    const utilities = api.useUtils();
     const locations = api.location.listAdmin.useQuery();
     const devices = api.device.listAdmin.useQuery();
 
     const [locFilter, setLocFilter] = useState(ALL);
-    const [devFilter, setDevFilter] = useState(ALL);
+    const [developmentFilter, setDevelopmentFilter] = useState(ALL);
     const [previewing, setPreviewing] = useState<null | number>(null);
-    const hasFilters = locFilter !== ALL || devFilter !== ALL;
+    const hasFilters = locFilter !== ALL || developmentFilter !== ALL;
     const resetFilters = () => {
         setLocFilter(ALL);
-        setDevFilter(ALL);
+        setDevelopmentFilter(ALL);
     };
 
     const recordings = api.recording.listAdmin.useQuery({
-        device_id: devFilter === ALL ? undefined : Number(devFilter),
+        device_id:
+            developmentFilter === ALL ? undefined : Number(developmentFilter),
         limit: 200,
         location_id: locFilter === ALL ? undefined : Number(locFilter),
     });
 
     const del = api.recording.delete.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Recording deleted.');
-            await utils.recording.listAdmin.invalidate();
+            await utilities.recording.listAdmin.invalidate();
         },
     });
     const createRecording = api.recording.createAdmin.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Recording created.');
-            await utils.recording.listAdmin.invalidate();
+            await utilities.recording.listAdmin.invalidate();
         },
     });
     const [newOpen, setNewOpen] = useState(false);
     const rename = api.recording.rename.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Recording renamed.');
-            await utils.recording.listAdmin.invalidate();
+            await utilities.recording.listAdmin.invalidate();
         },
     });
 
@@ -307,7 +308,10 @@ export function RecordingsPanel() {
                     </div>
                     <div className="flex flex-col gap-1.5">
                         <Label className="text-xs">Device</Label>
-                        <Select onValueChange={setDevFilter} value={devFilter}>
+                        <Select
+                            onValueChange={setDevelopmentFilter}
+                            value={developmentFilter}
+                        >
                             <SelectTrigger>
                                 <SelectValue />
                             </SelectTrigger>

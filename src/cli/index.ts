@@ -2,7 +2,7 @@ import { defineCommand, runMain } from 'citty';
 
 const main = defineCommand({
     meta: {
-        description: 'sadra.nl developer CLI',
+        description: 'CLI',
         name: 'cli',
         version: '1.0.0',
     },

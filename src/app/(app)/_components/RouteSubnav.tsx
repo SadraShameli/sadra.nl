@@ -15,12 +15,12 @@ export interface RouteSubnavItem {
     label: string;
 }
 
-interface RouteSubnavProps {
+interface RouteSubnavProperties {
     className?: string;
     items: readonly RouteSubnavItem[];
 }
 
-export function RouteSubnav({ className, items }: RouteSubnavProps) {
+export function RouteSubnav({ className, items }: RouteSubnavProperties) {
     const pathname = usePathname();
     const [slot, setSlot] = useState<Element | null>(null);
 
@@ -53,17 +53,17 @@ export function RouteSubnav({ className, items }: RouteSubnavProps) {
             <div className="container mx-auto flex items-center gap-1 overflow-x-auto py-2">
                 {items.map((item) => {
                     const Icon = item.icon;
-                    const active = pathname === item.href;
+                    const isActive = pathname === item.href;
                     return (
                         <Button
                             asChild
                             className="h-auto shrink-0 gap-2 px-3 py-1.5 text-xs font-medium tracking-wide whitespace-nowrap"
                             key={item.href}
                             size="sm"
-                            variant={active ? 'secondary' : 'ghost'}
+                            variant={isActive ? 'secondary' : 'ghost'}
                         >
                             <Link
-                                data-state={active ? 'active' : 'inactive'}
+                                data-state={isActive ? 'active' : 'inactive'}
                                 href={item.href}
                             >
                                 <Icon className="size-3.5" />

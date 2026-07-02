@@ -14,17 +14,21 @@ export interface LogLine {
     ts: number;
 }
 
-interface Props {
+interface Properties {
     className?: string;
     lines: LogLine[];
     maxHeight?: string;
 }
 
-export function EventLog({ className, lines, maxHeight = 'max-h-72' }: Props) {
-    const scrollRef = useRef<HTMLDivElement>(null);
+export function EventLog({
+    className,
+    lines,
+    maxHeight = 'max-h-72',
+}: Properties) {
+    const scrollReference = useRef<HTMLDivElement>(null);
     useEffect(() => {
-        const el = scrollRef.current;
-        if (el) el.scrollTop = el.scrollHeight;
+        const element = scrollReference.current;
+        if (element) element.scrollTop = element.scrollHeight;
     }, [lines]);
     return (
         <div
@@ -34,7 +38,7 @@ export function EventLog({ className, lines, maxHeight = 'max-h-72' }: Props) {
                 maxHeight,
                 className,
             )}
-            ref={scrollRef}
+            ref={scrollReference}
         >
             {lines.length === 0 ? (
                 <EmptyState
@@ -44,7 +48,7 @@ export function EventLog({ className, lines, maxHeight = 'max-h-72' }: Props) {
                 />
             ) : (
                 <ul className="space-y-1">
-                    {lines.map((l, i) => (
+                    {lines.map((l, index) => (
                         <li
                             className={cn(
                                 'flex items-start gap-2',
@@ -52,7 +56,7 @@ export function EventLog({ className, lines, maxHeight = 'max-h-72' }: Props) {
                                 l.level === 'warn' && 'text-amber-300',
                                 l.level === 'info' && 'text-slate-200',
                             )}
-                            key={i}
+                            key={index}
                         >
                             <span className="shrink-0 text-muted-foreground">
                                 {new Date(l.ts).toISOString().slice(11, 19)}

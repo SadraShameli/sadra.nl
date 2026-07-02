@@ -47,7 +47,7 @@ import { api, type RouterOutputs } from '~/trpc/react';
 
 type SetRow = WorkoutDetail['exercises'][number]['sets'][number];
 type WorkoutDetail = RouterOutputs['lifting']['workout']['get'];
-interface WorkoutDetailViewProps {
+interface WorkoutDetailViewProperties {
     initial: WorkoutDetail;
 }
 
@@ -55,18 +55,18 @@ type WorkoutExercise = WorkoutDetail['exercises'][number];
 
 const FILTER_ALL = '__all__';
 
-export function WorkoutDetailView({ initial }: WorkoutDetailViewProps) {
+export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
     const router = useRouter();
-    const utils = api.useUtils();
+    const utilities = api.useUtils();
     const workout = api.lifting.workout.get.useQuery(
         { id: initial.id },
         { initialData: initial },
     );
     const remove = api.lifting.workout.delete.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Workout deleted');
-            await utils.lifting.workout.list.invalidate();
+            await utilities.lifting.workout.list.invalidate();
             router.push(routes.lifting.history);
         },
     });
@@ -87,9 +87,7 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProps) {
             .filter((wex) => {
                 if (exerciseFilter !== FILTER_ALL && wex.id !== exerciseFilter)
                     return false;
-                if (q && !wex.exercise.name.toLowerCase().includes(q))
-                    return false;
-                return true;
+                return !q || wex.exercise.name.toLowerCase().includes(q);
             })
             .map((wex) =>
                 prOnly ? { ...wex, sets: wex.sets.filter((s) => s.isPr) } : wex,

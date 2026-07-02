@@ -189,7 +189,7 @@ function FrequencyHeatmap({
         if (first) {
             const raw = getDay(first);
             const dow = weekStart === 'sun' ? raw : (raw + 6) % 7;
-            for (let i = 0; i < dow; i++) week.push(null);
+            for (let index = 0; index < dow; index++) week.push(null);
         }
         for (const cell of cells) {
             week.push({ ...cell, level: level(cell.tonnageKg) });
@@ -269,8 +269,11 @@ function FrequencyHeatmap({
                 </div>
                 <div className="flex items-center justify-end gap-1 text-[10px] text-muted-foreground">
                     <span>Less</span>
-                    {LEVEL_CLASS.map((c, i) => (
-                        <span className={cn('size-3 rounded-sm', c)} key={i} />
+                    {LEVEL_CLASS.map((c, index) => (
+                        <span
+                            className={cn('size-3 rounded-sm', c)}
+                            key={index}
+                        />
                     ))}
                     <span>More</span>
                 </div>

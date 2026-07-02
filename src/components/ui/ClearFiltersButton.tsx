@@ -5,13 +5,13 @@ import { X } from 'lucide-react';
 import { Button } from '~/components/ui/Button';
 import { cn } from '~/lib/utils';
 
-interface Props {
+interface Properties {
     active: boolean;
     className?: string;
     onReset: () => void;
 }
 
-export function ClearFiltersButton({ active, className, onReset }: Props) {
+export function ClearFiltersButton({ active, className, onReset }: Properties) {
     if (!active) return null;
     return (
         <Button

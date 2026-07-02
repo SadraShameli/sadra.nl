@@ -25,7 +25,7 @@ export function ContactForm() {
     });
 
     const send = api.contact.send.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: () => {
             toast.success("Thanks — I'll reply soon.");
             form.reset();

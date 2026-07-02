@@ -15,7 +15,7 @@ import { type SimOutputs } from '~/lib/prop-calculator';
 import { histogram } from '~/lib/prop-calculator/stats';
 import { cn } from '~/lib/utils';
 
-interface Props {
+interface Properties {
     result: SimOutputs;
 }
 
@@ -25,7 +25,7 @@ const chartConfig: ChartConfig = {
 
 const BIN_COUNT = 30;
 
-export default function FinalBalanceHistogramView({ result }: Props) {
+export default function FinalBalanceHistogramView({ result }: Properties) {
     if (result.finalBalances.length === 0) {
         return (
             <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">

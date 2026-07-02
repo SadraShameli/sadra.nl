@@ -1,8 +1,8 @@
 import { type SVGProps } from 'react';
 
-export default function GoogleIcon(props: SVGProps<SVGSVGElement>) {
+export default function GoogleIcon(properties: SVGProps<SVGSVGElement>) {
     return (
-        <svg aria-hidden="true" viewBox="0 0 24 24" {...props}>
+        <svg aria-hidden="true" viewBox="0 0 24 24" {...properties}>
             <path
                 d="M12 5c1.617 0 3.067.555 4.207 1.643l3.087-3.087C17.453 1.795 14.969.8 12 .8 7.392.8 3.397 3.46 1.387 7.34l3.595 2.787C5.94 7.255 8.74 5 12 5z"
                 fill="#EA4335"

@@ -19,19 +19,19 @@ export const contactRouter = createTRPCRouter({
                 ctx.headers.get('x-forwarded-for')?.split(',', 1)[0]?.trim() ??
                 ctx.headers.get('x-real-ip') ??
                 'unknown';
-            const okEmail = await checkRateLimit({
+            const isOkEmail = await checkRateLimit({
                 bucket: 'contact:email',
                 key: input.email,
                 max: 3,
                 windowMs: 60 * 60 * 1000,
             });
-            const okIp = await checkRateLimit({
+            const isOkIp = await checkRateLimit({
                 bucket: 'contact:ip',
                 key: ip,
                 max: 10,
                 windowMs: 60 * 60 * 1000,
             });
-            if (!okEmail || !okIp) {
+            if (!isOkEmail || !isOkIp) {
                 throw new TRPCError({
                     code: 'TOO_MANY_REQUESTS',
                     message: 'Too many messages — try again later.',

@@ -5,7 +5,7 @@ import { EmailMessage } from '../message';
 import { BaseEmail } from '../templates/base';
 
 export class PasswordResetEmail extends EmailMessage {
-    readonly subject = 'Reset your password — sadra.nl';
+    readonly subject = 'Reset your password';
     readonly to: string;
 
     constructor(

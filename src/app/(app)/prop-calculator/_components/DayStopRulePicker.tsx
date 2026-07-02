@@ -11,7 +11,7 @@ import {
 import { type DayStopRule } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utils';
 
-interface DayStopRulePickerProps {
+interface DayStopRulePickerProperties {
     compact?: boolean;
     onChange: (rule: DayStopRule) => void;
     value: DayStopRule;
@@ -30,7 +30,7 @@ export default function DayStopRulePicker({
     compact = false,
     onChange,
     value,
-}: DayStopRulePickerProps) {
+}: DayStopRulePickerProperties) {
     const handleKind = (kind: Kind) => {
         switch (kind) {
             case 'after-k-losses': {

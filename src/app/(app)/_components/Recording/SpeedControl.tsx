@@ -9,7 +9,7 @@ import { cn } from '~/lib/utils';
 
 import { PLAYBACK_SPEEDS, type PlaybackSpeed } from './types';
 
-interface SpeedControlProps {
+interface SpeedControlProperties {
     hasRecordings: boolean;
     onSpeedChange: (speed: PlaybackSpeed) => void;
     speed: PlaybackSpeed;
@@ -19,7 +19,7 @@ export function SpeedControl({
     hasRecordings,
     onSpeedChange,
     speed,
-}: SpeedControlProps) {
+}: SpeedControlProperties) {
     return (
         <DropdownMenu>
             <DropdownMenuTrigger

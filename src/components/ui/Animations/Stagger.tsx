@@ -9,7 +9,7 @@ import {
 } from 'framer-motion';
 import { useRef } from 'react';
 
-type StaggerProps = {
+type StaggerProperties = {
     children?: React.ReactNode[];
     className?: string;
 };
@@ -38,12 +38,12 @@ const defaultTransition: Transition = {
 export default function StaggerAnimation({
     children,
     className,
-}: StaggerProps) {
-    const ref = useRef(null);
-    const isInView = useInView(ref, { once: true });
+}: StaggerProperties) {
+    const reference = useRef(null);
+    const isInView = useInView(reference, { once: true });
 
     return (
-        <motion.ul className={className} ref={ref}>
+        <motion.ul className={className} ref={reference}>
             {children?.map((child, index) => {
                 return (
                     <motion.li

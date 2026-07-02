@@ -1,2 +1,2 @@
-export * from './eboekhouden/provider';
-export * from './provider';
+export * from '~/lib/accounting/providers/eboekhouden/provider';
+export * from '~/lib/accounting/providers/provider';

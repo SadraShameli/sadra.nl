@@ -11,7 +11,7 @@ export interface EmailSendArgs {
 }
 
 export abstract class EmailProvider {
-    abstract send(args: EmailSendArgs): Promise<void>;
+    abstract send(arguments_: EmailSendArgs): Promise<void>;
 }
 
 export class FallbackEmailProvider extends EmailProvider {
@@ -22,19 +22,19 @@ export class FallbackEmailProvider extends EmailProvider {
         super();
     }
 
-    override async send(args: EmailSendArgs): Promise<void> {
+    override async send(arguments_: EmailSendArgs): Promise<void> {
         try {
-            await this.primary.send(args);
+            await this.primary.send(arguments_);
         } catch (primaryError) {
             try {
-                await this.fallback.send(args);
+                await this.fallback.send(arguments_);
             } catch (fallbackError) {
                 captureError(primaryError, {
-                    fields: { subject: args.subject, to: args.to },
+                    fields: { subject: arguments_.subject, to: arguments_.to },
                     tag: 'email.primary',
                 });
                 captureError(fallbackError, {
-                    fields: { subject: args.subject, to: args.to },
+                    fields: { subject: arguments_.subject, to: arguments_.to },
                     tag: 'email.fallback',
                 });
                 throw fallbackError;
@@ -51,12 +51,12 @@ export class LettermintProvider extends EmailProvider {
         this.client = Lettermint.email(token);
     }
 
-    override async send(args: EmailSendArgs): Promise<void> {
+    override async send(arguments_: EmailSendArgs): Promise<void> {
         await this.client
-            .from(args.from)
-            .to(args.to)
-            .subject(args.subject)
-            .html(args.html)
+            .from(arguments_.from)
+            .to(arguments_.to)
+            .subject(arguments_.subject)
+            .html(arguments_.html)
             .send();
     }
 }
@@ -69,12 +69,12 @@ export class ResendProvider extends EmailProvider {
         this.client = new Resend(apiKey);
     }
 
-    override async send(args: EmailSendArgs): Promise<void> {
+    override async send(arguments_: EmailSendArgs): Promise<void> {
         await this.client.emails.send({
-            from: args.from,
-            html: args.html,
-            subject: args.subject,
-            to: args.to,
+            from: arguments_.from,
+            html: arguments_.html,
+            subject: arguments_.subject,
+            to: arguments_.to,
         });
     }
 }

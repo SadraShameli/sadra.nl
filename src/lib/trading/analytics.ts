@@ -114,21 +114,21 @@ export function componentScoreCorrelation(
     category: WeightCategory,
 ): { avgR: number; count: number; pctOfMax: number }[] {
     const buckets: { rs: number[] }[] = [];
-    for (let i = 0; i < 5; i++) buckets.push({ rs: [] });
+    for (let index = 0; index < 5; index++) buckets.push({ rs: [] });
     for (const r of rows) {
         if (!isCountedOutcome(r.outcome)) continue;
         if (r.outcomeR === null || !Number.isFinite(r.outcomeR)) continue;
         const cs = r.componentScores?.[category];
         if (!cs || cs.max <= 0) continue;
         const pct = cs.earned / cs.max;
-        const idx = Math.min(4, Math.floor(pct * 5));
-        buckets[idx]?.rs.push(r.outcomeR);
+        const index = Math.min(4, Math.floor(pct * 5));
+        buckets[index]?.rs.push(r.outcomeR);
     }
-    return buckets.map((b, i) => ({
+    return buckets.map((b, index) => ({
         avgR:
             b.rs.length > 0 ? b.rs.reduce((s, x) => s + x, 0) / b.rs.length : 0,
         count: b.rs.length,
-        pctOfMax: (i + 1) * 20,
+        pctOfMax: (index + 1) * 20,
     }));
 }
 
@@ -183,7 +183,7 @@ export function computeStreaks(rows: LightAssessment[]): StreakStats {
     let consecutiveTradingDays = 0;
     if (days.size > 0) {
         const cursor = new Date();
-        for (let i = 0; i < 365; i++) {
+        for (let index = 0; index < 365; index++) {
             const k = dateKey(cursor);
             const dow = dayOfWeek(cursor);
             if (dow === 0 || dow === 6) {
@@ -194,7 +194,7 @@ export function computeStreaks(rows: LightAssessment[]): StreakStats {
                 consecutiveTradingDays += 1;
                 cursor.setDate(cursor.getDate() - 1);
             } else {
-                if (i === 0) {
+                if (index === 0) {
                     cursor.setDate(cursor.getDate() - 1);
                     continue;
                 }
@@ -250,9 +250,9 @@ export function dayCellGrid(
     monthIso: string,
     rows: LightAssessment[],
 ): DayCell[][] {
-    const [yStr, mStr] = monthIso.split('-');
-    const year = Number(yStr);
-    const month = Number(mStr);
+    const [yString, mString] = monthIso.split('-');
+    const year = Number(yString);
+    const month = Number(mString);
     const firstOfMonth = new Date(Date.UTC(year, month - 1, 1));
     const lastOfMonth = new Date(Date.UTC(year, month, 0));
 
@@ -309,21 +309,21 @@ export function dayCellGrid(
     const cursor = new Date(gridStart);
     while (cursor <= lastOfMonth || cursor.getUTCDay() !== 1) {
         const week: DayCell[] = [];
-        for (let i = 0; i < 7; i++) {
+        for (let index = 0; index < 7; index++) {
             const y = cursor.getUTCFullYear();
             const m = String(cursor.getUTCMonth() + 1).padStart(2, '0');
             const d = String(cursor.getUTCDate()).padStart(2, '0');
             const key = `${y}-${m}-${d}`;
-            const inMonth = cursor.getUTCMonth() === month - 1;
+            const isInMonth = cursor.getUTCMonth() === month - 1;
             const existing = dayMap.get(key);
             week.push(
                 existing
-                    ? { ...existing, inMonth }
+                    ? { ...existing, inMonth: isInMonth }
                     : {
                           bestGrade: null,
                           breakevens: 0,
                           date: key,
-                          inMonth,
+                          inMonth: isInMonth,
                           losses: 0,
                           rSum: 0,
                           total: 0,
@@ -407,7 +407,7 @@ export function deviationFrequency(
             counts.set(d, b);
         }
     }
-    return [...counts.entries()]
+    return [...counts]
         .map(([deviation, b]) => ({
             count: b.total,
             deviation,
@@ -431,24 +431,24 @@ export function drawdownStats(points: EquityPoint[]): DrawdownStats {
     let runStart = -1;
     let worstRun = 0;
     let peak = points[0]?.balance ?? 0;
-    let inDrawdown = false;
+    let isInDrawdown = false;
     let currentRunStart = -1;
 
-    for (const [i, p] of points.entries()) {
+    for (const [index, p] of points.entries()) {
         if (p.balance >= peak) {
             peak = p.balance;
-            if (inDrawdown) {
-                inDrawdown = false;
-                const runLen = i - currentRunStart;
-                if (runLen > worstRun) {
-                    worstRun = runLen;
+            if (isInDrawdown) {
+                isInDrawdown = false;
+                const runLength = index - currentRunStart;
+                if (runLength > worstRun) {
+                    worstRun = runLength;
                     runStart = currentRunStart;
                 }
             }
         } else {
-            if (!inDrawdown) {
-                inDrawdown = true;
-                currentRunStart = i;
+            if (!isInDrawdown) {
+                isInDrawdown = true;
+                currentRunStart = index;
             }
             const ddDollars = peak - p.balance;
             if (ddDollars > maxDdDollars) {
@@ -459,9 +459,9 @@ export function drawdownStats(points: EquityPoint[]): DrawdownStats {
             if (ddPct > maxDdPct) maxDdPct = ddPct;
         }
     }
-    if (inDrawdown) {
-        const runLen = points.length - currentRunStart;
-        if (runLen > worstRun) worstRun = runLen;
+    if (isInDrawdown) {
+        const runLength = points.length - currentRunStart;
+        if (runLength > worstRun) worstRun = runLength;
     }
     void runStart;
 
@@ -475,7 +475,7 @@ export function drawdownStats(points: EquityPoint[]): DrawdownStats {
 
 export function equityCurveFromR(
     rows: LightAssessment[],
-    opts: { dollarRiskPerTrade: number; startingBalance: number },
+    options: { dollarRiskPerTrade: number; startingBalance: number },
 ): EquityPoint[] {
     const valid = rows
         .filter(
@@ -489,10 +489,10 @@ export function equityCurveFromR(
                 toDate(a.createdAt).getTime() - toDate(b.createdAt).getTime(),
         );
 
-    let balance = opts.startingBalance;
+    let balance = options.startingBalance;
     let peak = balance;
     return valid.map((r) => {
-        balance += r.outcomeR * opts.dollarRiskPerTrade;
+        balance += r.outcomeR * options.dollarRiskPerTrade;
         if (balance > peak) peak = balance;
         const drawdown = peak === 0 ? 0 : 1 - balance / peak;
         return {
@@ -590,7 +590,7 @@ export function filterAssessments<
             return false;
         if (criteria.mentalFlags && criteria.mentalFlags.length > 0) {
             const flags = new Set(r.mentalFlags);
-            if (!criteria.mentalFlags.some((f) => flags.has(f))) return false;
+            if (criteria.mentalFlags.every((f) => !flags.has(f))) return false;
         }
         if (criteria.dateFrom && dateKey(r.createdAt) < criteria.dateFrom)
             return false;
@@ -683,7 +683,7 @@ export function perWindowStats(rows: LightAssessment[]): {
         }
         buckets.set(r.windowId, b);
     }
-    return [...buckets.entries()].map(([windowId, b]) => ({
+    return [...buckets].map(([windowId, b]) => ({
         avgR:
             b.rs.length > 0 ? b.rs.reduce((s, x) => s + x, 0) / b.rs.length : 0,
         count: b.total,

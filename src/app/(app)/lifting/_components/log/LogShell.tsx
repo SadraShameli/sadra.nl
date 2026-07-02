@@ -23,27 +23,27 @@ import { RestTimerOverlay } from '../shared/RestTimerOverlay';
 import { AddExerciseSheet } from './AddExerciseSheet';
 import { ExerciseCard } from './ExerciseCard';
 
-interface LogShellProps {
+interface LogShellProperties {
     initialSettings: Settings;
 }
 
 type Settings = RouterOutputs['lifting']['settings']['get'];
 
-export function LogShell({ initialSettings }: LogShellProps) {
+export function LogShell({ initialSettings }: LogShellProperties) {
     const router = useRouter();
-    const utils = api.useUtils();
+    const utilities = api.useUtils();
     const activeWorkout = api.lifting.workout.getActive.useQuery();
     const startWorkout = api.lifting.workout.start.useMutation({
-        onSuccess: () => utils.lifting.workout.getActive.invalidate(),
+        onSuccess: () => utilities.lifting.workout.getActive.invalidate(),
     });
     const endWorkout = api.lifting.workout.end.useMutation({
         onSuccess: async () => {
-            await utils.lifting.workout.getActive.invalidate();
+            await utilities.lifting.workout.getActive.invalidate();
             router.push(routes.lifting.history);
         },
     });
     const addExercise = api.lifting.workout.addExercise.useMutation({
-        onSuccess: () => utils.lifting.workout.getActive.invalidate(),
+        onSuccess: () => utilities.lifting.workout.getActive.invalidate(),
     });
 
     const [timerOpen, setTimerOpen] = useState(false);
@@ -68,8 +68,11 @@ export function LogShell({ initialSettings }: LogShellProps) {
             <div>
                 <Skeleton className="mb-4 h-16 w-full rounded-2xl" />
                 <div className="flex flex-col gap-4">
-                    {Array.from({ length: 2 }).map((_, i) => (
-                        <Skeleton className="h-48 w-full rounded-2xl" key={i} />
+                    {Array.from({ length: 2 }).map((_, index) => (
+                        <Skeleton
+                            className="h-48 w-full rounded-2xl"
+                            key={index}
+                        />
                     ))}
                 </div>
             </div>

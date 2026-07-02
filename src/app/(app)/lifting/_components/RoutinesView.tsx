@@ -28,10 +28,10 @@ import { api } from '~/trpc/react';
 
 export function RoutinesView() {
     const router = useRouter();
-    const utils = api.useUtils();
+    const utilities = api.useUtils();
     const routines = api.lifting.routine.list.useQuery();
     const deleteRoutine = api.lifting.routine.delete.useMutation({
-        onSuccess: () => utils.lifting.routine.list.invalidate(),
+        onSuccess: () => utilities.lifting.routine.list.invalidate(),
     });
     const startWorkout = api.lifting.workout.start.useMutation({
         onSuccess: () => router.push(routes.lifting.log),
@@ -40,8 +40,8 @@ export function RoutinesView() {
     if (routines.isLoading) {
         return (
             <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {Array.from({ length: 4 }).map((_, i) => (
-                    <li key={i}>
+                {Array.from({ length: 4 }).map((_, index) => (
+                    <li key={index}>
                         <Skeleton className="h-32 w-full rounded-2xl" />
                     </li>
                 ))}

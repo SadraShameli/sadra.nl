@@ -10,9 +10,9 @@ import {
 import { useTheme } from 'next-themes';
 import { Toaster as Sonner } from 'sonner';
 
-type ToasterProps = React.ComponentProps<typeof Sonner>;
+type ToasterProperties = React.ComponentProps<typeof Sonner>;
 
-const Toaster = ({ ...props }: ToasterProps) => {
+const Toaster = ({ ...properties }: ToasterProperties) => {
     const { theme = 'system' } = useTheme();
 
     return (
@@ -25,7 +25,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
                 success: <CircleCheck className="h-4 w-4" />,
                 warning: <TriangleAlert className="h-4 w-4" />,
             }}
-            theme={theme as ToasterProps['theme']}
+            theme={theme as ToasterProperties['theme']}
             toastOptions={{
                 classNames: {
                     actionButton:
@@ -36,7 +36,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
                     toast: 'group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg',
                 },
             }}
-            {...props}
+            {...properties}
         />
     );
 };

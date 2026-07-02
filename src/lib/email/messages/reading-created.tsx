@@ -4,7 +4,7 @@ import { render } from '@react-email/render';
 import { EmailMessage } from '../message';
 import { BaseEmail } from '../templates/base';
 
-interface ReadingCreatedTemplateProps {
+interface ReadingCreatedTemplateProperties {
     deviceName: null | string;
     locationName: null | string;
     sensorReadings: SensorReading[];
@@ -17,19 +17,19 @@ interface SensorReading {
 }
 
 export class ReadingCreatedEmail extends EmailMessage {
-    readonly subject = 'New reading — sadra.nl';
+    readonly subject = 'New reading';
     readonly to: string;
 
     constructor(
         to: string,
-        private readonly params: ReadingCreatedTemplateProps,
+        private readonly parameters: ReadingCreatedTemplateProperties,
     ) {
         super();
         this.to = to;
     }
 
     async render(): Promise<string> {
-        return render(<ReadingCreatedTemplate {...this.params} />);
+        return render(<ReadingCreatedTemplate {...this.parameters} />);
     }
 }
 
@@ -37,7 +37,7 @@ function ReadingCreatedTemplate({
     deviceName,
     locationName,
     sensorReadings,
-}: ReadingCreatedTemplateProps) {
+}: ReadingCreatedTemplateProperties) {
     return (
         <BaseEmail preview="New sensor reading received">
             <Heading className="m-0 mb-4 text-xl font-semibold text-neutral-900">

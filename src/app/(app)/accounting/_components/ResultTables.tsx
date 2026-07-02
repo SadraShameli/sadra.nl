@@ -8,7 +8,6 @@ import { type DateRange } from 'react-day-picker';
 import type {
     Booking,
     BookingDirection,
-    BookingRule,
     ConversionResult,
     LedgerRef,
     MatchAudit,
@@ -39,16 +38,12 @@ import {
     SelectValue,
 } from '~/components/ui/Select';
 import { Switch } from '~/components/ui/Switch';
-import {
-    VAT_CODE_LABEL,
-    VAT_CODES,
-    type VatCode,
-} from '~/lib/accounting/providers/eboekhouden/enums';
 import { cn } from '~/lib/utils';
 
 import { DirectionBadge } from './DirectionBadge';
 import { LedgerCombobox } from './LedgerCombobox';
 import { RuleFormDialog, type RuleFormDialogPrefill } from './RulesManager';
+import { type TaxCodeOption, useTaxCodes } from './useTaxCodes';
 
 const ALL = '__all__';
 type DirectionFilter = BookingDirection | typeof ALL;
@@ -131,19 +126,29 @@ interface PerCounterpartRow {
     total: number;
 }
 
+interface RuleView {
+    direction: BookingDirection;
+    display: string;
+    ledger: LedgerRef;
+    taxCode: string;
+}
+
 export function BookingsTable({
     bookings,
+    credentialId,
     ledgerOptions,
     onEdit,
     rules,
 }: {
     bookings: Booking[];
+    credentialId: string;
     ledgerOptions: LedgerRef[];
     onEdit: (txnId: string, patch: Partial<Booking>) => void;
-    rules: BookingRule[];
+    rules: RuleView[];
 }) {
+    const { labelOf, options: taxCodeOptions } = useTaxCodes(credentialId);
     const [direction, setDirection] = useState<DirectionFilter>(ALL);
-    const [vatCode, setVatCode] = useState<string>(ALL);
+    const [taxCode, setTaxCode] = useState<string>(ALL);
     const [counterpart, setCounterpart] = useState<string>(ALL);
     const [currency, setCurrency] = useState<string>(ALL);
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -170,27 +175,26 @@ export function BookingsTable({
             bookings.filter((b) => {
                 if (direction !== ALL && b.direction !== direction)
                     return false;
-                if (vatCode !== ALL && b.vatCode !== vatCode) return false;
+                if (taxCode !== ALL && b.taxCode !== taxCode) return false;
                 if (counterpart !== ALL && b.counterpartName !== counterpart)
                     return false;
                 if (currency !== ALL && b.sourceCurrency !== currency)
                     return false;
-                if (!isoInRange(b.date, dateRange)) return false;
-                return true;
+                return isoInRange(b.date, dateRange);
             }),
-        [bookings, direction, vatCode, counterpart, currency, dateRange],
+        [bookings, direction, taxCode, counterpart, currency, dateRange],
     );
 
     const hasFilters =
         direction !== ALL ||
-        vatCode !== ALL ||
+        taxCode !== ALL ||
         counterpart !== ALL ||
         currency !== ALL ||
         Boolean(dateRange?.from);
 
     const reset = () => {
         setDirection(ALL);
-        setVatCode(ALL);
+        setTaxCode(ALL);
         setCounterpart(ALL);
         setCurrency(ALL);
         setDateRange(undefined);
@@ -248,10 +252,10 @@ export function BookingsTable({
                 header: 'EUR',
             },
             {
-                accessorKey: 'vatCode',
+                accessorKey: 'taxCode',
                 cell: ({ row }) => (
                     <Badge variant="outline">
-                        {VAT_CODE_LABEL[row.original.vatCode]}
+                        {labelOf(row.original.taxCode)}
                     </Badge>
                 ),
                 header: 'VAT',
@@ -288,7 +292,7 @@ export function BookingsTable({
                 id: 'actions',
             },
         ],
-        [],
+        [labelOf],
     );
 
     if (bookings.length === 0) {
@@ -324,7 +328,7 @@ export function BookingsTable({
                             />
                         </FilterField>
                         <FilterField label="VAT">
-                            <Select onValueChange={setVatCode} value={vatCode}>
+                            <Select onValueChange={setTaxCode} value={taxCode}>
                                 <SelectTrigger className="h-8 w-44 text-xs">
                                     <SelectValue />
                                 </SelectTrigger>
@@ -332,9 +336,9 @@ export function BookingsTable({
                                     <SelectItem value={ALL}>
                                         All VAT codes
                                     </SelectItem>
-                                    {VAT_CODES.map((c) => (
-                                        <SelectItem key={c} value={c}>
-                                            {VAT_CODE_LABEL[c]}
+                                    {taxCodeOptions.map((o) => (
+                                        <SelectItem key={o.code} value={o.code}>
+                                            {o.label}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -404,6 +408,7 @@ export function BookingsTable({
                     onClose={() => setEditing(null)}
                     onSave={(patch) => onEdit(editing.txnId, patch)}
                     rules={rules}
+                    taxCodeOptions={taxCodeOptions}
                 />
             )}
         </>
@@ -427,9 +432,7 @@ export function MatchAuditTable({ result }: { result: ConversionResult }) {
             result.matches.filter((m) => {
                 if (direction !== ALL && m.direction !== direction)
                     return false;
-                if (matched !== ALL && m.matchedDisplay !== matched)
-                    return false;
-                return true;
+                return matched === ALL || m.matchedDisplay === matched;
             }),
         [result.matches, direction, matched],
     );
@@ -652,6 +655,37 @@ export function PerCounterpartTable({ result }: { result: ConversionResult }) {
     );
 }
 
+export function Tile({
+    label,
+    tone,
+    value,
+}: {
+    label: string;
+    tone: 'default' | 'in' | 'out' | 'warn';
+    value: string;
+}) {
+    return (
+        <Card className="min-w-0 gap-1 py-3">
+            <CardContent className="px-3">
+                <div className="text-[10px] tracking-wider text-muted-foreground uppercase">
+                    {label}
+                </div>
+                <div
+                    className={cn(
+                        'mt-1 font-mono text-sm font-semibold wrap-break-word sm:text-base',
+                        tone === 'in' && 'text-emerald-300',
+                        tone === 'out' && 'text-rose-300',
+                        tone === 'warn' && 'text-amber-300',
+                        tone === 'default' && 'text-foreground',
+                    )}
+                >
+                    {value}
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
 export function TotalPanel({ result }: { result: ConversionResult }) {
     const totals = useMemo(() => {
         let inEur = 0;
@@ -714,8 +748,7 @@ export function UnknownsTable({
             result.unknowns.filter((u) => {
                 if (direction !== ALL && u.direction !== direction)
                     return false;
-                if (!isoInRange(u.firstSeen, dateRange)) return false;
-                return true;
+                return isoInRange(u.firstSeen, dateRange);
             }),
         [result.unknowns, direction, dateRange],
     );
@@ -864,12 +897,14 @@ function BookingEditDialog({
     onClose,
     onSave,
     rules,
+    taxCodeOptions,
 }: {
     booking: Booking;
     ledgerOptions: LedgerRef[];
     onClose: () => void;
     onSave: (patch: Partial<Booking>) => void;
-    rules: BookingRule[];
+    rules: RuleView[];
+    taxCodeOptions: TaxCodeOption[];
 }) {
     const purchaseRule = useMemo(
         () =>
@@ -899,19 +934,19 @@ function BookingEditDialog({
     const [counterpartLedger, setCounterpartLedger] = useState<LedgerRef>(
         booking.counterpartLedger,
     );
-    const [vatCode, setVatCode] = useState<VatCode>(booking.vatCode);
+    const [taxCode, setTaxCode] = useState<string>(booking.taxCode);
     const [isRefund, setIsRefund] = useState(() => booking.isRefund === true);
 
     const toggleRefund = (checked: boolean) => {
         setIsRefund(checked);
         if (checked && purchaseRule) {
             setCounterpartLedger(purchaseRule.ledger);
-            setVatCode(purchaseRule.vatCode);
+            setTaxCode(purchaseRule.taxCode);
         } else if (!checked) {
             setCounterpartLedger(
                 payoutRule?.ledger ?? booking.counterpartLedger,
             );
-            setVatCode(payoutRule?.vatCode ?? booking.vatCode);
+            setTaxCode(payoutRule?.taxCode ?? booking.taxCode);
         }
     };
 
@@ -921,7 +956,7 @@ function BookingEditDialog({
             counterpartName,
             direction,
             isRefund,
-            vatCode,
+            taxCode,
         });
         onClose();
     };
@@ -989,17 +1024,14 @@ function BookingEditDialog({
                         />
                     </FilterField>
                     <FilterField label="VAT">
-                        <Select
-                            onValueChange={(v) => setVatCode(v as VatCode)}
-                            value={vatCode}
-                        >
+                        <Select onValueChange={setTaxCode} value={taxCode}>
                             <SelectTrigger className="h-8 w-full text-xs">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                {VAT_CODES.map((c) => (
-                                    <SelectItem key={c} value={c}>
-                                        {VAT_CODE_LABEL[c]}
+                                {taxCodeOptions.map((o) => (
+                                    <SelectItem key={o.code} value={o.code}>
+                                        {o.label}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -1011,36 +1043,5 @@ function BookingEditDialog({
                 </DialogFooter>
             </DialogContent>
         </Dialog>
-    );
-}
-
-function Tile({
-    label,
-    tone,
-    value,
-}: {
-    label: string;
-    tone: 'default' | 'in' | 'out' | 'warn';
-    value: string;
-}) {
-    return (
-        <Card className="min-w-0 gap-1 py-3">
-            <CardContent className="px-3">
-                <div className="text-[10px] tracking-wider text-muted-foreground uppercase">
-                    {label}
-                </div>
-                <div
-                    className={cn(
-                        'mt-1 font-mono text-sm font-semibold wrap-break-word sm:text-base',
-                        tone === 'in' && 'text-emerald-300',
-                        tone === 'out' && 'text-rose-300',
-                        tone === 'warn' && 'text-amber-300',
-                        tone === 'default' && 'text-foreground',
-                    )}
-                >
-                    {value}
-                </div>
-            </CardContent>
-        </Card>
     );
 }

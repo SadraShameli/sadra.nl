@@ -14,7 +14,7 @@ import { formatCompactCurrency } from '~/lib/format';
 import { type SimOutputs } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utils';
 
-interface Props {
+interface Properties {
     result: SimOutputs;
 }
 
@@ -25,7 +25,7 @@ const chartConfig: ChartConfig = {
 
 type ChartRow = Record<string, null | number>;
 
-export default function DrawdownCurveChartView({ result }: Props) {
+export default function DrawdownCurveChartView({ result }: Properties) {
     if (result.sampleEquityCurves.length === 0) {
         return (
             <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
@@ -84,13 +84,13 @@ export default function DrawdownCurveChartView({ result }: Props) {
                     strokeDasharray="4 4"
                     y={drawdownLimit}
                 />
-                {Array.from({ length: pathCount }).map((_, i) => (
+                {Array.from({ length: pathCount }).map((_, index) => (
                     <Line
                         connectNulls={false}
-                        dataKey={`p${i}`}
+                        dataKey={`p${index}`}
                         dot={false}
                         isAnimationActive={false}
-                        key={i}
+                        key={index}
                         stroke="var(--color-sample)"
                         strokeOpacity={0.18}
                         strokeWidth={1}
@@ -113,8 +113,8 @@ export default function DrawdownCurveChartView({ result }: Props) {
 
 function buildDrawdownData(curves: readonly number[][]): ChartRow[] {
     if (curves.length === 0) return [];
-    let maxLen = 0;
-    for (const c of curves) if (c.length > maxLen) maxLen = c.length;
+    let maxLength = 0;
+    for (const c of curves) if (c.length > maxLength) maxLength = c.length;
 
     const ddSeries = curves.map((curve) => {
         const out: number[] = [];
@@ -127,12 +127,12 @@ function buildDrawdownData(curves: readonly number[][]): ChartRow[] {
     });
 
     const rows: ChartRow[] = [];
-    for (let day = 0; day < maxLen; day++) {
+    for (let day = 0; day < maxLength; day++) {
         const row: ChartRow = { day, median: null };
         const valuesAtDay: number[] = [];
-        for (const [i, series] of ddSeries.entries()) {
+        for (const [index, series] of ddSeries.entries()) {
             const v = series[day];
-            row[`p${i}`] = v ?? null;
+            row[`p${index}`] = v ?? null;
             if (v !== undefined) valuesAtDay.push(v);
         }
         if (valuesAtDay.length > 0) {

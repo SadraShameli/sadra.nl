@@ -30,12 +30,12 @@ import { api, type RouterOutputs } from '~/trpc/react';
 
 type Program = RouterOutputs['lifting']['program']['get'];
 
-interface ProgramDetailProps {
+interface ProgramDetailProperties {
     program: Program;
 }
 
-export function ProgramDetail({ program }: ProgramDetailProps) {
-    const utils = api.useUtils();
+export function ProgramDetail({ program }: ProgramDetailProperties) {
+    const utilities = api.useUtils();
     const mine = api.lifting.program.listMine.useQuery();
     const settings = api.lifting.settings.get.useQuery();
     const unitWeight = settings.data?.unitWeight ?? 'kg';
@@ -48,17 +48,17 @@ export function ProgramDetail({ program }: ProgramDetailProps) {
         mine.data?.owned.some((p) => p.name === program.name),
     );
     const enroll = api.lifting.program.enroll.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Enrolled — start your first session.');
-            await utils.lifting.program.listMine.invalidate();
+            await utilities.lifting.program.listMine.invalidate();
         },
     });
     const clone = api.lifting.program.cloneToCustom.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Program cloned to your custom programs.');
-            await utils.lifting.program.listMine.invalidate();
+            await utilities.lifting.program.listMine.invalidate();
         },
     });
 
@@ -243,20 +243,20 @@ export function ProgramDetail({ program }: ProgramDetailProps) {
 
             <Tabs defaultValue="week-1">
                 <TabsList className="flex flex-wrap gap-2 bg-transparent p-0">
-                    {schedule.weeks.map((_, i) => (
-                        <TabsTrigger key={i} value={`week-${i + 1}`}>
-                            Week {i + 1}
+                    {schedule.weeks.map((_, index) => (
+                        <TabsTrigger key={index} value={`week-${index + 1}`}>
+                            Week {index + 1}
                         </TabsTrigger>
                     ))}
                 </TabsList>
                 {schedule.weeks.map((w, wi) => (
                     <TabsContent key={wi} value={`week-${wi + 1}`}>
                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                            {w.days.map((d, i) => (
-                                <Card key={`${i}-${d.name}`}>
+                            {w.days.map((d, index) => (
+                                <Card key={`${index}-${d.name}`}>
                                     <CardHeader>
                                         <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-                                            {d.name || `Day ${i + 1}`}
+                                            {d.name || `Day ${index + 1}`}
                                             {d.isDeload && (
                                                 <Badge variant="secondary">
                                                     Deload

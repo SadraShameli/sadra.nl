@@ -39,10 +39,10 @@ class AudioFile {
         }
 
         let offset = 12;
-        let fmtFound = false;
-        let dataFound = false;
+        let isFmtFound = false;
+        let isDataFound = false;
 
-        while (offset + 8 <= file.length && !(fmtFound && dataFound)) {
+        while (offset + 8 <= file.length && !(isFmtFound && isDataFound)) {
             const chunkId = file.toString('ascii', offset, offset + 4);
             const chunkSize = file.readUInt32LE(offset + 4);
             const chunkDataStart = offset + 8;
@@ -64,19 +64,19 @@ class AudioFile {
                         chunkDataStart + 18,
                     );
                 }
-                fmtFound = true;
+                isFmtFound = true;
             } else if (chunkId === 'data') {
                 this.dataOffset = chunkDataStart;
                 this.dataLength = chunkSize;
-                dataFound = true;
+                isDataFound = true;
             }
 
             const advance = chunkSize + (chunkSize & 1);
             offset = chunkDataStart + advance;
         }
 
-        if (!fmtFound) throw new Error('WAV: missing fmt chunk');
-        if (!dataFound) throw new Error('WAV: missing data chunk');
+        if (!isFmtFound) throw new Error('WAV: missing fmt chunk');
+        if (!isDataFound) throw new Error('WAV: missing data chunk');
 
         if (this.isLinearPcm16()) {
             const audioData = file.subarray(
@@ -84,8 +84,8 @@ class AudioFile {
                 this.dataOffset + this.dataLength,
             );
             this.samples = new Int16Array(audioData.length >> 1);
-            for (let i = 0; i < this.samples.length; i++) {
-                this.samples[i] = audioData.readInt16LE(i * 2);
+            for (let index = 0; index < this.samples.length; index++) {
+                this.samples[index] = audioData.readInt16LE(index * 2);
             }
         } else if (
             this.audioFormat === WAV_FORMAT_IMA_ADPCM &&
@@ -150,8 +150,8 @@ class AudioFile {
         if (max === 0) return;
 
         const scale = 32_767 / max;
-        for (let i = 0; i < this.samples.length; i++) {
-            this.samples[i] = (this.samples[i] ?? 0) * scale;
+        for (let index = 0; index < this.samples.length; index++) {
+            this.samples[index] = (this.samples[index] ?? 0) * scale;
         }
     }
 }
@@ -184,14 +184,14 @@ function decodeImaAdpcmBlocks(
     const totalSamples = blockCount * samplesPerBlock;
     const out = new Int16Array(totalSamples);
 
-    let outIdx = 0;
+    let outIndex = 0;
     for (let b = 0; b < blockCount; b++) {
         const blockStart = dataOffset + b * blockAlign;
 
         let predictor = file.readInt16LE(blockStart);
         let index = file.readInt8(blockStart + 2);
 
-        out[outIdx++] = predictor;
+        out[outIndex++] = predictor;
 
         const nibbleBytes = blockAlign - 4;
         const samplesFromNibbles = nibbleBytes * 2;
@@ -199,11 +199,11 @@ function decodeImaAdpcmBlocks(
         let samplesEmitted = 0;
 
         for (
-            let i = 0;
-            i < nibbleBytes && samplesEmitted < samplesWanted;
-            i++
+            let index_ = 0;
+            index_ < nibbleBytes && samplesEmitted < samplesWanted;
+            index_++
         ) {
-            const byte = file.readUInt8(blockStart + 4 + i);
+            const byte = file.readUInt8(blockStart + 4 + index_);
 
             for (let n = 0; n < 2 && samplesEmitted < samplesWanted; n++) {
                 const code = (n === 0 ? byte : byte >> 4) & 0x0f;
@@ -224,7 +224,7 @@ function decodeImaAdpcmBlocks(
                 if (index < 0) index = 0;
                 else if (index > 88) index = 88;
 
-                out[outIdx++] = predictor;
+                out[outIndex++] = predictor;
                 samplesEmitted++;
             }
         }

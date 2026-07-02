@@ -18,9 +18,9 @@ import { sensor, sensorsToDevices } from '~/server/db/schemas/iot';
 
 export async function getSensor(
     input: z.infer<typeof getSensorProps>,
-    ctx: ContextType,
+    context: ContextType,
 ): Promise<Result<typeof sensor.$inferSelect>> {
-    const res = await ctx.db.query.sensor.findFirst({
+    const res = await context.db.query.sensor.findFirst({
         where: (sensor, { eq }) => eq(sensor.id, input.id),
     });
 
@@ -34,10 +34,10 @@ export async function getSensor(
 }
 
 async function assertUnitExists(
-    ctx: ContextType,
+    context: ContextType,
     value: string,
 ): Promise<void> {
-    const found = await ctx.db.query.sensorUnit.findFirst({
+    const found = await context.db.query.sensorUnit.findFirst({
         columns: { id: true },
         where: (u, { eq: e }) => e(u.value, value),
     });
@@ -50,9 +50,9 @@ async function assertUnitExists(
 }
 
 async function getSensors(
-    ctx: ContextType,
+    context: ContextType,
 ): Promise<Result<(typeof sensor.$inferSelect)[]>> {
-    const sensors = await ctx.db.query.sensor.findMany();
+    const sensors = await context.db.query.sensor.findMany();
     return { data: sensors };
 }
 

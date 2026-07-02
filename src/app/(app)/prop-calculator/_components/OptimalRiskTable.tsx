@@ -26,7 +26,7 @@ import { panelDescriptions } from './kpiDescriptions';
 
 const RISK_LEVELS = [0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 4, 5] as const;
 
-interface OptimalRiskTableProps {
+interface OptimalRiskTableProperties {
     baseInputs: Omit<SimInputs, 'riskPerTrade'>;
     currentRiskPercent: number;
     plan: Plan;
@@ -43,22 +43,22 @@ export default function OptimalRiskTable({
     baseInputs,
     currentRiskPercent,
     plan,
-}: OptimalRiskTableProps) {
+}: OptimalRiskTableProperties) {
     const [rows, setRows] = useState<Row[]>([]);
     const [pending, setPending] = useState(false);
-    const inputsRef = useRef(baseInputs);
-    inputsRef.current = baseInputs;
-    const planRef = useRef(plan);
-    planRef.current = plan;
+    const inputsReference = useRef(baseInputs);
+    inputsReference.current = baseInputs;
+    const planReference = useRef(plan);
+    planReference.current = plan;
 
     const debouncedKey = useDebouncedKey(baseInputs);
 
     useEffect(() => {
-        let cancelled = false;
+        let isCancelled = false;
         setPending(true);
         const handle = setTimeout(() => {
-            const inputs = inputsRef.current;
-            const accountSize = planRef.current.accountSize;
+            const inputs = inputsReference.current;
+            const accountSize = planReference.current.accountSize;
             const trials = Math.min(500, inputs.trials);
             const partial = RISK_LEVELS.map((riskPct) => {
                 const riskDollars = (accountSize * riskPct) / 100;
@@ -77,13 +77,13 @@ export default function OptimalRiskTable({
                 ...r,
                 isBest: r.out.expectedMonthlyNet === bestNet,
             }));
-            if (!cancelled) {
+            if (!isCancelled) {
                 setRows(results);
                 setPending(false);
             }
         }, 0);
         return () => {
-            cancelled = true;
+            isCancelled = true;
             clearTimeout(handle);
         };
     }, [debouncedKey]);

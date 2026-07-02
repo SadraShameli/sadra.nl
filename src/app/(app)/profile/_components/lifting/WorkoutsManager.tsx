@@ -98,7 +98,7 @@ const workoutEditSchema = z.object({
 type WorkoutEditValues = z.infer<typeof workoutEditSchema>;
 
 export function WorkoutsManager() {
-    const utils = api.useUtils();
+    const utilities = api.useUtils();
     const workouts = api.lifting.workout.list.useQuery({
         from: new Date(0),
         limit: 200,
@@ -106,17 +106,17 @@ export function WorkoutsManager() {
     });
 
     const update = api.lifting.workout.update.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Workout updated');
-            await utils.lifting.workout.list.invalidate();
+            await utilities.lifting.workout.list.invalidate();
         },
     });
     const remove = api.lifting.workout.delete.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Workout deleted');
-            await utils.lifting.workout.list.invalidate();
+            await utilities.lifting.workout.list.invalidate();
         },
     });
 

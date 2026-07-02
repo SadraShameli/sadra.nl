@@ -4,32 +4,32 @@ import { render } from '@react-email/render';
 import { EmailMessage } from '../message';
 import { BaseEmail } from '../templates/base';
 
-interface LocationCreatedTemplateProps {
+interface LocationCreatedTemplateProperties {
     locationId: number;
     locationName: string;
 }
 
 export class LocationCreatedEmail extends EmailMessage {
-    readonly subject = 'New location — sadra.nl';
+    readonly subject = 'New location';
     readonly to: string;
 
     constructor(
         to: string,
-        private readonly params: LocationCreatedTemplateProps,
+        private readonly parameters: LocationCreatedTemplateProperties,
     ) {
         super();
         this.to = to;
     }
 
     async render(): Promise<string> {
-        return render(<LocationCreatedTemplate {...this.params} />);
+        return render(<LocationCreatedTemplate {...this.parameters} />);
     }
 }
 
 function LocationCreatedTemplate({
     locationId,
     locationName,
-}: LocationCreatedTemplateProps) {
+}: LocationCreatedTemplateProperties) {
     return (
         <BaseEmail preview={`New location created: ${locationName}`}>
             <Heading className="m-0 mb-4 text-xl font-semibold text-neutral-900">

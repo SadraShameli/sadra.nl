@@ -68,50 +68,51 @@ type ReadingRow = {
 };
 
 export function ReadingsPanel() {
-    const utils = api.useUtils();
+    const utilities = api.useUtils();
     const locations = api.location.listAdmin.useQuery();
     const devices = api.device.listAdmin.useQuery();
     const sensors = api.sensor.listAdmin.useQuery();
 
     const [locFilter, setLocFilter] = useState(ALL);
-    const [devFilter, setDevFilter] = useState(ALL);
+    const [developmentFilter, setDevelopmentFilter] = useState(ALL);
     const [sensFilter, setSensFilter] = useState(ALL);
     const [selected, setSelected] = useState<ReadingRow[]>([]);
     const hasFilters =
-        locFilter !== ALL || devFilter !== ALL || sensFilter !== ALL;
+        locFilter !== ALL || developmentFilter !== ALL || sensFilter !== ALL;
     const resetFilters = () => {
         setLocFilter(ALL);
-        setDevFilter(ALL);
+        setDevelopmentFilter(ALL);
         setSensFilter(ALL);
     };
 
     const readings = api.reading.listAdmin.useQuery({
-        device_id: devFilter === ALL ? undefined : Number(devFilter),
+        device_id:
+            developmentFilter === ALL ? undefined : Number(developmentFilter),
         limit: 500,
         location_id: locFilter === ALL ? undefined : Number(locFilter),
         sensor_id: sensFilter === ALL ? undefined : Number(sensFilter),
     });
 
     const del = api.reading.delete.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Reading deleted.');
-            await utils.reading.listAdmin.invalidate();
+            await utilities.reading.listAdmin.invalidate();
         },
     });
     const delBulk = api.reading.deleteBulk.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async (r) => {
             toast.success(`Deleted ${r.deleted} reading(s).`);
             setSelected([]);
-            await utils.reading.listAdmin.invalidate();
+            await utilities.reading.listAdmin.invalidate();
         },
     });
     const createReading = api.reading.createAdmin.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Reading created.');
-            await utils.reading.listAdmin.invalidate();
+            await utilities.reading.listAdmin.invalidate();
         },
     });
     const [newOpen, setNewOpen] = useState(false);
@@ -330,12 +331,12 @@ export function ReadingsPanel() {
                     />
                     <FilterField
                         label="Device"
-                        onChange={setDevFilter}
+                        onChange={setDevelopmentFilter}
                         options={(devices.data ?? []).map((d) => ({
                             id: String(d.id),
                             name: d.name,
                         }))}
-                        value={devFilter}
+                        value={developmentFilter}
                     />
                     <FilterField
                         label="Sensor"

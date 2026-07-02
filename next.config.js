@@ -2,11 +2,11 @@ import { withSentryConfig } from '@sentry/nextjs';
 
 import './src/env.js';
 
-const isProd = process.env.NODE_ENV === 'production';
+const isProduction = process.env.NODE_ENV === 'production';
 
 const ContentSecurityPolicy = [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-inline'${isProd ? '' : " 'unsafe-eval'"} https://va.vercel-scripts.com https://vercel.live`,
+    `script-src 'self' 'unsafe-inline'${isProduction ? '' : " 'unsafe-eval'"} https://va.vercel-scripts.com https://vercel.live`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https://avatars.githubusercontent.com https://lh3.googleusercontent.com",
     "font-src 'self' data:",
@@ -22,7 +22,7 @@ const ContentSecurityPolicy = [
 
 const securityHeaders = [
     {
-        key: isProd
+        key: isProduction
             ? 'Content-Security-Policy'
             : 'Content-Security-Policy-Report-Only',
         value: ContentSecurityPolicy,

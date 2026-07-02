@@ -65,7 +65,7 @@ const ACCOUNTING_ITEM: NavItem = {
     label: 'Accounting',
 };
 
-interface ProfileNavProps {
+interface ProfileNavProperties {
     activeTab: ProfileTabValue;
     email: string;
     isAdmin: boolean;
@@ -79,7 +79,7 @@ export function ProfileNav({
     isAdmin,
     isRoot,
     name,
-}: ProfileNavProps) {
+}: ProfileNavProperties) {
     const router = useRouter();
     const [pending, startTransition] = useTransition();
     const items: NavItem[] = [ACCOUNT_ITEM];

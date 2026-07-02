@@ -72,48 +72,51 @@ type LocationRow = {
 const ALL = '__all__';
 
 export function LocationsPanel() {
-    const utils = api.useUtils();
+    const utilities = api.useUtils();
     const locs = api.location.listAdmin.useQuery();
     const devices = api.device.listAdmin.useQuery();
     const sensors = api.sensor.listAdmin.useQuery();
     const deviceSensorMappings = api.sensor.listDeviceMappings.useQuery();
     const create = api.location.create.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Location created.');
-            await utils.location.listAdmin.invalidate();
+            await utilities.location.listAdmin.invalidate();
         },
     });
     const update = api.location.update.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Location updated.');
-            await utils.location.listAdmin.invalidate();
+            await utilities.location.listAdmin.invalidate();
         },
     });
     const del = api.location.delete.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Location deleted.');
-            await utils.location.listAdmin.invalidate();
+            await utilities.location.listAdmin.invalidate();
         },
     });
 
     const [newOpen, setNewOpen] = useState(false);
     const [editing, setEditing] = useState<LocationRow | null>(null);
-    const [devFilter, setDevFilter] = useState<string>(ALL);
+    const [developmentFilter, setDevelopmentFilter] = useState<string>(ALL);
     const [locFilter, setLocFilter] = useState<string>(ALL);
     const [sensFilter, setSensFilter] = useState<string>(ALL);
     const hasFilters =
-        locFilter !== ALL || devFilter !== ALL || sensFilter !== ALL;
+        locFilter !== ALL || developmentFilter !== ALL || sensFilter !== ALL;
     const resetFilters = () => {
         setLocFilter(ALL);
-        setDevFilter(ALL);
+        setDevelopmentFilter(ALL);
         setSensFilter(ALL);
     };
 
     const allRows = useMemo(() => locs.data ?? [], [locs.data]);
-    const devOptions = useMemo(() => devices.data ?? [], [devices.data]);
+    const developmentOptions = useMemo(
+        () => devices.data ?? [],
+        [devices.data],
+    );
     const sensorOptions = useMemo(() => sensors.data ?? [], [sensors.data]);
     const locationIdsWithSensor = useMemo(() => {
         if (sensFilter === ALL) return null;
@@ -124,23 +127,29 @@ export function LocationsPanel() {
                 .map((m) => m.device_id),
         );
         return new Set(
-            devOptions
+            developmentOptions
                 .filter((d) => deviceIds.has(d.id))
                 .map((d) => d.location_id),
         );
-    }, [deviceSensorMappings.data, devOptions, sensFilter]);
+    }, [deviceSensorMappings.data, developmentOptions, sensFilter]);
     const rows = useMemo(() => {
         return allRows.filter((l) => {
             if (locFilter !== ALL && String(l.id) !== locFilter) return false;
-            if (devFilter !== ALL) {
-                const dev = devOptions.find((d) => String(d.id) === devFilter);
-                if (l.id !== dev?.location_id) return false;
+            if (developmentFilter !== ALL) {
+                const development = developmentOptions.find(
+                    (d) => String(d.id) === developmentFilter,
+                );
+                if (l.id !== development?.location_id) return false;
             }
-            if (locationIdsWithSensor && !locationIdsWithSensor.has(l.id))
-                return false;
-            return true;
+            return !locationIdsWithSensor || locationIdsWithSensor.has(l.id);
         });
-    }, [allRows, devOptions, devFilter, locFilter, locationIdsWithSensor]);
+    }, [
+        allRows,
+        developmentOptions,
+        developmentFilter,
+        locFilter,
+        locationIdsWithSensor,
+    ]);
 
     const columns = useMemo<ColumnDef<LocationRow>[]>(
         () => [
@@ -268,12 +277,12 @@ export function LocationsPanel() {
                     />
                     <FilterField
                         label="Device"
-                        onChange={setDevFilter}
-                        options={devOptions.map((d) => ({
+                        onChange={setDevelopmentFilter}
+                        options={developmentOptions.map((d) => ({
                             id: String(d.id),
                             name: d.name,
                         }))}
-                        value={devFilter}
+                        value={developmentFilter}
                     />
                     <FilterField
                         label="Sensor"

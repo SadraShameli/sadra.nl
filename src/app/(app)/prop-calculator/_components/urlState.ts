@@ -24,8 +24,8 @@ function base64UrlDecode(s: string): string {
             '==='.slice((s.length + 3) % 4);
         const binary = window.atob(padded);
         const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++)
-            bytes[i] = binary.codePointAt(i) ?? 0;
+        for (let index = 0; index < binary.length; index++)
+            bytes[index] = binary.codePointAt(index) ?? 0;
         return new TextDecoder().decode(bytes);
     } catch {
         return '';
@@ -52,12 +52,12 @@ const labScenarioArraySchema = z.array(labScenarioSchema);
 const savedScenarioArraySchema = z.array(savedScenarioRecordSchema);
 
 export function decodeState(
-    params: URLSearchParams,
+    parameters: URLSearchParams,
     firms: readonly PropFirm[],
     fallback: CalculatorState,
 ): CalculatorState {
-    const firmId = params.get('firm');
-    const planSerial = params.get('plan');
+    const firmId = parameters.get('firm');
+    const planSerial = parameters.get('plan');
     const firm = firmId
         ? firms.find((f) => (f.id as string) === firmId)
         : undefined;
@@ -66,16 +66,16 @@ export function decodeState(
             ? firm.plans.find((p) => serializePlanId(p.id) === planSerial)
             : undefined;
 
-    const num = (key: string, def: number): number => {
-        const v = params.get(key);
+    const number_ = (key: string, def: number): number => {
+        const v = parameters.get(key);
         if (v === null) return def;
         const n = Number(v);
         return Number.isFinite(n) ? n : def;
     };
-    const intNum = (key: string, def: number): number =>
-        Math.floor(num(key, def));
+    const intNumber = (key: string, def: number): number =>
+        Math.floor(number_(key, def));
     const sizingMode =
-        params.get('mode') === SizingMode.Percent
+        parameters.get('mode') === SizingMode.Percent
             ? SizingMode.Percent
             : SizingMode.Dollar;
 
@@ -83,50 +83,53 @@ export function decodeState(
     const resolvedPlan = plan ?? (firm ? firm.plans[0] : null) ?? fallback.plan;
 
     let dayStop: DayStopRule = fallback.dayStop;
-    const dsParam = params.get('ds');
-    if (dsParam) {
+    const dsParameter = parameters.get('ds');
+    if (dsParameter) {
         try {
-            const parsed: unknown = JSON.parse(base64UrlDecode(dsParam));
+            const parsed: unknown = JSON.parse(base64UrlDecode(dsParameter));
             const ok = dayStopRuleSchema.safeParse(parsed);
             if (ok.success) dayStop = ok.data;
         } catch {}
     }
 
     let labScenarios: LabScenario[] = fallback.labScenarios;
-    const labParam = params.get('lab');
-    if (labParam) {
+    const labParameter = parameters.get('lab');
+    if (labParameter) {
         try {
-            const parsed: unknown = JSON.parse(base64UrlDecode(labParam));
+            const parsed: unknown = JSON.parse(base64UrlDecode(labParameter));
             const ok = labScenarioArraySchema.safeParse(parsed);
             if (ok.success) labScenarios = ok.data;
         } catch {}
     }
 
     return {
-        activationDiscountPercent: num(
+        activationDiscountPercent: number_(
             'act',
             fallback.activationDiscountPercent,
         ),
-        commissionPerRoundTrip: num('comm', fallback.commissionPerRoundTrip),
-        copyAccounts: intNum('copy', fallback.copyAccounts),
+        commissionPerRoundTrip: number_(
+            'comm',
+            fallback.commissionPerRoundTrip,
+        ),
+        copyAccounts: intNumber('copy', fallback.copyAccounts),
         dayStop,
-        evalDiscountPercent: num('eval', fallback.evalDiscountPercent),
+        evalDiscountPercent: number_('eval', fallback.evalDiscountPercent),
         firm: resolvedFirm,
         firmMemory: fallback.firmMemory,
-        fundedHorizonDays: intNum('fundedDays', fallback.fundedHorizonDays),
+        fundedHorizonDays: intNumber('fundedDays', fallback.fundedHorizonDays),
         labScenarios,
-        linkActivationDiscount: params.get('linkAct') === '1',
-        maxAttempts: intNum('attempts', fallback.maxAttempts),
-        maxEvalDays: intNum('maxDays', fallback.maxEvalDays),
+        linkActivationDiscount: parameters.get('linkAct') === '1',
+        maxAttempts: intNumber('attempts', fallback.maxAttempts),
+        maxEvalDays: intNumber('maxDays', fallback.maxEvalDays),
         plan: resolvedPlan,
-        riskDollars: num('rd', fallback.riskDollars),
-        riskPercent: num('rp', fallback.riskPercent),
-        rrRatio: num('rr', fallback.rrRatio),
-        seed: intNum('seed', fallback.seed),
+        riskDollars: number_('rd', fallback.riskDollars),
+        riskPercent: number_('rp', fallback.riskPercent),
+        rrRatio: number_('rr', fallback.rrRatio),
+        seed: intNumber('seed', fallback.seed),
         sizingMode,
-        tradesPerDay: intNum('tpd', fallback.tradesPerDay),
-        trials: intNum('trials', fallback.trials),
-        winrate: num('wr', fallback.winrate),
+        tradesPerDay: intNumber('tpd', fallback.tradesPerDay),
+        trials: intNumber('trials', fallback.trials),
+        winrate: number_('wr', fallback.winrate),
     };
 }
 

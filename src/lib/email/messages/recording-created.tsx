@@ -4,7 +4,7 @@ import { render } from '@react-email/render';
 import { EmailMessage } from '../message';
 import { BaseEmail } from '../templates/base';
 
-interface RecordingCreatedTemplateProps {
+interface RecordingCreatedTemplateProperties {
     deviceName: null | string;
     durationSeconds: null | number | undefined;
     fileName: string;
@@ -12,19 +12,19 @@ interface RecordingCreatedTemplateProps {
 }
 
 export class RecordingCreatedEmail extends EmailMessage {
-    readonly subject = 'New recording — sadra.nl';
+    readonly subject = 'New recording';
     readonly to: string;
 
     constructor(
         to: string,
-        private readonly params: RecordingCreatedTemplateProps,
+        private readonly parameters: RecordingCreatedTemplateProperties,
     ) {
         super();
         this.to = to;
     }
 
     async render(): Promise<string> {
-        return render(<RecordingCreatedTemplate {...this.params} />);
+        return render(<RecordingCreatedTemplate {...this.parameters} />);
     }
 }
 
@@ -38,7 +38,7 @@ function RecordingCreatedTemplate({
     durationSeconds,
     fileName,
     locationName,
-}: RecordingCreatedTemplateProps) {
+}: RecordingCreatedTemplateProperties) {
     return (
         <BaseEmail preview={`New recording: ${fileName}`}>
             <Heading className="m-0 mb-4 text-xl font-semibold text-neutral-900">

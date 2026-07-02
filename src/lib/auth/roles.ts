@@ -11,10 +11,10 @@ export const ROLE = {
 
 export function resolveRole(
     _email: null | string | undefined,
-    dbRole: null | string | undefined,
+    databaseRole: null | string | undefined,
 ): Role {
-    if (dbRole === ROLE.ROOT) return ROLE.ROOT;
-    if (dbRole === ROLE.ADMIN) return ROLE.ADMIN;
+    if (databaseRole === ROLE.ROOT) return ROLE.ROOT;
+    if (databaseRole === ROLE.ADMIN) return ROLE.ADMIN;
     return ROLE.USER;
 }
 

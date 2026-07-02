@@ -37,10 +37,7 @@ import {
 import { EmptyState } from '~/components/ui/EmptyState';
 import { Form } from '~/components/ui/Form';
 import { Skeleton } from '~/components/ui/Skeleton';
-import {
-    getCredentialDescriptor,
-    listCredentialDescriptors,
-} from '~/lib/accounting/credentials/index';
+import { CredentialRegistry } from '~/lib/accounting/credentials/index';
 import {
     type CredentialCreateInput,
     credentialCreateSchema,
@@ -69,20 +66,20 @@ const ROLE_SECTION_LABEL: Record<CredentialRole, string> = {
 };
 
 export function ConnectionsManager() {
-    const utils = api.useUtils();
+    const utilities = api.useUtils();
     const credentialsQ = api.accounting.credentials.list.useQuery();
     const testMut = api.accounting.credentials.test.useMutation();
     const setActiveMut = api.accounting.credentials.setActive.useMutation({
-        onSuccess: () => utils.accounting.credentials.list.invalidate(),
+        onSuccess: () => utilities.accounting.credentials.list.invalidate(),
     });
     const deleteMut = api.accounting.credentials.delete.useMutation({
         onSuccess: async () => {
-            await utils.accounting.credentials.list.invalidate();
-            await utils.accounting.summary.invalidate();
+            await utilities.accounting.credentials.list.invalidate();
+            await utilities.accounting.summary.invalidate();
         },
     });
 
-    const descriptors = useMemo(() => listCredentialDescriptors(), []);
+    const descriptors = useMemo(() => CredentialRegistry.instance().list(), []);
     const [editing, setEditing] = useState<null | StoredCredential>(null);
 
     const grouped = useMemo(() => {
@@ -91,15 +88,15 @@ export function ConnectionsManager() {
             transactions: [],
         };
         for (const c of credentialsQ.data ?? []) {
-            const role = getCredentialDescriptor(c.kind)?.role;
+            const role = CredentialRegistry.instance().get(c.kind)?.role;
             if (role) byRole[role].push(c);
         }
         return byRole;
     }, [credentialsQ.data]);
 
     const refresh = async () => {
-        await utils.accounting.credentials.list.invalidate();
-        await utils.accounting.summary.invalidate();
+        await utilities.accounting.credentials.list.invalidate();
+        await utilities.accounting.summary.invalidate();
     };
 
     const renderCard = (
@@ -107,7 +104,7 @@ export function ConnectionsManager() {
         isActive: boolean,
         canSetActive: boolean,
     ) => {
-        const descriptor = getCredentialDescriptor(cred.kind);
+        const descriptor = CredentialRegistry.instance().get(cred.kind);
         const isTesting = testMut.isPending && testMut.variables.id === cred.id;
         const isDeleting =
             deleteMut.isPending && deleteMut.variables.id === cred.id;
@@ -160,31 +157,35 @@ export function ConnectionsManager() {
                                 Set active
                             </Button>
                         )}
-                        <Button
-                            disabled={isTesting}
-                            onClick={async () => {
-                                const res = await testMut.mutateAsync({
-                                    id: cred.id,
-                                });
-                                if (res.ok) {
-                                    toast.success(
-                                        `${cred.label}: OK · ${res.detail} · ${res.latencyMs}ms`,
-                                    );
-                                    await utils.accounting.credentials.list.invalidate();
-                                } else {
-                                    toast.error(`${cred.label}: ${res.detail}`);
-                                }
-                            }}
-                            size="sm"
-                            variant="outline"
-                        >
-                            {isTesting ? (
-                                <Loader2 className="size-3 animate-spin" />
-                            ) : (
-                                <CheckCircle2 className="size-3" />
-                            )}
-                            Test
-                        </Button>
+                        {descriptor?.requiresSecret !== false && (
+                            <Button
+                                disabled={isTesting}
+                                onClick={async () => {
+                                    const res = await testMut.mutateAsync({
+                                        id: cred.id,
+                                    });
+                                    if (res.ok) {
+                                        toast.success(
+                                            `${cred.label}: OK · ${res.detail} · ${res.latencyMs}ms`,
+                                        );
+                                        await utilities.accounting.credentials.list.invalidate();
+                                    } else {
+                                        toast.error(
+                                            `${cred.label}: ${res.detail}`,
+                                        );
+                                    }
+                                }}
+                                size="sm"
+                                variant="outline"
+                            >
+                                {isTesting ? (
+                                    <Loader2 className="size-3 animate-spin" />
+                                ) : (
+                                    <CheckCircle2 className="size-3" />
+                                )}
+                                Test
+                            </Button>
+                        )}
                         <Button
                             disabled={!descriptor}
                             onClick={() => setEditing(cred)}
@@ -318,7 +319,7 @@ function EditCredentialForm({
     onClose: () => void;
     onSaved: () => Promise<void>;
 }) {
-    const descriptor = getCredentialDescriptor(credential.kind);
+    const descriptor = CredentialRegistry.instance().get(credential.kind);
     const updateMut = api.accounting.credentials.update.useMutation();
     const form = useForm<CredentialUpdateInput>({
         defaultValues: {
@@ -544,7 +545,7 @@ function NewCredentialDialog({
                 kind: values.kind,
                 label: values.label.trim(),
                 meta: values.meta,
-                secret: values.secret.trim(),
+                secret: values.secret?.trim(),
             });
             toast.success('Credential added');
             setOpen(false);
@@ -621,7 +622,8 @@ function NewCredentialDialog({
                                     shouldValidate: true,
                                 })
                             }
-                            secret={secret}
+                            secret={secret ?? ''}
+                            secretRequired={descriptor.requiresSecret !== false}
                         />
 
                         {createMut.error && (

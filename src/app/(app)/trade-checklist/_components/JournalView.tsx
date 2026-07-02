@@ -22,19 +22,20 @@ import {
 } from './journal/JournalFilters';
 import { JournalRowBody, type JournalRowData } from './journal/JournalRow';
 
-interface JournalViewProps {
+interface JournalViewProperties {
     history: TradeAssessmentRow[];
     plans: { id: string; name: string }[];
 }
 
 type Row = JournalRowData & { raw: TradeAssessmentRow };
 
-export function JournalView({ history, plans }: JournalViewProps) {
+export function JournalView({ history, plans }: JournalViewProperties) {
     const router = useRouter();
-    const searchParams = useSearchParams();
+    const searchParameters = useSearchParams();
     const state = useMemo(
-        () => parseStateFromUrl(new URLSearchParams(searchParams.toString())),
-        [searchParams],
+        () =>
+            parseStateFromUrl(new URLSearchParams(searchParameters.toString())),
+        [searchParameters],
     );
     const [selectedRow, setSelectedRow] = useState<null | TradeAssessmentRow>(
         null,
@@ -104,7 +105,7 @@ export function JournalView({ history, plans }: JournalViewProps) {
 
     const updateState = useCallback(
         (next: JournalFilterState) => {
-            const sp = buildSearchParams(next);
+            const sp = buildSearchParameters(next);
             const qs = sp.toString();
             router.replace(qs ? `?${qs}` : '?', { scroll: false });
         },
@@ -226,7 +227,7 @@ export function JournalView({ history, plans }: JournalViewProps) {
     );
 }
 
-function buildSearchParams(state: JournalFilterState): URLSearchParams {
+function buildSearchParameters(state: JournalFilterState): URLSearchParams {
     const sp = new URLSearchParams();
     for (const g of state.grades) sp.append('grade', g);
     for (const o of state.outcomes) sp.append('outcome', o);

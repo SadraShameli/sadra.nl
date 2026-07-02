@@ -17,7 +17,7 @@ import { EmptyState } from '~/components/ui/EmptyState';
 import { Skeleton } from '~/components/ui/Skeleton';
 import { api } from '~/trpc/react';
 
-interface AddExerciseSheetProps {
+interface AddExerciseSheetProperties {
     onAdd: (exerciseId: string) => void;
     triggerLabel?: string;
 }
@@ -25,7 +25,7 @@ interface AddExerciseSheetProps {
 export function AddExerciseSheet({
     onAdd,
     triggerLabel = 'Add exercise',
-}: AddExerciseSheetProps) {
+}: AddExerciseSheetProperties) {
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState('');
     const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -59,10 +59,10 @@ export function AddExerciseSheet({
                 <CommandList>
                     {exercises.isLoading ? (
                         <div className="flex flex-col gap-2 px-2 py-2">
-                            {Array.from({ length: 6 }).map((_, i) => (
+                            {Array.from({ length: 6 }).map((_, index) => (
                                 <Skeleton
                                     className="h-10 w-full rounded-lg"
-                                    key={i}
+                                    key={index}
                                 />
                             ))}
                         </div>

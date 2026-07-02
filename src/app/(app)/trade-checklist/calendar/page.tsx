@@ -12,7 +12,7 @@ import { db, tradeAssessments } from '~/server/db';
 
 import { CalendarView } from '../_components/CalendarView';
 
-interface CalendarPageProps {
+interface CalendarPageProperties {
     searchParams: Promise<{ month?: string }>;
 }
 
@@ -26,7 +26,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function TradeCalendarPage({
     searchParams,
-}: CalendarPageProps) {
+}: CalendarPageProperties) {
     const session = await getServerSession();
     if (!session?.user.id) redirect(routes.auth.login);
     const userId = session.user.id;

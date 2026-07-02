@@ -2,42 +2,45 @@ import * as React from 'react';
 
 import { cn } from '~/lib/utils';
 
-function Table({ className, ...props }: React.ComponentProps<'table'>) {
+function Table({ className, ...properties }: React.ComponentProps<'table'>) {
     return (
         <div className="relative w-full overflow-auto">
             <table
                 className={cn('w-full caption-bottom text-sm', className)}
                 data-slot="table"
-                {...props}
+                {...properties}
             />
         </div>
     );
 }
 
-function TableBody({ className, ...props }: React.ComponentProps<'tbody'>) {
+function TableBody({
+    className,
+    ...properties
+}: React.ComponentProps<'tbody'>) {
     return (
         <tbody
             className={cn('[&_tr:last-child]:border-0', className)}
             data-slot="table-body"
-            {...props}
+            {...properties}
         />
     );
 }
 
 function TableCaption({
     className,
-    ...props
+    ...properties
 }: React.ComponentProps<'caption'>) {
     return (
         <caption
             className={cn('mt-4 text-sm text-muted-foreground', className)}
             data-slot="table-caption"
-            {...props}
+            {...properties}
         />
     );
 }
 
-function TableCell({ className, ...props }: React.ComponentProps<'td'>) {
+function TableCell({ className, ...properties }: React.ComponentProps<'td'>) {
     return (
         <td
             className={cn(
@@ -45,12 +48,15 @@ function TableCell({ className, ...props }: React.ComponentProps<'td'>) {
                 className,
             )}
             data-slot="table-cell"
-            {...props}
+            {...properties}
         />
     );
 }
 
-function TableFooter({ className, ...props }: React.ComponentProps<'tfoot'>) {
+function TableFooter({
+    className,
+    ...properties
+}: React.ComponentProps<'tfoot'>) {
     return (
         <tfoot
             className={cn(
@@ -58,12 +64,12 @@ function TableFooter({ className, ...props }: React.ComponentProps<'tfoot'>) {
                 className,
             )}
             data-slot="table-footer"
-            {...props}
+            {...properties}
         />
     );
 }
 
-function TableHead({ className, ...props }: React.ComponentProps<'th'>) {
+function TableHead({ className, ...properties }: React.ComponentProps<'th'>) {
     return (
         <th
             className={cn(
@@ -71,22 +77,25 @@ function TableHead({ className, ...props }: React.ComponentProps<'th'>) {
                 className,
             )}
             data-slot="table-head"
-            {...props}
+            {...properties}
         />
     );
 }
 
-function TableHeader({ className, ...props }: React.ComponentProps<'thead'>) {
+function TableHeader({
+    className,
+    ...properties
+}: React.ComponentProps<'thead'>) {
     return (
         <thead
             className={cn('[&_tr]:border-b [&_tr]:border-border/60', className)}
             data-slot="table-header"
-            {...props}
+            {...properties}
         />
     );
 }
 
-function TableRow({ className, ...props }: React.ComponentProps<'tr'>) {
+function TableRow({ className, ...properties }: React.ComponentProps<'tr'>) {
     return (
         <tr
             className={cn(
@@ -94,7 +103,7 @@ function TableRow({ className, ...props }: React.ComponentProps<'tr'>) {
                 className,
             )}
             data-slot="table-row"
-            {...props}
+            {...properties}
         />
     );
 }

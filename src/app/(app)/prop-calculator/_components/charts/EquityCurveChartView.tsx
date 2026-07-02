@@ -14,7 +14,7 @@ import { formatCompactCurrency } from '~/lib/format';
 import { type SimOutputs } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utils';
 
-interface Props {
+interface Properties {
     result: SimOutputs;
 }
 
@@ -25,7 +25,7 @@ const chartConfig: ChartConfig = {
 
 type ChartRow = Record<string, null | number>;
 
-export default function EquityCurveChartView({ result }: Props) {
+export default function EquityCurveChartView({ result }: Properties) {
     if (result.sampleEquityCurves.length === 0) {
         return (
             <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
@@ -93,13 +93,13 @@ export default function EquityCurveChartView({ result }: Props) {
                     strokeDasharray="4 4"
                     y={drawdownLine}
                 />
-                {Array.from({ length: pathCount }).map((_, i) => (
+                {Array.from({ length: pathCount }).map((_, index) => (
                     <Line
                         connectNulls={false}
-                        dataKey={`p${i}`}
+                        dataKey={`p${index}`}
                         dot={false}
                         isAnimationActive={false}
-                        key={i}
+                        key={index}
                         stroke="var(--color-sample)"
                         strokeOpacity={0.18}
                         strokeWidth={1}
@@ -122,16 +122,16 @@ export default function EquityCurveChartView({ result }: Props) {
 
 function buildChartData(curves: readonly number[][]): ChartRow[] {
     if (curves.length === 0) return [];
-    let maxLen = 0;
-    for (const c of curves) if (c.length > maxLen) maxLen = c.length;
+    let maxLength = 0;
+    for (const c of curves) if (c.length > maxLength) maxLength = c.length;
 
     const rows: ChartRow[] = [];
-    for (let day = 0; day < maxLen; day++) {
+    for (let day = 0; day < maxLength; day++) {
         const row: ChartRow = { day, median: null };
         const valuesAtDay: number[] = [];
-        for (const [i, curve] of curves.entries()) {
+        for (const [index, curve] of curves.entries()) {
             const v = curve[day];
-            row[`p${i}`] = v ?? null;
+            row[`p${index}`] = v ?? null;
             if (v !== undefined) valuesAtDay.push(v);
         }
         if (valuesAtDay.length > 0) {

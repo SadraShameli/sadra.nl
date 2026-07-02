@@ -48,18 +48,18 @@ interface JournalStats {
 
 function computeStats(trades: number[]): JournalStats {
     const n = trades.length;
-    const winsArr = trades.filter((r) => r > 0);
-    const lossArr = trades.filter((r) => r <= 0);
-    const wins = winsArr.length;
-    const losses = lossArr.length;
+    const winsArray = trades.filter((r) => r > 0);
+    const lossArray = trades.filter((r) => r <= 0);
+    const wins = winsArray.length;
+    const losses = lossArray.length;
     const winrate = n > 0 ? wins / n : 0;
-    const avgWin = wins > 0 ? winsArr.reduce((s, v) => s + v, 0) / wins : 0;
+    const avgWin = wins > 0 ? winsArray.reduce((s, v) => s + v, 0) / wins : 0;
     const avgLoss =
-        losses > 0 ? -lossArr.reduce((s, v) => s + v, 0) / losses : 0;
+        losses > 0 ? -lossArray.reduce((s, v) => s + v, 0) / losses : 0;
     const rrActual = avgLoss > 0 ? avgWin / avgLoss : 0;
     const expectancy = winrate * avgWin - (1 - winrate) * avgLoss;
-    const sumWins = winsArr.reduce((s, v) => s + v, 0);
-    const sumLoss = Math.abs(lossArr.reduce((s, v) => s + v, 0));
+    const sumWins = winsArray.reduce((s, v) => s + v, 0);
+    const sumLoss = Math.abs(lossArray.reduce((s, v) => s + v, 0));
     const profitFactor =
         sumLoss > 0 ? sumWins / sumLoss : sumWins > 0 ? Infinity : 0;
     const totalR = trades.reduce((s, v) => s + v, 0);
@@ -76,17 +76,17 @@ function computeStats(trades: number[]): JournalStats {
             : null;
 
     let cumR = 0;
-    const equityCurve = trades.map((r, i) => {
+    const equityCurve = trades.map((r, index) => {
         cumR += r;
-        return { cumR: +cumR.toFixed(3), trade: i + 1 };
+        return { cumR: +cumR.toFixed(3), trade: index + 1 };
     });
     equityCurve.unshift({ cumR: 0, trade: 0 });
 
     const WINDOW = 20;
-    const rollingWR = trades.slice(WINDOW - 1).map((_, i) => {
-        const window = trades.slice(i, i + WINDOW);
+    const rollingWR = trades.slice(WINDOW - 1).map((_, index) => {
+        const window = trades.slice(index, index + WINDOW);
         return {
-            trade: i + WINDOW,
+            trade: index + WINDOW,
             wr20: window.filter((r) => r > 0).length / WINDOW,
         };
     });

@@ -98,9 +98,9 @@ export function DataTable<TData, TValue>({
         onColumnFiltersChange: setColumnFilters,
         onGlobalFilterChange: setGlobalFilter,
         onRowSelectionChange: (updater) => {
-            setRowSelection((prev) => {
+            setRowSelection((previous) => {
                 const next =
-                    typeof updater === 'function' ? updater(prev) : updater;
+                    typeof updater === 'function' ? updater(previous) : updater;
                 if (onRowSelectionChange) {
                     const selectedRows = table
                         .getRowModel()
@@ -176,11 +176,12 @@ export function DataTable<TData, TValue>({
                         {table.getHeaderGroups().map((headerGroup) => (
                             <TableRow key={headerGroup.id}>
                                 {headerGroup.headers.map((header) => {
-                                    const sortable = header.column.getCanSort();
+                                    const isSortable =
+                                        header.column.getCanSort();
                                     const sorted = header.column.getIsSorted();
                                     return (
                                         <TableHead key={header.id}>
-                                            {header.isPlaceholder ? null : sortable ? (
+                                            {header.isPlaceholder ? null : isSortable ? (
                                                 <button
                                                     className="flex items-center gap-1 text-left transition-colors hover:text-white"
                                                     onClick={header.column.getToggleSortingHandler()}
@@ -216,23 +217,25 @@ export function DataTable<TData, TValue>({
                     </TableHeader>
                     <TableBody key={isLoading ? 'skeleton' : 'data'}>
                         {isLoading ? (
-                            Array.from({ length: skeletonRows }).map((_, i) => (
-                                <TableRow
-                                    className="animate-in duration-500 fade-in-0 fill-mode-both"
-                                    key={`skeleton-${i}`}
-                                    style={{
-                                        animationDelay: `${i * 50}ms`,
-                                    }}
-                                >
-                                    {Array.from({ length: colCount }).map(
-                                        (_unused, j) => (
-                                            <TableCell key={j}>
-                                                <Skeleton className="h-4 w-full" />
-                                            </TableCell>
-                                        ),
-                                    )}
-                                </TableRow>
-                            ))
+                            Array.from({ length: skeletonRows }).map(
+                                (_, index) => (
+                                    <TableRow
+                                        className="animate-in duration-500 fade-in-0 fill-mode-both"
+                                        key={`skeleton-${index}`}
+                                        style={{
+                                            animationDelay: `${index * 50}ms`,
+                                        }}
+                                    >
+                                        {Array.from({ length: colCount }).map(
+                                            (_unused, index) => (
+                                                <TableCell key={index}>
+                                                    <Skeleton className="h-4 w-full" />
+                                                </TableCell>
+                                            ),
+                                        )}
+                                    </TableRow>
+                                ),
+                            )
                         ) : table.getRowModel().rows.length === 0 ? (
                             <TableRow className="animate-in duration-500 fade-in-0 fill-mode-both hover:bg-transparent">
                                 <TableCell className="p-0" colSpan={colCount}>
@@ -242,8 +245,8 @@ export function DataTable<TData, TValue>({
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            table.getRowModel().rows.map((row, i) => {
-                                const delay = `${Math.min(i, 12) * 35}ms`;
+                            table.getRowModel().rows.map((row, index) => {
+                                const delay = `${Math.min(index, 12) * 35}ms`;
                                 return (
                                     <TableRow
                                         className={cn(

@@ -7,7 +7,7 @@ import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utils';
 import { api, HydrateClient } from '~/trpc/server';
 
-interface PageProps {
+interface PageProperties {
     params: Promise<{ id: string }>;
 }
 
@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({
     params,
-}: PageProps): Promise<Metadata> {
+}: PageProperties): Promise<Metadata> {
     const { id } = await params;
     return {
         description: 'Workout detail and history.',
@@ -23,7 +23,9 @@ export async function generateMetadata({
     };
 }
 
-export default async function LiftingWorkoutDetailPage({ params }: PageProps) {
+export default async function LiftingWorkoutDetailPage({
+    params,
+}: PageProperties) {
     const session = await getServerSession();
     if (!session?.user.id) redirect(routes.auth.login);
     const { id } = await params;

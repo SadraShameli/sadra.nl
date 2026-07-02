@@ -1,7 +1,7 @@
 import RevealAnimation from '~/components/ui/Animations/Reveal';
 import { cn } from '~/lib/utils';
 
-interface SectionTitleProps {
+interface SectionTitleProperties {
     className?: string;
     text: string;
 }
@@ -9,7 +9,7 @@ interface SectionTitleProps {
 export default function SectionDescription({
     className,
     text,
-}: SectionTitleProps) {
+}: SectionTitleProperties) {
     return (
         <RevealAnimation>
             <p className={cn('mx-auto mt-4 text-center lg:w-2/3', className)}>

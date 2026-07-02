@@ -265,12 +265,12 @@ export const liftingWorkoutRouter = createTRPCRouter({
             }
             if (input.orderedIds.length === 0) return { ok: true };
             const negateChunks = input.orderedIds.map(
-                (id, idx) =>
-                    sql`WHEN ${liftingWorkoutExercise.id} = ${id} THEN ${-(idx + 1)}`,
+                (id, index) =>
+                    sql`WHEN ${liftingWorkoutExercise.id} = ${id} THEN ${-(index + 1)}`,
             );
             const finalChunks = input.orderedIds.map(
-                (id, idx) =>
-                    sql`WHEN ${liftingWorkoutExercise.id} = ${id} THEN ${idx + 1}`,
+                (id, index) =>
+                    sql`WHEN ${liftingWorkoutExercise.id} = ${id} THEN ${index + 1}`,
             );
             const scope = and(
                 eq(liftingWorkoutExercise.workoutId, input.workoutId),
@@ -366,12 +366,12 @@ export const liftingWorkoutRouter = createTRPCRouter({
                         exercises.map((e) => [e.slug, e.id]),
                     );
                     const wexRows = routine.blocks
-                        .map((block, idx) => {
+                        .map((block, index) => {
                             const exId = bySlug.get(block.exerciseSlug);
                             return exId
                                 ? {
                                       exerciseId: exId,
-                                      order: idx + 1,
+                                      order: index + 1,
                                       workoutId: row.id,
                                   }
                                 : null;

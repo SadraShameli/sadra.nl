@@ -21,7 +21,7 @@ import { cn } from '~/lib/utils';
 
 import { panelDescriptions } from './kpiDescriptions';
 
-interface FirmComparisonTableProps {
+interface FirmComparisonTableProperties {
     activeFirmId: FirmId;
     baseInputs: Omit<SimInputs, 'plan'>;
     firms: readonly PropFirm[];
@@ -40,25 +40,25 @@ export default function FirmComparisonTable({
     baseInputs,
     firms,
     targetAccountSize,
-}: FirmComparisonTableProps) {
+}: FirmComparisonTableProperties) {
     const [rows, setRows] = useState<Row[]>([]);
     const [pending, setPending] = useState(false);
-    const inputsRef = useRef(baseInputs);
-    inputsRef.current = baseInputs;
-    const firmsRef = useRef(firms);
-    firmsRef.current = firms;
-    const targetSizeRef = useRef(targetAccountSize);
-    targetSizeRef.current = targetAccountSize;
+    const inputsReference = useRef(baseInputs);
+    inputsReference.current = baseInputs;
+    const firmsReference = useRef(firms);
+    firmsReference.current = firms;
+    const targetSizeReference = useRef(targetAccountSize);
+    targetSizeReference.current = targetAccountSize;
 
     const debouncedKey = useDebouncedKey(baseInputs, targetAccountSize, 700);
 
     useEffect(() => {
-        let cancelled = false;
+        let isCancelled = false;
         setPending(true);
         const handle = setTimeout(() => {
-            const inputs = inputsRef.current;
-            const firmList = firmsRef.current;
-            const targetSize = targetSizeRef.current;
+            const inputs = inputsReference.current;
+            const firmList = firmsReference.current;
+            const targetSize = targetSizeReference.current;
             const trials = Math.min(500, inputs.trials);
             const partial: Omit<Row, 'score'>[] = [];
             for (const firm of firmList) {
@@ -86,13 +86,13 @@ export default function FirmComparisonTable({
                           )
                         : 1,
             }));
-            if (!cancelled) {
+            if (!isCancelled) {
                 setRows(withScore);
                 setPending(false);
             }
         }, 0);
         return () => {
-            cancelled = true;
+            isCancelled = true;
             clearTimeout(handle);
         };
     }, [debouncedKey]);

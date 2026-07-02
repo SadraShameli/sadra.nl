@@ -35,7 +35,7 @@ export function EmptyState({
     );
 }
 
-function Empty({ className, ...props }: React.ComponentProps<'div'>) {
+function Empty({ className, ...properties }: React.ComponentProps<'div'>) {
     return (
         <div
             className={cn(
@@ -43,32 +43,41 @@ function Empty({ className, ...props }: React.ComponentProps<'div'>) {
                 className,
             )}
             data-slot="empty"
-            {...props}
+            {...properties}
         />
     );
 }
 
-function EmptyContent({ className, ...props }: React.ComponentProps<'div'>) {
+function EmptyContent({
+    className,
+    ...properties
+}: React.ComponentProps<'div'>) {
     return (
         <div
             className={cn('flex flex-col items-center gap-2', className)}
             data-slot="empty-content"
-            {...props}
+            {...properties}
         />
     );
 }
 
-function EmptyDescription({ className, ...props }: React.ComponentProps<'p'>) {
+function EmptyDescription({
+    className,
+    ...properties
+}: React.ComponentProps<'p'>) {
     return (
         <p
             className={cn('max-w-sm text-xs text-muted-foreground', className)}
             data-slot="empty-description"
-            {...props}
+            {...properties}
         />
     );
 }
 
-function EmptyHeader({ className, ...props }: React.ComponentProps<'div'>) {
+function EmptyHeader({
+    className,
+    ...properties
+}: React.ComponentProps<'div'>) {
     return (
         <div
             className={cn(
@@ -76,7 +85,7 @@ function EmptyHeader({ className, ...props }: React.ComponentProps<'div'>) {
                 className,
             )}
             data-slot="empty-header"
-            {...props}
+            {...properties}
         />
     );
 }
@@ -85,7 +94,7 @@ function EmptyMedia({
     asChild = false,
     className,
     variant = 'default',
-    ...props
+    ...properties
 }: React.ComponentProps<'div'> & {
     asChild?: boolean;
     variant?: 'default' | 'icon';
@@ -101,17 +110,17 @@ function EmptyMedia({
             )}
             data-slot="empty-media"
             data-variant={variant}
-            {...props}
+            {...properties}
         />
     );
 }
 
-function EmptyTitle({ className, ...props }: React.ComponentProps<'div'>) {
+function EmptyTitle({ className, ...properties }: React.ComponentProps<'div'>) {
     return (
         <div
             className={cn('text-sm font-medium text-foreground', className)}
             data-slot="empty-title"
-            {...props}
+            {...properties}
         />
     );
 }

@@ -25,15 +25,15 @@ export default defineCommand({
             'Run database seeders. Pass names or group prefixes (e.g. "iot" or "accounting:rules"); omit to run all.',
         name: 'run',
     },
-    async run(ctx) {
+    async run(context) {
         const registry = new SeederRegistry().registerAll(seeders);
         const names = registry.names();
-        const tokens = ctx.args._.filter((a) => a.length > 0);
+        const tokens = context.args._.filter((a) => a.length > 0);
 
         let filter: ((s: DatabaseSeeder) => boolean) | undefined;
 
         if (
-            ctx.args.interactive ||
+            context.args.interactive ||
             (tokens.length === 0 && process.stdout.isTTY)
         ) {
             const picked = await clack.multiselect({
@@ -48,8 +48,8 @@ export default defineCommand({
             const chosen = new Set(picked);
             filter = (s) => chosen.has(s.name);
         } else if (tokens.length > 0) {
-            const unmatched = tokens.filter(
-                (t) => !names.some((n) => tokenMatches(n, t)),
+            const unmatched = tokens.filter((t) =>
+                names.every((n) => !tokenMatches(n, t)),
             );
             if (unmatched.length > 0) {
                 ui.fail(`No seeders match: ${unmatched.join(', ')}`);

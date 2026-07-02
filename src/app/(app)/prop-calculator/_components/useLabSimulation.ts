@@ -11,7 +11,7 @@ import {
 import { gamblersRuinAsymmetric } from './lab/labMath';
 import { type LabScenario } from './types';
 
-interface Args {
+interface Arguments {
     activationDiscountPercent?: number;
     commissionPerRoundTrip: number;
     discountPercent?: number;
@@ -32,7 +32,7 @@ const DEBOUNCE_MS = 600;
 const TRIALS_BASE = 400;
 const TRIALS_INDEPENDENT = 250;
 
-export function useLabSimulation(args: Args): {
+export function useLabSimulation(arguments_: Arguments): {
     pending: boolean;
     results: Map<string, MultiAccountResult>;
 } {
@@ -46,7 +46,7 @@ export function useLabSimulation(args: Args): {
         plan,
         scenarios,
         seed,
-    } = args;
+    } = arguments_;
 
     const latest = useRef({
         activationDiscountPercent,
@@ -135,7 +135,7 @@ export function useLabSimulation(args: Args): {
             setPending(false);
             return;
         }
-        let cancelled = false;
+        let isCancelled = false;
         setPending(true);
         const handle = setTimeout(() => {
             const next = new Map<string, MultiAccountResult>();
@@ -186,13 +186,13 @@ export function useLabSimulation(args: Args): {
                 next.set(sc.id, enriched);
                 out.push({ result: enriched, scenarioId: sc.id });
             }
-            if (!cancelled) {
+            if (!isCancelled) {
                 setResults(next);
                 setPending(false);
             }
         }, 0);
         return () => {
-            cancelled = true;
+            isCancelled = true;
             clearTimeout(handle);
         };
     }, [debouncedKey]);

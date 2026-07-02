@@ -25,7 +25,7 @@ import { Separator } from '~/components/ui/Separator';
 import { WEIGHT_CATEGORIES } from '~/lib/trading/defaults';
 import { cn } from '~/lib/utils';
 
-interface AssessmentDetailDialogProps {
+interface AssessmentDetailDialogProperties {
     onClose: () => void;
     row: null | TradeAssessmentRow;
 }
@@ -33,7 +33,7 @@ interface AssessmentDetailDialogProps {
 export function AssessmentDetailDialog({
     onClose,
     row,
-}: AssessmentDetailDialogProps) {
+}: AssessmentDetailDialogProperties) {
     if (!row) return null;
 
     const { answers, result } = row;
@@ -197,10 +197,10 @@ export function AssessmentDetailDialog({
                                             'flex flex-col gap-2 text-sm',
                                         )}
                                     >
-                                        {result.redFlags.map((f, i) => (
+                                        {result.redFlags.map((f, index) => (
                                             <li
                                                 className="flex items-start gap-2"
-                                                key={i}
+                                                key={index}
                                             >
                                                 <ArrowRight className="mt-0.5 size-4 shrink-0 text-rose-500" />
                                                 <span>{f}</span>
@@ -222,10 +222,10 @@ export function AssessmentDetailDialog({
                                 <Separator />
                                 <CardContent>
                                     <ul className="flex flex-col gap-2 text-sm">
-                                        {result.strengths.map((s, i) => (
+                                        {result.strengths.map((s, index) => (
                                             <li
                                                 className="flex items-start gap-2"
-                                                key={i}
+                                                key={index}
                                             >
                                                 <ArrowRight className="mt-0.5 size-4 shrink-0 text-emerald-500" />
                                                 <span>{s}</span>
@@ -247,10 +247,10 @@ export function AssessmentDetailDialog({
                                 <Separator />
                                 <CardContent>
                                     <ul className="flex flex-col gap-2 text-sm">
-                                        {result.weaknesses.map((w, i) => (
+                                        {result.weaknesses.map((w, index) => (
                                             <li
                                                 className="flex items-start gap-2"
-                                                key={i}
+                                                key={index}
                                             >
                                                 <ArrowRight className="mt-0.5 size-4 shrink-0 text-amber-500" />
                                                 <span>{w}</span>

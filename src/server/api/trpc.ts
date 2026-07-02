@@ -10,12 +10,12 @@ import { db } from '~/server/db';
 import { device } from '~/server/db/schemas/iot';
 import { hashDeviceToken } from '~/server/helpers/device-token';
 
-export const createTRPCContext = async (opts: { headers: Headers }) => {
-    const session = await auth.api.getSession({ headers: opts.headers });
+export const createTRPCContext = async (options: { headers: Headers }) => {
+    const session = await auth.api.getSession({ headers: options.headers });
     return {
         db,
         session,
-        ...opts,
+        ...options,
     };
 };
 

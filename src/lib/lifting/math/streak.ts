@@ -46,13 +46,13 @@ export class StreakAnalyzer {
 
         let best = 1;
         let run = 1;
-        for (let i = 1; i < weekStarts.length; i++) {
-            const prev = weekStarts[i - 1];
-            const curr = weekStarts[i];
-            if (prev === undefined || curr === undefined) continue;
+        for (let index = 1; index < weekStarts.length; index++) {
+            const previous = weekStarts[index - 1];
+            const current = weekStarts[index];
+            if (previous === undefined || current === undefined) continue;
             const days = differenceInCalendarDays(
-                new Date(curr),
-                new Date(prev),
+                new Date(current),
+                new Date(previous),
             );
             if (days === 7) {
                 run += 1;

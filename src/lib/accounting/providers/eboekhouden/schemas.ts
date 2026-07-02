@@ -1,6 +1,10 @@
 import { z } from 'zod';
 
-import { type IN_EX_VAT, type MUTATION_TYPES, type VAT_CODES } from './enums';
+import {
+    type IN_EX_VAT,
+    type MUTATION_TYPES,
+    type VAT_CODES,
+} from '~/lib/accounting/providers/eboekhouden/enums';
 
 const isoDate = z.string().transform((v) => v.slice(0, 10));
 

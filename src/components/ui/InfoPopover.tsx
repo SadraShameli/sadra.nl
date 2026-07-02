@@ -11,7 +11,7 @@ import {
 } from '~/components/ui/Popover';
 import { cn } from '~/lib/utils';
 
-interface InfoPopoverProps {
+interface InfoPopoverProperties {
     children: React.ReactNode;
     className?: string;
     title: string;
@@ -21,7 +21,7 @@ export default function InfoPopover({
     children,
     className,
     title,
-}: InfoPopoverProps) {
+}: InfoPopoverProperties) {
     return (
         <Popover>
             <PopoverTrigger asChild>

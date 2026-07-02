@@ -54,18 +54,18 @@ export function simulateCompound(inputs: CompoundInputs): CompoundOutputs {
     );
 
     const finalBalances: number[] = [];
-    const daysToDoubleBuf: number[] = [];
-    const daysToTripleBuf: number[] = [];
+    const daysToDoubleBuffer: number[] = [];
+    const daysToTripleBuffer: number[] = [];
     let ruinCount = 0;
 
     for (let t = 0; t < trials; t++) {
         let bal = startBalance;
-        let doubled = false;
-        let tripled = false;
+        let isDoubled = false;
+        let isTripled = false;
         const path = sampledPaths[t];
         if (!path) continue;
         path[0] = bal;
-        let stepIdx = 1;
+        let stepIndex = 1;
 
         for (let day = 1; day <= tradingDays; day++) {
             let dayPnl = 0;
@@ -75,17 +75,17 @@ export function simulateCompound(inputs: CompoundInputs): CompoundOutputs {
             }
             bal = Math.max(0, bal + dayPnl);
 
-            if (!doubled && bal >= startBalance * 2) {
-                daysToDoubleBuf.push(day);
-                doubled = true;
+            if (!isDoubled && bal >= startBalance * 2) {
+                daysToDoubleBuffer.push(day);
+                isDoubled = true;
             }
-            if (!tripled && bal >= startBalance * 3) {
-                daysToTripleBuf.push(day);
-                tripled = true;
+            if (!isTripled && bal >= startBalance * 3) {
+                daysToTripleBuffer.push(day);
+                isTripled = true;
             }
 
             if (day % STEP === 0 || day === tradingDays) {
-                path[stepIdx++] = bal;
+                path[stepIndex++] = bal;
             }
         }
 
@@ -111,15 +111,15 @@ export function simulateCompound(inputs: CompoundInputs): CompoundOutputs {
         p95.push(percentile(vals, 95));
     }
 
-    const medianDays = (buf: number[]): null | number => {
-        if (buf.length < trials * 0.5) return null;
-        return percentile(buf, 50);
+    const medianDays = (buffer: number[]): null | number => {
+        if (buffer.length < trials * 0.5) return null;
+        return percentile(buffer, 50);
     };
 
     return {
         days,
-        daysToDouble: medianDays(daysToDoubleBuf),
-        daysToTriple: medianDays(daysToTripleBuf),
+        daysToDouble: medianDays(daysToDoubleBuffer),
+        daysToTriple: medianDays(daysToTripleBuffer),
         finalP5: percentile(finalBalances, 5),
         finalP25: percentile(finalBalances, 25),
         finalP50: percentile(finalBalances, 50),

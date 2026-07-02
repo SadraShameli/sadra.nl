@@ -1,35 +1,45 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import type { RawTransaction } from '~/lib/accounting/core/types';
 import type { RateProvider } from '~/lib/accounting/rates/provider';
 
-import { convertToEur } from '~/lib/accounting/core/money';
+import { currencyCodeSchema } from '~/lib/accounting/core/currency';
+import { isoDateSchema } from '~/lib/accounting/core/date';
+import { CurrencyConverter, Eur } from '~/lib/accounting/core/money';
 import { EcbRateProvider } from '~/lib/accounting/rates/ecb';
 
-const TX_BASE = {
-    date: '2026-03-01',
-    direction: 'OUT' as const,
+const EUR = currencyCodeSchema.parse('EUR');
+const GBP = currencyCodeSchema.parse('GBP');
+const USD = currencyCodeSchema.parse('USD');
+const AFN = currencyCodeSchema.parse('AFN');
+
+const TX_BASE: RawTransaction = {
+    date: isoDateSchema.parse('2026-03-01'),
+    direction: 'OUT',
     merchant: 'Test',
     sourceAmount: 100,
+    sourceCurrency: EUR,
     sourceFee: 0,
     sourceFeeCurrency: null,
     sourceId: 'src',
     txnId: 't1',
 };
 
-describe('convertToEur – multi-currency', () => {
+describe('CurrencyConverter.convert – multi-currency', () => {
     it('converts GBP via rate provider', () => {
         const rates: RateProvider = {
             ensureRange: () => Promise.resolve(),
             rate({ base, quote }) {
-                if (base === 'EUR' && quote === 'GBP') return 0.85;
+                if (base === EUR && quote === GBP) return 0.85;
                 throw new Error(`no rate ${base}/${quote}`);
             },
         };
-        const result = convertToEur(
-            { ...TX_BASE, sourceCurrency: 'GBP' },
-            rates,
-        );
-        expect(result.eur).toBeCloseTo(100 / 0.85, 2);
+        const result = new CurrencyConverter(rates).convert({
+            ...TX_BASE,
+            sourceCurrency: GBP,
+        });
+        if (result.eur === null) throw new Error('expected a converted amount');
+        expect(Eur.toNumber(result.eur)).toBeCloseTo(100 / 0.85, 2);
         expect(result.note).toMatch(/GBP@ECB/);
     });
 
@@ -40,16 +50,14 @@ describe('convertToEur – multi-currency', () => {
                 return 0.85;
             },
         };
-        const result = convertToEur(
-            {
-                ...TX_BASE,
-                sourceCurrency: 'GBP',
-                sourceFee: 1,
-                sourceFeeCurrency: 'GBP',
-            },
-            rates,
-        );
-        expect(result.eur).toBeCloseTo(101 / 0.85, 2);
+        const result = new CurrencyConverter(rates).convert({
+            ...TX_BASE,
+            sourceCurrency: GBP,
+            sourceFee: 1,
+            sourceFeeCurrency: GBP,
+        });
+        if (result.eur === null) throw new Error('expected a converted amount');
+        expect(Eur.toNumber(result.eur)).toBeCloseTo(101 / 0.85, 2);
     });
 
     it('falls through to skippedCurrency for an ECB-unsupported currency', () => {
@@ -59,27 +67,29 @@ describe('convertToEur – multi-currency', () => {
                 throw new Error(`ECB does not publish ${base}/${quote}`);
             },
         };
-        const result = convertToEur(
-            { ...TX_BASE, sourceCurrency: 'XYZ' },
-            rates,
-        );
+        const result = new CurrencyConverter(rates).convert({
+            ...TX_BASE,
+            sourceCurrency: AFN,
+        });
         expect(result.eur).toBeNull();
-        expect(result.note).toMatch(/unsupported currency XYZ/);
+        expect(result.note).toMatch(/unsupported currency AFN/);
     });
 
     it('USD conversion note still uses USD@ECB format', () => {
         const rates: RateProvider = {
             ensureRange: () => Promise.resolve(),
             rate({ base, quote }) {
-                if (base === 'EUR' && quote === 'USD') return 1.1;
+                if (base === EUR && quote === USD) return 1.1;
                 throw new Error(`no rate ${base}/${quote}`);
             },
         };
-        const result = convertToEur(
-            { ...TX_BASE, sourceAmount: 110, sourceCurrency: 'USD' },
-            rates,
-        );
-        expect(result.eur).toBeCloseTo(100, 2);
+        const result = new CurrencyConverter(rates).convert({
+            ...TX_BASE,
+            sourceAmount: 110,
+            sourceCurrency: USD,
+        });
+        if (result.eur === null) throw new Error('expected a converted amount');
+        expect(Eur.toNumber(result.eur)).toBeCloseTo(100, 2);
         expect(result.note).toMatch(/USD@ECB/);
     });
 });
@@ -100,16 +110,24 @@ describe('EcbRateProvider – multi-currency', () => {
             fetchImpl: mockFetch as unknown as typeof fetch,
         });
 
-        await provider.ensureCurrencyRange('GBP', {
-            end: '2026-03-31',
-            start: '2026-03-01',
+        await provider.ensureCurrencyRange(GBP, {
+            end: isoDateSchema.parse('2026-03-31'),
+            start: isoDateSchema.parse('2026-03-01'),
         });
 
         expect(
-            provider.rate({ base: 'EUR', on: '2026-03-01', quote: 'GBP' }),
+            provider.rate({
+                base: EUR,
+                on: isoDateSchema.parse('2026-03-01'),
+                quote: GBP,
+            }),
         ).toBe(0.85);
         expect(
-            provider.rate({ base: 'EUR', on: '2026-03-03', quote: 'GBP' }),
+            provider.rate({
+                base: EUR,
+                on: isoDateSchema.parse('2026-03-03'),
+                quote: GBP,
+            }),
         ).toBe(0.86);
     });
 
@@ -123,13 +141,17 @@ describe('EcbRateProvider – multi-currency', () => {
             fetchImpl: mockFetch as unknown as typeof fetch,
         });
 
-        await provider.ensureCurrencyRange('GBP', {
-            end: '2026-03-31',
-            start: '2026-03-01',
+        await provider.ensureCurrencyRange(GBP, {
+            end: isoDateSchema.parse('2026-03-31'),
+            start: isoDateSchema.parse('2026-03-01'),
         });
 
         expect(
-            provider.rate({ base: 'EUR', on: '2026-03-02', quote: 'GBP' }),
+            provider.rate({
+                base: EUR,
+                on: isoDateSchema.parse('2026-03-02'),
+                quote: GBP,
+            }),
         ).toBe(0.85);
     });
 
@@ -143,9 +165,12 @@ describe('EcbRateProvider – multi-currency', () => {
             fetchImpl: mockFetch as unknown as typeof fetch,
         });
 
-        const range = { end: '2026-03-31', start: '2026-03-01' };
-        await provider.ensureCurrencyRange('GBP', range);
-        await provider.ensureCurrencyRange('GBP', range);
+        const range = {
+            end: isoDateSchema.parse('2026-03-31'),
+            start: isoDateSchema.parse('2026-03-01'),
+        };
+        await provider.ensureCurrencyRange(GBP, range);
+        await provider.ensureCurrencyRange(GBP, range);
 
         expect(mockFetch).toHaveBeenCalledTimes(1);
     });
@@ -153,8 +178,12 @@ describe('EcbRateProvider – multi-currency', () => {
     it('throws for an unknown currency that was never loaded', async () => {
         const provider = new EcbRateProvider();
         expect(() =>
-            provider.rate({ base: 'EUR', on: '2026-03-01', quote: 'XYZ' }),
-        ).toThrow(/No ECB rates loaded for currency XYZ/);
+            provider.rate({
+                base: EUR,
+                on: isoDateSchema.parse('2026-03-01'),
+                quote: AFN,
+            }),
+        ).toThrow(/No ECB rates loaded for currency AFN/);
     });
 
     it('ensureRange continues to fetch USD only (backward compat)', async () => {
@@ -167,7 +196,10 @@ describe('EcbRateProvider – multi-currency', () => {
             fetchImpl: mockFetch as unknown as typeof fetch,
         });
 
-        await provider.ensureRange({ end: '2026-03-31', start: '2026-03-01' });
+        await provider.ensureRange({
+            end: isoDateSchema.parse('2026-03-31'),
+            start: isoDateSchema.parse('2026-03-01'),
+        });
 
         const [url] = mockFetch.mock.calls[0] as [URL];
         expect(url.toString()).toMatch(/D\.USD\.EUR/);

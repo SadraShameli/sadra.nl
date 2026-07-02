@@ -1,7 +1,13 @@
 import 'server-only';
 
-import { payloadFromResponse, raiseForPayload } from './errors';
-import { type SessionResponse, sessionSchema } from './schemas';
+import {
+    payloadFromResponse,
+    raiseForPayload,
+} from '~/lib/accounting/providers/eboekhouden/errors';
+import {
+    type SessionResponse,
+    sessionSchema,
+} from '~/lib/accounting/providers/eboekhouden/schemas';
 
 export interface EBoekhoudenClientOptions {
     fetchImpl?: typeof fetch;
@@ -30,11 +36,11 @@ export class EBoekhoudenClient {
 
     private readonly timeoutMs: number;
 
-    constructor(accessToken: string, opts: EBoekhoudenClientOptions = {}) {
+    constructor(accessToken: string, options: EBoekhoudenClientOptions = {}) {
         this.accessToken = accessToken;
-        this.source = opts.source ?? 'sadranl';
-        this.fetchImpl = opts.fetchImpl ?? fetch;
-        this.timeoutMs = opts.timeoutMs ?? 30_000;
+        this.source = options.source ?? 'sadranl';
+        this.fetchImpl = options.fetchImpl ?? fetch;
+        this.timeoutMs = options.timeoutMs ?? 30_000;
     }
 
     async closeSession(): Promise<void> {

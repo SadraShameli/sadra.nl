@@ -13,7 +13,7 @@ describe('DeviceCreatedEmail', () => {
             deviceName: 'Garden Sensor',
             locationName: 'Garden',
         });
-        expect(email.subject).toBe('New device — sadra.nl');
+        expect(email.subject).toBe('New device');
         expect(email.to).toBe('user@example.com');
     });
 
@@ -46,7 +46,7 @@ describe('LocationCreatedEmail', () => {
             locationId: 42,
             locationName: 'Office',
         });
-        expect(email.subject).toBe('New location — sadra.nl');
+        expect(email.subject).toBe('New location');
     });
 
     it('renders name and id', async () => {
@@ -68,7 +68,7 @@ describe('LoudnessAlertEmail', () => {
             threshold: 80,
             value: 102,
         });
-        expect(email.subject).toBe('Loudness alert — sadra.nl');
+        expect(email.subject).toBe('Loudness alert');
     });
 
     it('renders value and threshold', async () => {
@@ -104,7 +104,7 @@ describe('ReadingCreatedEmail', () => {
             locationName: 'L1',
             sensorReadings: [],
         });
-        expect(email.subject).toBe('New reading — sadra.nl');
+        expect(email.subject).toBe('New reading');
     });
 
     it('renders each sensor reading', async () => {
@@ -142,7 +142,7 @@ describe('RecordingCreatedEmail', () => {
             fileName: 'clip.wav',
             locationName: 'L1',
         });
-        expect(email.subject).toBe('New recording — sadra.nl');
+        expect(email.subject).toBe('New recording');
     });
 
     it('renders filename with rounded duration when provided', async () => {

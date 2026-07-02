@@ -14,7 +14,7 @@ import {
 } from '~/components/ui/Popover';
 import { cn } from '~/lib/utils';
 
-interface DatePickerProps {
+interface DatePickerProperties {
     align?: 'center' | 'end' | 'start';
     className?: string;
     disabled?: boolean;
@@ -26,7 +26,7 @@ interface DatePickerProps {
     value: Date | undefined;
 }
 
-interface DateRangePickerProps {
+interface DateRangePickerProperties {
     align?: 'center' | 'end' | 'start';
     className?: string;
     disabled?: boolean;
@@ -48,7 +48,7 @@ export function DatePicker({
     onChange,
     placeholder = 'Pick a date',
     value,
-}: DatePickerProps) {
+}: DatePickerProperties) {
     const disabledMatcher =
         minDate && maxDate
             ? [{ before: minDate }, { after: maxDate }]
@@ -101,7 +101,7 @@ export function DateRangePicker({
     onChange,
     placeholder = 'Pick a date range',
     value,
-}: DateRangePickerProps) {
+}: DateRangePickerProperties) {
     const label = formatRange(value, placeholder);
     const disabledMatcher =
         minDate && maxDate

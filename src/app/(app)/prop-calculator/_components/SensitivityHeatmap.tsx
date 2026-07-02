@@ -27,14 +27,14 @@ interface Cell {
     winrate: number;
 }
 
-interface HeatmapCellsProps {
+interface HeatmapCellsProperties {
     cells: Cell[];
     currentRR: number;
     currentWinrate: number;
     metric: 'net' | 'pass';
 }
 
-interface SensitivityHeatmapProps {
+interface SensitivityHeatmapProperties {
     baseInputs: SimInputs;
     currentRR: number;
     currentWinrate: number;
@@ -46,7 +46,7 @@ export default function SensitivityHeatmap({
     currentRR,
     currentWinrate,
     plan,
-}: SensitivityHeatmapProps) {
+}: SensitivityHeatmapProperties) {
     const { cells, pending } = useSensitivityGrid(plan, baseInputs);
 
     return (
@@ -142,7 +142,7 @@ function HeatmapCells({
     currentRR,
     currentWinrate,
     metric,
-}: HeatmapCellsProps) {
+}: HeatmapCellsProperties) {
     const maxAbs = useMemo(() => {
         if (metric !== 'net') return 0;
         let m = 0;
@@ -269,16 +269,16 @@ function useSensitivityGrid(
 ): { cells: Cell[]; pending: boolean } {
     const [cells, setCells] = useState<Cell[]>([]);
     const [pending, setPending] = useState(false);
-    const inputsRef = useRef(baseInputs);
-    inputsRef.current = baseInputs;
+    const inputsReference = useRef(baseInputs);
+    inputsReference.current = baseInputs;
 
     const debouncedKey = useDebouncedKey(baseInputs, 700);
 
     useEffect(() => {
-        let cancelled = false;
+        let isCancelled = false;
         setPending(true);
         const handle = setTimeout(() => {
-            const inputs = inputsRef.current;
+            const inputs = inputsReference.current;
             const trials = Math.min(300, inputs.trials);
             const out: Cell[] = [];
             for (const winrate of WINRATES) {
@@ -297,13 +297,13 @@ function useSensitivityGrid(
                     });
                 }
             }
-            if (!cancelled) {
+            if (!isCancelled) {
                 setCells(out);
                 setPending(false);
             }
         }, 0);
         return () => {
-            cancelled = true;
+            isCancelled = true;
             clearTimeout(handle);
         };
     }, [debouncedKey]);

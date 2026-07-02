@@ -34,7 +34,7 @@ const fmtDays = (d: null | number) => {
     return m < 3 ? `${Math.round(d)}d` : `${m.toFixed(1)}mo`;
 };
 
-interface CompoundingPanelProps {
+interface CompoundingPanelProperties {
     riskPercent: number;
     rrRatio: number;
     seed: number;
@@ -65,10 +65,10 @@ export default function CompoundingPanel({
     startBalance,
     tradesPerDay,
     winrate,
-}: CompoundingPanelProps) {
-    const [horizonIdx, setHorizonIdx] = useState(1);
+}: CompoundingPanelProperties) {
+    const [horizonIndex, setHorizonIndex] = useState(1);
 
-    const horizon = HORIZON_OPTIONS[horizonIdx] ?? HORIZON_OPTIONS[0];
+    const horizon = HORIZON_OPTIONS[horizonIndex] ?? HORIZON_OPTIONS[0];
 
     const out = useMemo(
         () =>
@@ -93,16 +93,16 @@ export default function CompoundingPanel({
         ],
     );
 
-    const chartData = out.days.map((day, i) => ({
-        band75lo: out.p25[i],
-        band95lo: out.p5[i],
+    const chartData = out.days.map((day, index) => ({
+        band75lo: out.p25[index],
+        band95lo: out.p5[index],
         day,
         month: +(day / 21).toFixed(1),
-        p5: out.p5[i],
-        p25: out.p25[i],
-        p50: out.p50[i],
-        p75: out.p75[i],
-        p95: out.p95[i],
+        p5: out.p5[index],
+        p25: out.p25[index],
+        p50: out.p50[index],
+        p75: out.p75[index],
+        p95: out.p95[index],
     }));
 
     const medianFinalCAGR =
@@ -128,14 +128,16 @@ export default function CompoundingPanel({
                     </InfoPopover>
                 </div>
                 <div className="flex gap-2">
-                    {HORIZON_OPTIONS.map((h, i) => (
+                    {HORIZON_OPTIONS.map((h, index) => (
                         <Button
                             className="h-7 px-2.5 text-xs"
                             key={h.label}
-                            onClick={() => setHorizonIdx(i)}
+                            onClick={() => setHorizonIndex(index)}
                             size="sm"
                             type="button"
-                            variant={i === horizonIdx ? 'default' : 'ghost'}
+                            variant={
+                                index === horizonIndex ? 'default' : 'ghost'
+                            }
                         >
                             {h.label}
                         </Button>

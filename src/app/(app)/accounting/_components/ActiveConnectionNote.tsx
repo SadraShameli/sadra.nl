@@ -1,5 +1,5 @@
 import { Badge } from '~/components/ui/Badge';
-import { getCredentialDescriptor } from '~/lib/accounting/credentials/index';
+import { CredentialRegistry } from '~/lib/accounting/credentials/index';
 
 export function ActiveConnectionNote({
     credential,
@@ -9,7 +9,7 @@ export function ActiveConnectionNote({
     roleNoun: string;
 }) {
     const descriptor = credential
-        ? getCredentialDescriptor(credential.kind)
+        ? CredentialRegistry.instance().get(credential.kind)
         : undefined;
     return (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">

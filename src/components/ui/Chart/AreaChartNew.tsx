@@ -8,7 +8,7 @@ import {
     ChartTooltipContent,
 } from '~/components/ui/Chart';
 
-type AreaChartNewProps = {
+type AreaChartNewProperties = {
     area: {
         dataKey: string;
     };
@@ -26,12 +26,12 @@ type AreaChartNewProps = {
     };
 };
 
-export default function AreaChartNew(props: AreaChartNewProps) {
+export default function AreaChartNew(properties: AreaChartNewProperties) {
     const id = useId();
 
     return (
-        <ChartContainer className="h-full w-full" config={props.config}>
-            <AreaChart data={props.data}>
+        <ChartContainer className="h-full w-full" config={properties.config}>
+            <AreaChart data={properties.data}>
                 <defs>
                     <linearGradient id={id} x1="0" x2="0" y1="0" y2="1">
                         <stop
@@ -50,19 +50,19 @@ export default function AreaChartNew(props: AreaChartNewProps) {
 
                 <XAxis
                     axisLine={false}
-                    dataKey={props.xAxis.dataKey}
+                    dataKey={properties.xAxis.dataKey}
                     tickLine={false}
                     tickMargin={10}
                 />
 
                 <YAxis
                     axisLine={false}
-                    tickFormatter={props.yAxis.tickFormatter}
+                    tickFormatter={properties.yAxis.tickFormatter}
                     tickLine={false}
                 />
 
                 <Area
-                    dataKey={props.area.dataKey}
+                    dataKey={properties.area.dataKey}
                     fill={`url(#${id})`}
                     fillOpacity={1}
                     stroke="#a3a3a3"
@@ -73,8 +73,8 @@ export default function AreaChartNew(props: AreaChartNewProps) {
                     content={
                         <ChartTooltipContent
                             indicator="line"
-                            labelKey={props.tooltip.labelKey}
-                            nameKey={props.tooltip.nameKey}
+                            labelKey={properties.tooltip.labelKey}
+                            nameKey={properties.tooltip.nameKey}
                         />
                     }
                 />

@@ -1,6 +1,14 @@
-import type { DateRange, ISODate } from '../core/types';
+import type {
+    CurrencyCode,
+    DateRange,
+    ISODate,
+} from '~/lib/accounting/core/types';
 
 export interface RateProvider {
     ensureRange(range: DateRange): Promise<void>;
-    rate(opts: { base: string; on: ISODate; quote: string }): number;
+    rate(options: {
+        base: CurrencyCode;
+        on: ISODate;
+        quote: CurrencyCode;
+    }): number;
 }

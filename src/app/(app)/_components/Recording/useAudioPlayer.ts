@@ -4,26 +4,26 @@ import type { PlaybackSpeed, RecordingSummary } from './types';
 
 import { GetRandom, GetRecordingURL } from './helpers';
 
-interface UseAudioPlayerProps {
+interface UseAudioPlayerProperties {
     recordings: RecordingSummary[] | undefined;
 }
 
-export function useAudioPlayer({ recordings }: UseAudioPlayerProps) {
+export function useAudioPlayer({ recordings }: UseAudioPlayerProperties) {
     const audio = useRef<HTMLAudioElement>(null);
     const [time, setTime] = useState(0);
     const [duration, setDuration] = useState(0);
     const [volume, setVolume] = useState(1);
-    const [prevVolume, setPrevVolume] = useState(1);
+    const [previousVolume, setPreviousVolume] = useState(1);
     const [isPlaying, setIsPlaying] = useState(false);
     const [isRepeat, setIsRepeat] = useState(false);
     const [isShuffle, setIsShuffle] = useState(false);
     const [isAutoPlay, setIsAutoPlay] = useState(false);
-    const [currentRecordingIdx, setCurrentRecordingIdx] = useState(0);
+    const [currentRecordingIndex, setCurrentRecordingIndex] = useState(0);
     const [playbackRate, setPlaybackRate] = useState<PlaybackSpeed>(1);
 
-    const safeCurrentIdx = Math.max(
+    const safeCurrentIndex = Math.max(
         0,
-        Math.min(currentRecordingIdx, (recordings?.length ?? 1) - 1),
+        Math.min(currentRecordingIndex, (recordings?.length ?? 1) - 1),
     );
 
     const playAudio = useCallback(async () => {
@@ -54,13 +54,13 @@ export function useAudioPlayer({ recordings }: UseAudioPlayerProps) {
 
     const handlePrevious = useCallback(() => {
         if (!recordings?.length) return;
-        setCurrentRecordingIdx((prev) => Math.max(0, prev - 1));
+        setCurrentRecordingIndex((previous) => Math.max(0, previous - 1));
     }, [recordings?.length]);
 
     const handleNext = useCallback(() => {
         if (!recordings?.length) return;
-        setCurrentRecordingIdx((prev) =>
-            Math.min(recordings.length - 1, prev + 1),
+        setCurrentRecordingIndex((previous) =>
+            Math.min(recordings.length - 1, previous + 1),
         );
     }, [recordings?.length]);
 
@@ -68,35 +68,35 @@ export function useAudioPlayer({ recordings }: UseAudioPlayerProps) {
         if (!recordings?.length) return;
         if (isRepeat) setIsRepeat(false);
         if (isAutoPlay) setIsAutoPlay(false);
-        const nextIsShuffle = !isShuffle;
-        if (nextIsShuffle && recordings.length > 1) {
-            let newIdx;
+        const isNextIsShuffle = !isShuffle;
+        if (isNextIsShuffle && recordings.length > 1) {
+            let newIndex;
             do {
-                newIdx = GetRandom(0, recordings.length - 1);
-            } while (newIdx === safeCurrentIdx && recordings.length > 1);
-            setCurrentRecordingIdx(newIdx);
+                newIndex = GetRandom(0, recordings.length - 1);
+            } while (newIndex === safeCurrentIndex && recordings.length > 1);
+            setCurrentRecordingIndex(newIndex);
         }
-        setIsShuffle(nextIsShuffle);
-    }, [recordings?.length, safeCurrentIdx, isRepeat, isAutoPlay, isShuffle]);
+        setIsShuffle(isNextIsShuffle);
+    }, [recordings?.length, safeCurrentIndex, isRepeat, isAutoPlay, isShuffle]);
 
     const handleRepeat = useCallback(() => {
         if (isShuffle) setIsShuffle(false);
         if (isAutoPlay) setIsAutoPlay(false);
-        setIsRepeat((prev) => !prev);
+        setIsRepeat((previous) => !previous);
     }, [isShuffle, isAutoPlay]);
 
     const handleAutoPlay = useCallback(() => {
         if (isShuffle) setIsShuffle(false);
         if (isRepeat) setIsRepeat(false);
-        setIsAutoPlay((prev) => !prev);
+        setIsAutoPlay((previous) => !previous);
     }, [isShuffle, isRepeat]);
 
     const handleRecordingSelect = useCallback(
         (recording: RecordingSummary) => {
             if (!recordings) return;
-            const newIdx = recordings.indexOf(recording);
-            if (newIdx !== -1) {
-                setCurrentRecordingIdx(newIdx);
+            const newIndex = recordings.indexOf(recording);
+            if (newIndex !== -1) {
+                setCurrentRecordingIndex(newIndex);
                 if (isShuffle) setIsShuffle(false);
             }
         },
@@ -105,22 +105,24 @@ export function useAudioPlayer({ recordings }: UseAudioPlayerProps) {
 
     const toggleMute = useCallback(() => {
         if (volume === 0) {
-            setVolume(prevVolume);
+            setVolume(previousVolume);
         } else {
-            setPrevVolume(volume);
+            setPreviousVolume(volume);
             setVolume(0);
         }
-    }, [volume, prevVolume]);
+    }, [volume, previousVolume]);
 
     const handleVolumeChange = useCallback((newVolume: number) => {
         setVolume(newVolume);
     }, []);
 
     const handleTimeChange = useCallback((newTime: number) => {
-        if (audio.current) {
-            audio.current.currentTime = newTime;
-            setTime(newTime);
+        if (!audio.current) {
+            return;
         }
+
+        audio.current.currentTime = newTime;
+        setTime(newTime);
     }, []);
 
     const handleSpeedChange = useCallback((speed: PlaybackSpeed) => {
@@ -132,25 +134,25 @@ export function useAudioPlayer({ recordings }: UseAudioPlayerProps) {
 
     const handleAudioEnded = useCallback(() => {
         if (!recordings?.length) return;
-        setCurrentRecordingIdx((prev) => {
+        setCurrentRecordingIndex((previous) => {
             if (isShuffle && recordings.length > 1) {
-                let newIdx;
+                let newIndex;
                 do {
-                    newIdx = GetRandom(0, recordings.length - 1);
-                } while (newIdx === prev && recordings.length > 1);
-                return newIdx;
+                    newIndex = GetRandom(0, recordings.length - 1);
+                } while (newIndex === previous && recordings.length > 1);
+                return newIndex;
             }
-            if (isAutoPlay && prev < recordings.length - 1) {
-                return prev + 1;
+            if (isAutoPlay && previous < recordings.length - 1) {
+                return previous + 1;
             }
             if (!isRepeat) {
                 setIsPlaying(false);
             }
-            return prev;
+            return previous;
         });
     }, [recordings?.length, isShuffle, isAutoPlay, isRepeat]);
 
-    const keyboardRef = useRef({
+    const keyboardReference = useRef({
         duration,
         handleTimeChange,
         handleVolumeChange,
@@ -159,21 +161,21 @@ export function useAudioPlayer({ recordings }: UseAudioPlayerProps) {
         togglePlayPause,
         volume,
     });
-    keyboardRef.current.togglePlayPause = togglePlayPause;
-    keyboardRef.current.handleTimeChange = handleTimeChange;
-    keyboardRef.current.handleVolumeChange = handleVolumeChange;
-    keyboardRef.current.hasRecordings = Boolean(recordings?.length);
-    keyboardRef.current.time = time;
-    keyboardRef.current.volume = volume;
-    keyboardRef.current.duration = duration;
+    keyboardReference.current.togglePlayPause = togglePlayPause;
+    keyboardReference.current.handleTimeChange = handleTimeChange;
+    keyboardReference.current.handleVolumeChange = handleVolumeChange;
+    keyboardReference.current.hasRecordings = Boolean(recordings?.length);
+    keyboardReference.current.time = time;
+    keyboardReference.current.volume = volume;
+    keyboardReference.current.duration = duration;
 
     useEffect(() => {
         if (!recordings?.length || !audio.current) return;
-        const recording = recordings[safeCurrentIdx];
+        const recording = recordings[safeCurrentIndex];
         if (recording) {
-            const newSrc = GetRecordingURL(recording);
-            if (!audio.current.src.endsWith(newSrc)) {
-                audio.current.src = newSrc;
+            const newSource = GetRecordingURL(recording);
+            if (!audio.current.src.endsWith(newSource)) {
+                audio.current.src = newSource;
                 audio.current.load();
                 setTime(0);
                 setDuration(0);
@@ -181,7 +183,7 @@ export function useAudioPlayer({ recordings }: UseAudioPlayerProps) {
             audio.current.volume = volume;
             audio.current.playbackRate = playbackRate;
         }
-    }, [playbackRate, recordings, safeCurrentIdx, volume]);
+    }, [playbackRate, recordings, safeCurrentIndex, volume]);
 
     useEffect(() => {
         if (audio.current) {
@@ -196,18 +198,20 @@ export function useAudioPlayer({ recordings }: UseAudioPlayerProps) {
     }, [playbackRate]);
 
     useEffect(() => {
-        if (currentRecordingIdx !== safeCurrentIdx) {
-            setCurrentRecordingIdx(safeCurrentIdx);
+        if (currentRecordingIndex !== safeCurrentIndex) {
+            setCurrentRecordingIndex(safeCurrentIndex);
         }
-    }, [safeCurrentIdx, currentRecordingIdx]);
+    }, [safeCurrentIndex, currentRecordingIndex]);
 
     useEffect(() => {
         const audioElement = audio.current;
         return () => {
-            if (audioElement) {
-                audioElement.pause();
-                audioElement.src = '';
+            if (!audioElement) {
+                return;
             }
+
+            audioElement.pause();
+            audioElement.src = '';
         };
     }, []);
 
@@ -226,7 +230,7 @@ export function useAudioPlayer({ recordings }: UseAudioPlayerProps) {
                 time,
                 togglePlayPause,
                 volume,
-            } = keyboardRef.current;
+            } = keyboardReference.current;
             if (!hasRecordings) return;
             switch (e.code) {
                 case 'ArrowDown': {
@@ -264,12 +268,12 @@ export function useAudioPlayer({ recordings }: UseAudioPlayerProps) {
         return () => window.removeEventListener('keydown', onKeyDown);
     }, []);
 
-    const currentRecording = recordings?.[safeCurrentIdx];
+    const currentRecording = recordings?.[safeCurrentIndex];
 
     return {
         audioRef: audio,
         currentRecording,
-        currentRecordingIdx: safeCurrentIdx,
+        currentRecordingIdx: safeCurrentIndex,
         duration,
         handleAudioEnded,
         handleAutoPlay,

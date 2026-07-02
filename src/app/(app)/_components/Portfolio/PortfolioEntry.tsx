@@ -9,13 +9,13 @@ import { cn } from '~/lib/utils';
 
 import SkillChip from './SkillChip';
 
-type PortfolioEntryProps = {
+type PortfolioEntryProperties = {
     entry: PortfolioSectionView;
 };
 
 const PRESENT_DATE = /\bPresent\s*$/;
 
-export default function PortfolioEntry({ entry }: PortfolioEntryProps) {
+export default function PortfolioEntry({ entry }: PortfolioEntryProperties) {
     const isCurrent = PRESENT_DATE.test(entry.date);
     const alt = `${entry.title} workspace`;
 

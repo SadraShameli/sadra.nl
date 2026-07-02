@@ -183,11 +183,16 @@ export function AnalysisReport({
                                     </span>
                                     {result.redFlags.length > 0 && (
                                         <ul className="mt-3 flex flex-col gap-1 border-t border-current/20 pt-3">
-                                            {result.redFlags.map((flag, i) => (
-                                                <li className="text-xs" key={i}>
-                                                    · {flag}
-                                                </li>
-                                            ))}
+                                            {result.redFlags.map(
+                                                (flag, index) => (
+                                                    <li
+                                                        className="text-xs"
+                                                        key={index}
+                                                    >
+                                                        · {flag}
+                                                    </li>
+                                                ),
+                                            )}
                                         </ul>
                                     )}
                                 </AlertDescription>
@@ -206,11 +211,16 @@ export function AnalysisReport({
                                     </span>
                                     {result.redFlags.length > 0 && (
                                         <ul className="mt-3 flex flex-col gap-1 border-t border-current/20 pt-3">
-                                            {result.redFlags.map((flag, i) => (
-                                                <li className="text-xs" key={i}>
-                                                    · {flag}
-                                                </li>
-                                            ))}
+                                            {result.redFlags.map(
+                                                (flag, index) => (
+                                                    <li
+                                                        className="text-xs"
+                                                        key={index}
+                                                    >
+                                                        · {flag}
+                                                    </li>
+                                                ),
+                                            )}
                                         </ul>
                                     )}
                                 </AlertDescription>
@@ -272,10 +282,10 @@ export function AnalysisReport({
                                     'flex flex-col gap-2 text-sm',
                                 )}
                             >
-                                {result.strengths.map((s, i) => (
+                                {result.strengths.map((s, index) => (
                                     <li
                                         className="flex items-start gap-2"
-                                        key={i}
+                                        key={index}
                                     >
                                         <ArrowRight className="mt-0.5 size-4 shrink-0 text-emerald-500" />
                                         <span>{s}</span>
@@ -306,10 +316,10 @@ export function AnalysisReport({
                                     'flex flex-col gap-2 text-sm',
                                 )}
                             >
-                                {result.weaknesses.map((w, i) => (
+                                {result.weaknesses.map((w, index) => (
                                     <li
                                         className="flex items-start gap-2"
-                                        key={i}
+                                        key={index}
                                     >
                                         <ArrowRight className="mt-0.5 size-4 shrink-0 text-rose-500" />
                                         <span>{w}</span>
@@ -336,8 +346,11 @@ export function AnalysisReport({
                     <Separator />
                     <CardContent>
                         <ul className="flex flex-col gap-2 text-sm">
-                            {result.improvements.map((imp, i) => (
-                                <li className="flex items-start gap-2" key={i}>
+                            {result.improvements.map((imp, index) => (
+                                <li
+                                    className="flex items-start gap-2"
+                                    key={index}
+                                >
                                     <ArrowRight className="mt-0.5 size-4 shrink-0 text-sky-400" />
                                     <span>{imp}</span>
                                 </li>

@@ -9,7 +9,7 @@ import { Progress } from '~/components/ui/Progress';
 import { DurationFormat } from '~/lib/lifting/format';
 import { cn } from '~/lib/utils';
 
-interface RestTimerOverlayProps {
+interface RestTimerOverlayProperties {
     onClose: () => void;
     open: boolean;
     seconds: number;
@@ -19,30 +19,34 @@ export function RestTimerOverlay({
     onClose,
     open,
     seconds,
-}: RestTimerOverlayProps) {
+}: RestTimerOverlayProperties) {
     const [elapsed, setElapsed] = useState(0);
-    const startRef = useRef<null | number>(null);
-    const autoCloseRef = useRef<null | ReturnType<typeof setTimeout>>(null);
-    const onCloseRef = useRef(onClose);
+    const startReference = useRef<null | number>(null);
+    const autoCloseReference = useRef<null | ReturnType<typeof setTimeout>>(
+        null,
+    );
+    const onCloseReference = useRef(onClose);
 
     useEffect(() => {
-        onCloseRef.current = onClose;
+        onCloseReference.current = onClose;
     }, [onClose]);
 
     useEffect(() => {
         if (!open) {
             setElapsed(0);
-            startRef.current = null;
-            if (autoCloseRef.current) {
-                clearTimeout(autoCloseRef.current);
-                autoCloseRef.current = null;
+            startReference.current = null;
+            if (autoCloseReference.current) {
+                clearTimeout(autoCloseReference.current);
+                autoCloseReference.current = null;
             }
             return;
         }
-        startRef.current = Date.now();
+        startReference.current = Date.now();
         const tick = setInterval(() => {
-            if (startRef.current === null) return;
-            const next = Math.floor((Date.now() - startRef.current) / 1000);
+            if (startReference.current === null) return;
+            const next = Math.floor(
+                (Date.now() - startReference.current) / 1000,
+            );
             setElapsed(next);
             if (next === seconds) {
                 if (
@@ -51,8 +55,8 @@ export function RestTimerOverlay({
                 ) {
                     navigator.vibrate([180, 80, 180]);
                 }
-                autoCloseRef.current = setTimeout(
-                    () => onCloseRef.current(),
+                autoCloseReference.current = setTimeout(
+                    () => onCloseReference.current(),
                     5000,
                 );
             }
@@ -61,7 +65,7 @@ export function RestTimerOverlay({
     }, [open, seconds]);
 
     const remaining = Math.max(0, seconds - elapsed);
-    const overrun = elapsed > seconds;
+    const isOverrun = elapsed > seconds;
     const progressPct = Math.min(100, (elapsed / Math.max(seconds, 1)) * 100);
 
     return (
@@ -91,14 +95,14 @@ export function RestTimerOverlay({
                     <span
                         className={cn(
                             'mt-2 text-[120px] leading-none font-bold tabular-nums',
-                            overrun ? 'text-emerald-400' : 'text-foreground',
+                            isOverrun ? 'text-emerald-400' : 'text-foreground',
                         )}
                     >
                         {DurationFormat.seconds(remaining)}
                     </span>
                     <span className="mt-2 text-sm text-muted-foreground tabular-nums">
                         Target {DurationFormat.seconds(seconds)}
-                        {overrun && (
+                        {isOverrun && (
                             <span className="ml-2 text-emerald-400">
                                 +{DurationFormat.seconds(elapsed - seconds)}
                             </span>
@@ -107,7 +111,7 @@ export function RestTimerOverlay({
                     <Progress
                         className={cn(
                             'mt-8 h-1.5 w-[min(80vw,420px)] bg-white/5',
-                            overrun && '*:data-state:bg-emerald-400',
+                            isOverrun && '*:data-state:bg-emerald-400',
                         )}
                         value={progressPct}
                     />

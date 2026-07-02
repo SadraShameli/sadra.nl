@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import type { Booking } from '~/lib/accounting/core/types';
 
+import { currencyCodeSchema } from '~/lib/accounting/core/currency';
+import { isoDateSchema } from '~/lib/accounting/core/date';
 import { bookingToMutationPayload } from '~/lib/accounting/providers/eboekhouden/booking';
 import { MUTATION_TYPES } from '~/lib/accounting/providers/eboekhouden/enums';
 
@@ -10,12 +12,12 @@ const baseBooking: Booking = {
     bank: { id: 1, label: 'Wise EUR' },
     counterpartLedger: { id: 99, label: 'Software' },
     counterpartName: 'Anthropic Ireland',
-    date: '2026-02-01',
+    date: isoDateSchema.parse('2026-02-01'),
     direction: 'OUT',
     notes: ['EUR+fee0.50'],
-    sourceCurrency: 'EUR',
+    sourceCurrency: currencyCodeSchema.parse('EUR'),
+    taxCode: 'BI_EU_INK',
     txnId: 'TX-1234567890',
-    vatCode: 'BI_EU_INK',
 };
 
 describe('bookingToMutationPayload', () => {
@@ -84,7 +86,7 @@ describe('bookingToMutationPayload', () => {
             counterpartName: 'Apex Trader Funding',
             direction: 'IN',
             isRefund: true,
-            vatCode: 'BU_EU_INK',
+            taxCode: 'BU_EU_INK',
         });
         expect(payload.type).toBe(MUTATION_TYPES.MONEY_SENT);
         expect(payload.rows[0]?.amount).toBe(-29.9);

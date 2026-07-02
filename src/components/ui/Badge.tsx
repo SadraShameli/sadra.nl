@@ -34,12 +34,17 @@ export interface BadgeProps
     asChild?: boolean;
 }
 
-function Badge({ asChild = false, className, variant, ...props }: BadgeProps) {
+function Badge({
+    asChild = false,
+    className,
+    variant,
+    ...properties
+}: BadgeProps) {
     const Comp = asChild ? Slot : 'div';
     return (
         <Comp
             className={cn(badgeVariants({ variant }), className)}
-            {...props}
+            {...properties}
         />
     );
 }

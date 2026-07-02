@@ -55,7 +55,7 @@ export function ResumeDocument({
     research,
     showCover,
 }: ResumeDocumentProps) {
-    const renderCover = showCover && Boolean(cover?.length);
+    const isRenderCover = showCover && Boolean(cover?.length);
 
     return (
         <Document
@@ -102,11 +102,11 @@ export function ResumeDocument({
                 </View>
                 <Header
                     basics={basics}
-                    hideSummary={renderCover}
+                    hideSummary={isRenderCover}
                     profilePictureSrc={profilePictureSrc}
                 />
 
-                {renderCover ? (
+                {isRenderCover ? (
                     <Section title="Cover Letter">
                         <HtmlText style={styles.entrySummary} value={cover} />
                     </Section>
@@ -320,11 +320,11 @@ function HtmlText({
     const parts = value.split(/(<strong>[\S\s]*?<\/strong>)/);
     return (
         <Text style={style}>
-            {parts.map((part, i) => {
+            {parts.map((part, index) => {
                 const match = /^<strong>([\S\s]*?)<\/strong>$/.exec(part);
                 if (match) {
                     return (
-                        <Text key={i} style={{ fontWeight: 700 }}>
+                        <Text key={index} style={{ fontWeight: 700 }}>
                             {match[1]}
                         </Text>
                     );

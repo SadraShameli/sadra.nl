@@ -3,26 +3,24 @@ import { and, asc, eq, inArray } from 'drizzle-orm';
 import 'server-only';
 import { z } from 'zod';
 
-import type { BookingRule } from '~/lib/accounting/core/types';
-
-import { classifyTransaction } from '~/lib/accounting/core/orchestrator';
-import {
-    getCredentialDescriptor,
-    listCredentialDescriptors,
-    listCredentialDescriptorsByRole,
-} from '~/lib/accounting/credentials/index';
+import { RunId, UserId } from '~/lib/accounting/core/ids';
+import { Rule } from '~/lib/accounting/core/rules/rule';
+import { RuleSet } from '~/lib/accounting/core/rules/rule-set';
+import { BOOKING_DIRECTIONS } from '~/lib/accounting/core/types';
+import { CredentialRegistry } from '~/lib/accounting/credentials/index';
 import '~/lib/accounting/credentials/server';
 import {
     getCredentialTest,
     getFieldOptionsLoader,
 } from '~/lib/accounting/credentials/server';
 import '~/lib/accounting/providers/index';
-import { getProvider } from '~/lib/accounting/providers/provider';
+import { ProviderRegistry } from '~/lib/accounting/providers/provider';
+import { loadRuleSet } from '~/lib/accounting/rules/load';
+import { accountingRunRepository } from '~/lib/accounting/runs/repository';
 import '~/lib/accounting/sources/index';
 import {
     type ApiSource,
-    findApiSourceByCredentialKind,
-    getSource,
+    SourceRegistry,
 } from '~/lib/accounting/sources/source';
 import { openSecret, sealSecret } from '~/lib/crypto/secrets';
 import { captureError } from '~/lib/observability/logger';
@@ -31,7 +29,10 @@ import {
     credentialCreateSchema,
     credentialIdSchema,
     credentialUpdateSchema,
+    ledgerRefSchema,
+    ruleBacktestSchema,
     ruleCreateSchema,
+    ruleReorderSchema,
     ruleUpdateSchema,
 } from '~/lib/schemas/accounting';
 import { createTRPCRouter, rootProcedure } from '~/server/api/trpc';
@@ -48,7 +49,7 @@ interface LoadedCredential {
     kind: string;
     label: string;
     meta: Record<string, unknown>;
-    secret: string;
+    secret: null | string;
 }
 
 async function loadCredentialOrThrow(
@@ -71,7 +72,8 @@ async function loadCredentialOrThrow(
             message: 'Credential not found',
         });
     }
-    const secret = await openSecret(row.ciphertext);
+    const secret =
+        row.ciphertext === null ? null : await openSecret(row.ciphertext);
     return {
         kind: row.kind,
         label: row.label,
@@ -88,7 +90,7 @@ async function loadFieldOptions(input: {
 }): Promise<{
     options: { description?: string; label: string; value: string }[];
 }> {
-    const descriptor = getCredentialDescriptor(input.kind);
+    const descriptor = CredentialRegistry.instance().get(input.kind);
     if (!descriptor) {
         throw new TRPCError({
             code: 'BAD_REQUEST',
@@ -132,7 +134,7 @@ async function loadFieldOptions(input: {
 }
 
 function requireAccountingSession(cred: LoadedCredential) {
-    const descriptor = getCredentialDescriptor(cred.kind);
+    const descriptor = CredentialRegistry.instance().get(cred.kind);
     if (!descriptor) {
         throw new TRPCError({
             code: 'BAD_REQUEST',
@@ -145,7 +147,9 @@ function requireAccountingSession(cred: LoadedCredential) {
             message: `Credential "${descriptor.label}" cannot reach an accounting backend`,
         });
     }
-    const provider = getProvider(descriptor.accountingProviderId);
+    const provider = ProviderRegistry.instance().get(
+        descriptor.accountingProviderId,
+    );
     if (!provider) {
         throw new TRPCError({
             code: 'INTERNAL_SERVER_ERROR',
@@ -155,8 +159,18 @@ function requireAccountingSession(cred: LoadedCredential) {
     return { descriptor, provider };
 }
 
+function requireSecret(cred: LoadedCredential): string {
+    if (cred.secret === null) {
+        throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: `Credential kind "${cred.kind}" has no secret to use here`,
+        });
+    }
+    return cred.secret;
+}
+
 function requireTransactionSource(cred: LoadedCredential): ApiSource {
-    const descriptor = getCredentialDescriptor(cred.kind);
+    const descriptor = CredentialRegistry.instance().get(cred.kind);
     if (!descriptor) {
         throw new TRPCError({
             code: 'BAD_REQUEST',
@@ -164,8 +178,8 @@ function requireTransactionSource(cred: LoadedCredential): ApiSource {
         });
     }
     const source = descriptor.transactionSourceId
-        ? getSource(descriptor.transactionSourceId)
-        : findApiSourceByCredentialKind(cred.kind);
+        ? SourceRegistry.instance().get(descriptor.transactionSourceId)
+        : SourceRegistry.instance().findByCredentialKind(cred.kind);
     if (source?.kind !== 'api') {
         throw new TRPCError({
             code: 'BAD_REQUEST',
@@ -246,7 +260,9 @@ export const accountingRouter = createTRPCRouter({
         create: rootProcedure
             .input(credentialCreateSchema)
             .mutation(async ({ ctx, input }) => {
-                const descriptor = getCredentialDescriptor(input.kind);
+                const descriptor = CredentialRegistry.instance().get(
+                    input.kind,
+                );
                 if (!descriptor) {
                     throw new TRPCError({
                         code: 'BAD_REQUEST',
@@ -254,7 +270,9 @@ export const accountingRouter = createTRPCRouter({
                     });
                 }
                 const meta = descriptor.metaSchema.parse(input.meta);
-                const ciphertext = await sealSecret(input.secret);
+                const ciphertext = input.secret
+                    ? await sealSecret(input.secret)
+                    : null;
                 const [row] = await ctx.db
                     .insert(accountingCredential)
                     .values({
@@ -310,16 +328,16 @@ export const accountingRouter = createTRPCRouter({
             .input(credentialIdSchema)
             .mutation(async ({ ctx, input }) => {
                 const cred = await loadCredentialOrThrow(input.id, ctx.userId);
-                const role = getCredentialDescriptor(cred.kind)?.role;
+                const role = CredentialRegistry.instance().get(cred.kind)?.role;
                 if (!role) {
                     throw new TRPCError({
                         code: 'BAD_REQUEST',
                         message: `Unknown credential kind "${cred.kind}"`,
                     });
                 }
-                const roleKinds = listCredentialDescriptorsByRole(role).map(
-                    (d) => d.id,
-                );
+                const roleKinds = CredentialRegistry.instance()
+                    .listByRole(role)
+                    .map((d) => d.id);
                 await ctx.db.transaction(async (tx) => {
                     await tx
                         .update(accountingCredential)
@@ -346,7 +364,7 @@ export const accountingRouter = createTRPCRouter({
             .input(credentialIdSchema)
             .mutation(async ({ ctx, input }) => {
                 const cred = await loadCredentialOrThrow(input.id, ctx.userId);
-                const descriptor = getCredentialDescriptor(cred.kind);
+                const descriptor = CredentialRegistry.instance().get(cred.kind);
                 if (!descriptor) {
                     return {
                         detail: `Unknown credential kind "${cred.kind}"`,
@@ -354,17 +372,24 @@ export const accountingRouter = createTRPCRouter({
                         ok: false as const,
                     };
                 }
-                const testFn = getCredentialTest(cred.kind);
-                if (!testFn) {
+                const testFunction = getCredentialTest(cred.kind);
+                if (!testFunction) {
                     return {
                         detail: `No test implementation for "${descriptor.label}"`,
                         latencyMs: 0,
                         ok: false as const,
                     };
                 }
+                if (cred.secret === null) {
+                    return {
+                        detail: `"${descriptor.label}" has no secret to test`,
+                        latencyMs: 0,
+                        ok: false as const,
+                    };
+                }
                 const started = Date.now();
                 try {
-                    const result = await testFn({
+                    const result = await testFunction({
                         meta: cred.meta,
                         secret: cred.secret,
                     });
@@ -420,7 +445,9 @@ export const accountingRouter = createTRPCRouter({
                             message: 'Credential not found',
                         });
                     }
-                    const descriptor = getCredentialDescriptor(row.kind);
+                    const descriptor = CredentialRegistry.instance().get(
+                        row.kind,
+                    );
                     patch.meta = descriptor
                         ? descriptor.metaSchema.parse(input.meta)
                         : input.meta;
@@ -442,17 +469,19 @@ export const accountingRouter = createTRPCRouter({
     }),
 
     descriptors: rootProcedure.query(() =>
-        listCredentialDescriptors().map((d) => ({
-            accountingProviderId: d.accountingProviderId ?? null,
-            description: d.description ?? null,
-            id: d.id,
-            label: d.label,
-            metaFields: d.metaFields,
-            role: d.role,
-            secret: d.secret,
-            tone: d.tone,
-            transactionSourceId: d.transactionSourceId ?? null,
-        })),
+        CredentialRegistry.instance()
+            .list()
+            .map((d) => ({
+                accountingProviderId: d.accountingProviderId ?? null,
+                description: d.description ?? null,
+                id: d.id,
+                label: d.label,
+                metaFields: d.metaFields,
+                role: d.role,
+                secret: d.secret,
+                tone: d.tone,
+                transactionSourceId: d.transactionSourceId ?? null,
+            })),
     ),
 
     fieldOptions: createTRPCRouter({
@@ -490,7 +519,7 @@ export const accountingRouter = createTRPCRouter({
                     fieldKey: input.fieldKey,
                     kind: cred.kind,
                     meta: { ...cred.meta, ...input.metaOverride },
-                    secret: cred.secret,
+                    secret: requireSecret(cred),
                 });
             }),
     }),
@@ -511,7 +540,7 @@ export const accountingRouter = createTRPCRouter({
                 const { provider } = requireAccountingSession(cred);
                 const session = await provider.openSession({
                     meta: cred.meta,
-                    secret: cred.secret,
+                    secret: requireSecret(cred),
                 });
                 try {
                     return await session.listLedgers({
@@ -534,7 +563,7 @@ export const accountingRouter = createTRPCRouter({
                 const { provider } = requireAccountingSession(cred);
                 const session = await provider.openSession({
                     meta: cred.meta,
-                    secret: cred.secret,
+                    secret: requireSecret(cred),
                 });
                 try {
                     return await session.latestMutationDate();
@@ -567,7 +596,7 @@ export const accountingRouter = createTRPCRouter({
                 const { provider } = requireAccountingSession(cred);
                 const session = await provider.openSession({
                     meta: cred.meta,
-                    secret: cred.secret,
+                    secret: requireSecret(cred),
                 });
                 try {
                     return await session.listMutations({
@@ -583,21 +612,78 @@ export const accountingRouter = createTRPCRouter({
     }),
 
     rules: createTRPCRouter({
+        backtest: rootProcedure
+            .input(ruleBacktestSchema)
+            .query(async ({ ctx, input }) => {
+                const cred = await loadCredentialOrThrow(
+                    input.credentialId,
+                    ctx.userId,
+                );
+                const source = requireTransactionSource(cred);
+                const txns = await source.fetch({
+                    from: input.from,
+                    meta: cred.meta,
+                    secret: requireSecret(cred),
+                    to: input.to,
+                });
+                const candidate = new RuleSet([
+                    Rule.fromRow({
+                        currency: input.currency,
+                        dateFrom: input.dateFrom,
+                        dateTo: input.dateTo,
+                        direction: input.direction,
+                        display: 'backtest',
+                        id: 'backtest',
+                        ledger: { id: 0, label: '' },
+                        match: input.match,
+                        matchType: input.matchType,
+                        maxAmount: input.maxAmount,
+                        minAmount: input.minAmount,
+                        taxCode: 'backtest',
+                    }),
+                ]);
+                const matched = txns.filter(
+                    (tx) => candidate.findMatch(tx) !== null,
+                );
+                const totalByCurrency: Record<string, number> = {};
+                for (const tx of matched) {
+                    totalByCurrency[tx.sourceCurrency] =
+                        (totalByCurrency[tx.sourceCurrency] ?? 0) +
+                        Math.abs(tx.sourceAmount);
+                }
+                return {
+                    matchCount: matched.length,
+                    sample: matched.slice(0, 5),
+                    totalByCurrency,
+                    transactionCount: txns.length,
+                };
+            }),
         create: rootProcedure
             .input(ruleCreateSchema)
             .mutation(async ({ ctx, input }) => {
                 await loadCredentialOrThrow(input.credentialId, ctx.userId);
+                const existing = await ctx.db
+                    .select({ id: accountingRule.id })
+                    .from(accountingRule)
+                    .where(eq(accountingRule.credentialId, input.credentialId));
                 const [row] = await ctx.db
                     .insert(accountingRule)
                     .values({
                         credentialId: input.credentialId,
+                        currency: input.currency,
+                        dateFrom: input.dateFrom,
+                        dateTo: input.dateTo,
                         direction: input.direction,
                         display: input.display,
                         ledgerId: input.ledger.id,
                         ledgerLabel: input.ledger.label,
                         match: input.match,
+                        matchType: input.matchType ?? 'contains',
+                        maxAmount: input.maxAmount,
+                        minAmount: input.minAmount,
+                        sortOrder: existing.length,
                         userId: ctx.userId,
-                        vatCode: input.vatCode,
+                        vatCode: input.taxCode,
                     })
                     .returning({ id: accountingRule.id });
                 if (!row) {
@@ -633,15 +719,44 @@ export const accountingRouter = createTRPCRouter({
                             eq(accountingRule.userId, ctx.userId),
                         ),
                     )
-                    .orderBy(asc(accountingRule.createdAt));
+                    .orderBy(asc(accountingRule.sortOrder));
                 return rows.map((r) => ({
+                    currency: r.currency,
+                    dateFrom: r.dateFrom,
+                    dateTo: r.dateTo,
                     direction: r.direction,
                     display: r.display,
                     id: r.id,
                     ledger: { id: r.ledgerId, label: r.ledgerLabel },
                     match: r.match,
-                    vatCode: r.vatCode,
+                    matchType: r.matchType,
+                    maxAmount: r.maxAmount,
+                    minAmount: r.minAmount,
+                    sortOrder: r.sortOrder,
+                    taxCode: r.vatCode,
                 }));
+            }),
+        reorder: rootProcedure
+            .input(ruleReorderSchema)
+            .mutation(async ({ ctx, input }) => {
+                await ctx.db.transaction(async (tx) => {
+                    for (const [index, id] of input.orderedIds.entries()) {
+                        await tx
+                            .update(accountingRule)
+                            .set({ sortOrder: index, updatedAt: new Date() })
+                            .where(
+                                and(
+                                    eq(accountingRule.id, id),
+                                    eq(
+                                        accountingRule.credentialId,
+                                        input.credentialId,
+                                    ),
+                                    eq(accountingRule.userId, ctx.userId),
+                                ),
+                            );
+                    }
+                });
+                return { ok: true };
             }),
         update: rootProcedure
             .input(ruleUpdateSchema)
@@ -649,6 +764,11 @@ export const accountingRouter = createTRPCRouter({
                 const patch: Record<string, unknown> = {
                     updatedAt: new Date(),
                 };
+                if (input.currency !== undefined)
+                    patch.currency = input.currency;
+                if (input.dateFrom !== undefined)
+                    patch.dateFrom = input.dateFrom;
+                if (input.dateTo !== undefined) patch.dateTo = input.dateTo;
                 if (input.direction !== undefined)
                     patch.direction = input.direction;
                 if (input.display !== undefined) patch.display = input.display;
@@ -657,7 +777,13 @@ export const accountingRouter = createTRPCRouter({
                     patch.ledgerLabel = input.ledger.label;
                 }
                 if (input.match !== undefined) patch.match = input.match;
-                if (input.vatCode !== undefined) patch.vatCode = input.vatCode;
+                if (input.matchType !== undefined)
+                    patch.matchType = input.matchType;
+                if (input.maxAmount !== undefined)
+                    patch.maxAmount = input.maxAmount;
+                if (input.minAmount !== undefined)
+                    patch.minAmount = input.minAmount;
+                if (input.taxCode !== undefined) patch.vatCode = input.taxCode;
                 await ctx.db
                     .update(accountingRule)
                     .set(patch)
@@ -667,6 +793,79 @@ export const accountingRouter = createTRPCRouter({
                             eq(accountingRule.userId, ctx.userId),
                         ),
                     );
+                return { ok: true };
+            }),
+    }),
+
+    runs: createTRPCRouter({
+        get: rootProcedure
+            .input(z.object({ id: z.uuid() }))
+            .query(async ({ ctx, input }) => {
+                const run = await accountingRunRepository.get(
+                    RunId(input.id),
+                    UserId(ctx.userId),
+                );
+                if (!run) {
+                    throw new TRPCError({
+                        code: 'NOT_FOUND',
+                        message: 'Run not found',
+                    });
+                }
+                return run;
+            }),
+        list: rootProcedure
+            .input(
+                z.object({
+                    limit: z.number().int().min(1).max(100).default(20),
+                    offset: z.number().int().min(0).default(0),
+                }),
+            )
+            .query(async ({ ctx, input }) => {
+                const runs = await accountingRunRepository.list(
+                    UserId(ctx.userId),
+                    { limit: input.limit, offset: input.offset },
+                );
+                return runs.map((r) => ({
+                    accountingCredentialId: r.accountingCredentialId,
+                    createdAt: r.createdAt,
+                    id: r.id,
+                    startDate: r.startDate,
+                    status: r.status,
+                    summary: r.summary,
+                }));
+            }),
+        updateBooking: rootProcedure
+            .input(
+                z.object({
+                    patch: z.object({
+                        counterpartLedger: ledgerRefSchema.optional(),
+                        counterpartName: z.string().min(1).optional(),
+                        direction: z.enum(BOOKING_DIRECTIONS).optional(),
+                        isRefund: z.boolean().optional(),
+                        taxCode: z.string().min(1).max(32).optional(),
+                    }),
+                    runId: z.uuid(),
+                    txnId: z.string().min(1),
+                }),
+            )
+            .mutation(async ({ ctx, input }) => {
+                try {
+                    await accountingRunRepository.updateBooking(
+                        RunId(input.runId),
+                        UserId(ctx.userId),
+                        input.txnId,
+                        input.patch,
+                    );
+                } catch (error) {
+                    throw new TRPCError({
+                        cause: error,
+                        code: 'BAD_REQUEST',
+                        message:
+                            error instanceof Error
+                                ? error.message
+                                : 'Could not update booking',
+                    });
+                }
                 return { ok: true };
             }),
     }),
@@ -681,6 +880,28 @@ export const accountingRouter = createTRPCRouter({
             counts[row.kind] = (counts[row.kind] ?? 0) + 1;
         }
         return counts;
+    }),
+
+    taxCodes: createTRPCRouter({
+        list: rootProcedure
+            .input(z.object({ credentialId: z.uuid() }))
+            .query(async ({ ctx, input }) => {
+                const cred = await loadCredentialOrThrow(
+                    input.credentialId,
+                    ctx.userId,
+                );
+                const { provider } = requireAccountingSession(cred);
+                if (!provider.taxCodes) {
+                    throw new TRPCError({
+                        code: 'BAD_REQUEST',
+                        message: `Provider "${provider.label}" has no tax code catalog`,
+                    });
+                }
+                return provider.taxCodes.list().map((opt) => ({
+                    code: opt.code.toString(),
+                    label: opt.label,
+                }));
+            }),
     }),
 
     transactions: createTRPCRouter({
@@ -699,43 +920,19 @@ export const accountingRouter = createTRPCRouter({
                     ctx.userId,
                 );
                 const source = requireTransactionSource(cred);
-                const [txns, rules] = await Promise.all([
+                const [txns, ruleSet] = await Promise.all([
                     source.fetch({
                         from: input.from,
                         meta: cred.meta,
-                        secret: cred.secret,
+                        secret: requireSecret(cred),
                         to: input.to,
                     }),
-                    loadRules(input.accountingCredentialId, ctx.userId),
+                    loadRuleSet(input.accountingCredentialId, ctx.userId),
                 ]);
                 return txns.map((tx) => ({
                     ...tx,
-                    match: classifyTransaction(tx, rules),
+                    match: ruleSet.classify(tx),
                 }));
             }),
     }),
 });
-
-async function loadRules(
-    credentialId: string | undefined,
-    userId: string,
-): Promise<BookingRule[]> {
-    if (!credentialId) return [];
-    const rows = await db
-        .select()
-        .from(accountingRule)
-        .where(
-            and(
-                eq(accountingRule.credentialId, credentialId),
-                eq(accountingRule.userId, userId),
-            ),
-        );
-    return rows.map((r) => ({
-        direction: r.direction,
-        display: r.display,
-        id: r.id,
-        ledger: { id: r.ledgerId, label: r.ledgerLabel },
-        match: r.match,
-        vatCode: r.vatCode,
-    }));
-}

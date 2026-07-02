@@ -5,7 +5,7 @@ import PauseIcon from '~/components/ui/Icons/Pause';
 import PlayIcon from '~/components/ui/Icons/Play';
 import { cn } from '~/lib/utils';
 
-interface PlaybackControlsProps {
+interface PlaybackControlsProperties {
     canGoNext: boolean;
     canGoPrevious: boolean;
     hasRecordings: boolean;
@@ -31,7 +31,7 @@ export function PlaybackControls({
     onRepeat,
     onShuffle,
     onTogglePlayPause,
-}: PlaybackControlsProps) {
+}: PlaybackControlsProperties) {
     return (
         <div
             className={cn(

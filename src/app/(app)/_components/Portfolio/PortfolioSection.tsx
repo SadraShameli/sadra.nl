@@ -6,7 +6,7 @@ import { cn } from '~/lib/utils';
 import PortfolioEntry from './PortfolioEntry';
 import SectionEyebrow from './SectionEyebrow';
 
-type PortfolioSectionProps = {
+type PortfolioSectionProperties = {
     entries: PortfolioSectionView[];
     eyebrowLabel?: string;
     id: string;
@@ -18,7 +18,7 @@ export default function PortfolioSection({
     eyebrowLabel,
     id,
     title,
-}: PortfolioSectionProps) {
+}: PortfolioSectionProperties) {
     const headingId = `${id}-heading`;
 
     return (

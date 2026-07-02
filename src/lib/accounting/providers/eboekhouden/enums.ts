@@ -1,3 +1,9 @@
+import {
+    TaxCode,
+    type TaxCodeCatalog,
+    type TaxCodeOption,
+} from '~/lib/accounting/core/tax-code';
+
 export const VAT_CODES = [
     'HOOG_VERK_21',
     'LAAG_VERK_9',
@@ -62,8 +68,36 @@ export const isReverseChargeVat = (code: VatCode): boolean =>
 export const requiresExcludingVat = (code: VatCode): boolean =>
     EXCLUDING_VAT_CODES.has(code);
 
-export const BOOKING_DIRECTIONS = ['IN', 'OUT'] as const;
-export type BookingDirection = (typeof BOOKING_DIRECTIONS)[number];
+export const isVatCode = (value: string): value is VatCode =>
+    (VAT_CODES as readonly string[]).includes(value);
+
+export class EBoekhoudenTaxCodeCatalog implements TaxCodeCatalog {
+    readonly providerId = 'eboekhouden';
+
+    labelOf(code: TaxCode): string {
+        return VAT_CODE_LABEL[parseVatCode(code.toString())];
+    }
+
+    list(): readonly TaxCodeOption[] {
+        return VAT_CODES.map((code) => ({
+            code: TaxCode.of(code),
+            label: VAT_CODE_LABEL[code],
+        }));
+    }
+
+    validate(code: TaxCode): boolean {
+        return isVatCode(code.toString());
+    }
+}
+
+export function parseVatCode(value: string): VatCode {
+    if (!isVatCode(value)) {
+        throw new Error(`Invalid eBoekhouden VAT code: "${value}"`);
+    }
+    return value;
+}
+
+export const eboekhoudenTaxCodes = new EBoekhoudenTaxCodeCatalog();
 
 export const MUTATION_TYPES = {
     GENERAL_JOURNAL: '7',

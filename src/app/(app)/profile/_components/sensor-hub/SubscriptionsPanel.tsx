@@ -27,10 +27,10 @@ const DESCRIPTIONS: Record<EventType, string> = {
 };
 
 export function SubscriptionsPanel() {
-    const utils = api.useUtils();
+    const utilities = api.useUtils();
     const prefs = api.user.notification.getMyPrefs.useQuery();
     const setPref = api.user.notification.setPref.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async (_data, variables) => {
             const label = EVENT_LABELS[variables.eventType];
             toast.success(
@@ -38,7 +38,7 @@ export function SubscriptionsPanel() {
                     ? `Subscribed to “${label}”`
                     : `Unsubscribed from “${label}”`,
             );
-            await utils.user.notification.getMyPrefs.invalidate();
+            await utilities.user.notification.getMyPrefs.invalidate();
         },
     });
 
@@ -59,7 +59,7 @@ export function SubscriptionsPanel() {
                 )}
                 {!prefs.isLoading &&
                     EVENT_TYPES.map((eventType) => {
-                        const enabled = prefs.data?.[eventType] ?? false;
+                        const isEnabled = prefs.data?.[eventType] ?? false;
                         return (
                             <div
                                 className={cn(
@@ -79,7 +79,7 @@ export function SubscriptionsPanel() {
                                     </p>
                                 </div>
                                 <Switch
-                                    checked={enabled}
+                                    checked={isEnabled}
                                     disabled={setPref.isPending}
                                     onCheckedChange={(v) =>
                                         setPref.mutate({

@@ -2,7 +2,7 @@ import 'server-only';
 import { and, asc, desc, eq, gte, lt } from 'drizzle-orm';
 
 import type { WeekStart } from '~/lib/lifting/types';
-import type { db as Db } from '~/server/db';
+import type { db as Database } from '~/server/db';
 
 import { rangeEnd } from '~/lib/lifting/date-range';
 import { oneRepMaxCalculator } from '~/lib/lifting/math/one-rep-max';
@@ -24,13 +24,13 @@ import {
     liftingWorkoutExercise,
 } from '~/server/db';
 
-async function getUserWeekStart(ctx: {
-    db: typeof Db;
+async function getUserWeekStart(context: {
+    db: typeof Database;
     userId: string;
 }): Promise<WeekStart> {
-    const settings = await ctx.db.query.liftingSettings.findFirst({
+    const settings = await context.db.query.liftingSettings.findFirst({
         columns: { weekStart: true },
-        where: (s, { eq: e }) => e(s.userId, ctx.userId),
+        where: (s, { eq: e }) => e(s.userId, context.userId),
     });
     const raw = settings?.weekStart ?? 'mon';
     return (WEEK_START_VALUES as readonly string[]).includes(raw) ? raw : 'mon';
@@ -99,10 +99,10 @@ export const liftingAnalyticsRouter = createTRPCRouter({
                 );
                 if (e1rm <= 0) continue;
                 const dayKey = row.startedAt.toISOString().slice(0, 10);
-                const prev = bySession.get(dayKey) ?? 0;
-                if (e1rm > prev) bySession.set(dayKey, e1rm);
+                const previous = bySession.get(dayKey) ?? 0;
+                if (e1rm > previous) bySession.set(dayKey, e1rm);
             }
-            return [...bySession.entries()]
+            return [...bySession]
                 .map(([date, e1rm]) => ({ date, e1rm }))
                 .toSorted((a, b) => a.date.localeCompare(b.date));
         }),
@@ -141,7 +141,7 @@ export const liftingAnalyticsRouter = createTRPCRouter({
                     (byDate.get(dayKey) ?? 0) + r.weightKg * r.reps,
                 );
             }
-            return [...byDate.entries()].map(([date, tonnageKg]) => ({
+            return [...byDate].map(([date, tonnageKg]) => ({
                 date,
                 tonnageKg,
             }));

@@ -1,7 +1,12 @@
-import type { BookingDirection, VatCode } from '../providers/eboekhouden/enums';
+import type { CurrencyCode } from '~/lib/accounting/core/currency';
+import type { ISODate } from '~/lib/accounting/core/date';
 
+export type { CurrencyCode } from '~/lib/accounting/core/currency';
+export type { ISODate } from '~/lib/accounting/core/date';
+
+export const BOOKING_DIRECTIONS = ['IN', 'OUT'] as const;
 export interface BankAccount {
-    currency: string;
+    currency: CurrencyCode;
     ledger: LedgerRef;
 }
 
@@ -14,24 +19,17 @@ export interface Booking {
     direction: BookingDirection;
     isRefund?: boolean;
     notes: string[];
-    sourceCurrency: string;
+    sourceCurrency: CurrencyCode;
+    taxCode: string;
     txnId: string;
-    vatCode: VatCode;
 }
 
-export interface BookingRule {
-    direction: BookingDirection;
-    display: string;
-    id: string;
-    ledger: LedgerRef;
-    match: string;
-    vatCode: VatCode;
-}
+export type BookingDirection = (typeof BOOKING_DIRECTIONS)[number];
 
 export interface ConversionResult {
     bookings: Booking[];
     matches: MatchAudit[];
-    missingBankCurrencies: string[];
+    missingBankCurrencies: CurrencyCode[];
     skippedCurrency: number;
     skippedNoBank: number;
     unknowns: UnknownMerchant[];
@@ -41,8 +39,6 @@ export interface DateRange {
     end: ISODate;
     start: ISODate;
 }
-
-export type ISODate = string;
 
 export interface LedgerRef {
     id: number;
@@ -63,9 +59,9 @@ export interface RawTransaction {
     isRefund?: boolean;
     merchant: string;
     sourceAmount: number;
-    sourceCurrency: string;
+    sourceCurrency: CurrencyCode;
     sourceFee: number;
-    sourceFeeCurrency: null | string;
+    sourceFeeCurrency: CurrencyCode | null;
     sourceId: string;
     txnId: string;
 }
@@ -83,16 +79,3 @@ export interface UnknownMerchant {
     lastSeen: ISODate;
     rawName: string;
 }
-
-export const dateRangeFromList = (dates: ISODate[]): DateRange | null => {
-    const sorted = dates.toSorted();
-    const first = sorted[0];
-    const last = sorted.at(-1);
-    if (first === undefined || last === undefined) return null;
-    return { end: last, start: first };
-};
-
-export {
-    type BookingDirection,
-    type VatCode,
-} from '../providers/eboekhouden/enums';

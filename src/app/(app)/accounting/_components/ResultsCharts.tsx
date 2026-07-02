@@ -67,20 +67,23 @@ export function ResultsCharts({ result }: { result: ConversionResult }) {
                 (map.get(b.counterpartName) ?? 0) + b.amountEur,
             );
         }
-        return [...map.entries()]
+        return [...map]
             .map(([name, value]) => ({ name, value }))
             .toSorted((a, b) => b.value - a.value)
             .slice(0, 10)
-            .map((row, i) => ({ ...row, fill: COLORS[i % COLORS.length] }));
+            .map((row, index) => ({
+                ...row,
+                fill: COLORS[index % COLORS.length],
+            }));
     }, [result]);
 
     const counterpartConfig = useMemo<ChartConfig>(() => {
         const config: ChartConfig = {
             value: { label: 'EUR' },
         };
-        for (const [i, row] of byCounterpart.entries()) {
+        for (const [index, row] of byCounterpart.entries()) {
             config[row.name] = {
-                color: COLORS[i % COLORS.length],
+                color: COLORS[index % COLORS.length],
                 label: row.name,
             };
         }

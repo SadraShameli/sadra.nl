@@ -1,26 +1,55 @@
 import { z } from 'zod';
 
-import { getCredentialDescriptor } from '~/lib/accounting/credentials/index';
+import { currencyCodeSchema } from '~/lib/accounting/core/currency';
+import { isoDateSchema } from '~/lib/accounting/core/date';
+import { MATCH_TYPES } from '~/lib/accounting/core/rules/matcher';
+import { BOOKING_DIRECTIONS } from '~/lib/accounting/core/types';
+import { CredentialRegistry } from '~/lib/accounting/credentials/index';
 import { CREDENTIAL_KIND_VALUES } from '~/lib/accounting/credentials/registry';
-import {
-    BOOKING_DIRECTIONS,
-    VAT_CODES,
-} from '~/lib/accounting/providers/eboekhouden/enums';
+
+function hasValidAmountRange(v: {
+    maxAmount?: null | number;
+    minAmount?: null | number;
+}): boolean {
+    return (
+        v.minAmount == null || v.maxAmount == null || v.minAmount <= v.maxAmount
+    );
+}
+
+function hasValidDateRange(v: {
+    dateFrom?: null | string;
+    dateTo?: null | string;
+}): boolean {
+    return v.dateFrom == null || v.dateTo == null || v.dateFrom <= v.dateTo;
+}
 
 export const credentialKindSchema = z
     .enum(CREDENTIAL_KIND_VALUES)
-    .refine((id) => getCredentialDescriptor(id) !== undefined, {
+    .refine((id) => CredentialRegistry.instance().get(id) !== undefined, {
         error: (issue) => `Unknown credential kind "${String(issue.input)}"`,
     });
 
 export const credentialMetaSchema = z.record(z.string(), z.unknown());
 
-export const credentialCreateSchema = z.object({
-    kind: credentialKindSchema,
-    label: z.string().min(1).max(64),
-    meta: credentialMetaSchema.optional().default({}),
-    secret: z.string().min(8),
-});
+export const credentialCreateSchema = z
+    .object({
+        kind: credentialKindSchema,
+        label: z.string().min(1).max(64),
+        meta: credentialMetaSchema.optional().default({}),
+        secret: z.string().optional(),
+    })
+    .refine(
+        (value) => {
+            const requiresSecret =
+                CredentialRegistry.instance().get(value.kind)
+                    ?.requiresSecret !== false;
+            return !requiresSecret || (value.secret?.length ?? 0) >= 8;
+        },
+        {
+            error: 'Secret must be at least 8 characters',
+            path: ['secret'],
+        },
+    );
 export type CredentialCreateInput = z.infer<typeof credentialCreateSchema>;
 
 export const credentialUpdateSchema = z.object({
@@ -33,63 +62,113 @@ export type CredentialUpdateInput = z.infer<typeof credentialUpdateSchema>;
 
 export const credentialIdSchema = z.object({ id: z.uuid() });
 
-export const isoDateSchema = z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected YYYY-MM-DD');
-
 export const ledgerRefSchema = z.object({
     id: z.number().int(),
     label: z.string(),
 });
 
-export const bookingSchema = z.object({
-    amountEur: z.number(),
-    bank: ledgerRefSchema,
-    counterpartLedger: ledgerRefSchema,
-    counterpartName: z.string(),
-    date: isoDateSchema,
-    direction: z.enum(BOOKING_DIRECTIONS),
-    isRefund: z.boolean().optional(),
-    notes: z.array(z.string()),
-    sourceCurrency: z.string(),
-    txnId: z.string(),
-    vatCode: z.enum(VAT_CODES),
-});
-
 export const runPlanRequestSchema = z.object({
     accountingCredentialId: z.uuid().optional(),
     apiCredentialIds: z.array(z.uuid()).default([]),
+    files: z
+        .array(
+            z.object({
+                content: z.string().min(1),
+                credentialId: z.uuid(),
+            }),
+        )
+        .default([]),
     startDate: isoDateSchema,
 });
 
 export const runPushRequestSchema = z.object({
     accountingCredentialId: z.uuid(),
-    bookings: z.array(bookingSchema).min(1),
+    runId: z.uuid(),
 });
 
-export const ruleCreateSchema = z.object({
-    credentialId: z.uuid(),
-    direction: z.enum(BOOKING_DIRECTIONS),
-    display: z.string().min(1).max(128),
-    ledger: ledgerRefSchema,
-    match: z.string().min(1).max(256),
-    vatCode: z.enum(VAT_CODES),
-});
+export const ruleCreateSchema = z
+    .object({
+        credentialId: z.uuid(),
+        currency: currencyCodeSchema.nullable().optional(),
+        dateFrom: isoDateSchema.nullable().optional(),
+        dateTo: isoDateSchema.nullable().optional(),
+        direction: z.enum(BOOKING_DIRECTIONS),
+        display: z.string().min(1).max(128),
+        ledger: ledgerRefSchema,
+        match: z.string().min(1).max(256),
+        matchType: z.enum(MATCH_TYPES).optional(),
+        maxAmount: z.number().positive().nullable().optional(),
+        minAmount: z.number().positive().nullable().optional(),
+        taxCode: z.string().min(1).max(32),
+    })
+    .refine(hasValidAmountRange, {
+        error: 'Minimum amount must not exceed maximum amount',
+        path: ['minAmount'],
+    })
+    .refine(hasValidDateRange, {
+        error: 'Date-from must not be after date-to',
+        path: ['dateFrom'],
+    });
 export type RuleCreateInput = z.infer<typeof ruleCreateSchema>;
 
-export const ruleUpdateSchema = z.object({
-    direction: z.enum(BOOKING_DIRECTIONS).optional(),
-    display: z.string().min(1).max(128).optional(),
-    id: z.uuid(),
-    ledger: ledgerRefSchema.optional(),
-    match: z.string().min(1).max(256).optional(),
-    vatCode: z.enum(VAT_CODES).optional(),
-});
+export const ruleUpdateSchema = z
+    .object({
+        currency: currencyCodeSchema.nullable().optional(),
+        dateFrom: isoDateSchema.nullable().optional(),
+        dateTo: isoDateSchema.nullable().optional(),
+        direction: z.enum(BOOKING_DIRECTIONS).optional(),
+        display: z.string().min(1).max(128).optional(),
+        id: z.uuid(),
+        ledger: ledgerRefSchema.optional(),
+        match: z.string().min(1).max(256).optional(),
+        matchType: z.enum(MATCH_TYPES).optional(),
+        maxAmount: z.number().positive().nullable().optional(),
+        minAmount: z.number().positive().nullable().optional(),
+        taxCode: z.string().min(1).max(32).optional(),
+    })
+    .refine(hasValidAmountRange, {
+        error: 'Minimum amount must not exceed maximum amount',
+        path: ['minAmount'],
+    })
+    .refine(hasValidDateRange, {
+        error: 'Date-from must not be after date-to',
+        path: ['dateFrom'],
+    });
 export type RuleUpdateInput = z.infer<typeof ruleUpdateSchema>;
+
+export const ruleReorderSchema = z.object({
+    credentialId: z.uuid(),
+    orderedIds: z.array(z.uuid()).min(1),
+});
+export type RuleReorderInput = z.infer<typeof ruleReorderSchema>;
+
+export const ruleBacktestSchema = z
+    .object({
+        credentialId: z.uuid(),
+        currency: currencyCodeSchema.optional(),
+        dateFrom: isoDateSchema.optional(),
+        dateTo: isoDateSchema.optional(),
+        direction: z.enum(BOOKING_DIRECTIONS),
+        from: isoDateSchema,
+        match: z.string().min(1).max(256),
+        matchType: z.enum(MATCH_TYPES).optional(),
+        maxAmount: z.number().positive().optional(),
+        minAmount: z.number().positive().optional(),
+        to: isoDateSchema,
+    })
+    .refine(hasValidAmountRange, {
+        error: 'Minimum amount must not exceed maximum amount',
+        path: ['minAmount'],
+    })
+    .refine(hasValidDateRange, {
+        error: 'Date-from must not be after date-to',
+        path: ['dateFrom'],
+    });
+export type RuleBacktestInput = z.infer<typeof ruleBacktestSchema>;
 
 export const bankAccountUpsertSchema = z.object({
     credentialId: z.uuid(),
-    currency: z.string().min(1).max(8),
+    currency: currencyCodeSchema,
     ledger: ledgerRefSchema,
 });
 export type BankAccountUpsertInput = z.infer<typeof bankAccountUpsertSchema>;

@@ -3,14 +3,18 @@
 import { format as formatDate } from 'date-fns';
 import {
     AlertCircle,
+    ArrowLeftRight,
     CalendarDays,
+    FileCheck,
     PlayCircle,
     Send,
     StopCircle,
+    Upload,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
+import type { RunId } from '~/lib/accounting/core/ids';
 import type {
     Booking,
     ConversionResult,
@@ -23,6 +27,7 @@ import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Calendar } from '~/components/ui/Calendar';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
+import { Checkbox } from '~/components/ui/Checkbox';
 import {
     Dialog,
     DialogContent,
@@ -38,7 +43,7 @@ import {
     PopoverTrigger,
 } from '~/components/ui/Popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
-import { getCredentialDescriptor } from '~/lib/accounting/credentials/index';
+import { CredentialRegistry } from '~/lib/accounting/credentials/index';
 import { STAGES } from '~/lib/accounting/runner-types';
 import { DurationFormat } from '~/lib/lifting/format';
 import { apiRoutes } from '~/lib/site/routes';
@@ -58,6 +63,29 @@ import {
 import { type StageState, StageStepper } from './StageStepper';
 import { useActiveCredentials } from './useActiveCredentials';
 import { useImportStream } from './useImportStream';
+
+const toastError = (e: { message: string }) => toast.error(e.message);
+
+const isFileSourceKind = (kind: string): boolean =>
+    CredentialRegistry.instance().get(kind)?.transactionSourceKind === 'file';
+
+interface LoadedFile {
+    content: string;
+    name: string;
+}
+
+async function loadFileContent(
+    file: File,
+    credentialId: string,
+    setFileContents: (
+        updater: (previous: Map<string, LoadedFile>) => Map<string, LoadedFile>,
+    ) => void,
+): Promise<void> {
+    const content = await file.text();
+    setFileContents((previous) =>
+        new Map(previous).set(credentialId, { content, name: file.name }),
+    );
+}
 
 const STAGE_LABELS: Record<Stage, string> = {
     build: 'Build bookings',
@@ -89,7 +117,7 @@ const formatIsoDate = (date: Date): string => {
 };
 
 export function AccountingDashboard() {
-    const { accounting, source } = useActiveCredentials();
+    const { accounting, source, sources } = useActiveCredentials();
     const accountingCredentialId = accounting?.id ?? '';
 
     const latestDateQ = api.accounting.mutations.latestDate.useQuery(
@@ -103,14 +131,38 @@ export function AccountingDashboard() {
         setStartDate(v);
     };
     const [result, setResult] = useState<ConversionResult | null>(null);
+    const [runId, setRunId] = useState<null | RunId>(null);
     const [pushOpen, setPushOpen] = useState(false);
 
     const stream = useImportStream<ImportEvent>();
 
-    const apiCredentialIds = useMemo(
-        () => (source ? [source.id] : []),
-        [source],
+    const [apiCredentialIds, setApiCredentialIds] = useState<string[]>([]);
+    const [fileContents, setFileContents] = useState<Map<string, LoadedFile>>(
+        new Map(),
     );
+    const fileInputReferences = useRef<Map<string, HTMLInputElement>>(
+        new Map(),
+    );
+    const sourceSelectionTouched = useRef(false);
+    const toggleSource = (id: string, checked: boolean) => {
+        sourceSelectionTouched.current = true;
+        setApiCredentialIds((previous) =>
+            checked ? [...previous, id] : previous.filter((x) => x !== id),
+        );
+        if (!checked) {
+            setFileContents((previous) => {
+                if (!previous.has(id)) return previous;
+                const next = new Map(previous);
+                next.delete(id);
+                return next;
+            });
+        }
+    };
+    useEffect(() => {
+        if (sourceSelectionTouched.current) return;
+        if (!source) return;
+        setApiCredentialIds([source.id]);
+    }, [source]);
 
     const stageState = useMemo<Record<Stage, StageState>>(() => {
         const init = Object.fromEntries(
@@ -160,6 +212,8 @@ export function AccountingDashboard() {
         for (const event of stream.events) {
             if (event.kind === 'preview') {
                 setResult(event.result);
+            } else if (event.kind === 'run') {
+                setRunId(event.runId);
             }
         }
     }, [stream.events]);
@@ -174,14 +228,38 @@ export function AccountingDashboard() {
         setStartDate(formatIsoDate(date));
     }, [latestDateQ.data]);
 
-    const runDisabled = stream.running || apiCredentialIds.length === 0;
+    const fileSourceIds = useMemo(
+        () =>
+            new Set(
+                sources
+                    .filter((s) => isFileSourceKind(s.kind))
+                    .map((s) => s.id),
+            ),
+        [sources],
+    );
+    const isMissingFileContent = apiCredentialIds.some(
+        (id) => fileSourceIds.has(id) && !fileContents.has(id),
+    );
+    const isRunDisabled =
+        stream.running || apiCredentialIds.length === 0 || isMissingFileContent;
 
     const handleRun = async () => {
         setResult(null);
+        setRunId(null);
+        const selectedApiIds = apiCredentialIds.filter(
+            (id) => !fileSourceIds.has(id),
+        );
+        const files = apiCredentialIds
+            .filter((id) => fileSourceIds.has(id))
+            .map((id) => ({
+                content: fileContents.get(id)?.content ?? '',
+                credentialId: id,
+            }));
         await stream.start({
             body: JSON.stringify({
                 accountingCredentialId: accountingCredentialId || undefined,
-                apiCredentialIds,
+                apiCredentialIds: selectedApiIds,
+                files,
                 startDate,
             }),
             headers: { 'Content-Type': 'application/json' },
@@ -196,8 +274,8 @@ export function AccountingDashboard() {
                 <CardHeader>
                     <CardTitle className="text-base">Run controls</CardTitle>
                 </CardHeader>
-                <CardContent>
-                    <div className="flex flex-wrap items-end justify-between gap-3">
+                <CardContent className="flex flex-col gap-5">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                         <div className="flex flex-col gap-2">
                             <Label className="flex items-center gap-1.5 text-xs tracking-wider uppercase">
                                 <CalendarDays className="size-3" />
@@ -208,20 +286,122 @@ export function AccountingDashboard() {
                                 value={startDate}
                             />
                         </div>
-                        <div className="flex items-center gap-2">
-                            {stream.running ? (
-                                <Button
-                                    onClick={stream.abort}
-                                    size="sm"
-                                    variant="outline"
-                                >
-                                    <StopCircle className="size-3" /> Abort
-                                </Button>
-                            ) : null}
-                            <Button disabled={runDisabled} onClick={handleRun}>
-                                <PlayCircle className="size-4" /> Run plan
-                            </Button>
+
+                        <div className="flex flex-col gap-2">
+                            <Label className="flex items-center gap-1.5 text-xs tracking-wider uppercase">
+                                <ArrowLeftRight className="size-3" />
+                                Sources
+                            </Label>
+                            {sources.length === 0 ? (
+                                <span className="text-xs text-muted-foreground">
+                                    No transaction sources configured.
+                                </span>
+                            ) : (
+                                <div className="flex flex-col gap-2">
+                                    {sources.map((s) => {
+                                        const isChecked =
+                                            apiCredentialIds.includes(s.id);
+                                        const isFile = fileSourceIds.has(s.id);
+                                        return (
+                                            <div
+                                                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border/40 px-3 py-2"
+                                                key={s.id}
+                                            >
+                                                <label className="flex items-center gap-2 text-xs">
+                                                    <Checkbox
+                                                        checked={isChecked}
+                                                        onCheckedChange={(c) =>
+                                                            toggleSource(
+                                                                s.id,
+                                                                c === true,
+                                                            )
+                                                        }
+                                                    />
+                                                    {s.label}
+                                                </label>
+                                                {isChecked && isFile && (
+                                                    <div className="flex items-center gap-3">
+                                                        <input
+                                                            accept=".csv"
+                                                            className="hidden"
+                                                            onChange={(e) => {
+                                                                const file =
+                                                                    e.target
+                                                                        .files?.[0];
+                                                                if (!file)
+                                                                    return;
+                                                                void loadFileContent(
+                                                                    file,
+                                                                    s.id,
+                                                                    setFileContents,
+                                                                );
+                                                            }}
+                                                            ref={(element) => {
+                                                                if (element) {
+                                                                    fileInputReferences.current.set(
+                                                                        s.id,
+                                                                        element,
+                                                                    );
+                                                                } else {
+                                                                    fileInputReferences.current.delete(
+                                                                        s.id,
+                                                                    );
+                                                                }
+                                                            }}
+                                                            type="file"
+                                                        />
+                                                        {fileContents.has(
+                                                            s.id,
+                                                        ) && (
+                                                            <span className="flex items-center gap-1 text-[10px] text-emerald-300">
+                                                                <FileCheck className="size-3" />
+                                                                {
+                                                                    fileContents.get(
+                                                                        s.id,
+                                                                    )?.name
+                                                                }
+                                                            </span>
+                                                        )}
+                                                        <Button
+                                                            className="h-7"
+                                                            onClick={() =>
+                                                                fileInputReferences.current
+                                                                    .get(s.id)
+                                                                    ?.click()
+                                                            }
+                                                            size="sm"
+                                                            variant="outline"
+                                                        >
+                                                            <Upload className="size-3" />
+                                                            {fileContents.has(
+                                                                s.id,
+                                                            )
+                                                                ? 'Change CSV'
+                                                                : 'Choose CSV'}
+                                                        </Button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2">
+                        {stream.running ? (
+                            <Button
+                                onClick={stream.abort}
+                                size="sm"
+                                variant="outline"
+                            >
+                                <StopCircle className="size-3" /> Abort
+                            </Button>
+                        ) : null}
+                        <Button disabled={isRunDisabled} onClick={handleRun}>
+                            <PlayCircle className="size-4" /> Run plan
+                        </Button>
                     </div>
                 </CardContent>
             </Card>
@@ -255,7 +435,7 @@ export function AccountingDashboard() {
                     accountingCredentialId={accountingCredentialId}
                     accountingDescriptor={
                         accounting
-                            ? getCredentialDescriptor(accounting.kind)
+                            ? CredentialRegistry.instance().get(accounting.kind)
                             : undefined
                     }
                     onPushedComplete={async (s) => {
@@ -269,6 +449,7 @@ export function AccountingDashboard() {
                     }}
                     pushOpen={pushOpen}
                     result={result}
+                    runId={runId}
                     setPushOpen={setPushOpen}
                 />
             )}
@@ -282,6 +463,7 @@ function ResultsView({
     onPushedComplete,
     pushOpen,
     result,
+    runId,
     setPushOpen,
 }: {
     accountingCredentialId: string;
@@ -289,9 +471,10 @@ function ResultsView({
     onPushedComplete: (s: { failed: number; posted: number }) => Promise<void>;
     pushOpen: boolean;
     result: ConversionResult;
+    runId: null | RunId;
     setPushOpen: (open: boolean) => void;
 }) {
-    const postable =
+    const isPostable =
         accountingCredentialId.length > 0 &&
         accountingDescriptor?.role === 'accounting';
     const targetLabel = accountingDescriptor?.label ?? 'accounting backend';
@@ -301,22 +484,40 @@ function ResultsView({
         setBookings(result.bookings);
     }, [result]);
 
+    const { mutate: updateBooking } =
+        api.accounting.runs.updateBooking.useMutation({
+            onError: toastError,
+        });
     const editBooking = useCallback(
         (txnId: string, patch: Partial<Booking>) => {
-            setBookings((prev) =>
-                prev.map((b) => (b.txnId === txnId ? { ...b, ...patch } : b)),
+            setBookings((previous) =>
+                previous.map((b) =>
+                    b.txnId === txnId ? { ...b, ...patch } : b,
+                ),
             );
+            if (!runId) return;
+            updateBooking({
+                patch: {
+                    counterpartLedger: patch.counterpartLedger,
+                    counterpartName: patch.counterpartName,
+                    direction: patch.direction,
+                    isRefund: patch.isRefund,
+                    taxCode: patch.taxCode,
+                },
+                runId,
+                txnId,
+            });
         },
-        [],
+        [runId, updateBooking],
     );
 
     const ledgersQ = api.accounting.ledgers.list.useQuery(
         { credentialId: accountingCredentialId },
-        { enabled: postable },
+        { enabled: isPostable },
     );
     const rulesQ = api.accounting.rules.list.useQuery(
         { credentialId: accountingCredentialId },
-        { enabled: postable },
+        { enabled: isPostable },
     );
     const ledgerOptions = useMemo<LedgerRef[]>(
         () =>
@@ -337,7 +538,7 @@ function ResultsView({
                     <CardTitle className="flex flex-wrap items-center justify-between gap-3 text-base">
                         <span>Preview</span>
                         <div className="flex items-center gap-2">
-                            {!postable && (
+                            {!isPostable && (
                                 <Badge variant="outline">
                                     pick an accounting credential to post
                                 </Badge>
@@ -346,7 +547,9 @@ function ResultsView({
                                 <DialogTrigger asChild>
                                     <Button
                                         disabled={
-                                            !postable || bookings.length === 0
+                                            !isPostable ||
+                                            bookings.length === 0 ||
+                                            !runId
                                         }
                                         size="sm"
                                     >
@@ -370,7 +573,7 @@ function ResultsView({
                                         onCompleted={(s) =>
                                             void onPushedComplete(s)
                                         }
-                                        result={result}
+                                        runId={runId}
                                         targetLabel={targetLabel}
                                     />
                                 </DialogContent>
@@ -403,6 +606,7 @@ function ResultsView({
                             <TabsContent className="mt-4" value="bookings">
                                 <BookingsTable
                                     bookings={bookings}
+                                    credentialId={accountingCredentialId}
                                     ledgerOptions={ledgerOptions}
                                     onEdit={editBooking}
                                     rules={rulesQ.data ?? []}
@@ -420,12 +624,12 @@ function ResultsView({
                             <TabsContent className="mt-4" value="unknowns">
                                 <UnknownsTable
                                     credentialId={
-                                        postable
+                                        isPostable
                                             ? accountingCredentialId
                                             : undefined
                                     }
                                     ledgerOptions={
-                                        postable ? ledgerOptions : undefined
+                                        isPostable ? ledgerOptions : undefined
                                     }
                                     result={result}
                                 />

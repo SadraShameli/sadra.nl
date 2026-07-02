@@ -2,7 +2,8 @@ import { and, eq } from 'drizzle-orm';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { getCredentialDescriptor } from '~/lib/accounting/credentials/index';
+import { RunId } from '~/lib/accounting/core/ids';
+import { CredentialRegistry } from '~/lib/accounting/credentials/index';
 import { runPush } from '~/lib/accounting/runner';
 import { asSseResponse } from '~/lib/accounting/sse';
 import { isRoot } from '~/lib/auth/roles';
@@ -18,13 +19,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'forbidden' }, { status: 403 });
     }
     const userId = session.user.id;
-    const ok = await checkRateLimit({
+    const isOk = await checkRateLimit({
         bucket: 'accounting:push',
         key: userId,
         max: 10,
         windowMs: 60 * 60 * 1000,
     });
-    if (!ok) {
+    if (!isOk) {
         return NextResponse.json(
             { error: 'too_many_requests' },
             { status: 429 },
@@ -70,10 +71,16 @@ export async function POST(request: NextRequest) {
             { status: 404 },
         );
     }
-    const descriptor = getCredentialDescriptor(row.kind);
+    const descriptor = CredentialRegistry.instance().get(row.kind);
     if (descriptor?.role !== 'accounting') {
         return NextResponse.json(
             { error: 'credential_not_accounting' },
+            { status: 400 },
+        );
+    }
+    if (row.ciphertext === null) {
+        return NextResponse.json(
+            { error: 'credential_missing_secret' },
             { status: 400 },
         );
     }
@@ -90,7 +97,8 @@ export async function POST(request: NextRequest) {
             meta: row.meta,
             secret,
         },
-        bookings: input.bookings,
+        runId: RunId(input.runId),
+        userId,
     });
 
     return asSseResponse(stream);

@@ -144,23 +144,23 @@ export function WizardStepper({
         mode: 'onChange',
         resolver: zodResolver(answersSchema),
     });
-    const [stepIdx, setStepIdx] = useState(0);
-    const stepId = stepIds[stepIdx] ?? stepIds[0];
+    const [stepIndex, setStepIndex] = useState(0);
+    const stepId = stepIds[stepIndex] ?? stepIds[0];
 
     const next = async () => {
-        const valid = await methods.trigger(stepFields[stepId]);
-        if (!valid) return;
-        if (stepIdx < stepIds.length - 1) setStepIdx((i) => i + 1);
+        const isValid = await methods.trigger(stepFields[stepId]);
+        if (!isValid) return;
+        if (stepIndex < stepIds.length - 1) setStepIndex((index) => index + 1);
     };
 
-    const back = () => stepIdx > 0 && setStepIdx((i) => i - 1);
+    const back = () => stepIndex > 0 && setStepIndex((index) => index - 1);
 
     const submit = methods.handleSubmit((values) => {
         const result = scoreAssessment(plan.config, values);
         onSubmit(values, result);
     });
 
-    const progress = ((stepIdx + 1) / stepIds.length) * 100;
+    const progress = ((stepIndex + 1) / stepIds.length) * 100;
 
     return (
         <FormProvider {...methods}>
@@ -169,7 +169,7 @@ export function WizardStepper({
                     <div className="flex flex-col gap-3">
                         <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
                             <span className="tracking-wider uppercase">
-                                Step {stepIdx + 1} of {stepIds.length}
+                                Step {stepIndex + 1} of {stepIds.length}
                             </span>
                             <Badge className="font-mono" variant="secondary">
                                 {Math.round(progress)}%
@@ -207,7 +207,7 @@ export function WizardStepper({
                     >
                         <Button
                             className={cn('app-trade-checklist__wizard-back')}
-                            disabled={stepIdx === 0}
+                            disabled={stepIndex === 0}
                             onClick={back}
                             type="button"
                             variant="outline"
@@ -215,7 +215,7 @@ export function WizardStepper({
                             <ArrowLeft className="mr-1 size-4" />
                             Back
                         </Button>
-                        {stepIdx < stepIds.length - 1 ? (
+                        {stepIndex < stepIds.length - 1 ? (
                             <Button
                                 className={cn(
                                     'app-trade-checklist__wizard-next',
@@ -297,7 +297,7 @@ function BiasStep() {
     const weekly = watch('bias.weekly');
     const daily = watch('bias.daily');
     const fourHour = watch('bias.fourHour');
-    const showLtf =
+    const isShowLtf =
         weekly === 'unclear' && daily === 'unclear' && fourHour === 'unclear';
 
     return (
@@ -305,7 +305,7 @@ function BiasStep() {
             <BiasRow label="Weekly" name="bias.weekly" />
             <BiasRow label="Daily" name="bias.daily" />
             <BiasRow label="4H" name="bias.fourHour" />
-            {showLtf && (
+            {isShowLtf && (
                 <>
                     <BiasRow label="1H" name="bias.oneHour" />
                     <BiasRow label="15m" name="bias.fifteenMin" />
@@ -373,7 +373,7 @@ function ContextStep({ plan }: { plan: TradingPlanRow }) {
     const { setValue, watch } = useFormContext<FormValues>();
     const windowId = watch('context.windowId');
     const accountType = watch('context.accountType');
-    const quotaUsed = watch('context.windowQuotaUsed');
+    const isQuotaUsed = watch('context.windowQuotaUsed');
 
     return (
         <div className="flex flex-col gap-5">
@@ -473,7 +473,7 @@ function ContextStep({ plan }: { plan: TradingPlanRow }) {
                     </p>
                 </div>
                 <Switch
-                    checked={quotaUsed}
+                    checked={isQuotaUsed}
                     id="context-window-quota-used"
                     onCheckedChange={(v) =>
                         setValue('context.windowQuotaUsed', v, {
@@ -489,8 +489,8 @@ function ContextStep({ plan }: { plan: TradingPlanRow }) {
 function DolStep({ plan }: { plan: TradingPlanRow }) {
     const { setValue, watch } = useFormContext<FormValues>();
     const type = watch('dol.type');
-    const singular = watch('dol.singular');
-    const bothSided = watch('dol.bothSided');
+    const isSingular = watch('dol.singular');
+    const isBothSided = watch('dol.bothSided');
     const distanceR = watch('dol.distanceR');
 
     return (
@@ -530,7 +530,7 @@ function DolStep({ plan }: { plan: TradingPlanRow }) {
                     Singular and clearly defined DOL
                 </span>
                 <Switch
-                    checked={singular}
+                    checked={isSingular}
                     id="dol-singular"
                     onCheckedChange={(v) =>
                         setValue('dol.singular', v, {
@@ -557,7 +557,7 @@ function DolStep({ plan }: { plan: TradingPlanRow }) {
                         </AlertDescription>
                     </div>
                     <Switch
-                        checked={bothSided}
+                        checked={isBothSided}
                         id="dol-both-sided"
                         onCheckedChange={(v) =>
                             setValue('dol.bothSided', v, {
@@ -685,8 +685,8 @@ function EntryStep({ plan }: { plan: TradingPlanRow }) {
 
 function FinalsStep() {
     const { register, setValue, watch } = useFormContext<FormValues>();
-    const dolTaken = watch('finals.dolAlreadyTaken');
-    const overExtended = watch('finals.overExtended');
+    const isDolTaken = watch('finals.dolAlreadyTaken');
+    const isOverExtended = watch('finals.overExtended');
 
     return (
         <div className="flex flex-col gap-4">
@@ -707,7 +707,7 @@ function FinalsStep() {
                         </AlertDescription>
                     </div>
                     <Switch
-                        checked={dolTaken}
+                        checked={isDolTaken}
                         id="finals-dol-taken"
                         onCheckedChange={(v) =>
                             setValue('finals.dolAlreadyTaken', v, {
@@ -730,7 +730,7 @@ function FinalsStep() {
                     </p>
                 </div>
                 <Switch
-                    checked={overExtended}
+                    checked={isOverExtended}
                     id="finals-over-extended"
                     onCheckedChange={(v) =>
                         setValue('finals.overExtended', v, {
@@ -787,14 +787,14 @@ function MentalStep() {
     return (
         <div className="flex flex-col gap-3">
             {rows.map((r) => {
-                const checked = watch(`mental.${r.name}`);
+                const isChecked = watch(`mental.${r.name}`);
                 return (
                     <label
                         className="flex cursor-pointer items-start gap-3 rounded-lg border border-border/60 bg-card p-4 transition select-none hover:border-border"
                         key={r.name}
                     >
                         <Switch
-                            checked={checked}
+                            checked={isChecked}
                             className="mt-0.5"
                             onCheckedChange={(v) =>
                                 setValue(`mental.${r.name}`, v, {
@@ -810,7 +810,7 @@ function MentalStep() {
                                 {r.rule}
                             </p>
                         </div>
-                        {checked && <Badge variant="destructive">flag</Badge>}
+                        {isChecked && <Badge variant="destructive">flag</Badge>}
                     </label>
                 );
             })}
@@ -905,12 +905,12 @@ function RrStep({ plan }: { plan: TradingPlanRow }) {
 
 function SlStep({ plan }: { plan: TradingPlanRow }) {
     const { setValue, watch } = useFormContext<FormValues>();
-    const ob = watch('sl.ob');
-    const bb = watch('sl.bb');
-    const swing = watch('sl.swing');
-    const count = (ob ? 1 : 0) + (bb ? 1 : 0) + (swing ? 1 : 0);
+    const isOb = watch('sl.ob');
+    const isBb = watch('sl.bb');
+    const isSwing = watch('sl.swing');
+    const count = (isOb ? 1 : 0) + (isBb ? 1 : 0) + (isSwing ? 1 : 0);
     const required = plan.config.setup.requiredPdArrays;
-    const ok = count >= required;
+    const isOk = count >= required;
 
     const rows: {
         hint: string;
@@ -937,7 +937,7 @@ function SlStep({ plan }: { plan: TradingPlanRow }) {
     return (
         <div className="flex flex-col gap-3">
             {rows.map((r) => {
-                const v = watch(`sl.${r.name}`);
+                const isV = watch(`sl.${r.name}`);
                 return (
                     <label
                         className="flex cursor-pointer items-center justify-between rounded-lg border border-border/60 p-4 transition select-none hover:border-border"
@@ -946,7 +946,7 @@ function SlStep({ plan }: { plan: TradingPlanRow }) {
                     >
                         <div className="flex items-start gap-3">
                             <Checkbox
-                                checked={v}
+                                checked={isV}
                                 className="mt-0.5"
                                 id={`sl-${r.name}`}
                                 onCheckedChange={(x) =>
@@ -969,11 +969,11 @@ function SlStep({ plan }: { plan: TradingPlanRow }) {
             })}
             <Alert
                 className="text-sm font-medium"
-                variant={ok ? 'success' : 'destructive'}
+                variant={isOk ? 'success' : 'destructive'}
             >
                 <AlertDescription>
                     {count}/{required} PD arrays protecting the stop
-                    {!ok && ' — knockout active'}
+                    {!isOk && ' — knockout active'}
                 </AlertDescription>
             </Alert>
         </div>
@@ -982,12 +982,12 @@ function SlStep({ plan }: { plan: TradingPlanRow }) {
 
 function StateStep() {
     const { setValue, watch } = useFormContext<FormValues>();
-    const sweep = watch('state.opposingSweep');
+    const isSweep = watch('state.opposingSweep');
     const displacement = watch('state.displacement');
     const dayType = watch('state.dayType');
     const setupType = watch('state.setupType');
 
-    const coherent =
+    const isCoherent =
         (dayType === 'balanced' && setupType === 'reversal') ||
         (dayType === 'imbalanced' && setupType === 'continuation');
 
@@ -1006,7 +1006,7 @@ function StateStep() {
                     </p>
                 </div>
                 <Switch
-                    checked={sweep}
+                    checked={isSweep}
                     id="state-opposing-sweep"
                     onCheckedChange={(v) =>
                         setValue('state.opposingSweep', v, {
@@ -1127,10 +1127,10 @@ function StateStep() {
 
             <Alert
                 className="text-xs"
-                variant={coherent ? 'success' : 'warning'}
+                variant={isCoherent ? 'success' : 'warning'}
             >
                 <AlertDescription>
-                    {coherent
+                    {isCoherent
                         ? 'Day type and setup type form a coherent narrative.'
                         : 'Mismatch: balanced days favor reversal, imbalanced days favor continuation.'}
                 </AlertDescription>

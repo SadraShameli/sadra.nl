@@ -76,6 +76,6 @@ function toBase64Url(bytes: Uint8Array): string {
     return Buffer.from(bytes).toString('base64url');
 }
 
-function toUint8(buf: ArrayBuffer): Uint8Array<ArrayBuffer> {
-    return new Uint8Array(buf);
+function toUint8(buffer: ArrayBuffer): Uint8Array<ArrayBuffer> {
+    return new Uint8Array(buffer);
 }

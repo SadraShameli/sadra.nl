@@ -185,7 +185,7 @@ interface Stats {
 }
 
 export function GoalsView() {
-    const utils = api.useUtils();
+    const utilities = api.useUtils();
     const goalsQuery = api.lifting.goal.list.useQuery({});
     const settings = api.lifting.settings.get.useQuery();
     const unitWeight = settings.data?.unitWeight ?? 'kg';
@@ -194,27 +194,27 @@ export function GoalsView() {
         [goalsQuery.data],
     );
 
-    const invalidate = () => utils.lifting.goal.list.invalidate();
+    const invalidate = () => utilities.lifting.goal.list.invalidate();
     const create = api.lifting.goal.create.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: () => {
             toast.success('Goal created');
             void invalidate();
         },
     });
     const markAchieved = api.lifting.goal.markAchieved.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: () => {
             toast.success('Goal achieved — nice work.');
             void invalidate();
         },
     });
     const update = api.lifting.goal.update.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: () => void invalidate(),
     });
     const remove = api.lifting.goal.delete.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: () => {
             toast.success('Goal deleted');
             void invalidate();
@@ -252,7 +252,7 @@ export function GoalsView() {
                 seen.set(g.exerciseId, g.exerciseName);
             }
         }
-        return [...seen.entries()].map(([id, name]) => ({ id, name }));
+        return [...seen].map(([id, name]) => ({ id, name }));
     }, [goals]);
 
     const targetFrom = targetDateRange?.from
@@ -884,8 +884,11 @@ function AchievementHeatmap({ heatmap }: { heatmap: HeatmapGrid }) {
                 </div>
                 <div className="flex items-center justify-end gap-1 text-[10px] text-muted-foreground">
                     <span>Less</span>
-                    {HEAT_LEVELS.map((c, i) => (
-                        <span className={cn('size-3 rounded-sm', c)} key={i} />
+                    {HEAT_LEVELS.map((c, index) => (
+                        <span
+                            className={cn('size-3 rounded-sm', c)}
+                            key={index}
+                        />
                     ))}
                     <span>More</span>
                 </div>
@@ -940,7 +943,7 @@ function buildHeatmap(goals: GoalRow[]): HeatmapGrid {
 
     const padDays = (getDay(start) + 6) % 7;
     const cells: (HeatmapCell | null)[] = [];
-    for (let i = 0; i < padDays; i++) cells.push(null);
+    for (let index = 0; index < padDays; index++) cells.push(null);
     for (const d of days) {
         const key = format(d, 'yyyy-MM-dd');
         const count = byDate.get(key) ?? 0;
@@ -948,8 +951,8 @@ function buildHeatmap(goals: GoalRow[]): HeatmapGrid {
     }
     while (cells.length % 7 !== 0) cells.push(null);
     const weeks: (HeatmapCell | null)[][] = [];
-    for (let i = 0; i < cells.length; i += 7) {
-        weeks.push(cells.slice(i, i + 7));
+    for (let index = 0; index < cells.length; index += 7) {
+        weeks.push(cells.slice(index, index + 7));
     }
     return { hasAny: max > 0, weeks };
 }

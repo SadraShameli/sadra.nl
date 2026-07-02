@@ -22,11 +22,11 @@ interface StepperItemContextValue {
 }
 
 function useStepperContext(): StepperContextValue {
-    const ctx = React.useContext(StepperContext);
-    if (!ctx) {
+    const context = React.useContext(StepperContext);
+    if (!context) {
         throw new Error('Stepper.* must be used inside <Stepper>');
     }
-    return ctx;
+    return context;
 }
 
 const StepperItemContext = React.createContext<null | StepperItemContextValue>(
@@ -73,12 +73,12 @@ export function Stepper({
     orientation = 'horizontal',
     value,
 }: StepperProps) {
-    const ctx = React.useMemo(
+    const context = React.useMemo(
         () => ({ orientation, value }),
         [orientation, value],
     );
     return (
-        <StepperContext.Provider value={ctx}>
+        <StepperContext.Provider value={context}>
             <ol
                 className={cn(
                     'flex',
@@ -154,18 +154,18 @@ export function StepperItem({
 }: StepperItemProps) {
     const { value } = useStepperContext();
     const isActive = step === value;
-    const resolvedCompleted = completed ?? step < value;
-    const state: State = resolvedCompleted
+    const isResolvedCompleted = completed ?? step < value;
+    const state: State = isResolvedCompleted
         ? 'completed'
         : isActive
           ? 'active'
           : 'inactive';
-    const itemCtx = React.useMemo(
+    const itemContext = React.useMemo(
         () => ({ loading, state, step }),
         [loading, state, step],
     );
     return (
-        <StepperItemContext.Provider value={itemCtx}>
+        <StepperItemContext.Provider value={itemContext}>
             <li
                 className={cn('flex items-center gap-2', className)}
                 data-slot="stepper-item"
@@ -211,9 +211,9 @@ export function StepperTitle({ children, className }: StepperTitleProps) {
 }
 
 function useStepperItemContext(): StepperItemContextValue {
-    const ctx = React.useContext(StepperItemContext);
-    if (!ctx) {
+    const context = React.useContext(StepperItemContext);
+    if (!context) {
         throw new Error('Stepper.Item.* must be used inside <StepperItem>');
     }
-    return ctx;
+    return context;
 }

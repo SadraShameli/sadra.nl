@@ -22,7 +22,7 @@ interface FieldOption {
     value: string;
 }
 
-interface Props {
+interface Properties {
     credentialId?: string;
     credentialKind: string;
     field: CredentialMetaField;
@@ -43,7 +43,7 @@ export function SelectFieldInput({
     onChange,
     secret,
     value,
-}: Props) {
+}: Properties) {
     const fieldId = useId();
     const [options, setOptions] = useState<FieldOption[]>([]);
     const loadMut = api.accounting.fieldOptions.load.useMutation();
@@ -59,13 +59,14 @@ export function SelectFieldInput({
         setOptions([]);
     }, [credentialId, credentialKind, secret]);
 
-    const usingStoredSecret = secret.length === 0 && credentialId !== undefined;
+    const isUsingStoredSecret =
+        secret.length === 0 && credentialId !== undefined;
     const isPending = loadMut.isPending || loadForCredentialMut.isPending;
     const lastError = loadMut.error ?? loadForCredentialMut.error;
 
     const load = async () => {
         try {
-            const res = usingStoredSecret
+            const res = isUsingStoredSecret
                 ? await loadForCredentialMut.mutateAsync({
                       credentialId: credentialId,
                       fieldKey: field.key,
@@ -81,14 +82,14 @@ export function SelectFieldInput({
         } catch {}
     };
 
-    const canLoad = (secret.length > 0 || usingStoredSecret) && !isPending;
+    const canLoad = (secret.length > 0 || isUsingStoredSecret) && !isPending;
     const hasOptions = options.length > 0;
-    const showSavedAsOption =
+    const isShowSavedAsOption =
         !hasOptions && stringValue !== EMPTY && stringValue.length > 0;
 
     const placeholderLabel = hasOptions
         ? '— pick one —'
-        : showSavedAsOption
+        : isShowSavedAsOption
           ? '— clear selection —'
           : 'Load options first';
 
@@ -97,7 +98,7 @@ export function SelectFieldInput({
             <Label htmlFor={fieldId}>{field.label}</Label>
             <div className="flex items-center gap-2">
                 <Select
-                    disabled={!hasOptions && !showSavedAsOption}
+                    disabled={!hasOptions && !isShowSavedAsOption}
                     onValueChange={(v) =>
                         onChange(v === SENTINEL_NONE ? undefined : v)
                     }
@@ -110,7 +111,7 @@ export function SelectFieldInput({
                         <SelectItem value={SENTINEL_NONE}>
                             {placeholderLabel}
                         </SelectItem>
-                        {showSavedAsOption && (
+                        {isShowSavedAsOption && (
                             <SelectItem value={stringValue}>
                                 current: {stringValue}
                             </SelectItem>

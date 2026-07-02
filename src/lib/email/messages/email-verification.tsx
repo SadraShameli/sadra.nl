@@ -5,7 +5,7 @@ import { EmailMessage } from '../message';
 import { BaseEmail } from '../templates/base';
 
 export class EmailVerificationEmail extends EmailMessage {
-    readonly subject = 'Verify your email — sadra.nl';
+    readonly subject = 'Verify your email';
     readonly to: string;
 
     constructor(

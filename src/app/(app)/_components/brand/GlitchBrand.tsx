@@ -7,7 +7,7 @@ import { cn } from '~/lib/utils';
 
 const CHARS = String.raw`!<>-\/[]{}=+*^?#@$%`;
 
-interface Props {
+interface Properties {
     className?: string;
     href?: string;
     text: string;
@@ -19,7 +19,7 @@ export default function GlitchBrand({
     href = '/',
     text,
     trigger = 0,
-}: Props) {
+}: Properties) {
     const [display, setDisplay] = useState(text);
 
     const runBurst = useCallback(

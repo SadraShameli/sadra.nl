@@ -6,7 +6,7 @@ import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
 import { type SimOutputs } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utils';
 
-interface Props {
+interface Properties {
     maxEvalDays: number;
     result: SimOutputs;
     totalTrials: number;
@@ -25,7 +25,7 @@ export default function PassRateByDayChartView({
     maxEvalDays,
     result,
     totalTrials,
-}: Props) {
+}: Properties) {
     if (result.daysToPassValues.length === 0) {
         return (
             <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">

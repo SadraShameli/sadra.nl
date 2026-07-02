@@ -43,9 +43,9 @@ export class BestVolumeSetPrDetector extends PrDetector {
     detect(history: readonly PrSet[], candidate: PrSet): null | PrUnlocked {
         if (candidate.weightKg <= 0 || candidate.reps <= 0) return null;
         const candidateVolume = candidate.weightKg * candidate.reps;
-        const best = history.reduce((acc, s) => {
+        const best = history.reduce((accumulator, s) => {
             const v = s.weightKg * s.reps;
-            return Math.max(v, acc);
+            return Math.max(v, accumulator);
         }, 0);
         if (candidateVolume <= best) return null;
         return this.unlocked(candidate, candidateVolume);
@@ -61,9 +61,9 @@ export class EstimatedOneRepMaxPrDetector extends PrDetector {
             candidate.reps,
         );
         if (candidateValue <= 0) return null;
-        const best = history.reduce((acc, s) => {
+        const best = history.reduce((accumulator, s) => {
             const v = oneRepMaxCalculator.estimate(s.weightKg, s.reps);
-            return Math.max(v, acc);
+            return Math.max(v, accumulator);
         }, 0);
         if (candidateValue <= best) return null;
         return this.unlocked(candidate, candidateValue);
@@ -75,7 +75,10 @@ export class HeaviestWeightPrDetector extends PrDetector {
 
     detect(history: readonly PrSet[], candidate: PrSet): null | PrUnlocked {
         if (candidate.weightKg <= 0 || candidate.reps <= 0) return null;
-        const best = history.reduce((acc, s) => Math.max(s.weightKg, acc), 0);
+        const best = history.reduce(
+            (accumulator, s) => Math.max(s.weightKg, accumulator),
+            0,
+        );
         if (candidate.weightKg <= best) return null;
         return this.unlocked(candidate, candidate.weightKg);
     }
@@ -88,7 +91,7 @@ export class RepsAtWeightPrDetector extends PrDetector {
         if (candidate.weightKg <= 0 || candidate.reps <= 0) return null;
         const bestAtWeight = history
             .filter((s) => Math.abs(s.weightKg - candidate.weightKg) < 1e-3)
-            .reduce((acc, s) => Math.max(s.reps, acc), 0);
+            .reduce((accumulator, s) => Math.max(s.reps, accumulator), 0);
         if (candidate.reps <= bestAtWeight) return null;
         return this.unlocked(candidate, candidate.reps);
     }

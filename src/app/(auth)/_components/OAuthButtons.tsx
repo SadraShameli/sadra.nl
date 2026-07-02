@@ -19,8 +19,8 @@ export function OAuthButtons({
 }) {
     const [pendingGoogle, startGoogle] = useTransition();
     const [pendingGithub, startGithub] = useTransition();
-    const searchParams = useSearchParams();
-    const callbackUrl = searchParams.get('callbackUrl') ?? routes.home;
+    const searchParameters = useSearchParams();
+    const callbackUrl = searchParameters.get('callbackUrl') ?? routes.home;
 
     if (!hasGoogle && !hasGithub) return null;
 

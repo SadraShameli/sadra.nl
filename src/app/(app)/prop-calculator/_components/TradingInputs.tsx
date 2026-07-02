@@ -24,7 +24,7 @@ import { cn } from '~/lib/utils';
 import DayStopRulePicker from './DayStopRulePicker';
 import { SizingMode } from './types';
 
-interface TradingInputsProps {
+interface TradingInputsProperties {
     activationDiscountPercent: number;
     commissionPerRoundTrip: number;
     copyAccounts: number;
@@ -100,7 +100,7 @@ export default function TradingInputs({
     tradesPerDay,
     trials,
     winrate,
-}: TradingInputsProps) {
+}: TradingInputsProperties) {
     const accountSize = plan.accountSize;
     const computedRisk =
         sizingMode === SizingMode.Dollar
@@ -403,7 +403,7 @@ export default function TradingInputs({
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1">
                     {[0.25, 0.5, 1, 2, 5].map((preset) => {
-                        const active =
+                        const isActive =
                             sizingMode === SizingMode.Percent &&
                             Math.abs(riskPercent - preset) < 0.01;
                         return (
@@ -416,7 +416,7 @@ export default function TradingInputs({
                                 }}
                                 size="sm"
                                 type="button"
-                                variant={active ? 'default' : 'outline'}
+                                variant={isActive ? 'default' : 'outline'}
                             >
                                 {preset}%
                             </Button>

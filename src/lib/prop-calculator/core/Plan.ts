@@ -88,13 +88,10 @@ export abstract class Plan {
 
     isBust(state: AccountState): boolean {
         if (this.init.drawdown.isBreached(state)) return true;
-        if (
+        return (
             this.init.dailyLossLimit !== null &&
             state.todayPnL <= -this.init.dailyLossLimit
-        ) {
-            return true;
-        }
-        return false;
+        );
     }
 
     isPassed(state: AccountState): boolean {

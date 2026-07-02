@@ -108,22 +108,20 @@ export const auth = betterAuth({
         updateAge: SESSION_UPDATE_INTERVAL_SECONDS,
     },
     socialProviders: {
-        ...(env.AUTH_GOOGLE_ID && env.AUTH_GOOGLE_SECRET
-            ? {
-                  google: {
-                      clientId: env.AUTH_GOOGLE_ID,
-                      clientSecret: env.AUTH_GOOGLE_SECRET,
-                  },
-              }
-            : {}),
-        ...(env.AUTH_GITHUB_ID && env.AUTH_GITHUB_SECRET
-            ? {
-                  github: {
-                      clientId: env.AUTH_GITHUB_ID,
-                      clientSecret: env.AUTH_GITHUB_SECRET,
-                  },
-              }
-            : {}),
+        ...(env.AUTH_GOOGLE_ID &&
+            env.AUTH_GOOGLE_SECRET && {
+                google: {
+                    clientId: env.AUTH_GOOGLE_ID,
+                    clientSecret: env.AUTH_GOOGLE_SECRET,
+                },
+            }),
+        ...(env.AUTH_GITHUB_ID &&
+            env.AUTH_GITHUB_SECRET && {
+                github: {
+                    clientId: env.AUTH_GITHUB_ID,
+                    clientSecret: env.AUTH_GITHUB_SECRET,
+                },
+            }),
     },
     trustedOrigins: [getPublicSiteOrigin()],
 });

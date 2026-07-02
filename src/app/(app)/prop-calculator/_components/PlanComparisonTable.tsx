@@ -20,7 +20,7 @@ import { cn } from '~/lib/utils';
 
 import { panelDescriptions } from './kpiDescriptions';
 
-interface PlanComparisonTableProps {
+interface PlanComparisonTableProperties {
     activePlan: Plan;
     baseInputs: Omit<SimInputs, 'plan'>;
     firm: PropFirm;
@@ -38,22 +38,22 @@ export default function PlanComparisonTable({
     activePlan,
     baseInputs,
     firm,
-}: PlanComparisonTableProps) {
+}: PlanComparisonTableProperties) {
     const [rows, setRows] = useState<Row[]>([]);
     const [pending, setPending] = useState(false);
-    const inputsRef = useRef(baseInputs);
-    inputsRef.current = baseInputs;
-    const firmRef = useRef(firm);
-    firmRef.current = firm;
+    const inputsReference = useRef(baseInputs);
+    inputsReference.current = baseInputs;
+    const firmReference = useRef(firm);
+    firmReference.current = firm;
 
     const debouncedKey = useDebouncedKey(baseInputs, firm.id, 600);
 
     useEffect(() => {
-        let cancelled = false;
+        let isCancelled = false;
         setPending(true);
         const handle = setTimeout(() => {
-            const inputs = inputsRef.current;
-            const plans = firmRef.current.plans;
+            const inputs = inputsReference.current;
+            const plans = firmReference.current.plans;
             const trials = Math.min(500, inputs.trials);
             const partial = plans.map((plan) => ({
                 out: simulate({ ...inputs, plan, trials }),
@@ -79,13 +79,13 @@ export default function PlanComparisonTable({
                           )
                         : 1,
             }));
-            if (!cancelled) {
+            if (!isCancelled) {
                 setRows(withScore);
                 setPending(false);
             }
         }, 0);
         return () => {
-            cancelled = true;
+            isCancelled = true;
             clearTimeout(handle);
         };
     }, [debouncedKey]);

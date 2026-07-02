@@ -47,9 +47,9 @@ export function TodayHero() {
     const active = api.lifting.workout.getActive.useQuery();
     const settings = api.lifting.settings.get.useQuery();
     const unitWeight = settings.data?.unitWeight ?? 'kg';
-    const utils = api.useUtils();
+    const utilities = api.useUtils();
     const start = api.lifting.workout.start.useMutation({
-        onSuccess: () => utils.lifting.workout.getActive.invalidate(),
+        onSuccess: () => utilities.lifting.workout.getActive.invalidate(),
     });
     const [prRange, setPrRange] = useState<PrRange>('all');
     const [prCustomRange, setPrCustomRange] = useState<DateRange | undefined>();
@@ -85,7 +85,7 @@ export function TodayHero() {
         if (range?.from) setPrRange('all');
     };
 
-    const prFiltersActive =
+    const isPrFiltersActive =
         prRange !== 'all' ||
         Boolean(prCustomRange?.from) ||
         prKindFilter !== PR_KIND_ALL;
@@ -236,7 +236,7 @@ export function TodayHero() {
                                 <div className="flex flex-col gap-2">
                                     <div className="flex flex-wrap items-center gap-2">
                                         <ClearFiltersButton
-                                            active={prFiltersActive}
+                                            active={isPrFiltersActive}
                                             className="hidden md:flex"
                                             onReset={resetPrFilters}
                                         />
@@ -297,7 +297,7 @@ export function TodayHero() {
                                         />
                                     </div>
                                     <ClearFiltersButton
-                                        active={prFiltersActive}
+                                        active={isPrFiltersActive}
                                         className="md:hidden"
                                         onReset={resetPrFilters}
                                     />

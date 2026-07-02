@@ -57,12 +57,12 @@ export async function GET(
     const selectedCover = cover
         ? coverLetters.find((letter) => letter.key === cover)
         : undefined;
-    const showCover = Boolean(selectedCover);
+    const isShowCover = Boolean(selectedCover);
 
     registerFonts();
     const origin = getPublicSiteOrigin();
     const capitalizedName = name.charAt(0).toUpperCase() + name.slice(1);
-    const filename = `${showCover ? 'Cover' : 'Resume'} - ${capitalizedName}.pdf`;
+    const filename = `${isShowCover ? 'Cover' : 'Resume'} - ${capitalizedName}.pdf`;
 
     const cvProjects = selectedVariant.projects.map((project) => ({
         ...project,
@@ -89,7 +89,7 @@ export async function GET(
             profilePictureSrc={`${origin}${routes.resume.profileImage(name)}`}
             projects={cvProjects}
             research={[]}
-            showCover={showCover}
+            showCover={isShowCover}
         />,
     );
 

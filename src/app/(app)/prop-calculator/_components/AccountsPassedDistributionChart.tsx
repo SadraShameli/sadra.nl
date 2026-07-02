@@ -12,7 +12,7 @@ import {
 import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
 import { cn } from '~/lib/utils';
 
-interface BarShapeProps {
+interface BarShapeProperties {
     height?: number;
     index?: number;
     width?: number;
@@ -20,7 +20,7 @@ interface BarShapeProps {
     y?: number;
 }
 
-interface Props {
+interface Properties {
     distribution: number[];
     halfThreshold?: boolean;
 }
@@ -32,7 +32,7 @@ const chartConfig: ChartConfig = {
 export default function AccountsPassedDistributionChart({
     distribution,
     halfThreshold = true,
-}: Props) {
+}: Properties) {
     const N = Math.max(0, distribution.length - 1);
     const halfK = Math.ceil(N / 2);
     const data = distribution.map((p, k) => ({ k, p }));
@@ -88,14 +88,14 @@ export default function AccountsPassedDistributionChart({
                     <Bar
                         dataKey="p"
                         isAnimationActive={false}
-                        shape={(props: unknown) => {
+                        shape={(properties: unknown) => {
                             const {
                                 height = 0,
                                 index = 0,
                                 width = 0,
                                 x = 0,
                                 y = 0,
-                            } = props as BarShapeProps;
+                            } = properties as BarShapeProperties;
                             const fill =
                                 index === 0
                                     ? 'hsl(0 80% 60%)'

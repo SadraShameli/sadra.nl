@@ -67,28 +67,28 @@ type SensorRow = {
 type UnitRow = { id: number; value: string };
 
 export function SensorsPanel() {
-    const utils = api.useUtils();
+    const utilities = api.useUtils();
     const sensors = api.sensor.listAdmin.useQuery();
     const units = api.sensorUnit.list.useQuery();
     const create = api.sensor.create.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Sensor created.');
-            await utils.sensor.listAdmin.invalidate();
+            await utilities.sensor.listAdmin.invalidate();
         },
     });
     const update = api.sensor.update.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Sensor updated.');
-            await utils.sensor.listAdmin.invalidate();
+            await utilities.sensor.listAdmin.invalidate();
         },
     });
     const del = api.sensor.delete.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Sensor deleted.');
-            await utils.sensor.listAdmin.invalidate();
+            await utilities.sensor.listAdmin.invalidate();
         },
     });
 
@@ -364,7 +364,7 @@ function UnitRowEditor({
 }) {
     const [editing, setEditing] = useState(false);
     const update = api.sensorUnit.update.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Unit renamed.');
             setEditing(false);
@@ -471,22 +471,22 @@ function UnitsManagerDialog({
     onClose: () => void;
     units: UnitRow[];
 }) {
-    const utils = api.useUtils();
+    const utilities = api.useUtils();
     const invalidate = async () => {
         await Promise.all([
-            utils.sensorUnit.list.invalidate(),
-            utils.sensor.listAdmin.invalidate(),
+            utilities.sensorUnit.list.invalidate(),
+            utilities.sensor.listAdmin.invalidate(),
         ]);
     };
     const create = api.sensorUnit.create.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Unit added.');
             await invalidate();
         },
     });
     const del = api.sensorUnit.delete.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Unit deleted.');
             await invalidate();

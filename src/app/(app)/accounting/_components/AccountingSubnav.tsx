@@ -4,6 +4,7 @@ import {
     ArrowLeftRight,
     BookOpen,
     Filter,
+    History,
     KeyRound,
     LayoutDashboard,
     ListChecks,
@@ -45,6 +46,11 @@ const ITEMS: readonly RouteSubnavItem[] = [
         href: routes.accounting.mutations,
         icon: ListChecks,
         label: 'Mutations',
+    },
+    {
+        href: routes.accounting.runs,
+        icon: History,
+        label: 'Runs',
     },
 ];
 

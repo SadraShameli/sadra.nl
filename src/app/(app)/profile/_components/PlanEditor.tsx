@@ -100,7 +100,7 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
     };
 
     const weightsSum = Object.values(config.weights).reduce((a, b) => a + b, 0);
-    const weightsValid = Math.abs(weightsSum - 100) < 0.01;
+    const isWeightsValid = Math.abs(weightsSum - 100) < 0.01;
 
     const normalizeWeights = () => {
         if (weightsSum === 0) return;
@@ -118,7 +118,7 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
     };
 
     const onSubmit = form.handleSubmit((values) => {
-        if (!weightsValid) {
+        if (!isWeightsValid) {
             toast.error('Weights must sum to 100.');
             return;
         }
@@ -173,7 +173,7 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                             strategy={verticalListSortingStrategy}
                         >
                             <div className="flex flex-col gap-2">
-                                {config.windows.map((w, i) => (
+                                {config.windows.map((w, index) => (
                                     <SortableWindowRow
                                         canDelete={config.windows.length > 1}
                                         key={w.id}
@@ -181,8 +181,8 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                                             updateConfig(
                                                 'windows',
                                                 config.windows.map(
-                                                    (win, idx) =>
-                                                        idx === i
+                                                    (win, index_) =>
+                                                        index_ === index
                                                             ? {
                                                                   ...win,
                                                                   ...patch,
@@ -195,7 +195,8 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                                             updateConfig(
                                                 'windows',
                                                 config.windows.filter(
-                                                    (_, idx) => idx !== i,
+                                                    (_, index_) =>
+                                                        index_ !== index,
                                                 ),
                                             )
                                         }
@@ -396,7 +397,7 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                                 </div>
                                 <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
                                     {group.items.map((c) => {
-                                        const active =
+                                        const isActive =
                                             config.setup.allowedConfluences.includes(
                                                 c,
                                             );
@@ -406,7 +407,7 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                                                 key={c}
                                             >
                                                 <Checkbox
-                                                    checked={active}
+                                                    checked={isActive}
                                                     onCheckedChange={(v) =>
                                                         updateConfig('setup', {
                                                             ...config.setup,
@@ -447,7 +448,7 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                     <div className="flex items-center justify-between">
                         <Eyebrow as="h3">Scoring weights</Eyebrow>
                         <Badge
-                            variant={weightsValid ? 'default' : 'destructive'}
+                            variant={isWeightsValid ? 'default' : 'destructive'}
                         >
                             Total {weightsSum.toFixed(0)} / 100
                         </Badge>
@@ -482,7 +483,7 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                             </div>
                         ))}
                     </div>
-                    {!weightsValid && (
+                    {!isWeightsValid && (
                         <Alert variant="warning">
                             <AlertDescription className="flex items-center justify-between gap-3">
                                 <span>
@@ -538,7 +539,7 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
 
                 <div className="flex justify-end gap-2">
                     <Button
-                        disabled={pending || !weightsValid || !name.trim()}
+                        disabled={pending || !isWeightsValid || !name.trim()}
                         type="submit"
                     >
                         <Save className="mr-1 size-4" />

@@ -59,7 +59,8 @@ export const liftingRoutineRouter = createTRPCRouter({
         .mutation(async ({ ctx, input }) => {
             if (input.orderedIds.length === 0) return { ok: true };
             const caseChunks = input.orderedIds.map(
-                (id, idx) => sql`WHEN ${liftingRoutine.id} = ${id} THEN ${idx}`,
+                (id, index) =>
+                    sql`WHEN ${liftingRoutine.id} = ${id} THEN ${index}`,
             );
             await ctx.db
                 .update(liftingRoutine)

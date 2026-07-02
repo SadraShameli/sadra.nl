@@ -16,7 +16,7 @@ import {
 } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utils';
 
-interface FirmPlanPickerProps {
+interface FirmPlanPickerProperties {
     firm: PropFirm;
     firms: readonly PropFirm[];
     onFirmChange: (firm: PropFirm) => void;
@@ -30,7 +30,7 @@ export default function FirmPlanPicker({
     onFirmChange,
     onPlanChange,
     plan,
-}: FirmPlanPickerProps) {
+}: FirmPlanPickerProperties) {
     return (
         <div
             className={cn(

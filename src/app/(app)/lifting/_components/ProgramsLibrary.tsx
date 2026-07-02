@@ -62,7 +62,7 @@ type OfficialProgram =
     RouterOutputs['lifting']['program']['listOfficial'][number];
 type OwnedProgram =
     RouterOutputs['lifting']['program']['listMine']['owned'][number];
-type ProgramRef = OfficialProgram;
+type ProgramReference = OfficialProgram;
 
 const SORT_VALUES = ['name', 'days', 'length'] as const;
 type SortKey = (typeof SORT_VALUES)[number];
@@ -112,7 +112,7 @@ export function ProgramsLibrary() {
     }, [mine.data?.owned]);
 
     const programsById = useMemo(() => {
-        const map = new Map<string, ProgramRef>();
+        const map = new Map<string, ProgramReference>();
         for (const p of official.data ?? []) map.set(p.id, p);
         for (const p of mine.data?.owned ?? []) map.set(p.id, p);
         return map;
@@ -147,7 +147,7 @@ export function ProgramsLibrary() {
         (e) => e.status !== 'active',
     );
 
-    const filtersActive =
+    const isFiltersActive =
         debouncedSearch.length > 0 || category !== 'all' || days !== 'all';
 
     const totalEnrollments = mine.data?.enrollments.length ?? 0;
@@ -312,7 +312,7 @@ export function ProgramsLibrary() {
                         </div>
                     </div>
                     <ClearFiltersButton
-                        active={filtersActive}
+                        active={isFiltersActive}
                         onReset={() => {
                             setSearch('');
                             setCategory('all');
@@ -322,10 +322,10 @@ export function ProgramsLibrary() {
 
                     {official.isLoading && (
                         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-                            {Array.from({ length: 6 }).map((_, i) => (
+                            {Array.from({ length: 6 }).map((_, index) => (
                                 <Skeleton
                                     className="h-36 w-full rounded-2xl"
-                                    key={i}
+                                    key={index}
                                 />
                             ))}
                         </div>
@@ -334,7 +334,7 @@ export function ProgramsLibrary() {
                     {!official.isLoading && filtered.length === 0 && (
                         <EmptyState
                             description={
-                                filtersActive
+                                isFiltersActive
                                     ? 'Try clearing some filters.'
                                     : 'No programs available yet.'
                             }
@@ -366,17 +366,17 @@ function ActiveEnrollmentCard({
     program,
 }: {
     enrollment: Enrollment;
-    program: ProgramRef | undefined;
+    program: ProgramReference | undefined;
 }) {
-    const utils = api.useUtils();
+    const utilities = api.useUtils();
     const [previewOpen, setPreviewOpen] = useState(false);
 
     const nextDay = api.lifting.program.nextDay.useQuery({ id: enrollment.id });
 
-    const invalidate = () => utils.lifting.program.listMine.invalidate();
+    const invalidate = () => utilities.lifting.program.listMine.invalidate();
 
     const advance = api.lifting.program.advance.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Advanced to next day.');
             await invalidate();
@@ -384,7 +384,7 @@ function ActiveEnrollmentCard({
     });
 
     const updateEnrollment = api.lifting.program.updateEnrollment.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Program paused.');
             await invalidate();
@@ -392,7 +392,7 @@ function ActiveEnrollmentCard({
     });
 
     const unenroll = api.lifting.program.unenroll.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Unenrolled.');
             await invalidate();
@@ -400,11 +400,14 @@ function ActiveEnrollmentCard({
     });
 
     const totalDays =
-        program?.schedule.weeks.reduce((acc, w) => acc + w.days.length, 0) ?? 0;
+        program?.schedule.weeks.reduce(
+            (accumulator, w) => accumulator + w.days.length,
+            0,
+        ) ?? 0;
     const completedDays = program
         ? program.schedule.weeks
               .slice(0, enrollment.currentWeek - 1)
-              .reduce((acc, w) => acc + w.days.length, 0) +
+              .reduce((accumulator, w) => accumulator + w.days.length, 0) +
           (enrollment.currentDay - 1)
         : 0;
     const pct = totalDays > 0 ? (completedDays / totalDays) * 100 : 0;
@@ -489,10 +492,10 @@ function ActiveEnrollmentCard({
                                     )}
                                 </p>
                                 <ul className="flex flex-col gap-0.5">
-                                    {upcomingDay.blocks.map((b, i) => (
+                                    {upcomingDay.blocks.map((b, index) => (
                                         <li
                                             className="text-xs text-muted-foreground"
-                                            key={`${b.kind}-${'exerciseSlug' in b ? b.exerciseSlug : i}`}
+                                            key={`${b.kind}-${'exerciseSlug' in b ? b.exerciseSlug : index}`}
                                         >
                                             {blockLabel(b)}
                                         </li>
@@ -593,19 +596,19 @@ function EnrollmentCard({
     program,
 }: {
     enrollment: Enrollment;
-    program: ProgramRef | undefined;
+    program: ProgramReference | undefined;
 }) {
-    const utils = api.useUtils();
-    const invalidate = () => utils.lifting.program.listMine.invalidate();
+    const utilities = api.useUtils();
+    const invalidate = () => utilities.lifting.program.listMine.invalidate();
     const resume = api.lifting.program.updateEnrollment.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Resumed.');
             await invalidate();
         },
     });
     const unenroll = api.lifting.program.unenroll.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Removed.');
             await invalidate();
@@ -730,12 +733,12 @@ function OfficialProgramCard({
 }
 
 function OwnedProgramCard({ program }: { program: OwnedProgram }) {
-    const utils = api.useUtils();
+    const utilities = api.useUtils();
     const remove = api.lifting.program.deleteCustom.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Custom program deleted.');
-            await utils.lifting.program.listMine.invalidate();
+            await utilities.lifting.program.listMine.invalidate();
         },
     });
     return (

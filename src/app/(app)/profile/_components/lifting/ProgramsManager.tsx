@@ -45,22 +45,22 @@ type ProgramOwned =
 const FILTER_ALL = '__all__';
 
 export function ProgramsManager() {
-    const utils = api.useUtils();
+    const utilities = api.useUtils();
     const mine = api.lifting.program.listMine.useQuery();
     const official = api.lifting.program.listOfficial.useQuery();
 
     const deleteCustom = api.lifting.program.deleteCustom.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Custom program deleted');
-            await utils.lifting.program.listMine.invalidate();
+            await utilities.lifting.program.listMine.invalidate();
         },
     });
     const unenroll = api.lifting.program.unenroll.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Unenrolled');
-            await utils.lifting.program.listMine.invalidate();
+            await utilities.lifting.program.listMine.invalidate();
         },
     });
 
@@ -71,12 +71,10 @@ export function ProgramsManager() {
         return all.filter((p) => {
             if (categoryFilter !== FILTER_ALL && p.category !== categoryFilter)
                 return false;
-            if (
-                daysFilter !== FILTER_ALL &&
-                String(p.daysPerWeek) !== daysFilter
-            )
-                return false;
-            return true;
+            return (
+                daysFilter === FILTER_ALL ||
+                String(p.daysPerWeek) === daysFilter
+            );
         });
     }, [mine.data, categoryFilter, daysFilter]);
     const daysOptions = useMemo(

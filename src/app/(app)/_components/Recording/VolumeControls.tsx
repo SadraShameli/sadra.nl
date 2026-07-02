@@ -7,7 +7,7 @@ import { cn } from '~/lib/utils';
 import { SpeedControl } from './SpeedControl';
 import { type PlaybackSpeed } from './types';
 
-interface VolumeControlsProps {
+interface VolumeControlsProperties {
     hasRecordings: boolean;
     isAutoPlay: boolean;
     onAutoPlay: () => void;
@@ -27,7 +27,7 @@ export function VolumeControls({
     onVolumeChange,
     playbackRate,
     volume,
-}: VolumeControlsProps) {
+}: VolumeControlsProperties) {
     return (
         <div
             className={cn(

@@ -4,7 +4,7 @@ import { render } from '@react-email/render';
 import { EmailMessage } from '../message';
 import { BaseEmail } from '../templates/base';
 
-interface LoudnessAlertTemplateProps {
+interface LoudnessAlertTemplateProperties {
     deviceName: null | string;
     locationName: null | string;
     threshold: number;
@@ -12,19 +12,19 @@ interface LoudnessAlertTemplateProps {
 }
 
 export class LoudnessAlertEmail extends EmailMessage {
-    readonly subject = 'Loudness alert — sadra.nl';
+    readonly subject = 'Loudness alert';
     readonly to: string;
 
     constructor(
         to: string,
-        private readonly params: LoudnessAlertTemplateProps,
+        private readonly parameters: LoudnessAlertTemplateProperties,
     ) {
         super();
         this.to = to;
     }
 
     async render(): Promise<string> {
-        return render(<LoudnessAlertTemplate {...this.params} />);
+        return render(<LoudnessAlertTemplate {...this.parameters} />);
     }
 }
 
@@ -33,7 +33,7 @@ function LoudnessAlertTemplate({
     locationName,
     threshold,
     value,
-}: LoudnessAlertTemplateProps) {
+}: LoudnessAlertTemplateProperties) {
     return (
         <BaseEmail
             preview={`Loudness alert: ${value} exceeded threshold ${threshold}`}

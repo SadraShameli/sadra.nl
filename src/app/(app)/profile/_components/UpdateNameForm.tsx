@@ -88,7 +88,7 @@ export function UpdateNameForm({
         setEditingEmail(false);
     };
 
-    const showEmailEditor = editingEmail || !email;
+    const isShowEmailEditor = editingEmail || !email;
 
     return (
         <div className="flex flex-col gap-4">
@@ -126,7 +126,7 @@ export function UpdateNameForm({
             </Form>
             <Form {...emailForm}>
                 <form className="flex flex-col gap-2" onSubmit={onSaveEmail}>
-                    {showEmailEditor ? (
+                    {isShowEmailEditor ? (
                         <FormField
                             control={emailForm.control}
                             name="email"

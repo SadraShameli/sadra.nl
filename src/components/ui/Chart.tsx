@@ -19,11 +19,11 @@ export type ChartConfig = Record<
     }
 >;
 
-type ChartContextProps = {
+type ChartContextProperties = {
     config: ChartConfig;
 };
 
-const ChartContext = React.createContext<ChartContextProps | null>(null);
+const ChartContext = React.createContext<ChartContextProperties | null>(null);
 
 function useChart() {
     const context = React.useContext(ChartContext);
@@ -43,7 +43,7 @@ const ChartContainer = React.forwardRef<
         >['children'];
         config: ChartConfig;
     }
->(({ children, className, config, id, ...props }, ref) => {
+>(({ children, className, config, id, ...properties }, reference) => {
     const uniqueId = React.useId();
     const chartId = `chart-${id || uniqueId.replaceAll(':', '')}`;
     const [mounted, setMounted] = React.useState(false);
@@ -57,8 +57,8 @@ const ChartContainer = React.forwardRef<
                     className,
                 )}
                 data-chart={chartId}
-                ref={ref}
-                {...props}
+                ref={reference}
+                {...properties}
             >
                 <ChartStyle config={config} id={chartId} />
                 {mounted && (
@@ -146,7 +146,7 @@ const ChartTooltipContent = React.forwardRef<
             nameKey,
             payload,
         },
-        ref,
+        reference,
     ) => {
         const { config } = useChart();
 
@@ -192,7 +192,7 @@ const ChartTooltipContent = React.forwardRef<
             return null;
         }
 
-        const nestLabel = payload.length === 1 && indicator !== 'dot';
+        const isNestLabel = payload.length === 1 && indicator !== 'dot';
 
         return (
             <div
@@ -200,9 +200,9 @@ const ChartTooltipContent = React.forwardRef<
                     'grid min-w-[8rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl',
                     className,
                 )}
-                ref={ref}
+                ref={reference}
             >
-                {nestLabel ? null : tooltipLabel}
+                {isNestLabel ? null : tooltipLabel}
                 <div className="grid gap-1.5">
                     {payload
                         .filter((item: any) => item.type !== 'none')
@@ -248,7 +248,7 @@ const ChartTooltipContent = React.forwardRef<
                                                                     indicator ===
                                                                     'dot',
                                                                 'my-0.5':
-                                                                    nestLabel &&
+                                                                    isNestLabel &&
                                                                     indicator ===
                                                                         'dashed',
                                                                 'w-0 border-[1.5px] border-dashed bg-transparent':
@@ -273,13 +273,13 @@ const ChartTooltipContent = React.forwardRef<
                                             <div
                                                 className={cn(
                                                     'flex flex-1 justify-between leading-none',
-                                                    nestLabel
+                                                    isNestLabel
                                                         ? 'items-end'
                                                         : 'items-center',
                                                 )}
                                             >
                                                 <div className="grid gap-1.5">
-                                                    {nestLabel
+                                                    {isNestLabel
                                                         ? tooltipLabel
                                                         : null}
                                                     <span className="text-muted-foreground">
@@ -324,7 +324,7 @@ const ChartLegendContent = React.forwardRef<
             payload,
             verticalAlign = 'bottom',
         },
-        ref,
+        reference,
     ) => {
         const { config } = useChart();
 
@@ -339,7 +339,7 @@ const ChartLegendContent = React.forwardRef<
                     verticalAlign === 'top' ? 'pb-3' : 'pt-3',
                     className,
                 )}
-                ref={ref}
+                ref={reference}
             >
                 {payload
                     .filter((item: any) => item.type !== 'none')

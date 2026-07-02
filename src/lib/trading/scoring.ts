@@ -263,12 +263,15 @@ function scoreBias(
 
     const weekly = answers.weekly;
     const daily = answers.daily;
-    const ltfDirs = [answers.fourHour, answers.oneHour, answers.fifteenMin];
+    const ltfDirectories = [
+        answers.fourHour,
+        answers.oneHour,
+        answers.fifteenMin,
+    ];
 
-    const htfAligned =
-        weekly !== 'unclear' && daily !== 'unclear' && weekly === daily;
+    const isHtfAligned = weekly !== 'unclear' && weekly === daily;
 
-    if (htfAligned) {
+    if (isHtfAligned) {
         earned += max * 0.6;
         strengths.push(`Weekly + daily aligned ${weekly}.`);
     } else if (daily === 'unclear') {
@@ -280,7 +283,10 @@ function scoreBias(
         );
     }
 
-    const directionalLtf = ltfAligned(htfAligned ? weekly : daily, ltfDirs);
+    const directionalLtf = ltfAligned(
+        isHtfAligned ? weekly : daily,
+        ltfDirectories,
+    );
     if (directionalLtf > 0) {
         earned += max * 0.3 * (directionalLtf / 3);
         if (directionalLtf >= 2)
@@ -296,7 +302,7 @@ function scoreBias(
             earned: Math.min(earned, max),
             label: 'HTF bias',
             max,
-            note: htfAligned ? 'Weekly + daily aligned' : 'Partial alignment',
+            note: isHtfAligned ? 'Weekly + daily aligned' : 'Partial alignment',
         },
         strengths,
         weaknesses,
@@ -540,12 +546,12 @@ function scoreState(
         );
     }
 
-    const coherent =
+    const isCoherent =
         (answers.dayType === 'balanced' && answers.setupType === 'reversal') ||
         (answers.dayType === 'imbalanced' &&
             answers.setupType === 'continuation');
 
-    if (coherent) {
+    if (isCoherent) {
         earned += max * 0.35;
         strengths.push(
             answers.dayType === 'balanced'

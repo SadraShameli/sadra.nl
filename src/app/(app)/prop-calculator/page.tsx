@@ -10,7 +10,7 @@ export const metadata: Metadata = {
     title: 'Prop Firm Calculator',
 };
 
-export default function PropCalculatorPage() {
+export default function PropertyCalculatorPage() {
     return (
         <main
             className={cn('app-prop-calculator', 'container pt-spacing pb-24')}

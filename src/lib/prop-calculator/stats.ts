@@ -33,9 +33,9 @@ export function histogram(
     const span = max - min;
     const binWidth = span / binCount;
     const bins: HistogramBin[] = [];
-    for (let i = 0; i < binCount; i++) {
-        const start = min + i * binWidth;
-        const end = i === binCount - 1 ? max : start + binWidth;
+    for (let index = 0; index < binCount; index++) {
+        const start = min + index * binWidth;
+        const end = index === binCount - 1 ? max : start + binWidth;
         bins.push({
             binCenter: (start + end) / 2,
             binEnd: end,
@@ -44,10 +44,10 @@ export function histogram(
         });
     }
     for (const v of values) {
-        let idx = Math.floor((v - min) / binWidth);
-        if (idx >= binCount) idx = binCount - 1;
-        if (idx < 0) idx = 0;
-        const bin = bins[idx];
+        let index = Math.floor((v - min) / binWidth);
+        if (index >= binCount) index = binCount - 1;
+        if (index < 0) index = 0;
+        const bin = bins[index];
         if (bin) bin.count += 1;
     }
     return bins;
@@ -79,13 +79,15 @@ export function percentile(xs: readonly number[], p: number): number {
     const lo = Math.floor(rank);
     const hi = Math.ceil(rank);
     if (lo === hi) return sorted[lo] ?? 0;
-    const loVal = sorted[lo] ?? 0;
-    const hiVal = sorted[hi] ?? 0;
-    return loVal + (hiVal - loVal) * (rank - lo);
+    const loValue = sorted[lo] ?? 0;
+    const hiValue = sorted[hi] ?? 0;
+    return loValue + (hiValue - loValue) * (rank - lo);
 }
 
-export function stdDev(arr: readonly number[]): number {
-    if (arr.length === 0) return 0;
-    const m = arr.reduce((s, v) => s + v, 0) / arr.length;
-    return Math.sqrt(arr.reduce((s, v) => s + (v - m) ** 2, 0) / arr.length);
+export function stdDev(array: readonly number[]): number {
+    if (array.length === 0) return 0;
+    const m = array.reduce((s, v) => s + v, 0) / array.length;
+    return Math.sqrt(
+        array.reduce((s, v) => s + (v - m) ** 2, 0) / array.length,
+    );
 }

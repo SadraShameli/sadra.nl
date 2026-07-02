@@ -26,7 +26,7 @@ const alertVariants = cva(
     },
 );
 
-type AlertProps = React.HTMLAttributes<HTMLDivElement> &
+type AlertProperties = React.HTMLAttributes<HTMLDivElement> &
     VariantProps<typeof alertVariants> & {
         autoDismiss?: boolean;
         autoDismissMs?: number;
@@ -35,20 +35,20 @@ type AlertProps = React.HTMLAttributes<HTMLDivElement> &
 const AUTO_DISMISS_PARAMS = ['success', 'error'];
 const FADE_DURATION_MS = 300;
 
-const Alert = React.forwardRef<HTMLDivElement, AlertProps>(
+const Alert = React.forwardRef<HTMLDivElement, AlertProperties>(
     (
         {
             autoDismiss = false,
             autoDismissMs = 3000,
             className,
             variant,
-            ...props
+            ...properties
         },
-        ref,
+        reference,
     ) => {
         const router = useRouter();
         const pathname = usePathname();
-        const searchParams = useSearchParams();
+        const searchParameters = useSearchParams();
         const [visible, setVisible] = React.useState(true);
         const [mounted, setMounted] = React.useState(true);
 
@@ -57,15 +57,17 @@ const Alert = React.forwardRef<HTMLDivElement, AlertProps>(
             const fade = setTimeout(() => setVisible(false), autoDismissMs);
             const unmount = setTimeout(() => {
                 setMounted(false);
-                const sp = new URLSearchParams(searchParams.toString());
-                let changed = false;
+                const sp = new URLSearchParams(searchParameters.toString());
+                let isChanged = false;
                 for (const key of AUTO_DISMISS_PARAMS) {
-                    if (sp.has(key)) {
-                        sp.delete(key);
-                        changed = true;
+                    if (!sp.has(key)) {
+                        continue;
                     }
+
+                    sp.delete(key);
+                    isChanged = true;
                 }
-                if (changed) {
+                if (isChanged) {
                     const query = sp.toString();
                     router.replace(query ? `${pathname}?${query}` : pathname, {
                         scroll: false,
@@ -76,7 +78,7 @@ const Alert = React.forwardRef<HTMLDivElement, AlertProps>(
                 clearTimeout(fade);
                 clearTimeout(unmount);
             };
-        }, [autoDismiss, autoDismissMs, pathname, router, searchParams]);
+        }, [autoDismiss, autoDismissMs, pathname, router, searchParameters]);
 
         if (!mounted) return null;
 
@@ -90,9 +92,9 @@ const Alert = React.forwardRef<HTMLDivElement, AlertProps>(
                         : '-translate-y-1 opacity-0',
                     className,
                 )}
-                ref={ref}
+                ref={reference}
                 role="alert"
-                {...props}
+                {...properties}
             />
         );
     },
@@ -102,14 +104,14 @@ Alert.displayName = 'Alert';
 const AlertTitle = React.forwardRef<
     HTMLParagraphElement,
     React.HTMLAttributes<HTMLHeadingElement>
->(({ children, className, ...props }, ref) => (
+>(({ children, className, ...properties }, reference) => (
     <h5
         className={cn(
             'mb-1 leading-none font-medium tracking-tight',
             className,
         )}
-        ref={ref}
-        {...props}
+        ref={reference}
+        {...properties}
     >
         {children}
     </h5>
@@ -119,11 +121,11 @@ AlertTitle.displayName = 'AlertTitle';
 const AlertDescription = React.forwardRef<
     HTMLParagraphElement,
     React.HTMLAttributes<HTMLParagraphElement>
->(({ className, ...props }, ref) => (
+>(({ className, ...properties }, reference) => (
     <div
         className={cn('text-sm [&_p]:leading-relaxed', className)}
-        ref={ref}
-        {...props}
+        ref={reference}
+        {...properties}
     />
 ));
 AlertDescription.displayName = 'AlertDescription';

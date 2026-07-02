@@ -106,14 +106,14 @@ export function OutcomeDialog({
     const submit = form.handleSubmit((values) => {
         const risk = parseNullableNumber(values.actualRisk);
         const r = parseNullableNumber(values.outcomeR);
-        const execTouched =
+        const isExecTouched =
             risk !== null || values.deviations.length > 0 || executionOpen;
         startTransition(async () => {
             await recordAssessmentOutcome({
                 actualRiskTaken: risk,
                 executionDeviations:
                     values.deviations.length > 0 ? values.deviations : null,
-                followedPlan: execTouched ? values.followedPlan : null,
+                followedPlan: isExecTouched ? values.followedPlan : null,
                 id: assessmentId,
                 notes: values.notes.trim() || null,
                 outcome: values.outcome,

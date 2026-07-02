@@ -5,7 +5,7 @@ import { Button } from '~/components/ui/Button';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utils';
 
-type PortfolioHeroProps = {
+type PortfolioHeroProperties = {
     canViewResume: boolean;
     email: string;
     headline: string;
@@ -24,7 +24,7 @@ export default function PortfolioHero({
     email,
     headline,
     name,
-}: PortfolioHeroProps) {
+}: PortfolioHeroProperties) {
     return (
         <header className={cn('app-portfolio__hero')}>
             <h1

@@ -1,7 +1,10 @@
 import 'server-only';
 
 import type { Booking } from '~/lib/accounting/core/types';
-
+import type {
+    LedgerResponse,
+    MutationResponse,
+} from '~/lib/accounting/providers/eboekhouden/schemas';
 import type {
     AccountingProvider,
     ListMutationsOptions,
@@ -9,13 +12,11 @@ import type {
     PostBookingResult,
     ProviderLedger,
     ProviderMutation,
-    ProviderSession,
-} from '../provider';
-import type { LedgerResponse, MutationResponse } from './schemas';
+} from '~/lib/accounting/providers/provider';
 
-import { registerProvider } from '../provider';
-import { bookingToMutationPayload } from './booking';
-import { EBoekhoudenClient } from './client';
+import { bookingToMutationPayload } from '~/lib/accounting/providers/eboekhouden/booking';
+import { EBoekhoudenClient } from '~/lib/accounting/providers/eboekhouden/client';
+import { eboekhoudenTaxCodes } from '~/lib/accounting/providers/eboekhouden/enums';
 import {
     AdministrationsResource,
     CostCentersResource,
@@ -23,7 +24,11 @@ import {
     MutationsResource,
     RelationsResource,
     SessionsResource,
-} from './resources';
+} from '~/lib/accounting/providers/eboekhouden/resources';
+import {
+    ProviderRegistry,
+    ProviderSessionBase,
+} from '~/lib/accounting/providers/provider';
 
 const adaptLedger = (ledger: LedgerResponse): ProviderLedger => ({
     category: ledger.category,
@@ -48,7 +53,7 @@ const adaptMutation = (m: MutationResponse): ProviderMutation => ({
     type: m.type,
 });
 
-class EBoekhoudenSession implements ProviderSession {
+class EBoekhoudenSession extends ProviderSessionBase {
     readonly administrations: AdministrationsResource;
     readonly costCenters: CostCentersResource;
     readonly ledgers: LedgersResource;
@@ -57,6 +62,7 @@ class EBoekhoudenSession implements ProviderSession {
     readonly sessions: SessionsResource;
 
     constructor(private readonly client: EBoekhoudenClient) {
+        super();
         this.sessions = new SessionsResource(client);
         this.administrations = new AdministrationsResource(client);
         this.costCenters = new CostCentersResource(client);
@@ -71,55 +77,57 @@ class EBoekhoudenSession implements ProviderSession {
 
     async latestMutationDate(): Promise<null | string> {
         const PAGE = 2000;
+        const mutations = await this.paginate(
+            (offset) => this.mutations.list({ limit: PAGE, offset }),
+            PAGE,
+        );
         let latest: null | string = null;
-        let offset = 0;
-        for (;;) {
-            const page = await this.mutations.list({ limit: PAGE, offset });
-            for (const m of page) {
-                const d = adaptMutation(m).date;
-                if (!latest || d > latest) latest = d;
-            }
-            if (page.length < PAGE) break;
-            offset += PAGE;
+        for (const m of mutations) {
+            const d = adaptMutation(m).date;
+            if (!latest || d > latest) latest = d;
         }
         return latest;
     }
 
     async listLedgers(
-        opts: { category?: string } = {},
+        options: { category?: string } = {},
     ): Promise<ProviderLedger[]> {
-        const all = await this.ledgers.list({ limit: 500 });
+        const PAGE = 500;
+        const all = await this.paginate(
+            (offset) => this.ledgers.list({ limit: PAGE, offset }),
+            PAGE,
+        );
         const adapted = all.map((l) => adaptLedger(l));
-        if (opts.category)
-            return adapted.filter((l) => l.category === opts.category);
+        if (options.category)
+            return adapted.filter((l) => l.category === options.category);
         return adapted;
     }
 
     async listMutations(
-        opts: ListMutationsOptions,
+        options: ListMutationsOptions,
     ): Promise<ProviderMutation[]> {
-        const hasDateFilter = Boolean(opts.dateFrom ?? opts.dateTo);
-        const rawOffset = hasDateFilter ? 0 : (opts.offset ?? 0);
-        const rawLimit = hasDateFilter ? 2000 : opts.limit;
+        const hasDateFilter = Boolean(options.dateFrom ?? options.dateTo);
+        const rawOffset = hasDateFilter ? 0 : (options.offset ?? 0);
+        const rawLimit = hasDateFilter ? 2000 : options.limit;
         const rows = await this.mutations.list({
             limit: rawLimit,
             offset: rawOffset,
         });
         let adapted = rows.map((m) => adaptMutation(m));
-        if (opts.dateFrom) {
-            const from = opts.dateFrom;
+        if (options.dateFrom) {
+            const from = options.dateFrom;
             adapted = adapted.filter((m) => m.date >= from);
         }
-        if (opts.dateTo) {
-            const to = opts.dateTo;
+        if (options.dateTo) {
+            const to = options.dateTo;
             adapted = adapted.filter((m) => m.date <= to);
         }
         const sorted = adapted.toSorted((a, b) => {
             if (a.date !== b.date) return a.date < b.date ? 1 : -1;
             return b.externalId - a.externalId;
         });
-        const pageOffset = hasDateFilter ? (opts.offset ?? 0) : 0;
-        return sorted.slice(pageOffset, pageOffset + opts.limit);
+        const pageOffset = hasDateFilter ? (options.offset ?? 0) : 0;
+        return sorted.slice(pageOffset, pageOffset + options.limit);
     }
 
     async postBooking(booking: Booking): Promise<PostBookingResult> {
@@ -132,18 +140,21 @@ class EBoekhoudenSession implements ProviderSession {
 export const eboekhoudenProvider: AccountingProvider = {
     id: 'eboekhouden',
     label: 'eBoekhouden',
-    async openSession(opts: OpenSessionOptions): Promise<ProviderSession> {
+    async openSession(
+        options: OpenSessionOptions,
+    ): Promise<EBoekhoudenSession> {
         const source =
-            typeof opts.meta?.source === 'string'
-                ? opts.meta.source
+            typeof options.meta?.source === 'string'
+                ? options.meta.source
                 : 'sadranl';
-        const client = new EBoekhoudenClient(opts.secret, {
-            fetchImpl: opts.fetchImpl,
+        const client = new EBoekhoudenClient(options.secret, {
+            fetchImpl: options.fetchImpl,
             source,
         });
         await client.openSession();
         return new EBoekhoudenSession(client);
     },
+    taxCodes: eboekhoudenTaxCodes,
 };
 
-registerProvider(eboekhoudenProvider);
+ProviderRegistry.instance().register(eboekhoudenProvider);

@@ -26,7 +26,7 @@ const OPTIONS: Option[] = [
     { label: 'Days to pass histogram', value: ChartType.DaysToPassHistogram },
 ];
 
-interface ChartTypeSelectorProps {
+interface ChartTypeSelectorProperties {
     onChange: (next: ChartType) => void;
     value: ChartType;
 }
@@ -34,7 +34,7 @@ interface ChartTypeSelectorProps {
 export default function ChartTypeSelector({
     onChange,
     value,
-}: ChartTypeSelectorProps) {
+}: ChartTypeSelectorProperties) {
     return (
         <Select onValueChange={(v) => onChange(v as ChartType)} value={value}>
             <SelectTrigger

@@ -11,7 +11,7 @@ import {
 import { type UnitWeight } from '~/lib/lifting/types';
 import { cn } from '~/lib/utils';
 
-interface PlateVisualizerProps {
+interface PlateVisualizerProperties {
     availableKg: readonly number[];
     barKg: number;
     className?: string;
@@ -35,13 +35,13 @@ export function PlateVisualizer({
     className,
     targetKg,
     unitWeight,
-}: PlateVisualizerProps) {
+}: PlateVisualizerProperties) {
     const load: PlateLoad = useMemo(() => {
         const calc = new PlateCalculator(barKg, availableKg);
         return calc.load(targetKg);
     }, [barKg, availableKg, targetKg]);
 
-    const perSideStr =
+    const perSideString =
         load.perSide.length === 0
             ? '—'
             : load.perSide.map((p) => p.toString()).join(' · ');
@@ -71,10 +71,10 @@ export function PlateVisualizer({
                     </span>
                 </div>
                 <div className="flex items-center justify-center gap-1">
-                    {[...load.perSide].toReversed().map((weight, i) => (
+                    {[...load.perSide].toReversed().map((weight, index) => (
                         <div
                             className="flex items-center justify-center rounded-sm px-1 text-[10px] font-bold text-black tabular-nums"
-                            key={`${weight}-${i}`}
+                            key={`${weight}-${index}`}
                             style={{
                                 backgroundColor: getColor(weight),
                                 height: 36 + Math.min(weight, 20) * 2,
@@ -89,10 +89,10 @@ export function PlateVisualizer({
                         |
                     </div>
                     <div className="h-3 flex-1 rounded-full bg-muted-foreground/60" />
-                    {load.perSide.map((weight, i) => (
+                    {load.perSide.map((weight, index) => (
                         <div
                             className="flex items-center justify-center rounded-sm px-1 text-[10px] font-bold text-black tabular-nums"
-                            key={`r-${weight}-${i}`}
+                            key={`r-${weight}-${index}`}
                             style={{
                                 backgroundColor: getColor(weight),
                                 height: 36 + Math.min(weight, 20) * 2,
@@ -104,7 +104,7 @@ export function PlateVisualizer({
                     ))}
                 </div>
                 <div className="text-center text-xs text-muted-foreground tabular-nums">
-                    {perSideStr}
+                    {perSideString}
                 </div>
             </CardContent>
         </Card>

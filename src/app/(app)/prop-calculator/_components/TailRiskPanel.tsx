@@ -11,7 +11,7 @@ import { type SimOutputs } from '~/lib/prop-calculator';
 import { percentile } from '~/lib/prop-calculator/stats';
 import { cn } from '~/lib/utils';
 
-interface TailRiskPanelProps {
+interface TailRiskPanelProperties {
     result: SimOutputs;
 }
 
@@ -22,7 +22,7 @@ interface TailRiskRow {
     threshold: number;
 }
 
-export default function TailRiskPanel({ result }: TailRiskPanelProps) {
+export default function TailRiskPanel({ result }: TailRiskPanelProperties) {
     const m = useMemo(() => {
         const { accountSize, finalBalances } = result;
         if (finalBalances.length === 0) return null;
@@ -30,20 +30,20 @@ export default function TailRiskPanel({ result }: TailRiskPanelProps) {
         const pnls = finalBalances.map((b) => b - accountSize);
         const n = pnls.length;
 
-        const var95 = -percentile(pnls, 5);
-        const var99 = -percentile(pnls, 1);
+        const variable95 = -percentile(pnls, 5);
+        const variable99 = -percentile(pnls, 1);
 
-        const tail95 = pnls.filter((p) => p < -var95);
+        const tail95 = pnls.filter((p) => p < -variable95);
         const cvar95 =
             tail95.length > 0
                 ? -(tail95.reduce((s, v) => s + v, 0) / tail95.length)
-                : var95;
+                : variable95;
 
-        const tail99 = pnls.filter((p) => p < -var99);
+        const tail99 = pnls.filter((p) => p < -variable99);
         const cvar99 =
             tail99.length > 0
                 ? -(tail99.reduce((s, v) => s + v, 0) / tail99.length)
-                : var99;
+                : variable99;
 
         const p95gain = percentile(pnls, 95);
         const p05loss = Math.abs(percentile(pnls, 5));
@@ -69,14 +69,14 @@ export default function TailRiskPanel({ result }: TailRiskPanelProps) {
             lossProb25,
             lossProb50,
             tailRatio,
-            var95,
-            var99,
+            var95: variable95,
+            var99: variable99,
         };
     }, [result]);
 
     if (!m) return null;
 
-    const tailRatioStr = Number.isFinite(m.tailRatio)
+    const tailRatioString = Number.isFinite(m.tailRatio)
         ? m.tailRatio.toFixed(2)
         : '∞';
     const tailColor =
@@ -131,7 +131,7 @@ export default function TailRiskPanel({ result }: TailRiskPanelProps) {
                     <StatCell
                         label="Tail ratio"
                         sub="upside / downside tail"
-                        value={tailRatioStr}
+                        value={tailRatioString}
                         valueClass={tailColor}
                     />
                 </div>

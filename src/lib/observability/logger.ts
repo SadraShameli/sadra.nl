@@ -19,8 +19,9 @@ class AppLogger {
     }
 
     private static buildBase(): PinoLogger {
-        const isDev = process.env.NODE_ENV !== 'production';
-        const level = process.env.LOG_LEVEL ?? (isDev ? 'debug' : 'info');
+        const isDevelopment = process.env.NODE_ENV !== 'production';
+        const level =
+            process.env.LOG_LEVEL ?? (isDevelopment ? 'debug' : 'info');
 
         return pino({
             base: undefined,
@@ -29,7 +30,7 @@ class AppLogger {
             },
             level,
             timestamp: pino.stdTimeFunctions.isoTime,
-            ...(isDev && {
+            ...(isDevelopment && {
                 transport: {
                     options: {
                         colorize: true,

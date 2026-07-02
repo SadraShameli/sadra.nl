@@ -1,0 +1,1 @@
+ALTER TABLE "sadranl_accounting_importer_credential" ALTER COLUMN "ciphertext" DROP NOT NULL;

@@ -1,7 +1,14 @@
 import 'server-only';
 
-import type { DateRange, ISODate } from '../core/types';
-import type { RateProvider } from './provider';
+import type {
+    CurrencyCode,
+    DateRange,
+    ISODate,
+} from '~/lib/accounting/core/types';
+import type { RateProvider } from '~/lib/accounting/rates/provider';
+
+import { USD_CODE } from '~/lib/accounting/core/currency';
+import { isoDateSchema } from '~/lib/accounting/core/date';
 
 const ECB_BASE = 'https://data-api.ecb.europa.eu/service/data';
 const USER_AGENT = 'sadranl-accounting-importer/0.1';
@@ -17,18 +24,24 @@ interface EcbProviderOptions {
 }
 
 export class EcbRateProvider implements RateProvider {
-    private readonly cachedRanges = new Map<string, CachedCurrencyRange[]>();
+    private readonly cachedRanges = new Map<
+        CurrencyCode,
+        CachedCurrencyRange[]
+    >();
     private readonly fetchImpl: typeof fetch;
-    private readonly ratesByCurrency = new Map<string, Map<ISODate, number>>();
+    private readonly ratesByCurrency = new Map<
+        CurrencyCode,
+        Map<ISODate, number>
+    >();
     private readonly timeoutMs: number;
 
-    constructor(opts: EcbProviderOptions = {}) {
-        this.fetchImpl = opts.fetchImpl ?? fetch;
-        this.timeoutMs = opts.timeoutMs ?? 30_000;
+    constructor(options: EcbProviderOptions = {}) {
+        this.fetchImpl = options.fetchImpl ?? fetch;
+        this.timeoutMs = options.timeoutMs ?? 30_000;
     }
 
     async ensureCurrencyRange(
-        currency: string,
+        currency: CurrencyCode,
         range: DateRange,
     ): Promise<void> {
         if (this.isCached(currency, range)) return;
@@ -67,42 +80,48 @@ export class EcbRateProvider implements RateProvider {
     }
 
     async ensureRange(range: DateRange): Promise<void> {
-        await this.ensureCurrencyRange('USD', range);
+        await this.ensureCurrencyRange(USD_CODE, range);
     }
 
-    rate(opts: { base: string; on: ISODate; quote: string }): number {
-        if (opts.base !== 'EUR') {
+    rate(options: {
+        base: CurrencyCode;
+        on: ISODate;
+        quote: CurrencyCode;
+    }): number {
+        if (options.base !== 'EUR') {
             throw new Error(
-                `EcbRateProvider only supports EUR as base, got ${opts.base}`,
+                `EcbRateProvider only supports EUR as base, got ${options.base}`,
             );
         }
-        const rates = this.ratesByCurrency.get(opts.quote);
+        const rates = this.ratesByCurrency.get(options.quote);
         if (!rates) {
-            throw new Error(`No ECB rates loaded for currency ${opts.quote}`);
+            throw new Error(
+                `No ECB rates loaded for currency ${options.quote}`,
+            );
         }
-        const exact = rates.get(opts.on);
+        const exact = rates.get(options.on);
         if (exact !== undefined) return exact;
         const earlier = [...rates.keys()]
-            .filter((k) => k <= opts.on)
+            .filter((k) => k <= options.on)
             .toSorted();
         const fallback = earlier.at(-1);
         if (fallback === undefined) {
-            throw new Error(`No ECB rate available on or before ${opts.on}`);
+            throw new Error(`No ECB rate available on or before ${options.on}`);
         }
         const value = rates.get(fallback);
         if (value === undefined) {
-            throw new Error(`No ECB rate available on or before ${opts.on}`);
+            throw new Error(`No ECB rate available on or before ${options.on}`);
         }
         return value;
     }
 
-    private isCached(currency: string, range: DateRange): boolean {
+    private isCached(currency: CurrencyCode, range: DateRange): boolean {
         const ranges = this.cachedRanges.get(currency);
         if (!ranges) return false;
         return ranges.some((r) => r.start <= range.start && r.end >= range.end);
     }
 
-    private recordCached(currency: string, range: DateRange): void {
+    private recordCached(currency: CurrencyCode, range: DateRange): void {
         const existing = this.cachedRanges.get(currency) ?? [];
         existing.push({ end: range.end, start: range.start });
         this.cachedRanges.set(currency, existing);
@@ -115,45 +134,47 @@ function ingestEcbCsv(csv: string, sink: Map<ISODate, number>): void {
     const headerLine = lines[0];
     if (!headerLine) return;
     const headers = parseCsvLine(headerLine);
-    const timeIdx = headers.indexOf('TIME_PERIOD');
-    const valueIdx = headers.indexOf('OBS_VALUE');
-    if (timeIdx === -1 || valueIdx === -1) return;
-    for (let i = 1; i < lines.length; i++) {
-        const line = lines[i];
+    const timeIndex = headers.indexOf('TIME_PERIOD');
+    const valueIndex = headers.indexOf('OBS_VALUE');
+    if (timeIndex === -1 || valueIndex === -1) return;
+    for (let index = 1; index < lines.length; index++) {
+        const line = lines[index];
         if (!line) continue;
         const cells = parseCsvLine(line);
-        const d = cells[timeIdx];
-        const v = cells[valueIdx];
+        const d = cells[timeIndex];
+        const v = cells[valueIndex];
         if (!d || !v) continue;
+        const parsedDate = isoDateSchema.safeParse(d);
+        if (!parsedDate.success) continue;
         const n = Number.parseFloat(v);
-        if (Number.isFinite(n)) sink.set(d, n);
+        if (Number.isFinite(n)) sink.set(parsedDate.data, n);
     }
 }
 
 function parseCsvLine(line: string): string[] {
     const out: string[] = [];
-    let cur = '';
-    let inQuote = false;
-    for (let i = 0; i < line.length; i++) {
-        const ch = line[i] ?? '';
-        if (inQuote) {
-            if (ch === '"' && line[i + 1] === '"') {
-                cur += '"';
-                i++;
+    let current = '';
+    let isInQuote = false;
+    for (let index = 0; index < line.length; index++) {
+        const ch = line[index] ?? '';
+        if (isInQuote) {
+            if (ch === '"' && line[index + 1] === '"') {
+                current += '"';
+                index++;
             } else if (ch === '"') {
-                inQuote = false;
+                isInQuote = false;
             } else {
-                cur += ch;
+                current += ch;
             }
         } else if (ch === '"') {
-            inQuote = true;
+            isInQuote = true;
         } else if (ch === ',') {
-            out.push(cur);
-            cur = '';
+            out.push(current);
+            current = '';
         } else {
-            cur += ch;
+            current += ch;
         }
     }
-    out.push(cur);
+    out.push(current);
     return out;
 }

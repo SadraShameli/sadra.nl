@@ -9,9 +9,10 @@ import { Input } from '~/components/ui/Input';
 import { Label } from '~/components/ui/Label';
 import { Switch } from '~/components/ui/Switch';
 
+import { CounterpartNameSelect } from './CounterpartNameSelect';
 import { SelectFieldInput } from './SelectFieldInput';
 
-interface Props {
+interface Properties {
     credentialId?: string;
     credentialKind: string;
     field: CredentialMetaField;
@@ -29,8 +30,18 @@ export function MetaFieldInput({
     onChange,
     secret,
     value,
-}: Props) {
+}: Properties) {
     const fieldId = useId();
+
+    if (credentialKind === 'plane' && field.key === 'counterpartName') {
+        return (
+            <CounterpartNameSelect
+                label={field.label}
+                onChange={onChange}
+                value={value}
+            />
+        );
+    }
 
     if (field.type === 'select') {
         return (
@@ -47,7 +58,7 @@ export function MetaFieldInput({
     }
 
     if (field.type === 'boolean') {
-        const checked = typeof value === 'boolean' ? value : false;
+        const isChecked = typeof value === 'boolean' ? value : false;
         return (
             <Card className="py-3">
                 <CardContent className="flex items-start justify-between gap-3 px-3">
@@ -62,7 +73,7 @@ export function MetaFieldInput({
                         )}
                     </div>
                     <Switch
-                        checked={checked}
+                        checked={isChecked}
                         id={fieldId}
                         onCheckedChange={onChange}
                     />

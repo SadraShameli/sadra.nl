@@ -2,7 +2,7 @@ import { Slider } from '~/components/ui/Slider';
 import { DurationFormat } from '~/lib/lifting/format';
 import { cn } from '~/lib/utils';
 
-interface ProgressBarProps {
+interface ProgressBarProperties {
     duration: number;
     hasRecordings: boolean;
     onTimeChange: (time: number) => void;
@@ -14,7 +14,7 @@ export function ProgressBar({
     hasRecordings,
     onTimeChange,
     time,
-}: ProgressBarProps) {
+}: ProgressBarProperties) {
     return (
         <div className={cn('app-recording__progress', 'flex flex-col gap-1.5')}>
             <Slider

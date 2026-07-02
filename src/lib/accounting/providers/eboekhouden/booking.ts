@@ -1,13 +1,18 @@
 import type { Booking } from '~/lib/accounting/core/types';
+import type { CreateMutationRequestPayload } from '~/lib/accounting/providers/eboekhouden/schemas';
 
-import type { CreateMutationRequestPayload } from './schemas';
-
-import { IN_EX_VAT, MUTATION_TYPES, requiresExcludingVat } from './enums';
+import {
+    IN_EX_VAT,
+    MUTATION_TYPES,
+    parseVatCode,
+    requiresExcludingVat,
+} from '~/lib/accounting/providers/eboekhouden/enums';
 
 export function bookingToMutationPayload(
     booking: Booking,
 ): CreateMutationRequestPayload {
-    const inExVat = requiresExcludingVat(booking.vatCode)
+    const vatCode = parseVatCode(booking.taxCode);
+    const inExVat = requiresExcludingVat(vatCode)
         ? IN_EX_VAT.EXCLUDING
         : IN_EX_VAT.INCLUDING;
     const isRefund = booking.isRefund === true;
@@ -37,7 +42,7 @@ export function bookingToMutationPayload(
                         255,
                     ),
                 ledgerId: booking.counterpartLedger.id,
-                vatCode: booking.vatCode,
+                vatCode,
             },
         ],
         type,

@@ -1,12 +1,12 @@
 import 'server-only';
 
-import { getProvider } from '../providers/provider';
-import { WiseClient } from '../wise/client';
-import { getCredentialDescriptor, listCredentialDescriptors } from './registry';
-import './eboekhouden';
-import './wise';
+import { CredentialRegistry } from '~/lib/accounting/credentials/registry';
+import { ProviderRegistry } from '~/lib/accounting/providers/provider';
+import { WiseClient } from '~/lib/accounting/wise/client';
+import '~/lib/accounting/credentials/eboekhouden';
+import '~/lib/accounting/credentials/wise';
 
-export type CredentialTestFn = (opts: {
+export type CredentialTestFn = (options: {
     fetchImpl?: typeof fetch;
     meta: Record<string, unknown>;
     secret: string;
@@ -23,7 +23,7 @@ export interface FieldOption {
     value: string;
 }
 
-export type FieldOptionsLoader = (opts: {
+export type FieldOptionsLoader = (options: {
     fetchImpl?: typeof fetch;
     meta: Record<string, unknown>;
     secret: string;
@@ -46,8 +46,11 @@ export function getFieldOptionsLoader(
     return optionsLoaders.get(optionsKey(credentialKind, fieldKey));
 }
 
-export function registerCredentialTest(id: string, fn: CredentialTestFn): void {
-    tests.set(id, fn);
+export function registerCredentialTest(
+    id: string,
+    function_: CredentialTestFn,
+): void {
+    tests.set(id, function_);
 }
 
 export function registerFieldOptionsLoader(
@@ -60,17 +63,19 @@ export function registerFieldOptionsLoader(
 
 async function defaultAccountingTest(
     credentialId: string,
-    opts: {
+    options: {
         fetchImpl?: typeof fetch;
         meta: Record<string, unknown>;
         secret: string;
     },
 ): Promise<CredentialTestResult> {
-    const descriptor = getCredentialDescriptor(credentialId);
+    const descriptor = CredentialRegistry.instance().get(credentialId);
     if (!descriptor?.accountingProviderId) {
         return { detail: 'No accounting provider registered', ok: false };
     }
-    const provider = getProvider(descriptor.accountingProviderId);
+    const provider = ProviderRegistry.instance().get(
+        descriptor.accountingProviderId,
+    );
     if (!provider) {
         return {
             detail: `Provider ${descriptor.accountingProviderId} not registered`,
@@ -78,9 +83,9 @@ async function defaultAccountingTest(
         };
     }
     const session = await provider.openSession({
-        fetchImpl: opts.fetchImpl,
-        meta: opts.meta,
-        secret: opts.secret,
+        fetchImpl: options.fetchImpl,
+        meta: options.meta,
+        secret: options.secret,
     });
     try {
         const ledgers = await session.listLedgers();
@@ -90,27 +95,31 @@ async function defaultAccountingTest(
     }
 }
 
-registerCredentialTest('eboekhouden', (opts) =>
-    defaultAccountingTest('eboekhouden', opts),
+registerCredentialTest('eboekhouden', (options) =>
+    defaultAccountingTest('eboekhouden', options),
 );
 
-registerCredentialTest('wise', async (opts) => {
-    const sandbox =
-        typeof opts.meta.sandbox === 'boolean' ? opts.meta.sandbox : false;
-    const client = new WiseClient(opts.secret, {
-        fetch: opts.fetchImpl,
-        sandbox,
+registerCredentialTest('wise', async (options) => {
+    const isSandbox =
+        typeof options.meta.sandbox === 'boolean'
+            ? options.meta.sandbox
+            : false;
+    const client = new WiseClient(options.secret, {
+        fetch: options.fetchImpl,
+        sandbox: isSandbox,
     });
     const profiles = await client.profiles();
     return { detail: `${profiles.length} profile(s) reachable`, ok: true };
 });
 
-registerFieldOptionsLoader('wise', 'profileId', async (opts) => {
-    const sandbox =
-        typeof opts.meta.sandbox === 'boolean' ? opts.meta.sandbox : false;
-    const client = new WiseClient(opts.secret, {
-        fetch: opts.fetchImpl,
-        sandbox,
+registerFieldOptionsLoader('wise', 'profileId', async (options) => {
+    const isSandbox =
+        typeof options.meta.sandbox === 'boolean'
+            ? options.meta.sandbox
+            : false;
+    const client = new WiseClient(options.secret, {
+        fetch: options.fetchImpl,
+        sandbox: isSandbox,
     });
     const profiles = await client.profiles();
     return profiles.map((p) => ({
@@ -121,9 +130,11 @@ registerFieldOptionsLoader('wise', 'profileId', async (opts) => {
 });
 
 export function knownCredentialIds(): string[] {
-    return listCredentialDescriptors().map((d) => d.id);
+    return CredentialRegistry.instance()
+        .list()
+        .map((d) => d.id);
 }
 
 function swallow(): void {
-    return undefined;
+    return;
 }

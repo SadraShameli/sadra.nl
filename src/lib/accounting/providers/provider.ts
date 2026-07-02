@@ -1,9 +1,11 @@
-import type { Booking } from '../core/types';
+import type { TaxCodeCatalog } from '~/lib/accounting/core/tax-code';
+import type { Booking } from '~/lib/accounting/core/types';
 
 export interface AccountingProvider {
     readonly id: string;
     readonly label: string;
-    openSession(opts: OpenSessionOptions): Promise<ProviderSession>;
+    openSession(options: OpenSessionOptions): Promise<ProviderSession>;
+    readonly taxCodes?: TaxCodeCatalog;
 }
 
 export interface ListMutationsOptions {
@@ -51,21 +53,61 @@ export interface ProviderMutationRow {
 export interface ProviderSession {
     close(): Promise<void>;
     latestMutationDate(): Promise<null | string>;
-    listLedgers(opts?: { category?: string }): Promise<ProviderLedger[]>;
-    listMutations(opts: ListMutationsOptions): Promise<ProviderMutation[]>;
+    listLedgers(options?: { category?: string }): Promise<ProviderLedger[]>;
+    listMutations(options: ListMutationsOptions): Promise<ProviderMutation[]>;
     postBooking(booking: Booking): Promise<PostBookingResult>;
 }
 
-const registry = new Map<string, AccountingProvider>();
+export class ProviderRegistry {
+    private static instanceValue: null | ProviderRegistry = null;
 
-export function getProvider(id: string): AccountingProvider | undefined {
-    return registry.get(id);
+    private readonly providers: Map<string, AccountingProvider>;
+
+    private constructor() {
+        this.providers = new Map<string, AccountingProvider>();
+    }
+
+    static instance(): ProviderRegistry {
+        ProviderRegistry.instanceValue ??= new ProviderRegistry();
+        return ProviderRegistry.instanceValue;
+    }
+
+    get(id: string): AccountingProvider | undefined {
+        return this.providers.get(id);
+    }
+
+    list(): AccountingProvider[] {
+        return [...this.providers.values()];
+    }
+
+    register(p: AccountingProvider): void {
+        this.providers.set(p.id, p);
+    }
 }
 
-export function listProviders(): AccountingProvider[] {
-    return [...registry.values()];
-}
+export abstract class ProviderSessionBase implements ProviderSession {
+    abstract close(): Promise<void>;
+    abstract latestMutationDate(): Promise<null | string>;
+    abstract listLedgers(options?: {
+        category?: string;
+    }): Promise<ProviderLedger[]>;
+    abstract listMutations(
+        options: ListMutationsOptions,
+    ): Promise<ProviderMutation[]>;
+    abstract postBooking(booking: Booking): Promise<PostBookingResult>;
 
-export function registerProvider(provider: AccountingProvider): void {
-    registry.set(provider.id, provider);
+    protected async paginate<T>(
+        fetchPage: (offset: number) => Promise<T[]>,
+        pageSize: number,
+    ): Promise<T[]> {
+        const results: T[] = [];
+        let offset = 0;
+        for (;;) {
+            const page = await fetchPage(offset);
+            results.push(...page);
+            if (page.length < pageSize) break;
+            offset += pageSize;
+        }
+        return results;
+    }
 }

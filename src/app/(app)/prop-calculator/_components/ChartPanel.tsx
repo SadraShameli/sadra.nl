@@ -14,7 +14,7 @@ import ChartTypeSelector from './ChartTypeSelector';
 import { panelDescriptions } from './kpiDescriptions';
 import { ChartType } from './types';
 
-interface ChartPanelProps {
+interface ChartPanelProperties {
     chartType: ChartType;
     maxEvalDays: number;
     onChartTypeChange: (next: ChartType) => void;
@@ -57,7 +57,7 @@ export default function ChartPanel({
     onChartTypeChange,
     result,
     totalTrials,
-}: ChartPanelProps) {
+}: ChartPanelProperties) {
     return (
         <Card className={cn('app-prop-calculator__chart-panel', 'px-6 py-6')}>
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">

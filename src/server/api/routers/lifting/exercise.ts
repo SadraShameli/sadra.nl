@@ -136,11 +136,11 @@ export const liftingExerciseRouter = createTRPCRouter({
                 if (input.equipment && row.equipment !== input.equipment)
                     return false;
                 if (term && term.length > 0) {
-                    const nameHit = row.name.toLowerCase().includes(term);
-                    const aliasHit = (aliases[row.id] ?? []).some((a) =>
+                    const isNameHit = row.name.toLowerCase().includes(term);
+                    const isAliasHit = (aliases[row.id] ?? []).some((a) =>
                         a.includes(term),
                     );
-                    if (!nameHit && !aliasHit) return false;
+                    if (!isNameHit && !isAliasHit) return false;
                 }
                 return true;
             });

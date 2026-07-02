@@ -15,7 +15,7 @@ export async function retryOnUniqueViolation<T>(
     maxAttempts = 3,
 ): Promise<T> {
     let lastError: unknown;
-    for (let i = 0; i < maxAttempts; i++) {
+    for (let index = 0; index < maxAttempts; index++) {
         try {
             return await attempt();
         } catch (error) {

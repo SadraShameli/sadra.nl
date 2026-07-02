@@ -44,7 +44,7 @@ import { cn } from '~/lib/utils';
 import { panelDescriptions } from './kpiDescriptions';
 import { type PortfolioEntry } from './types';
 
-interface PortfolioPanelProps {
+interface PortfolioPanelProperties {
     baseInputs: Omit<SimInputs, 'plan'>;
     currentFirm: PropFirm;
     currentPlan: Plan;
@@ -72,7 +72,7 @@ export default function PortfolioPanel({
     firms,
     onPortfolioChange,
     portfolio,
-}: PortfolioPanelProps) {
+}: PortfolioPanelProperties) {
     const [simmed, setSimmed] = useState<SimmedEntry[]>([]);
     const [pending, setPending] = useState(false);
 
@@ -114,7 +114,7 @@ export default function PortfolioPanel({
             setPending(false);
             return;
         }
-        let cancelled = false;
+        let isCancelled = false;
         setPending(true);
         const handle = setTimeout(() => {
             const trials = Math.min(500, baseInputs.trials);
@@ -137,13 +137,13 @@ export default function PortfolioPanel({
                 });
                 results.push({ entry, out });
             }
-            if (!cancelled) {
+            if (!isCancelled) {
                 setSimmed(results);
                 setPending(false);
             }
         }, 0);
         return () => {
-            cancelled = true;
+            isCancelled = true;
             clearTimeout(handle);
         };
     }, [debouncedKey]);
@@ -315,8 +315,8 @@ function AccountsCell({
     row: PortfolioTableRow;
 }) {
     const maxAccounts = row.firm.maxFundedAccounts(row.plan);
-    const atMin = row.entry.count <= 1;
-    const atMax = row.entry.count >= maxAccounts;
+    const isAtMin = row.entry.count <= 1;
+    const isAtMax = row.entry.count >= maxAccounts;
     function adjustCount(delta: number) {
         onUpdate(row.entry.id, {
             count: Math.max(1, Math.min(maxAccounts, row.entry.count + delta)),
@@ -327,7 +327,7 @@ function AccountsCell({
             <Button
                 aria-label="Decrease accounts"
                 className="size-5 p-0 text-muted-foreground"
-                disabled={atMin}
+                disabled={isAtMin}
                 onClick={() => adjustCount(-1)}
                 size="sm"
                 type="button"
@@ -345,11 +345,11 @@ function AccountsCell({
             <Button
                 aria-label="Increase accounts"
                 className="size-5 p-0 text-muted-foreground"
-                disabled={atMax}
+                disabled={isAtMax}
                 onClick={() => adjustCount(1)}
                 size="sm"
                 title={
-                    atMax
+                    isAtMax
                         ? `${row.firm.displayName} caps at ${maxAccounts}`
                         : undefined
                 }

@@ -64,7 +64,7 @@ export interface SetRowData {
 
 type SetRowFormValues = z.infer<typeof setRowFormSchema>;
 
-interface SetRowProps {
+interface SetRowProperties {
     busy?: boolean;
     onComplete: (
         id: string,
@@ -103,7 +103,7 @@ export function SetRow({
     unitDistance,
     unitWeight,
     weightStepKg = 2.5,
-}: SetRowProps) {
+}: SetRowProperties) {
     const form = useForm<SetRowFormValues>({
         defaultValues: deriveDefaults(set, unitWeight, unitDistance),
         resolver: zodResolver(setRowFormSchema),
@@ -111,10 +111,12 @@ export function SetRow({
     const [deleteOpen, setDeleteOpen] = useState(false);
     const isCompleted = set.completedAt !== null;
 
-    const setRef = useRef(set);
-    setRef.current = set;
+    const setReference = useRef(set);
+    setReference.current = set;
     useEffect(() => {
-        form.reset(deriveDefaults(setRef.current, unitWeight, unitDistance));
+        form.reset(
+            deriveDefaults(setReference.current, unitWeight, unitDistance),
+        );
     }, [form, set.id, unitDistance, unitWeight]);
 
     const stepInDisplay =

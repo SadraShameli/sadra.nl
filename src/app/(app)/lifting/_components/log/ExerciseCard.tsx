@@ -39,7 +39,7 @@ import { api, type RouterOutputs } from '~/trpc/react';
 import { PlateVisualizer } from '../shared/PlateVisualizer';
 import { SetRow, type SetRowData } from './SetRow';
 
-interface ExerciseCardProps {
+interface ExerciseCardProperties {
     availablePlatesKg: readonly number[];
     barWeightKg: number;
     defaultRestSeconds: number;
@@ -63,11 +63,11 @@ export function ExerciseCard({
     unitDistance,
     unitWeight,
     workoutExercise: wex,
-}: ExerciseCardProps) {
+}: ExerciseCardProperties) {
     const [platesOpen, setPlatesOpen] = useState(false);
     const [removeOpen, setRemoveOpen] = useState(false);
-    const utils = api.useUtils();
-    const invalidate = () => utils.lifting.workout.getActive.invalidate();
+    const utilities = api.useUtils();
+    const invalidate = () => utilities.lifting.workout.getActive.invalidate();
 
     const createSet = api.lifting.set.create.useMutation({
         onSuccess: invalidate,

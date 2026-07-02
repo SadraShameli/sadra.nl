@@ -89,43 +89,43 @@ type EditDeviceValues = {
 const ALL = '__all__';
 
 export function DevicesPanel() {
-    const utils = api.useUtils();
+    const utilities = api.useUtils();
     const devices = api.device.listAdmin.useQuery();
     const locations = api.location.listAdmin.useQuery();
     const sensors = api.sensor.listAdmin.useQuery();
     const deviceSensorMappings = api.sensor.listDeviceMappings.useQuery();
     const create = api.device.create.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Device created.');
-            await utils.device.listAdmin.invalidate();
+            await utilities.device.listAdmin.invalidate();
         },
     });
     const update = api.device.update.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Device updated.');
-            await utils.device.listAdmin.invalidate();
+            await utilities.device.listAdmin.invalidate();
         },
     });
     const del = api.device.delete.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Device deleted.');
-            await utils.device.listAdmin.invalidate();
+            await utilities.device.listAdmin.invalidate();
         },
     });
     const issue = api.device.issueToken.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
-            await utils.device.listAdmin.invalidate();
+            await utilities.device.listAdmin.invalidate();
         },
     });
     const revoke = api.device.revokeToken.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Token revoked.');
-            await utils.device.listAdmin.invalidate();
+            await utilities.device.listAdmin.invalidate();
         },
     });
 
@@ -140,13 +140,13 @@ export function DevicesPanel() {
     }>(null);
 
     const [locFilter, setLocFilter] = useState<string>(ALL);
-    const [devFilter, setDevFilter] = useState<string>(ALL);
+    const [developmentFilter, setDevelopmentFilter] = useState<string>(ALL);
     const [sensFilter, setSensFilter] = useState<string>(ALL);
     const hasFilters =
-        locFilter !== ALL || devFilter !== ALL || sensFilter !== ALL;
+        locFilter !== ALL || developmentFilter !== ALL || sensFilter !== ALL;
     const resetFilters = () => {
         setLocFilter(ALL);
-        setDevFilter(ALL);
+        setDevelopmentFilter(ALL);
         setSensFilter(ALL);
     };
     const allRows = useMemo(() => devices.data ?? [], [devices.data]);
@@ -165,13 +165,14 @@ export function DevicesPanel() {
             allRows.filter((d) => {
                 if (locFilter !== ALL && String(d.location_id) !== locFilter)
                     return false;
-                if (devFilter !== ALL && String(d.id) !== devFilter)
+                if (
+                    developmentFilter !== ALL &&
+                    String(d.id) !== developmentFilter
+                )
                     return false;
-                if (deviceIdsWithSensor && !deviceIdsWithSensor.has(d.id))
-                    return false;
-                return true;
+                return !deviceIdsWithSensor || deviceIdsWithSensor.has(d.id);
             }),
-        [allRows, locFilter, devFilter, deviceIdsWithSensor],
+        [allRows, locFilter, developmentFilter, deviceIdsWithSensor],
     );
     const locOptions = useMemo(() => locations.data ?? [], [locations.data]);
     const locMap = useMemo(
@@ -391,12 +392,12 @@ export function DevicesPanel() {
                     />
                     <FilterField
                         label="Device"
-                        onChange={setDevFilter}
+                        onChange={setDevelopmentFilter}
                         options={allRows.map((d) => ({
                             id: String(d.id),
                             name: d.name,
                         }))}
-                        value={devFilter}
+                        value={developmentFilter}
                     />
                     <FilterField
                         label="Sensor"
@@ -717,7 +718,7 @@ function ManageSensorsDialog({
     deviceId: number;
     onClose: () => void;
 }) {
-    const utils = api.useUtils();
+    const utilities = api.useUtils();
     const allSensors = api.sensor.listAdmin.useQuery();
     const devices = api.device.listAdmin.useQuery();
     const device = devices.data?.find((d) => d.id === deviceId);
@@ -734,17 +735,17 @@ function ManageSensorsDialog({
     }, [getDevice.data]);
 
     const save = api.sensor.setDeviceSensors.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Sensors updated.');
-            await utils.device.getDevice.invalidate();
+            await utilities.device.getDevice.invalidate();
             onClose();
         },
     });
 
     const toggle = (id: number) => {
-        setSelected((prev) => {
-            const next = new Set(prev);
+        setSelected((previous) => {
+            const next = new Set(previous);
             if (next.has(id)) next.delete(id);
             else next.add(id);
             return next;

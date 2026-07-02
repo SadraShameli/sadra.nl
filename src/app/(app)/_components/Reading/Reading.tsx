@@ -88,7 +88,7 @@ export default function ReadingSection() {
         if (!sensors?.length) return;
         if (!currentSensor) {
             setCurrentSensor(sensors[0]?.name);
-        } else if (!sensors.some((s) => s.name === currentSensor)) {
+        } else if (sensors.every((s) => s.name !== currentSensor)) {
             setCurrentSensor(sensors.at(-1)?.name);
         }
     }, [sensors, currentSensor]);

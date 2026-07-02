@@ -158,7 +158,7 @@ export function MutationsBrowser() {
         [],
     );
 
-    const hasPrev = offset > 0;
+    const hasPrevious = offset > 0;
     const hasNext = rows.length === PAGE_SIZE;
 
     return (
@@ -265,7 +265,9 @@ export function MutationsBrowser() {
                             </span>
                             <div className="flex gap-2">
                                 <Button
-                                    disabled={!hasPrev || mutationsQ.isPending}
+                                    disabled={
+                                        !hasPrevious || mutationsQ.isPending
+                                    }
                                     onClick={() =>
                                         setOffset(
                                             Math.max(0, offset - PAGE_SIZE),

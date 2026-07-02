@@ -1,46 +1,49 @@
 import { describe, expect, it } from 'vitest';
 
-import type { BookingRule, RawTransaction } from '~/lib/accounting/core/types';
+import type { RawTransaction } from '~/lib/accounting/core/types';
 
-import { classifyTransaction } from '~/lib/accounting/core/orchestrator';
+import { currencyCodeSchema } from '~/lib/accounting/core/currency';
+import { isoDateSchema } from '~/lib/accounting/core/date';
+import { Rule } from '~/lib/accounting/core/rules/rule';
+import { RuleSet } from '~/lib/accounting/core/rules/rule-set';
 
 const HARDWARE = { id: 3, label: '0003 Trading Hardware' };
 const FUNDED = { id: 1, label: '0001 Funded accounts' };
 const PAYOUTS = { id: 4, label: '0004 Payouts' };
 
-const RULES: BookingRule[] = [
-    {
+const ruleSet = new RuleSet([
+    Rule.fromRow({
         direction: 'OUT',
         display: 'Amazon EU',
         id: 'r1',
         ledger: HARDWARE,
         match: 'amazon',
-        vatCode: 'HOOG_INK_21',
-    },
-    {
+        taxCode: 'HOOG_INK_21',
+    }),
+    Rule.fromRow({
         direction: 'OUT',
         display: 'Apex (cost)',
         id: 'r2',
         ledger: FUNDED,
         match: 'apex',
-        vatCode: 'BU_EU_INK',
-    },
-    {
+        taxCode: 'BU_EU_INK',
+    }),
+    Rule.fromRow({
         direction: 'IN',
         display: 'Apex payout',
         id: 'r3',
         ledger: PAYOUTS,
         match: 'apex',
-        vatCode: 'BU_EU_VERK',
-    },
-];
+        taxCode: 'BU_EU_VERK',
+    }),
+]);
 
 const tx = (overrides: Partial<RawTransaction>): RawTransaction => ({
-    date: '2026-02-01',
+    date: isoDateSchema.parse('2026-02-01'),
     direction: 'OUT',
     merchant: 'Amazon',
     sourceAmount: 100,
-    sourceCurrency: 'EUR',
+    sourceCurrency: currencyCodeSchema.parse('EUR'),
     sourceFee: 0,
     sourceFeeCurrency: null,
     sourceId: 'test',
@@ -48,11 +51,10 @@ const tx = (overrides: Partial<RawTransaction>): RawTransaction => ({
     ...overrides,
 });
 
-describe('classifyTransaction', () => {
+describe('RuleSet.classify', () => {
     it('matches an OUT merchant to its rule ledger', () => {
-        const match = classifyTransaction(
+        const match = ruleSet.classify(
             tx({ direction: 'OUT', merchant: 'Amazon Payments Europe' }),
-            RULES,
         );
         expect(match).toEqual({
             display: 'Amazon EU',
@@ -63,17 +65,13 @@ describe('classifyTransaction', () => {
 
     it('returns null for an unrecognised OUT merchant', () => {
         expect(
-            classifyTransaction(
-                tx({ direction: 'OUT', merchant: 'Random Cafe' }),
-                RULES,
-            ),
+            ruleSet.classify(tx({ direction: 'OUT', merchant: 'Random Cafe' })),
         ).toBeNull();
     });
 
     it('matches an IN payout source to its rule ledger', () => {
-        const match = classifyTransaction(
+        const match = ruleSet.classify(
             tx({ direction: 'IN', merchant: 'Apex Trader Funding payout' }),
-            RULES,
         );
         expect(match).toEqual({
             display: 'Apex payout',
@@ -83,26 +81,23 @@ describe('classifyTransaction', () => {
     });
 
     it('routes the same name to different ledgers by direction', () => {
-        const out = classifyTransaction(
+        const out = ruleSet.classify(
             tx({ direction: 'OUT', merchant: 'apex' }),
-            RULES,
         );
-        const incoming = classifyTransaction(
+        const incoming = ruleSet.classify(
             tx({ direction: 'IN', merchant: 'apex' }),
-            RULES,
         );
         expect(out?.ledgerId).toBe(FUNDED.id);
         expect(incoming?.ledgerId).toBe(PAYOUTS.id);
     });
 
     it('returns null when there are no rules', () => {
-        expect(classifyTransaction(tx({ merchant: 'Amazon' }), [])).toBeNull();
+        expect(new RuleSet([]).classify(tx({ merchant: 'Amazon' }))).toBeNull();
     });
 
     it('classifies a card refund to the purchase ledger, not the payout ledger', () => {
-        const match = classifyTransaction(
+        const match = ruleSet.classify(
             tx({ direction: 'IN', isRefund: true, merchant: 'ApexFutures' }),
-            RULES,
         );
         expect(match).toEqual({
             display: 'Apex (cost)',

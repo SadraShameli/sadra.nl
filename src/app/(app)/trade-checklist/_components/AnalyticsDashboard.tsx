@@ -24,7 +24,7 @@ import { OutcomeDonut } from './analytics/OutcomeDonut';
 import { PerWindowChart } from './analytics/PerWindowChart';
 import { WinRateByGradeChart } from './analytics/WinRateByGradeChart';
 
-interface AnalyticsDashboardProps {
+interface AnalyticsDashboardProperties {
     assessments: LightAssessment[];
     plans: { id: string; name: string }[];
 }
@@ -34,7 +34,7 @@ const ALL_PLANS = 'all';
 export function AnalyticsDashboard({
     assessments,
     plans,
-}: AnalyticsDashboardProps) {
+}: AnalyticsDashboardProperties) {
     const [planFilter, setPlanFilter] = useState<string>(ALL_PLANS);
 
     const filtered = useMemo(() => {

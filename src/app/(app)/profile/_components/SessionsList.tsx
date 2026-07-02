@@ -281,8 +281,9 @@ function maskIp(ip: null | string | undefined): string {
     if (ip.includes(':')) {
         const groups = ip.split(':');
         const isLocalhost = groups.every(
-            (g, i) =>
-                /^0*$/.test(g) || (i === groups.length - 1 && /^0*1$/.test(g)),
+            (g, index) =>
+                /^0*$/.test(g) ||
+                (index === groups.length - 1 && /^0*1$/.test(g)),
         );
         if (isLocalhost) return 'localhost';
         const match = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(ip);

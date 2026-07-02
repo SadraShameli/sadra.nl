@@ -24,7 +24,12 @@ function clampInt(n: number, lo: number, hi: number, fallback: number): number {
     return Math.min(hi, Math.max(lo, Math.floor(n)));
 }
 
-function clampNum(n: number, lo: number, hi: number, fallback: number): number {
+function clampNumber(
+    n: number,
+    lo: number,
+    hi: number,
+    fallback: number,
+): number {
     if (!Number.isFinite(n)) return fallback;
     return Math.min(hi, Math.max(lo, n));
 }
@@ -129,18 +134,18 @@ export function buildDefaultLabScenarios(): LabScenario[] {
 export function useCalculator(): UseCalculatorReturn {
     const [state, setState] = useState<CalculatorState>(defaultState);
     const [pinned, setPinned] = useState<null | PinnedScenario>(null);
-    const hydratedRef = useRef(false);
-    const skipNextWriteRef = useRef(true);
+    const hydratedReference = useRef(false);
+    const skipNextWriteReference = useRef(true);
 
     useEffect(() => {
-        if (hydratedRef.current) return;
-        hydratedRef.current = true;
+        if (hydratedReference.current) return;
+        hydratedReference.current = true;
         if (typeof window === 'undefined') return;
-        const params = new URLSearchParams(window.location.search);
-        if (!params.has('firm')) return;
+        const parameters = new URLSearchParams(window.location.search);
+        if (!parameters.has('firm')) return;
         try {
-            const next = decodeState(params, ALL_FIRMS, defaultState());
-            skipNextWriteRef.current = true;
+            const next = decodeState(parameters, ALL_FIRMS, defaultState());
+            skipNextWriteReference.current = true;
             setState(next);
         } catch {
             return;
@@ -148,13 +153,13 @@ export function useCalculator(): UseCalculatorReturn {
     }, []);
 
     useEffect(() => {
-        if (skipNextWriteRef.current) {
-            skipNextWriteRef.current = false;
+        if (skipNextWriteReference.current) {
+            skipNextWriteReference.current = false;
             return;
         }
         if (typeof window === 'undefined') return;
-        const params = encodeState(state).toString();
-        const next = `${window.location.pathname}?${params}${window.location.hash}`;
+        const parameters = encodeState(state).toString();
+        const next = `${window.location.pathname}?${parameters}${window.location.hash}`;
         if (
             next !==
             window.location.pathname +
@@ -317,7 +322,7 @@ export function useCalculator(): UseCalculatorReturn {
         setActivationDiscountPercent: (n) =>
             setState((s) => ({
                 ...s,
-                activationDiscountPercent: clampNum(
+                activationDiscountPercent: clampNumber(
                     n,
                     0,
                     100,
@@ -327,7 +332,7 @@ export function useCalculator(): UseCalculatorReturn {
         setCommissionPerRoundTrip: (n) =>
             setState((s) => ({
                 ...s,
-                commissionPerRoundTrip: clampNum(
+                commissionPerRoundTrip: clampNumber(
                     n,
                     0,
                     50,
@@ -354,7 +359,12 @@ export function useCalculator(): UseCalculatorReturn {
         setEvalDiscountPercent: (n) =>
             setState((s) => ({
                 ...s,
-                evalDiscountPercent: clampNum(n, 0, 100, s.evalDiscountPercent),
+                evalDiscountPercent: clampNumber(
+                    n,
+                    0,
+                    100,
+                    s.evalDiscountPercent,
+                ),
             })),
         setFirm,
         setLabScenarios: (entries) =>
@@ -375,17 +385,22 @@ export function useCalculator(): UseCalculatorReturn {
         setRiskDollars: (n) =>
             setState((s) => ({
                 ...s,
-                riskDollars: clampNum(n, 1, s.plan.accountSize, s.riskDollars),
+                riskDollars: clampNumber(
+                    n,
+                    1,
+                    s.plan.accountSize,
+                    s.riskDollars,
+                ),
             })),
         setRiskPercent: (n) =>
             setState((s) => ({
                 ...s,
-                riskPercent: clampNum(n, 0.05, 100, s.riskPercent),
+                riskPercent: clampNumber(n, 0.05, 100, s.riskPercent),
             })),
         setRrRatio: (n) =>
             setState((s) => ({
                 ...s,
-                rrRatio: clampNum(n, 0.5, 10, s.rrRatio),
+                rrRatio: clampNumber(n, 0.5, 10, s.rrRatio),
             })),
         setSeed: (n) =>
             setState((s) => ({
@@ -406,7 +421,7 @@ export function useCalculator(): UseCalculatorReturn {
         setWinrate: (n) =>
             setState((s) => ({
                 ...s,
-                winrate: clampNum(n, 0.05, 0.95, s.winrate),
+                winrate: clampNumber(n, 0.05, 0.95, s.winrate),
             })),
         simInputs,
         state,

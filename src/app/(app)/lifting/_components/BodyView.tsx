@@ -90,7 +90,7 @@ interface Stats {
 }
 
 export function BodyView() {
-    const utils = api.useUtils();
+    const utilities = api.useUtils();
     const settings = api.lifting.settings.get.useQuery();
     const unitWeight = settings.data?.unitWeight ?? 'kg';
     const unitLength = settings.data?.unitLength ?? 'cm';
@@ -109,15 +109,15 @@ export function BodyView() {
     });
 
     const create = api.lifting.measurement.create.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Measurement saved');
-            await utils.lifting.measurement.list.invalidate();
+            await utilities.lifting.measurement.list.invalidate();
         },
     });
     const remove = api.lifting.measurement.delete.useMutation({
-        onError: (err) => toast.error(err.message),
-        onSuccess: () => utils.lifting.measurement.list.invalidate(),
+        onError: (error) => toast.error(error.message),
+        onSuccess: () => utilities.lifting.measurement.list.invalidate(),
     });
 
     const allRows = useMemo(() => measurements.data ?? [], [measurements.data]);

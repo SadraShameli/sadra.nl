@@ -86,13 +86,13 @@ export class WiseClient {
     private readonly timeoutMs: number;
     private readonly token: string;
 
-    constructor(token: string, opts: WiseClientOptions = {}) {
+    constructor(token: string, options: WiseClientOptions = {}) {
         this.token = token;
-        this.baseUrl = opts.sandbox
+        this.baseUrl = options.sandbox
             ? WiseClient.SANDBOX_URL
             : WiseClient.PRODUCTION_URL;
-        this.fetchImpl = opts.fetch ?? fetch;
-        this.timeoutMs = opts.timeoutMs ?? 30_000;
+        this.fetchImpl = options.fetch ?? fetch;
+        this.timeoutMs = options.timeoutMs ?? 30_000;
     }
 
     async getRecipient(accountId: number): Promise<null | WiseRecipient> {
@@ -110,7 +110,7 @@ export class WiseClient {
         }
     }
 
-    async listCardTransactions(args: {
+    async listCardTransactions(arguments_: {
         from: string;
         profileId: number;
         to: string;
@@ -118,14 +118,16 @@ export class WiseClient {
         const out: WiseCardTransaction[] = [];
         let nextCursor: null | string = null;
         for (;;) {
-            const params: Record<string, string> = { size: String(PAGE_SIZE) };
-            if (nextCursor) params.nextCursor = nextCursor;
+            const parameters: Record<string, string> = {
+                size: String(PAGE_SIZE),
+            };
+            if (nextCursor) parameters.nextCursor = nextCursor;
             const body = await this.get<unknown>(
-                `/v1/profiles/${args.profileId}/activities`,
-                params,
+                `/v1/profiles/${arguments_.profileId}/activities`,
+                parameters,
             );
             const parsed = activitiesSchema.parse(body);
-            let stop = false;
+            let isStop = false;
             for (const a of parsed.activities) {
                 if (
                     !(
@@ -137,11 +139,11 @@ export class WiseClient {
                     continue;
                 const created = parseDatetimeIso(a.createdOn);
                 const createdDate = created.slice(0, 10);
-                if (createdDate < args.from) {
-                    stop = true;
+                if (createdDate < arguments_.from) {
+                    isStop = true;
                     continue;
                 }
-                if (createdDate > args.to) continue;
+                if (createdDate > arguments_.to) continue;
                 const primary = parseAmount(a.primaryAmount);
                 if (!primary) continue;
                 const secondary = parseAmount(a.secondaryAmount);
@@ -158,13 +160,14 @@ export class WiseClient {
                     secondaryCurrency: sCcy,
                 });
             }
-            if (stop || !parsed.cursor || parsed.activities.length === 0) break;
+            if (isStop || !parsed.cursor || parsed.activities.length === 0)
+                break;
             nextCursor = parsed.cursor;
         }
         return out;
     }
 
-    async listTransfers(args: {
+    async listTransfers(arguments_: {
         from: string;
         profileId: number;
         to: string;
@@ -173,11 +176,11 @@ export class WiseClient {
         let offset = 0;
         for (;;) {
             const page = await this.get<unknown>('/v1/transfers', {
-                createdDateEnd: args.to,
-                createdDateStart: args.from,
+                createdDateEnd: arguments_.to,
+                createdDateStart: arguments_.from,
                 limit: String(PAGE_SIZE),
                 offset: String(offset),
-                profile: String(args.profileId),
+                profile: String(arguments_.profileId),
                 status: 'outgoing_payment_sent',
             });
             const rows = z.array(transferSchema).parse(page);
@@ -207,11 +210,11 @@ export class WiseClient {
 
     private async get<T>(
         path: string,
-        params?: Record<string, string>,
+        parameters?: Record<string, string>,
     ): Promise<T> {
         const url = new URL(path, this.baseUrl);
-        if (params)
-            for (const [k, v] of Object.entries(params))
+        if (parameters)
+            for (const [k, v] of Object.entries(parameters))
                 url.searchParams.set(k, v);
 
         const controller = new AbortController();
@@ -248,8 +251,7 @@ function parseAmount(s: null | string | undefined): [number, string] | null {
     if (!s) return null;
     const cleaned = s
         .replaceAll(TAG_RE, '')
-        .replaceAll('+', ' ')
-        .replaceAll('-', ' ')
+        .replaceAll(/[+-]/g, ' ')
         .replaceAll(',', '');
     let value: null | number = null;
     let currency = '';

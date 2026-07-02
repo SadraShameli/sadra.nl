@@ -19,7 +19,7 @@ export const META_FIELD_TYPES = [
     'text',
 ] as const;
 
-export const CREDENTIAL_KIND_VALUES = ['eboekhouden', 'wise'] as const;
+export const CREDENTIAL_KIND_VALUES = ['eboekhouden', 'plane', 'wise'] as const;
 export interface CredentialDescriptor {
     readonly accountingProviderId?: string;
     readonly description?: string;
@@ -27,14 +27,16 @@ export interface CredentialDescriptor {
     readonly label: string;
     readonly metaFields: readonly CredentialMetaField[];
     readonly metaSchema: z.ZodType<Record<string, unknown>>;
+    readonly requiresSecret?: boolean;
     readonly role: CredentialRole;
-    readonly secret: {
+    readonly secret?: {
         label: string;
         minLength: number;
         placeholder?: string;
     };
     readonly tone: CredentialTone;
     readonly transactionSourceId?: string;
+    readonly transactionSourceKind?: 'api' | 'file';
 }
 
 export type CredentialKind = (typeof CREDENTIAL_KIND_VALUES)[number];
@@ -51,26 +53,35 @@ export interface CredentialMetaField {
 
 export type MetaFieldType = (typeof META_FIELD_TYPES)[number];
 
-const descriptors = new Map<CredentialKind, CredentialDescriptor>();
+export class CredentialRegistry {
+    private static instanceValue: CredentialRegistry | null = null;
 
-export function getCredentialDescriptor(
-    id: string,
-): CredentialDescriptor | undefined {
-    return descriptors.get(id as CredentialKind);
-}
+    private readonly descriptors: Map<CredentialKind, CredentialDescriptor>;
 
-export function listCredentialDescriptors(): CredentialDescriptor[] {
-    return [...descriptors.values()];
-}
+    private constructor() {
+        this.descriptors = new Map<CredentialKind, CredentialDescriptor>();
+    }
 
-export function listCredentialDescriptorsByRole(
-    role: CredentialRole,
-): CredentialDescriptor[] {
-    return [...descriptors.values()].filter((d) => d.role === role);
-}
+    static instance(): CredentialRegistry {
+        CredentialRegistry.instanceValue ??= new CredentialRegistry();
+        return CredentialRegistry.instanceValue;
+    }
 
-export function registerCredentialDescriptor(d: CredentialDescriptor): void {
-    descriptors.set(d.id, d);
+    get(id: string): CredentialDescriptor | undefined {
+        return this.descriptors.get(id as CredentialKind);
+    }
+
+    list(): CredentialDescriptor[] {
+        return [...this.descriptors.values()];
+    }
+
+    listByRole(role: CredentialRole): CredentialDescriptor[] {
+        return [...this.descriptors.values()].filter((d) => d.role === role);
+    }
+
+    register(d: CredentialDescriptor): void {
+        this.descriptors.set(d.id, d);
+    }
 }
 
 const TONE_CLASS: Record<CredentialTone, string> = {

@@ -45,10 +45,10 @@ const FIVE_THREE_ONE_CYCLES = 4;
 const FIVE_THREE_ONE: ProgramSchedule = {
     weeks: Array.from(
         { length: FIVE_THREE_ONE_CYCLES * 4 },
-        (_, weekIdx) => weekIdx,
-    ).flatMap((weekIdx) => {
-        const cycleWeek = (weekIdx % 4) + 1;
-        const cycleNumber = Math.floor(weekIdx / 4) + 1;
+        (_, weekIndex) => weekIndex,
+    ).flatMap((weekIndex) => {
+        const cycleWeek = (weekIndex % 4) + 1;
+        const cycleNumber = Math.floor(weekIndex / 4) + 1;
         const isDeload = cycleWeek === 4;
         const main = isDeload
             ? [
@@ -75,8 +75,8 @@ const FIVE_THREE_ONE: ProgramSchedule = {
                   ];
         const buildDay = (mainSlug: string) => ({
             blocks: [
-                ...main.map((m, i) =>
-                    i === main.length - 1 && !isDeload
+                ...main.map((m, index) =>
+                    index === main.length - 1 && !isDeload
                         ? amrap(mainSlug, m.pct)
                         : straight(mainSlug, 1, m.reps, m.pct),
                 ),
@@ -106,7 +106,7 @@ const FIVE_THREE_ONE: ProgramSchedule = {
 };
 
 const STRONGLIFTS_5X5: ProgramSchedule = {
-    weeks: Array.from({ length: 12 }, (_, i) => ({
+    weeks: Array.from({ length: 12 }, (_, index) => ({
         days: [
             {
                 blocks: [
@@ -133,12 +133,12 @@ const STRONGLIFTS_5X5: ProgramSchedule = {
                 name: 'Workout A (repeat)',
             },
         ],
-        name: `Week ${i + 1}`,
+        name: `Week ${index + 1}`,
     })),
 };
 
 const STARTING_STRENGTH: ProgramSchedule = {
-    weeks: Array.from({ length: 12 }, (_, i) => ({
+    weeks: Array.from({ length: 12 }, (_, index) => ({
         days: [
             {
                 blocks: [
@@ -165,12 +165,12 @@ const STARTING_STRENGTH: ProgramSchedule = {
                 name: 'A',
             },
         ],
-        name: `Week ${i + 1}`,
+        name: `Week ${index + 1}`,
     })),
 };
 
 const PPL_6DAY: ProgramSchedule = {
-    weeks: Array.from({ length: 8 }, (_, i) => ({
+    weeks: Array.from({ length: 8 }, (_, index) => ({
         days: [
             {
                 blocks: [
@@ -233,12 +233,12 @@ const PPL_6DAY: ProgramSchedule = {
                 name: 'Legs',
             },
         ],
-        name: `Week ${i + 1}`,
+        name: `Week ${index + 1}`,
     })),
 };
 
 const UPPER_LOWER_4DAY: ProgramSchedule = {
-    weeks: Array.from({ length: 8 }, (_, i) => ({
+    weeks: Array.from({ length: 8 }, (_, index) => ({
         days: [
             {
                 blocks: [
@@ -283,12 +283,12 @@ const UPPER_LOWER_4DAY: ProgramSchedule = {
                 name: 'Lower B',
             },
         ],
-        name: `Week ${i + 1}`,
+        name: `Week ${index + 1}`,
     })),
 };
 
 const GZCLP: ProgramSchedule = {
-    weeks: Array.from({ length: 8 }, (_, i) => ({
+    weeks: Array.from({ length: 8 }, (_, index) => ({
         days: [
             {
                 blocks: [
@@ -323,7 +323,7 @@ const GZCLP: ProgramSchedule = {
                 name: 'B2',
             },
         ],
-        name: `Week ${i + 1}`,
+        name: `Week ${index + 1}`,
     })),
 };
 

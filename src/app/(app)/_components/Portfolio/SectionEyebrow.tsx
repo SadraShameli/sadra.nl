@@ -1,7 +1,7 @@
 import Eyebrow from '~/components/Eyebrow';
 import { cn } from '~/lib/utils';
 
-type SectionEyebrowProps = {
+type SectionEyebrowProperties = {
     className?: string;
     count?: number;
     label: string;
@@ -11,7 +11,7 @@ export default function SectionEyebrow({
     className,
     count,
     label,
-}: SectionEyebrowProps) {
+}: SectionEyebrowProperties) {
     const formattedCount =
         typeof count === 'number' ? count.toString().padStart(2, '0') : null;
 

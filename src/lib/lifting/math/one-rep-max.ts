@@ -72,7 +72,7 @@ export class OneRepMaxCalculator {
         if (reps === 1) return weight;
 
         const sum = this.formulas.reduce(
-            (acc, f) => acc + f.estimate(weight, reps),
+            (accumulator, f) => accumulator + f.estimate(weight, reps),
             0,
         );
         return sum / this.formulas.length;
@@ -85,7 +85,8 @@ export class OneRepMaxCalculator {
         if (reps === 1) return targetOneRepMax;
 
         const sum = this.formulas.reduce(
-            (acc, f) => acc + f.weightFor(targetOneRepMax, reps),
+            (accumulator, f) =>
+                accumulator + f.weightFor(targetOneRepMax, reps),
             0,
         );
         return sum / this.formulas.length;

@@ -4,7 +4,7 @@ import { wiseApiSource } from '~/lib/accounting/sources/wise-api';
 
 const PROFILE_ID = 72_717_419;
 
-function activity(opts: {
+function activity(options: {
     primaryAmount: string;
     secondaryAmount?: string;
     title: string;
@@ -12,16 +12,16 @@ function activity(opts: {
 }) {
     return {
         createdOn: '2026-01-15T10:00:00Z',
-        primaryAmount: opts.primaryAmount,
+        primaryAmount: options.primaryAmount,
         resource: { id: '999' },
-        secondaryAmount: opts.secondaryAmount ?? '',
+        secondaryAmount: options.secondaryAmount ?? '',
         status: 'COMPLETED',
-        title: opts.title,
-        type: opts.type ?? 'CARD_PAYMENT',
+        title: options.title,
+        type: options.type ?? 'CARD_PAYMENT',
     };
 }
 
-function makeCtx(fetchMock: typeof fetch) {
+function makeContext(fetchMock: typeof fetch) {
     return {
         fetchImpl: fetchMock,
         from: '2026-01-01',
@@ -55,7 +55,7 @@ function wiseFetch(activities: object[]): typeof fetch {
 describe('wiseApiSource – sourceCurrency selection', () => {
     it('EUR primary, USD secondary (e.g. STRATO from USD balance): uses EUR primary directly', async () => {
         const txns = await wiseApiSource.fetch(
-            makeCtx(
+            makeContext(
                 wiseFetch([
                     activity({
                         primaryAmount: '28 EUR',
@@ -75,7 +75,7 @@ describe('wiseApiSource – sourceCurrency selection', () => {
 
     it('EUR primary, null secondary (e.g. Amazon from EUR balance): uses EUR primary', async () => {
         const txns = await wiseApiSource.fetch(
-            makeCtx(
+            makeContext(
                 wiseFetch([
                     activity({
                         primaryAmount: '32.34 EUR',
@@ -92,7 +92,7 @@ describe('wiseApiSource – sourceCurrency selection', () => {
 
     it('USD primary, null secondary (e.g. Apex from USD balance): uses USD primary for ECB conversion', async () => {
         const txns = await wiseApiSource.fetch(
-            makeCtx(
+            makeContext(
                 wiseFetch([
                     activity({
                         primaryAmount: '345 USD',
@@ -109,7 +109,7 @@ describe('wiseApiSource – sourceCurrency selection', () => {
 
     it('USD primary, EUR secondary (e.g. Apex from EUR balance): uses exact EUR secondary, no ECB needed', async () => {
         const txns = await wiseApiSource.fetch(
-            makeCtx(
+            makeContext(
                 wiseFetch([
                     activity({
                         primaryAmount: '29.90 USD',
@@ -127,7 +127,7 @@ describe('wiseApiSource – sourceCurrency selection', () => {
 
     it('EUR primary, "USD, EUR" secondary (TradingView/MediaMarkt: unparseable secondary): uses EUR primary', async () => {
         const txns = await wiseApiSource.fetch(
-            makeCtx(
+            makeContext(
                 wiseFetch([
                     activity({
                         primaryAmount: '101.64 EUR',

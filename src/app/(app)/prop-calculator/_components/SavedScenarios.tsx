@@ -38,7 +38,7 @@ const savedScenarioFormSchema = z.object({
 });
 type SavedScenarioFormValues = z.infer<typeof savedScenarioFormSchema>;
 
-interface SavedScenariosProps {
+interface SavedScenariosProperties {
     firms: readonly PropFirm[];
     onLoad: (next: CalculatorState) => void;
     state: CalculatorState;
@@ -48,7 +48,7 @@ export default function SavedScenarios({
     firms,
     onLoad,
     state,
-}: SavedScenariosProps) {
+}: SavedScenariosProperties) {
     const [scenarios, setScenarios] = useState<SavedScenarioRecord[]>([]);
     const [open, setOpen] = useState(false);
 
@@ -62,11 +62,11 @@ export default function SavedScenarios({
     }, [open]);
 
     const handleSave = form.handleSubmit((values) => {
-        const params = encodeState(state).toString();
+        const parameters = encodeState(state).toString();
         const filtered = scenarios.filter((s) => s.name !== values.name);
         const next: SavedScenarioRecord[] = [
             ...filtered,
-            { name: values.name, params, savedAt: Date.now() },
+            { name: values.name, params: parameters, savedAt: Date.now() },
         ].toSorted((a, b) => b.savedAt - a.savedAt);
         persistScenarios(next);
         setScenarios(next);
@@ -74,16 +74,18 @@ export default function SavedScenarios({
     });
 
     const handleLoad = (record: SavedScenarioRecord) => {
-        const params = new URLSearchParams(record.params);
-        const next = decodeState(params, firms, state);
+        const parameters = new URLSearchParams(record.params);
+        const next = decodeState(parameters, firms, state);
         onLoad(next);
         setOpen(false);
     };
 
     const handleReplace = (record: SavedScenarioRecord) => {
-        const params = encodeState(state).toString();
+        const parameters = encodeState(state).toString();
         const next = scenarios.map((s) =>
-            s.name === record.name ? { ...s, params, savedAt: Date.now() } : s,
+            s.name === record.name
+                ? { ...s, params: parameters, savedAt: Date.now() }
+                : s,
         );
         persistScenarios(next);
         setScenarios(next);

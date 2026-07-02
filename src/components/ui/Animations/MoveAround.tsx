@@ -6,7 +6,7 @@ import {
     type Transition,
 } from 'framer-motion';
 
-type MoveAroundProps = {
+type MoveAroundProperties = {
     children?: React.ReactNode;
     className?: string;
 };
@@ -31,7 +31,7 @@ const defaultTransition: Transition = {
 export default function MoveAroundAnimation({
     children,
     className,
-}: MoveAroundProps) {
+}: MoveAroundProperties) {
     return (
         <motion.div
             animate={defaultAnimation}

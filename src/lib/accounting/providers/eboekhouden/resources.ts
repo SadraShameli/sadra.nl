@@ -1,6 +1,6 @@
 import 'server-only';
 
-import type { EBoekhoudenClient } from './client';
+import type { EBoekhoudenClient } from '~/lib/accounting/providers/eboekhouden/client';
 
 import {
     type AdministrationResponse,
@@ -19,7 +19,7 @@ import {
     type RelationResponse,
     relationSchema,
     unwrapItems,
-} from './schemas';
+} from '~/lib/accounting/providers/eboekhouden/schemas';
 export class AdministrationsResource {
     constructor(private readonly client: EBoekhoudenClient) {}
     async list(): Promise<AdministrationResponse[]> {
@@ -88,12 +88,12 @@ export class LedgersResource {
         });
     }
     async list(
-        opts: { limit?: number; offset?: number } = {},
+        options: { limit?: number; offset?: number } = {},
     ): Promise<LedgerResponse[]> {
         const body = await this.client.request('GET', '/ledger', {
             params: {
-                limit: String(opts.limit ?? 500),
-                offset: String(opts.offset ?? 0),
+                limit: String(options.limit ?? 500),
+                offset: String(options.offset ?? 0),
             },
         });
         return unwrapItems(body, ledgerSchema);
@@ -119,12 +119,12 @@ export class MutationsResource {
         return mutationSchema.parse(body);
     }
     async list(
-        opts: { limit?: number; offset?: number } = {},
+        options: { limit?: number; offset?: number } = {},
     ): Promise<MutationResponse[]> {
         const body = await this.client.request('GET', '/mutation', {
             params: {
-                limit: String(opts.limit ?? 2000),
-                offset: String(opts.offset ?? 0),
+                limit: String(options.limit ?? 2000),
+                offset: String(options.offset ?? 0),
             },
         });
         return unwrapItems(body, mutationSchema);
@@ -151,12 +151,12 @@ export class RelationsResource {
         return relationSchema.parse(body);
     }
     async list(
-        opts: { limit?: number; offset?: number } = {},
+        options: { limit?: number; offset?: number } = {},
     ): Promise<RelationResponse[]> {
         const body = await this.client.request('GET', '/relation', {
             params: {
-                limit: String(opts.limit ?? 500),
-                offset: String(opts.offset ?? 0),
+                limit: String(options.limit ?? 500),
+                offset: String(options.offset ?? 0),
             },
         });
         return unwrapItems(body, relationSchema);

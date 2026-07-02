@@ -23,7 +23,7 @@ function Calendar({
     components,
     formatters,
     showOutsideDays = true,
-    ...props
+    ...properties
 }: React.ComponentProps<typeof DayPicker> & {
     buttonVariant?: React.ComponentProps<typeof Button>['variant'];
 }) {
@@ -58,7 +58,7 @@ function Calendar({
                 ),
                 day: cn(
                     'relative w-full h-full p-0 text-center [&:last-child[data-selected=true]_button]:rounded-r-md group/day aspect-square select-none',
-                    props.showWeekNumber
+                    properties.showWeekNumber
                         ? '[&:nth-child(2)[data-selected=true]_button]:rounded-l-md'
                         : '[&:first-child[data-selected=true]_button]:rounded-l-md',
                     defaultClassNames.day,
@@ -135,12 +135,12 @@ function Calendar({
                 ...classNames,
             }}
             components={{
-                Chevron: ({ className, orientation, ...props }) => {
+                Chevron: ({ className, orientation, ...properties_ }) => {
                     if (orientation === 'left') {
                         return (
                             <ChevronLeftIcon
                                 className={cn('size-4', className)}
-                                {...props}
+                                {...properties_}
                             />
                         );
                     }
@@ -149,7 +149,7 @@ function Calendar({
                         return (
                             <ChevronRightIcon
                                 className={cn('size-4', className)}
-                                {...props}
+                                {...properties_}
                             />
                         );
                     }
@@ -157,24 +157,24 @@ function Calendar({
                     return (
                         <ChevronDownIcon
                             className={cn('size-4', className)}
-                            {...props}
+                            {...properties_}
                         />
                     );
                 },
                 DayButton: CalendarDayButton,
-                Root: ({ className, rootRef, ...props }) => {
+                Root: ({ className, rootRef, ...properties_ }) => {
                     return (
                         <div
                             className={cn(className)}
                             data-slot="calendar"
                             ref={rootRef}
-                            {...props}
+                            {...properties_}
                         />
                     );
                 },
-                WeekNumber: ({ children, ...props }) => {
+                WeekNumber: ({ children, ...properties_ }) => {
                     return (
-                        <td {...props}>
+                        <td {...properties_}>
                             <div className="flex size-(--cell-size) items-center justify-center text-center">
                                 {children}
                             </div>
@@ -189,7 +189,7 @@ function Calendar({
                 ...formatters,
             }}
             showOutsideDays={showOutsideDays}
-            {...props}
+            {...properties}
         />
     );
 }
@@ -198,13 +198,13 @@ function CalendarDayButton({
     className,
     day,
     modifiers,
-    ...props
+    ...properties
 }: React.ComponentProps<typeof DayButton>) {
     const defaultClassNames = getDefaultClassNames();
 
-    const ref = React.useRef<HTMLButtonElement>(null);
+    const reference = React.useRef<HTMLButtonElement>(null);
     React.useEffect(() => {
-        if (modifiers.focused) ref.current?.focus();
+        if (modifiers.focused) reference.current?.focus();
     }, [modifiers.focused]);
 
     return (
@@ -224,10 +224,10 @@ function CalendarDayButton({
                 !modifiers.range_end &&
                 !modifiers.range_middle
             }
-            ref={ref}
+            ref={reference}
             size="icon"
             variant="ghost"
-            {...props}
+            {...properties}
         />
     );
 }

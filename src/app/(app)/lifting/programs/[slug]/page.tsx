@@ -7,13 +7,13 @@ import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utils';
 import { api, HydrateClient } from '~/trpc/server';
 
-interface PageProps {
+interface PageProperties {
     params: Promise<{ slug: string }>;
 }
 
 export async function generateMetadata({
     params,
-}: PageProps): Promise<Metadata> {
+}: PageProperties): Promise<Metadata> {
     const { slug } = await params;
     return {
         description: 'Program detail and enrollment.',
@@ -23,7 +23,9 @@ export async function generateMetadata({
 
 export const dynamic = 'force-dynamic';
 
-export default async function LiftingProgramDetailPage({ params }: PageProps) {
+export default async function LiftingProgramDetailPage({
+    params,
+}: PageProperties) {
     const session = await getServerSession();
     if (!session?.user.id) redirect(routes.auth.login);
     const { slug } = await params;

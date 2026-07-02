@@ -20,12 +20,12 @@ export interface StageState {
     status: StageStatus;
 }
 
-interface Props {
+interface Properties {
     stages: { id: Stage; label: string }[];
     state: Record<Stage, StageState>;
 }
 
-export function StageStepper({ stages, state }: Props) {
+export function StageStepper({ stages, state }: Properties) {
     const activeIndex = stages.findIndex(
         (s) => state[s.id].status === 'started',
     );

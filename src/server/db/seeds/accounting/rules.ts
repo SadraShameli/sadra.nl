@@ -2,9 +2,11 @@ import { eq } from 'drizzle-orm';
 
 import type {
     BookingDirection,
-    VatCode,
-} from '~/lib/accounting/providers/eboekhouden/enums';
+    CurrencyCode,
+} from '~/lib/accounting/core/types';
+import type { VatCode } from '~/lib/accounting/providers/eboekhouden/enums';
 
+import { currencyCodeSchema } from '~/lib/accounting/core/currency';
 import {
     accountingBankAccount,
     accountingCredential,
@@ -13,33 +15,42 @@ import {
 } from '~/server/db';
 import { DatabaseSeeder } from '~/server/db/types';
 
-interface LedgerRef {
+interface LedgerReference {
     id: number;
     label: string;
 }
 
-const FUNDED: LedgerRef = { id: 46_580_770, label: '0001 Funded accounts' };
-const SOFTWARE: LedgerRef = { id: 46_581_706, label: '0002 Trading Software' };
-const HARDWARE: LedgerRef = { id: 46_724_292, label: '0003 Trading Hardware' };
-const PAYOUTS: LedgerRef = { id: 48_217_305, label: '0004 Payouts' };
-const WISE_EUR: LedgerRef = {
+const FUNDED: LedgerReference = {
+    id: 46_580_770,
+    label: '0001 Funded accounts',
+};
+const SOFTWARE: LedgerReference = {
+    id: 46_581_706,
+    label: '0002 Trading Software',
+};
+const HARDWARE: LedgerReference = {
+    id: 46_724_292,
+    label: '0003 Trading Hardware',
+};
+const PAYOUTS: LedgerReference = { id: 48_217_305, label: '0004 Payouts' };
+const WISE_EUR: LedgerReference = {
     id: 51_974_018,
     label: '0005 Wise Business - EUR',
 };
-const WISE_USD: LedgerRef = {
+const WISE_USD: LedgerReference = {
     id: 51_974_061,
     label: '0006 Wise Business - USD',
 };
 
-const BANK_ACCOUNTS: { currency: string; ledger: LedgerRef }[] = [
-    { currency: 'EUR', ledger: WISE_EUR },
-    { currency: 'USD', ledger: WISE_USD },
+const BANK_ACCOUNTS: { currency: CurrencyCode; ledger: LedgerReference }[] = [
+    { currency: currencyCodeSchema.parse('EUR'), ledger: WISE_EUR },
+    { currency: currencyCodeSchema.parse('USD'), ledger: WISE_USD },
 ];
 
 interface SeedRule {
     direction: BookingDirection;
     display: string;
-    ledger: LedgerRef;
+    ledger: LedgerReference;
     match: string;
     vatCode: VatCode;
 }
@@ -79,6 +90,34 @@ const RULES: SeedRule[] = [
         ledger: FUNDED,
         match: 'fundingticks',
         vatCode: 'BU_EU_INK',
+    },
+    {
+        direction: 'OUT',
+        display: 'My Funded Futures',
+        ledger: FUNDED,
+        match: 'My Funded Futures',
+        vatCode: 'BU_EU_INK',
+    },
+    {
+        direction: 'OUT',
+        display: 'My Funded Futures',
+        ledger: FUNDED,
+        match: 'MyFundedFutures',
+        vatCode: 'BU_EU_INK',
+    },
+    {
+        direction: 'OUT',
+        display: 'Alpha-Futures',
+        ledger: FUNDED,
+        match: 'Alpha-Futures',
+        vatCode: 'BU_EU_INK',
+    },
+    {
+        direction: 'OUT',
+        display: 'FTMO',
+        ledger: FUNDED,
+        match: 'FTMO',
+        vatCode: 'HOOG_INK_21',
     },
     {
         direction: 'OUT',

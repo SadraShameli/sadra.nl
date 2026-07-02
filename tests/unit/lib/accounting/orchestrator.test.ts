@@ -1,18 +1,27 @@
 import { describe, expect, it } from 'vitest';
 
 import type {
-    BookingRule,
+    CurrencyCode,
     LedgerRef,
     RawTransaction,
 } from '~/lib/accounting/core/types';
 import type { RateProvider } from '~/lib/accounting/rates/provider';
 
-import { buildBookings } from '~/lib/accounting/core/orchestrator';
+import { BookingAggregator } from '~/lib/accounting/core/aggregator';
+import { currencyCodeSchema } from '~/lib/accounting/core/currency';
+import { isoDateSchema } from '~/lib/accounting/core/date';
+import { CurrencyConverter } from '~/lib/accounting/core/money';
+import { Rule } from '~/lib/accounting/core/rules/rule';
+import { RuleSet } from '~/lib/accounting/core/rules/rule-set';
+
+const EUR = currencyCodeSchema.parse('EUR');
+const USD = currencyCodeSchema.parse('USD');
+const GBP = currencyCodeSchema.parse('GBP');
 
 const fixedRates: RateProvider = {
     ensureRange: () => Promise.resolve(),
     rate({ base, quote }) {
-        if (base === 'EUR' && quote === 'USD') return 1.1;
+        if (base === EUR && quote === USD) return 1.1;
         throw new Error(`no rate ${base}/${quote}`);
     },
 };
@@ -23,44 +32,44 @@ const SOFTWARE: LedgerRef = { id: 2, label: '0002 Trading Software' };
 const FUNDED: LedgerRef = { id: 1, label: '0001 Funded accounts' };
 const PAYOUTS: LedgerRef = { id: 4, label: '0004 Payouts' };
 
-const RULES: BookingRule[] = [
-    {
+const ruleSet = new RuleSet([
+    Rule.fromRow({
         direction: 'OUT',
         display: 'Anthropic',
         id: 'r1',
         ledger: SOFTWARE,
         match: 'anthropic',
-        vatCode: 'BI_EU_INK',
-    },
-    {
+        taxCode: 'BI_EU_INK',
+    }),
+    Rule.fromRow({
         direction: 'OUT',
         display: 'Apex (cost)',
         id: 'r2',
         ledger: FUNDED,
         match: 'apex',
-        vatCode: 'BU_EU_INK',
-    },
-    {
+        taxCode: 'BU_EU_INK',
+    }),
+    Rule.fromRow({
         direction: 'IN',
         display: 'Apex payout',
         id: 'r3',
         ledger: PAYOUTS,
         match: 'apex',
-        vatCode: 'BU_EU_VERK',
-    },
-];
+        taxCode: 'BU_EU_VERK',
+    }),
+]);
 
-const bankByCurrency = new Map<string, LedgerRef>([
-    ['EUR', WISE_EUR],
-    ['USD', WISE_USD],
+const bankByCurrency = new Map<CurrencyCode, LedgerRef>([
+    [EUR, WISE_EUR],
+    [USD, WISE_USD],
 ]);
 
 const tx = (overrides: Partial<RawTransaction>): RawTransaction => ({
-    date: '2026-02-01',
+    date: isoDateSchema.parse('2026-02-01'),
     direction: 'OUT',
     merchant: 'Anthropic',
     sourceAmount: 100,
-    sourceCurrency: 'EUR',
+    sourceCurrency: EUR,
     sourceFee: 0,
     sourceFeeCurrency: null,
     sourceId: 'test',
@@ -68,16 +77,21 @@ const tx = (overrides: Partial<RawTransaction>): RawTransaction => ({
     ...overrides,
 });
 
-const build = (transactions: RawTransaction[], banks = bankByCurrency) =>
-    buildBookings({
-        bankByCurrency: banks,
-        rates: fixedRates,
-        rules: RULES,
-        start: '2026-01-01',
-        transactions,
-    });
+const build = (
+    transactions: RawTransaction[],
+    banks: ReadonlyMap<CurrencyCode, LedgerRef> = bankByCurrency,
+) => {
+    const aggregator = new BookingAggregator(
+        ruleSet,
+        new CurrencyConverter(fixedRates),
+        banks,
+        isoDateSchema.parse('2026-01-01'),
+    );
+    for (const t of transactions) aggregator.ingest(t);
+    return aggregator.result();
+};
 
-describe('buildBookings', () => {
+describe('BookingAggregator', () => {
     it('resolves the matched rule ledger and currency bank', () => {
         const result = build([tx({ txnId: 't-1' })]);
         expect(result.bookings).toHaveLength(1);
@@ -98,8 +112,8 @@ describe('buildBookings', () => {
         const result = build([
             tx({
                 sourceAmount: 110,
-                sourceCurrency: 'USD',
-                sourceFeeCurrency: 'USD',
+                sourceCurrency: USD,
+                sourceFeeCurrency: USD,
                 txnId: 'usd-1',
             }),
         ]);
@@ -131,7 +145,7 @@ describe('buildBookings', () => {
                 isRefund: true,
                 merchant: 'ApexFutures',
                 sourceAmount: 29.9,
-                sourceCurrency: 'USD',
+                sourceCurrency: USD,
                 txnId: 'card-3845452810',
             }),
         ]);
@@ -140,19 +154,29 @@ describe('buildBookings', () => {
         expect(booking?.isRefund).toBe(true);
         expect(booking?.direction).toBe('IN');
         expect(booking?.counterpartLedger).toEqual(FUNDED);
-        expect(booking?.vatCode).toBe('BU_EU_INK');
+        expect(booking?.taxCode).toBe('BU_EU_INK');
         expect(booking?.bank).toEqual(WISE_USD);
     });
 
     it('drops transactions before the start date', () => {
-        const result = build([tx({ date: '2025-12-31', txnId: 'old' })]);
+        const result = build([
+            tx({ date: isoDateSchema.parse('2025-12-31'), txnId: 'old' }),
+        ]);
         expect(result.bookings).toHaveLength(0);
     });
 
     it('collects unknown merchants with first/last seen', () => {
         const result = build([
-            tx({ date: '2026-02-01', merchant: 'NewVendor', txnId: 'u-1' }),
-            tx({ date: '2026-03-01', merchant: 'NewVendor', txnId: 'u-2' }),
+            tx({
+                date: isoDateSchema.parse('2026-02-01'),
+                merchant: 'NewVendor',
+                txnId: 'u-1',
+            }),
+            tx({
+                date: isoDateSchema.parse('2026-03-01'),
+                merchant: 'NewVendor',
+                txnId: 'u-2',
+            }),
         ]);
         expect(result.bookings).toHaveLength(0);
         expect(result.unknowns).toHaveLength(1);
@@ -166,20 +190,20 @@ describe('buildBookings', () => {
 
     it('skips matched transactions whose currency has no bank account', () => {
         const result = build([
-            tx({ merchant: 'apex', sourceCurrency: 'GBP', txnId: 'gbp-1' }),
+            tx({ merchant: 'apex', sourceCurrency: GBP, txnId: 'gbp-1' }),
         ]);
         expect(result.bookings).toHaveLength(0);
         expect(result.skippedNoBank).toBe(1);
-        expect(result.missingBankCurrencies).toEqual(['GBP']);
+        expect(result.missingBankCurrencies).toEqual([GBP]);
     });
 
     it('counts unsupported FX currencies separately from missing banks', () => {
-        const banks = new Map<string, LedgerRef>([
+        const banks = new Map<CurrencyCode, LedgerRef>([
             ...bankByCurrency,
-            ['GBP', { id: 9, label: 'GBP bank' }],
+            [GBP, { id: 9, label: 'GBP bank' }],
         ]);
         const result = build(
-            [tx({ merchant: 'apex', sourceCurrency: 'GBP', txnId: 'gbp-2' })],
+            [tx({ merchant: 'apex', sourceCurrency: GBP, txnId: 'gbp-2' })],
             banks,
         );
         expect(result.bookings).toHaveLength(0);

@@ -1,6 +1,6 @@
 import { cn } from '~/lib/utils';
 
-type EyebrowProps = React.ComponentProps<'div'> & {
+type EyebrowProperties = React.ComponentProps<'div'> & {
     as?: 'div' | 'h2' | 'h3' | 'h4' | 'p' | 'span';
 };
 
@@ -9,7 +9,7 @@ export default function Eyebrow({
     children,
     className,
     ...rest
-}: EyebrowProps) {
+}: EyebrowProperties) {
     return (
         <Tag
             className={cn(

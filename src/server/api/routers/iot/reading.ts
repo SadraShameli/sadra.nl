@@ -33,17 +33,17 @@ const lastAlertAt = new Map<number, number>();
 
 function shouldAlert(deviceId: number): boolean {
     const now = Date.now();
-    const prev = lastAlertAt.get(deviceId);
-    if (prev && now - prev < ALERT_COOLDOWN_MS) return false;
+    const previous = lastAlertAt.get(deviceId);
+    if (previous && now - previous < ALERT_COOLDOWN_MS) return false;
     lastAlertAt.set(deviceId, now);
     return true;
 }
 
 async function getReading(
     input: z.infer<typeof getReadingProps>,
-    ctx: ContextType,
+    context: ContextType,
 ): Promise<Result<typeof reading.$inferSelect>> {
-    const res = await ctx.db.query.reading.findFirst({
+    const res = await context.db.query.reading.findFirst({
         where: (reading) => eq(reading.id, input.id),
     });
 
@@ -81,7 +81,7 @@ const PERIOD_BY_GRANULARITY: Record<
 
 async function resolveDateRange(
     input: z.infer<typeof getReadingsQueryProps>,
-    ctx: ContextType,
+    context: ContextType,
 ): Promise<{ from: Date; to: Date }> {
     const periodMs = PERIOD_BY_GRANULARITY[input.granularity].ms;
 
@@ -100,7 +100,7 @@ async function resolveDateRange(
         };
     }
 
-    const latest = await ctx.db
+    const latest = await context.db
         .select({ created_at: reading.created_at })
         .from(reading)
         .where(eq(reading.location_id, input.location_id))
@@ -117,10 +117,10 @@ async function resolveDateRange(
 async function resolveDeviceFk(
     locationPkId: number,
     devicePublicId: number | undefined,
-    ctx: ContextType,
+    context: ContextType,
 ): Promise<number | undefined> {
     if (!devicePublicId) return undefined;
-    const d = await ctx.db.query.device.findFirst({
+    const d = await context.db.query.device.findFirst({
         where: (device) =>
             and(
                 eq(device.device_id, devicePublicId),
@@ -141,17 +141,18 @@ export const readingRouter = createTRPCRouter({
             }),
         )
         .mutation(async ({ ctx, input }) => {
-            const dev = await ctx.db.query.device.findFirst({
+            const development = await ctx.db.query.device.findFirst({
                 columns: { id: true, location_id: true },
                 where: (d) => eq(d.id, input.deviceId),
             });
-            if (!dev) throw new Error(`Device ${input.deviceId} not found`);
+            if (!development)
+                throw new Error(`Device ${input.deviceId} not found`);
             const [row] = await ctx.db
                 .insert(reading)
                 .values({
-                    ...(input.createdAt ? { created_at: input.createdAt } : {}),
-                    device_id: dev.id,
-                    location_id: dev.location_id,
+                    ...(input.createdAt && { created_at: input.createdAt }),
+                    device_id: development.id,
+                    location_id: development.location_id,
                     sensor_id: input.sensorId,
                     value: input.value,
                 })

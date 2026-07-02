@@ -24,8 +24,8 @@ export function SignupForm() {
     const router = useRouter();
     const [pending, startTransition] = useTransition();
     const [topError, setTopError] = useState<null | string>(null);
-    const searchParams = useSearchParams();
-    const callbackUrl = searchParams.get('callbackUrl') ?? routes.home;
+    const searchParameters = useSearchParams();
+    const callbackUrl = searchParameters.get('callbackUrl') ?? routes.home;
 
     const form = useForm<SignupInput>({
         defaultValues: {

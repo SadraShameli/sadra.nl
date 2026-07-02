@@ -56,8 +56,8 @@ export default async function ProfilePage({
     const session = await getServerSession();
     if (!session?.user.id) redirect(routes.auth.login);
 
-    const rawParams = await searchParams;
-    const { error, success } = profileSearchSchema.parse(rawParams);
+    const rawParameters = await searchParams;
+    const { error, success } = profileSearchSchema.parse(rawParameters);
 
     const [credentialAccount] = await db
         .select({ password: account.password })
@@ -82,8 +82,8 @@ export default async function ProfilePage({
     const { email, name } = session.user;
     const role = resolveRole(email, session.user.role);
     const isAdmin = isAdminOrAbove(role);
-    const userIsRoot = isRoot(role);
-    const activeTab = normalizeProfileTab(rawParams.tab, isAdmin);
+    const isUserIsRoot = isRoot(role);
+    const activeTab = normalizeProfileTab(rawParameters.tab, isAdmin);
 
     const prefetches: Promise<unknown>[] = [];
     if (isAdmin) {
@@ -208,7 +208,7 @@ export default async function ProfilePage({
                                 activeTab={activeTab}
                                 email={email}
                                 isAdmin={isAdmin}
-                                isRoot={userIsRoot}
+                                isRoot={isUserIsRoot}
                                 name={name}
                             />
                         </aside>

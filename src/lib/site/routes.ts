@@ -5,6 +5,8 @@ export const routes = {
         ledgers: '/accounting/ledgers',
         mutations: '/accounting/mutations',
         rules: '/accounting/rules',
+        run: (id: string) => `/accounting/runs/${id}` as const,
+        runs: '/accounting/runs',
         transactions: '/accounting/transactions',
     },
     auth: {
@@ -87,9 +89,9 @@ export const disallowedCrawlPaths: readonly string[] = [
 
 export function withQuery(
     path: string,
-    params: Record<string, null | number | string | undefined>,
+    parameters: Record<string, null | number | string | undefined>,
 ): string {
-    const entries = Object.entries(params).filter(
+    const entries = Object.entries(parameters).filter(
         ([, v]) => v !== undefined && v !== null && v !== '',
     );
     if (entries.length === 0) return path;

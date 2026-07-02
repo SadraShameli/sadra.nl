@@ -2,11 +2,11 @@ import 'server-only';
 import { Font } from '@react-pdf/renderer';
 import path from 'node:path';
 
-let registered = false;
+let isRegistered = false;
 
 export function registerFonts(): void {
-    if (registered) return;
-    registered = true;
+    if (isRegistered) return;
+    isRegistered = true;
 
     const geistDir = path.join(
         process.cwd(),

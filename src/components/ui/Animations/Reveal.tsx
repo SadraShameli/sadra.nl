@@ -8,7 +8,7 @@ import {
 } from 'framer-motion';
 import { useRef } from 'react';
 
-type RevealProps = {
+type RevealProperties = {
     children: React.ReactNode;
     className?: string;
 };
@@ -23,16 +23,19 @@ const defaultTransition: Transition = {
     ease: [0, 0, 0, 1],
 };
 
-export default function RevealAnimation({ children, className }: RevealProps) {
-    const ref = useRef(null);
-    const isInView = useInView(ref, { amount: 0.1, once: true });
+export default function RevealAnimation({
+    children,
+    className,
+}: RevealProperties) {
+    const reference = useRef(null);
+    const isInView = useInView(reference, { amount: 0.1, once: true });
 
     return (
         <motion.div
             animate={isInView ? 'visible' : 'hidden'}
             className={className}
             initial="hidden"
-            ref={ref}
+            ref={reference}
             transition={defaultTransition}
             variants={defaultVariants}
         >

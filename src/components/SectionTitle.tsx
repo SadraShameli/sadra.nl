@@ -1,11 +1,14 @@
 import { cn } from '~/lib/utils';
 
-interface SectionTitleProps {
+interface SectionTitleProperties {
     className?: string;
     text: string;
 }
 
-export default function SectionTitle({ className, text }: SectionTitleProps) {
+export default function SectionTitle({
+    className,
+    text,
+}: SectionTitleProperties) {
     return (
         <h2
             className={cn(

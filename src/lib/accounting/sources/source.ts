@@ -1,8 +1,10 @@
-import type { RawTransaction } from '../core/types';
+import type { RawTransaction } from '~/lib/accounting/core/types';
+
+import { RetryPolicy } from '~/lib/accounting/core/retry-policy';
 
 export interface ApiSource {
     readonly credentialKind: string;
-    fetch(ctx: ApiSourceContext): Promise<RawTransaction[]>;
+    fetch(context: ApiSourceContext): Promise<RawTransaction[]>;
     readonly id: string;
     readonly kind: 'api';
     readonly label: string;
@@ -16,20 +18,63 @@ export interface ApiSourceContext {
     to: string;
 }
 
-const registry = new Map<string, ApiSource>();
-
-export function findApiSourceByCredentialKind(
-    credentialKind: string,
-): ApiSource | undefined {
-    return [...registry.values()].find(
-        (s) => s.credentialKind === credentialKind,
-    );
+export interface FileSource {
+    readonly acceptExtension: string;
+    readonly credentialKind: string;
+    readonly id: string;
+    readonly kind: 'file';
+    readonly label: string;
+    parse(content: string, meta: Record<string, unknown>): RawTransaction[];
 }
 
-export function getSource(id: string): ApiSource | undefined {
-    return registry.get(id);
+export type Source = ApiSource | FileSource;
+
+export abstract class ApiSourceBase implements ApiSource {
+    abstract readonly credentialKind: string;
+    abstract readonly id: string;
+    readonly kind = 'api' as const;
+    abstract readonly label: string;
+
+    protected readonly retryPolicy: RetryPolicy = RetryPolicy.default();
+
+    async fetch(context: ApiSourceContext): Promise<RawTransaction[]> {
+        return this.retryPolicy.execute(() => this.fetchRaw(context));
+    }
+
+    protected abstract fetchRaw(
+        context: ApiSourceContext,
+    ): Promise<RawTransaction[]>;
 }
 
-export function registerSource(source: ApiSource): void {
-    registry.set(source.id, source);
+export class SourceRegistry {
+    private static instanceValue: null | SourceRegistry = null;
+
+    private readonly sources: Map<string, Source>;
+
+    private constructor() {
+        this.sources = new Map<string, Source>();
+    }
+
+    static instance(): SourceRegistry {
+        SourceRegistry.instanceValue ??= new SourceRegistry();
+        return SourceRegistry.instanceValue;
+    }
+
+    findByCredentialKind(credentialKind: string): Source | undefined {
+        return [...this.sources.values()].find(
+            (s) => s.credentialKind === credentialKind,
+        );
+    }
+
+    get(id: string): Source | undefined {
+        return this.sources.get(id);
+    }
+
+    list(): Source[] {
+        return [...this.sources.values()];
+    }
+
+    register(s: Source): void {
+        this.sources.set(s.id, s);
+    }
 }

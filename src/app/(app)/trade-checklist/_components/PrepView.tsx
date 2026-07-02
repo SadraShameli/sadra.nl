@@ -11,7 +11,7 @@ import { cn } from '~/lib/utils';
 import { PrepChecklist } from './prep/PrepChecklist';
 import { PrepHistoryStrip } from './prep/PrepHistoryStrip';
 
-interface PrepViewProps {
+interface PrepViewProperties {
     activePlanId: null | string;
     history: DailyPreparationRow[];
     today: string;
@@ -27,7 +27,7 @@ const EMPTY_CHECKS: PrepChecks = {
     setupPlanWritten: false,
 };
 
-export function PrepView({ activePlanId, history, today }: PrepViewProps) {
+export function PrepView({ activePlanId, history, today }: PrepViewProperties) {
     const todayRow = useMemo(
         () => history.find((h) => h.date === today) ?? null,
         [history, today],

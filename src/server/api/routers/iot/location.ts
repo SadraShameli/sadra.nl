@@ -25,9 +25,9 @@ import { getSensor } from './sensor';
 
 async function getLocation(
     input: z.infer<typeof getLocationProps>,
-    ctx: ContextType,
+    context: ContextType,
 ): Promise<Result<typeof location.$inferSelect>> {
-    const res = await ctx.db.query.location.findFirst({
+    const res = await context.db.query.location.findFirst({
         where: (location) => eq(location.location_id, input.location_id),
     });
 

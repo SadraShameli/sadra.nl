@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { registerCredentialDescriptor } from './registry';
+import { CredentialRegistry } from '~/lib/accounting/credentials/registry';
 
 const metaSchema = z
     .object({
@@ -9,7 +9,7 @@ const metaSchema = z
     })
     .strict();
 
-registerCredentialDescriptor({
+CredentialRegistry.instance().register({
     id: 'wise',
     label: 'Wise',
     metaFields: [

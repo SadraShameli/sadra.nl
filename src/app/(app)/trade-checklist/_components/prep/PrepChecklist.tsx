@@ -68,7 +68,7 @@ const CHECK_META: Record<PrepCheckKey, { hint: string; label: string }> = {
     },
 };
 
-interface PrepChecklistProps {
+interface PrepChecklistProperties {
     date: string;
     existing: DailyPreparationRow | null;
     initialChecks: PrepChecks;
@@ -84,7 +84,7 @@ export function PrepChecklist({
     initialNotes,
     isToday,
     planId,
-}: PrepChecklistProps) {
+}: PrepChecklistProperties) {
     const router = useRouter();
     const [pending, startTransition] = useTransition();
 

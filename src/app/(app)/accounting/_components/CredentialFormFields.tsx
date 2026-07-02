@@ -15,7 +15,7 @@ import {
 
 import { MetaFieldInput } from './MetaFieldInput';
 
-interface Props {
+interface Properties {
     credentialId?: string;
     descriptor: CredentialDescriptor;
     descriptors?: readonly CredentialDescriptor[];
@@ -43,11 +43,7 @@ export function CredentialFormFields({
     onSecretChange,
     secret,
     secretRequired = true,
-}: Props) {
-    const secretLabel = secretRequired
-        ? descriptor.secret.label
-        : descriptor.secret.label;
-
+}: Properties) {
     return (
         <>
             <div className="flex flex-col gap-2">
@@ -93,23 +89,27 @@ export function CredentialFormFields({
                 />
             </div>
 
-            <div className="flex flex-col gap-2">
-                <Label htmlFor="cred-secret">{secretLabel}</Label>
-                <Input
-                    autoComplete="new-password"
-                    id="cred-secret"
-                    minLength={
-                        secret.length === 0 && !secretRequired
-                            ? 0
-                            : descriptor.secret.minLength
-                    }
-                    onChange={(e) => onSecretChange(e.target.value)}
-                    placeholder={descriptor.secret.placeholder}
-                    required={secretRequired}
-                    type="password"
-                    value={secret}
-                />
-            </div>
+            {descriptor.secret && (
+                <div className="flex flex-col gap-2">
+                    <Label htmlFor="cred-secret">
+                        {descriptor.secret.label}
+                    </Label>
+                    <Input
+                        autoComplete="new-password"
+                        id="cred-secret"
+                        minLength={
+                            secret.length === 0 && !secretRequired
+                                ? 0
+                                : descriptor.secret.minLength
+                        }
+                        onChange={(e) => onSecretChange(e.target.value)}
+                        placeholder={descriptor.secret.placeholder}
+                        required={secretRequired}
+                        type="password"
+                        value={secret}
+                    />
+                </div>
+            )}
 
             {descriptor.metaFields.map((field) => (
                 <MetaFieldInput

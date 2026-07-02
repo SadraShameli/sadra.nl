@@ -51,14 +51,14 @@ const MENTAL_FLAG_OPTIONS: {
     { key: 'boredomHunt', label: 'Boredom' },
 ];
 
-interface ChipRowProps<T extends string> {
+interface ChipRowProperties<T extends string> {
     label: string;
     onChange: (v: T[]) => void;
     options: { key: T; label: string }[];
     selected: T[];
 }
 
-interface JournalFiltersProps {
+interface JournalFiltersProperties {
     onChange: (state: JournalFilterState) => void;
     onClear: () => void;
     plans: { id: string; name: string }[];
@@ -72,7 +72,7 @@ export function JournalFilters({
     plans,
     rows,
     state,
-}: JournalFiltersProps) {
+}: JournalFiltersProperties) {
     const windowOptions = useMemo(() => {
         const seen = new Map<string, string>();
         for (const r of rows) {
@@ -80,7 +80,7 @@ export function JournalFilters({
                 if (!seen.has(w.id)) seen.set(w.id, w.label);
             }
         }
-        return [...seen.entries()].map(([key, label]) => ({ key, label }));
+        return [...seen].map(([key, label]) => ({ key, label }));
     }, [rows]);
 
     const planOptions = plans.map((p) => ({ key: p.id, label: p.name }));
@@ -207,7 +207,7 @@ function ChipRow<T extends string>({
     onChange,
     options,
     selected,
-}: ChipRowProps<T>) {
+}: ChipRowProperties<T>) {
     return (
         <div className="flex flex-col gap-1">
             <Eyebrow as="span">{label}</Eyebrow>

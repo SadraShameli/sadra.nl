@@ -9,7 +9,7 @@ import {
 } from 'framer-motion';
 import { type JSX, useRef } from 'react';
 
-type AnimatedTextProps = {
+type AnimatedTextProperties = {
     className?: string;
     el?: keyof JSX.IntrinsicElements;
     splitChar?: boolean;
@@ -37,9 +37,9 @@ export default function TextAnimation({
     el: Wrapper = 'p',
     splitChar,
     text,
-}: AnimatedTextProps) {
-    const ref = useRef(null);
-    const isInView = useInView(ref, { amount: 0.5, once: true });
+}: AnimatedTextProperties) {
+    const reference = useRef(null);
+    const isInView = useInView(reference, { amount: 0.5, once: true });
 
     return (
         <Wrapper className={className}>
@@ -49,7 +49,7 @@ export default function TextAnimation({
                 animate={isInView ? 'visible' : 'hidden'}
                 aria-hidden
                 initial="hidden"
-                ref={ref}
+                ref={reference}
                 transition={defaultTransition}
             >
                 {text.split(' ').map((word) =>

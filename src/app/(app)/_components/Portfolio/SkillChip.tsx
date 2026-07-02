@@ -1,10 +1,10 @@
 import { Badge } from '~/components/ui/Badge';
 
-type SkillChipProps = {
+type SkillChipProperties = {
     label: string;
 };
 
-export default function SkillChip({ label }: SkillChipProps) {
+export default function SkillChip({ label }: SkillChipProperties) {
     return (
         <Badge
             asChild

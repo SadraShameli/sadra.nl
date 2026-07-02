@@ -4,7 +4,7 @@ import type { DailyPreparationRow } from '~/lib/schemas/trading';
 
 import { cn } from '~/lib/utils';
 
-interface PrepHistoryStripProps {
+interface PrepHistoryStripProperties {
     history: DailyPreparationRow[];
     onSelect: (date: string) => void;
     selectedDate: string;
@@ -17,7 +17,7 @@ export function PrepHistoryStrip({
     onSelect,
     selectedDate,
     today,
-}: PrepHistoryStripProps) {
+}: PrepHistoryStripProperties) {
     const map = new Map(history.map((h) => [h.date, h]));
     const days = lastDays(today, 30).toReversed();
 
@@ -31,7 +31,7 @@ export function PrepHistoryStrip({
             {days.map((d) => {
                 const row = map.get(d) ?? null;
                 const score = row?.score ?? null;
-                const dayNum = Number(d.split('-', 3)[2]);
+                const dayNumber = Number(d.split('-', 3)[2]);
                 const isToday = d === today;
                 const isSelected = d === selectedDate;
                 return (
@@ -51,7 +51,7 @@ export function PrepHistoryStrip({
                         title={`${d}${score === null ? ' · no prep' : ` · ${score.toFixed(0)}%`}`}
                         type="button"
                     >
-                        <span className="font-mono">{dayNum}</span>
+                        <span className="font-mono">{dayNumber}</span>
                     </button>
                 );
             })}
@@ -66,7 +66,7 @@ function lastDays(today: string, count: number): string[] {
     const m = parts[1] ?? 1;
     const d = parts[2] ?? 1;
     const cursor = new Date(Date.UTC(y, m - 1, d));
-    for (let i = 0; i < count; i++) {
+    for (let index = 0; index < count; index++) {
         const yy = cursor.getUTCFullYear();
         const mm = String(cursor.getUTCMonth() + 1).padStart(2, '0');
         const dd = String(cursor.getUTCDate()).padStart(2, '0');

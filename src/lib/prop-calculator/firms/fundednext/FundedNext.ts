@@ -65,9 +65,9 @@ const BOLT_SIZES = [
     },
 ] as const;
 
-type FnBoltSize = (typeof BOLT_SIZES)[number];
-type FnLegacySize = (typeof LEGACY_SIZES)[number];
-type FnRapidSize = (typeof RAPID_SIZES)[number];
+type FunctionBoltSize = (typeof BOLT_SIZES)[number];
+type FunctionLegacySize = (typeof LEGACY_SIZES)[number];
+type FunctionRapidSize = (typeof RAPID_SIZES)[number];
 
 export class FundedNext extends PropFirm {
     readonly displayName = 'FundedNext';
@@ -84,7 +84,7 @@ export class FundedNext extends PropFirm {
     }
 }
 
-function buildBoltPlan(size: FnBoltSize): PlanInit {
+function buildBoltPlan(size: FunctionBoltSize): PlanInit {
     return {
         accountSize: size.accountSize,
         consistency: new ConsistencyRule('eval', 0.4),
@@ -117,7 +117,7 @@ function buildBoltPlan(size: FnBoltSize): PlanInit {
     };
 }
 
-function buildLegacyPlan(size: FnLegacySize): PlanInit {
+function buildLegacyPlan(size: FunctionLegacySize): PlanInit {
     return {
         accountSize: size.accountSize,
         consistency: new ConsistencyRule('eval', 0.4),
@@ -150,7 +150,7 @@ function buildLegacyPlan(size: FnLegacySize): PlanInit {
     };
 }
 
-function buildRapidPlan(size: FnRapidSize): PlanInit {
+function buildRapidPlan(size: FunctionRapidSize): PlanInit {
     return {
         accountSize: size.accountSize,
         consistency: new ConsistencyRule('funded', 0.4),

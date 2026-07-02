@@ -39,7 +39,7 @@ type LabResult =
         ? R
         : never;
 
-interface StrategyLabPanelProps {
+interface StrategyLabPanelProperties {
     activationDiscountPercent: number;
     commissionPerRoundTrip: number;
     evalDiscountPercent: number;
@@ -82,7 +82,7 @@ export default function StrategyLabPanel({
     plan,
     scenarios,
     seed,
-}: StrategyLabPanelProps) {
+}: StrategyLabPanelProperties) {
     const { pending, results } = useLabSimulation({
         activationDiscountPercent,
         commissionPerRoundTrip,

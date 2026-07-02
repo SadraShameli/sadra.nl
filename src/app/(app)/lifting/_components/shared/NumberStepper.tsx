@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { Button } from '~/components/ui/Button';
 import { cn } from '~/lib/utils';
 
-interface NumberStepperProps {
+interface NumberStepperProperties {
     className?: string;
     decimals?: number;
     label?: string;
@@ -33,9 +33,11 @@ export function NumberStepper({
     step = 1,
     suffix,
     value,
-}: NumberStepperProps) {
-    const timeoutRef = useRef<null | ReturnType<typeof setTimeout>>(null);
-    const intervalRef = useRef<null | ReturnType<typeof setInterval>>(null);
+}: NumberStepperProperties) {
+    const timeoutReference = useRef<null | ReturnType<typeof setTimeout>>(null);
+    const intervalReference = useRef<null | ReturnType<typeof setInterval>>(
+        null,
+    );
 
     const clamp = useCallback(
         (n: number): number => {
@@ -57,18 +59,18 @@ export function NumberStepper({
 
     const startHold = (direction: -1 | 1) => {
         apply(direction, 1);
-        timeoutRef.current = setTimeout(() => {
-            intervalRef.current = setInterval(() => {
+        timeoutReference.current = setTimeout(() => {
+            intervalReference.current = setInterval(() => {
                 apply(direction, longPressMultiplier);
             }, REPEAT_MS);
         }, LONG_PRESS_MS);
     };
 
     const clearHold = () => {
-        if (timeoutRef.current) clearTimeout(timeoutRef.current);
-        if (intervalRef.current) clearInterval(intervalRef.current);
-        timeoutRef.current = null;
-        intervalRef.current = null;
+        if (timeoutReference.current) clearTimeout(timeoutReference.current);
+        if (intervalReference.current) clearInterval(intervalReference.current);
+        timeoutReference.current = null;
+        intervalReference.current = null;
     };
 
     useEffect(() => clearHold, []);

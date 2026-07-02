@@ -96,10 +96,10 @@ const PLAN_TOAST_ERRORS: Record<string, string> = {
 export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
     const router = useRouter();
     const pathname = usePathname();
-    const searchParams = useSearchParams();
+    const searchParameters = useSearchParams();
     const [orderedPlans, setOrderedPlans] = useState(plans);
     const [editingId, setEditingId] = useState<null | string>(() => {
-        const fromUrl = searchParams.get('plan');
+        const fromUrl = searchParameters.get('plan');
         if (fromUrl && plans.some((p) => p.id === fromUrl)) return fromUrl;
         return plans.find((p) => p.isActive)?.id ?? plans[0]?.id ?? null;
     });
@@ -116,41 +116,41 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
         setOrderedPlans(plans);
     }, [plans]);
 
-    const toastedRef = useRef<null | string>(null);
+    const toastedReference = useRef<null | string>(null);
 
     useEffect(() => {
-        const success = searchParams.get('success');
-        const error = searchParams.get('error');
-        const successMsg = success ? PLAN_TOAST_MESSAGES[success] : null;
-        const errorMsg = error ? PLAN_TOAST_ERRORS[error] : null;
-        if (!successMsg && !errorMsg) return;
+        const success = searchParameters.get('success');
+        const error = searchParameters.get('error');
+        const successMessage = success ? PLAN_TOAST_MESSAGES[success] : null;
+        const errorMessage = error ? PLAN_TOAST_ERRORS[error] : null;
+        if (!successMessage && !errorMessage) return;
 
-        const key = `${success ?? ''}|${error ?? ''}|${searchParams.get('plan') ?? ''}`;
-        if (toastedRef.current === key) return;
-        toastedRef.current = key;
+        const key = `${success ?? ''}|${error ?? ''}|${searchParameters.get('plan') ?? ''}`;
+        if (toastedReference.current === key) return;
+        toastedReference.current = key;
 
-        if (successMsg) toast.success(successMsg);
-        if (errorMsg) toast.error(errorMsg);
+        if (successMessage) toast.success(successMessage);
+        if (errorMessage) toast.error(errorMessage);
 
-        const sp = new URLSearchParams(searchParams.toString());
-        if (successMsg) sp.delete('success');
-        if (errorMsg) sp.delete('error');
+        const sp = new URLSearchParams(searchParameters.toString());
+        if (successMessage) sp.delete('success');
+        if (errorMessage) sp.delete('error');
         const query = sp.toString();
         router.replace(query ? `${pathname}?${query}` : pathname, {
             scroll: false,
         });
-    }, [searchParams, router, pathname]);
+    }, [searchParameters, router, pathname]);
 
     const editing = useMemo(
         () => orderedPlans.find((p) => p.id === editingId) ?? null,
         [orderedPlans, editingId],
     );
 
-    const editorRef = useRef<HTMLDivElement | null>(null);
+    const editorReference = useRef<HTMLDivElement | null>(null);
 
     const startEditing = (id: string) => {
         setEditingId(id);
-        editorRef.current?.scrollIntoView({
+        editorReference.current?.scrollIntoView({
             behavior: 'smooth',
             block: 'start',
         });
@@ -271,7 +271,7 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
             </Card>
 
             {editing && (
-                <Card className="scroll-mt-4" ref={editorRef}>
+                <Card className="scroll-mt-4" ref={editorReference}>
                     <CardHeader className="flex items-center gap-2">
                         <CardTitle className="flex min-w-0 items-center gap-2">
                             <Edit3 className="size-4 shrink-0" />

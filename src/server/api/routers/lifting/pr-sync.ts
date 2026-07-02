@@ -2,7 +2,7 @@ import { and, asc, eq, inArray } from 'drizzle-orm';
 import 'server-only';
 
 import type { PrKind } from '~/lib/lifting/types';
-import type { db as DbType } from '~/server/db';
+import type { db as DatabaseType } from '~/server/db';
 
 import { PrDetectionPipeline, type PrSet } from '~/lib/lifting/pr-detection';
 import {
@@ -15,7 +15,7 @@ import {
 export class PrSyncService {
     private readonly pipeline = new PrDetectionPipeline();
 
-    constructor(private readonly db: typeof DbType) {}
+    constructor(private readonly database: typeof DatabaseType) {}
 
     private static isWorkingType(type: string): boolean {
         return ['amrap', 'backoff', 'failure', 'topset', 'working'].includes(
@@ -27,7 +27,7 @@ export class PrSyncService {
         userId: string,
         workoutExerciseId: string,
     ): Promise<null | string> {
-        const row = await this.db.query.liftingWorkoutExercise.findFirst({
+        const row = await this.database.query.liftingWorkoutExercise.findFirst({
             where: (w, { eq: e }) => e(w.id, workoutExerciseId),
             with: { workout: true },
         });
@@ -37,7 +37,7 @@ export class PrSyncService {
     }
 
     async syncExercise(userId: string, exerciseId: string): Promise<void> {
-        const setsQuery = await this.db
+        const setsQuery = await this.database
             .select({
                 completedAt: liftingSet.completedAt,
                 id: liftingSet.id,
@@ -111,7 +111,7 @@ export class PrSyncService {
             history.push(set);
         }
 
-        await this.db
+        await this.database
             .delete(liftingPersonalRecord)
             .where(
                 and(
@@ -121,19 +121,21 @@ export class PrSyncService {
             );
 
         if (prRows.length > 0) {
-            const q = this.db.insert(liftingPersonalRecord).values(prRows);
+            const q = this.database
+                .insert(liftingPersonalRecord)
+                .values(prRows);
             await q;
         }
 
         const allIds = ordered.map((s) => s.id);
         if (allIds.length > 0) {
-            await this.db
+            await this.database
                 .update(liftingSet)
                 .set({ isPr: false })
                 .where(inArray(liftingSet.id, allIds));
         }
         if (prSetIds.size > 0) {
-            await this.db
+            await this.database
                 .update(liftingSet)
                 .set({ isPr: true })
                 .where(inArray(liftingSet.id, [...prSetIds]));

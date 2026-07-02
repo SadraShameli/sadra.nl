@@ -4,26 +4,26 @@ import { render } from '@react-email/render';
 import { EmailMessage } from '../message';
 import { BaseEmail } from '../templates/base';
 
-interface DeviceCreatedTemplateProps {
+interface DeviceCreatedTemplateProperties {
     deviceId: number;
     deviceName: string;
     locationName: null | string;
 }
 
 export class DeviceCreatedEmail extends EmailMessage {
-    readonly subject = 'New device — sadra.nl';
+    readonly subject = 'New device';
     readonly to: string;
 
     constructor(
         to: string,
-        private readonly params: DeviceCreatedTemplateProps,
+        private readonly parameters: DeviceCreatedTemplateProperties,
     ) {
         super();
         this.to = to;
     }
 
     async render(): Promise<string> {
-        return render(<DeviceCreatedTemplate {...this.params} />);
+        return render(<DeviceCreatedTemplate {...this.parameters} />);
     }
 }
 
@@ -31,7 +31,7 @@ function DeviceCreatedTemplate({
     deviceId,
     deviceName,
     locationName,
-}: DeviceCreatedTemplateProps) {
+}: DeviceCreatedTemplateProperties) {
     return (
         <BaseEmail preview={`New device registered: ${deviceName}`}>
             <Heading className="m-0 mb-4 text-xl font-semibold text-neutral-900">

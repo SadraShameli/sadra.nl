@@ -73,7 +73,7 @@ const DEFAULTS: CreateCustomExerciseInput = {
     tags: [],
 };
 
-interface ExerciseDialogProps {
+interface ExerciseDialogProperties {
     initial?: CreateCustomExerciseInput;
     onClose: () => void;
     onSubmit: (values: CreateCustomExerciseInput) => Promise<unknown>;
@@ -83,7 +83,7 @@ interface ExerciseDialogProps {
 }
 
 export function ExercisesManager() {
-    const utils = api.useUtils();
+    const utilities = api.useUtils();
     const query = api.lifting.exercise.list.useQuery({
         includeCustom: true,
         limit: 500,
@@ -91,24 +91,24 @@ export function ExercisesManager() {
     });
 
     const create = api.lifting.exercise.createCustom.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Exercise created');
-            await utils.lifting.exercise.list.invalidate();
+            await utilities.lifting.exercise.list.invalidate();
         },
     });
     const update = api.lifting.exercise.updateCustom.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Exercise updated');
-            await utils.lifting.exercise.list.invalidate();
+            await utilities.lifting.exercise.list.invalidate();
         },
     });
     const remove = api.lifting.exercise.deleteCustom.useMutation({
-        onError: (err) => toast.error(err.message),
+        onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Exercise deleted');
-            await utils.lifting.exercise.list.invalidate();
+            await utilities.lifting.exercise.list.invalidate();
         },
     });
 
@@ -126,12 +126,10 @@ export function ExercisesManager() {
                     e.primaryMuscle !== muscleFilter
                 )
                     return false;
-                if (
-                    equipmentFilter !== FILTER_ALL &&
-                    e.equipment !== equipmentFilter
-                )
-                    return false;
-                return true;
+                return (
+                    equipmentFilter === FILTER_ALL ||
+                    e.equipment === equipmentFilter
+                );
             }),
         [query.data, muscleFilter, equipmentFilter],
     );
@@ -418,7 +416,7 @@ function ExerciseDialog({
     open,
     pending,
     title,
-}: ExerciseDialogProps) {
+}: ExerciseDialogProperties) {
     const form = useForm<ExerciseFormInput, unknown, CreateCustomExerciseInput>(
         {
             defaultValues: initial ?? DEFAULTS,

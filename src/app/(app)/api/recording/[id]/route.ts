@@ -45,7 +45,7 @@ export async function GET(
         });
     }
 
-    if (request.headers.get('range') !== null) {
+    if (request.headers.has('range')) {
         return new Response(null, {
             headers: { ...baseHeaders, 'Content-Range': `bytes */${size}` },
             status: 416,

@@ -9,12 +9,15 @@ import { cn } from '~/lib/utils';
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-interface CalendarHeatmapProps {
+interface CalendarHeatmapProperties {
     assessments: LightAssessment[];
     month: string;
 }
 
-export function CalendarHeatmap({ assessments, month }: CalendarHeatmapProps) {
+export function CalendarHeatmap({
+    assessments,
+    month,
+}: CalendarHeatmapProperties) {
     const weeks = useMemo(
         () => dayCellGrid(month, assessments),
         [month, assessments],
@@ -38,7 +41,9 @@ export function CalendarHeatmap({ assessments, month }: CalendarHeatmapProps) {
                 {weeks.map((week, wi) => (
                     <div className="grid grid-cols-7 gap-1" key={wi}>
                         {week.map((cell) => {
-                            const dayNum = Number(cell.date.split('-', 3)[2]);
+                            const dayNumber = Number(
+                                cell.date.split('-', 3)[2],
+                            );
                             const isClickable = cell.total > 0;
                             const inner = (
                                 <div
@@ -53,7 +58,7 @@ export function CalendarHeatmap({ assessments, month }: CalendarHeatmapProps) {
                                 >
                                     <div className="flex items-baseline justify-between">
                                         <span className="font-mono text-xs text-muted-foreground">
-                                            {dayNum}
+                                            {dayNumber}
                                         </span>
                                         {cell.bestGrade && (
                                             <span className="font-orbitron text-xs font-bold text-white">
@@ -70,26 +75,26 @@ export function CalendarHeatmap({ assessments, month }: CalendarHeatmapProps) {
                                             <div className="flex flex-wrap gap-0.5">
                                                 {Array.from({
                                                     length: cell.wins,
-                                                }).map((_, i) => (
+                                                }).map((_, index) => (
                                                     <span
                                                         className="size-1.5 rounded-full bg-emerald-400"
-                                                        key={`w${i}`}
+                                                        key={`w${index}`}
                                                     />
                                                 ))}
                                                 {Array.from({
                                                     length: cell.losses,
-                                                }).map((_, i) => (
+                                                }).map((_, index) => (
                                                     <span
                                                         className="size-1.5 rounded-full bg-rose-500"
-                                                        key={`l${i}`}
+                                                        key={`l${index}`}
                                                     />
                                                 ))}
                                                 {Array.from({
                                                     length: cell.breakevens,
-                                                }).map((_, i) => (
+                                                }).map((_, index) => (
                                                     <span
                                                         className="size-1.5 rounded-full bg-amber-400"
-                                                        key={`b${i}`}
+                                                        key={`b${index}`}
                                                     />
                                                 ))}
                                             </div>

@@ -4,13 +4,13 @@ import { render } from '@react-email/render';
 import { EmailMessage } from '../message';
 import { BaseEmail } from '../templates/base';
 
-interface SignUpNotificationTemplateProps {
+interface SignUpNotificationTemplateProperties {
     email: string;
     name: null | string | undefined;
 }
 
 export class SignUpNotificationEmail extends EmailMessage {
-    readonly subject = 'New sign-up — sadra.nl';
+    readonly subject = 'New sign-up';
     readonly to: string;
 
     constructor(
@@ -32,7 +32,7 @@ export class SignUpNotificationEmail extends EmailMessage {
 function SignUpNotificationTemplate({
     email,
     name,
-}: SignUpNotificationTemplateProps) {
+}: SignUpNotificationTemplateProperties) {
     return (
         <BaseEmail preview={`New sign-up: ${email}`}>
             <Heading className="m-0 mb-4 text-xl font-semibold text-neutral-900">

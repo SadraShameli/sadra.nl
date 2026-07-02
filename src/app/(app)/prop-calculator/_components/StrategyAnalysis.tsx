@@ -16,7 +16,7 @@ import { cn } from '~/lib/utils';
 
 import { panelDescriptions } from './kpiDescriptions';
 
-interface StrategyAnalysisProps {
+interface StrategyAnalysisProperties {
     copyAccounts: number;
     fundedHorizonDays: number;
     plan: Plan;
@@ -34,7 +34,7 @@ export default function StrategyAnalysis({
     riskPerTrade,
     rrRatio,
     winrate,
-}: StrategyAnalysisProps) {
+}: StrategyAnalysisProperties) {
     const accounts = Math.max(1, Math.floor(copyAccounts));
     const edge = useMemo(() => {
         const breakEvenWR = 1 / (1 + rrRatio);
@@ -95,7 +95,7 @@ export default function StrategyAnalysis({
         const meanMonthly =
             monthlyReturns.reduce((s, v) => s + v, 0) /
             (monthlyReturns.length || 1);
-        const sdMonthly = localStdDev(monthlyReturns);
+        const sdMonthly = localStdDevelopment(monthlyReturns);
         const sharpe =
             sdMonthly > 0 ? (meanMonthly / sdMonthly) * Math.sqrt(12) : 0;
 
@@ -119,11 +119,13 @@ export default function StrategyAnalysis({
             (s, r) => s + (r < 0 ? r * r : 0),
             0,
         );
-        const downsideDev = Math.sqrt(
+        const downsideDevelopment = Math.sqrt(
             downsideSumSq / (monthlyReturns.length || 1),
         );
         const sortino =
-            downsideDev > 0 ? (meanMonthly / downsideDev) * Math.sqrt(12) : 0;
+            downsideDevelopment > 0
+                ? (meanMonthly / downsideDevelopment) * Math.sqrt(12)
+                : 0;
 
         const sumPos = monthlyReturns.reduce((s, r) => s + Math.max(r, 0), 0);
         const sumNeg = monthlyReturns.reduce(
@@ -213,7 +215,7 @@ export default function StrategyAnalysis({
         accounts,
     ]);
 
-    const omegaStr = Number.isFinite(ratios.omega)
+    const omegaString = Number.isFinite(ratios.omega)
         ? ratios.omega.toFixed(2)
         : '∞';
 
@@ -355,7 +357,7 @@ export default function StrategyAnalysis({
                             bench={omegaBench(ratios.omega)}
                             color={omegaColor(ratios.omega)}
                             label="Omega ratio"
-                            value={omegaStr}
+                            value={omegaString}
                         />
                         <RatioCard
                             bench={
@@ -550,22 +552,24 @@ function gainToPainColor(v: number): string {
     return 'text-rose-400';
 }
 
-function kellyColor(i: number): string {
-    if (i > 1) return 'text-rose-400';
-    if (i > 0.75) return 'text-amber-400';
-    if (i >= 0.25) return 'text-emerald-400';
+function kellyColor(index: number): string {
+    if (index > 1) return 'text-rose-400';
+    if (index > 0.75) return 'text-amber-400';
+    if (index >= 0.25) return 'text-emerald-400';
     return 'text-amber-400';
 }
-function kellyLabel(i: number): string {
-    if (i > 1) return 'over-betting';
-    if (i > 0.75) return 'high variance';
-    if (i >= 0.25) return 'optimal zone';
+function kellyLabel(index: number): string {
+    if (index > 1) return 'over-betting';
+    if (index > 0.75) return 'high variance';
+    if (index >= 0.25) return 'optimal zone';
     return 'under-betting';
 }
-function localStdDev(arr: readonly number[]): number {
-    if (arr.length === 0) return 0;
-    const m = arr.reduce((s, v) => s + v, 0) / arr.length;
-    return Math.sqrt(arr.reduce((s, v) => s + (v - m) ** 2, 0) / arr.length);
+function localStdDevelopment(array: readonly number[]): number {
+    if (array.length === 0) return 0;
+    const m = array.reduce((s, v) => s + v, 0) / array.length;
+    return Math.sqrt(
+        array.reduce((s, v) => s + (v - m) ** 2, 0) / array.length,
+    );
 }
 function Metric({
     label,

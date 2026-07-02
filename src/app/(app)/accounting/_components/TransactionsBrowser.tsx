@@ -84,8 +84,7 @@ export function TransactionsBrowser() {
             if (directionFilter !== ALL && t.direction !== directionFilter)
                 return false;
             if (matchFilter === MATCHED && t.match === null) return false;
-            if (matchFilter === UNKNOWN && t.match !== null) return false;
-            return true;
+            return matchFilter !== UNKNOWN || t.match === null;
         });
     }, [txnsQ.data, directionFilter, matchFilter]);
 

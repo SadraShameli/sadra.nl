@@ -263,10 +263,10 @@ export async function reorderTradingPlans(
     const data = reorderTradingPlansInputSchema.parse(input);
     const userId = await requireUserId();
     await db.transaction(async (tx) => {
-        for (const [i, id] of data.orderedIds.entries()) {
+        for (const [index, id] of data.orderedIds.entries()) {
             await tx
                 .update(tradingPlans)
-                .set({ sortOrder: i })
+                .set({ sortOrder: index })
                 .where(
                     and(
                         eq(tradingPlans.id, id),

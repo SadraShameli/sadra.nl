@@ -4,7 +4,7 @@ import { render } from '@react-email/render';
 import { EmailMessage } from '../message';
 import { BaseEmail } from '../templates/base';
 
-interface ContactFormTemplateProps {
+interface ContactFormTemplateProperties {
     email: string;
     ip: string;
     message: string;
@@ -46,7 +46,7 @@ function ContactFormTemplate({
     ip,
     message,
     name,
-}: ContactFormTemplateProps) {
+}: ContactFormTemplateProperties) {
     return (
         <BaseEmail preview={`Contact from ${name}`}>
             <Heading className="m-0 mb-4 text-xl font-semibold text-neutral-900">

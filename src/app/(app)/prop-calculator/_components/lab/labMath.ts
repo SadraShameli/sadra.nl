@@ -26,10 +26,11 @@ export function expectedMaxLossStreak(N: number, winrate: number): number {
     const q = 1 - winrate;
     if (q <= 0) return 0;
     if (q >= 1) return N;
-    const num = Math.log(N * winrate);
+    const number_ = Math.log(N * winrate);
     const den = Math.log(1 / q);
-    if (!Number.isFinite(num) || !Number.isFinite(den) || den <= 0) return 0;
-    return Math.max(0, num / den);
+    if (!Number.isFinite(number_) || !Number.isFinite(den) || den <= 0)
+        return 0;
+    return Math.max(0, number_ / den);
 }
 
 export function gamblersRuinAsymmetric(
@@ -50,41 +51,43 @@ export function gamblersRuinAsymmetric(
     const lo = -ddUnits;
     const hi = targetUnits;
     const total = hi - lo + 1;
-    const prev = Array.from({ length: total }, () => 0);
-    for (let i = 0; i < total; i++) {
-        const x = lo + i;
-        prev[i] = x >= hi ? 1 : 0;
+    const previous = Array.from({ length: total }, () => 0);
+    for (let index = 0; index < total; index++) {
+        const x = lo + index;
+        previous[index] = x >= hi ? 1 : 0;
     }
     const q = 1 - p;
     const next = Array.from({ length: total }, () => 0);
     const maxIter = 4000;
     for (let iter = 0; iter < maxIter; iter++) {
         let maxDelta = 0;
-        for (let i = 0; i < total; i++) {
-            const x = lo + i;
+        for (let index = 0; index < total; index++) {
+            const x = lo + index;
             if (x <= lo) {
-                next[i] = 0;
+                next[index] = 0;
                 continue;
             }
             if (x >= hi) {
-                next[i] = 1;
+                next[index] = 1;
                 continue;
             }
-            const upIdx = Math.min(total - 1, i + rUnits);
-            const downIdx = Math.max(0, i - 1);
-            const upVal = lo + upIdx >= hi ? 1 : (prev[upIdx] ?? 0);
-            const downVal = lo + downIdx <= lo ? 0 : (prev[downIdx] ?? 0);
-            const v = p * upVal + q * downVal;
-            const delta = Math.abs(v - (prev[i] ?? 0));
+            const upIndex = Math.min(total - 1, index + rUnits);
+            const downIndex = Math.max(0, index - 1);
+            const upValue = lo + upIndex >= hi ? 1 : (previous[upIndex] ?? 0);
+            const downValue =
+                lo + downIndex <= lo ? 0 : (previous[downIndex] ?? 0);
+            const v = p * upValue + q * downValue;
+            const delta = Math.abs(v - (previous[index] ?? 0));
             if (delta > maxDelta) maxDelta = delta;
-            next[i] = v;
+            next[index] = v;
         }
-        for (let i = 0; i < total; i++) prev[i] = next[i] ?? 0;
+        for (let index = 0; index < total; index++)
+            previous[index] = next[index] ?? 0;
         if (maxDelta < 1e-9) break;
     }
 
-    const startIdx = -lo;
-    return prev[startIdx] ?? 0;
+    const startIndex = -lo;
+    return previous[startIndex] ?? 0;
 }
 
 export function groupedPassDistribution(
@@ -115,9 +118,9 @@ export function groupedPassDistribution(
             const pk = working[k] ?? 0;
             if (pk === 0) continue;
             next[k] = (next[k] ?? 0) + pk * fail;
-            const idxPass = k + size;
-            if (idxPass <= N)
-                next[idxPass] = (next[idxPass] ?? 0) + pk * perGroupP;
+            const indexPass = k + size;
+            if (indexPass <= N)
+                next[indexPass] = (next[indexPass] ?? 0) + pk * perGroupP;
         }
         working = next;
         totalSeen = newTotal;
@@ -129,9 +132,9 @@ export function groupedPassDistribution(
 export function probAtLeastKofN(N: number, K: number, p: number): number {
     if (K <= 0) return 1;
     if (K > N) return 0;
-    const dist = binomialDistribution(N, p);
+    const distribution = binomialDistribution(N, p);
     let s = 0;
-    for (let k = K; k <= N; k++) s += dist[k] ?? 0;
+    for (let k = K; k <= N; k++) s += distribution[k] ?? 0;
     return s;
 }
 
@@ -148,8 +151,8 @@ function logBinomCoef(n: number, k: number): number {
     if (k === 0 || k === n) return 0;
     let s = 0;
     const kk = Math.min(k, n - k);
-    for (let i = 1; i <= kk; i++) {
-        s += Math.log(n - kk + i) - Math.log(i);
+    for (let index = 1; index <= kk; index++) {
+        s += Math.log(n - kk + index) - Math.log(index);
     }
     return s;
 }

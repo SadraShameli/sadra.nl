@@ -16,12 +16,12 @@ export default function SectionNav() {
     const [active, setActive] = useState('');
     const [slot, setSlot] = useState<Element | null>(null);
     const [indicator, setIndicator] = useState({ left: 0, width: 0 });
-    const navRef = useRef<HTMLDivElement>(null);
-    const suppressRef = useRef(false);
-    const suppressTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
-        undefined,
-    );
-    const activeRef = useRef('');
+    const navReference = useRef<HTMLDivElement>(null);
+    const suppressReference = useRef(false);
+    const suppressTimerReference = useRef<
+        ReturnType<typeof setTimeout> | undefined
+    >(undefined);
+    const activeReference = useRef('');
 
     useEffect(() => {
         setSlot(document.querySelector('#navbar-subnav-slot'));
@@ -32,12 +32,15 @@ export default function SectionNav() {
             '[data-section-label]',
         );
         const discovered = [...els]
-            .filter((el) => el.id)
-            .map((el) => ({ id: el.id, label: el.dataset.sectionLabel ?? '' }));
+            .filter((element) => element.id)
+            .map((element) => ({
+                id: element.id,
+                label: element.dataset.sectionLabel ?? '',
+            }));
         setSections(discovered);
         if (discovered[0]) {
             setActive(discovered[0].id);
-            activeRef.current = discovered[0].id;
+            activeReference.current = discovered[0].id;
         }
 
         const hash = window.location.hash.slice(1);
@@ -46,7 +49,7 @@ export default function SectionNav() {
                 .querySelector(`#${hash}`)
                 ?.scrollIntoView({ behavior: 'smooth' });
             setActive(hash);
-            activeRef.current = hash;
+            activeReference.current = hash;
         }
     }, []);
 
@@ -54,20 +57,20 @@ export default function SectionNav() {
         if (sections.length === 0) return;
 
         function update() {
-            if (suppressRef.current) return;
+            if (suppressReference.current) return;
             const [firstSection] = sections;
             if (!firstSection) return;
             const threshold = window.innerHeight * 0.35;
             let current = firstSection.id;
             for (const { id } of sections) {
-                const el = document.querySelector(`#${id}`);
-                if (!el) continue;
-                if (el.getBoundingClientRect().top <= threshold) {
+                const element = document.querySelector(`#${id}`);
+                if (!element) continue;
+                if (element.getBoundingClientRect().top <= threshold) {
                     current = id;
                 }
             }
-            if (current !== activeRef.current) {
-                activeRef.current = current;
+            if (current !== activeReference.current) {
+                activeReference.current = current;
                 history.replaceState(null, '', `#${current}`);
                 setActive(current);
             }
@@ -79,24 +82,24 @@ export default function SectionNav() {
     }, [sections]);
 
     useEffect(() => {
-        const btn = navRef.current?.querySelector<HTMLElement>(
+        const button = navReference.current?.querySelector<HTMLElement>(
             `[data-section="${CSS.escape(active)}"]`,
         );
-        if (!btn) return;
-        btn.scrollIntoView({
+        if (!button) return;
+        button.scrollIntoView({
             behavior: 'smooth',
             block: 'nearest',
             inline: 'nearest',
         });
-        setIndicator({ left: btn.offsetLeft, width: btn.offsetWidth });
+        setIndicator({ left: button.offsetLeft, width: button.offsetWidth });
     }, [active]);
 
     function scrollTo(id: string) {
-        suppressRef.current = true;
-        activeRef.current = id;
-        clearTimeout(suppressTimerRef.current);
-        suppressTimerRef.current = setTimeout(() => {
-            suppressRef.current = false;
+        suppressReference.current = true;
+        activeReference.current = id;
+        clearTimeout(suppressTimerReference.current);
+        suppressTimerReference.current = setTimeout(() => {
+            suppressReference.current = false;
         }, 800);
         document
             .querySelector(`#${id}`)
@@ -113,7 +116,7 @@ export default function SectionNav() {
                 'app-prop-calculator__section-nav',
                 'relative container mx-auto flex overflow-x-auto',
             )}
-            ref={navRef}
+            ref={navReference}
             style={{ scrollbarWidth: 'none' }}
         >
             {sections.map(({ id, label }) => (

@@ -27,7 +27,7 @@ import { PR_KIND_VALUES } from '~/lib/lifting/types';
 import { api, type RouterOutputs } from '~/trpc/react';
 
 type Exercise = RouterOutputs['lifting']['exercise']['get'];
-interface ExerciseDetailProps {
+interface ExerciseDetailProperties {
     exercise: Exercise;
 }
 
@@ -58,7 +58,7 @@ const E1RM_RANGE_LABEL: Record<E1rmRange, string> = {
     all: 'All time',
 };
 
-export function ExerciseDetail({ exercise }: ExerciseDetailProps) {
+export function ExerciseDetail({ exercise }: ExerciseDetailProperties) {
     const prs = api.lifting.analytics.prTimeline.useQuery({ id: exercise.id });
     const settings = api.lifting.settings.get.useQuery();
     const unitWeight = settings.data?.unitWeight ?? 'kg';
@@ -97,7 +97,7 @@ export function ExerciseDetail({ exercise }: ExerciseDetailProps) {
         if (range?.from) setPrRange('all');
     };
 
-    const prFiltersActive =
+    const isPrFiltersActive =
         prRange !== 'all' ||
         Boolean(prCustomRange?.from) ||
         prKindFilter !== PR_KIND_ALL;
@@ -191,7 +191,7 @@ export function ExerciseDetail({ exercise }: ExerciseDetailProps) {
                         emptyState={
                             <EmptyState
                                 description={
-                                    prFiltersActive
+                                    isPrFiltersActive
                                         ? 'No PRs match these filters.'
                                         : 'Log some sets and your PRs will show up here.'
                                 }
@@ -204,7 +204,7 @@ export function ExerciseDetail({ exercise }: ExerciseDetailProps) {
                             <div className="flex flex-col gap-2">
                                 <div className="flex flex-wrap items-center gap-2">
                                     <ClearFiltersButton
-                                        active={prFiltersActive}
+                                        active={isPrFiltersActive}
                                         className="hidden md:flex"
                                         onReset={resetPrFilters}
                                     />
@@ -254,7 +254,7 @@ export function ExerciseDetail({ exercise }: ExerciseDetailProps) {
                                     />
                                 </div>
                                 <ClearFiltersButton
-                                    active={prFiltersActive}
+                                    active={isPrFiltersActive}
                                     className="md:hidden"
                                     onReset={resetPrFilters}
                                 />

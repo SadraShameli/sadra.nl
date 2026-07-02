@@ -44,11 +44,11 @@ import { api, type RouterOutputs } from '~/trpc/react';
 type Settings = RouterOutputs['lifting']['settings']['get'];
 
 export function LiftingSettingsForm({ initial }: { initial: Settings }) {
-    const utils = api.useUtils();
+    const utilities = api.useUtils();
     const update = api.lifting.settings.update.useMutation({
         onSuccess: () => {
             toast.success('Settings saved');
-            return utils.lifting.settings.get.invalidate();
+            return utilities.lifting.settings.get.invalidate();
         },
     });
 
@@ -84,13 +84,13 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
             diff.unitWeight = values.unitWeight;
         if (values.weekStart !== initial.weekStart)
             diff.weekStart = values.weekStart;
-        const platesChanged =
+        const isPlatesChanged =
             values.availablePlatesKg.length !==
                 initial.availablePlatesKg.length ||
             values.availablePlatesKg.some(
-                (p, i) => p !== initial.availablePlatesKg[i],
+                (p, index) => p !== initial.availablePlatesKg[index],
             );
-        if (platesChanged)
+        if (isPlatesChanged)
             diff.availablePlatesKg = [...values.availablePlatesKg];
         update.mutate(diff);
     });
@@ -108,7 +108,7 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
     };
 
     const removePlate = (index: number) => {
-        const next = availablePlatesKg.filter((_, i) => i !== index);
+        const next = availablePlatesKg.filter((_, index_) => index_ !== index);
         form.setValue('availablePlatesKg', next, {
             shouldDirty: true,
             shouldValidate: true,
@@ -248,10 +248,12 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
                                 inputMode="decimal"
                                 onChange={(e) => setPlateDraft(e.target.value)}
                                 onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                        e.preventDefault();
-                                        addPlate();
+                                    if (e.key !== 'Enter') {
+                                        return;
                                     }
+
+                                    e.preventDefault();
+                                    addPlate();
                                 }}
                                 placeholder="Add plate"
                                 type="number"
@@ -266,7 +268,7 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
                             </Button>
                         </div>
                         <div className="mt-2 flex flex-wrap gap-2">
-                            {availablePlatesKg.map((p, i) => {
+                            {availablePlatesKg.map((p, index) => {
                                 const display = Number(
                                     WeightUnit.toDisplay(p, unitWeight).toFixed(
                                         2,
@@ -281,8 +283,8 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
                                             }),
                                             'cursor-pointer gap-1 tabular-nums hover:border-destructive hover:bg-destructive hover:text-destructive-foreground',
                                         )}
-                                        key={`${p}-${i}`}
-                                        onClick={() => removePlate(i)}
+                                        key={`${p}-${index}`}
+                                        onClick={() => removePlate(index)}
                                         type="button"
                                     >
                                         {display}

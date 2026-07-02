@@ -12,10 +12,10 @@ export function walkPayoutTiers(
     let payout = 0;
     let remaining = fundedProfit;
 
-    for (let i = 0; i < tiers.length; i++) {
-        const tier = tiers[i];
+    for (let index = 0; index < tiers.length; index++) {
+        const tier = tiers[index];
         if (!tier) continue;
-        const next = tiers[i + 1];
+        const next = tiers[index + 1];
         const tierCap = next ? next.thresholdProfit : Infinity;
         const tierStart = tier.thresholdProfit;
         if (fundedProfit <= tierStart) break;

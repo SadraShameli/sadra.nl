@@ -15,10 +15,10 @@ export function useImportStream<TEvent>(): StreamHandle<TEvent> {
     const [events, setEvents] = useState<TEvent[]>([]);
     const [running, setRunning] = useState(false);
     const [error, setError] = useState<null | string>(null);
-    const controllerRef = useRef<AbortController | null>(null);
+    const controllerReference = useRef<AbortController | null>(null);
 
     const abort = useCallback(() => {
-        controllerRef.current?.abort();
+        controllerReference.current?.abort();
     }, []);
 
     const reset = useCallback(() => {
@@ -29,9 +29,9 @@ export function useImportStream<TEvent>(): StreamHandle<TEvent> {
 
     const start = useCallback(
         async ({ url, ...init }: RequestInit & { url: string }) => {
-            controllerRef.current?.abort();
+            controllerReference.current?.abort();
             const controller = new AbortController();
-            controllerRef.current = controller;
+            controllerReference.current = controller;
             setEvents([]);
             setError(null);
             setRunning(true);
@@ -53,19 +53,21 @@ export function useImportStream<TEvent>(): StreamHandle<TEvent> {
                     const { done, value } = await reader.read();
                     if (done) break;
                     buffer += decoder.decode(value, { stream: true });
-                    let idx: number;
-                    while ((idx = buffer.indexOf('\n\n')) !== -1) {
-                        const chunk = buffer.slice(0, idx);
-                        buffer = buffer.slice(idx + 2);
+                    let index: number;
+                    while ((index = buffer.indexOf('\n\n')) !== -1) {
+                        const chunk = buffer.slice(0, index);
+                        buffer = buffer.slice(index + 2);
                         for (const line of chunk.split('\n')) {
-                            if (line.startsWith('data:')) {
-                                const json = line.slice(5).trim();
-                                if (!json) continue;
-                                try {
-                                    const parsed = JSON.parse(json) as TEvent;
-                                    setEvents((prev) => [...prev, parsed]);
-                                } catch {}
+                            if (!line.startsWith('data:')) {
+                                continue;
                             }
+
+                            const json = line.slice(5).trim();
+                            if (!json) continue;
+                            try {
+                                const parsed = JSON.parse(json) as TEvent;
+                                setEvents((previous) => [...previous, parsed]);
+                            } catch {}
                         }
                     }
                 }
