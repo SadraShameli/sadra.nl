@@ -1,8 +1,9 @@
 'use client';
 
-import type { CredentialRole } from '~/lib/accounting/credentials/index';
-
-import { CredentialRegistry } from '~/lib/accounting/credentials/index';
+import {
+    CredentialRegistry,
+    CredentialRole,
+} from '~/lib/accounting/credentials/index';
 import { api } from '~/trpc/react';
 
 export interface ActiveCredentials {
@@ -33,9 +34,9 @@ export function useActiveCredentials(): ActiveCredentials {
     };
 
     return {
-        accounting: resolve('accounting'),
+        accounting: resolve(CredentialRole.Accounting),
         isLoading: credentialsQ.isPending,
-        source: resolve('transactions'),
-        sources: listByRole('transactions'),
+        source: resolve(CredentialRole.Transactions),
+        sources: listByRole(CredentialRole.Transactions),
     };
 }

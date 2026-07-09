@@ -1,5 +1,6 @@
 import type { CurrencyCode } from '~/lib/accounting/core/currency';
 import type { ISODate } from '~/lib/accounting/core/date';
+import type { LedgerId } from '~/lib/accounting/core/ids';
 
 export type { CurrencyCode } from '~/lib/accounting/core/currency';
 export type { ISODate } from '~/lib/accounting/core/date';
@@ -41,7 +42,7 @@ export interface DateRange {
 }
 
 export interface LedgerRef {
-    id: number;
+    id: LedgerId;
     label: string;
 }
 
@@ -68,7 +69,7 @@ export interface RawTransaction {
 
 export interface TransactionMatch {
     display: string;
-    ledgerId: number;
+    ledgerId: LedgerId;
     ledgerLabel: string;
 }
 

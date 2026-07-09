@@ -1,14 +1,19 @@
 import { z } from 'zod';
 
+import { ExternalId, LedgerId } from '~/lib/accounting/core/ids';
 import {
-    type IN_EX_VAT,
-    type MUTATION_TYPES,
-    type VAT_CODES,
+    type InExVat,
+    type MutationType,
+    type VatCode,
 } from '~/lib/accounting/providers/eboekhouden/enums';
 
 const isoDate = z.string().transform((v) => v.slice(0, 10));
 
 const numeric = z.coerce.number();
+
+const ledgerId = z.coerce.string().transform((value) => LedgerId(value));
+
+const externalId = z.coerce.string().transform((value) => ExternalId(value));
 
 export const sessionSchema = z.object({
     expiresIn: z.coerce.number(),
@@ -21,7 +26,7 @@ export const ledgerSchema = z.object({
     code: z.string(),
     description: z.string(),
     group: z.string().nullish(),
-    id: numeric,
+    id: ledgerId,
 });
 export type LedgerResponse = z.infer<typeof ledgerSchema>;
 
@@ -34,22 +39,23 @@ export type LedgerBalanceResponse = z.infer<typeof ledgerBalanceSchema>;
 export const mutationRowSchema = z.object({
     amount: numeric.default(0),
     description: z.string().nullish(),
-    ledgerId: numeric.nullish(),
+    ledgerId: ledgerId.nullish(),
     vatCode: z.string().nullish(),
 });
 
 export const mutationSchema = z.object({
     date: isoDate,
     description: z.string().nullish(),
-    id: numeric,
-    ledgerId: numeric,
+    id: externalId,
+    ledgerId,
     paymentReference: z.string().nullish(),
     rows: z.array(mutationRowSchema).default([]),
     type: z.coerce.string(),
 });
 export type MutationResponse = z.infer<typeof mutationSchema>;
 
-export const mutationCreatedSchema = z.object({ id: numeric });
+export const mutationCreatedSchema = z.object({ id: externalId });
+export type MutationCreatedResponse = z.infer<typeof mutationCreatedSchema>;
 
 export const relationSchema = z.object({
     code: z.string().nullish(),
@@ -78,14 +84,14 @@ export interface CreateMutationRequestPayload {
     date: string;
     description?: string;
     entryNumber?: string;
-    inExVat?: (typeof IN_EX_VAT)[keyof typeof IN_EX_VAT];
+    inExVat?: InExVat;
     invoiceNumber?: string;
     ledgerId: number;
     paymentReference?: string;
     relationId?: number;
     rows: CreateMutationRowPayload[];
     termOfPayment?: number;
-    type: (typeof MUTATION_TYPES)[keyof typeof MUTATION_TYPES];
+    type: MutationType;
 }
 
 export interface CreateMutationRowPayload {
@@ -96,7 +102,7 @@ export interface CreateMutationRowPayload {
     ledgerId?: number;
     relationId?: number;
     vatAmount?: number;
-    vatCode: (typeof VAT_CODES)[number];
+    vatCode: VatCode;
 }
 
 export function omitNullish<T extends object>(payload: T): Partial<T> {

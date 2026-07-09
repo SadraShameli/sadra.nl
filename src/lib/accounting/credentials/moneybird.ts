@@ -10,29 +10,28 @@ import {
 
 const metaSchema = z
     .object({
-        source: z.string().min(1).max(32).optional(),
+        administrationId: z.string().min(1),
     })
     .strict();
 
 CredentialRegistry.instance().register({
-    accountingProviderId: 'eboekhouden',
-    id: CredentialKind.EBoekhouden,
-    label: 'eBoekhouden',
+    accountingProviderId: 'moneybird',
+    id: CredentialKind.Moneybird,
+    label: 'Moneybird',
     metaFields: [
         {
-            defaultValue: 'sadranl',
-            key: 'source',
-            label: 'Source identifier',
-            placeholder: 'sadranl',
-            type: MetaFieldType.Text,
+            key: 'administrationId',
+            label: 'Administration',
+            required: true,
+            type: MetaFieldType.Select,
         },
     ],
     metaSchema,
     role: CredentialRole.Accounting,
     secret: {
-        label: 'Access token',
+        label: 'Personal access token',
         minLength: 16,
         placeholder: 'eyJxxx…',
     },
-    tone: CredentialTone.Emerald,
+    tone: CredentialTone.Amber,
 });

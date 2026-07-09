@@ -4,9 +4,11 @@ import type {
     BookingDirection,
     CurrencyCode,
 } from '~/lib/accounting/core/types';
-import type { VatCode } from '~/lib/accounting/providers/eboekhouden/enums';
 
 import { currencyCodeSchema } from '~/lib/accounting/core/currency';
+import { LedgerId } from '~/lib/accounting/core/ids';
+import { CredentialKind } from '~/lib/accounting/credentials/registry';
+import { VatCode } from '~/lib/accounting/providers/eboekhouden/enums';
 import {
     accountingBankAccount,
     accountingCredential,
@@ -16,29 +18,32 @@ import {
 import { DatabaseSeeder } from '~/server/db/types';
 
 interface LedgerReference {
-    id: number;
+    id: LedgerId;
     label: string;
 }
 
 const FUNDED: LedgerReference = {
-    id: 46_580_770,
+    id: LedgerId('46580770'),
     label: '0001 Funded accounts',
 };
 const SOFTWARE: LedgerReference = {
-    id: 46_581_706,
+    id: LedgerId('46581706'),
     label: '0002 Trading Software',
 };
 const HARDWARE: LedgerReference = {
-    id: 46_724_292,
+    id: LedgerId('46724292'),
     label: '0003 Trading Hardware',
 };
-const PAYOUTS: LedgerReference = { id: 48_217_305, label: '0004 Payouts' };
+const PAYOUTS: LedgerReference = {
+    id: LedgerId('48217305'),
+    label: '0004 Payouts',
+};
 const WISE_EUR: LedgerReference = {
-    id: 51_974_018,
+    id: LedgerId('51974018'),
     label: '0005 Wise Business - EUR',
 };
 const WISE_USD: LedgerReference = {
-    id: 51_974_061,
+    id: LedgerId('51974061'),
     label: '0006 Wise Business - USD',
 };
 
@@ -61,154 +66,154 @@ const RULES: SeedRule[] = [
         display: 'Apex Trader Funding',
         ledger: FUNDED,
         match: 'apex',
-        vatCode: 'BU_EU_INK',
+        vatCode: VatCode.BuEuInk,
     },
     {
         direction: 'OUT',
         display: 'Tradeify',
         ledger: FUNDED,
         match: 'tradeify',
-        vatCode: 'BU_EU_INK',
+        vatCode: VatCode.BuEuInk,
     },
     {
         direction: 'OUT',
         display: 'TakeProfitTrader',
         ledger: FUNDED,
         match: 'takeprofittrader',
-        vatCode: 'BU_EU_INK',
+        vatCode: VatCode.BuEuInk,
     },
     {
         direction: 'OUT',
         display: 'Topstep',
         ledger: FUNDED,
         match: 'topstep',
-        vatCode: 'BU_EU_INK',
+        vatCode: VatCode.BuEuInk,
     },
     {
         direction: 'OUT',
         display: 'FundingTicks',
         ledger: FUNDED,
         match: 'fundingticks',
-        vatCode: 'BU_EU_INK',
+        vatCode: VatCode.BuEuInk,
     },
     {
         direction: 'OUT',
         display: 'My Funded Futures',
         ledger: FUNDED,
         match: 'My Funded Futures',
-        vatCode: 'BU_EU_INK',
+        vatCode: VatCode.BuEuInk,
     },
     {
         direction: 'OUT',
         display: 'My Funded Futures',
         ledger: FUNDED,
         match: 'MyFundedFutures',
-        vatCode: 'BU_EU_INK',
+        vatCode: VatCode.BuEuInk,
     },
     {
         direction: 'OUT',
         display: 'Alpha-Futures',
         ledger: FUNDED,
         match: 'Alpha-Futures',
-        vatCode: 'BU_EU_INK',
+        vatCode: VatCode.BuEuInk,
     },
     {
         direction: 'OUT',
         display: 'FTMO',
         ledger: FUNDED,
         match: 'FTMO',
-        vatCode: 'HOOG_INK_21',
+        vatCode: VatCode.HoogInk21,
     },
     {
         direction: 'OUT',
         display: 'Claude',
         ledger: SOFTWARE,
         match: 'claude',
-        vatCode: 'BI_EU_INK',
+        vatCode: VatCode.BiEuInk,
     },
     {
         direction: 'OUT',
         display: 'Anthropic Ireland',
         ledger: SOFTWARE,
         match: 'anthropic',
-        vatCode: 'BI_EU_INK',
+        vatCode: VatCode.BiEuInk,
     },
     {
         direction: 'OUT',
         display: 'STRATO',
         ledger: SOFTWARE,
         match: 'strato',
-        vatCode: 'HOOG_INK_21',
+        vatCode: VatCode.HoogInk21,
     },
     {
         direction: 'OUT',
         display: 'TradeZella',
         ledger: SOFTWARE,
         match: 'tradezella',
-        vatCode: 'BU_EU_INK',
+        vatCode: VatCode.BuEuInk,
     },
     {
         direction: 'OUT',
         display: 'TradingView',
         ledger: SOFTWARE,
         match: 'tradingview',
-        vatCode: 'HOOG_INK_21',
+        vatCode: VatCode.HoogInk21,
     },
     {
         direction: 'OUT',
         display: 'Wifimedia',
         ledger: HARDWARE,
         match: 'wifimedia',
-        vatCode: 'HOOG_INK_21',
+        vatCode: VatCode.HoogInk21,
     },
     {
         direction: 'OUT',
         display: 'Amazon EU',
         ledger: HARDWARE,
         match: 'amazon',
-        vatCode: 'HOOG_INK_21',
+        vatCode: VatCode.HoogInk21,
     },
     {
         direction: 'OUT',
         display: 'MediaMarkt Online',
         ledger: HARDWARE,
         match: 'mediamarktonline',
-        vatCode: 'HOOG_INK_21',
+        vatCode: VatCode.HoogInk21,
     },
     {
         direction: 'IN',
         display: 'Apex Trader Funding',
         ledger: PAYOUTS,
         match: 'apex',
-        vatCode: 'BU_EU_VERK',
+        vatCode: VatCode.BuEuVerk,
     },
     {
         direction: 'IN',
         display: 'Tradeify',
         ledger: PAYOUTS,
         match: 'tradeify',
-        vatCode: 'BU_EU_VERK',
+        vatCode: VatCode.BuEuVerk,
     },
     {
         direction: 'IN',
         display: 'TakeProfitTrader',
         ledger: PAYOUTS,
         match: 'takeprofittrader',
-        vatCode: 'BU_EU_VERK',
+        vatCode: VatCode.BuEuVerk,
     },
     {
         direction: 'IN',
         display: 'Topstep',
         ledger: PAYOUTS,
         match: 'topstep',
-        vatCode: 'BU_EU_VERK',
+        vatCode: VatCode.BuEuVerk,
     },
     {
         direction: 'IN',
         display: 'FundingTicks',
         ledger: PAYOUTS,
         match: 'fundingticks',
-        vatCode: 'BU_EU_VERK',
+        vatCode: VatCode.BuEuVerk,
     },
 ];
 
@@ -223,7 +228,7 @@ export default class SeedAccountingRules extends DatabaseSeeder {
                 userId: accountingCredential.userId,
             })
             .from(accountingCredential)
-            .where(eq(accountingCredential.kind, 'eboekhouden'));
+            .where(eq(accountingCredential.kind, CredentialKind.EBoekhouden));
         if (creds.length === 0) return;
 
         for (const cred of creds) {

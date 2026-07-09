@@ -17,10 +17,7 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { type z } from 'zod';
 
-import type {
-    CredentialDescriptor,
-    CredentialRole,
-} from '~/lib/accounting/credentials/index';
+import type { CredentialDescriptor } from '~/lib/accounting/credentials/index';
 import type { CredentialKind } from '~/lib/accounting/credentials/registry';
 
 import { Badge } from '~/components/ui/Badge';
@@ -37,7 +34,11 @@ import {
 import { EmptyState } from '~/components/ui/EmptyState';
 import { Form } from '~/components/ui/Form';
 import { Skeleton } from '~/components/ui/Skeleton';
-import { CredentialRegistry } from '~/lib/accounting/credentials/index';
+import {
+    CredentialRegistry,
+    CredentialRole,
+    MetaFieldType,
+} from '~/lib/accounting/credentials/index';
 import {
     type CredentialCreateInput,
     credentialCreateSchema,
@@ -59,10 +60,13 @@ type StoredCredential = {
     meta: Record<string, unknown>;
 };
 
-const ROLE_ORDER: readonly CredentialRole[] = ['accounting', 'transactions'];
+const ROLE_ORDER: readonly CredentialRole[] = [
+    CredentialRole.Accounting,
+    CredentialRole.Transactions,
+];
 const ROLE_SECTION_LABEL: Record<CredentialRole, string> = {
-    accounting: 'Accounting',
-    transactions: 'Transaction sources',
+    [CredentialRole.Accounting]: 'Accounting',
+    [CredentialRole.Transactions]: 'Transaction sources',
 };
 
 export function ConnectionsManager() {
@@ -452,7 +456,7 @@ function MetaSummaryBadges({
     const badges = descriptor.metaFields
         .map((field) => {
             const value = meta[field.key];
-            if (field.type === 'boolean') {
+            if (field.type === MetaFieldType.Boolean) {
                 if (value === true) {
                     return { key: field.key, text: field.label.toLowerCase() };
                 }

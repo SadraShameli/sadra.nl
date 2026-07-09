@@ -1,3 +1,4 @@
+import type { ExternalId } from '~/lib/accounting/core/ids';
 import type { CurrencyCode } from '~/lib/accounting/core/types';
 
 export const RUN_STATUSES = [
@@ -9,7 +10,7 @@ export const RUN_STATUSES = [
 ] as const;
 export interface RunOutcome {
     error?: string;
-    externalId?: number;
+    externalId?: ExternalId;
     status: 'failed' | 'posted';
 }
 

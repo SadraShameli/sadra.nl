@@ -1,9 +1,11 @@
 import 'server-only';
 
 import { CredentialRegistry } from '~/lib/accounting/credentials/registry';
+import { listMoneybirdAdministrations } from '~/lib/accounting/providers/moneybird/client';
 import { ProviderRegistry } from '~/lib/accounting/providers/provider';
 import { WiseClient } from '~/lib/accounting/wise/client';
 import '~/lib/accounting/credentials/eboekhouden';
+import '~/lib/accounting/credentials/moneybird';
 import '~/lib/accounting/credentials/wise';
 
 export type CredentialTestFn = (options: {
@@ -83,7 +85,6 @@ async function defaultAccountingTest(
         };
     }
     const session = await provider.openSession({
-        fetchImpl: options.fetchImpl,
         meta: options.meta,
         secret: options.secret,
     });
@@ -98,6 +99,18 @@ async function defaultAccountingTest(
 registerCredentialTest('eboekhouden', (options) =>
     defaultAccountingTest('eboekhouden', options),
 );
+
+registerCredentialTest('moneybird', (options) =>
+    defaultAccountingTest('moneybird', options),
+);
+
+registerFieldOptionsLoader('moneybird', 'administrationId', async (options) => {
+    const administrations = await listMoneybirdAdministrations(options.secret);
+    return administrations.map((administration) => ({
+        label: `${administration.name} (${administration.currency})`,
+        value: administration.id,
+    }));
+});
 
 registerCredentialTest('wise', async (options) => {
     const isSandbox =

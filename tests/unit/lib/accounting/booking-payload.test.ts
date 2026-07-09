@@ -4,13 +4,18 @@ import type { Booking } from '~/lib/accounting/core/types';
 
 import { currencyCodeSchema } from '~/lib/accounting/core/currency';
 import { isoDateSchema } from '~/lib/accounting/core/date';
+import { LedgerId } from '~/lib/accounting/core/ids';
 import { bookingToMutationPayload } from '~/lib/accounting/providers/eboekhouden/booking';
-import { MUTATION_TYPES } from '~/lib/accounting/providers/eboekhouden/enums';
+import {
+    InExVat,
+    MutationType,
+    VatCode,
+} from '~/lib/accounting/providers/eboekhouden/enums';
 
 const baseBooking: Booking = {
     amountEur: 120.5,
-    bank: { id: 1, label: 'Wise EUR' },
-    counterpartLedger: { id: 99, label: 'Software' },
+    bank: { id: LedgerId('1'), label: 'Wise EUR' },
+    counterpartLedger: { id: LedgerId('99'), label: 'Software' },
     counterpartName: 'Anthropic Ireland',
     date: isoDateSchema.parse('2026-02-01'),
     direction: 'OUT',
@@ -23,19 +28,19 @@ const baseBooking: Booking = {
 describe('bookingToMutationPayload', () => {
     it('emits MONEY_SENT for OUT and MONEY_RECEIVED for IN', () => {
         expect(bookingToMutationPayload(baseBooking).type).toBe(
-            MUTATION_TYPES.MONEY_SENT,
+            MutationType.MoneySent,
         );
         expect(
             bookingToMutationPayload({
                 ...baseBooking,
                 direction: 'IN',
             }).type,
-        ).toBe(MUTATION_TYPES.MONEY_RECEIVED);
+        ).toBe(MutationType.MoneyReceived);
     });
 
     it('marks reverse-charge bookings as inExVat=EX', () => {
         const payload = bookingToMutationPayload(baseBooking);
-        expect(payload.inExVat).toBe('EX');
+        expect(payload.inExVat).toBe(InExVat.Excluding);
     });
 
     it('description matches row description: counterpart, txnId, source bank, conversion note', () => {
@@ -88,8 +93,8 @@ describe('bookingToMutationPayload', () => {
             isRefund: true,
             taxCode: 'BU_EU_INK',
         });
-        expect(payload.type).toBe(MUTATION_TYPES.MONEY_SENT);
+        expect(payload.type).toBe(MutationType.MoneySent);
         expect(payload.rows[0]?.amount).toBe(-29.9);
-        expect(payload.rows[0]?.vatCode).toBe('BU_EU_INK');
+        expect(payload.rows[0]?.vatCode).toBe(VatCode.BuEuInk);
     });
 });

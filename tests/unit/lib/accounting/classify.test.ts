@@ -4,12 +4,13 @@ import type { RawTransaction } from '~/lib/accounting/core/types';
 
 import { currencyCodeSchema } from '~/lib/accounting/core/currency';
 import { isoDateSchema } from '~/lib/accounting/core/date';
+import { LedgerId } from '~/lib/accounting/core/ids';
 import { Rule } from '~/lib/accounting/core/rules/rule';
 import { RuleSet } from '~/lib/accounting/core/rules/rule-set';
 
-const HARDWARE = { id: 3, label: '0003 Trading Hardware' };
-const FUNDED = { id: 1, label: '0001 Funded accounts' };
-const PAYOUTS = { id: 4, label: '0004 Payouts' };
+const HARDWARE = { id: LedgerId('3'), label: '0003 Trading Hardware' };
+const FUNDED = { id: LedgerId('1'), label: '0001 Funded accounts' };
+const PAYOUTS = { id: LedgerId('4'), label: '0004 Payouts' };
 
 const ruleSet = new RuleSet([
     Rule.fromRow({

@@ -10,7 +10,10 @@ import type {
 
 import { currencyCodeSchema } from '~/lib/accounting/core/currency';
 import { type RuleSet } from '~/lib/accounting/core/rules/rule-set';
-import { CredentialRegistry } from '~/lib/accounting/credentials/index';
+import {
+    CredentialRegistry,
+    CredentialRole,
+} from '~/lib/accounting/credentials/index';
 import { loadRuleSet } from '~/lib/accounting/rules/load';
 import { runPlan } from '~/lib/accounting/runner';
 import { asSseResponse } from '~/lib/accounting/sse';
@@ -65,7 +68,7 @@ export async function POST(request: NextRequest) {
             const cred = await loadCredential(credentialId, userId);
             if (!cred) continue;
             const descriptor = CredentialRegistry.instance().get(cred.kind);
-            if (descriptor?.role === 'transactions') {
+            if (descriptor?.role === CredentialRole.Transactions) {
                 apiCredentials.push(cred);
             }
         } catch (error) {
@@ -87,7 +90,7 @@ export async function POST(request: NextRequest) {
             const descriptor = CredentialRegistry.instance().get(
                 credential.kind,
             );
-            if (descriptor?.role === 'transactions') {
+            if (descriptor?.role === CredentialRole.Transactions) {
                 fileInputs.push({ content: file.content, credential });
             }
         } catch (error) {

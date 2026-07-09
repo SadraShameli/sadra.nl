@@ -4,6 +4,8 @@ import { type ColumnDef } from '@tanstack/react-table';
 import { BookOpen } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
+import type { LedgerId } from '~/lib/accounting/core/ids';
+
 import { Badge } from '~/components/ui/Badge';
 import { Card, CardContent } from '~/components/ui/Card';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
@@ -16,10 +18,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '~/components/ui/Select';
-import {
-    LEDGER_CATEGORIES,
-    type LedgerCategory,
-} from '~/lib/accounting/providers/eboekhouden/enums';
+import { LedgerCategory } from '~/lib/accounting/providers/eboekhouden/enums';
 import { api } from '~/trpc/react';
 
 import { ActiveConnectionNote } from './ActiveConnectionNote';
@@ -29,24 +28,24 @@ type Ledger = {
     category: string;
     code: string;
     description: string;
-    externalId: number;
+    externalId: LedgerId;
     group: null | string;
 };
 
 const ALL = '__all__';
 
 const LEDGER_CATEGORY_LABEL: Record<LedgerCategory, string> = {
-    AF: 'Depreciation',
-    AF6: 'Depreciation 6%',
-    AF19: 'Depreciation 19%',
-    AFOVERIG: 'Depreciation other',
-    BAL: 'Balance sheet',
-    BTWRC: 'VAT current account',
-    CRED: 'Payables (creditors)',
-    DEB: 'Receivables (debtors)',
-    FIN: 'Financial',
-    VOOR: 'Inventory',
-    VW: 'Profit & loss',
+    [LedgerCategory.Af]: 'Depreciation',
+    [LedgerCategory.Af6]: 'Depreciation 6%',
+    [LedgerCategory.Af19]: 'Depreciation 19%',
+    [LedgerCategory.AfOverig]: 'Depreciation other',
+    [LedgerCategory.Bal]: 'Balance sheet',
+    [LedgerCategory.Btwrc]: 'VAT current account',
+    [LedgerCategory.Cred]: 'Payables (creditors)',
+    [LedgerCategory.Deb]: 'Receivables (debtors)',
+    [LedgerCategory.Fin]: 'Financial',
+    [LedgerCategory.Voor]: 'Inventory',
+    [LedgerCategory.Vw]: 'Profit & loss',
 };
 
 export function LedgersBrowser() {
@@ -55,11 +54,23 @@ export function LedgersBrowser() {
     const [category, setCategory] = useState<string>(ALL);
 
     const ledgersQ = api.accounting.ledgers.list.useQuery(
-        {
-            category: category === ALL ? undefined : category,
-            credentialId,
-        },
+        { credentialId },
         { enabled: !!credentialId },
+    );
+    const allLedgers = useMemo(() => ledgersQ.data ?? [], [ledgersQ.data]);
+    const categoryOptions = useMemo(
+        () =>
+            [...new Set(allLedgers.map((l) => l.category))].toSorted((a, b) =>
+                a.localeCompare(b),
+            ),
+        [allLedgers],
+    );
+    const filtered = useMemo(
+        () =>
+            category === ALL
+                ? allLedgers
+                : allLedgers.filter((l) => l.category === category),
+        [allLedgers, category],
     );
 
     const hasFilters = category !== ALL;
@@ -124,7 +135,7 @@ export function LedgersBrowser() {
                 ) : (
                     <DataTable
                         columns={columns}
-                        data={ledgersQ.data ?? []}
+                        data={filtered}
                         emptyState={
                             <EmptyState
                                 description={
@@ -165,9 +176,14 @@ export function LedgersBrowser() {
                                         <SelectItem value={ALL}>
                                             All categories
                                         </SelectItem>
-                                        {LEDGER_CATEGORIES.map((c) => (
+                                        {categoryOptions.map((c) => (
                                             <SelectItem key={c} value={c}>
-                                                {LEDGER_CATEGORY_LABEL[c]}
+                                                {(
+                                                    LEDGER_CATEGORY_LABEL as Record<
+                                                        string,
+                                                        string
+                                                    >
+                                                )[c] ?? c}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
@@ -181,7 +197,7 @@ export function LedgersBrowser() {
                         }
                         isLoading={!!credentialId && ledgersQ.isPending}
                         pageSize={25}
-                        rowId={(r) => String(r.externalId)}
+                        rowId={(r) => r.externalId}
                         showFilter
                     />
                 )}

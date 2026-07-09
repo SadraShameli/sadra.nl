@@ -1,25 +1,32 @@
 import type { z } from 'zod';
 
-export const CREDENTIAL_ROLES = ['accounting', 'transactions'] as const;
-export type CredentialRole = (typeof CREDENTIAL_ROLES)[number];
+export enum CredentialKind {
+    EBoekhouden = 'eboekhouden',
+    Moneybird = 'moneybird',
+    Plane = 'plane',
+    Wise = 'wise',
+}
 
-export const CREDENTIAL_TONES = [
-    'amber',
-    'emerald',
-    'rose',
-    'sky',
-    'violet',
-] as const;
-export type CredentialTone = (typeof CREDENTIAL_TONES)[number];
+export enum CredentialRole {
+    Accounting = 'accounting',
+    Transactions = 'transactions',
+}
 
-export const META_FIELD_TYPES = [
-    'boolean',
-    'number',
-    'select',
-    'text',
-] as const;
+export enum CredentialTone {
+    Amber = 'amber',
+    Emerald = 'emerald',
+    Rose = 'rose',
+    Sky = 'sky',
+    Violet = 'violet',
+}
 
-export const CREDENTIAL_KIND_VALUES = ['eboekhouden', 'plane', 'wise'] as const;
+export enum MetaFieldType {
+    Boolean = 'boolean',
+    Number = 'number',
+    Select = 'select',
+    Text = 'text',
+}
+
 export interface CredentialDescriptor {
     readonly accountingProviderId?: string;
     readonly description?: string;
@@ -39,8 +46,6 @@ export interface CredentialDescriptor {
     readonly transactionSourceKind?: 'api' | 'file';
 }
 
-export type CredentialKind = (typeof CREDENTIAL_KIND_VALUES)[number];
-
 export interface CredentialMetaField {
     defaultValue?: boolean | number | string;
     description?: string;
@@ -50,8 +55,6 @@ export interface CredentialMetaField {
     required?: boolean;
     type: MetaFieldType;
 }
-
-export type MetaFieldType = (typeof META_FIELD_TYPES)[number];
 
 export class CredentialRegistry {
     private static instanceValue: CredentialRegistry | null = null;
@@ -85,11 +88,11 @@ export class CredentialRegistry {
 }
 
 const TONE_CLASS: Record<CredentialTone, string> = {
-    amber: 'bg-amber-500/10 text-amber-200',
-    emerald: 'bg-emerald-500/10 text-emerald-200',
-    rose: 'bg-rose-500/10 text-rose-200',
-    sky: 'bg-sky-500/10 text-sky-200',
-    violet: 'bg-violet-500/10 text-violet-200',
+    [CredentialTone.Amber]: 'bg-amber-500/10 text-amber-200',
+    [CredentialTone.Emerald]: 'bg-emerald-500/10 text-emerald-200',
+    [CredentialTone.Rose]: 'bg-rose-500/10 text-rose-200',
+    [CredentialTone.Sky]: 'bg-sky-500/10 text-sky-200',
+    [CredentialTone.Violet]: 'bg-violet-500/10 text-violet-200',
 };
 
 export function toneClass(tone: CredentialTone): string {
@@ -97,11 +100,11 @@ export function toneClass(tone: CredentialTone): string {
 }
 
 const TONE_ACCENT: Record<CredentialTone, string> = {
-    amber: 'text-amber-300',
-    emerald: 'text-emerald-300',
-    rose: 'text-rose-300',
-    sky: 'text-sky-300',
-    violet: 'text-violet-300',
+    [CredentialTone.Amber]: 'text-amber-300',
+    [CredentialTone.Emerald]: 'text-emerald-300',
+    [CredentialTone.Rose]: 'text-rose-300',
+    [CredentialTone.Sky]: 'text-sky-300',
+    [CredentialTone.Violet]: 'text-violet-300',
 };
 
 export function toneAccent(tone: CredentialTone): string {

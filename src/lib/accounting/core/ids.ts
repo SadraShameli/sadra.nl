@@ -2,6 +2,10 @@ export type Brand<T, B extends string> = T & { readonly __brand: B };
 
 export type CredentialId = Brand<string, 'CredentialId'>;
 
+export type ExternalId = Brand<string, 'ExternalId'>;
+
+export type LedgerId = Brand<string, 'LedgerId'>;
+
 export type RunId = Brand<string, 'RunId'>;
 
 export type TxnId = Brand<string, 'TxnId'>;
@@ -10,6 +14,14 @@ export type UserId = Brand<string, 'UserId'>;
 
 export function CredentialId(value: string): CredentialId {
     return value as CredentialId;
+}
+
+export function ExternalId(value: string): ExternalId {
+    return value as ExternalId;
+}
+
+export function LedgerId(value: string): LedgerId {
+    return value as LedgerId;
 }
 
 export function RunId(value: string): RunId {

@@ -3,7 +3,10 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { RunId } from '~/lib/accounting/core/ids';
-import { CredentialRegistry } from '~/lib/accounting/credentials/index';
+import {
+    CredentialRegistry,
+    CredentialRole,
+} from '~/lib/accounting/credentials/index';
 import { runPush } from '~/lib/accounting/runner';
 import { asSseResponse } from '~/lib/accounting/sse';
 import { isRoot } from '~/lib/auth/roles';
@@ -72,7 +75,7 @@ export async function POST(request: NextRequest) {
         );
     }
     const descriptor = CredentialRegistry.instance().get(row.kind);
-    if (descriptor?.role !== 'accounting') {
+    if (descriptor?.role !== CredentialRole.Accounting) {
         return NextResponse.json(
             { error: 'credential_not_accounting' },
             { status: 400 },

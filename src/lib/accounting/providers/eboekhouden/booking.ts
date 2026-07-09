@@ -2,8 +2,8 @@ import type { Booking } from '~/lib/accounting/core/types';
 import type { CreateMutationRequestPayload } from '~/lib/accounting/providers/eboekhouden/schemas';
 
 import {
-    IN_EX_VAT,
-    MUTATION_TYPES,
+    InExVat,
+    MutationType,
     parseVatCode,
     requiresExcludingVat,
 } from '~/lib/accounting/providers/eboekhouden/enums';
@@ -13,13 +13,13 @@ export function bookingToMutationPayload(
 ): CreateMutationRequestPayload {
     const vatCode = parseVatCode(booking.taxCode);
     const inExVat = requiresExcludingVat(vatCode)
-        ? IN_EX_VAT.EXCLUDING
-        : IN_EX_VAT.INCLUDING;
+        ? InExVat.Excluding
+        : InExVat.Including;
     const isRefund = booking.isRefund === true;
     const type =
         isRefund || booking.direction === 'OUT'
-            ? MUTATION_TYPES.MONEY_SENT
-            : MUTATION_TYPES.MONEY_RECEIVED;
+            ? MutationType.MoneySent
+            : MutationType.MoneyReceived;
     const amount = isRefund ? -booking.amountEur : booking.amountEur;
     const conversion = booking.notes.join(' + ');
     return {
@@ -31,7 +31,7 @@ export function bookingToMutationPayload(
                 255,
             ),
         inExVat,
-        ledgerId: booking.bank.id,
+        ledgerId: Number(booking.bank.id),
         paymentReference: booking.txnId.slice(0, 50),
         rows: [
             {
@@ -41,7 +41,7 @@ export function bookingToMutationPayload(
                         0,
                         255,
                     ),
-                ledgerId: booking.counterpartLedger.id,
+                ledgerId: Number(booking.counterpartLedger.id),
                 vatCode,
             },
         ],

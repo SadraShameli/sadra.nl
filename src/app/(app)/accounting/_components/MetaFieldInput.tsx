@@ -8,6 +8,7 @@ import { Card, CardContent } from '~/components/ui/Card';
 import { Input } from '~/components/ui/Input';
 import { Label } from '~/components/ui/Label';
 import { Switch } from '~/components/ui/Switch';
+import { MetaFieldType } from '~/lib/accounting/credentials/index';
 
 import { CounterpartNameSelect } from './CounterpartNameSelect';
 import { SelectFieldInput } from './SelectFieldInput';
@@ -43,7 +44,7 @@ export function MetaFieldInput({
         );
     }
 
-    if (field.type === 'select') {
+    if (field.type === MetaFieldType.Select) {
         return (
             <SelectFieldInput
                 credentialId={credentialId}
@@ -57,7 +58,7 @@ export function MetaFieldInput({
         );
     }
 
-    if (field.type === 'boolean') {
+    if (field.type === MetaFieldType.Boolean) {
         const isChecked = typeof value === 'boolean' ? value : false;
         return (
             <Card className="py-3">
@@ -98,7 +99,7 @@ export function MetaFieldInput({
                         onChange();
                         return;
                     }
-                    if (field.type === 'number') {
+                    if (field.type === MetaFieldType.Number) {
                         const parsed = Number(raw);
                         if (Number.isFinite(parsed)) onChange(parsed);
                         else onChange();
@@ -108,7 +109,7 @@ export function MetaFieldInput({
                 }}
                 placeholder={field.placeholder}
                 required={field.required}
-                type={field.type === 'number' ? 'number' : 'text'}
+                type={field.type === MetaFieldType.Number ? 'number' : 'text'}
                 value={stringValue}
             />
             {field.description && (

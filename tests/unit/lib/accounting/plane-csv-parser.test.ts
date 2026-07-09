@@ -22,8 +22,6 @@ function row(fields: {
     );
 }
 
-// Mirrors the real export from Plane.com (manage.plane.com), including its
-// quirk of repeating a UTF-8 BOM before every row, not just at file start.
 const REAL_EXPORT_SAMPLE = [
     HEADER,
     row({

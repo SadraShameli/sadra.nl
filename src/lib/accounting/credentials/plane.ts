@@ -1,6 +1,12 @@
 import { z } from 'zod';
 
-import { CredentialRegistry } from '~/lib/accounting/credentials/registry';
+import {
+    CredentialKind,
+    CredentialRegistry,
+    CredentialRole,
+    CredentialTone,
+    MetaFieldType,
+} from '~/lib/accounting/credentials/registry';
 
 const metaSchema = z
     .object({
@@ -9,20 +15,20 @@ const metaSchema = z
     .strict();
 
 CredentialRegistry.instance().register({
-    id: 'plane',
+    id: CredentialKind.Plane,
     label: 'Plane.com (CSV)',
     metaFields: [
         {
             key: 'counterpartName',
             label: 'Payer',
             required: true,
-            type: 'select',
+            type: MetaFieldType.Select,
         },
     ],
     metaSchema,
     requiresSecret: false,
-    role: 'transactions',
-    tone: 'violet',
+    role: CredentialRole.Transactions,
+    tone: CredentialTone.Violet,
     transactionSourceId: 'plane-csv',
     transactionSourceKind: 'file',
 });

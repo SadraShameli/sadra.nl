@@ -10,6 +10,27 @@ export interface TaxCodeOption {
     readonly label: string;
 }
 
+export abstract class BaseTaxCodeCatalog implements TaxCodeCatalog {
+    abstract readonly providerId: string;
+
+    labelOf(code: TaxCode): string {
+        return (
+            this.options().find((option) => option.code.equals(code))?.label ??
+            code.toString()
+        );
+    }
+
+    list(): readonly TaxCodeOption[] {
+        return this.options();
+    }
+
+    validate(code: TaxCode): boolean {
+        return this.options().some((option) => option.code.equals(code));
+    }
+
+    protected abstract options(): readonly TaxCodeOption[];
+}
+
 export class TaxCode {
     private constructor(private readonly value: string) {}
 

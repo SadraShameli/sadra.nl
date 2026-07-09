@@ -5,6 +5,8 @@ import { ListChecks } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { type DateRange } from 'react-day-picker';
 
+import type { ExternalId, LedgerId } from '~/lib/accounting/core/ids';
+
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent } from '~/components/ui/Card';
@@ -19,7 +21,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '~/components/ui/Select';
-import { MUTATION_TYPES } from '~/lib/accounting/providers/eboekhouden/enums';
+import { MutationType } from '~/lib/accounting/providers/eboekhouden/enums';
 import { api } from '~/trpc/react';
 
 import { ActiveConnectionNote } from './ActiveConnectionNote';
@@ -31,30 +33,21 @@ const PAGE_SIZE = 100;
 type Mutation = {
     date: string;
     description: null | string;
-    externalId: number;
-    ledgerId: number;
+    externalId: ExternalId;
+    ledgerId: LedgerId;
     paymentReference: null | string;
     type: string;
 };
 
-const MUTATION_TYPE_LABEL: Record<keyof typeof MUTATION_TYPES, string> = {
-    GENERAL_JOURNAL: 'General journal',
-    INVOICE_PAYMENT_RECEIVED: 'Invoice payment received',
-    INVOICE_PAYMENT_SENT: 'Invoice payment sent',
-    INVOICE_RECEIVED: 'Invoice received',
-    INVOICE_SENT: 'Invoice sent',
-    MONEY_RECEIVED: 'Money received',
-    MONEY_SENT: 'Money sent',
+const MUTATION_TYPE_LABEL: Record<MutationType, string> = {
+    [MutationType.GeneralJournal]: 'General journal',
+    [MutationType.InvoicePaymentReceived]: 'Invoice payment received',
+    [MutationType.InvoicePaymentSent]: 'Invoice payment sent',
+    [MutationType.InvoiceReceived]: 'Invoice received',
+    [MutationType.InvoiceSent]: 'Invoice sent',
+    [MutationType.MoneyReceived]: 'Money received',
+    [MutationType.MoneySent]: 'Money sent',
 };
-
-const TYPE_LABEL: Record<string, string> = Object.fromEntries(
-    (
-        Object.entries(MUTATION_TYPES) as [
-            keyof typeof MUTATION_TYPES,
-            string,
-        ][]
-    ).map(([name, code]) => [code, MUTATION_TYPE_LABEL[name]]),
-);
 
 const toIso = (d: Date): string => {
     const y = d.getFullYear();
@@ -88,11 +81,18 @@ export function MutationsBrowser() {
         { enabled: !!credentialId },
     );
 
+    const allMutations = useMemo(
+        () => mutationsQ.data ?? [],
+        [mutationsQ.data],
+    );
+    const typeOptions = useMemo(
+        () => [...new Set(allMutations.map((m) => m.type))],
+        [allMutations],
+    );
     const rows = useMemo(() => {
-        const all = mutationsQ.data ?? [];
-        if (typeFilter === ALL) return all;
-        return all.filter((m) => m.type === typeFilter);
-    }, [mutationsQ.data, typeFilter]);
+        if (typeFilter === ALL) return allMutations;
+        return allMutations.filter((m) => m.type === typeFilter);
+    }, [allMutations, typeFilter]);
 
     const hasFilters = typeFilter !== ALL || Boolean(dateRange?.from);
     const reset = () => {
@@ -126,7 +126,9 @@ export function MutationsBrowser() {
                 accessorKey: 'type',
                 cell: ({ row }) => (
                     <Badge variant="outline">
-                        {TYPE_LABEL[row.original.type] ?? row.original.type}
+                        {(MUTATION_TYPE_LABEL as Record<string, string>)[
+                            row.original.type
+                        ] ?? row.original.type}
                     </Badge>
                 ),
                 header: 'Type',
@@ -227,19 +229,17 @@ export function MutationsBrowser() {
                                             <SelectItem value={ALL}>
                                                 All types
                                             </SelectItem>
-                                            {(
-                                                Object.entries(
-                                                    MUTATION_TYPES,
-                                                ) as [
-                                                    keyof typeof MUTATION_TYPES,
-                                                    string,
-                                                ][]
-                                            ).map(([name, code]) => (
+                                            {typeOptions.map((code) => (
                                                 <SelectItem
                                                     key={code}
                                                     value={code}
                                                 >
-                                                    {MUTATION_TYPE_LABEL[name]}
+                                                    {(
+                                                        MUTATION_TYPE_LABEL as Record<
+                                                            string,
+                                                            string
+                                                        >
+                                                    )[code] ?? code}
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
@@ -254,7 +254,7 @@ export function MutationsBrowser() {
                             initialSorting={[{ desc: true, id: 'date' }]}
                             isLoading={!!credentialId && mutationsQ.isPending}
                             pageSize={25}
-                            rowId={(r) => String(r.externalId)}
+                            rowId={(r) => r.externalId}
                             showFilter
                         />
                         <div className="flex items-center justify-between text-xs text-muted-foreground">

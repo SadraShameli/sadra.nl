@@ -10,6 +10,7 @@ import type { RateProvider } from '~/lib/accounting/rates/provider';
 import { BookingAggregator } from '~/lib/accounting/core/aggregator';
 import { currencyCodeSchema } from '~/lib/accounting/core/currency';
 import { isoDateSchema } from '~/lib/accounting/core/date';
+import { LedgerId } from '~/lib/accounting/core/ids';
 import { CurrencyConverter } from '~/lib/accounting/core/money';
 import { Rule } from '~/lib/accounting/core/rules/rule';
 import { RuleSet } from '~/lib/accounting/core/rules/rule-set';
@@ -26,11 +27,14 @@ const fixedRates: RateProvider = {
     },
 };
 
-const WISE_EUR: LedgerRef = { id: 5, label: '0005 Wise EUR' };
-const WISE_USD: LedgerRef = { id: 6, label: '0006 Wise USD' };
-const SOFTWARE: LedgerRef = { id: 2, label: '0002 Trading Software' };
-const FUNDED: LedgerRef = { id: 1, label: '0001 Funded accounts' };
-const PAYOUTS: LedgerRef = { id: 4, label: '0004 Payouts' };
+const WISE_EUR: LedgerRef = { id: LedgerId('5'), label: '0005 Wise EUR' };
+const WISE_USD: LedgerRef = { id: LedgerId('6'), label: '0006 Wise USD' };
+const SOFTWARE: LedgerRef = {
+    id: LedgerId('2'),
+    label: '0002 Trading Software',
+};
+const FUNDED: LedgerRef = { id: LedgerId('1'), label: '0001 Funded accounts' };
+const PAYOUTS: LedgerRef = { id: LedgerId('4'), label: '0004 Payouts' };
 
 const ruleSet = new RuleSet([
     Rule.fromRow({
@@ -200,7 +204,7 @@ describe('BookingAggregator', () => {
     it('counts unsupported FX currencies separately from missing banks', () => {
         const banks = new Map<CurrencyCode, LedgerRef>([
             ...bankByCurrency,
-            [GBP, { id: 9, label: 'GBP bank' }],
+            [GBP, { id: LedgerId('9'), label: 'GBP bank' }],
         ]);
         const result = build(
             [tx({ merchant: 'apex', sourceCurrency: GBP, txnId: 'gbp-2' })],

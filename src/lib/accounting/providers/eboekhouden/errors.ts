@@ -1,15 +1,14 @@
 import { z } from 'zod';
 
-import type { SecurityErrorType } from '~/lib/accounting/providers/eboekhouden/enums';
-
-import { SECURITY_ERROR_TYPES } from '~/lib/accounting/providers/eboekhouden/enums';
+import { AccountingProviderError } from '~/lib/accounting/core/provider-error';
+import { SecurityErrorType } from '~/lib/accounting/providers/eboekhouden/enums';
 
 export const apiErrorPayloadSchema = z.object({
     code: z.string().nullish(),
     errors: z.array(z.string()).nullish(),
     propertyName: z.string().nullish(),
     raw: z.unknown().optional(),
-    securityType: z.enum(SECURITY_ERROR_TYPES).nullish(),
+    securityType: z.enum(SecurityErrorType).nullish(),
     status: z.coerce.number(),
     title: z.string().default(''),
     type: z.string().default('http'),
@@ -17,7 +16,7 @@ export const apiErrorPayloadSchema = z.object({
 
 export type ApiErrorPayload = z.infer<typeof apiErrorPayloadSchema>;
 
-export class EBoekhoudenError extends Error {
+export class EBoekhoudenError extends AccountingProviderError {
     readonly payload: ApiErrorPayload;
     constructor(payload: ApiErrorPayload) {
         super(

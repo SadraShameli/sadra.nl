@@ -1,4 +1,4 @@
-import type { RunId } from '~/lib/accounting/core/ids';
+import type { ExternalId, RunId } from '~/lib/accounting/core/ids';
 import type { RuleSet } from '~/lib/accounting/core/rules/rule-set';
 import type {
     BankAccount,
@@ -59,7 +59,7 @@ export type ImportEvent =
           status: Exclude<StageStatus, 'idle'>;
       }
     | { error: string; kind: 'failed'; txnId: string }
-    | { externalId: number; kind: 'posted'; txnId: string }
+    | { externalId: ExternalId; kind: 'posted'; txnId: string }
     | { kind: 'done' }
     | { kind: 'log'; level: LogLevel; message: string }
     | { kind: 'preview'; result: ConversionResult }
@@ -80,7 +80,6 @@ export interface PlanInput {
 
 export interface PushInput {
     accountingCredential: DecryptedCredential;
-    fetchImpl?: typeof fetch;
     runId: RunId;
     userId: string;
 }

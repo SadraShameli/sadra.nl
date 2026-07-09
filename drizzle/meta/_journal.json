@@ -43,6 +43,13 @@
       "when": 1782993071295,
       "tag": "0005_bouncy_liz_osborn",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1783626515607,
+      "tag": "0006_redundant_blue_shield",
+      "breakpoints": true
     }
   ]
 }

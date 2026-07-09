@@ -43,7 +43,10 @@ import {
     PopoverTrigger,
 } from '~/components/ui/Popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
-import { CredentialRegistry } from '~/lib/accounting/credentials/index';
+import {
+    CredentialRegistry,
+    CredentialRole,
+} from '~/lib/accounting/credentials/index';
 import { STAGES } from '~/lib/accounting/runner-types';
 import { DurationFormat } from '~/lib/lifting/format';
 import { apiRoutes } from '~/lib/site/routes';
@@ -476,7 +479,7 @@ function ResultsView({
 }) {
     const isPostable =
         accountingCredentialId.length > 0 &&
-        accountingDescriptor?.role === 'accounting';
+        accountingDescriptor?.role === CredentialRole.Accounting;
     const targetLabel = accountingDescriptor?.label ?? 'accounting backend';
 
     const [bookings, setBookings] = useState<Booking[]>(result.bookings);

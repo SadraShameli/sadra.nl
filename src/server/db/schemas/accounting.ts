@@ -12,6 +12,7 @@ import {
     varchar,
 } from 'drizzle-orm/pg-core';
 
+import type { LedgerId } from '~/lib/accounting/core/ids';
 import type { MatchType } from '~/lib/accounting/core/rules/matcher';
 import type {
     Booking,
@@ -80,7 +81,9 @@ export const accountingRule = createTable(
             .notNull(),
         display: varchar('display', { length: 128 }).notNull(),
         id: uuid('id').primaryKey().defaultRandom(),
-        ledgerId: integer('ledger_id').notNull(),
+        ledgerId: varchar('ledger_id', { length: 32 })
+            .$type<LedgerId>()
+            .notNull(),
         ledgerLabel: varchar('ledger_label', { length: 128 }).notNull(),
         match: varchar('match', { length: 256 }).notNull(),
         matchType: varchar('match_type', { length: 16 })
@@ -96,7 +99,7 @@ export const accountingRule = createTable(
         userId: text('user_id')
             .notNull()
             .references(() => user.id, { onDelete: 'cascade' }),
-        vatCode: varchar('vat_code', { length: 16 }).$type<string>().notNull(),
+        vatCode: varchar('vat_code', { length: 32 }).$type<string>().notNull(),
     },
     (t) => [
         uniqueIndex(
@@ -122,7 +125,9 @@ export const accountingBankAccount = createTable(
             .$type<CurrencyCode>()
             .notNull(),
         id: uuid('id').primaryKey().defaultRandom(),
-        ledgerId: integer('ledger_id').notNull(),
+        ledgerId: varchar('ledger_id', { length: 32 })
+            .$type<LedgerId>()
+            .notNull(),
         ledgerLabel: varchar('ledger_label', { length: 128 }).notNull(),
         updatedAt: timestamp('updated_at', { withTimezone: true })
             .default(sql`CURRENT_TIMESTAMP`)

@@ -1,5 +1,6 @@
 import 'server-only';
 
+import type { TaxCodeCatalog } from '~/lib/accounting/core/tax-code';
 import type { Booking } from '~/lib/accounting/core/types';
 import type {
     LedgerResponse,
@@ -124,7 +125,9 @@ class EBoekhoudenSession extends ProviderSessionBase {
         }
         const sorted = adapted.toSorted((a, b) => {
             if (a.date !== b.date) return a.date < b.date ? 1 : -1;
-            return b.externalId - a.externalId;
+            return b.externalId.localeCompare(a.externalId, undefined, {
+                numeric: true,
+            });
         });
         const pageOffset = hasDateFilter ? (options.offset ?? 0) : 0;
         return sorted.slice(pageOffset, pageOffset + options.limit);
@@ -134,6 +137,10 @@ class EBoekhoudenSession extends ProviderSessionBase {
         const payload = bookingToMutationPayload(booking);
         const created = await this.mutations.create(payload);
         return { externalId: created.id };
+    }
+
+    async taxCodes(): Promise<TaxCodeCatalog> {
+        return eboekhoudenTaxCodes;
     }
 }
 
@@ -147,14 +154,10 @@ export const eboekhoudenProvider: AccountingProvider = {
             typeof options.meta?.source === 'string'
                 ? options.meta.source
                 : 'sadranl';
-        const client = new EBoekhoudenClient(options.secret, {
-            fetchImpl: options.fetchImpl,
-            source,
-        });
+        const client = new EBoekhoudenClient(options.secret, { source });
         await client.openSession();
         return new EBoekhoudenSession(client);
     },
-    taxCodes: eboekhoudenTaxCodes,
 };
 
 ProviderRegistry.instance().register(eboekhoudenProvider);

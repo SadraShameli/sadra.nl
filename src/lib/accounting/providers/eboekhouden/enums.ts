@@ -1,93 +1,83 @@
 import {
+    BaseTaxCodeCatalog,
     TaxCode,
-    type TaxCodeCatalog,
     type TaxCodeOption,
 } from '~/lib/accounting/core/tax-code';
 
-export const VAT_CODES = [
-    'HOOG_VERK_21',
-    'LAAG_VERK_9',
-    'VERL_VERK',
-    'VERL_VERK_L9',
-    'AFW',
-    'BU_EU_VERK',
-    'BI_EU_VERK',
-    'BI_EU_VERK_D',
-    'AFST_VERK',
-    'LAAG_INK_9',
-    'HOOG_INK_21',
-    'VERL_INK',
-    'AFW_VERK',
-    'BU_EU_INK',
-    'BI_EU_INK',
-    'GEEN',
-] as const;
-export type VatCode = (typeof VAT_CODES)[number];
+export enum VatCode {
+    AfstVerk = 'AFST_VERK',
+    Afw = 'AFW',
+    AfwVerk = 'AFW_VERK',
+    BiEuInk = 'BI_EU_INK',
+    BiEuVerk = 'BI_EU_VERK',
+    BiEuVerkD = 'BI_EU_VERK_D',
+    BuEuInk = 'BU_EU_INK',
+    BuEuVerk = 'BU_EU_VERK',
+    Geen = 'GEEN',
+    HoogInk21 = 'HOOG_INK_21',
+    HoogVerk21 = 'HOOG_VERK_21',
+    LaagInk9 = 'LAAG_INK_9',
+    LaagVerk9 = 'LAAG_VERK_9',
+    VerlInk = 'VERL_INK',
+    VerlVerk = 'VERL_VERK',
+    VerlVerkL9 = 'VERL_VERK_L9',
+}
 
 export const VAT_CODE_LABEL: Record<VatCode, string> = {
-    AFST_VERK: 'Distance sales',
-    AFW: 'Deviating',
-    AFW_VERK: 'Deviating sales',
-    BI_EU_INK: 'Purchase — within EU',
-    BI_EU_VERK: 'Sales — within EU',
-    BI_EU_VERK_D: 'Sales — within EU (digital)',
-    BU_EU_INK: 'Purchase — outside EU',
-    BU_EU_VERK: 'Sales — outside EU',
-    GEEN: 'No VAT',
-    HOOG_INK_21: 'Purchase 21%',
-    HOOG_VERK_21: 'Sales 21%',
-    LAAG_INK_9: 'Purchase 9%',
-    LAAG_VERK_9: 'Sales 9%',
-    VERL_INK: 'Reverse charge purchase',
-    VERL_VERK: 'Reverse charge sales',
-    VERL_VERK_L9: 'Reverse charge sales 9%',
+    [VatCode.AfstVerk]: 'Distance sales',
+    [VatCode.Afw]: 'Deviating',
+    [VatCode.AfwVerk]: 'Deviating sales',
+    [VatCode.BiEuInk]: 'Purchase — within EU',
+    [VatCode.BiEuVerk]: 'Sales — within EU',
+    [VatCode.BiEuVerkD]: 'Sales — within EU (digital)',
+    [VatCode.BuEuInk]: 'Purchase — outside EU',
+    [VatCode.BuEuVerk]: 'Sales — outside EU',
+    [VatCode.Geen]: 'No VAT',
+    [VatCode.HoogInk21]: 'Purchase 21%',
+    [VatCode.HoogVerk21]: 'Sales 21%',
+    [VatCode.LaagInk9]: 'Purchase 9%',
+    [VatCode.LaagVerk9]: 'Sales 9%',
+    [VatCode.VerlInk]: 'Reverse charge purchase',
+    [VatCode.VerlVerk]: 'Reverse charge sales',
+    [VatCode.VerlVerkL9]: 'Reverse charge sales 9%',
 };
 
 const REVERSE_CHARGE_CODES = new Set<VatCode>([
-    'BI_EU_INK',
-    'BU_EU_INK',
-    'VERL_INK',
+    VatCode.BiEuInk,
+    VatCode.BuEuInk,
+    VatCode.VerlInk,
 ]);
 
 const EXCLUDING_VAT_CODES = new Set<VatCode>([
-    'AFST_VERK',
-    'BI_EU_INK',
-    'BI_EU_VERK',
-    'BI_EU_VERK_D',
-    'BU_EU_INK',
-    'BU_EU_VERK',
-    'GEEN',
-    'VERL_INK',
-    'VERL_VERK',
-    'VERL_VERK_L9',
+    VatCode.AfstVerk,
+    VatCode.BiEuInk,
+    VatCode.BiEuVerk,
+    VatCode.BiEuVerkD,
+    VatCode.BuEuInk,
+    VatCode.BuEuVerk,
+    VatCode.Geen,
+    VatCode.VerlInk,
+    VatCode.VerlVerk,
+    VatCode.VerlVerkL9,
 ]);
 
-export const isReverseChargeVat = (code: VatCode): boolean =>
-    REVERSE_CHARGE_CODES.has(code);
-
-export const requiresExcludingVat = (code: VatCode): boolean =>
-    EXCLUDING_VAT_CODES.has(code);
-
-export const isVatCode = (value: string): value is VatCode =>
-    (VAT_CODES as readonly string[]).includes(value);
-
-export class EBoekhoudenTaxCodeCatalog implements TaxCodeCatalog {
+export class EBoekhoudenTaxCodeCatalog extends BaseTaxCodeCatalog {
     readonly providerId = 'eboekhouden';
 
-    labelOf(code: TaxCode): string {
-        return VAT_CODE_LABEL[parseVatCode(code.toString())];
-    }
-
-    list(): readonly TaxCodeOption[] {
-        return VAT_CODES.map((code) => ({
+    protected options(): readonly TaxCodeOption[] {
+        return Object.values(VatCode).map((code) => ({
             code: TaxCode.of(code),
             label: VAT_CODE_LABEL[code],
         }));
     }
+}
 
-    validate(code: TaxCode): boolean {
-        return isVatCode(code.toString());
-    }
+export function isReverseChargeVat(code: VatCode): boolean {
+    return REVERSE_CHARGE_CODES.has(code);
+}
+
+export function isVatCode(value: string): value is VatCode {
+    return Object.values(VatCode).includes(value as VatCode);
 }
 
 export function parseVatCode(value: string): VatCode {
@@ -97,44 +87,49 @@ export function parseVatCode(value: string): VatCode {
     return value;
 }
 
+export function requiresExcludingVat(code: VatCode): boolean {
+    return EXCLUDING_VAT_CODES.has(code);
+}
+
 export const eboekhoudenTaxCodes = new EBoekhoudenTaxCodeCatalog();
 
-export const MUTATION_TYPES = {
-    GENERAL_JOURNAL: '7',
-    INVOICE_PAYMENT_RECEIVED: '3',
-    INVOICE_PAYMENT_SENT: '4',
-    INVOICE_RECEIVED: '1',
-    INVOICE_SENT: '2',
-    MONEY_RECEIVED: '5',
-    MONEY_SENT: '6',
-} as const;
-export type MutationType = (typeof MUTATION_TYPES)[keyof typeof MUTATION_TYPES];
+export enum InExVat {
+    Excluding = 'EX',
+    Including = 'IN',
+}
 
-export const LEDGER_CATEGORIES = [
-    'BAL',
-    'VW',
-    'AF6',
-    'AF19',
-    'AFOVERIG',
-    'VOOR',
-    'BTWRC',
-    'FIN',
-    'DEB',
-    'CRED',
-    'AF',
-] as const;
-export type LedgerCategory = (typeof LEDGER_CATEGORIES)[number];
+export enum LedgerCategory {
+    Af = 'AF',
+    Af6 = 'AF6',
+    Af19 = 'AF19',
+    AfOverig = 'AFOVERIG',
+    Bal = 'BAL',
+    Btwrc = 'BTWRC',
+    Cred = 'CRED',
+    Deb = 'DEB',
+    Fin = 'FIN',
+    Voor = 'VOOR',
+    Vw = 'VW',
+}
 
-export const IN_EX_VAT = { EXCLUDING: 'EX', INCLUDING: 'IN' } as const;
-export type InExVat = (typeof IN_EX_VAT)[keyof typeof IN_EX_VAT];
+export enum MutationType {
+    GeneralJournal = '7',
+    InvoicePaymentReceived = '3',
+    InvoicePaymentSent = '4',
+    InvoiceReceived = '1',
+    InvoiceSent = '2',
+    MoneyReceived = '5',
+    MoneySent = '6',
+}
 
-export const RELATION_TYPES = { BUSINESS: 'B', PRIVATE: 'P' } as const;
-export type RelationType = (typeof RELATION_TYPES)[keyof typeof RELATION_TYPES];
+export enum RelationType {
+    Business = 'B',
+    Private = 'P',
+}
 
-export const SECURITY_ERROR_TYPES = [
-    'unauthorized',
-    'forbidden',
-    'invalid_token',
-    'expired_token',
-] as const;
-export type SecurityErrorType = (typeof SECURITY_ERROR_TYPES)[number];
+export enum SecurityErrorType {
+    ExpiredToken = 'expired_token',
+    Forbidden = 'forbidden',
+    InvalidToken = 'invalid_token',
+    Unauthorized = 'unauthorized',
+}

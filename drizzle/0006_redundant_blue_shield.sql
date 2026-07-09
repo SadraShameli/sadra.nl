@@ -1,0 +1,3 @@
+ALTER TABLE "sadranl_accounting_importer_bank_account" ALTER COLUMN "ledger_id" SET DATA TYPE varchar(32) USING "ledger_id"::varchar(32);--> statement-breakpoint
+ALTER TABLE "sadranl_accounting_importer_rule" ALTER COLUMN "ledger_id" SET DATA TYPE varchar(32) USING "ledger_id"::varchar(32);--> statement-breakpoint
+ALTER TABLE "sadranl_accounting_importer_rule" ALTER COLUMN "vat_code" SET DATA TYPE varchar(32);

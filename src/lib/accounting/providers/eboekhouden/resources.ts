@@ -1,5 +1,6 @@
 import 'server-only';
 
+import type { ExternalId, LedgerId } from '~/lib/accounting/core/ids';
 import type { EBoekhoudenClient } from '~/lib/accounting/providers/eboekhouden/client';
 
 import {
@@ -12,6 +13,7 @@ import {
     ledgerBalanceSchema,
     type LedgerResponse,
     ledgerSchema,
+    type MutationCreatedResponse,
     mutationCreatedSchema,
     type MutationResponse,
     mutationSchema,
@@ -70,11 +72,11 @@ export class LedgersResource {
         });
         return ledgerSchema.parse(body);
     }
-    async get(ledgerId: number): Promise<LedgerResponse> {
+    async get(ledgerId: LedgerId): Promise<LedgerResponse> {
         const body = await this.client.request('GET', `/ledger/${ledgerId}`);
         return ledgerSchema.parse(body);
     }
-    async getBalance(ledgerId: number): Promise<LedgerBalanceResponse> {
+    async getBalance(ledgerId: LedgerId): Promise<LedgerBalanceResponse> {
         const body = await this.client.request(
             'GET',
             `/ledger/${ledgerId}/balance`,
@@ -84,7 +86,6 @@ export class LedgersResource {
         }
         return ledgerBalanceSchema.parse({
             balance: typeof body === 'number' ? body : 0,
-            ledgerId,
         });
     }
     async list(
@@ -102,7 +103,9 @@ export class LedgersResource {
 
 export class MutationsResource {
     constructor(private readonly client: EBoekhoudenClient) {}
-    async create(input: CreateMutationRequestPayload): Promise<{ id: number }> {
+    async create(
+        input: CreateMutationRequestPayload,
+    ): Promise<MutationCreatedResponse> {
         const { checkPaymentReference, rows, ...rest } = input;
         const payload: Record<string, unknown> = omitNullish(rest);
         if (checkPaymentReference) {
@@ -114,7 +117,7 @@ export class MutationsResource {
         });
         return mutationCreatedSchema.parse(body);
     }
-    async get(id: number): Promise<MutationResponse> {
+    async get(id: ExternalId): Promise<MutationResponse> {
         const body = await this.client.request('GET', `/mutation/${id}`);
         return mutationSchema.parse(body);
     }

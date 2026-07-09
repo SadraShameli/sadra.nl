@@ -4,10 +4,11 @@ import type { RawTransaction } from '~/lib/accounting/core/types';
 
 import { currencyCodeSchema } from '~/lib/accounting/core/currency';
 import { isoDateSchema } from '~/lib/accounting/core/date';
+import { LedgerId } from '~/lib/accounting/core/ids';
 import { Rule } from '~/lib/accounting/core/rules/rule';
 import { RuleSet } from '~/lib/accounting/core/rules/rule-set';
 
-const ledger = { id: 1, label: '0001 Ledger' };
+const ledger = { id: LedgerId('1'), label: '0001 Ledger' };
 
 const ruleSet = new RuleSet([
     Rule.fromRow({

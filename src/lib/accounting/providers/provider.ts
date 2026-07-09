@@ -1,3 +1,4 @@
+import type { ExternalId, LedgerId } from '~/lib/accounting/core/ids';
 import type { TaxCodeCatalog } from '~/lib/accounting/core/tax-code';
 import type { Booking } from '~/lib/accounting/core/types';
 
@@ -5,7 +6,6 @@ export interface AccountingProvider {
     readonly id: string;
     readonly label: string;
     openSession(options: OpenSessionOptions): Promise<ProviderSession>;
-    readonly taxCodes?: TaxCodeCatalog;
 }
 
 export interface ListMutationsOptions {
@@ -16,28 +16,27 @@ export interface ListMutationsOptions {
 }
 
 export interface OpenSessionOptions {
-    fetchImpl?: typeof fetch;
     meta?: Record<string, unknown>;
     secret: string;
 }
 
 export interface PostBookingResult {
-    externalId: number;
+    externalId: ExternalId;
 }
 
 export interface ProviderLedger {
     category: string;
     code: string;
     description: string;
-    externalId: number;
+    externalId: LedgerId;
     group: null | string;
 }
 
 export interface ProviderMutation {
     date: string;
     description: null | string;
-    externalId: number;
-    ledgerId: number;
+    externalId: ExternalId;
+    ledgerId: LedgerId;
     paymentReference: null | string;
     rows: ProviderMutationRow[];
     type: string;
@@ -46,7 +45,7 @@ export interface ProviderMutation {
 export interface ProviderMutationRow {
     amount: number;
     description: null | string;
-    ledgerId: null | number;
+    ledgerId: LedgerId | null;
     vatCode: null | string;
 }
 
@@ -56,6 +55,7 @@ export interface ProviderSession {
     listLedgers(options?: { category?: string }): Promise<ProviderLedger[]>;
     listMutations(options: ListMutationsOptions): Promise<ProviderMutation[]>;
     postBooking(booking: Booking): Promise<PostBookingResult>;
+    taxCodes(): Promise<TaxCodeCatalog>;
 }
 
 export class ProviderRegistry {
@@ -95,6 +95,7 @@ export abstract class ProviderSessionBase implements ProviderSession {
         options: ListMutationsOptions,
     ): Promise<ProviderMutation[]>;
     abstract postBooking(booking: Booking): Promise<PostBookingResult>;
+    abstract taxCodes(): Promise<TaxCodeCatalog>;
 
     protected async paginate<T>(
         fetchPage: (offset: number) => Promise<T[]>,

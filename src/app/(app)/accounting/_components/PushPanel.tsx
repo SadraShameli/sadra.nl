@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import type { RunId } from '~/lib/accounting/core/ids';
+import type { ExternalId, RunId } from '~/lib/accounting/core/ids';
 import type { Booking } from '~/lib/accounting/core/types';
 import type { ImportEvent } from '~/lib/accounting/runner-types';
 
@@ -34,7 +34,7 @@ interface Properties {
 
 interface RowState {
     error?: string;
-    externalId?: number;
+    externalId?: ExternalId;
     status: PostRowStatus;
     txnId: string;
 }

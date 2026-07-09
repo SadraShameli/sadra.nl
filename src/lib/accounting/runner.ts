@@ -228,7 +228,6 @@ export async function* runPush(input: PushInput): AsyncIterable<ImportEvent> {
     };
 
     const session = await provider.openSession({
-        fetchImpl: input.fetchImpl,
         meta: input.accountingCredential.meta,
         secret: input.accountingCredential.secret,
     });

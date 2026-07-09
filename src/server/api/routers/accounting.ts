@@ -3,11 +3,15 @@ import { and, asc, eq, inArray } from 'drizzle-orm';
 import 'server-only';
 import { z } from 'zod';
 
-import { RunId, UserId } from '~/lib/accounting/core/ids';
+import { LedgerId, RunId, UserId } from '~/lib/accounting/core/ids';
 import { Rule } from '~/lib/accounting/core/rules/rule';
 import { RuleSet } from '~/lib/accounting/core/rules/rule-set';
 import { BOOKING_DIRECTIONS } from '~/lib/accounting/core/types';
-import { CredentialRegistry } from '~/lib/accounting/credentials/index';
+import {
+    CredentialRegistry,
+    CredentialRole,
+    MetaFieldType,
+} from '~/lib/accounting/credentials/index';
 import '~/lib/accounting/credentials/server';
 import {
     getCredentialTest,
@@ -98,7 +102,7 @@ async function loadFieldOptions(input: {
         });
     }
     const field = descriptor.metaFields.find((f) => f.key === input.fieldKey);
-    if (field?.type !== 'select') {
+    if (field?.type !== MetaFieldType.Select) {
         throw new TRPCError({
             code: 'BAD_REQUEST',
             message: `Field "${input.fieldKey}" is not a select on ${descriptor.label}`,
@@ -141,7 +145,10 @@ function requireAccountingSession(cred: LoadedCredential) {
             message: `Unknown credential kind "${cred.kind}"`,
         });
     }
-    if (descriptor.role !== 'accounting' || !descriptor.accountingProviderId) {
+    if (
+        descriptor.role !== CredentialRole.Accounting ||
+        !descriptor.accountingProviderId
+    ) {
         throw new TRPCError({
             code: 'BAD_REQUEST',
             message: `Credential "${descriptor.label}" cannot reach an accounting backend`,
@@ -634,7 +641,7 @@ export const accountingRouter = createTRPCRouter({
                         direction: input.direction,
                         display: 'backtest',
                         id: 'backtest',
-                        ledger: { id: 0, label: '' },
+                        ledger: { id: LedgerId(''), label: '' },
                         match: input.match,
                         matchType: input.matchType,
                         maxAmount: input.maxAmount,
@@ -891,16 +898,19 @@ export const accountingRouter = createTRPCRouter({
                     ctx.userId,
                 );
                 const { provider } = requireAccountingSession(cred);
-                if (!provider.taxCodes) {
-                    throw new TRPCError({
-                        code: 'BAD_REQUEST',
-                        message: `Provider "${provider.label}" has no tax code catalog`,
-                    });
+                const session = await provider.openSession({
+                    meta: cred.meta,
+                    secret: requireSecret(cred),
+                });
+                try {
+                    const catalog = await session.taxCodes();
+                    return catalog.list().map((opt) => ({
+                        code: opt.code.toString(),
+                        label: opt.label,
+                    }));
+                } finally {
+                    await session.close().catch(noop);
                 }
-                return provider.taxCodes.list().map((opt) => ({
-                    code: opt.code.toString(),
-                    label: opt.label,
-                }));
             }),
     }),
 

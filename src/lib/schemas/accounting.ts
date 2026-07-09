@@ -2,10 +2,11 @@ import { z } from 'zod';
 
 import { currencyCodeSchema } from '~/lib/accounting/core/currency';
 import { isoDateSchema } from '~/lib/accounting/core/date';
+import { LedgerId } from '~/lib/accounting/core/ids';
 import { MATCH_TYPES } from '~/lib/accounting/core/rules/matcher';
 import { BOOKING_DIRECTIONS } from '~/lib/accounting/core/types';
 import { CredentialRegistry } from '~/lib/accounting/credentials/index';
-import { CREDENTIAL_KIND_VALUES } from '~/lib/accounting/credentials/registry';
+import { CredentialKind } from '~/lib/accounting/credentials/registry';
 
 function hasValidAmountRange(v: {
     maxAmount?: null | number;
@@ -24,7 +25,7 @@ function hasValidDateRange(v: {
 }
 
 export const credentialKindSchema = z
-    .enum(CREDENTIAL_KIND_VALUES)
+    .enum(CredentialKind)
     .refine((id) => CredentialRegistry.instance().get(id) !== undefined, {
         error: (issue) => `Unknown credential kind "${String(issue.input)}"`,
     });
@@ -63,7 +64,7 @@ export type CredentialUpdateInput = z.infer<typeof credentialUpdateSchema>;
 export const credentialIdSchema = z.object({ id: z.uuid() });
 
 export const ledgerRefSchema = z.object({
-    id: z.number().int(),
+    id: z.string().min(1).transform(LedgerId),
     label: z.string(),
 });
 
