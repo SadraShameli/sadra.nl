@@ -68,8 +68,8 @@ export class ProviderRegistry {
     }
 
     static instance(): ProviderRegistry {
-        ProviderRegistry.instanceValue ??= new ProviderRegistry();
-        return ProviderRegistry.instanceValue;
+        this.instanceValue ??= new ProviderRegistry();
+        return this.instanceValue;
     }
 
     get(id: string): AccountingProvider | undefined {
@@ -77,7 +77,7 @@ export class ProviderRegistry {
     }
 
     list(): AccountingProvider[] {
-        return [...this.providers.values()];
+        return this.providers.values().toArray();
     }
 
     register(p: AccountingProvider): void {

@@ -65,21 +65,20 @@ export function gamblersRuinAsymmetric(
             const x = lo + index;
             if (x <= lo) {
                 next[index] = 0;
-                continue;
-            }
-            if (x >= hi) {
+            } else if (x >= hi) {
                 next[index] = 1;
-                continue;
+            } else {
+                const upIndex = Math.min(total - 1, index + rUnits);
+                const downIndex = Math.max(0, index - 1);
+                const upValue =
+                    lo + upIndex >= hi ? 1 : (previous[upIndex] ?? 0);
+                const downValue =
+                    lo + downIndex <= lo ? 0 : (previous[downIndex] ?? 0);
+                const v = p * upValue + q * downValue;
+                const delta = Math.abs(v - (previous[index] ?? 0));
+                if (delta > maxDelta) maxDelta = delta;
+                next[index] = v;
             }
-            const upIndex = Math.min(total - 1, index + rUnits);
-            const downIndex = Math.max(0, index - 1);
-            const upValue = lo + upIndex >= hi ? 1 : (previous[upIndex] ?? 0);
-            const downValue =
-                lo + downIndex <= lo ? 0 : (previous[downIndex] ?? 0);
-            const v = p * upValue + q * downValue;
-            const delta = Math.abs(v - (previous[index] ?? 0));
-            if (delta > maxDelta) maxDelta = delta;
-            next[index] = v;
         }
         for (let index = 0; index < total; index++)
             previous[index] = next[index] ?? 0;
@@ -116,11 +115,12 @@ export function groupedPassDistribution(
         const newTotal = totalSeen + size;
         for (let k = 0; k <= totalSeen; k++) {
             const pk = working[k] ?? 0;
-            if (pk === 0) continue;
-            next[k] = (next[k] ?? 0) + pk * fail;
-            const indexPass = k + size;
-            if (indexPass <= N)
-                next[indexPass] = (next[indexPass] ?? 0) + pk * perGroupP;
+            if (pk !== 0) {
+                next[k] = (next[k] ?? 0) + pk * fail;
+                const indexPass = k + size;
+                if (indexPass <= N)
+                    next[indexPass] = (next[indexPass] ?? 0) + pk * perGroupP;
+            }
         }
         working = next;
         totalSeen = newTotal;

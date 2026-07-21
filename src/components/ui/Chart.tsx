@@ -4,7 +4,7 @@
 import * as React from 'react';
 import * as RechartsPrimitive from 'recharts';
 
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 const THEMES = { dark: '.dark', light: '' } as const;
 
@@ -156,7 +156,9 @@ const ChartTooltipContent = React.forwardRef<
             }
 
             const [item] = payload;
-            const key = `${labelKey || item?.dataKey || item?.name || 'value'}`;
+            const key = String(
+                labelKey || item?.dataKey || item?.name || 'value',
+            );
             const itemConfig = getPayloadConfigFromPayload(config, item, key);
             const value =
                 !labelKey && typeof label === 'string'
@@ -207,7 +209,9 @@ const ChartTooltipContent = React.forwardRef<
                     {payload
                         .filter((item: any) => item.type !== 'none')
                         .map((item: any, index: number) => {
-                            const key = `${nameKey || item.name || item.dataKey || 'value'}`;
+                            const key = String(
+                                nameKey || item.name || item.dataKey || 'value',
+                            );
                             const itemConfig = getPayloadConfigFromPayload(
                                 config,
                                 item,
@@ -309,11 +313,12 @@ const ChartLegend = RechartsPrimitive.Legend;
 
 const ChartLegendContent = React.forwardRef<
     HTMLDivElement,
-    React.ComponentProps<'div'> &
-        RechartsPrimitive.LegendProps & {
+    Omit<RechartsPrimitive.LegendProps, 'verticalAlign'> &
+        React.ComponentProps<'div'> & {
             hideIcon?: boolean;
             nameKey?: string;
             payload?: any[];
+            verticalAlign?: 'bottom' | 'middle' | 'top';
         }
 >(
     (
@@ -344,7 +349,7 @@ const ChartLegendContent = React.forwardRef<
                 {payload
                     .filter((item: any) => item.type !== 'none')
                     .map((item: any) => {
-                        const key = `${nameKey || item.dataKey || 'value'}`;
+                        const key = String(nameKey || item.dataKey || 'value');
                         const itemConfig = getPayloadConfigFromPayload(
                             config,
                             item,
@@ -358,7 +363,7 @@ const ChartLegendContent = React.forwardRef<
                                 )}
                                 key={item.value}
                             >
-                                {itemConfig?.icon && !hideIcon ? (
+                                {!hideIcon && itemConfig?.icon ? (
                                     <itemConfig.icon />
                                 ) : (
                                     <div
@@ -397,19 +402,19 @@ function getPayloadConfigFromPayload(
     let configLabelKey: string = key;
 
     if (
-        key in payload &&
+        Object.hasOwn(payload, key) &&
         typeof payload[key as keyof typeof payload] === 'string'
     ) {
         configLabelKey = payload[key as keyof typeof payload];
     } else if (
         payloadPayload &&
-        key in payloadPayload &&
+        Object.hasOwn(payloadPayload, key) &&
         typeof payloadPayload[key as keyof typeof payloadPayload] === 'string'
     ) {
         configLabelKey = payloadPayload[key as keyof typeof payloadPayload];
     }
 
-    return configLabelKey in config ? config[configLabelKey] : config[key];
+    return config[Object.hasOwn(config, configLabelKey) ? configLabelKey : key];
 }
 
 export {

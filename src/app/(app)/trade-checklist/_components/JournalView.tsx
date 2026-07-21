@@ -13,7 +13,7 @@ import { Button } from '~/components/ui/Button';
 import { DataTable } from '~/components/ui/DataTable';
 import { EmptyState } from '~/components/ui/EmptyState';
 import { dateKey, filterAssessments } from '~/lib/trading/analytics';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 import { AssessmentDetailDialog } from './journal/AssessmentDetailDialog';
 import {

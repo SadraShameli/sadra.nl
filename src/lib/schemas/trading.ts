@@ -93,6 +93,11 @@ export const tradingPlanConfigSchema = z.object({
 
 export type TradingPlanConfig = z.infer<typeof tradingPlanConfigSchema>;
 
+const entryAnswerSchema = z.object({
+    confluences: z.array(z.string()),
+    onFvg: z.boolean(),
+});
+
 export const answersSchema = z.object({
     bias: z.object({
         conviction: z.number().min(1).max(10),
@@ -113,10 +118,7 @@ export const answersSchema = z.object({
         singular: z.boolean(),
         type: dolTypeSchema,
     }),
-    entry: z.object({
-        confluences: z.array(z.string()),
-        onFvg: z.boolean(),
-    }),
+    entry: entryAnswerSchema,
     finals: z.object({
         dolAlreadyTaken: z.boolean(),
         notes: z.string(),
@@ -197,13 +199,11 @@ export type TradeAssessmentRow = z.infer<typeof tradeAssessmentRowSchema>;
 
 export const planIdSchema = z.uuid();
 
-export const createTradingPlanInputSchema = z.object({
+export const tradingPlanCreationSchema = z.object({
     name: z.string().trim().min(1, 'Plan name is required').max(128),
 });
 
-export type CreateTradingPlanInput = z.infer<
-    typeof createTradingPlanInputSchema
->;
+export type CreateTradingPlanInput = z.infer<typeof tradingPlanCreationSchema>;
 
 export const updateTradingPlanInputSchema = z.object({
     config: tradingPlanConfigSchema,
@@ -283,5 +283,5 @@ export const savePrepInputSchema = z.object({
 
 export type SavePrepInput = z.infer<typeof savePrepInputSchema>;
 
-export const deletePrepInputSchema = z.object({ date: dateStringSchema });
-export type DeletePrepInput = z.infer<typeof deletePrepInputSchema>;
+export const prepDeletionSchema = z.object({ date: dateStringSchema });
+export type DeletePrepInput = z.infer<typeof prepDeletionSchema>;

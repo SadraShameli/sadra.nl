@@ -3,7 +3,7 @@ import { Resend } from 'resend';
 
 import { captureError } from '~/lib/observability/logger';
 
-export interface EmailSendArgs {
+export interface EmailSendArguments {
     from: string;
     html: string;
     subject: string;
@@ -11,7 +11,7 @@ export interface EmailSendArgs {
 }
 
 export abstract class EmailProvider {
-    abstract send(arguments_: EmailSendArgs): Promise<void>;
+    abstract send(arguments_: EmailSendArguments): Promise<void>;
 }
 
 export class FallbackEmailProvider extends EmailProvider {
@@ -22,7 +22,7 @@ export class FallbackEmailProvider extends EmailProvider {
         super();
     }
 
-    override async send(arguments_: EmailSendArgs): Promise<void> {
+    override async send(arguments_: EmailSendArguments): Promise<void> {
         try {
             await this.primary.send(arguments_);
         } catch (primaryError) {
@@ -51,7 +51,7 @@ export class LettermintProvider extends EmailProvider {
         this.client = Lettermint.email(token);
     }
 
-    override async send(arguments_: EmailSendArgs): Promise<void> {
+    override async send(arguments_: EmailSendArguments): Promise<void> {
         await this.client
             .from(arguments_.from)
             .to(arguments_.to)
@@ -69,7 +69,7 @@ export class ResendProvider extends EmailProvider {
         this.client = new Resend(apiKey);
     }
 
-    override async send(arguments_: EmailSendArgs): Promise<void> {
+    override async send(arguments_: EmailSendArguments): Promise<void> {
         await this.client.emails.send({
             from: arguments_.from,
             html: arguments_.html,

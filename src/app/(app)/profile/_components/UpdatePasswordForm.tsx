@@ -39,23 +39,14 @@ export function UpdatePasswordForm({
         resolver: zodResolver(updatePasswordInputSchema),
     });
 
-    const onChangeSubmit = (data: UpdatePasswordInput) => {
-        startTransition(async () => {
-            const result = await authClient.changePassword({
-                currentPassword: data.current,
-                newPassword: data.password,
-                revokeOtherSessions: true,
-            });
-            if (result.error) {
-                toast.error(
-                    result.error.message ?? 'Current password is incorrect.',
-                );
-                return;
-            }
-            toast.success('Password changed.');
-            changeForm.reset({ confirm: '', current: '', password: '' });
-        });
-    };
+    if (!hasPassword && !hasEmail) {
+        return (
+            <p className="text-sm text-muted-foreground">
+                Set an email address above before adding a password — passwords
+                require an email to sign in with.
+            </p>
+        );
+    }
 
     const sendSetPasswordEmail = () => {
         if (!email) return;
@@ -73,15 +64,6 @@ export function UpdatePasswordForm({
             toast.success('Check your inbox for the password set-up link.');
         });
     };
-
-    if (!hasPassword && !hasEmail) {
-        return (
-            <p className="text-sm text-muted-foreground">
-                Set an email address above before adding a password — passwords
-                require an email to sign in with.
-            </p>
-        );
-    }
 
     if (!hasPassword) {
         return (
@@ -101,6 +83,24 @@ export function UpdatePasswordForm({
             </div>
         );
     }
+
+    const onChangeSubmit = (data: UpdatePasswordInput) => {
+        startTransition(async () => {
+            const result = await authClient.changePassword({
+                currentPassword: data.current,
+                newPassword: data.password,
+                revokeOtherSessions: true,
+            });
+            if (result.error) {
+                toast.error(
+                    result.error.message ?? 'Current password is incorrect.',
+                );
+                return;
+            }
+            toast.success('Password changed.');
+            changeForm.reset({ confirm: '', current: '', password: '' });
+        });
+    };
 
     return (
         <Form {...changeForm}>

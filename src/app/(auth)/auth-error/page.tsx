@@ -10,7 +10,7 @@ import {
 } from '~/components/ui/Card';
 import { authErrorSearchSchema } from '~/lib/schemas/url';
 import { routes } from '~/lib/site/routes';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 const errorMessages: Record<string, string> = {
     AccessDenied: 'Access denied.',

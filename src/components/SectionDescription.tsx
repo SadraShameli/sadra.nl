@@ -1,5 +1,5 @@
 import RevealAnimation from '~/components/ui/Animations/Reveal';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 interface SectionTitleProperties {
     className?: string;

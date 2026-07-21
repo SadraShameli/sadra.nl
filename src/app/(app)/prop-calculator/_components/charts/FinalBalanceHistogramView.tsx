@@ -13,7 +13,7 @@ import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
 import { formatCompactCurrency } from '~/lib/format';
 import { type SimOutputs } from '~/lib/prop-calculator';
 import { histogram } from '~/lib/prop-calculator/stats';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 interface Properties {
     result: SimOutputs;

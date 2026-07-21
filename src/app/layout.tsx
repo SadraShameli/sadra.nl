@@ -11,7 +11,7 @@ import { orbitron } from '~/fonts';
 import { getServerSession } from '~/lib/auth/server';
 import { siteContent } from '~/lib/site/content';
 import { getPublicSiteOrigin } from '~/lib/site/url';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 import { TRPCReactProvider } from '~/trpc/react';
 
 import Footer from './(app)/_components/Footer';

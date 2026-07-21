@@ -1,7 +1,7 @@
 import type { PortfolioSectionView } from '~/lib/site/content';
 
 import StaggerAnimation from '~/components/ui/Animations/Stagger';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 import PortfolioEntry from './PortfolioEntry';
 import SectionEyebrow from './SectionEyebrow';

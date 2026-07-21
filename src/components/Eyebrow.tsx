@@ -1,4 +1,4 @@
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 type EyebrowProperties = React.ComponentProps<'div'> & {
     as?: 'div' | 'h2' | 'h3' | 'h4' | 'p' | 'span';

@@ -96,7 +96,7 @@ export function HistoryView({ from }: HistoryViewProperties) {
         return allRows.filter((w) => {
             if (statusFilter === 'completed' && !w.endedAt) return false;
             if (statusFilter === 'in-progress' && w.endedAt) return false;
-            return inDurationBucket(durationSeconds(w), durationFilter);
+            return isInDurationBucket(durationSeconds(w), durationFilter);
         });
     }, [allRows, statusFilter, durationFilter]);
 
@@ -219,7 +219,7 @@ export function HistoryView({ from }: HistoryViewProperties) {
         [remove],
     );
 
-    if (!workouts.isLoading && allRows.length === 0 && !hasFilters) {
+    if (!hasFilters && !workouts.isLoading && allRows.length === 0) {
         return (
             <Card>
                 <CardContent>
@@ -327,7 +327,7 @@ function durationSeconds(w: WorkoutRow): null | number {
     );
 }
 
-function inDurationBucket(
+function isInDurationBucket(
     secs: null | number,
     bucket: DurationFilter,
 ): boolean {

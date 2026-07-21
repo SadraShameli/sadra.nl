@@ -27,7 +27,7 @@ import {
     type DayStopRule,
     type Plan,
 } from '~/lib/prop-calculator';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 import AccountsPassedDistributionChart from './AccountsPassedDistributionChart';
 import DayStopRulePicker from './DayStopRulePicker';
@@ -327,9 +327,9 @@ function StrategyLabTable({
                 cell: ({ row }) => (
                     <Input
                         className="h-7 w-32 text-xs"
-                        onChange={(e) =>
+                        onChange={(event) =>
                             onUpdate(row.original.scenario.id, {
-                                label: e.target.value,
+                                label: event.target.value,
                             })
                         }
                         value={row.original.scenario.label}
@@ -343,8 +343,8 @@ function StrategyLabTable({
                     <Input
                         className="h-7 w-20 text-xs"
                         min={1}
-                        onChange={(e) => {
-                            const n = Number(e.target.value);
+                        onChange={(event) => {
+                            const n = Number(event.target.value);
                             if (Number.isFinite(n) && n > 0)
                                 onUpdate(row.original.scenario.id, {
                                     riskPerTrade: n,
@@ -364,8 +364,8 @@ function StrategyLabTable({
                         className="h-7 w-16 text-xs"
                         max={95}
                         min={5}
-                        onChange={(e) => {
-                            const n = Number(e.target.value) / 100;
+                        onChange={(event) => {
+                            const n = Number(event.target.value) / 100;
                             if (Number.isFinite(n) && n >= 0.05 && n <= 0.95)
                                 onUpdate(row.original.scenario.id, {
                                     winrate: n,
@@ -385,8 +385,8 @@ function StrategyLabTable({
                         className="h-7 w-16 text-xs"
                         max={10}
                         min={0.5}
-                        onChange={(e) => {
-                            const n = Number(e.target.value);
+                        onChange={(event) => {
+                            const n = Number(event.target.value);
                             if (Number.isFinite(n) && n >= 0.5 && n <= 10)
                                 onUpdate(row.original.scenario.id, {
                                     rrRatio: n,
@@ -406,8 +406,8 @@ function StrategyLabTable({
                         className="h-7 w-14 text-xs"
                         max={20}
                         min={1}
-                        onChange={(e) => {
-                            const n = Math.floor(Number(e.target.value));
+                        onChange={(event) => {
+                            const n = Math.floor(Number(event.target.value));
                             if (Number.isFinite(n) && n >= 1 && n <= 20)
                                 onUpdate(row.original.scenario.id, {
                                     tradesPerDay: n,
@@ -429,8 +429,10 @@ function StrategyLabTable({
                             className="h-7 w-14 text-xs"
                             max={20}
                             min={1}
-                            onChange={(e) => {
-                                const n = Math.floor(Number(e.target.value));
+                            onChange={(event) => {
+                                const n = Math.floor(
+                                    Number(event.target.value),
+                                );
                                 if (Number.isFinite(n) && n >= 1 && n <= 20)
                                     onUpdate(sc.id, {
                                         accounts: n,
@@ -484,8 +486,10 @@ function StrategyLabTable({
                             disabled={sc.correlation !== 'grouped'}
                             max={sc.accounts}
                             min={1}
-                            onChange={(e) => {
-                                const n = Math.floor(Number(e.target.value));
+                            onChange={(event) => {
+                                const n = Math.floor(
+                                    Number(event.target.value),
+                                );
                                 if (
                                     Number.isFinite(n) &&
                                     n >= 1 &&
@@ -583,8 +587,7 @@ function StrategyLabTable({
                 id: 'expected-pass',
             },
             {
-                accessorFn: (r) =>
-                    r.result?.expectedMonthlyNet ?? Number.NEGATIVE_INFINITY,
+                accessorFn: (r) => r.result?.expectedMonthlyNet ?? -Infinity,
                 cell: ({ row }) => (
                     <ResultCell
                         className={

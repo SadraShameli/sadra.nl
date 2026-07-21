@@ -19,14 +19,36 @@ import {
     type Result,
 } from '~/server/api/types/types';
 import {
-    createReadingProps,
-    getReadingProps,
-    getReadingsQueryProps,
     type Granularity,
+    readingCreateProperties,
+    readingProperties,
+    readingsQueryProperties,
 } from '~/server/api/types/zod';
 import { location, reading, sensor } from '~/server/db/schemas/iot';
 
 import { getSensor } from './sensor';
+
+const idInputSchema = z.object({ id: z.number().int().positive() });
+const idsInputSchema = z.object({
+    ids: z.array(z.number().int().positive()).min(1),
+});
+const adminReadingInputSchema = z.object({
+    createdAt: z.date().optional(),
+    deviceId: z.number().int().positive(),
+    sensorId: z.number().int().positive(),
+    value: z.number(),
+});
+const listAdminInputSchema = z.object({
+    device_id: z.number().int().positive().optional(),
+    limit: z.number().int().min(1).max(500).default(100),
+    location_id: z.number().int().positive().optional(),
+    offset: z.number().int().nonnegative().default(0),
+    sensor_id: z.number().int().positive().optional(),
+});
+const readingsQueryInputSchema = z.union([
+    readingsQueryProperties,
+    z.undefined(),
+]);
 
 const ALERT_COOLDOWN_MS = 10 * 60 * 1000;
 const lastAlertAt = new Map<number, number>();
@@ -40,20 +62,20 @@ function shouldAlert(deviceId: number): boolean {
 }
 
 async function getReading(
-    input: z.infer<typeof getReadingProps>,
+    input: z.infer<typeof readingProperties>,
     context: ContextType,
 ): Promise<Result<typeof reading.$inferSelect>> {
-    const res = await context.db.query.reading.findFirst({
+    const result = await context.db.query.reading.findFirst({
         where: (reading) => eq(reading.id, input.id),
     });
 
-    if (!res)
+    if (!result)
         return {
             error: `Reading id ${input.id} not found`,
             status: 404,
         };
 
-    return { data: res };
+    return { data: result };
 }
 
 const PERIOD_BY_GRANULARITY: Record<
@@ -80,7 +102,7 @@ const PERIOD_BY_GRANULARITY: Record<
 };
 
 async function resolveDateRange(
-    input: z.infer<typeof getReadingsQueryProps>,
+    input: z.infer<typeof readingsQueryProperties>,
     context: ContextType,
 ): Promise<{ from: Date; to: Date }> {
     const periodMs = PERIOD_BY_GRANULARITY[input.granularity].ms;
@@ -132,14 +154,7 @@ async function resolveDeviceFk(
 
 export const readingRouter = createTRPCRouter({
     createAdmin: adminProcedure
-        .input(
-            z.object({
-                createdAt: z.date().optional(),
-                deviceId: z.number().int().positive(),
-                sensorId: z.number().int().positive(),
-                value: z.number(),
-            }),
-        )
+        .input(adminReadingInputSchema)
         .mutation(async ({ ctx, input }) => {
             const development = await ctx.db.query.device.findFirst({
                 columns: { id: true, location_id: true },
@@ -161,7 +176,7 @@ export const readingRouter = createTRPCRouter({
         }),
 
     createReading: deviceProcedure
-        .input(createReadingProps)
+        .input(readingCreateProperties)
         .mutation(async ({ ctx, input }) => {
             if (input.device_id !== ctx.device.device_id) {
                 return {
@@ -213,21 +228,25 @@ export const readingRouter = createTRPCRouter({
                 .where(eq(location.id, ctx.device.location_id))
                 .limit(1);
 
-            fanOutEvent(
-                'reading_created',
-                (to) =>
-                    new ReadingCreatedEmail(to, {
-                        deviceName: ctx.device.name,
-                        locationName: loc?.name ?? null,
-                        sensorReadings: resolved.map((r) => ({
-                            name: r.name,
-                            unit: r.unit,
-                            value: r.value,
-                        })),
-                    }),
-            ).catch((error: unknown) =>
-                captureError(error, { tag: 'reading.notify' }),
-            );
+            void (async () => {
+                try {
+                    await fanOutEvent(
+                        'reading_created',
+                        (to) =>
+                            new ReadingCreatedEmail(to, {
+                                deviceName: ctx.device.name,
+                                locationName: loc?.name ?? null,
+                                sensorReadings: resolved.map((r) => ({
+                                    name: r.name,
+                                    unit: r.unit,
+                                    value: r.value,
+                                })),
+                            }),
+                    );
+                } catch (error: unknown) {
+                    captureError(error, { tag: 'reading.notify' });
+                }
+            })();
 
             const threshold = ctx.device.loudness_threshold;
             if (threshold > 0) {
@@ -239,18 +258,22 @@ export const readingRouter = createTRPCRouter({
                     loudness.value > threshold &&
                     shouldAlert(ctx.device.id)
                 ) {
-                    fanOutEvent(
-                        'loudness_alert',
-                        (to) =>
-                            new LoudnessAlertEmail(to, {
-                                deviceName: ctx.device.name,
-                                locationName: loc?.name ?? null,
-                                threshold,
-                                value: loudness.value,
-                            }),
-                    ).catch((error: unknown) =>
-                        captureError(error, { tag: 'reading.alert' }),
-                    );
+                    void (async () => {
+                        try {
+                            await fanOutEvent(
+                                'loudness_alert',
+                                (to) =>
+                                    new LoudnessAlertEmail(to, {
+                                        deviceName: ctx.device.name,
+                                        locationName: loc?.name ?? null,
+                                        threshold,
+                                        value: loudness.value,
+                                    }),
+                            );
+                        } catch (error: unknown) {
+                            captureError(error, { tag: 'reading.alert' });
+                        }
+                    })();
                 }
             }
 
@@ -258,14 +281,14 @@ export const readingRouter = createTRPCRouter({
         }),
 
     delete: adminProcedure
-        .input(z.object({ id: z.number().int().positive() }))
+        .input(idInputSchema)
         .mutation(async ({ ctx, input }) => {
             await ctx.db.delete(reading).where(eq(reading.id, input.id));
             return { ok: true };
         }),
 
     deleteBulk: adminProcedure
-        .input(z.object({ ids: z.array(z.number().int().positive()).min(1) }))
+        .input(idsInputSchema)
         .mutation(async ({ ctx, input }) => {
             const result = await ctx.db
                 .delete(reading)
@@ -274,7 +297,7 @@ export const readingRouter = createTRPCRouter({
         }),
 
     getReading: publicProcedure
-        .input(getReadingProps)
+        .input(readingProperties)
         .query(async ({ ctx, input }) => {
             return await getReading(input, ctx);
         }),
@@ -284,7 +307,7 @@ export const readingRouter = createTRPCRouter({
     }),
 
     getReadingsInput: publicProcedure
-        .input(z.union([getReadingsQueryProps, z.undefined()]))
+        .input(readingsQueryInputSchema)
         .query(async ({ ctx, input }): Promise<Result<GetReadingsRecord[]>> => {
             if (!input) {
                 return { error: 'No readings could be found' };
@@ -369,16 +392,12 @@ export const readingRouter = createTRPCRouter({
                 if (!lastPoint) continue;
 
                 const sensorRows = rows.filter((r) => r.sensor_id === s.id);
+                const highestValue = Math.max(...sensorRows.map((r) => r.max));
+                const lowestValue = Math.min(...sensorRows.map((r) => r.min));
                 out.push({
-                    highest:
-                        Math.round(
-                            Math.max(...sensorRows.map((r) => r.max)) * 100,
-                        ) / 100,
+                    highest: Math.round(highestValue * 100) / 100,
                     latestReading: lastPoint,
-                    lowest:
-                        Math.round(
-                            Math.min(...sensorRows.map((r) => r.min)) * 100,
-                        ) / 100,
+                    lowest: Math.round(lowestValue * 100) / 100,
                     period: 24,
                     period_label: periodLabel,
                     readings: points,
@@ -390,15 +409,7 @@ export const readingRouter = createTRPCRouter({
         }),
 
     listAdmin: adminProcedure
-        .input(
-            z.object({
-                device_id: z.number().int().positive().optional(),
-                limit: z.number().int().min(1).max(500).default(100),
-                location_id: z.number().int().positive().optional(),
-                offset: z.number().int().nonnegative().default(0),
-                sensor_id: z.number().int().positive().optional(),
-            }),
-        )
+        .input(listAdminInputSchema)
         .query(async ({ ctx, input }) => {
             const where = and(
                 input.location_id

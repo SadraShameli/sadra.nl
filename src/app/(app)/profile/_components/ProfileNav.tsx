@@ -18,7 +18,7 @@ import { Avatar, AvatarFallback } from '~/components/ui/Avatar';
 import { Button } from '~/components/ui/Button';
 import { authClient } from '~/lib/auth/client';
 import { profileTabUrl, routes } from '~/lib/site/routes';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 import type { ProfileTabValue } from './profileTabs';
 

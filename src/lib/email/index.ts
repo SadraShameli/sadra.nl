@@ -1,4 +1,4 @@
-import { env } from '~/env';
+import { environment } from '~/environment';
 
 import { Mailer } from './mailer';
 import {
@@ -21,7 +21,7 @@ export { SignUpNotificationEmail } from './messages/signup-notification';
 
 export const mailer = new Mailer(
     new FallbackEmailProvider(
-        new LettermintProvider(env.LETTERMINT_PROJECT_TOKEN),
-        new ResendProvider(env.RESEND_API_KEY),
+        new LettermintProvider(environment.LETTERMINT_PROJECT_TOKEN),
+        new ResendProvider(environment.RESEND_API_KEY),
     ),
 );

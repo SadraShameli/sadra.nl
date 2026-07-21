@@ -7,7 +7,7 @@ import type { LightAssessment } from '~/lib/trading/analytics';
 
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 import { CalendarHeatmap } from './calendar/CalendarHeatmap';
 import { DayOfWeekChart } from './calendar/DayOfWeekChart';
@@ -69,7 +69,7 @@ export function CalendarView({ assessments, month }: CalendarViewProperties) {
 }
 
 function formatMonthLabel(month: string): string {
-    const [yString, mString] = month.split('-');
+    const [yString, mString] = month.split('-', 2);
     const d = new Date(Date.UTC(Number(yString), Number(mString) - 1, 1));
     return new Intl.DateTimeFormat('en-US', {
         month: 'long',
@@ -79,7 +79,7 @@ function formatMonthLabel(month: string): string {
 }
 
 function shiftMonth(month: string, delta: number): string {
-    const [yString, mString] = month.split('-');
+    const [yString, mString] = month.split('-', 2);
     const y = Number(yString);
     const m = Number(mString);
     const d = new Date(Date.UTC(y, m - 1 + delta, 1));

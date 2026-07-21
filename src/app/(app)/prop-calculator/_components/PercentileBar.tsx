@@ -2,7 +2,7 @@
 
 import { Card } from '~/components/ui/Card';
 import InfoPopover from '~/components/ui/InfoPopover';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 interface PercentileBarProperties {
     description: string;

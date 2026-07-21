@@ -35,7 +35,7 @@ export abstract class ApiSourceBase implements ApiSource {
     readonly kind = 'api' as const;
     abstract readonly label: string;
 
-    protected readonly retryPolicy: RetryPolicy = RetryPolicy.default();
+    protected readonly retryPolicy: RetryPolicy = RetryPolicy.default;
 
     async fetch(context: ApiSourceContext): Promise<RawTransaction[]> {
         return this.retryPolicy.execute(() => this.fetchRaw(context));
@@ -47,6 +47,11 @@ export abstract class ApiSourceBase implements ApiSource {
 }
 
 export class SourceRegistry {
+    static get instance(): SourceRegistry {
+        this.instanceValue ??= new SourceRegistry();
+        return this.instanceValue;
+    }
+
     private static instanceValue: null | SourceRegistry = null;
 
     private readonly sources: Map<string, Source>;
@@ -55,15 +60,10 @@ export class SourceRegistry {
         this.sources = new Map<string, Source>();
     }
 
-    static instance(): SourceRegistry {
-        SourceRegistry.instanceValue ??= new SourceRegistry();
-        return SourceRegistry.instanceValue;
-    }
-
     findByCredentialKind(credentialKind: string): Source | undefined {
-        return [...this.sources.values()].find(
-            (s) => s.credentialKind === credentialKind,
-        );
+        return this.sources
+            .values()
+            .find((s) => s.credentialKind === credentialKind);
     }
 
     get(id: string): Source | undefined {
@@ -71,7 +71,7 @@ export class SourceRegistry {
     }
 
     list(): Source[] {
-        return [...this.sources.values()];
+        return this.sources.values().toArray();
     }
 
     register(s: Source): void {

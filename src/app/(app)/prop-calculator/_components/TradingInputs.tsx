@@ -19,7 +19,7 @@ import {
     formatPercent,
 } from '~/lib/format';
 import { type DayStopRule, type Plan } from '~/lib/prop-calculator';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 import DayStopRulePicker from './DayStopRulePicker';
 import { SizingMode } from './types';
@@ -40,7 +40,7 @@ interface TradingInputsProperties {
     onCopyAccountsChange: (n: number) => void;
     onDayStopChange: (rule: DayStopRule) => void;
     onEvalDiscountPercentChange: (n: number) => void;
-    onLinkActivationDiscountChange: (linked: boolean) => void;
+    onLinkActivationDiscountChange: (isLinked: boolean) => void;
     onMaxAttemptsChange: (n: number) => void;
     onMaxEvalDaysChange: (n: number) => void;
     onResetCoupon: () => void;
@@ -140,8 +140,10 @@ export default function TradingInputs({
                                     id="trials"
                                     max={5000}
                                     min={100}
-                                    onChange={(e) =>
-                                        onTrialsChange(Number(e.target.value))
+                                    onChange={(event) =>
+                                        onTrialsChange(
+                                            Number(event.target.value),
+                                        )
                                     }
                                     step={100}
                                     type="number"
@@ -157,8 +159,8 @@ export default function TradingInputs({
                                 </label>
                                 <Input
                                     id="seed"
-                                    onChange={(e) =>
-                                        onSeedChange(Number(e.target.value))
+                                    onChange={(event) =>
+                                        onSeedChange(Number(event.target.value))
                                     }
                                     type="number"
                                     value={seed}
@@ -175,9 +177,9 @@ export default function TradingInputs({
                                     id="max-eval-days"
                                     max={365}
                                     min={10}
-                                    onChange={(e) =>
+                                    onChange={(event) =>
                                         onMaxEvalDaysChange(
-                                            Number(e.target.value),
+                                            Number(event.target.value),
                                         )
                                     }
                                     step={5}
@@ -266,8 +268,8 @@ export default function TradingInputs({
                         id="trades-per-day"
                         max={50}
                         min={1}
-                        onChange={(e) =>
-                            onTradesPerDayChange(Number(e.target.value))
+                        onChange={(event) =>
+                            onTradesPerDayChange(Number(event.target.value))
                         }
                         step={1}
                         type="number"
@@ -285,9 +287,9 @@ export default function TradingInputs({
                         id="commission"
                         max={50}
                         min={0}
-                        onChange={(e) =>
+                        onChange={(event) =>
                             onCommissionPerRoundTripChange(
-                                Number(e.target.value),
+                                Number(event.target.value),
                             )
                         }
                         step={0.5}
@@ -309,8 +311,8 @@ export default function TradingInputs({
                         id="max-attempts"
                         max={10}
                         min={1}
-                        onChange={(e) =>
-                            onMaxAttemptsChange(Number(e.target.value))
+                        onChange={(event) =>
+                            onMaxAttemptsChange(Number(event.target.value))
                         }
                         step={1}
                         type="number"
@@ -334,8 +336,8 @@ export default function TradingInputs({
                         id="copy-accounts"
                         max={maxCopyAccounts}
                         min={1}
-                        onChange={(e) =>
-                            onCopyAccountsChange(Number(e.target.value))
+                        onChange={(event) =>
+                            onCopyAccountsChange(Number(event.target.value))
                         }
                         step={1}
                         type="number"
@@ -379,8 +381,8 @@ export default function TradingInputs({
                     <Input
                         max={accountSize}
                         min={1}
-                        onChange={(e) =>
-                            onRiskDollarsChange(Number(e.target.value))
+                        onChange={(event) =>
+                            onRiskDollarsChange(Number(event.target.value))
                         }
                         step={10}
                         type="number"
@@ -390,8 +392,8 @@ export default function TradingInputs({
                     <Input
                         max={5}
                         min={0.05}
-                        onChange={(e) =>
-                            onRiskPercentChange(Number(e.target.value))
+                        onChange={(event) =>
+                            onRiskPercentChange(Number(event.target.value))
                         }
                         step={0.05}
                         type="number"
@@ -476,9 +478,9 @@ export default function TradingInputs({
                                 id="eval-discount"
                                 max={100}
                                 min={0}
-                                onChange={(e) =>
+                                onChange={(event) =>
                                     onEvalDiscountPercentChange(
-                                        Number(e.target.value),
+                                        Number(event.target.value),
                                     )
                                 }
                                 step={1}
@@ -533,9 +535,9 @@ export default function TradingInputs({
                                     id="activation-discount"
                                     max={100}
                                     min={0}
-                                    onChange={(e) =>
+                                    onChange={(event) =>
                                         onActivationDiscountPercentChange(
-                                            Number(e.target.value),
+                                            Number(event.target.value),
                                         )
                                     }
                                     step={1}

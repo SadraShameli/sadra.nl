@@ -57,6 +57,11 @@ export interface CredentialMetaField {
 }
 
 export class CredentialRegistry {
+    static get instance(): CredentialRegistry {
+        this.instanceValue ??= new CredentialRegistry();
+        return this.instanceValue;
+    }
+
     private static instanceValue: CredentialRegistry | null = null;
 
     private readonly descriptors: Map<CredentialKind, CredentialDescriptor>;
@@ -65,21 +70,19 @@ export class CredentialRegistry {
         this.descriptors = new Map<CredentialKind, CredentialDescriptor>();
     }
 
-    static instance(): CredentialRegistry {
-        CredentialRegistry.instanceValue ??= new CredentialRegistry();
-        return CredentialRegistry.instanceValue;
-    }
-
     get(id: string): CredentialDescriptor | undefined {
         return this.descriptors.get(id as CredentialKind);
     }
 
     list(): CredentialDescriptor[] {
-        return [...this.descriptors.values()];
+        return this.descriptors.values().toArray();
     }
 
     listByRole(role: CredentialRole): CredentialDescriptor[] {
-        return [...this.descriptors.values()].filter((d) => d.role === role);
+        return this.descriptors
+            .values()
+            .filter((d) => d.role === role)
+            .toArray();
     }
 
     register(d: CredentialDescriptor): void {

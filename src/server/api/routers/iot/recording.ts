@@ -15,28 +15,43 @@ import {
 } from '~/server/api/trpc';
 import { type Result } from '~/server/api/types/types';
 import {
-    createRecordingProps,
-    getRecordingProps,
+    recordingCreateProperties,
+    recordingProperties,
 } from '~/server/api/types/zod';
 import { location, recording } from '~/server/db/schemas/iot';
 import { applyAudioFilters } from '~/server/helpers/audio';
 
+const idInputSchema = z.object({ id: z.number().int().positive() });
+const recordingAdminInputSchema = z.object({
+    deviceId: z.number().int().positive(),
+    fileBase64: z.string().min(1).max(50_000_000),
+    fileName: z.string().min(1).max(256).optional(),
+});
+const recordingListAdminInputSchema = z
+    .object({
+        device_id: z.number().int().positive().optional(),
+        limit: z.number().int().min(1).max(200).default(100),
+        location_id: z.number().int().positive().optional(),
+        offset: z.number().int().nonnegative().default(0),
+    })
+    .optional();
+
 async function getRecording(
-    input: z.infer<typeof getRecordingProps>,
+    input: z.infer<typeof recordingProperties>,
     context: ContextType,
 ): Promise<Result<typeof recording.$inferSelect>> {
-    const res = await context.db.query.recording.findFirst({
+    const result = await context.db.query.recording.findFirst({
         where: (recording) => eq(recording.id, input.id),
     });
 
-    if (!res) {
+    if (!result) {
         return {
             error: `Recording id ${input.id} not found`,
             status: 404,
         };
     }
 
-    return { data: res };
+    return { data: result };
 }
 
 function getRecordingFileName(date: Date) {
@@ -44,7 +59,7 @@ function getRecordingFileName(date: Date) {
 }
 
 async function getRecordingNoFile(
-    input: z.infer<typeof getRecordingProps>,
+    input: z.infer<typeof recordingProperties>,
     context: ContextType,
 ) {
     return await context.db.query.recording.findFirst({
@@ -76,13 +91,7 @@ async function getRecordingsNoFile(context: ContextType) {
 
 export const recordingsRouter = createTRPCRouter({
     createAdmin: adminProcedure
-        .input(
-            z.object({
-                deviceId: z.number().int().positive(),
-                fileBase64: z.string().min(1).max(50_000_000),
-                fileName: z.string().min(1).max(256).optional(),
-            }),
-        )
+        .input(recordingAdminInputSchema)
         .mutation(async ({ ctx, input }) => {
             const development = await ctx.db.query.device.findFirst({
                 columns: { id: true, location_id: true, name: true },
@@ -112,7 +121,7 @@ export const recordingsRouter = createTRPCRouter({
         }),
 
     createRecording: deviceProcedure
-        .input(createRecordingProps)
+        .input(recordingCreateProperties)
         .mutation(async ({ ctx, input }) => {
             if (input.device.device_id !== ctx.device.device_id) {
                 return {
@@ -138,37 +147,41 @@ export const recordingsRouter = createTRPCRouter({
                 .where(eq(location.id, ctx.device.location_id))
                 .limit(1);
 
-            fanOutEvent(
-                'recording_created',
-                (to) =>
-                    new RecordingCreatedEmail(to, {
-                        deviceName: ctx.device.name,
-                        durationSeconds: input.duration_seconds,
-                        fileName,
-                        locationName: loc?.name ?? null,
-                    }),
-            ).catch((error: unknown) =>
-                captureError(error, { tag: 'recording.notify' }),
-            );
+            void (async () => {
+                try {
+                    await fanOutEvent(
+                        'recording_created',
+                        (to) =>
+                            new RecordingCreatedEmail(to, {
+                                deviceName: ctx.device.name,
+                                durationSeconds: input.duration_seconds,
+                                fileName,
+                                locationName: loc?.name ?? null,
+                            }),
+                    );
+                } catch (error: unknown) {
+                    captureError(error, { tag: 'recording.notify' });
+                }
+            })();
 
             return { status: 201 };
         }),
 
     delete: adminProcedure
-        .input(z.object({ id: z.number().int().positive() }))
+        .input(idInputSchema)
         .mutation(async ({ ctx, input }) => {
             await ctx.db.delete(recording).where(eq(recording.id, input.id));
             return { ok: true };
         }),
 
     getRecording: publicProcedure
-        .input(getRecordingProps)
+        .input(recordingProperties)
         .query(async ({ ctx, input }) => {
             return await getRecording(input, ctx);
         }),
 
     getRecordingNoFile: publicProcedure
-        .input(getRecordingProps)
+        .input(recordingProperties)
         .query(async ({ ctx, input }) => {
             return await getRecordingNoFile(input, ctx);
         }),
@@ -190,16 +203,7 @@ export const recordingsRouter = createTRPCRouter({
     }),
 
     listAdmin: adminProcedure
-        .input(
-            z
-                .object({
-                    device_id: z.number().int().positive().optional(),
-                    limit: z.number().int().min(1).max(200).default(100),
-                    location_id: z.number().int().positive().optional(),
-                    offset: z.number().int().nonnegative().default(0),
-                })
-                .optional(),
-        )
+        .input(recordingListAdminInputSchema)
         .query(async ({ ctx, input }) => {
             const limit = input?.limit ?? 100;
             const offset = input?.offset ?? 0;

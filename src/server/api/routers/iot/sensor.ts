@@ -13,24 +13,30 @@ import {
     publicProcedure,
 } from '~/server/api/trpc';
 import { type Result } from '~/server/api/types/types';
-import { getSensorProps } from '~/server/api/types/zod';
+import { sensorProperties } from '~/server/api/types/zod';
 import { sensor, sensorsToDevices } from '~/server/db/schemas/iot';
 
+const idInputSchema = z.object({ id: z.number().int().positive() });
+const deviceSensorsInputSchema = z.object({
+    deviceId: z.number().int().positive(),
+    sensorIds: z.array(z.number().int().positive()),
+});
+
 export async function getSensor(
-    input: z.infer<typeof getSensorProps>,
+    input: z.infer<typeof sensorProperties>,
     context: ContextType,
 ): Promise<Result<typeof sensor.$inferSelect>> {
-    const res = await context.db.query.sensor.findFirst({
+    const result = await context.db.query.sensor.findFirst({
         where: (sensor, { eq }) => eq(sensor.id, input.id),
     });
 
-    if (!res)
+    if (!result)
         return {
             error: `Sensor id ${input.id} not found`,
             status: 404,
         };
 
-    return { data: res };
+    return { data: result };
 }
 
 async function assertUnitExists(
@@ -39,7 +45,7 @@ async function assertUnitExists(
 ): Promise<void> {
     const found = await context.db.query.sensorUnit.findFirst({
         columns: { id: true },
-        where: (u, { eq: e }) => e(u.value, value),
+        where: (u, { eq: equals }) => equals(u.value, value),
     });
     if (!found) {
         throw new TRPCError({
@@ -69,7 +75,7 @@ export const sensorRouter = createTRPCRouter({
         }),
 
     delete: adminProcedure
-        .input(z.object({ id: z.number().int().positive() }))
+        .input(idInputSchema)
         .mutation(async ({ ctx, input }) => {
             await ctx.db
                 .delete(sensorsToDevices)
@@ -79,7 +85,7 @@ export const sensorRouter = createTRPCRouter({
         }),
 
     getSensor: publicProcedure
-        .input(getSensorProps)
+        .input(sensorProperties)
         .query(async ({ ctx, input }) => {
             return await getSensor(input, ctx);
         }),
@@ -104,12 +110,7 @@ export const sensorRouter = createTRPCRouter({
     }),
 
     setDeviceSensors: adminProcedure
-        .input(
-            z.object({
-                deviceId: z.number().int().positive(),
-                sensorIds: z.array(z.number().int().positive()),
-            }),
-        )
+        .input(deviceSensorsInputSchema)
         .mutation(async ({ ctx, input }) => {
             await ctx.db
                 .delete(sensorsToDevices)

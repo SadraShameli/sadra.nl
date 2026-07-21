@@ -123,7 +123,7 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
         setPrOnly(false);
     };
 
-    const setColumns = useMemo<ColumnDef<SetRow>[]>(
+    const workoutSetColumns = useMemo<ColumnDef<SetRow>[]>(
         () => [
             {
                 accessorKey: 'order',
@@ -365,7 +365,9 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
                         <div className="flex flex-col gap-1.5">
                             <Label className="text-xs">Search</Label>
                             <Input
-                                onChange={(e) => setSearch(e.target.value)}
+                                onChange={(event) =>
+                                    setSearch(event.target.value)
+                                }
                                 placeholder="Search exercise name…"
                                 value={search}
                             />
@@ -413,7 +415,7 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
                                         </CardHeader>
                                         <CardContent>
                                             <DataTable
-                                                columns={setColumns}
+                                                columns={workoutSetColumns}
                                                 data={wex.sets}
                                                 emptyState={
                                                     <EmptyState

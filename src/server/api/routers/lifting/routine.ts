@@ -3,9 +3,9 @@ import { TRPCError } from '@trpc/server';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 
 import {
-    createRoutineInputSchema,
     idActionSchema,
     reorderRoutinesInputSchema,
+    routineInputSchema,
     updateRoutineInputSchema,
 } from '~/lib/lifting/schemas';
 import { createTRPCRouter, protectedProcedure } from '~/server/api/trpc';
@@ -13,7 +13,7 @@ import { liftingRoutine } from '~/server/db';
 
 export const liftingRoutineRouter = createTRPCRouter({
     create: protectedProcedure
-        .input(createRoutineInputSchema)
+        .input(routineInputSchema)
         .mutation(async ({ ctx, input }) => {
             const [row] = await ctx.db
                 .insert(liftingRoutine)

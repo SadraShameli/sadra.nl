@@ -1,1 +1,1 @@
-export const __vitestStub = true;
+export const isVitestStub = true;

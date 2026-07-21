@@ -8,7 +8,7 @@ import GithubIcon from '~/components/ui/Icons/Github';
 import GoogleIcon from '~/components/ui/Icons/Google';
 import { authClient } from '~/lib/auth/client';
 import { routes } from '~/lib/site/routes';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 export function OAuthButtons({
     hasGithub,
@@ -20,10 +20,10 @@ export function OAuthButtons({
     const [pendingGoogle, startGoogle] = useTransition();
     const [pendingGithub, startGithub] = useTransition();
     const searchParameters = useSearchParams();
-    const callbackUrl = searchParameters.get('callbackUrl') ?? routes.home;
 
     if (!hasGoogle && !hasGithub) return null;
 
+    const callbackUrl = searchParameters.get('callbackUrl') ?? routes.home;
     const signInWith = (provider: 'github' | 'google') =>
         authClient.signIn.social({ callbackURL: callbackUrl, provider });
 

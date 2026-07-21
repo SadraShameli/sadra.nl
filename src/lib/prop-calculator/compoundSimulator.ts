@@ -60,10 +60,10 @@ export function simulateCompound(inputs: CompoundInputs): CompoundOutputs {
 
     for (let t = 0; t < trials; t++) {
         let bal = startBalance;
-        let isDoubled = false;
-        let isTripled = false;
         const path = sampledPaths[t];
         if (!path) continue;
+        let isDoubled = false;
+        let isTripled = false;
         path[0] = bal;
         let stepIndex = 1;
 
@@ -84,7 +84,7 @@ export function simulateCompound(inputs: CompoundInputs): CompoundOutputs {
                 isTripled = true;
             }
 
-            if (day % STEP === 0 || day === tradingDays) {
+            if (day === tradingDays || day % STEP === 0) {
                 path[stepIndex++] = bal;
             }
         }

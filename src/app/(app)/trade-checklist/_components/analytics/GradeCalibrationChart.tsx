@@ -15,7 +15,7 @@ import {
     gradeCalibration,
     type LightAssessment,
 } from '~/lib/trading/analytics';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 const chartConfig: ChartConfig = {
     avgR: { color: 'hsl(var(--chart-2))', label: 'Avg outcome R' },

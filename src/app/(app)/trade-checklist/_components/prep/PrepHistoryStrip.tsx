@@ -2,7 +2,7 @@
 
 import type { DailyPreparationRow } from '~/lib/schemas/trading';
 
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 interface PrepHistoryStripProperties {
     history: DailyPreparationRow[];

@@ -16,37 +16,42 @@ import {
     protectedProcedure,
     publicProcedure,
 } from '~/server/api/trpc';
-import { type GetDeviceProps, type Result } from '~/server/api/types/types';
 import {
-    getDeviceProps,
-    getDeviceReadingsProps,
-    getDeviceRecordingsProps,
+    type GetDeviceProperties,
+    type Result,
+} from '~/server/api/types/types';
+import {
+    deviceProperties,
+    deviceReadingsProperties,
+    deviceRecordingsProperties,
 } from '~/server/api/types/zod';
 import { device, location, type recording } from '~/server/db/schemas/iot';
 import { generateDeviceToken } from '~/server/helpers/device-token';
 
 import { getSensor } from './sensor';
 
+const idInputSchema = z.object({ id: z.number().int().positive() });
+
 async function getDevice(
-    input: z.infer<typeof getDeviceProps>,
+    input: z.infer<typeof deviceProperties>,
     context: ContextType,
-): Promise<Result<GetDeviceProps>> {
-    const res = await context.db.query.device.findFirst({
+): Promise<Result<GetDeviceProperties>> {
+    const result = await context.db.query.device.findFirst({
         where: (device) => eq(device.device_id, input.device_id),
     });
 
-    if (!res)
+    if (!result)
         return {
             error: `Device id ${input.device_id} not found`,
             status: 404,
         };
 
     const sensorRows = await context.db.query.sensorsToDevices.findMany({
-        where: (row) => eq(row.device_id, res.id),
+        where: (row) => eq(row.device_id, result.id),
     });
     const sensors = sensorRows.map((sensor) => sensor.sensor_id);
 
-    return { data: { ...res, sensors: sensors } };
+    return { data: { ...result, sensors: sensors } };
 }
 
 export const deviceRouter = createTRPCRouter({
@@ -75,36 +80,40 @@ export const deviceRouter = createTRPCRouter({
                 })
                 .returning({ id: device.id });
 
-            fanOutEvent(
-                'device_created',
-                (to) =>
-                    new DeviceCreatedEmail(to, {
-                        deviceId: input.device_id,
-                        deviceName: input.name,
-                        locationName: loc.name,
-                    }),
-            ).catch((error: unknown) =>
-                captureError(error, { tag: 'device.notify' }),
-            );
+            void (async () => {
+                try {
+                    await fanOutEvent(
+                        'device_created',
+                        (to) =>
+                            new DeviceCreatedEmail(to, {
+                                deviceId: input.device_id,
+                                deviceName: input.name,
+                                locationName: loc.name,
+                            }),
+                    );
+                } catch (error: unknown) {
+                    captureError(error, { tag: 'device.notify' });
+                }
+            })();
 
             return { id: inserted?.id };
         }),
 
     delete: adminProcedure
-        .input(z.object({ id: z.number().int().positive() }))
+        .input(idInputSchema)
         .mutation(async ({ ctx, input }) => {
             await ctx.db.delete(device).where(eq(device.id, input.id));
             return { ok: true };
         }),
 
     getDevice: publicProcedure
-        .input(getDeviceProps)
+        .input(deviceProperties)
         .query(async ({ ctx, input }) => {
             return await getDevice(input, ctx);
         }),
 
     getDeviceReadings: publicProcedure
-        .input(getDeviceReadingsProps)
+        .input(deviceReadingsProperties)
         .query(async ({ ctx, input }) => {
             const device = await getDevice(
                 { device_id: input.device.device_id },
@@ -162,7 +171,7 @@ export const deviceRouter = createTRPCRouter({
         }),
 
     getDeviceRecordings: publicProcedure
-        .input(getDeviceRecordingsProps)
+        .input(deviceRecordingsProperties)
         .query(async ({ ctx, input }) => {
             const device = await getDevice(
                 { device_id: input.device.device_id },
@@ -198,7 +207,7 @@ export const deviceRouter = createTRPCRouter({
     }),
 
     issueToken: adminProcedure
-        .input(z.object({ id: z.number().int().positive() }))
+        .input(idInputSchema)
         .mutation(async ({ ctx, input }) => {
             const { hash, token } = await generateDeviceToken();
             const [row] = await ctx.db
@@ -226,7 +235,7 @@ export const deviceRouter = createTRPCRouter({
     }),
 
     revokeToken: adminProcedure
-        .input(z.object({ id: z.number().int().positive() }))
+        .input(idInputSchema)
         .mutation(async ({ ctx, input }) => {
             await ctx.db
                 .update(device)

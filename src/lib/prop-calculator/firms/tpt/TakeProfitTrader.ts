@@ -4,7 +4,7 @@ import {
     FirmId,
     Plan,
     type PlanInit,
-    PropFirm,
+    TradingFirm,
 } from '~/lib/prop-calculator/core';
 
 class TptPlan extends Plan {}
@@ -44,7 +44,7 @@ const SIZES = [
 
 type TptSize = (typeof SIZES)[number];
 
-export class TakeProfitTrader extends PropFirm {
+export class TakeProfitTrader extends TradingFirm {
     readonly displayName = 'Take Profit Trader';
     readonly id = FirmId.Tpt;
     readonly plans = SIZES.map(

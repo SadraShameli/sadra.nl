@@ -6,7 +6,7 @@ import type { DailyPreparationRow } from '~/lib/schemas/trading';
 import type { PrepChecks } from '~/lib/trading/types';
 
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 import { PrepChecklist } from './prep/PrepChecklist';
 import { PrepHistoryStrip } from './prep/PrepHistoryStrip';

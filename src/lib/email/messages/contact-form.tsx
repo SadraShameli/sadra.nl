@@ -12,11 +12,8 @@ interface ContactFormTemplateProperties {
 }
 
 export class ContactFormEmail extends EmailMessage {
+    readonly subject: string;
     readonly to: string;
-
-    get subject(): string {
-        return `Contact form — ${this.name}`;
-    }
 
     constructor(
         to: string,
@@ -26,6 +23,7 @@ export class ContactFormEmail extends EmailMessage {
         private readonly message: string,
     ) {
         super();
+        this.subject = `Contact form — ${name}`;
         this.to = to;
     }
 

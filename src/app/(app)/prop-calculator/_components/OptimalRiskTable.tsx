@@ -20,7 +20,7 @@ import {
     type SimOutputs,
     simulate,
 } from '~/lib/prop-calculator';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 import { panelDescriptions } from './kpiDescriptions';
 
@@ -71,7 +71,7 @@ export default function OptimalRiskTable({
             });
             const bestNet = partial.reduce(
                 (best, r) => Math.max(r.out.expectedMonthlyNet, best),
-                Number.NEGATIVE_INFINITY,
+                -Infinity,
             );
             const results: Row[] = partial.map((r) => ({
                 ...r,

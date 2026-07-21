@@ -9,10 +9,10 @@ export async function register(): Promise<void> {
         tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1,
     };
 
-    if (process.env.NEXT_RUNTIME === 'nodejs') {
-        Sentry.init(common);
-    }
-    if (process.env.NEXT_RUNTIME === 'edge') {
+    if (
+        process.env.NEXT_RUNTIME === 'nodejs' ||
+        process.env.NEXT_RUNTIME === 'edge'
+    ) {
         Sentry.init(common);
     }
 }

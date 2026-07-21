@@ -16,29 +16,31 @@ import {
 } from '~/server/api/trpc';
 import { type Result } from '~/server/api/types/types';
 import {
-    getLocationProps,
-    getLocationReadingsProps,
+    locationProperties,
+    locationReadingsProperties,
 } from '~/server/api/types/zod';
 import { location, reading, type recording } from '~/server/db/schemas/iot';
 
 import { getSensor } from './sensor';
 
+const idInputSchema = z.object({ id: z.number().int().positive() });
+
 async function getLocation(
-    input: z.infer<typeof getLocationProps>,
+    input: z.infer<typeof locationProperties>,
     context: ContextType,
 ): Promise<Result<typeof location.$inferSelect>> {
-    const res = await context.db.query.location.findFirst({
+    const result = await context.db.query.location.findFirst({
         where: (location) => eq(location.location_id, input.location_id),
     });
 
-    if (!res) {
+    if (!result) {
         return {
             error: `Location id ${input.location_id} not found`,
             status: 404,
         };
     }
 
-    return { data: res };
+    return { data: result };
 }
 
 export const locationRouter = createTRPCRouter({
@@ -49,34 +51,38 @@ export const locationRouter = createTRPCRouter({
                 .insert(location)
                 .values(input)
                 .returning({ id: location.id });
-            fanOutEvent(
-                'location_created',
-                (to) =>
-                    new LocationCreatedEmail(to, {
-                        locationId: input.location_id,
-                        locationName: input.name,
-                    }),
-            ).catch((error: unknown) =>
-                captureError(error, { tag: 'location.notify' }),
-            );
+            void (async () => {
+                try {
+                    await fanOutEvent(
+                        'location_created',
+                        (to) =>
+                            new LocationCreatedEmail(to, {
+                                locationId: input.location_id,
+                                locationName: input.name,
+                            }),
+                    );
+                } catch (error: unknown) {
+                    captureError(error, { tag: 'location.notify' });
+                }
+            })();
             return { id: inserted?.id };
         }),
 
     delete: adminProcedure
-        .input(z.object({ id: z.number().int().positive() }))
+        .input(idInputSchema)
         .mutation(async ({ ctx, input }) => {
             await ctx.db.delete(location).where(eq(location.id, input.id));
             return { ok: true };
         }),
 
     getLocation: publicProcedure
-        .input(getLocationProps)
+        .input(locationProperties)
         .query(async ({ ctx, input }) => {
             return await getLocation(input, ctx);
         }),
 
     getLocationDevices: publicProcedure
-        .input(getLocationProps)
+        .input(locationProperties)
         .query(async ({ ctx, input }) => {
             const location = await getLocation(input, ctx);
             if (!location.data) {
@@ -94,7 +100,7 @@ export const locationRouter = createTRPCRouter({
         }),
 
     getLocationReadings: publicProcedure
-        .input(getLocationReadingsProps)
+        .input(locationReadingsProperties)
         .query(async ({ ctx, input }) => {
             const location = await getLocation(
                 { location_id: input.location.location_id },
@@ -130,7 +136,7 @@ export const locationRouter = createTRPCRouter({
         }),
 
     getLocationRecordings: publicProcedure
-        .input(getLocationProps)
+        .input(locationProperties)
         .query(async ({ ctx, input }) => {
             const location = await getLocation(
                 { location_id: input.location_id },
@@ -177,6 +183,9 @@ export const locationRouter = createTRPCRouter({
         }
 
         const period = 24;
+        const sinceDate = new Date(
+            latestReadingDate.getTime() - period * 60 * 60 * 1000,
+        );
         const rows = await ctx.db
             .select({ location })
             .from(location)
@@ -184,13 +193,7 @@ export const locationRouter = createTRPCRouter({
                 reading,
                 and(
                     eq(location.id, reading.location_id),
-                    gte(
-                        reading.created_at,
-                        new Date(
-                            latestReadingDate.getTime() -
-                                period * 60 * 60 * 1000,
-                        ),
-                    ),
+                    gte(reading.created_at, sinceDate),
                 ),
             )
             .groupBy(location.id)

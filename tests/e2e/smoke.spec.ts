@@ -7,33 +7,33 @@ test('homepage renders hero', async ({ page }) => {
 });
 
 test('robots route returns rules', async ({ request }) => {
-    const res = await request.get('/robots.txt');
-    expect(res.status()).toBe(200);
-    const body = await res.text();
+    const response = await request.get('/robots.txt');
+    expect(response.status()).toBe(200);
+    const body = await response.text();
     expect(body).toContain('User-Agent');
     expect(body).not.toContain('acme.com');
 });
 
 test('sitemap route exposes static paths', async ({ request }) => {
-    const res = await request.get('/sitemap.xml');
-    expect(res.status()).toBe(200);
-    const body = await res.text();
+    const response = await request.get('/sitemap.xml');
+    expect(response.status()).toBe(200);
+    const body = await response.text();
     expect(body).toContain('/portfolio');
     expect(body).toContain('/prop-calculator');
 });
 
 test('health endpoint reports ok', async ({ request }) => {
-    const res = await request.get('/api/health');
-    expect([200, 503]).toContain(res.status());
-    const body = (await res.json()) as { status: string };
+    const response = await request.get('/api/health');
+    expect([200, 503]).toContain(response.status());
+    const body = (await response.json()) as { status: string };
     expect(['ok', 'degraded']).toContain(body.status);
 });
 
 test('iot ingest rejects requests without a device token', async ({
     request,
 }) => {
-    const res = await request.post('/api/reading', {
+    const response = await request.post('/api/reading', {
         data: { device_id: 1, sensors: { '1': 42 } },
     });
-    expect(res.status()).toBeGreaterThanOrEqual(400);
+    expect(response.status()).toBeGreaterThanOrEqual(400);
 });

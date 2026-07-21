@@ -16,7 +16,7 @@ import {
     type UnitWeight,
 } from '~/lib/lifting/types';
 import { routes } from '~/lib/site/routes';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 import { api, type RouterOutputs } from '~/trpc/react';
 
 import { RestTimerOverlay } from '../shared/RestTimerOverlay';
@@ -42,7 +42,7 @@ export function LogShell({ initialSettings }: LogShellProperties) {
             router.push(routes.lifting.history);
         },
     });
-    const addExercise = api.lifting.workout.addExercise.useMutation({
+    const exerciseAddition = api.lifting.workout.addExercise.useMutation({
         onSuccess: () => utilities.lifting.workout.getActive.invalidate(),
     });
 
@@ -68,7 +68,7 @@ export function LogShell({ initialSettings }: LogShellProperties) {
             <div>
                 <Skeleton className="mb-4 h-16 w-full rounded-2xl" />
                 <div className="flex flex-col gap-4">
-                    {Array.from({ length: 2 }).map((_, index) => (
+                    {Array.from({ length: 2 }, (_, index) => (
                         <Skeleton
                             className="h-48 w-full rounded-2xl"
                             key={index}
@@ -166,7 +166,7 @@ export function LogShell({ initialSettings }: LogShellProperties) {
             <div className="mt-6">
                 <AddExerciseSheet
                     onAdd={(exerciseId) =>
-                        addExercise.mutate({
+                        exerciseAddition.mutate({
                             exerciseId,
                             workoutId: workout.id,
                         })

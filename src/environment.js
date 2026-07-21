@@ -1,7 +1,7 @@
 import { createEnv } from '@t3-oss/env-nextjs';
 import { z } from 'zod';
 
-export const env = createEnv({
+export const environment = createEnv({
     client: {
         NEXT_PUBLIC_SENTRY_DSN: z.url().optional(),
         NEXT_PUBLIC_SERVER_URL: z.url(),

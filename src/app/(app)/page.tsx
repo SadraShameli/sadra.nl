@@ -7,7 +7,7 @@ import SectionTitle from '~/components/SectionTitle';
 import { Badge } from '~/components/ui/Badge';
 import { homepageContent, siteContent } from '~/lib/site/content';
 import { routes } from '~/lib/site/routes';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 import AboutSection from './_components/About';
 import ReadingSection from './_components/Reading/Reading';

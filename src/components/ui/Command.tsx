@@ -10,7 +10,7 @@ import {
     DialogDescription,
     DialogTitle,
 } from '~/components/ui/Dialog';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 const Command = React.forwardRef<
     React.ComponentRef<typeof CommandPrimitive>,

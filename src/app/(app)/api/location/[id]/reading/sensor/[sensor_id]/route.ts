@@ -1,27 +1,33 @@
 import { type NextRequest, NextResponse } from 'next/server';
 
-import { idSensorPathParamSchema, parseRouteParams } from '~/lib/schemas/api';
+import {
+    idSensorPathParameterSchema,
+    parseRouteParameters,
+} from '~/lib/schemas/api';
 import { api } from '~/trpc/server';
 
 export async function GET(
     request: NextRequest,
     { params }: { params: Promise<{ id: string; sensor_id: string }> },
 ) {
-    const parsed = parseRouteParams(idSensorPathParamSchema, await params);
+    const parsed = parseRouteParameters(
+        idSensorPathParameterSchema,
+        await params,
+    );
     if (parsed.response) return parsed.response;
 
-    const res = await api.location.getLocationReadings({
+    const result = await api.location.getLocationReadings({
         location: { location_id: parsed.data.id },
         sensor_id: parsed.data.sensor_id,
     });
 
-    if (!res.data) {
+    if (!result.data) {
         const status =
-            'status' in res && typeof res.status === 'number'
-                ? res.status
+            'status' in result && typeof result.status === 'number'
+                ? result.status
                 : 500;
-        return NextResponse.json(res, { status });
+        return NextResponse.json(result, { status });
     }
 
-    return NextResponse.json(res.data);
+    return NextResponse.json(result.data);
 }

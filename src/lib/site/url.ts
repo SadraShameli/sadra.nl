@@ -1,5 +1,6 @@
 export function getPublicSiteOrigin(): string {
-    const explicit = process.env.NEXT_PUBLIC_SERVER_URL?.trim();
+    const rawServerUrl = process.env.NEXT_PUBLIC_SERVER_URL;
+    const explicit = rawServerUrl?.trim();
     if (explicit) {
         return explicit.replace(/\/$/, '');
     }

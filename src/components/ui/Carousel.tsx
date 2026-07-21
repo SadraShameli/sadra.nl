@@ -7,7 +7,7 @@ import { ArrowLeft, ArrowRight } from 'lucide-react';
 import * as React from 'react';
 
 import { Button } from '~/components/ui/Button';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 type CarouselApi = UseEmblaCarouselType[1];
 interface CarouselContextProperties extends CarouselProperties {

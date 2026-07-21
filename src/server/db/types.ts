@@ -39,9 +39,9 @@ export class SeederRegistry {
         return this;
     }
 
-    select(filter?: (seeder: DatabaseSeeder) => boolean): DatabaseSeeder[] {
-        const selected = filter
-            ? this.seeders.filter((s) => filter(s))
+    select(isMatch?: (seeder: DatabaseSeeder) => boolean): DatabaseSeeder[] {
+        const selected = isMatch
+            ? this.seeders.filter((s) => isMatch(s))
             : [...this.seeders];
         return selected.toSorted((a, b) => a.priority - b.priority);
     }

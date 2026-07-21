@@ -3,11 +3,11 @@ import { NextResponse } from 'next/server';
 import { api } from '~/trpc/server';
 
 export async function GET() {
-    const res = await api.recording.getRecordings();
+    const result = await api.recording.getRecordings();
 
-    if (res.data) {
-        return NextResponse.json(res.data, { status: res.status });
+    if (result.data) {
+        return NextResponse.json(result.data, { status: result.status });
     }
 
-    return NextResponse.json(res, { status: res.status });
+    return NextResponse.json(result, { status: result.status });
 }

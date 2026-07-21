@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 const CHARS = String.raw`!<>-\/[]{}=+*^?#@$%`;
 
@@ -71,12 +71,10 @@ export default function GlitchBrand({
 }
 
 function corrupt(text: string): string {
-    return Array.from(text)
-        .map((c) => {
-            if (c === '_') return c;
-            return Math.random() < 0.45
-                ? (CHARS[Math.floor(Math.random() * CHARS.length)] ?? c)
-                : c;
-        })
-        .join('');
+    return Array.from(text, (c) => {
+        if (c === '_') return c;
+        return Math.random() < 0.45
+            ? (CHARS[Math.floor(Math.random() * CHARS.length)] ?? c)
+            : c;
+    }).join('');
 }

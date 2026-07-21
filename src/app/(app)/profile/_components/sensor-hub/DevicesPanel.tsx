@@ -568,10 +568,9 @@ function EditDeviceDialog({
                                         <FormControl>
                                             <Input
                                                 inputMode="numeric"
-                                                onChange={(e) => {
-                                                    const n = Number.parseInt(
-                                                        e.target.value,
-                                                        10,
+                                                onChange={(event) => {
+                                                    const n = Number(
+                                                        event.target.value,
                                                     );
                                                     field.onChange(
                                                         Number.isFinite(n)
@@ -598,10 +597,9 @@ function EditDeviceDialog({
                                         <FormControl>
                                             <Input
                                                 inputMode="numeric"
-                                                onChange={(e) => {
-                                                    const n = Number.parseInt(
-                                                        e.target.value,
-                                                        10,
+                                                onChange={(event) => {
+                                                    const n = Number(
+                                                        event.target.value,
                                                     );
                                                     field.onChange(
                                                         Number.isFinite(n)
@@ -722,17 +720,21 @@ function ManageSensorsDialog({
     const allSensors = api.sensor.listAdmin.useQuery();
     const devices = api.device.listAdmin.useQuery();
     const device = devices.data?.find((d) => d.id === deviceId);
-    const getDevice = api.device.getDevice.useQuery(
+    const deviceQuery = api.device.getDevice.useQuery(
         device ? { device_id: device.device_id } : { device_id: 0 },
         { enabled: !!device },
     );
 
     const [selected, setSelected] = useState<Set<number>>(new Set());
     useEffect(() => {
-        if (getDevice.data && 'data' in getDevice.data && getDevice.data.data) {
-            setSelected(new Set(getDevice.data.data.sensors));
+        if (
+            deviceQuery.data &&
+            'data' in deviceQuery.data &&
+            deviceQuery.data.data
+        ) {
+            setSelected(new Set(deviceQuery.data.data.sensors));
         }
-    }, [getDevice.data]);
+    }, [deviceQuery.data]);
 
     const save = api.sensor.setDeviceSensors.useMutation({
         onError: (error) => toast.error(error.message),
@@ -856,10 +858,9 @@ function NewDeviceDialog({
                                     <FormControl>
                                         <Input
                                             inputMode="numeric"
-                                            onChange={(e) => {
-                                                const n = Number.parseInt(
-                                                    e.target.value,
-                                                    10,
+                                            onChange={(event) => {
+                                                const n = Number(
+                                                    event.target.value,
                                                 );
                                                 field.onChange(
                                                     Number.isFinite(n) ? n : 0,
@@ -919,10 +920,9 @@ function NewDeviceDialog({
                                         <FormControl>
                                             <Input
                                                 inputMode="numeric"
-                                                onChange={(e) => {
-                                                    const n = Number.parseInt(
-                                                        e.target.value,
-                                                        10,
+                                                onChange={(event) => {
+                                                    const n = Number(
+                                                        event.target.value,
                                                     );
                                                     field.onChange(
                                                         Number.isFinite(n)
@@ -949,10 +949,9 @@ function NewDeviceDialog({
                                         <FormControl>
                                             <Input
                                                 inputMode="numeric"
-                                                onChange={(e) => {
-                                                    const n = Number.parseInt(
-                                                        e.target.value,
-                                                        10,
+                                                onChange={(event) => {
+                                                    const n = Number(
+                                                        event.target.value,
                                                     );
                                                     field.onChange(
                                                         Number.isFinite(n)

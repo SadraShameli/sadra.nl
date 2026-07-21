@@ -5,38 +5,31 @@ export interface PlateLoad {
 }
 
 export class PlateCalculator {
-    get bar(): number {
-        return this.barKg;
-    }
-    get plates(): readonly number[] {
-        return this.available;
-    }
+    readonly bar: number;
 
-    private readonly available: number[];
-
-    private readonly barKg: number;
+    readonly plates: readonly number[];
 
     constructor(barKg: number, availableKg: readonly number[]) {
-        this.barKg = Math.max(0, barKg);
-        this.available = availableKg
+        this.bar = Math.max(0, barKg);
+        this.plates = availableKg
             .filter((p) => Number.isFinite(p) && p > 0)
             .toSorted((a, b) => b - a);
     }
 
     load(targetKg: number): PlateLoad {
-        if (!Number.isFinite(targetKg) || targetKg <= this.barKg) {
+        if (!Number.isFinite(targetKg) || targetKg <= this.bar) {
             return {
                 perSide: [],
-                remainderKg: targetKg < this.barKg ? this.barKg - targetKg : 0,
-                totalLoadedKg: this.barKg,
+                remainderKg: targetKg < this.bar ? this.bar - targetKg : 0,
+                totalLoadedKg: this.bar,
             };
         }
 
-        const totalPlatesKg = targetKg - this.barKg;
+        const totalPlatesKg = targetKg - this.bar;
         let perSideKg = totalPlatesKg / 2;
         const perSide: number[] = [];
 
-        for (const plate of this.available) {
+        for (const plate of this.plates) {
             while (perSideKg + 1e-6 >= plate) {
                 perSide.push(plate);
                 perSideKg -= plate;

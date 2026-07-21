@@ -5,13 +5,13 @@ import { AlertCircle } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
-import type { Booking, LedgerRef } from '~/lib/accounting/core/types';
+import type { Booking, LedgerReference } from '~/lib/accounting/core/types';
 
-import { Badge, type BadgeProps } from '~/components/ui/Badge';
+import { Badge, type BadgeProperties } from '~/components/ui/Badge';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { CredentialRegistry } from '~/lib/accounting/credentials/index';
 import { type RunStatus } from '~/lib/accounting/runs/types';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 import { api, type RouterOutputs } from '~/trpc/react';
 
 import { PushPanel } from './PushPanel';
@@ -21,7 +21,7 @@ type RunDetailData = RouterOutputs['accounting']['runs']['get'];
 
 const toastError = (e: { message: string }) => toast.error(e.message);
 
-const STATUS_VARIANT: Record<RunStatus, BadgeProps['variant']> = {
+const STATUS_VARIANT: Record<RunStatus, BadgeProperties['variant']> = {
     failed: 'destructive',
     partial: 'warning',
     planned: 'outline',
@@ -76,7 +76,7 @@ export function RunDetail({ initial }: { initial: RunDetailData }) {
         { credentialId: accountingCredentialId },
         { enabled: !!accountingCredentialId },
     );
-    const ledgerOptions = useMemo<LedgerRef[]>(
+    const ledgerOptions = useMemo<LedgerReference[]>(
         () =>
             (ledgersQ.data ?? []).map((l) => ({
                 id: l.externalId,

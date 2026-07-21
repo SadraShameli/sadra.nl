@@ -8,11 +8,11 @@ import { SourceRegistry } from '~/lib/accounting/sources/source';
 
 class PlaneCsvSource implements FileSource {
     readonly acceptExtension = '.csv';
+
     readonly credentialKind = 'plane';
     readonly id = 'plane-csv';
     readonly kind = 'file' as const;
     readonly label = 'Plane.com payouts (CSV)';
-
     private readonly parser = new PlaneCsvParser();
 
     parse(content: string, meta: Record<string, unknown>): RawTransaction[] {
@@ -22,4 +22,6 @@ class PlaneCsvSource implements FileSource {
 
 export const planeCsvSource = new PlaneCsvSource();
 
-SourceRegistry.instance().register(planeCsvSource);
+{
+    SourceRegistry.instance().register(planeCsvSource);
+}

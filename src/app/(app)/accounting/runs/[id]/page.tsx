@@ -1,7 +1,7 @@
 import { type Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 import { api, HydrateClient } from '~/trpc/server';
 
 import { RunDetail } from '../../_components/RunDetail';

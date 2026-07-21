@@ -6,7 +6,7 @@ import {
 import * as React from 'react';
 
 import { type Button, buttonVariants } from '~/components/ui/Button';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 type PaginationLinkProperties = Pick<
     React.ComponentProps<typeof Button>,

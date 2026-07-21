@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-    idPathParamSchema,
-    idSensorPathParamSchema,
+    idPathParameterSchema,
+    idSensorPathParameterSchema,
     MAX_RECORDING_BYTES,
-    parseRouteParams,
+    parseRouteParameters,
     positiveIntIdSchema,
     recordingBlobSchema,
 } from '~/lib/schemas/api';
@@ -28,21 +28,21 @@ describe('positiveIntIdSchema', () => {
     });
 });
 
-describe('idPathParamSchema', () => {
+describe('idPathParameterSchema', () => {
     it('accepts an `id` from a typical Next.js route param object', () => {
-        const r = idPathParamSchema.safeParse({ id: '7' });
+        const r = idPathParameterSchema.safeParse({ id: '7' });
         expect(r.success).toBe(true);
         expect(r.data?.id).toBe(7);
     });
 
     it('rejects missing id', () => {
-        expect(idPathParamSchema.safeParse({}).success).toBe(false);
+        expect(idPathParameterSchema.safeParse({}).success).toBe(false);
     });
 });
 
-describe('idSensorPathParamSchema', () => {
+describe('idSensorPathParameterSchema', () => {
     it('accepts both ids', () => {
-        const r = idSensorPathParamSchema.safeParse({
+        const r = idSensorPathParameterSchema.safeParse({
             id: '1',
             sensor_id: '2',
         });
@@ -52,7 +52,7 @@ describe('idSensorPathParamSchema', () => {
     });
 
     it('rejects when sensor_id missing', () => {
-        expect(idSensorPathParamSchema.safeParse({ id: '1' }).success).toBe(
+        expect(idSensorPathParameterSchema.safeParse({ id: '1' }).success).toBe(
             false,
         );
     });
@@ -85,15 +85,15 @@ describe('recordingBlobSchema', () => {
     });
 });
 
-describe('parseRouteParams', () => {
+describe('parseRouteParameters', () => {
     it('returns data on success', () => {
-        const r = parseRouteParams(idPathParamSchema, { id: '5' });
+        const r = parseRouteParameters(idPathParameterSchema, { id: '5' });
         expect(r.data?.id).toBe(5);
         expect(r.response).toBeUndefined();
     });
 
     it('returns a 400 NextResponse on failure', async () => {
-        const r = parseRouteParams(idPathParamSchema, { id: 'nope' });
+        const r = parseRouteParameters(idPathParameterSchema, { id: 'nope' });
         expect(r.data).toBeUndefined();
         expect(r.response).toBeDefined();
         expect(r.response?.status).toBe(400);

@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Card } from '~/components/ui/Card';
 import { formatCompactCurrency, formatDays } from '~/lib/format';
 import { FirmId } from '~/lib/prop-calculator';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 import ChartPanel from './ChartPanel';
 import CompoundingPanel from './CompoundingPanel';

@@ -18,7 +18,7 @@ import type { RunId } from '~/lib/accounting/core/ids';
 import type {
     Booking,
     ConversionResult,
-    LedgerRef,
+    LedgerReference,
 } from '~/lib/accounting/core/types';
 import type { CredentialDescriptor } from '~/lib/accounting/credentials/index';
 import type { ImportEvent, Stage } from '~/lib/accounting/runner-types';
@@ -50,7 +50,7 @@ import {
 import { STAGES } from '~/lib/accounting/runner-types';
 import { DurationFormat } from '~/lib/lifting/format';
 import { apiRoutes } from '~/lib/site/routes';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 import { api } from '~/trpc/react';
 
 import { EventLog, type LogLine } from './EventLog';
@@ -522,7 +522,7 @@ function ResultsView({
         { credentialId: accountingCredentialId },
         { enabled: isPostable },
     );
-    const ledgerOptions = useMemo<LedgerRef[]>(
+    const ledgerOptions = useMemo<LedgerReference[]>(
         () =>
             (ledgersQ.data ?? []).map((l) => ({
                 id: l.externalId,

@@ -13,7 +13,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '~/components/ui/Select';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 import { ComponentCorrelationChart } from './analytics/ComponentCorrelationChart';
 import { CumulativeRChart } from './analytics/CumulativeRChart';

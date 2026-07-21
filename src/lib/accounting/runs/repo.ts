@@ -36,7 +36,7 @@ export interface CreateRunInput {
     userId: string;
 }
 
-export class AccountingRunRepository {
+export class AccountingRunRepo {
     async create(input: CreateRunInput): Promise<RunId> {
         const [row] = await db
             .insert(accountingRun)
@@ -153,7 +153,7 @@ export class AccountingRunRepository {
     }
 }
 
-export const accountingRunRepository = new AccountingRunRepository();
+export const accountingRunRepo = new AccountingRunRepo();
 
 function toAccountingRun(
     row: typeof accountingRun.$inferSelect,

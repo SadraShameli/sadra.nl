@@ -9,7 +9,7 @@ import { DataTable } from '~/components/ui/DataTable';
 import InfoPopover from '~/components/ui/InfoPopover';
 import { formatCurrency, formatPercent } from '~/lib/format';
 import { type Plan, type SimOutputs } from '~/lib/prop-calculator';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 import { panelDescriptions } from './kpiDescriptions';
 import { probStreakAtLeast } from './lab/labMath';

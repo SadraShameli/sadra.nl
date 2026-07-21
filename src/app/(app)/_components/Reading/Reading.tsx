@@ -26,7 +26,7 @@ import {
 import { EmptyState } from '~/components/ui/EmptyState';
 import { Skeleton } from '~/components/ui/Skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 import { type device, type location } from '~/server/db/schemas/iot';
 import { api } from '~/trpc/react';
 

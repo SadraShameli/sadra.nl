@@ -46,7 +46,7 @@ import {
 } from '~/lib/schemas/trading';
 import { updateTradingPlan } from '~/lib/trading/actions';
 import { CONFLUENCE_GROUPS, WEIGHT_CATEGORIES } from '~/lib/trading/defaults';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 const KNOCKOUT_LABELS: Record<keyof TradingPlanConfig['knockouts'], string> = {
     boredomHunt: 'Boredom-driven setup hunt',
@@ -113,7 +113,7 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
         ) as TradingPlanConfig['weights'];
         const remainder = 100 - Object.values(next).reduce((a, b) => a + b, 0);
         const firstKey = Object.keys(next)[0] as keyof typeof next;
-        next[firstKey] = next[firstKey] + remainder;
+        next[firstKey] += remainder;
         updateConfig('weights', next);
     };
 
@@ -244,10 +244,12 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                             <Input
                                 className="mt-2"
                                 id="fundedR"
-                                onChange={(e) =>
+                                onChange={(event) =>
                                     updateConfig('risk', {
                                         ...config.risk,
-                                        fundedDollars: Number(e.target.value),
+                                        fundedDollars: Number(
+                                            event.target.value,
+                                        ),
                                     })
                                 }
                                 type="number"
@@ -261,10 +263,10 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                             <Input
                                 className="mt-2"
                                 id="evalR"
-                                onChange={(e) =>
+                                onChange={(event) =>
                                     updateConfig('risk', {
                                         ...config.risk,
-                                        evalDollars: Number(e.target.value),
+                                        evalDollars: Number(event.target.value),
                                     })
                                 }
                                 type="number"
@@ -278,11 +280,11 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                             <Input
                                 className="mt-2"
                                 id="maxT"
-                                onChange={(e) =>
+                                onChange={(event) =>
                                     updateConfig('risk', {
                                         ...config.risk,
                                         maxTradesPerWindow: Number(
-                                            e.target.value,
+                                            event.target.value,
                                         ),
                                     })
                                 }
@@ -308,10 +310,10 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                             <Input
                                 className="mt-2"
                                 id="minRR"
-                                onChange={(e) =>
+                                onChange={(event) =>
                                     updateConfig('setup', {
                                         ...config.setup,
-                                        minRR: Number(e.target.value),
+                                        minRR: Number(event.target.value),
                                     })
                                 }
                                 step="0.1"
@@ -326,11 +328,11 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                             <Input
                                 className="mt-2"
                                 id="pdC"
-                                onChange={(e) =>
+                                onChange={(event) =>
                                     updateConfig('setup', {
                                         ...config.setup,
                                         requiredPdArrays: Number(
-                                            e.target.value,
+                                            event.target.value,
                                         ),
                                     })
                                 }
@@ -598,7 +600,9 @@ function SortableWindowRow({
                 </Button>
                 <Input
                     className="flex-1 md:w-72 md:flex-none"
-                    onChange={(e) => onChange({ label: e.target.value })}
+                    onChange={(event) =>
+                        onChange({ label: event.target.value })
+                    }
                     placeholder="Label"
                     value={window.label}
                 />
@@ -616,13 +620,15 @@ function SortableWindowRow({
             <div className="grid grid-cols-2 gap-2 md:contents">
                 <Input
                     className="justify-center md:w-22 md:flex-none md:justify-start [&::-webkit-calendar-picker-indicator]:ml-0.5 md:[&::-webkit-calendar-picker-indicator]:ml-auto"
-                    onChange={(e) => onChange({ start: e.target.value })}
+                    onChange={(event) =>
+                        onChange({ start: event.target.value })
+                    }
                     type="time"
                     value={window.start}
                 />
                 <Input
                     className="justify-center md:w-22 md:flex-none md:justify-start [&::-webkit-calendar-picker-indicator]:ml-0.5 md:[&::-webkit-calendar-picker-indicator]:ml-auto"
-                    onChange={(e) => onChange({ end: e.target.value })}
+                    onChange={(event) => onChange({ end: event.target.value })}
                     type="time"
                     value={window.end}
                 />

@@ -4,7 +4,7 @@ import {
     FirmId,
     Plan,
     type PlanInit,
-    PropFirm,
+    TradingFirm,
 } from '~/lib/prop-calculator/core';
 
 class LucidPlan extends Plan {}
@@ -78,7 +78,7 @@ type LucidDirectSize = (typeof DIRECT_SIZES)[number];
 type LucidFlexSize = (typeof FLEX_SIZES)[number];
 type LucidProSize = (typeof PRO_SIZES)[number];
 
-export class LucidTrading extends PropFirm {
+export class LucidTrading extends TradingFirm {
     readonly displayName = 'Lucid Trading';
     readonly id = FirmId.Lucid;
     readonly plans = [

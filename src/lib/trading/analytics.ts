@@ -250,7 +250,7 @@ export function dayCellGrid(
     monthIso: string,
     rows: LightAssessment[],
 ): DayCell[][] {
-    const [yString, mString] = monthIso.split('-');
+    const [yString, mString] = monthIso.split('-', 2);
     const year = Number(yString);
     const month = Number(mString);
     const firstOfMonth = new Date(Date.UTC(year, month - 1, 1));
@@ -271,23 +271,7 @@ export function dayCellGrid(
         };
         cell.total += 1;
 
-        switch (r.outcome) {
-            case 'breakeven': {
-                cell.breakevens += 1;
-                break;
-            }
-            case 'loss': {
-                cell.losses += 1;
-                break;
-            }
-            case null: {
-                break;
-            }
-            case 'win': {
-                cell.wins += 1;
-                break;
-            }
-        }
+        tallyOutcome(cell, r.outcome);
 
         if (r.outcomeR !== null && Number.isFinite(r.outcomeR))
             cell.rSum += r.outcomeR;
@@ -738,4 +722,24 @@ function summarizeImpactBucket(b: ImpactBucket): {
         count: b.total,
         winRate: b.total > 0 ? b.wins / b.total : 0,
     };
+}
+
+function tallyOutcome(cell: DayCell, outcome: null | string): void {
+    switch (outcome) {
+        case 'breakeven': {
+            cell.breakevens += 1;
+            break;
+        }
+        case 'loss': {
+            cell.losses += 1;
+            break;
+        }
+        case null: {
+            break;
+        }
+        case 'win': {
+            cell.wins += 1;
+            break;
+        }
+    }
 }

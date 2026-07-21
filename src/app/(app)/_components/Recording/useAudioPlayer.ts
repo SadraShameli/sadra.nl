@@ -216,10 +216,10 @@ export function useAudioPlayer({ recordings }: UseAudioPlayerProperties) {
     }, []);
 
     useEffect(() => {
-        function onKeyDown(e: KeyboardEvent) {
+        function onKeyDown(event: KeyboardEvent) {
             if (
-                e.target instanceof HTMLInputElement ||
-                e.target instanceof HTMLTextAreaElement
+                event.target instanceof HTMLInputElement ||
+                event.target instanceof HTMLTextAreaElement
             )
                 return;
             const {
@@ -232,33 +232,33 @@ export function useAudioPlayer({ recordings }: UseAudioPlayerProperties) {
                 volume,
             } = keyboardReference.current;
             if (!hasRecordings) return;
-            switch (e.code) {
+            switch (event.code) {
                 case 'ArrowDown': {
-                    e.preventDefault();
+                    event.preventDefault();
                     handleVolumeChange(
                         Math.max(0, Math.round((volume - 0.1) * 10) / 10),
                     );
                     break;
                 }
                 case 'ArrowLeft': {
-                    e.preventDefault();
+                    event.preventDefault();
                     handleTimeChange(Math.max(0, time - 10));
                     break;
                 }
                 case 'ArrowRight': {
-                    e.preventDefault();
+                    event.preventDefault();
                     handleTimeChange(Math.min(duration, time + 10));
                     break;
                 }
                 case 'ArrowUp': {
-                    e.preventDefault();
+                    event.preventDefault();
                     handleVolumeChange(
                         Math.min(1, Math.round((volume + 0.1) * 10) / 10),
                     );
                     break;
                 }
                 case 'Space': {
-                    e.preventDefault();
+                    event.preventDefault();
                     togglePlayPause();
                     break;
                 }

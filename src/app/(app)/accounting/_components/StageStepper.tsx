@@ -13,7 +13,7 @@ import {
     StepperTitle,
 } from '~/components/ui/Stepper';
 import { DurationFormat } from '~/lib/lifting/format';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 export interface StageState {
     durationMs?: number;

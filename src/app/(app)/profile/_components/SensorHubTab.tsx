@@ -1,7 +1,7 @@
 'use client';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 import { DevicesPanel } from './sensor-hub/DevicesPanel';
 import { LocationsPanel } from './sensor-hub/LocationsPanel';

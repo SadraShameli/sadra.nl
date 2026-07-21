@@ -30,7 +30,7 @@ async function getUserWeekStart(context: {
 }): Promise<WeekStart> {
     const settings = await context.db.query.liftingSettings.findFirst({
         columns: { weekStart: true },
-        where: (s, { eq: e }) => e(s.userId, context.userId),
+        where: (s, { eq: equals }) => equals(s.userId, context.userId),
     });
     const raw = settings?.weekStart ?? 'mon';
     return (WEEK_START_VALUES as readonly string[]).includes(raw) ? raw : 'mon';
@@ -61,6 +61,7 @@ export const liftingAnalyticsRouter = createTRPCRouter({
     e1rmTrend: protectedProcedure
         .input(exerciseRangeInputSchema)
         .query(async ({ ctx, input }) => {
+            const toExclusive = input.to ? rangeEnd(input.to) : undefined;
             const rows = await ctx.db
                 .select({
                     reps: liftingSet.reps,
@@ -83,8 +84,8 @@ export const liftingAnalyticsRouter = createTRPCRouter({
                         ...(input.from
                             ? [gte(liftingWorkout.startedAt, input.from)]
                             : []),
-                        ...(input.to
-                            ? [lt(liftingWorkout.startedAt, rangeEnd(input.to))]
+                        ...(toExclusive
+                            ? [lt(liftingWorkout.startedAt, toExclusive)]
                             : []),
                     ),
                 )
@@ -93,23 +94,24 @@ export const liftingAnalyticsRouter = createTRPCRouter({
             const bySession = new Map<string, number>();
             for (const row of rows) {
                 if (row.weightKg === null || row.reps === null) continue;
-                const e1rm = oneRepMaxCalculator.estimate(
+                const oneRepMax = oneRepMaxCalculator.estimate(
                     row.weightKg,
                     row.reps,
                 );
-                if (e1rm <= 0) continue;
+                if (oneRepMax <= 0) continue;
                 const dayKey = row.startedAt.toISOString().slice(0, 10);
                 const previous = bySession.get(dayKey) ?? 0;
-                if (e1rm > previous) bySession.set(dayKey, e1rm);
+                if (oneRepMax > previous) bySession.set(dayKey, oneRepMax);
             }
             return [...bySession]
-                .map(([date, e1rm]) => ({ date, e1rm }))
+                .map(([date, oneRepMax]) => ({ date, e1rm: oneRepMax }))
                 .toSorted((a, b) => a.date.localeCompare(b.date));
         }),
 
     frequencyHeatmap: protectedProcedure
         .input(dateRangeInputSchema)
         .query(async ({ ctx, input }) => {
+            const toExclusive = rangeEnd(input.to);
             const rows = await ctx.db
                 .select({
                     reps: liftingSet.reps,
@@ -129,7 +131,7 @@ export const liftingAnalyticsRouter = createTRPCRouter({
                     and(
                         eq(liftingWorkout.userId, ctx.userId),
                         gte(liftingWorkout.startedAt, input.from),
-                        lt(liftingWorkout.startedAt, rangeEnd(input.to)),
+                        lt(liftingWorkout.startedAt, toExclusive),
                     ),
                 );
             const byDate = new Map<string, number>();
@@ -194,6 +196,7 @@ export const liftingAnalyticsRouter = createTRPCRouter({
     volumePerMuscle: protectedProcedure
         .input(dateRangeInputSchema)
         .query(async ({ ctx, input }) => {
+            const toExclusive = rangeEnd(input.to);
             const rows = await ctx.db
                 .select({
                     primaryMuscle: liftingExercise.primaryMuscle,
@@ -219,7 +222,7 @@ export const liftingAnalyticsRouter = createTRPCRouter({
                     and(
                         eq(liftingWorkout.userId, ctx.userId),
                         gte(liftingWorkout.startedAt, input.from),
-                        lt(liftingWorkout.startedAt, rangeEnd(input.to)),
+                        lt(liftingWorkout.startedAt, toExclusive),
                     ),
                 );
 

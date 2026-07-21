@@ -2,7 +2,7 @@ import { attachDatabasePool } from '@vercel/functions';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 
-import { env } from '~/env';
+import { environment } from '~/environment';
 
 import * as relationsModule from './relations';
 import * as accountingSchema from './schemas/accounting';
@@ -53,7 +53,7 @@ function buildConnectionString(raw: string): string {
     const url = new URL(raw);
     url.searchParams.delete('uselibpqcompat');
     url.searchParams.delete('sslmode');
-    return url.toString();
+    return url.href;
 }
 
 function shouldUseSsl(raw: string): boolean {
@@ -67,7 +67,7 @@ function shouldUseSsl(raw: string): boolean {
     }
 }
 
-const databaseUrl = env.DATABASE_URL;
+const databaseUrl = environment.DATABASE_URL;
 const pool =
     globalForDatabase.pool ??
     new pg.Pool({
@@ -84,13 +84,19 @@ const pool =
         statement_timeout: 15_000,
     });
 
-pool.on('error', (error) => {
-    console.error('[db.pool] idle client error', error);
-});
+const isPoolLifecycleAttached = (() => {
+    pool.on('error', (error) => {
+        console.error('[db.pool] idle client error', error);
+    });
 
-attachDatabasePool(pool);
+    attachDatabasePool(pool);
 
-if (env.NODE_ENV !== 'production') globalForDatabase.pool = pool;
+    return true;
+})();
+
+if (isPoolLifecycleAttached && environment.NODE_ENV !== 'production') {
+    globalForDatabase.pool = pool;
+}
 
 export const db = drizzle(pool, {
     schema: {

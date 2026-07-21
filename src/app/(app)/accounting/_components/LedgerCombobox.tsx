@@ -3,7 +3,7 @@
 import { ChevronsUpDown } from 'lucide-react';
 import { useState } from 'react';
 
-import type { LedgerRef } from '~/lib/accounting/core/types';
+import type { LedgerReference } from '~/lib/accounting/core/types';
 
 import { Button } from '~/components/ui/Button';
 import {
@@ -26,10 +26,10 @@ export function LedgerCombobox({
     placeholder = 'Select ledger…',
     value,
 }: {
-    onChange: (ledger: LedgerRef) => void;
-    options: LedgerRef[];
+    onChange: (ledger: LedgerReference) => void;
+    options: LedgerReference[];
     placeholder?: string;
-    value: LedgerRef | null;
+    value: LedgerReference | null;
 }) {
     const [open, setOpen] = useState(false);
     return (

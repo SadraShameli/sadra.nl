@@ -8,13 +8,13 @@ export type { ISODate } from '~/lib/accounting/core/date';
 export const BOOKING_DIRECTIONS = ['IN', 'OUT'] as const;
 export interface BankAccount {
     currency: CurrencyCode;
-    ledger: LedgerRef;
+    ledger: LedgerReference;
 }
 
 export interface Booking {
     amountEur: number;
-    bank: LedgerRef;
-    counterpartLedger: LedgerRef;
+    bank: LedgerReference;
+    counterpartLedger: LedgerReference;
     counterpartName: string;
     date: ISODate;
     direction: BookingDirection;
@@ -41,7 +41,7 @@ export interface DateRange {
     start: ISODate;
 }
 
-export interface LedgerRef {
+export interface LedgerReference {
     id: LedgerId;
     label: string;
 }

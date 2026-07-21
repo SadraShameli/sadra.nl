@@ -55,9 +55,8 @@ class WiseApiSource extends ApiSourceBase {
             uniqueAccountIds.map((id) => client.getRecipient(id)),
         );
         const nameByAccount = new Map<number, string>();
-        for (const [id, r] of uniqueAccountIds.map(
-            (id, index) => [id, recipientResults[index]] as const,
-        )) {
+        for (const [index, id] of uniqueAccountIds.entries()) {
+            const r = recipientResults[index];
             if (r?.accountHolderName) {
                 nameByAccount.set(id, r.accountHolderName);
             }
@@ -103,4 +102,6 @@ class WiseApiSource extends ApiSourceBase {
 
 export const wiseApiSource = new WiseApiSource();
 
-SourceRegistry.instance().register(wiseApiSource);
+{
+    SourceRegistry.instance().register(wiseApiSource);
+}

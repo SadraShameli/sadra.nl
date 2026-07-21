@@ -4,7 +4,7 @@ import { Check, Link2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { Button } from '~/components/ui/Button';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 export default function ShareLinkButton() {
     const [copied, setCopied] = useState(false);

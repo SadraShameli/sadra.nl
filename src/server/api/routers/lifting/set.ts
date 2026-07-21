@@ -4,9 +4,9 @@ import { eq, max } from 'drizzle-orm';
 
 import {
     completeSetInputSchema,
-    createSetInputSchema,
     idActionSchema,
     updateSetInputSchema,
+    workoutSetInputSchema,
 } from '~/lib/lifting/schemas';
 import { createTRPCRouter, protectedProcedure } from '~/server/api/trpc';
 import { liftingSet } from '~/server/db';
@@ -20,7 +20,7 @@ export const liftingSetRouter = createTRPCRouter({
         .mutation(async ({ ctx, input }) => {
             const sync = new PrSyncService(ctx.db);
             const set = await ctx.db.query.liftingSet.findFirst({
-                where: (s, { eq: e }) => e(s.id, input.id),
+                where: (s, { eq: equals }) => equals(s.id, input.id),
             });
             if (!set) {
                 throw new TRPCError({
@@ -47,7 +47,7 @@ export const liftingSetRouter = createTRPCRouter({
         }),
 
     create: protectedProcedure
-        .input(createSetInputSchema)
+        .input(workoutSetInputSchema)
         .mutation(async ({ ctx, input }) => {
             const sync = new PrSyncService(ctx.db);
             const exerciseId = await sync.resolveExerciseId(
@@ -104,7 +104,7 @@ export const liftingSetRouter = createTRPCRouter({
         .mutation(async ({ ctx, input }) => {
             const sync = new PrSyncService(ctx.db);
             const set = await ctx.db.query.liftingSet.findFirst({
-                where: (s, { eq: e }) => e(s.id, input.id),
+                where: (s, { eq: equals }) => equals(s.id, input.id),
                 with: {
                     workoutExercise: { with: { workout: true } },
                 },
@@ -126,7 +126,7 @@ export const liftingSetRouter = createTRPCRouter({
         .input(idActionSchema)
         .query(async ({ ctx, input }) => {
             const wex = await ctx.db.query.liftingWorkoutExercise.findFirst({
-                where: (w, { eq: e }) => e(w.id, input.id),
+                where: (w, { eq: equals }) => equals(w.id, input.id),
                 with: { workout: true },
             });
             if (wex?.workout.userId !== ctx.userId) {
@@ -147,7 +147,7 @@ export const liftingSetRouter = createTRPCRouter({
         .mutation(async ({ ctx, input }) => {
             const sync = new PrSyncService(ctx.db);
             const set = await ctx.db.query.liftingSet.findFirst({
-                where: (s, { eq: e }) => e(s.id, input.id),
+                where: (s, { eq: equals }) => equals(s.id, input.id),
                 with: {
                     workoutExercise: { with: { workout: true } },
                 },

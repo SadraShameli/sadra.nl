@@ -5,7 +5,7 @@ import { Alert, AlertDescription } from '~/components/ui/Alert';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { resetPasswordSearchSchema } from '~/lib/schemas/url';
 import { routes } from '~/lib/site/routes';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 import { ResetPasswordForm } from './ResetPasswordForm';
 

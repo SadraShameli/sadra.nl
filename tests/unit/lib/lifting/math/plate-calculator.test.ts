@@ -63,7 +63,7 @@ describe('PlateCalculator', () => {
     });
 
     it('ignores non-finite or negative plates in the input', () => {
-        const calc = new PlateCalculator(20, [20, -5, Number.NaN, 10]);
+        const calc = new PlateCalculator(20, [20, -5, NaN, 10]);
         expect(calc.plates).toEqual([20, 10]);
     });
 });

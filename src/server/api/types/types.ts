@@ -1,6 +1,6 @@
 import { type device, type sensor } from '~/server/db/schemas/iot';
 
-export type GetDeviceProps = typeof device.$inferSelect & {
+export type GetDeviceProperties = typeof device.$inferSelect & {
     sensors: number[];
 };
 

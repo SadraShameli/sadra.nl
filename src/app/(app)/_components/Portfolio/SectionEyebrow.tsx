@@ -1,5 +1,5 @@
 import Eyebrow from '~/components/Eyebrow';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 type SectionEyebrowProperties = {
     className?: string;

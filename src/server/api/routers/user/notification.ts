@@ -6,6 +6,10 @@ import { adminProcedure, createTRPCRouter } from '~/server/api/trpc';
 import { notificationPreference } from '~/server/db';
 
 const eventTypeSchema = z.enum(EVENT_TYPES);
+const notificationPrefInputSchema = z.object({
+    enabled: z.boolean(),
+    eventType: eventTypeSchema,
+});
 
 export const notificationRouter = createTRPCRouter({
     getMyPrefs: adminProcedure.query(async ({ ctx }) => {
@@ -26,18 +30,13 @@ export const notificationRouter = createTRPCRouter({
         };
         for (const row of existing) {
             const key = row.eventType;
-            if (key in out) out[key] = row.enabled;
+            if (Object.hasOwn(out, key)) out[key] = row.enabled;
         }
         return out;
     }),
 
     setPref: adminProcedure
-        .input(
-            z.object({
-                enabled: z.boolean(),
-                eventType: eventTypeSchema,
-            }),
-        )
+        .input(notificationPrefInputSchema)
         .mutation(async ({ ctx, input }) => {
             await ctx.db
                 .insert(notificationPreference)

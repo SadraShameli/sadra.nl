@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { Separator } from '~/components/ui/Separator';
 import { Switch } from '~/components/ui/Switch';
 import { EVENT_LABELS, EVENT_TYPES, type EventType } from '~/lib/notify/types';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 import { api } from '~/trpc/react';
 
 const ICONS: Record<EventType, React.ReactNode> = {
@@ -29,7 +29,7 @@ const DESCRIPTIONS: Record<EventType, string> = {
 export function SubscriptionsPanel() {
     const utilities = api.useUtils();
     const prefs = api.user.notification.getMyPrefs.useQuery();
-    const setPref = api.user.notification.setPref.useMutation({
+    const notificationPrefMutation = api.user.notification.setPref.useMutation({
         onError: (error) => toast.error(error.message),
         onSuccess: async (_data, variables) => {
             const label = EVENT_LABELS[variables.eventType];
@@ -80,9 +80,11 @@ export function SubscriptionsPanel() {
                                 </div>
                                 <Switch
                                     checked={isEnabled}
-                                    disabled={setPref.isPending}
+                                    disabled={
+                                        notificationPrefMutation.isPending
+                                    }
                                     onCheckedChange={(v) =>
-                                        setPref.mutate({
+                                        notificationPrefMutation.mutate({
                                             enabled: v,
                                             eventType,
                                         })

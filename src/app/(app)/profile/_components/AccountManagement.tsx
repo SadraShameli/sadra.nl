@@ -54,7 +54,7 @@ import {
     type AdminUserCreateInput,
     adminUserCreateInputSchema,
 } from '~/lib/schemas/auth';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 const ALL = '__all__';
 
@@ -73,7 +73,7 @@ export function AccountManagement({ callerRole }: { callerRole: Role }) {
     const [loading, setLoading] = useState(true);
     const [pending, setPending] = useState(false);
     const [roleFilter, setRoleFilter] = useState<string>(ALL);
-    const [createOpen, setCreateOpen] = useState(false);
+    const [isCreateOpen, setIsCreateOpen] = useState(false);
 
     const refetch = useCallback(async () => {
         const result = await authClient.admin.listUsers({
@@ -148,7 +148,7 @@ export function AccountManagement({ callerRole }: { callerRole: Role }) {
                 return;
             }
             toast.success('User created.');
-            setCreateOpen(false);
+            setIsCreateOpen(false);
             await refetch();
         } finally {
             setPending(false);
@@ -278,7 +278,7 @@ export function AccountManagement({ callerRole }: { callerRole: Role }) {
                 {isRoot && (
                     <Button
                         className="gap-1"
-                        onClick={() => setCreateOpen(true)}
+                        onClick={() => setIsCreateOpen(true)}
                         size="sm"
                     >
                         <Plus className="size-4" /> New user
@@ -305,9 +305,9 @@ export function AccountManagement({ callerRole }: { callerRole: Role }) {
 
                 {isRoot && (
                     <CreateUserDialog
-                        onClose={() => setCreateOpen(false)}
+                        onClose={() => setIsCreateOpen(false)}
                         onSubmit={onCreate}
-                        open={createOpen}
+                        open={isCreateOpen}
                         pending={pending}
                     />
                 )}

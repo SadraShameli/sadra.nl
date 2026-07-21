@@ -76,7 +76,7 @@ const FIVE_THREE_ONE: ProgramSchedule = {
         const buildDay = (mainSlug: string) => ({
             blocks: [
                 ...main.map((m, index) =>
-                    index === main.length - 1 && !isDeload
+                    !isDeload && index === main.length - 1
                         ? amrap(mainSlug, m.pct)
                         : straight(mainSlug, 1, m.reps, m.pct),
                 ),

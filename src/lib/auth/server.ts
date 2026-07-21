@@ -5,7 +5,7 @@ import { admin, magicLink } from 'better-auth/plugins';
 import { eq } from 'drizzle-orm';
 import { headers } from 'next/headers';
 
-import { env } from '~/env';
+import { environment } from '~/environment';
 import { ac, roles } from '~/lib/auth/permissions';
 import { ROLE, ROOT_EMAIL } from '~/lib/auth/roles';
 import {
@@ -35,9 +35,9 @@ export const auth = betterAuth({
         cookies: {
             session_token: { attributes: { sameSite: 'strict', secure: true } },
         },
-        useSecureCookies: env.NODE_ENV === 'production',
+        useSecureCookies: environment.NODE_ENV === 'production',
     },
-    baseURL: env.NEXT_PUBLIC_SERVER_URL,
+    baseURL: environment.NEXT_PUBLIC_SERVER_URL,
     database: drizzleAdapter(db, { provider: 'pg' }),
     databaseHooks: {
         user: {
@@ -49,20 +49,22 @@ export const auth = betterAuth({
                             .set({ role: ROLE.ROOT })
                             .where(eq(userTable.id, createdUser.id));
                     }
-                    mailer
-                        .send(
-                            new SignUpNotificationEmail(
-                                ROOT_EMAIL,
-                                createdUser.email,
-                                createdUser.name,
-                            ),
-                        )
-                        .catch((error: unknown) =>
+                    void (async () => {
+                        try {
+                            await mailer.send(
+                                new SignUpNotificationEmail(
+                                    ROOT_EMAIL,
+                                    createdUser.email,
+                                    createdUser.name,
+                                ),
+                            );
+                        } catch (error: unknown) {
                             captureError(error, {
                                 fields: { email: createdUser.email },
                                 tag: 'auth.signup.notify',
-                            }),
-                        );
+                            });
+                        }
+                    })();
                 },
             },
         },
@@ -97,29 +99,29 @@ export const auth = betterAuth({
         nextCookies(),
     ],
     rateLimit: {
-        enabled: env.NODE_ENV === 'production',
+        enabled: environment.NODE_ENV === 'production',
         max: 30,
         window: 15 * 60,
     },
-    secret: env.AUTH_SECRET,
+    secret: environment.AUTH_SECRET,
     session: {
         cookieCache: { enabled: false },
         expiresIn: SESSION_TTL_SECONDS,
         updateAge: SESSION_UPDATE_INTERVAL_SECONDS,
     },
     socialProviders: {
-        ...(env.AUTH_GOOGLE_ID &&
-            env.AUTH_GOOGLE_SECRET && {
+        ...(environment.AUTH_GOOGLE_ID &&
+            environment.AUTH_GOOGLE_SECRET && {
                 google: {
-                    clientId: env.AUTH_GOOGLE_ID,
-                    clientSecret: env.AUTH_GOOGLE_SECRET,
+                    clientId: environment.AUTH_GOOGLE_ID,
+                    clientSecret: environment.AUTH_GOOGLE_SECRET,
                 },
             }),
-        ...(env.AUTH_GITHUB_ID &&
-            env.AUTH_GITHUB_SECRET && {
+        ...(environment.AUTH_GITHUB_ID &&
+            environment.AUTH_GITHUB_SECRET && {
                 github: {
-                    clientId: env.AUTH_GITHUB_ID,
-                    clientSecret: env.AUTH_GITHUB_SECRET,
+                    clientId: environment.AUTH_GITHUB_ID,
+                    clientSecret: environment.AUTH_GITHUB_SECRET,
                 },
             }),
     },

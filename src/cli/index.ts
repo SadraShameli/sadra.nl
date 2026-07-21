@@ -7,7 +7,14 @@ const main = defineCommand({
         version: '1.0.0',
     },
     subCommands: {
-        seed: () => import('./commands/seed/group').then((m) => m.default),
+        accounting: async () => {
+            const commandModule = await import('./commands/accounting/group');
+            return commandModule.default;
+        },
+        seed: async () => {
+            const commandModule = await import('./commands/seed/group');
+            return commandModule.default;
+        },
     },
 });
 

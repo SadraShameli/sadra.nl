@@ -9,7 +9,7 @@ export class StreakAnalyzer {
         workoutDates: readonly Date[],
         now: Date = new Date(),
     ): number {
-        const weeks = this.uniqueWeekStartTimes(workoutDates);
+        const weeks = uniqueWeekStartTimes(workoutDates, this.weekStart);
         if (weeks.size === 0) return 0;
 
         const weekStartIndex = this.weekStart === 'mon' ? 1 : 0;
@@ -40,7 +40,7 @@ export class StreakAnalyzer {
 
     longestStreak(workoutDates: readonly Date[]): number {
         const weekStarts = [
-            ...this.uniqueWeekStartTimes(workoutDates),
+            ...uniqueWeekStartTimes(workoutDates, this.weekStart),
         ].toSorted((a, b) => a - b);
         if (weekStarts.length === 0) return 0;
 
@@ -81,13 +81,16 @@ export class StreakAnalyzer {
         ).length;
         return count / trailingWeeks;
     }
+}
 
-    private uniqueWeekStartTimes(workoutDates: readonly Date[]): Set<number> {
-        const weekStartIndex = this.weekStart === 'mon' ? 1 : 0;
-        const out = new Set<number>();
-        for (const d of workoutDates) {
-            out.add(startOfWeek(d, { weekStartsOn: weekStartIndex }).getTime());
-        }
-        return out;
+function uniqueWeekStartTimes(
+    workoutDates: readonly Date[],
+    weekStart: WeekStart,
+): Set<number> {
+    const weekStartIndex = weekStart === 'mon' ? 1 : 0;
+    const out = new Set<number>();
+    for (const d of workoutDates) {
+        out.add(startOfWeek(d, { weekStartsOn: weekStartIndex }).getTime());
     }
+    return out;
 }

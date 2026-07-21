@@ -7,7 +7,7 @@ import { liftingSettings } from '~/server/db';
 export const liftingSettingsRouter = createTRPCRouter({
     get: protectedProcedure.query(async ({ ctx }) => {
         const existing = await ctx.db.query.liftingSettings.findFirst({
-            where: (s, { eq: e }) => e(s.userId, ctx.userId),
+            where: (s, { eq: equals }) => equals(s.userId, ctx.userId),
         });
         if (existing) return existing;
 

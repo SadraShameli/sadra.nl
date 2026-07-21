@@ -101,20 +101,24 @@ export function ProgramsLibrary() {
 
     const enrolledProgramIds = useMemo(() => {
         const ids = new Set<string>();
-        for (const e of mine.data?.enrollments ?? []) ids.add(e.programId);
+        const enrollments = mine.data?.enrollments ?? [];
+        for (const enrollment of enrollments) ids.add(enrollment.programId);
         return ids;
     }, [mine.data?.enrollments]);
 
     const ownedNames = useMemo(() => {
         const names = new Set<string>();
-        for (const p of mine.data?.owned ?? []) names.add(p.name);
+        const owned = mine.data?.owned ?? [];
+        for (const p of owned) names.add(p.name);
         return names;
     }, [mine.data?.owned]);
 
     const programsById = useMemo(() => {
         const map = new Map<string, ProgramReference>();
-        for (const p of official.data ?? []) map.set(p.id, p);
-        for (const p of mine.data?.owned ?? []) map.set(p.id, p);
+        const officialPrograms = official.data ?? [];
+        const ownedPrograms = mine.data?.owned ?? [];
+        for (const p of officialPrograms) map.set(p.id, p);
+        for (const p of ownedPrograms) map.set(p.id, p);
         return map;
     }, [official.data, mine.data?.owned]);
 
@@ -141,10 +145,10 @@ export function ProgramsLibrary() {
     }, [official.data, debouncedSearch, category, days, sort]);
 
     const activeEnrollments = (mine.data?.enrollments ?? []).filter(
-        (e) => e.status === 'active',
+        (enrollment) => enrollment.status === 'active',
     );
     const otherEnrollments = (mine.data?.enrollments ?? []).filter(
-        (e) => e.status !== 'active',
+        (enrollment) => enrollment.status !== 'active',
     );
 
     const isFiltersActive =
@@ -181,11 +185,13 @@ export function ProgramsLibrary() {
                         </CardHeader>
                         <CardContent>
                             <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-                                {activeEnrollments.map((e) => (
+                                {activeEnrollments.map((enrollment) => (
                                     <ActiveEnrollmentCard
-                                        enrollment={e}
-                                        key={e.id}
-                                        program={programsById.get(e.programId)}
+                                        enrollment={enrollment}
+                                        key={enrollment.id}
+                                        program={programsById.get(
+                                            enrollment.programId,
+                                        )}
                                     />
                                 ))}
                             </div>
@@ -204,11 +210,13 @@ export function ProgramsLibrary() {
                     </CardHeader>
                     <CardContent>
                         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-                            {otherEnrollments.map((e) => (
+                            {otherEnrollments.map((enrollment) => (
                                 <EnrollmentCard
-                                    enrollment={e}
-                                    key={e.id}
-                                    program={programsById.get(e.programId)}
+                                    enrollment={enrollment}
+                                    key={enrollment.id}
+                                    program={programsById.get(
+                                        enrollment.programId,
+                                    )}
                                 />
                             ))}
                             {mine.data?.owned.map((p) => (
@@ -238,7 +246,9 @@ export function ProgramsLibrary() {
                                 <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
                                 <Input
                                     className="pl-8"
-                                    onChange={(e) => setSearch(e.target.value)}
+                                    onChange={(event) =>
+                                        setSearch(event.target.value)
+                                    }
                                     placeholder="Search programs"
                                     value={search}
                                 />
@@ -322,7 +332,7 @@ export function ProgramsLibrary() {
 
                     {official.isLoading && (
                         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-                            {Array.from({ length: 6 }).map((_, index) => (
+                            {Array.from({ length: 6 }, (_, index) => (
                                 <Skeleton
                                     className="h-36 w-full rounded-2xl"
                                     key={index}

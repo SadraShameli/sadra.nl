@@ -19,7 +19,7 @@ import {
 
 import { styles } from './styles';
 
-export interface ResumeDocumentProps {
+export interface ResumeDocumentProperties {
     basics: ResumeBasics;
     cover?: string;
     education: PortfolioSectionView[];
@@ -54,7 +54,7 @@ export function ResumeDocument({
     projects,
     research,
     showCover,
-}: ResumeDocumentProps) {
+}: ResumeDocumentProperties) {
     const isRenderCover = showCover && Boolean(cover?.length);
 
     return (

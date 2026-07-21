@@ -9,7 +9,7 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from '~/components/ui/Popover';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 interface InfoPopoverProperties {
     children: React.ReactNode;

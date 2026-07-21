@@ -29,9 +29,9 @@ import {
     TableHeader,
     TableRow,
 } from '~/components/ui/Table';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
-export type DataTableProps<TData, TValue> = {
+export type DataTableProperties<TData, TValue> = {
     belowFilter?: React.ReactNode;
     className?: string;
     columns: ColumnDef<TData, TValue>[];
@@ -75,7 +75,7 @@ export function DataTable<TData, TValue>({
     showFilter = false,
     skeletonRows = 5,
     tableClassName,
-}: DataTableProps<TData, TValue>) {
+}: DataTableProperties<TData, TValue>) {
     const [sorting, setSorting] = useState<SortingState>(initialSorting ?? []);
     const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
     const [globalFilter, setGlobalFilter] = useState('');
@@ -135,8 +135,8 @@ export function DataTable<TData, TValue>({
                                 {showFilter ? (
                                     <Input
                                         className="h-8 max-w-xs text-xs"
-                                        onChange={(e) =>
-                                            setGlobalFilter(e.target.value)
+                                        onChange={(event) =>
+                                            setGlobalFilter(event.target.value)
                                         }
                                         placeholder={filterPlaceholder}
                                         value={globalFilter}
@@ -153,8 +153,8 @@ export function DataTable<TData, TValue>({
                         {showFilter ? (
                             <Input
                                 className="h-8 max-w-xs text-xs"
-                                onChange={(e) =>
-                                    setGlobalFilter(e.target.value)
+                                onChange={(event) =>
+                                    setGlobalFilter(event.target.value)
                                 }
                                 placeholder={filterPlaceholder}
                                 value={globalFilter}
@@ -217,25 +217,24 @@ export function DataTable<TData, TValue>({
                     </TableHeader>
                     <TableBody key={isLoading ? 'skeleton' : 'data'}>
                         {isLoading ? (
-                            Array.from({ length: skeletonRows }).map(
-                                (_, index) => (
-                                    <TableRow
-                                        className="animate-in duration-500 fade-in-0 fill-mode-both"
-                                        key={`skeleton-${index}`}
-                                        style={{
-                                            animationDelay: `${index * 50}ms`,
-                                        }}
-                                    >
-                                        {Array.from({ length: colCount }).map(
-                                            (_unused, index) => (
-                                                <TableCell key={index}>
-                                                    <Skeleton className="h-4 w-full" />
-                                                </TableCell>
-                                            ),
-                                        )}
-                                    </TableRow>
-                                ),
-                            )
+                            Array.from({ length: skeletonRows }, (_, index) => (
+                                <TableRow
+                                    className="animate-in duration-500 fade-in-0 fill-mode-both"
+                                    key={`skeleton-${index}`}
+                                    style={{
+                                        animationDelay: `${index * 50}ms`,
+                                    }}
+                                >
+                                    {Array.from(
+                                        { length: colCount },
+                                        (_unused, index) => (
+                                            <TableCell key={index}>
+                                                <Skeleton className="h-4 w-full" />
+                                            </TableCell>
+                                        ),
+                                    )}
+                                </TableRow>
+                            ))
                         ) : table.getRowModel().rows.length === 0 ? (
                             <TableRow className="animate-in duration-500 fade-in-0 fill-mode-both hover:bg-transparent">
                                 <TableCell className="p-0" colSpan={colCount}>

@@ -9,7 +9,7 @@ import {
     type PlateLoad,
 } from '~/lib/lifting/math/plate-calculator';
 import { type UnitWeight } from '~/lib/lifting/types';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 interface PlateVisualizerProperties {
     availableKg: readonly number[];

@@ -15,7 +15,7 @@ import {
     cumulativeRSeries,
     type LightAssessment,
 } from '~/lib/trading/analytics';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 const chartConfig: ChartConfig = {
     cumR: { color: 'hsl(var(--chart-1))', label: 'Cumulative R' },

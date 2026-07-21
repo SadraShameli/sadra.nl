@@ -33,7 +33,7 @@ import {
     type UnitDistance,
     type UnitWeight,
 } from '~/lib/lifting/types';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 import { api, type RouterOutputs } from '~/trpc/react';
 
 import { PlateVisualizer } from '../shared/PlateVisualizer';
@@ -65,20 +65,20 @@ export function ExerciseCard({
     workoutExercise: wex,
 }: ExerciseCardProperties) {
     const [platesOpen, setPlatesOpen] = useState(false);
-    const [removeOpen, setRemoveOpen] = useState(false);
+    const [isRemoveDialogOpen, setRemoveOpen] = useState(false);
     const utilities = api.useUtils();
     const invalidate = () => utilities.lifting.workout.getActive.invalidate();
 
-    const createSet = api.lifting.set.create.useMutation({
+    const workoutSetCreation = api.lifting.set.create.useMutation({
         onSuccess: invalidate,
     });
     const updateSet = api.lifting.set.update.useMutation({
         onSuccess: invalidate,
     });
-    const deleteSet = api.lifting.set.delete.useMutation({
+    const workoutSetDeletion = api.lifting.set.delete.useMutation({
         onSuccess: invalidate,
     });
-    const removeExercise = api.lifting.workout.removeExercise.useMutation({
+    const exerciseRemoval = api.lifting.workout.removeExercise.useMutation({
         onSuccess: invalidate,
     });
 
@@ -90,7 +90,7 @@ export function ExerciseCard({
     const lastReps = lastSet?.reps ?? 0;
 
     const handleAddSet = () => {
-        createSet.mutate({
+        workoutSetCreation.mutate({
             reps: lastReps,
             type: 'working',
             weightKg: lastWeight,
@@ -191,8 +191,8 @@ export function ExerciseCard({
                         <DropdownMenuContent align="end">
                             <DropdownMenuItem
                                 className="text-destructive"
-                                onSelect={(e) => {
-                                    e.preventDefault();
+                                onSelect={(event) => {
+                                    event.preventDefault();
                                     setRemoveOpen(true);
                                 }}
                             >
@@ -201,7 +201,10 @@ export function ExerciseCard({
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
-                    <AlertDialog onOpenChange={setRemoveOpen} open={removeOpen}>
+                    <AlertDialog
+                        onOpenChange={setRemoveOpen}
+                        open={isRemoveDialogOpen}
+                    >
                         <AlertDialogContent>
                             <AlertDialogHeader>
                                 <AlertDialogTitle>
@@ -217,7 +220,9 @@ export function ExerciseCard({
                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                                 <AlertDialogAction
                                     onClick={() =>
-                                        removeExercise.mutate({ id: wex.id })
+                                        exerciseRemoval.mutate({
+                                            id: wex.id,
+                                        })
                                     }
                                 >
                                     Remove
@@ -260,7 +265,9 @@ export function ExerciseCard({
                                 <SetRow
                                     busy={updateSet.isPending}
                                     onComplete={handleCompleteSet}
-                                    onDelete={(id) => deleteSet.mutate({ id })}
+                                    onDelete={(id) =>
+                                        workoutSetDeletion.mutate({ id })
+                                    }
                                     set={data}
                                     unitDistance={unitDistance}
                                     unitWeight={unitWeight}
@@ -272,7 +279,7 @@ export function ExerciseCard({
 
                 <Button
                     className="mt-3 gap-2 self-start"
-                    disabled={createSet.isPending}
+                    disabled={workoutSetCreation.isPending}
                     onClick={handleAddSet}
                     type="button"
                     variant="outline"

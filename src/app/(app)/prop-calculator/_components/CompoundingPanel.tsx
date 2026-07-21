@@ -21,7 +21,7 @@ import {
 import InfoPopover from '~/components/ui/InfoPopover';
 import { formatCompactCurrency, formatPercent } from '~/lib/format';
 import { simulateCompound } from '~/lib/prop-calculator/compoundSimulator';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 const tooltipEntrySchema = z.object({
     dataKey: z.string(),
@@ -272,9 +272,9 @@ export default function CompoundingPanel({
                                 );
                                 const byKey: Record<string, number> =
                                     Object.fromEntries(
-                                        entries.map((e) => [
-                                            e.dataKey,
-                                            e.value,
+                                        entries.map((entry) => [
+                                            entry.dataKey,
+                                            entry.value,
                                         ]),
                                     );
                                 return (

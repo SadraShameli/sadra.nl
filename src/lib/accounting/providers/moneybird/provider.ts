@@ -185,4 +185,6 @@ export const moneybirdProvider: AccountingProvider = {
     },
 };
 
-ProviderRegistry.instance().register(moneybirdProvider);
+{
+    ProviderRegistry.instance().register(moneybirdProvider);
+}

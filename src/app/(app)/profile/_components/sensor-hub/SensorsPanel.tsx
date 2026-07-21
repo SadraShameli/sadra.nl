@@ -375,8 +375,6 @@ function UnitRowEditor({
         defaultValues: { id: unit.id, value: unit.value },
         resolver: zodResolver(sensorUnitUpdateSchema),
     });
-    const onSubmit = form.handleSubmit((values) => update.mutate(values));
-
     if (!editing) {
         return (
             <div className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-background px-3 py-2">
@@ -418,6 +416,8 @@ function UnitRowEditor({
             </div>
         );
     }
+
+    const onSubmit = form.handleSubmit((values) => update.mutate(values));
 
     return (
         <Form {...form}>
@@ -492,13 +492,13 @@ function UnitsManagerDialog({
             await invalidate();
         },
     });
-    const addForm = useForm<SensorUnitCreateInput>({
+    const unitCreateForm = useForm<SensorUnitCreateInput>({
         defaultValues: { value: '' },
         resolver: zodResolver(sensorUnitCreateSchema),
     });
-    const onAdd = addForm.handleSubmit((values) => {
+    const onAdd = unitCreateForm.handleSubmit((values) => {
         create.mutate(values, {
-            onSuccess: () => addForm.reset({ value: '' }),
+            onSuccess: () => unitCreateForm.reset({ value: '' }),
         });
     });
 
@@ -507,10 +507,10 @@ function UnitsManagerDialog({
             <DialogHeader>
                 <DialogTitle>Manage units</DialogTitle>
             </DialogHeader>
-            <Form {...addForm}>
+            <Form {...unitCreateForm}>
                 <form className="mt-2 flex flex-col gap-3" onSubmit={onAdd}>
                     <FormField
-                        control={addForm.control}
+                        control={unitCreateForm.control}
                         name="value"
                         render={({ field }) => (
                             <FormItem>

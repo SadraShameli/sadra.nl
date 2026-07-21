@@ -2,7 +2,7 @@ import { ListEnd, Volume, Volume1, Volume2 } from 'lucide-react';
 
 import { Button } from '~/components/ui/Button';
 import { Slider } from '~/components/ui/Slider';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 import { SpeedControl } from './SpeedControl';
 import { type PlaybackSpeed } from './types';

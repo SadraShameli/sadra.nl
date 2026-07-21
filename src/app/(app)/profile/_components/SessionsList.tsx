@@ -27,7 +27,7 @@ import {
     SelectValue,
 } from '~/components/ui/Select';
 import { authClient } from '~/lib/auth/client';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 interface SessionRow {
     createdAt: Date;

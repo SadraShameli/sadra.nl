@@ -4,7 +4,7 @@ import {
     type FirmId,
     type Plan,
     type PlanId,
-    type PropFirm,
+    type TradingFirm,
 } from '~/lib/prop-calculator';
 
 export enum ChartType {
@@ -26,7 +26,7 @@ export interface CalculatorState {
     copyAccounts: number;
     dayStop: DayStopRule;
     evalDiscountPercent: number;
-    firm: PropFirm;
+    firm: TradingFirm;
     firmMemory: FirmMemory;
     fundedHorizonDays: number;
     labScenarios: LabScenario[];

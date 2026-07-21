@@ -10,7 +10,7 @@ import { DateRangePicker } from '~/components/ui/DatePicker';
 import { Input } from '~/components/ui/Input';
 import { ToggleGroup, ToggleGroupItem } from '~/components/ui/ToggleGroup';
 import { OUTCOME_VALUES, SETUP_TYPE_VALUES } from '~/lib/trading/types';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 export interface JournalFilterState {
     dateFrom: null | string;
@@ -115,10 +115,10 @@ export function JournalFilters({
         >
             <div className="grid items-center gap-3 md:grid-cols-[1fr_auto]">
                 <Input
-                    onChange={(e) =>
+                    onChange={(event) =>
                         onChange({
                             ...state,
-                            query: e.target.value || null,
+                            query: event.target.value || null,
                         })
                     }
                     placeholder="Search notes…"

@@ -12,7 +12,7 @@ import {
 import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
 import { formatCompactCurrency } from '~/lib/format';
 import { type SimOutputs } from '~/lib/prop-calculator';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 interface Properties {
     result: SimOutputs;
@@ -93,7 +93,7 @@ export default function EquityCurveChartView({ result }: Properties) {
                     strokeDasharray="4 4"
                     y={drawdownLine}
                 />
-                {Array.from({ length: pathCount }).map((_, index) => (
+                {Array.from({ length: pathCount }, (_, index) => (
                     <Line
                         connectNulls={false}
                         dataKey={`p${index}`}

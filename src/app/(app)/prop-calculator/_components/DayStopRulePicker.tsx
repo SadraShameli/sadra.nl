@@ -9,7 +9,7 @@ import {
     SelectValue,
 } from '~/components/ui/Select';
 import { type DayStopRule } from '~/lib/prop-calculator';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 interface DayStopRulePickerProperties {
     compact?: boolean;
@@ -95,11 +95,9 @@ export default function DayStopRulePicker({
                     className={compact ? 'h-7 text-xs' : undefined}
                     max={20}
                     min={1}
-                    onChange={(e) => {
-                        const n = Math.max(
-                            1,
-                            Math.min(20, Math.floor(Number(e.target.value))),
-                        );
+                    onChange={(event) => {
+                        const parsed = Math.floor(Number(event.target.value));
+                        const n = Math.max(1, Math.min(20, parsed));
                         if (Number.isFinite(n))
                             onChange({ k: n, kind: 'after-k-losses' });
                     }}
@@ -113,8 +111,8 @@ export default function DayStopRulePicker({
                     aria-label="Target dollars"
                     className={compact ? 'h-7 text-xs' : undefined}
                     min={1}
-                    onChange={(e) => {
-                        const n = Math.max(1, Number(e.target.value));
+                    onChange={(event) => {
+                        const n = Math.max(1, Number(event.target.value));
                         if (Number.isFinite(n))
                             onChange({ dollars: n, kind: 'after-target' });
                     }}

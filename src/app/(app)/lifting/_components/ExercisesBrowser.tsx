@@ -51,12 +51,12 @@ export function ExercisesBrowser() {
 
     const allRows = useMemo(() => exercises.data ?? [], [exercises.data]);
     const rows = useMemo(
-        () => (customOnly ? allRows.filter((e) => e.isCustom) : allRows),
+        () => (customOnly ? allRows.filter((row) => row.isCustom) : allRows),
         [allRows, customOnly],
     );
 
     const stats = useMemo(() => {
-        const custom = allRows.filter((e) => e.isCustom).length;
+        const custom = allRows.filter((row) => row.isCustom).length;
         return {
             builtin: allRows.length - custom,
             custom,
@@ -162,7 +162,9 @@ export function ExercisesBrowser() {
                                 <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                                 <Input
                                     className="pl-9"
-                                    onChange={(e) => setSearch(e.target.value)}
+                                    onChange={(event) =>
+                                        setSearch(event.target.value)
+                                    }
                                     placeholder="Search exercises…"
                                     value={search}
                                 />

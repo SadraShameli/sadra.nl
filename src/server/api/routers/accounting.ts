@@ -20,7 +20,7 @@ import {
 import '~/lib/accounting/providers/index';
 import { ProviderRegistry } from '~/lib/accounting/providers/provider';
 import { loadRuleSet } from '~/lib/accounting/rules/load';
-import { accountingRunRepository } from '~/lib/accounting/runs/repository';
+import { accountingRunRepo } from '~/lib/accounting/runs/repo';
 import '~/lib/accounting/sources/index';
 import {
     type ApiSource,
@@ -33,7 +33,7 @@ import {
     credentialCreateSchema,
     credentialIdSchema,
     credentialUpdateSchema,
-    ledgerRefSchema,
+    ledgerReferenceSchema,
     ruleBacktestSchema,
     ruleCreateSchema,
     ruleReorderSchema,
@@ -808,7 +808,7 @@ export const accountingRouter = createTRPCRouter({
         get: rootProcedure
             .input(z.object({ id: z.uuid() }))
             .query(async ({ ctx, input }) => {
-                const run = await accountingRunRepository.get(
+                const run = await accountingRunRepo.get(
                     RunId(input.id),
                     UserId(ctx.userId),
                 );
@@ -828,10 +828,10 @@ export const accountingRouter = createTRPCRouter({
                 }),
             )
             .query(async ({ ctx, input }) => {
-                const runs = await accountingRunRepository.list(
-                    UserId(ctx.userId),
-                    { limit: input.limit, offset: input.offset },
-                );
+                const runs = await accountingRunRepo.list(UserId(ctx.userId), {
+                    limit: input.limit,
+                    offset: input.offset,
+                });
                 return runs.map((r) => ({
                     accountingCredentialId: r.accountingCredentialId,
                     createdAt: r.createdAt,
@@ -845,7 +845,7 @@ export const accountingRouter = createTRPCRouter({
             .input(
                 z.object({
                     patch: z.object({
-                        counterpartLedger: ledgerRefSchema.optional(),
+                        counterpartLedger: ledgerReferenceSchema.optional(),
                         counterpartName: z.string().min(1).optional(),
                         direction: z.enum(BOOKING_DIRECTIONS).optional(),
                         isRefund: z.boolean().optional(),
@@ -857,7 +857,7 @@ export const accountingRouter = createTRPCRouter({
             )
             .mutation(async ({ ctx, input }) => {
                 try {
-                    await accountingRunRepository.updateBooking(
+                    await accountingRunRepo.updateBooking(
                         RunId(input.runId),
                         UserId(ctx.userId),
                         input.txnId,

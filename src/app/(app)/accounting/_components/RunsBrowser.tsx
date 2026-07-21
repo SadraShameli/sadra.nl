@@ -6,7 +6,7 @@ import { ChevronRight, History } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
-import { Badge, type BadgeProps } from '~/components/ui/Badge';
+import { Badge, type BadgeProperties } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent } from '~/components/ui/Card';
 import { DataTable } from '~/components/ui/DataTable';
@@ -19,7 +19,7 @@ const PAGE_SIZE = 20;
 
 type RunRow = RouterOutputs['accounting']['runs']['list'][number];
 
-const STATUS_VARIANT: Record<RunStatus, BadgeProps['variant']> = {
+const STATUS_VARIANT: Record<RunStatus, BadgeProperties['variant']> = {
     failed: 'destructive',
     partial: 'warning',
     planned: 'outline',

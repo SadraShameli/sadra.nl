@@ -500,10 +500,9 @@ function NewLocationDialog({
                                     <FormControl>
                                         <Input
                                             inputMode="numeric"
-                                            onChange={(e) => {
-                                                const n = Number.parseInt(
-                                                    e.target.value,
-                                                    10,
+                                            onChange={(event) => {
+                                                const n = Number(
+                                                    event.target.value,
                                                 );
                                                 field.onChange(
                                                     Number.isFinite(n) ? n : 0,

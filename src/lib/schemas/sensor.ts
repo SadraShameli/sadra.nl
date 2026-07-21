@@ -30,11 +30,11 @@ export type ReadingInsert = z.infer<typeof readingInsertSchema>;
 export const recordingInsertSchema = createInsertSchema(recording);
 export type RecordingInsert = z.infer<typeof recordingInsertSchema>;
 
-export const getSensorProps = z.object({
+export const sensorProperties = z.object({
     id: z.number().int().positive(),
 });
 
-export const getLocationProps = z.object({
+export const locationProperties = z.object({
     date_from: z.date().optional(),
     date_to: z.date().optional(),
     location_id: z.number().int().positive(),
@@ -49,7 +49,7 @@ export const granularitySchema = z.enum([
 ]);
 export type Granularity = z.infer<typeof granularitySchema>;
 
-export const getReadingsQueryProps = z.object({
+export const readingsQueryProperties = z.object({
     date_from: z.date().optional(),
     date_to: z.date().optional(),
     device_id: z.number().int().positive().optional(),
@@ -57,30 +57,30 @@ export const getReadingsQueryProps = z.object({
     location_id: z.number().int().positive(),
 });
 
-export const getLocationReadingsProps = z.object({
-    location: getLocationProps,
+export const locationReadingsProperties = z.object({
+    location: locationProperties,
     sensor_id: z.number().int().positive().optional(),
 });
 
-export const getDeviceProps = z.object({
+export const deviceProperties = z.object({
     device_id: z.number().int().positive(),
 });
 
-export const getDeviceReadingsProps = z.object({
-    device: getDeviceProps,
+export const deviceReadingsProperties = z.object({
+    device: deviceProperties,
     sensor_id: z.number().int().positive().optional(),
 });
 
-export const getDeviceRecordingsProps = z.object({
-    device: getDeviceProps,
+export const deviceRecordingsProperties = z.object({
+    device: deviceProperties,
     sensor_id: z.number().int().positive().optional(),
 });
 
-export const getReadingProps = z.object({
+export const readingProperties = z.object({
     id: z.number().int().positive(),
 });
 
-export const createReadingProps = z.object({
+export const readingCreateProperties = z.object({
     device_id: z.number().int().positive(),
     sensors: z
         .record(z.string(), z.number())
@@ -89,12 +89,12 @@ export const createReadingProps = z.object({
         }),
 });
 
-export const getRecordingProps = z.object({
+export const recordingProperties = z.object({
     id: z.number().int().positive(),
 });
 
-export const createRecordingProps = z.object({
-    device: getDeviceProps,
+export const recordingCreateProperties = z.object({
+    device: deviceProperties,
     duration_seconds: z.number().nonnegative().nullable(),
     recording: z.instanceof(Buffer).refine((buffer) => buffer.length, {
         message: 'No recording provided',

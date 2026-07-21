@@ -7,7 +7,7 @@ import type {
     ConversionResult,
     CurrencyCode,
     ISODate,
-    LedgerRef,
+    LedgerReference,
     MatchAudit,
     RawTransaction,
     UnknownMerchant,
@@ -39,11 +39,12 @@ const compareMatches = (a: MatchAudit, b: MatchAudit): number => {
 
 class BookingAccumulator {
     private eur: Eur;
+
     private readonly noteList: string[];
 
-    private constructor(
-        private readonly bank: LedgerRef,
-        private readonly counterpartLedger: LedgerRef,
+    constructor(
+        private readonly bank: LedgerReference,
+        private readonly counterpartLedger: LedgerReference,
         private readonly counterpartName: string,
         private readonly date: ISODate,
         private readonly direction: BookingDirection,
@@ -55,28 +56,6 @@ class BookingAccumulator {
     ) {
         this.eur = eur;
         this.noteList = [note];
-    }
-
-    static start(
-        bank: LedgerRef,
-        rule: Rule,
-        tx: RawTransaction,
-        date: ISODate,
-        eur: Eur,
-        note: string,
-    ): BookingAccumulator {
-        return new BookingAccumulator(
-            bank,
-            rule.ledger,
-            rule.display,
-            date,
-            tx.direction,
-            tx.isRefund === true,
-            tx.sourceCurrency,
-            rule.taxCode,
-            eur,
-            note,
-        );
     }
 
     addLeg(eur: Eur, note: string): void {
@@ -183,7 +162,9 @@ class UnknownOccurrences {
         rawName: string,
         direction: BookingDirection,
     ): null | UnknownMerchant {
-        const sorted = this.dates.toSorted();
+        const sorted = this.dates.toSorted(
+            (a, b) => Number(a > b) - Number(a < b),
+        );
         const firstSeen = sorted[0];
         const lastSeen = sorted.at(-1);
         if (firstSeen === undefined || lastSeen === undefined) return null;
@@ -231,46 +212,24 @@ class UnknownMerchantTracker {
 
 export class BookingAggregator {
     private readonly accumulators = new Map<TxnId, BookingAccumulator>();
+
     private readonly matchAudits = new MatchAuditTracker();
+
     private readonly missingBankCurrencies = new Set<CurrencyCode>();
+
     private skippedCurrency = 0;
+
     private skippedNoBank = 0;
     private readonly unknownMerchants = new UnknownMerchantTracker();
-
     constructor(
         private readonly ruleSet: RuleSet,
         private readonly converter: CurrencyConverter,
-        private readonly bankByCurrency: ReadonlyMap<CurrencyCode, LedgerRef>,
+        private readonly bankByCurrency: ReadonlyMap<
+            CurrencyCode,
+            LedgerReference
+        >,
         private readonly start: ISODate,
     ) {}
-
-    static requiredCurrencies(
-        transactions: Iterable<RawTransaction>,
-        start: ISODate,
-        ruleSet: RuleSet,
-    ): CurrencyCode[] {
-        const currencies = new Set<CurrencyCode>();
-        for (const tx of transactions) {
-            if (IsoDate.isBefore(tx.date, start)) continue;
-            if (tx.sourceCurrency === 'EUR') continue;
-            if (ruleSet.findMatch(tx) !== null)
-                currencies.add(tx.sourceCurrency);
-        }
-        return [...currencies];
-    }
-
-    static requiredDateRange(
-        transactions: Iterable<RawTransaction>,
-        start: ISODate,
-        ruleSet: RuleSet,
-    ): ISODate[] {
-        const dates: ISODate[] = [];
-        for (const tx of transactions) {
-            if (IsoDate.isBefore(tx.date, start)) continue;
-            if (ruleSet.findMatch(tx) !== null) dates.push(tx.date);
-        }
-        return dates;
-    }
 
     ingest(tx: RawTransaction): void {
         if (IsoDate.isBefore(tx.date, this.start)) return;
@@ -303,7 +262,7 @@ export class BookingAggregator {
         } else {
             this.accumulators.set(
                 txnId,
-                BookingAccumulator.start(bank, rule, tx, tx.date, eur, note),
+                startBookingAccumulator(bank, rule, tx, tx.date, eur, note),
             );
         }
     }
@@ -316,10 +275,61 @@ export class BookingAggregator {
         return {
             bookings,
             matches: this.matchAudits.toArray(),
-            missingBankCurrencies: [...this.missingBankCurrencies].toSorted(),
+            missingBankCurrencies: [...this.missingBankCurrencies].toSorted(
+                (a, b) => Number(a > b) - Number(a < b),
+            ),
             skippedCurrency: this.skippedCurrency,
             skippedNoBank: this.skippedNoBank,
             unknowns: this.unknownMerchants.toArray(),
         };
     }
+}
+
+export function requiredCurrencies(
+    transactions: Iterable<RawTransaction>,
+    start: ISODate,
+    ruleSet: RuleSet,
+): CurrencyCode[] {
+    const currencies = new Set<CurrencyCode>();
+    for (const tx of transactions) {
+        if (IsoDate.isBefore(tx.date, start)) continue;
+        if (tx.sourceCurrency === 'EUR') continue;
+        if (ruleSet.findMatch(tx) !== null) currencies.add(tx.sourceCurrency);
+    }
+    return [...currencies];
+}
+
+export function requiredDateRange(
+    transactions: Iterable<RawTransaction>,
+    start: ISODate,
+    ruleSet: RuleSet,
+): ISODate[] {
+    const dates: ISODate[] = [];
+    for (const tx of transactions) {
+        if (IsoDate.isBefore(tx.date, start)) continue;
+        if (ruleSet.findMatch(tx) !== null) dates.push(tx.date);
+    }
+    return dates;
+}
+
+function startBookingAccumulator(
+    bank: LedgerReference,
+    rule: Rule,
+    tx: RawTransaction,
+    date: ISODate,
+    eur: Eur,
+    note: string,
+): BookingAccumulator {
+    return new BookingAccumulator(
+        bank,
+        rule.ledger,
+        rule.display,
+        date,
+        tx.direction,
+        tx.isRefund === true,
+        tx.sourceCurrency,
+        rule.taxCode,
+        eur,
+        note,
+    );
 }

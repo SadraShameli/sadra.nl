@@ -101,9 +101,11 @@ export class EcbRateProvider implements RateProvider {
         }
         const exact = rates.get(options.on);
         if (exact !== undefined) return exact;
-        const earlier = [...rates.keys()]
+        const earlier = rates
+            .keys()
             .filter((k) => k <= options.on)
-            .toSorted();
+            .toArray()
+            .toSorted((a, b) => Number(a > b) - Number(a < b));
         const fallback = earlier.at(-1);
         if (fallback === undefined) {
             throw new Error(`No ECB rate available on or before ${options.on}`);
@@ -146,7 +148,7 @@ function ingestEcbCsv(csv: string, sink: Map<ISODate, number>): void {
         if (!d || !v) continue;
         const parsedDate = isoDateSchema.safeParse(d);
         if (!parsedDate.success) continue;
-        const n = Number.parseFloat(v);
+        const n = Number(v);
         if (Number.isFinite(n)) sink.set(parsedDate.data, n);
     }
 }

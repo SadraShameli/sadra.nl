@@ -19,7 +19,7 @@ export const sensorUnitRouter = createTRPCRouter({
         .mutation(async ({ ctx, input }) => {
             const existing = await ctx.db.query.sensorUnit.findFirst({
                 columns: { id: true },
-                where: (u, { eq: e }) => e(u.value, input.value),
+                where: (u, { eq: equals }) => equals(u.value, input.value),
             });
             if (existing) {
                 throw new TRPCError({
@@ -38,7 +38,7 @@ export const sensorUnitRouter = createTRPCRouter({
         .input(sensorUnitIdSchema)
         .mutation(async ({ ctx, input }) => {
             const existing = await ctx.db.query.sensorUnit.findFirst({
-                where: (u, { eq: e }) => e(u.id, input.id),
+                where: (u, { eq: equals }) => equals(u.id, input.id),
             });
             if (!existing) {
                 throw new TRPCError({
@@ -71,7 +71,7 @@ export const sensorUnitRouter = createTRPCRouter({
         .mutation(async ({ ctx, input }) => {
             return ctx.db.transaction(async (tx) => {
                 const existing = await tx.query.sensorUnit.findFirst({
-                    where: (u, { eq: e }) => e(u.id, input.id),
+                    where: (u, { eq: equals }) => equals(u.id, input.id),
                 });
                 if (!existing) {
                     throw new TRPCError({
@@ -83,7 +83,7 @@ export const sensorUnitRouter = createTRPCRouter({
 
                 const conflict = await tx.query.sensorUnit.findFirst({
                     columns: { id: true },
-                    where: (u, { eq: e }) => e(u.value, input.value),
+                    where: (u, { eq: equals }) => equals(u.value, input.value),
                 });
                 if (conflict) {
                     throw new TRPCError({

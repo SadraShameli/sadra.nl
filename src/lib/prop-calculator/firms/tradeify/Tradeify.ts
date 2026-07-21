@@ -4,7 +4,7 @@ import {
     FirmId,
     Plan,
     type PlanInit,
-    PropFirm,
+    TradingFirm,
 } from '~/lib/prop-calculator/core';
 
 class TradeifyPlan extends Plan {}
@@ -94,7 +94,7 @@ type TradeifyGrowthSize = (typeof GROWTH_SIZES)[number];
 type TradeifyLightningSize = (typeof LIGHTNING_SIZES)[number];
 type TradeifySelectSize = (typeof SELECT_SIZES)[number];
 
-export class Tradeify extends PropFirm {
+export class Tradeify extends TradingFirm {
     readonly displayName = 'Tradeify';
     readonly id = FirmId.Tradeify;
     readonly plans = [

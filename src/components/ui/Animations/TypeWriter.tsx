@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 
 import CursorBlinkerAnimation from './CursorBlink';
 
-export type TypeWriterProps = {
+export type TypeWriterProperties = {
     className?: string;
     cursor?: boolean;
     delay?: number;
@@ -17,7 +17,7 @@ export default function TypeWriterAnimation({
     cursor,
     delay,
     text,
-}: TypeWriterProps) {
+}: TypeWriterProperties) {
     const count = useMotionValue(0);
     const rounded = useTransform(count, (latest) => Math.round(latest));
     const displayText = useTransform(rounded, (latest) =>

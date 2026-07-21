@@ -15,7 +15,10 @@ import { type DateRange } from 'react-day-picker';
 import { toast } from 'sonner';
 
 import type { MatchType } from '~/lib/accounting/core/rules/matcher';
-import type { BookingDirection, LedgerRef } from '~/lib/accounting/core/types';
+import type {
+    BookingDirection,
+    LedgerReference,
+} from '~/lib/accounting/core/types';
 
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
@@ -60,7 +63,7 @@ export interface RuleFormDialogPrefill {
 interface BankAccountView {
     currency: string;
     id: string;
-    ledger: LedgerRef;
+    ledger: LedgerReference;
 }
 
 interface RuleView {
@@ -70,7 +73,7 @@ interface RuleView {
     direction: BookingDirection;
     display: string;
     id: string;
-    ledger: LedgerRef;
+    ledger: LedgerReference;
     match: string;
     matchType: MatchType;
     maxAmount: null | number;
@@ -100,7 +103,7 @@ export function RuleFormDialog({
     sourceCredentialId,
 }: {
     credentialId: string;
-    ledgerOptions: LedgerRef[];
+    ledgerOptions: LedgerReference[];
     mode: 'new' | RuleFormDialogPrefill | RuleView;
     onClose: () => void;
     sourceCredentialId?: string;
@@ -127,7 +130,7 @@ export function RuleFormDialog({
         isEdit || isPrefill ? mode.direction : 'OUT',
     );
     const [display, setDisplay] = useState(isEdit ? mode.display : '');
-    const [ledger, setLedger] = useState<LedgerRef | null>(
+    const [ledger, setLedger] = useState<LedgerReference | null>(
         isEdit ? mode.ledger : null,
     );
     const [taxCode, setTaxCode] = useState<string>(
@@ -334,7 +337,7 @@ export function RulesManager() {
         { credentialId },
         { enabled: !!credentialId },
     );
-    const ledgerOptions = useMemo<LedgerRef[]>(
+    const ledgerOptions = useMemo<LedgerReference[]>(
         () =>
             (ledgersQ.data ?? []).map((l) => ({
                 id: l.externalId,
@@ -410,7 +413,7 @@ function BankAccountFormDialog({
     onClose,
 }: {
     credentialId: string;
-    ledgerOptions: LedgerRef[];
+    ledgerOptions: LedgerReference[];
     mode: 'new' | BankAccountView;
     onClose: () => void;
 }) {
@@ -433,7 +436,7 @@ function BankAccountFormDialog({
     });
 
     const [currency, setCurrency] = useState(isEdit ? mode.currency : '');
-    const [ledger, setLedger] = useState<LedgerRef | null>(
+    const [ledger, setLedger] = useState<LedgerReference | null>(
         isEdit ? mode.ledger : null,
     );
 
@@ -494,7 +497,7 @@ function BankAccountsCard({
     ledgerOptions,
 }: {
     credentialId: string;
-    ledgerOptions: LedgerRef[];
+    ledgerOptions: LedgerReference[];
 }) {
     const utilities = api.useUtils();
     const banksQ = api.accounting.bankAccounts.list.useQuery({ credentialId });
@@ -671,7 +674,7 @@ function RulesCard({
     sourceCredentialId,
 }: {
     credentialId: string;
-    ledgerOptions: LedgerRef[];
+    ledgerOptions: LedgerReference[];
     sourceCredentialId?: string;
 }) {
     const { labelOf, options: taxCodeOptions } = useTaxCodes(credentialId);

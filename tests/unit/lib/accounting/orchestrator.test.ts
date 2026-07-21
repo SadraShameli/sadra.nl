@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type {
     CurrencyCode,
-    LedgerRef,
+    LedgerReference,
     RawTransaction,
 } from '~/lib/accounting/core/types';
 import type { RateProvider } from '~/lib/accounting/rates/provider';
@@ -27,14 +27,17 @@ const fixedRates: RateProvider = {
     },
 };
 
-const WISE_EUR: LedgerRef = { id: LedgerId('5'), label: '0005 Wise EUR' };
-const WISE_USD: LedgerRef = { id: LedgerId('6'), label: '0006 Wise USD' };
-const SOFTWARE: LedgerRef = {
+const WISE_EUR: LedgerReference = { id: LedgerId('5'), label: '0005 Wise EUR' };
+const WISE_USD: LedgerReference = { id: LedgerId('6'), label: '0006 Wise USD' };
+const SOFTWARE: LedgerReference = {
     id: LedgerId('2'),
     label: '0002 Trading Software',
 };
-const FUNDED: LedgerRef = { id: LedgerId('1'), label: '0001 Funded accounts' };
-const PAYOUTS: LedgerRef = { id: LedgerId('4'), label: '0004 Payouts' };
+const FUNDED: LedgerReference = {
+    id: LedgerId('1'),
+    label: '0001 Funded accounts',
+};
+const PAYOUTS: LedgerReference = { id: LedgerId('4'), label: '0004 Payouts' };
 
 const ruleSet = new RuleSet([
     Rule.fromRow({
@@ -63,7 +66,7 @@ const ruleSet = new RuleSet([
     }),
 ]);
 
-const bankByCurrency = new Map<CurrencyCode, LedgerRef>([
+const bankByCurrency = new Map<CurrencyCode, LedgerReference>([
     [EUR, WISE_EUR],
     [USD, WISE_USD],
 ]);
@@ -83,7 +86,7 @@ const tx = (overrides: Partial<RawTransaction>): RawTransaction => ({
 
 const build = (
     transactions: RawTransaction[],
-    banks: ReadonlyMap<CurrencyCode, LedgerRef> = bankByCurrency,
+    banks: ReadonlyMap<CurrencyCode, LedgerReference> = bankByCurrency,
 ) => {
     const aggregator = new BookingAggregator(
         ruleSet,
@@ -202,7 +205,7 @@ describe('BookingAggregator', () => {
     });
 
     it('counts unsupported FX currencies separately from missing banks', () => {
-        const banks = new Map<CurrencyCode, LedgerRef>([
+        const banks = new Map<CurrencyCode, LedgerReference>([
             ...bankByCurrency,
             [GBP, { id: LedgerId('9'), label: 'GBP bank' }],
         ]);

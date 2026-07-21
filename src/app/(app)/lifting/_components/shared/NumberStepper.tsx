@@ -4,7 +4,7 @@ import { Minus, Plus } from 'lucide-react';
 import { useCallback, useEffect, useRef } from 'react';
 
 import { Button } from '~/components/ui/Button';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 interface NumberStepperProperties {
     className?: string;
@@ -42,10 +42,8 @@ export function NumberStepper({
     const clamp = useCallback(
         (n: number): number => {
             if (Number.isNaN(n)) return min;
-            return Math.max(
-                min,
-                Math.min(max, Number(n.toFixed(decimals + 4))),
-            );
+            const rounded = Number(n.toFixed(decimals + 4));
+            return Math.max(min, Math.min(max, rounded));
         },
         [min, max, decimals],
     );

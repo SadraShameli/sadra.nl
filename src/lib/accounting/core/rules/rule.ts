@@ -1,6 +1,6 @@
 import type {
     BookingDirection,
-    LedgerRef,
+    LedgerReference,
     RawTransaction,
 } from '~/lib/accounting/core/types';
 
@@ -27,7 +27,7 @@ export interface RuleRow {
     direction: BookingDirection;
     display: string;
     id: string;
-    ledger: LedgerRef;
+    ledger: LedgerReference;
     match: string;
     matchType?: MatchType | null;
     maxAmount?: null | number;
@@ -39,7 +39,7 @@ export class Rule {
     constructor(
         readonly id: string,
         readonly display: string,
-        readonly ledger: LedgerRef,
+        readonly ledger: LedgerReference,
         readonly taxCode: TaxCode,
         private readonly matcher: RuleMatcher,
         private readonly conditions: readonly RuleCondition[],

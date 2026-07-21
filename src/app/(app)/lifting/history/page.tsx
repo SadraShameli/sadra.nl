@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 
 import { getServerSession } from '~/lib/auth/server';
 import { routes } from '~/lib/site/routes';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 import { api, HydrateClient } from '~/trpc/server';
 
 import { HistoryView } from '../_components/HistoryView';

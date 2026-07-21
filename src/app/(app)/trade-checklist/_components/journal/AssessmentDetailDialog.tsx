@@ -23,7 +23,7 @@ import { Progress } from '~/components/ui/Progress';
 import { ScrollArea } from '~/components/ui/ScrollArea';
 import { Separator } from '~/components/ui/Separator';
 import { WEIGHT_CATEGORIES } from '~/lib/trading/defaults';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 interface AssessmentDetailDialogProperties {
     onClose: () => void;

@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 import { Alert, AlertDescription } from '~/components/ui/Alert';
 import { routes } from '~/lib/site/routes';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 export const dynamic = 'force-dynamic';
 import {

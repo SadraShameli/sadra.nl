@@ -29,7 +29,7 @@ import {
     deleteAssessment,
     setActiveTradingPlan,
 } from '~/lib/trading/actions';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 import { AnalysisReport } from './AnalysisReport';
 import { HistoryStrip } from './HistoryStrip';
@@ -57,7 +57,7 @@ export function ChecklistShell({
     const [submission, setSubmission] = useState<SubmissionState>({
         status: 'editing',
     });
-    const [deletePending, startDelete] = useTransition();
+    const [isDeletePending, startDelete] = useTransition();
 
     const handleSelect = (row: TradeAssessmentRow) => {
         setSubmission({
@@ -148,7 +148,7 @@ export function ChecklistShell({
                             {history.length > 0 && (
                                 <Button
                                     className="size-7"
-                                    disabled={deletePending}
+                                    disabled={isDeletePending}
                                     onClick={handleClearAll}
                                     size="icon"
                                     variant="ghost"

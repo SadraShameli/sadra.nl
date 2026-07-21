@@ -75,7 +75,7 @@ import {
     reorderTradingPlans,
     setActiveTradingPlan,
 } from '~/lib/trading/actions';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 import { PlanEditor } from './PlanEditor';
 

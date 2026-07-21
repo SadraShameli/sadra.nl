@@ -7,7 +7,7 @@ export function normalizeProfileTab(
     isAdmin: boolean,
 ): ProfileTabValue {
     const value = Array.isArray(raw) ? raw[0] : raw;
-    if ((value === 'sensor-hub' || value === 'users') && !isAdmin)
+    if (!isAdmin && (value === 'sensor-hub' || value === 'users'))
         return 'account';
 
     return (PROFILE_TAB_VALUES as readonly string[]).includes(value ?? '')

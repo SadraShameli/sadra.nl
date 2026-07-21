@@ -59,7 +59,7 @@ export function AddExerciseSheet({
                 <CommandList>
                     {exercises.isLoading ? (
                         <div className="flex flex-col gap-2 px-2 py-2">
-                            {Array.from({ length: 6 }).map((_, index) => (
+                            {Array.from({ length: 6 }, (_, index) => (
                                 <Skeleton
                                     className="h-10 w-full rounded-lg"
                                     key={index}

@@ -9,7 +9,7 @@ import {
     expectancyR,
     type LightAssessment,
 } from '~/lib/trading/analytics';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 export function KpiTiles({ assessments }: { assessments: LightAssessment[] }) {
     const stats = useMemo(() => {

@@ -74,9 +74,7 @@ export function ExerciseDetail({ exercise }: ExerciseDetailProperties) {
         }
         if (prCustomRange?.from) {
             const from = startOfDay(prCustomRange.from);
-            const to = prCustomRange.to
-                ? endOfDay(prCustomRange.to)
-                : endOfDay(prCustomRange.from);
+            const to = endOfDay(prCustomRange.to ?? prCustomRange.from);
             return rows.filter((pr) => {
                 const d = new Date(pr.achievedAt);
                 return d >= from && d <= to;

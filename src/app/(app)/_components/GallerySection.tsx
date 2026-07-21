@@ -13,7 +13,7 @@ import {
     CarouselNext,
     CarouselPrevious,
 } from '~/components/ui/Carousel';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 export type GalleryItem = {
     alt: string;

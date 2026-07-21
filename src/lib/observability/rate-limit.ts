@@ -54,12 +54,14 @@ export async function resetRateLimit(arguments_: {
     bucket: string;
     key: string;
 }): Promise<void> {
+    const key = arguments_.key.toLowerCase();
+
     await db
         .delete(rateLimitBucket)
         .where(
             and(
                 eq(rateLimitBucket.bucket, arguments_.bucket),
-                eq(rateLimitBucket.key, arguments_.key.toLowerCase()),
+                eq(rateLimitBucket.key, key),
             ),
         );
 }

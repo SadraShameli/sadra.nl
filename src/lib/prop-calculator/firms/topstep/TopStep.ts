@@ -4,7 +4,7 @@ import {
     FirmId,
     Plan,
     type PlanInit,
-    PropFirm,
+    TradingFirm,
 } from '~/lib/prop-calculator/core';
 
 class TopStepPlan extends Plan {}
@@ -54,7 +54,7 @@ const EXPRESS_SIZES = [
 type ExpressSize = (typeof EXPRESS_SIZES)[number];
 type StandardSize = (typeof STANDARD_SIZES)[number];
 
-export class TopStep extends PropFirm {
+export class TopStep extends TradingFirm {
     readonly displayName = 'TopStep';
     readonly id = FirmId.TopStep;
     readonly plans = [

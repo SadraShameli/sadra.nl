@@ -33,47 +33,47 @@ export interface PlanInit {
 }
 
 export abstract class Plan {
-    get accountSize(): number {
-        return this.init.accountSize;
-    }
+    readonly accountSize: number;
 
-    get consistency(): ConsistencyRule | null {
-        return this.init.consistency;
+    readonly consistency: ConsistencyRule | null;
+
+    readonly dailyLossLimit: null | number;
+
+    readonly drawdown: DrawdownStrategy;
+
+    readonly fees: FeeSchedule;
+
+    readonly id: PlanId;
+
+    readonly label: string;
+
+    readonly minDaysAfterPassForPayout: number;
+
+    readonly minPayoutProfit: number;
+
+    readonly minTradingDays: number;
+
+    readonly payoutSchedule: PayoutSchedule;
+
+    readonly payoutTiers: readonly PayoutTier[];
+
+    readonly profitTarget: number;
+
+    constructor(protected readonly init: PlanInit) {
+        this.accountSize = init.accountSize;
+        this.consistency = init.consistency;
+        this.dailyLossLimit = init.dailyLossLimit;
+        this.drawdown = init.drawdown;
+        this.fees = init.fees;
+        this.id = init.id;
+        this.label = init.label;
+        this.minDaysAfterPassForPayout = init.minDaysAfterPassForPayout ?? 0;
+        this.minPayoutProfit = init.minPayoutProfit ?? 0;
+        this.minTradingDays = init.minTradingDays;
+        this.payoutSchedule = init.payoutSchedule;
+        this.payoutTiers = init.payoutTiers;
+        this.profitTarget = init.profitTarget;
     }
-    get dailyLossLimit(): null | number {
-        return this.init.dailyLossLimit;
-    }
-    get drawdown(): DrawdownStrategy {
-        return this.init.drawdown;
-    }
-    get fees(): FeeSchedule {
-        return this.init.fees;
-    }
-    get id(): PlanId {
-        return this.init.id;
-    }
-    get label(): string {
-        return this.init.label;
-    }
-    get minDaysAfterPassForPayout(): number {
-        return this.init.minDaysAfterPassForPayout ?? 0;
-    }
-    get minPayoutProfit(): number {
-        return this.init.minPayoutProfit ?? 0;
-    }
-    get minTradingDays(): number {
-        return this.init.minTradingDays;
-    }
-    get payoutSchedule(): PayoutSchedule {
-        return this.init.payoutSchedule;
-    }
-    get payoutTiers(): readonly PayoutTier[] {
-        return this.init.payoutTiers;
-    }
-    get profitTarget(): number {
-        return this.init.profitTarget;
-    }
-    constructor(protected readonly init: PlanInit) {}
 
     feesUntilPass(daysToPass: number, discounts?: CouponDiscounts): number {
         return feesUntilPass(this.init.fees, daysToPass, discounts);

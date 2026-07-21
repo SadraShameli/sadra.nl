@@ -10,7 +10,7 @@ import {
 } from 'recharts';
 
 import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 interface BarShapeProperties {
     height?: number;

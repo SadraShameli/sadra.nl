@@ -55,7 +55,7 @@ export default function TextAnimation({
                 {text.split(' ').map((word) =>
                     splitChar ? (
                         <span className="inline-block" key={word}>
-                            {Array.from(word).map((char) => (
+                            {Array.from(word, (char) => (
                                 <motion.span
                                     className="inline-block"
                                     key={char}

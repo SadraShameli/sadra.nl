@@ -30,9 +30,10 @@ export function RoutinesView() {
     const router = useRouter();
     const utilities = api.useUtils();
     const routines = api.lifting.routine.list.useQuery();
-    const deleteRoutine = api.lifting.routine.delete.useMutation({
+    const routineDeletion = api.lifting.routine.delete.useMutation({
         onSuccess: () => utilities.lifting.routine.list.invalidate(),
     });
+    // eslint-disable-next-line unicorn/no-declarations-before-early-exit
     const startWorkout = api.lifting.workout.start.useMutation({
         onSuccess: () => router.push(routes.lifting.log),
     });
@@ -40,7 +41,7 @@ export function RoutinesView() {
     if (routines.isLoading) {
         return (
             <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {Array.from({ length: 4 }).map((_, index) => (
+                {Array.from({ length: 4 }, (_, index) => (
                     <li key={index}>
                         <Skeleton className="h-32 w-full rounded-2xl" />
                     </li>
@@ -109,7 +110,7 @@ export function RoutinesView() {
                                         </AlertDialogCancel>
                                         <AlertDialogAction
                                             onClick={() =>
-                                                deleteRoutine.mutate({
+                                                routineDeletion.mutate({
                                                     id: r.id,
                                                 })
                                             }

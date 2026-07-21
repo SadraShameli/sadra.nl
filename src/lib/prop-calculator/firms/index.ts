@@ -1,4 +1,4 @@
-import { type FirmId, type PropFirm as PropertyFirm } from '../core';
+import { type FirmId, type TradingFirm } from '../core';
 import { AlphaFutures } from './alphafutures/AlphaFutures';
 import { ApexTraderFunding } from './apex/ApexTraderFunding';
 import { FundedNext } from './fundednext/FundedNext';
@@ -8,7 +8,7 @@ import { TopStep } from './topstep/TopStep';
 import { TakeProfitTrader } from './tpt/TakeProfitTrader';
 import { Tradeify } from './tradeify/Tradeify';
 
-export const ALL_FIRMS: readonly PropertyFirm[] = [
+export const ALL_FIRMS: readonly TradingFirm[] = [
     new ApexTraderFunding(),
     new TakeProfitTrader(),
     new Tradeify(),
@@ -19,7 +19,7 @@ export const ALL_FIRMS: readonly PropertyFirm[] = [
     new AlphaFutures(),
 ];
 
-export function findFirm(id: FirmId): PropertyFirm | undefined {
+export function findFirm(id: FirmId): TradingFirm | undefined {
     return ALL_FIRMS.find((f) => f.id === id);
 }
 

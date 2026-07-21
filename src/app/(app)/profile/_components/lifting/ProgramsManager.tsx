@@ -49,13 +49,14 @@ export function ProgramsManager() {
     const mine = api.lifting.program.listMine.useQuery();
     const official = api.lifting.program.listOfficial.useQuery();
 
-    const deleteCustom = api.lifting.program.deleteCustom.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Custom program deleted');
-            await utilities.lifting.program.listMine.invalidate();
-        },
-    });
+    const customProgramDeleteMutation =
+        api.lifting.program.deleteCustom.useMutation({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Custom program deleted');
+                await utilities.lifting.program.listMine.invalidate();
+            },
+        });
     const unenroll = api.lifting.program.unenroll.useMutation({
         onError: (error) => toast.error(error.message),
         onSuccess: async () => {
@@ -94,7 +95,7 @@ export function ProgramsManager() {
     const enrollments = useMemo(() => {
         const all = mine.data?.enrollments ?? [];
         if (statusFilter === FILTER_ALL) return all;
-        return all.filter((e) => e.status === statusFilter);
+        return all.filter((enrollment) => enrollment.status === statusFilter);
     }, [mine.data, statusFilter]);
     const hasEnrollmentFilters = statusFilter !== FILTER_ALL;
     const resetEnrollmentFilters = () => setStatusFilter(FILTER_ALL);
@@ -102,7 +103,8 @@ export function ProgramsManager() {
     const programNameById = useMemo(() => {
         const map = new Map<string, string>();
         for (const p of ownedRows) map.set(p.id, p.name);
-        for (const p of official.data ?? []) map.set(p.id, p.name);
+        const officialPrograms = official.data ?? [];
+        for (const p of officialPrograms) map.set(p.id, p.name);
         return map;
     }, [ownedRows, official.data]);
 
@@ -181,7 +183,7 @@ export function ProgramsManager() {
                                     </AlertDialogCancel>
                                     <AlertDialogAction
                                         onClick={() =>
-                                            deleteCustom.mutate({
+                                            customProgramDeleteMutation.mutate({
                                                 id: row.original.id,
                                             })
                                         }
@@ -198,7 +200,7 @@ export function ProgramsManager() {
                 id: 'actions',
             },
         ],
-        [deleteCustom],
+        [customProgramDeleteMutation],
     );
 
     const enrollmentColumns = useMemo<ColumnDef<ProgramEnrollment>[]>(

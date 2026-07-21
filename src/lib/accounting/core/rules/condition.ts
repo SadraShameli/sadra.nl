@@ -20,7 +20,7 @@ export class AmountRangeCondition implements RuleCondition {
     isSatisfiedBy(tx: RawTransaction): boolean {
         const amount = Math.abs(tx.sourceAmount);
         if (this.min !== null && amount < this.min) return false;
-        return this.max === null || !(amount > this.max);
+        return this.max === null || amount <= this.max;
     }
 }
 

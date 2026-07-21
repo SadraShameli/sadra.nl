@@ -9,11 +9,11 @@ import {
     CardHeader,
     CardTitle,
 } from '~/components/ui/Card';
-import { env } from '~/env';
+import { environment } from '~/environment';
 import { getServerSession } from '~/lib/auth/server';
 import { loginSearchSchema } from '~/lib/schemas/url';
 import { routes } from '~/lib/site/routes';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 import { OAuthButtons } from '../_components/OAuthButtons';
 import { SignInMethodTabs } from '../_components/SignInMethodTabs';
@@ -65,10 +65,12 @@ export default async function LoginPage({
                         )}
                         <OAuthButtons
                             hasGithub={Boolean(
-                                env.AUTH_GITHUB_ID && env.AUTH_GITHUB_SECRET,
+                                environment.AUTH_GITHUB_ID &&
+                                environment.AUTH_GITHUB_SECRET,
                             )}
                             hasGoogle={Boolean(
-                                env.AUTH_GOOGLE_ID && env.AUTH_GOOGLE_SECRET,
+                                environment.AUTH_GOOGLE_ID &&
+                                environment.AUTH_GOOGLE_SECRET,
                             )}
                         />
                         <SignInMethodTabs />

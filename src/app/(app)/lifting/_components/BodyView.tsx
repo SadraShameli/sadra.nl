@@ -53,7 +53,7 @@ import {
 } from '~/components/ui/Tooltip';
 import {
     type CreateMeasurementInput,
-    createMeasurementInputSchema,
+    measurementInputSchema,
 } from '~/lib/lifting/schemas';
 import {
     MEASUREMENT_KIND_VALUES,
@@ -256,7 +256,7 @@ function AddMeasurementCard({
             unit: defaultUnitFor('weight', unitWeight, unitLength),
             valueNumeric: 0,
         },
-        resolver: zodResolver(createMeasurementInputSchema),
+        resolver: zodResolver(measurementInputSchema),
     });
 
     const kind = form.watch('kind');
@@ -340,9 +340,9 @@ function AddMeasurementCard({
                                         <FormControl>
                                             <Input
                                                 inputMode="decimal"
-                                                onChange={(e) => {
-                                                    const n = Number.parseFloat(
-                                                        e.target.value,
+                                                onChange={(event) => {
+                                                    const n = Number(
+                                                        event.target.value,
                                                     );
                                                     field.onChange(
                                                         Number.isFinite(n)

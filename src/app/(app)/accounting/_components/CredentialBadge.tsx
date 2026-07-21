@@ -3,7 +3,7 @@ import {
     CredentialRegistry,
     toneClass,
 } from '~/lib/accounting/credentials/index';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 export function CredentialBadge({ kind }: { kind: string }) {
     const d = CredentialRegistry.instance().get(kind);

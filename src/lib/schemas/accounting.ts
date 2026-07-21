@@ -63,22 +63,20 @@ export type CredentialUpdateInput = z.infer<typeof credentialUpdateSchema>;
 
 export const credentialIdSchema = z.object({ id: z.uuid() });
 
-export const ledgerRefSchema = z.object({
+export const ledgerReferenceSchema = z.object({
     id: z.string().min(1).transform(LedgerId),
     label: z.string(),
+});
+
+const runPlanFileInputSchema = z.object({
+    content: z.string().min(1),
+    credentialId: z.uuid(),
 });
 
 export const runPlanRequestSchema = z.object({
     accountingCredentialId: z.uuid().optional(),
     apiCredentialIds: z.array(z.uuid()).default([]),
-    files: z
-        .array(
-            z.object({
-                content: z.string().min(1),
-                credentialId: z.uuid(),
-            }),
-        )
-        .default([]),
+    files: z.array(runPlanFileInputSchema).default([]),
     startDate: isoDateSchema,
 });
 
@@ -95,7 +93,7 @@ export const ruleCreateSchema = z
         dateTo: isoDateSchema.nullable().optional(),
         direction: z.enum(BOOKING_DIRECTIONS),
         display: z.string().min(1).max(128),
-        ledger: ledgerRefSchema,
+        ledger: ledgerReferenceSchema,
         match: z.string().min(1).max(256),
         matchType: z.enum(MATCH_TYPES).optional(),
         maxAmount: z.number().positive().nullable().optional(),
@@ -120,7 +118,7 @@ export const ruleUpdateSchema = z
         direction: z.enum(BOOKING_DIRECTIONS).optional(),
         display: z.string().min(1).max(128).optional(),
         id: z.uuid(),
-        ledger: ledgerRefSchema.optional(),
+        ledger: ledgerReferenceSchema.optional(),
         match: z.string().min(1).max(256).optional(),
         matchType: z.enum(MATCH_TYPES).optional(),
         maxAmount: z.number().positive().nullable().optional(),
@@ -170,6 +168,6 @@ export type RuleBacktestInput = z.infer<typeof ruleBacktestSchema>;
 export const bankAccountUpsertSchema = z.object({
     credentialId: z.uuid(),
     currency: currencyCodeSchema,
-    ledger: ledgerRefSchema,
+    ledger: ledgerReferenceSchema,
 });
 export type BankAccountUpsertInput = z.infer<typeof bankAccountUpsertSchema>;

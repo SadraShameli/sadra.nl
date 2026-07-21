@@ -20,7 +20,7 @@ import {
     type UnitWeight,
     type WeekStart,
 } from '~/lib/lifting/types';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 import { api } from '~/trpc/react';
 
 export function AnalyticsDashboard() {

@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { EmptyState } from '~/components/ui/EmptyState';
 import { ScrollArea } from '~/components/ui/ScrollArea';
 import { DurationFormat } from '~/lib/lifting/format';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 import type { RecordingSummary } from './types';
 
@@ -52,7 +52,7 @@ export function RecordingList({
                             'w-full rounded-full bg-white/4 py-1.5 pr-3 pl-7 text-xs text-white transition outline-none placeholder:text-neutral-500 focus:bg-white/8 disabled:cursor-not-allowed disabled:opacity-40',
                         )}
                         disabled={!recordings?.length}
-                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onChange={(event) => setSearchQuery(event.target.value)}
                         placeholder="Search"
                         type="text"
                         value={searchQuery}

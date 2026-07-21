@@ -75,5 +75,5 @@ export function formatRatio(ratio: number, digits = 2): string {
 }
 
 export function formatStreak(streak: number): string {
-    return `${Math.round(streak)}`;
+    return String(Math.round(streak));
 }

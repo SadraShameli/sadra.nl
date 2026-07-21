@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { Button } from '~/components/ui/Button';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 interface Section {
     id: string;
@@ -56,19 +56,18 @@ export default function SectionNav() {
     useEffect(() => {
         if (sections.length === 0) return;
 
-        function update() {
+        const [firstSection] = sections;
+        if (!firstSection) return;
+        const firstSectionId = firstSection.id;
+        const intersectingIds = new Set<string>();
+
+        function recomputeActive() {
             if (suppressReference.current) return;
-            const [firstSection] = sections;
-            if (!firstSection) return;
-            const threshold = window.innerHeight * 0.35;
-            let current = firstSection.id;
-            for (const { id } of sections) {
-                const element = document.querySelector(`#${id}`);
-                if (!element) continue;
-                if (element.getBoundingClientRect().top <= threshold) {
-                    current = id;
-                }
-            }
+            const current =
+                sections
+                    .map(({ id }) => id)
+                    .findLast((id) => intersectingIds.has(id)) ??
+                firstSectionId;
             if (current !== activeReference.current) {
                 activeReference.current = current;
                 history.replaceState(null, '', `#${current}`);
@@ -76,9 +75,27 @@ export default function SectionNav() {
             }
         }
 
-        window.addEventListener('scroll', update, { passive: true });
-        update();
-        return () => window.removeEventListener('scroll', update);
+        const observer = new IntersectionObserver(
+            (entries) => {
+                for (const entry of entries) {
+                    if (entry.isIntersecting) {
+                        intersectingIds.add(entry.target.id);
+                    } else {
+                        intersectingIds.delete(entry.target.id);
+                    }
+                }
+
+                recomputeActive();
+            },
+            { rootMargin: '-35% 0px -65% 0px', threshold: 0 },
+        );
+
+        for (const { id } of sections) {
+            const element = document.querySelector(`#${id}`);
+            if (element) observer.observe(element);
+        }
+
+        return () => observer.disconnect();
     }, [sections]);
 
     useEffect(() => {

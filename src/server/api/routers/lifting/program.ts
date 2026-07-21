@@ -29,7 +29,7 @@ const loadOfficialPrograms = async () => {
         .orderBy(asc(liftingProgram.name));
 };
 
-const createCustomProgramInputSchema = z.object({
+const customProgramInputSchema = z.object({
     category: programCategorySchema,
     daysPerWeek: z.number().int().min(1).max(7),
     description: z.string().max(2000).optional(),
@@ -43,8 +43,8 @@ export const liftingProgramRouter = createTRPCRouter({
         .input(idActionSchema)
         .mutation(async ({ ctx, input }) => {
             const enrollment = await ctx.db.query.liftingUserProgram.findFirst({
-                where: (u, { and: a, eq: e }) =>
-                    a(e(u.id, input.id), e(u.userId, ctx.userId)),
+                where: (u, { and: a, eq: equals }) =>
+                    a(equals(u.id, input.id), equals(u.userId, ctx.userId)),
                 with: { program: true },
             });
             if (!enrollment) {
@@ -91,7 +91,7 @@ export const liftingProgramRouter = createTRPCRouter({
         .input(idActionSchema)
         .mutation(async ({ ctx, input }) => {
             const program = await ctx.db.query.liftingProgram.findFirst({
-                where: (p, { eq: e }) => e(p.id, input.id),
+                where: (p, { eq: equals }) => equals(p.id, input.id),
             });
             if (!program) {
                 throw new TRPCError({
@@ -128,7 +128,7 @@ export const liftingProgramRouter = createTRPCRouter({
         }),
 
     createCustom: protectedProcedure
-        .input(createCustomProgramInputSchema)
+        .input(customProgramInputSchema)
         .mutation(async ({ ctx, input }) => {
             const baseSlug = input.name
                 .toLowerCase()
@@ -182,7 +182,7 @@ export const liftingProgramRouter = createTRPCRouter({
         .input(enrollProgramInputSchema)
         .mutation(async ({ ctx, input }) => {
             const program = await ctx.db.query.liftingProgram.findFirst({
-                where: (p, { eq: e }) => e(p.id, input.programId),
+                where: (p, { eq: equals }) => equals(p.id, input.programId),
             });
             if (!program) {
                 throw new TRPCError({
@@ -224,10 +224,10 @@ export const liftingProgramRouter = createTRPCRouter({
         .input(exerciseSlugActionSchema)
         .query(async ({ ctx, input }) => {
             const row = await ctx.db.query.liftingProgram.findFirst({
-                where: (p, { and: a, eq: e, isNull: n, or: o }) =>
+                where: (p, { and: a, eq: equals, isNull: n, or: o }) =>
                     a(
-                        e(p.slug, input.slug),
-                        o(n(p.ownerId), e(p.ownerId, ctx.userId)),
+                        equals(p.slug, input.slug),
+                        o(n(p.ownerId), equals(p.ownerId, ctx.userId)),
                     ),
             });
             if (!row) {
@@ -258,8 +258,8 @@ export const liftingProgramRouter = createTRPCRouter({
         .input(idActionSchema)
         .query(async ({ ctx, input }) => {
             const enrollment = await ctx.db.query.liftingUserProgram.findFirst({
-                where: (u, { and: a, eq: e }) =>
-                    a(e(u.id, input.id), e(u.userId, ctx.userId)),
+                where: (u, { and: a, eq: equals }) =>
+                    a(equals(u.id, input.id), equals(u.userId, ctx.userId)),
                 with: { program: true },
             });
             if (!enrollment) {

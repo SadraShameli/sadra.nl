@@ -15,7 +15,7 @@ import {
     formatStreak,
 } from '~/lib/format';
 import { type Plan, type SimOutputs } from '~/lib/prop-calculator';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 import { kpiDescriptions } from './kpiDescriptions';
 
@@ -372,7 +372,11 @@ export default function ResultsPanel({
                         sub="when you pass"
                         value={
                             result.tradesPerSuccessfulAttempt > 0
-                                ? `${Math.round(result.tradesPerSuccessfulAttempt)}`
+                                ? String(
+                                      Math.round(
+                                          result.tradesPerSuccessfulAttempt,
+                                      ),
+                                  )
                                 : '—'
                         }
                     />

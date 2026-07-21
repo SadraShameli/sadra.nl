@@ -49,20 +49,20 @@ const transferSchema = z.object({
     targetCurrency: z.string(),
     targetValue: z.number(),
 });
+const activityResourceSchema = z.object({
+    id: z.union([z.string(), z.number()]),
+});
+const activitySchema = z.object({
+    createdOn: z.string(),
+    primaryAmount: z.string().nullish(),
+    resource: activityResourceSchema,
+    secondaryAmount: z.string().nullish(),
+    status: z.string(),
+    title: z.string().nullish(),
+    type: z.string(),
+});
 const activitiesSchema = z.object({
-    activities: z
-        .array(
-            z.object({
-                createdOn: z.string(),
-                primaryAmount: z.string().nullish(),
-                resource: z.object({ id: z.union([z.string(), z.number()]) }),
-                secondaryAmount: z.string().nullish(),
-                status: z.string(),
-                title: z.string().nullish(),
-                type: z.string(),
-            }),
-        )
-        .default([]),
+    activities: z.array(activitySchema).default([]),
     cursor: z.string().nullish(),
 });
 const recipientSchema = z.object({
@@ -127,39 +127,12 @@ export class WiseClient {
                 parameters,
             );
             const parsed = activitiesSchema.parse(body);
-            let isStop = false;
-            for (const a of parsed.activities) {
-                if (
-                    !(
-                        a.type === 'CARD_PAYMENT' ||
-                        a.type.startsWith('DIRECT_DEBIT')
-                    ) ||
-                    a.status !== 'COMPLETED'
-                )
-                    continue;
-                const created = parseDatetimeIso(a.createdOn);
-                const createdDate = created.slice(0, 10);
-                if (createdDate < arguments_.from) {
-                    isStop = true;
-                    continue;
-                }
-                if (createdDate > arguments_.to) continue;
-                const primary = parseAmount(a.primaryAmount);
-                if (!primary) continue;
-                const secondary = parseAmount(a.secondaryAmount);
-                const [pAmt, pCcy] = primary;
-                const [sAmt, sCcy] = secondary ?? [pAmt, pCcy];
-                out.push({
-                    created,
-                    id: String(a.resource.id),
-                    isRefund: isPositiveAmount(a.primaryAmount),
-                    merchant: (a.title ?? '').replaceAll(TAG_RE, '').trim(),
-                    primaryAmount: pAmt,
-                    primaryCurrency: pCcy,
-                    secondaryAmount: sAmt,
-                    secondaryCurrency: sCcy,
-                });
-            }
+            const { isStop, transactions } = parseCardActivityPage(
+                parsed.activities,
+                arguments_.from,
+                arguments_.to,
+            );
+            out.push(...transactions);
             if (isStop || !parsed.cursor || parsed.activities.length === 0)
                 break;
             nextCursor = parsed.cursor;
@@ -256,12 +229,51 @@ function parseAmount(s: null | string | undefined): [number, string] | null {
     let value: null | number = null;
     let currency = '';
     for (const token of cleaned.split(/\s+/)) {
-        const n = Number.parseFloat(token);
+        const n = Number(token);
         if (Number.isFinite(n)) value = n;
         else if (token.trim()) currency = token.toUpperCase();
     }
     if (value === null || !currency) return null;
     return [value, currency];
+}
+
+function parseCardActivityPage(
+    activities: readonly z.infer<typeof activitySchema>[],
+    from: string,
+    to: string,
+): { isStop: boolean; transactions: WiseCardTransaction[] } {
+    const transactions: WiseCardTransaction[] = [];
+    let isStop = false;
+    for (const a of activities) {
+        if (
+            !(a.type === 'CARD_PAYMENT' || a.type.startsWith('DIRECT_DEBIT')) ||
+            a.status !== 'COMPLETED'
+        )
+            continue;
+        const created = parseDatetimeIso(a.createdOn);
+        const createdDate = created.slice(0, 10);
+        if (createdDate < from) {
+            isStop = true;
+            continue;
+        }
+        if (createdDate > to) continue;
+        const primary = parseAmount(a.primaryAmount);
+        if (!primary) continue;
+        const secondary = parseAmount(a.secondaryAmount);
+        const [pAmt, pCcy] = primary;
+        const [sAmt, sCcy] = secondary ?? [pAmt, pCcy];
+        transactions.push({
+            created,
+            id: String(a.resource.id),
+            isRefund: isPositiveAmount(a.primaryAmount),
+            merchant: (a.title ?? '').replaceAll(TAG_RE, '').trim(),
+            primaryAmount: pAmt,
+            primaryCurrency: pCcy,
+            secondaryAmount: sAmt,
+            secondaryCurrency: sCcy,
+        });
+    }
+    return { isStop, transactions };
 }
 
 function parseDatetimeIso(raw: string): string {

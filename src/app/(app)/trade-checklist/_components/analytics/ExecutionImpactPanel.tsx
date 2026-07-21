@@ -9,7 +9,7 @@ import {
     executionImpactByGrade,
     type LightAssessment,
 } from '~/lib/trading/analytics';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 const DEVIATION_LABELS: Record<string, string> = {
     'chased-entry': 'Chased entry',

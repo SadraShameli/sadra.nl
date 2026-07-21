@@ -21,7 +21,7 @@ import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { EmptyState } from '~/components/ui/EmptyState';
 import { ToggleGroup, ToggleGroupItem } from '~/components/ui/ToggleGroup';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 const gradeColor: Partial<Record<Grade, string>> = {
     A: 'text-emerald-400',

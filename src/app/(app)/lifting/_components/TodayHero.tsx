@@ -62,9 +62,7 @@ export function TodayHero() {
         }
         if (prCustomRange?.from) {
             const from = startOfDay(prCustomRange.from);
-            const to = prCustomRange.to
-                ? endOfDay(prCustomRange.to)
-                : endOfDay(prCustomRange.from);
+            const to = endOfDay(prCustomRange.to ?? prCustomRange.from);
             return rows.filter((pr) => {
                 const d = new Date(pr.achievedAt);
                 return d >= from && d <= to;
@@ -168,7 +166,9 @@ export function TodayHero() {
                     icon={<Trophy className="size-4" />}
                     label="Recent PRs"
                     value={
-                        summary.data ? `${summary.data.recentPrs.length}` : '—'
+                        summary.data
+                            ? summary.data.recentPrs.length.toString()
+                            : '—'
                     }
                 />
             </div>

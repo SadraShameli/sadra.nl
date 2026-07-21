@@ -37,7 +37,7 @@ import { ToggleGroup, ToggleGroupItem } from '~/components/ui/ToggleGroup';
 import { answersSchema } from '~/lib/schemas/trading';
 import { CONFLUENCE_GROUPS } from '~/lib/trading/defaults';
 import { findCurrentWindow, scoreAssessment } from '~/lib/trading/scoring';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 type FormValues = z.infer<typeof answersSchema>;
 
@@ -575,8 +575,8 @@ function DolStep({ plan }: { plan: TradingPlanRow }) {
                 <Input
                     className="mt-2 text-white"
                     id="distanceR"
-                    onChange={(e) => {
-                        const n = Number.parseFloat(e.target.value);
+                    onChange={(event) => {
+                        const n = Number(event.target.value);
                         setValue('dol.distanceR', Number.isFinite(n) ? n : 0, {
                             shouldValidate: true,
                         });
@@ -849,8 +849,8 @@ function RrStep({ plan }: { plan: TradingPlanRow }) {
                     <Input
                         className="mt-2 text-white"
                         id="targetR"
-                        onChange={(e) => {
-                            const n = Number.parseFloat(e.target.value);
+                        onChange={(event) => {
+                            const n = Number(event.target.value);
                             setValue('rr.targetR', Number.isFinite(n) ? n : 0, {
                                 shouldValidate: true,
                             });
@@ -870,8 +870,8 @@ function RrStep({ plan }: { plan: TradingPlanRow }) {
                     <Input
                         className="mt-2 text-white"
                         id="slippageR"
-                        onChange={(e) => {
-                            const n = Number.parseFloat(e.target.value);
+                        onChange={(event) => {
+                            const n = Number(event.target.value);
                             setValue(
                                 'rr.slippageR',
                                 Number.isFinite(n) ? n : 0,

@@ -4,7 +4,7 @@ import { Download } from 'lucide-react';
 
 import { Button } from '~/components/ui/Button';
 import { Card } from '~/components/ui/Card';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 import { api } from '~/trpc/react';
 
 import { GetRecordingURL } from './helpers';
@@ -155,14 +155,14 @@ export default function RecordingSection({
                                     }
                                 }}
                                 onEnded={handleAudioEnded}
-                                onError={(e) => {
-                                    console.error('Audio error:', e);
+                                onError={(event) => {
+                                    console.error('Audio error:', event);
                                 }}
-                                onLoadedMetadata={(e) => {
-                                    setDuration(e.currentTarget.duration);
+                                onLoadedMetadata={(event) => {
+                                    setDuration(event.currentTarget.duration);
                                 }}
-                                onTimeUpdate={(e) => {
-                                    setTime(e.currentTarget.currentTime);
+                                onTimeUpdate={(event) => {
+                                    setTime(event.currentTarget.currentTime);
                                 }}
                                 preload="none"
                                 ref={audioRef}

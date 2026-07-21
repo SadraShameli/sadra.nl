@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 import { Button } from '~/components/ui/Button';
 import { routes } from '~/lib/site/routes';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 type PortfolioHeroProperties = {
     canViewResume: boolean;

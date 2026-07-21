@@ -8,7 +8,7 @@ import { dailyPreparationRowSchema } from '~/lib/schemas/trading';
 import { routes } from '~/lib/site/routes';
 import { ensureUserHasPlan } from '~/lib/trading/actions';
 import { PLAN_TIMEZONE } from '~/lib/trading/defaults';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 import { dailyPreparations, db, tradingPlans } from '~/server/db';
 
 import { PrepView } from '../_components/PrepView';
@@ -31,6 +31,11 @@ export default async function PreMarketPrepPage() {
     const today = todayInTz();
     const since = thirtyDaysAgo();
 
+    const recentPrepCondition = and(
+        eq(dailyPreparations.userId, userId),
+        gte(dailyPreparations.date, since),
+    );
+
     const [plans, recent] = await Promise.all([
         db
             .select({ id: tradingPlans.id, name: tradingPlans.name })
@@ -39,12 +44,7 @@ export default async function PreMarketPrepPage() {
         db
             .select()
             .from(dailyPreparations)
-            .where(
-                and(
-                    eq(dailyPreparations.userId, userId),
-                    gte(dailyPreparations.date, since),
-                ),
-            )
+            .where(recentPrepCondition)
             .orderBy(desc(dailyPreparations.date)),
     ]);
 

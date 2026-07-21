@@ -1,6 +1,6 @@
 import { Slider } from '~/components/ui/Slider';
 import { DurationFormat } from '~/lib/lifting/format';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 interface ProgressBarProperties {
     duration: number;

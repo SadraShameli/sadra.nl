@@ -33,7 +33,7 @@ import { Switch } from '~/components/ui/Switch';
 import { Textarea } from '~/components/ui/Textarea';
 import { executionDeviationSchema, outcomeSchema } from '~/lib/schemas/trading';
 import { recordAssessmentOutcome } from '~/lib/trading/actions';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 const OUTCOMES: { label: string; tone: string; value: Outcome }[] = [
     { label: 'Win', tone: 'border-emerald-500/50', value: 'win' },
@@ -70,7 +70,7 @@ export function OutcomeDialog({
     open,
 }: {
     assessmentId: string;
-    onOpenChange: (open: boolean) => void;
+    onOpenChange: (isOpen: boolean) => void;
     open: boolean;
 }) {
     const router = useRouter();
@@ -333,6 +333,6 @@ export function OutcomeDialog({
 function parseNullableNumber(raw: string): null | number {
     const trimmed = raw.trim();
     if (!trimmed) return null;
-    const n = Number.parseFloat(trimmed);
+    const n = Number(trimmed);
     return Number.isNaN(n) ? null : n;
 }

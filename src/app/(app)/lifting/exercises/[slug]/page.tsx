@@ -4,7 +4,7 @@ import { notFound, redirect } from 'next/navigation';
 import { ExerciseDetail } from '~/app/(app)/lifting/_components/ExerciseDetail';
 import { getServerSession } from '~/lib/auth/server';
 import { routes } from '~/lib/site/routes';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 import { api, HydrateClient } from '~/trpc/server';
 
 interface PageProperties {

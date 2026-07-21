@@ -15,32 +15,7 @@ class AppLogger {
     private readonly pino: PinoLogger;
 
     constructor(pinoLogger?: PinoLogger) {
-        this.pino = pinoLogger ?? AppLogger.buildBase();
-    }
-
-    private static buildBase(): PinoLogger {
-        const isDevelopment = process.env.NODE_ENV !== 'production';
-        const level =
-            process.env.LOG_LEVEL ?? (isDevelopment ? 'debug' : 'info');
-
-        return pino({
-            base: undefined,
-            formatters: {
-                level: (label) => ({ level: label }),
-            },
-            level,
-            timestamp: pino.stdTimeFunctions.isoTime,
-            ...(isDevelopment && {
-                transport: {
-                    options: {
-                        colorize: true,
-                        ignore: 'pid,hostname',
-                        translateTime: 'HH:MM:ss.l',
-                    },
-                    target: 'pino-pretty',
-                },
-            }),
-        });
+        this.pino = pinoLogger ?? buildBaseLogger();
     }
 
     child(bindings: Fields): AppLogger {
@@ -66,6 +41,30 @@ class AppLogger {
     warn(message: string, fields?: Fields): void {
         this.pino.warn(fields ?? {}, message);
     }
+}
+
+function buildBaseLogger(): PinoLogger {
+    const isDevelopment = process.env.NODE_ENV !== 'production';
+    const level = process.env.LOG_LEVEL ?? (isDevelopment ? 'debug' : 'info');
+
+    return pino({
+        base: undefined,
+        formatters: {
+            level: (label) => ({ level: label }),
+        },
+        level,
+        timestamp: pino.stdTimeFunctions.isoTime,
+        ...(isDevelopment && {
+            transport: {
+                options: {
+                    colorize: true,
+                    ignore: 'pid,hostname',
+                    translateTime: 'HH:MM:ss.l',
+                },
+                target: 'pino-pretty',
+            },
+        }),
+    });
 }
 
 export const logger = new AppLogger();

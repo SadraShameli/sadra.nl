@@ -6,7 +6,7 @@ import { Bar, BarChart, LabelList, XAxis, YAxis } from 'recharts';
 import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
 import { formatPercent } from '~/lib/format';
 import { type LightAssessment, perWindowStats } from '~/lib/trading/analytics';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 const chartConfig: ChartConfig = {
     winRate: { color: 'hsl(var(--chart-1))', label: 'Win rate' },

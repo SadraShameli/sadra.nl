@@ -23,7 +23,7 @@ export const equipmentSchema = z.enum(EQUIPMENT_VALUES);
 export const mechanicSchema = z.enum(MECHANIC_VALUES);
 export const forceSchema = z.enum(FORCE_VALUES);
 export const muscleSchema = z.enum(MUSCLE_VALUES);
-export const setTypeSchema = z.enum(SET_TYPE_VALUES);
+export const workoutSetTypeSchema = z.enum(SET_TYPE_VALUES);
 export const prKindSchema = z.enum(PR_KIND_VALUES);
 export const measurementKindSchema = z.enum(MEASUREMENT_KIND_VALUES);
 export const measurementUnitSchema = z.enum(MEASUREMENT_UNIT_VALUES);
@@ -44,7 +44,7 @@ export const exerciseSlugSchema = z
     .max(96)
     .regex(slugRegex, 'Lowercase letters, numbers, and hyphens only.');
 
-export const createCustomExerciseInputSchema = z.object({
+export const customExerciseInputSchema = z.object({
     defaultRestSeconds: z.number().int().min(0).max(3600).optional(),
     equipment: equipmentSchema,
     force: forceSchema,
@@ -59,13 +59,14 @@ export const createCustomExerciseInputSchema = z.object({
 });
 
 export type CreateCustomExerciseInput = z.infer<
-    typeof createCustomExerciseInputSchema
+    typeof customExerciseInputSchema
 >;
 
-export const updateCustomExerciseInputSchema =
-    createCustomExerciseInputSchema.extend({
+export const updateCustomExerciseInputSchema = customExerciseInputSchema.extend(
+    {
         id: z.uuid(),
-    });
+    },
+);
 
 export type UpdateCustomExerciseInput = z.infer<
     typeof updateCustomExerciseInputSchema
@@ -140,13 +141,13 @@ export const listWorkoutsInputSchema = z.object({
 });
 export type ListWorkoutsInput = z.infer<typeof listWorkoutsInputSchema>;
 
-export const addExerciseToWorkoutInputSchema = z.object({
+export const exerciseToWorkoutInputSchema = z.object({
     exerciseId: z.uuid(),
     supersetGroup: z.number().int().min(1).max(99).nullable().optional(),
     workoutId: z.uuid(),
 });
 export type AddExerciseToWorkoutInput = z.infer<
-    typeof addExerciseToWorkoutInputSchema
+    typeof exerciseToWorkoutInputSchema
 >;
 
 export const reorderWorkoutExercisesInputSchema = z.object({
@@ -157,7 +158,7 @@ export type ReorderWorkoutExercisesInput = z.infer<
     typeof reorderWorkoutExercisesInputSchema
 >;
 
-export const createSetInputSchema = z.object({
+export const workoutSetInputSchema = z.object({
     distanceM: z.number().nonnegative().max(100_000).nullable().optional(),
     durationS: z.number().int().nonnegative().max(86_400).nullable().optional(),
     notes: z.string().max(1024).nullable().optional(),
@@ -169,13 +170,13 @@ export const createSetInputSchema = z.object({
         .regex(/^\d-\d-\d-\d$/, 'Use 4-0-1-0 format.')
         .nullable()
         .optional(),
-    type: setTypeSchema,
+    type: workoutSetTypeSchema,
     weightKg: z.number().nonnegative().max(1500).nullable().optional(),
     workoutExerciseId: z.uuid(),
 });
-export type CreateSetInput = z.infer<typeof createSetInputSchema>;
+export type CreateSetInput = z.infer<typeof workoutSetInputSchema>;
 
-export const updateSetInputSchema = createSetInputSchema
+export const updateSetInputSchema = workoutSetInputSchema
     .omit({ workoutExerciseId: true })
     .extend({ id: z.uuid() });
 export type UpdateSetInput = z.infer<typeof updateSetInputSchema>;
@@ -216,13 +217,13 @@ export const routineBlockSchema = z.object({
     targetRpe: z.number().min(1).max(10).optional(),
 });
 
-export const createRoutineInputSchema = z.object({
+export const routineInputSchema = z.object({
     blocks: z.array(routineBlockSchema).min(1).max(40),
     name: z.string().trim().min(1).max(128),
 });
-export type CreateRoutineInput = z.infer<typeof createRoutineInputSchema>;
+export type CreateRoutineInput = z.infer<typeof routineInputSchema>;
 
-export const updateRoutineInputSchema = createRoutineInputSchema.extend({
+export const updateRoutineInputSchema = routineInputSchema.extend({
     id: z.uuid(),
     sortOrder: z.number().int().nonnegative().optional(),
 });
@@ -233,20 +234,18 @@ export const reorderRoutinesInputSchema = z.object({
 });
 export type ReorderRoutinesInput = z.infer<typeof reorderRoutinesInputSchema>;
 
-export const createMeasurementInputSchema = z.object({
+export const measurementInputSchema = z.object({
     kind: measurementKindSchema,
     notes: z.string().max(1024).nullable().optional(),
     takenAt: z.date().optional(),
     unit: measurementUnitSchema,
     valueNumeric: z.number().min(0).max(1000),
 });
-export type CreateMeasurementInput = z.infer<
-    typeof createMeasurementInputSchema
->;
+export type CreateMeasurementInput = z.infer<typeof measurementInputSchema>;
 
-export const updateMeasurementInputSchema = createMeasurementInputSchema.extend(
-    { id: z.uuid() },
-);
+export const updateMeasurementInputSchema = measurementInputSchema.extend({
+    id: z.uuid(),
+});
 export type UpdateMeasurementInput = z.infer<
     typeof updateMeasurementInputSchema
 >;
@@ -258,15 +257,15 @@ export const listMeasurementsInputSchema = z.object({
 });
 export type ListMeasurementsInput = z.infer<typeof listMeasurementsInputSchema>;
 
-export const createGoalInputSchema = z.object({
+export const goalInputSchema = z.object({
     exerciseId: z.uuid().nullable().optional(),
     kind: goalKindSchema,
     targetDate: dateStringSchema.nullable().optional(),
     targetValue: z.number().positive().max(100_000),
 });
-export type CreateGoalInput = z.infer<typeof createGoalInputSchema>;
+export type CreateGoalInput = z.infer<typeof goalInputSchema>;
 
-export const updateGoalInputSchema = createGoalInputSchema.extend({
+export const updateGoalInputSchema = goalInputSchema.extend({
     id: z.uuid(),
     status: goalStatusSchema.optional(),
 });

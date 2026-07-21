@@ -21,5 +21,5 @@ export {
 export { FirmId } from './FirmId';
 export { type PayoutTier, walkPayoutTiers } from './PayoutTiers';
 export { type PayoutSchedule, Plan, type PlanInit } from './Plan';
-export { type PlanId, planIdEquals, serializePlanId } from './PlanId';
-export { PropFirm } from './PropFirm';
+export { arePlanIdsEqual, type PlanId, serializePlanId } from './PlanId';
+export { TradingFirm } from './TradingFirm';

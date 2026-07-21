@@ -77,10 +77,7 @@ import {
     TooltipTrigger,
 } from '~/components/ui/Tooltip';
 import { WeightUnit } from '~/lib/lifting/format';
-import {
-    type CreateGoalInput,
-    createGoalInputSchema,
-} from '~/lib/lifting/schemas';
+import { type CreateGoalInput, goalInputSchema } from '~/lib/lifting/schemas';
 import {
     GOAL_KIND_VALUES,
     GOAL_STATUS,
@@ -90,7 +87,7 @@ import {
     type UnitWeight,
 } from '~/lib/lifting/types';
 import { routes } from '~/lib/site/routes';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 import { api, type RouterOutputs } from '~/trpc/react';
 
 type GoalRow = RouterOutputs['lifting']['goal']['list'][number];
@@ -227,7 +224,7 @@ export function GoalsView() {
             targetDate: null,
             targetValue: 0,
         },
-        resolver: zodResolver(createGoalInputSchema),
+        resolver: zodResolver(goalInputSchema),
     });
     const [statusFilter, setStatusFilter] = useState<StatusFilter>(
         STATUS_FILTER.ACTIVE,
@@ -550,9 +547,9 @@ export function GoalsView() {
                                         <FormControl>
                                             <Input
                                                 inputMode="decimal"
-                                                onChange={(e) => {
-                                                    const n = Number.parseFloat(
-                                                        e.target.value,
+                                                onChange={(event) => {
+                                                    const n = Number(
+                                                        event.target.value,
                                                     );
                                                     field.onChange(
                                                         Number.isFinite(n)
@@ -725,9 +722,12 @@ export function GoalsView() {
                                         <SelectItem value={EXERCISE_NONE}>
                                             Unassigned
                                         </SelectItem>
-                                        {exerciseOptions.map((e) => (
-                                            <SelectItem key={e.id} value={e.id}>
-                                                {e.name}
+                                        {exerciseOptions.map((exercise) => (
+                                            <SelectItem
+                                                key={exercise.id}
+                                                value={exercise.id}
+                                            >
+                                                {exercise.name}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
@@ -1151,9 +1151,6 @@ function TargetDateCell({
 }) {
     if (!targetDate)
         return <span className="text-xs text-muted-foreground">—</span>;
-    const date = parseISO(targetDate);
-    const today = startOfDay(new Date());
-    const diff = differenceInCalendarDays(date, today);
     if (status !== GOAL_STATUS.ACTIVE) {
         return (
             <span className="text-xs text-muted-foreground tabular-nums">
@@ -1161,6 +1158,9 @@ function TargetDateCell({
             </span>
         );
     }
+    const date = parseISO(targetDate);
+    const today = startOfDay(new Date());
+    const diff = differenceInCalendarDays(date, today);
     const tone =
         diff < 0
             ? 'text-rose-400'

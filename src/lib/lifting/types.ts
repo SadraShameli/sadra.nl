@@ -161,7 +161,7 @@ export interface ProgramDay {
     name: string;
 }
 
-export interface ProgramDayRef {
+export interface ProgramDayReference {
     day: number;
     userProgramId: string;
     week: number;

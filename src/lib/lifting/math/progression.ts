@@ -101,21 +101,11 @@ export class DoubleProgression extends ProgressionRule {
 
 export class LinearProgression extends ProgressionRule {
     readonly id = 'linear' as const;
+
     readonly label = 'Linear';
 
     constructor(private readonly config: LinearProgressionConfig) {
         super();
-    }
-
-    private static heaviestSet(session: SessionSummary): CompletedSet | null {
-        return (
-            session.sets
-                .filter((s) => s.completed)
-                .reduce<CompletedSet | null>((best, s) => {
-                    if (!best || s.weightKg > best.weightKg) return s;
-                    return best;
-                }, null) ?? null
-        );
     }
 
     suggest(history: SessionSummary[]): ProgressionSuggestion {
@@ -127,7 +117,7 @@ export class LinearProgression extends ProgressionRule {
                 weightKg: 0,
             };
         }
-        const baseline = LinearProgression.heaviestSet(last);
+        const baseline = heaviestSet(last);
         if (!baseline) {
             return {
                 rationale: 'No completed sets last session.',
@@ -220,4 +210,15 @@ export class RpeTargetProgression extends ProgressionRule {
             weightKg: candidate.weightKg * pctAdjust,
         };
     }
+}
+
+function heaviestSet(session: SessionSummary): CompletedSet | null {
+    return (
+        session.sets
+            .filter((s) => s.completed)
+            .reduce<CompletedSet | null>((best, s) => {
+                if (!best || s.weightKg > best.weightKg) return s;
+                return best;
+            }, null) ?? null
+    );
 }

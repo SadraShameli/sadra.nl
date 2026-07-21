@@ -10,7 +10,11 @@ import type {
 } from '~/lib/accounting/runner-types';
 import type { RunOutcome, RunSummary } from '~/lib/accounting/runs/types';
 
-import { BookingAggregator } from '~/lib/accounting/core/aggregator';
+import {
+    BookingAggregator,
+    requiredCurrencies,
+    requiredDateRange,
+} from '~/lib/accounting/core/aggregator';
 import { IsoDate } from '~/lib/accounting/core/date';
 import { type RunId, UserId } from '~/lib/accounting/core/ids';
 import { CurrencyConverter, Eur } from '~/lib/accounting/core/money';
@@ -23,7 +27,7 @@ import {
 import { CredentialRegistry } from '~/lib/accounting/credentials/index';
 import { ProviderRegistry } from '~/lib/accounting/providers/provider';
 import { EcbRateProvider } from '~/lib/accounting/rates/ecb';
-import { accountingRunRepository } from '~/lib/accounting/runs/repository';
+import { accountingRunRepo } from '~/lib/accounting/runs/repo';
 import '~/lib/accounting/sources/index';
 import { SourceRegistry } from '~/lib/accounting/sources/source';
 
@@ -55,7 +59,8 @@ export async function* runPlan(input: PlanInput): AsyncIterable<ImportEvent> {
         all.push(...txns);
     }
 
-    for (const { events, txns } of input.fileInputs.map(parseFromFileInput)) {
+    for (const fileInput of input.fileInputs) {
+        const { events, txns } = parseFromFileInput(fileInput);
         for (const event of events) yield event;
         all.push(...txns);
     }
@@ -82,18 +87,10 @@ export async function* runPlan(input: PlanInput): AsyncIterable<ImportEvent> {
     }
 
     const startDate = IsoDate.parse(input.startDate);
-    const datesForFx = BookingAggregator.requiredDateRange(
-        all,
-        startDate,
-        input.ruleSet,
-    );
+    const datesForFx = requiredDateRange(all, startDate, input.ruleSet);
     const range = IsoDate.range(datesForFx);
     const rates = new EcbRateProvider({ fetchImpl: input.fetchImpl });
-    const fxCurrencies = BookingAggregator.requiredCurrencies(
-        all,
-        startDate,
-        input.ruleSet,
-    );
+    const fxCurrencies = requiredCurrencies(all, startDate, input.ruleSet);
     if (range && fxCurrencies.length > 0) {
         const fxStart = Date.now();
         yield {
@@ -105,7 +102,7 @@ export async function* runPlan(input: PlanInput): AsyncIterable<ImportEvent> {
         try {
             await Promise.all(
                 fxCurrencies.map((currency) =>
-                    RetryPolicy.default().execute(() =>
+                    RetryPolicy.default.execute(() =>
                         rates.ensureCurrencyRange(currency, range),
                     ),
                 ),
@@ -168,7 +165,7 @@ export async function* runPlan(input: PlanInput): AsyncIterable<ImportEvent> {
 
 export async function* runPush(input: PushInput): AsyncIterable<ImportEvent> {
     const userId = UserId(input.userId);
-    const run = await accountingRunRepository.get(input.runId, userId);
+    const run = await accountingRunRepo.get(input.runId, userId);
     if (!run) {
         yield {
             kind: 'log',
@@ -217,7 +214,7 @@ export async function* runPush(input: PushInput): AsyncIterable<ImportEvent> {
         return;
     }
 
-    await accountingRunRepository.setStatus(input.runId, userId, 'posting');
+    await accountingRunRepo.setStatus(input.runId, userId, 'posting');
 
     const postStart = Date.now();
     yield {
@@ -235,14 +232,14 @@ export async function* runPush(input: PushInput): AsyncIterable<ImportEvent> {
         const outcomes = await Promise.all(
             bookingsToPost.map(async (booking) => {
                 try {
-                    const result = await RetryPolicy.default().execute(() =>
+                    const result = await RetryPolicy.default.execute(() =>
                         session.postBooking(booking),
                     );
                     const outcome: RunOutcome = {
                         externalId: result.externalId,
                         status: 'posted',
                     };
-                    await accountingRunRepository.recordOutcome(
+                    await accountingRunRepo.recordOutcome(
                         input.runId,
                         userId,
                         booking.txnId,
@@ -256,7 +253,7 @@ export async function* runPush(input: PushInput): AsyncIterable<ImportEvent> {
                 } catch (error) {
                     const message =
                         error instanceof Error ? error.message : String(error);
-                    await accountingRunRepository.recordOutcome(
+                    await accountingRunRepo.recordOutcome(
                         input.runId,
                         userId,
                         booking.txnId,
@@ -282,10 +279,12 @@ export async function* runPush(input: PushInput): AsyncIterable<ImportEvent> {
             };
         }
     } finally {
-        await session.close().catch(swallow);
+        try {
+            await session.close();
+        } catch {}
     }
 
-    const finalRun = await accountingRunRepository.get(input.runId, userId);
+    const finalRun = await accountingRunRepo.get(input.runId, userId);
     if (finalRun) {
         const isAllPosted = finalRun.bookings.every(
             (b) => finalRun.outcomes[b.txnId]?.status === 'posted',
@@ -293,7 +292,7 @@ export async function* runPush(input: PushInput): AsyncIterable<ImportEvent> {
         const isAnyPosted = finalRun.bookings.some(
             (b) => finalRun.outcomes[b.txnId]?.status === 'posted',
         );
-        await accountingRunRepository.setStatus(
+        await accountingRunRepo.setStatus(
             input.runId,
             userId,
             isAllPosted ? 'posted' : isAnyPosted ? 'partial' : 'failed',
@@ -414,7 +413,7 @@ async function persistRun(
     input: PlanInput,
     result: ConversionResult,
 ): Promise<{ kind: 'run'; runId: RunId }> {
-    const runId = await accountingRunRepository.create({
+    const runId = await accountingRunRepo.create({
         accountingCredentialId: input.accountingCredentialId,
         apiCredentialIds: input.apiCredentials.map((c) => c.id),
         bookings: result.bookings,
@@ -423,10 +422,6 @@ async function persistRun(
         userId: input.userId,
     });
     return { kind: 'run', runId };
-}
-
-function swallow(): void {
-    return;
 }
 
 function toRunSummary(result: ConversionResult): RunSummary {

@@ -8,10 +8,10 @@ import {
     findFirm,
     FirmId,
     type Plan,
-    type PropFirm,
     type SimInputs,
     type SimOutputs,
     simulate,
+    type TradingFirm,
 } from '~/lib/prop-calculator';
 
 import { type CalculatorState, type LabScenario, SizingMode } from './types';
@@ -39,7 +39,7 @@ function required<T>(value: T | undefined, message: string): T {
     return value;
 }
 
-const DEFAULT_FIRM: PropFirm = required(
+const DEFAULT_FIRM: TradingFirm = required(
     findFirm(FirmId.Apex),
     'Prop calculator: Apex firm missing from registry',
 );
@@ -70,9 +70,9 @@ export interface UseCalculatorReturn {
     setCopyAccounts: (n: number) => void;
     setDayStop: (rule: DayStopRule) => void;
     setEvalDiscountPercent: (n: number) => void;
-    setFirm: (firm: PropFirm) => void;
+    setFirm: (firm: TradingFirm) => void;
     setLabScenarios: (entries: LabScenario[]) => void;
-    setLinkActivationDiscount: (linked: boolean) => void;
+    setLinkActivationDiscount: (isLinked: boolean) => void;
     setMaxAttempts: (n: number) => void;
     setMaxEvalDays: (n: number) => void;
     setPlan: (plan: Plan) => void;
@@ -225,7 +225,7 @@ export function useCalculator(): UseCalculatorReturn {
     const result = useMemo(() => simulate(debouncedInputs), [debouncedInputs]);
     const isPending = simInputs !== debouncedInputs;
 
-    const setFirm = (firm: PropFirm) => {
+    const setFirm = (firm: TradingFirm) => {
         const firstPlan = firm.plans[0];
         if (!firstPlan) return;
         setState((s) => {

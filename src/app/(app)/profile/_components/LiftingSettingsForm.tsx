@@ -38,7 +38,7 @@ import {
     UNIT_WEIGHT_VALUES,
     WEEK_START_VALUES,
 } from '~/lib/lifting/types';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 import { api, type RouterOutputs } from '~/trpc/react';
 
 type Settings = RouterOutputs['lifting']['settings']['get'];
@@ -96,7 +96,7 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
     });
 
     const addPlate = () => {
-        const n = Number.parseFloat(plateDraft);
+        const n = Number(plateDraft);
         if (!Number.isFinite(n) || n <= 0) return;
         const asKg = WeightUnit.fromDisplay(n, unitWeight);
         const next = [...availablePlatesKg, asKg].toSorted((a, b) => b - a);
@@ -212,9 +212,9 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
                                 <FormControl>
                                     <Input
                                         inputMode="decimal"
-                                        onChange={(e) => {
-                                            const raw = Number.parseFloat(
-                                                e.target.value,
+                                        onChange={(event) => {
+                                            const raw = Number(
+                                                event.target.value,
                                             );
                                             const asKg = Number.isFinite(raw)
                                                 ? WeightUnit.fromDisplay(
@@ -246,13 +246,15 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
                         <div className="flex gap-2">
                             <Input
                                 inputMode="decimal"
-                                onChange={(e) => setPlateDraft(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key !== 'Enter') {
+                                onChange={(event) =>
+                                    setPlateDraft(event.target.value)
+                                }
+                                onKeyDown={(event) => {
+                                    if (event.key !== 'Enter') {
                                         return;
                                     }
 
-                                    e.preventDefault();
+                                    event.preventDefault();
                                     addPlate();
                                 }}
                                 placeholder="Add plate"
@@ -307,10 +309,9 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
                                     <Input
                                         inputMode="numeric"
                                         min={0}
-                                        onChange={(e) => {
-                                            const n = Number.parseInt(
-                                                e.target.value,
-                                                10,
+                                        onChange={(event) => {
+                                            const n = Math.trunc(
+                                                Number(event.target.value),
                                             );
                                             field.onChange(
                                                 Number.isFinite(n) ? n : 0,

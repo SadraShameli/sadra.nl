@@ -9,7 +9,7 @@ import InfoPopover from '~/components/ui/InfoPopover';
 import { formatCompactCurrency, formatPercent } from '~/lib/format';
 import { type SimOutputs } from '~/lib/prop-calculator';
 import { percentile } from '~/lib/prop-calculator/stats';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 interface TailRiskPanelProperties {
     result: SimOutputs;

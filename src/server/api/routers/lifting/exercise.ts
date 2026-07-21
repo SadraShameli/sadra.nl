@@ -3,7 +3,7 @@ import { TRPCError } from '@trpc/server';
 import { and, eq, isNull } from 'drizzle-orm';
 
 import {
-    createCustomExerciseInputSchema,
+    customExerciseInputSchema,
     exerciseIdActionSchema,
     exerciseSlugActionSchema,
     listExercisesInputSchema,
@@ -48,7 +48,7 @@ function slugify(value: string): string {
 
 export const liftingExerciseRouter = createTRPCRouter({
     createCustom: protectedProcedure
-        .input(createCustomExerciseInputSchema)
+        .input(customExerciseInputSchema)
         .mutation(async ({ ctx, input }) => {
             const slug = slugify(input.name) || crypto.randomUUID();
             const [inserted] = await ctx.db
@@ -101,10 +101,13 @@ export const liftingExerciseRouter = createTRPCRouter({
         .input(exerciseSlugActionSchema)
         .query(async ({ ctx, input }) => {
             const row = await ctx.db.query.liftingExercise.findFirst({
-                where: (e, { and: a, eq: e2, isNull: n, or: o }) =>
+                where: (fields, { and: a, eq: equals, isNull: n, or: o }) =>
                     a(
-                        e2(e.slug, input.slug),
-                        o(n(e.ownerId), e2(e.ownerId, ctx.userId)),
+                        equals(fields.slug, input.slug),
+                        o(
+                            n(fields.ownerId),
+                            equals(fields.ownerId, ctx.userId),
+                        ),
                     ),
             });
             if (!row) {

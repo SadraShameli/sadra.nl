@@ -76,7 +76,7 @@ const DURATION_OPTIONS = [
 type DurationFilter = (typeof DURATION_OPTIONS)[number]['value'];
 type StatusFilter = (typeof STATUS_OPTIONS)[number]['value'];
 
-function inDurationBucket(
+function isInDurationBucket(
     secs: null | number,
     bucket: DurationFilter,
 ): boolean {
@@ -137,7 +137,7 @@ export function WorkoutsManager() {
         return all.filter((w) => {
             if (statusFilter === 'completed' && !w.endedAt) return false;
             if (statusFilter === 'in-progress' && w.endedAt) return false;
-            if (!inDurationBucket(durationSeconds(w), durationFilter))
+            if (!isInDurationBucket(durationSeconds(w), durationFilter))
                 return false;
             if (from) {
                 const started = new Date(w.startedAt);
@@ -450,11 +450,11 @@ function WorkoutEditDialog({
                                     <FormLabel>Name</FormLabel>
                                     <FormControl>
                                         <Input
-                                            onChange={(e) =>
+                                            onChange={(event) =>
                                                 field.onChange(
-                                                    e.target.value === ''
+                                                    event.target.value === ''
                                                         ? null
-                                                        : e.target.value,
+                                                        : event.target.value,
                                                 )
                                             }
                                             ref={field.ref}
@@ -474,13 +474,13 @@ function WorkoutEditDialog({
                                     <FormControl>
                                         <Input
                                             inputMode="decimal"
-                                            onChange={(e) => {
-                                                if (e.target.value === '') {
+                                            onChange={(event) => {
+                                                if (event.target.value === '') {
                                                     field.onChange(null);
                                                     return;
                                                 }
-                                                const n = Number.parseFloat(
-                                                    e.target.value,
+                                                const n = Number(
+                                                    event.target.value,
                                                 );
                                                 field.onChange(
                                                     Number.isFinite(n)
@@ -506,11 +506,11 @@ function WorkoutEditDialog({
                                     <FormLabel>Notes</FormLabel>
                                     <FormControl>
                                         <Textarea
-                                            onChange={(e) =>
+                                            onChange={(event) =>
                                                 field.onChange(
-                                                    e.target.value === ''
+                                                    event.target.value === ''
                                                         ? null
-                                                        : e.target.value,
+                                                        : event.target.value,
                                                 )
                                             }
                                             ref={field.ref}

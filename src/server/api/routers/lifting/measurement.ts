@@ -4,9 +4,9 @@ import { and, desc, eq, gte, lt } from 'drizzle-orm';
 
 import { rangeEnd } from '~/lib/lifting/date-range';
 import {
-    createMeasurementInputSchema,
     idActionSchema,
     listMeasurementsInputSchema,
+    measurementInputSchema,
     updateMeasurementInputSchema,
 } from '~/lib/lifting/schemas';
 import { MEASUREMENT_KIND_VALUES } from '~/lib/lifting/types';
@@ -15,7 +15,7 @@ import { liftingMeasurement } from '~/server/db';
 
 export const liftingMeasurementRouter = createTRPCRouter({
     create: protectedProcedure
-        .input(createMeasurementInputSchema)
+        .input(measurementInputSchema)
         .mutation(async ({ ctx, input }) => {
             const [row] = await ctx.db
                 .insert(liftingMeasurement)
@@ -66,7 +66,7 @@ export const liftingMeasurementRouter = createTRPCRouter({
         for (const row of rows) {
             const kind = row.kind;
             if (!MEASUREMENT_KIND_VALUES.includes(kind)) continue;
-            if (out[kind]) continue;
+            if (Object.hasOwn(out, kind)) continue;
             out[kind] = row;
         }
         return out;

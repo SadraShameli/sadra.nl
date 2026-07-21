@@ -4,7 +4,7 @@ import Eyebrow from '~/components/Eyebrow';
 import { SocialIcon } from '~/components/ui/SocialIcon';
 import { siteContent } from '~/lib/site/content';
 import { routes } from '~/lib/site/routes';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 type Column = {
     heading: string;

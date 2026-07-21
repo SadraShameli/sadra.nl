@@ -5,7 +5,7 @@ import Link from 'next/link';
 
 import type { PortfolioSectionView } from '~/lib/site/content';
 
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 import SkillChip from './SkillChip';
 

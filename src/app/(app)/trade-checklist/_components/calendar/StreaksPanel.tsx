@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 
 import { Card } from '~/components/ui/Card';
 import { computeStreaks, type LightAssessment } from '~/lib/trading/analytics';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 export function StreaksPanel({
     assessments,

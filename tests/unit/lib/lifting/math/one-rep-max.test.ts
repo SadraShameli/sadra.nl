@@ -54,7 +54,7 @@ describe('OneRepMaxCalculator.estimate', () => {
     it('returns 0 for non-positive or non-finite weight', () => {
         expect(calc.estimate(0, 5)).toBe(0);
         expect(calc.estimate(-100, 5)).toBe(0);
-        expect(calc.estimate(Number.NaN, 5)).toBe(0);
+        expect(calc.estimate(NaN, 5)).toBe(0);
     });
 
     it('returns 0 for non-positive reps', () => {
@@ -71,8 +71,8 @@ describe('OneRepMaxCalculator.estimate', () => {
 
     it('round-trips: weightFor(estimate(w, r), r) is within 1.5 kg of w', () => {
         for (const reps of [3, 5, 8, 10, 15]) {
-            const e1rm = calc.estimate(100, reps);
-            const recovered = calc.weightFor(e1rm, reps);
+            const estimated1RM = calc.estimate(100, reps);
+            const recovered = calc.weightFor(estimated1RM, reps);
             expect(Math.abs(recovered - 100)).toBeLessThan(1.5);
         }
     });

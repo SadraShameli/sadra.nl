@@ -697,12 +697,14 @@ function runEvalAttempt(
     maxEvalDays: number,
     commission: number,
     rng: Rng,
-    captureEquity: boolean,
+    shouldCaptureEquity: boolean,
     dayStop: DayStopRule | undefined,
 ): EvalAttemptResult {
     const state = plan.initialState();
     const stats = newPathStats(state.startingBalance);
-    const equityCurve: null | number[] = captureEquity ? [state.balance] : null;
+    const equityCurve: null | number[] = shouldCaptureEquity
+        ? [state.balance]
+        : null;
     let bestDayProfit = 0;
     let days = 0;
     let outcome: EvalAttemptOutcome = 'timed-out';
@@ -741,9 +743,52 @@ function runEvalAttempt(
     return { bestDayProfit, days, equityCurve, outcome, state, stats };
 }
 
+function runFundedHorizon(
+    plan: Plan,
+    attempt: EvalAttemptResult,
+    winrate: number,
+    rrRatio: number,
+    riskPerTrade: number,
+    tradesPerDay: number,
+    fundedHorizonDays: number,
+    commission: number,
+    rng: Rng,
+    dayStop: DayStopRule | undefined,
+): { daysElapsed: number; isBustedFunded: boolean } {
+    let daysElapsed = 0;
+    let isBustedFunded = false;
+
+    for (let day = 0; day < fundedHorizonDays; day++) {
+        const { busted } = runDay(
+            plan,
+            attempt.state,
+            attempt.stats,
+            winrate,
+            rrRatio,
+            riskPerTrade,
+            tradesPerDay,
+            commission,
+            rng,
+            dayStop,
+        );
+        daysElapsed += 1;
+        attempt.state.daysElapsed += 1;
+        if (attempt.equityCurve) {
+            attempt.equityCurve.push(attempt.state.balance);
+        }
+
+        if (busted) {
+            isBustedFunded = true;
+            break;
+        }
+    }
+
+    return { daysElapsed, isBustedFunded };
+}
+
 function shouldStopDay(
     rule: DayStopRule | undefined,
-    won: boolean,
+    hasWon: boolean,
     lossesToday: number,
     pnlToday: number,
 ): boolean {
@@ -756,7 +801,7 @@ function shouldStopDay(
             return pnlToday >= rule.dollars;
         }
         case 'first-win': {
-            return won;
+            return hasWon;
         }
     }
 }
@@ -772,7 +817,7 @@ function simulateTrial(
     maxAttempts: number,
     commission: number,
     rng: Rng,
-    captureEquity: boolean,
+    shouldCaptureEquity: boolean,
     discounts: CouponDiscounts | undefined,
     dayStop: DayStopRule | undefined,
 ): TrialResult {
@@ -793,7 +838,7 @@ function simulateTrial(
             maxEvalDays,
             commission,
             rng,
-            captureEquity,
+            shouldCaptureEquity,
             dayStop,
         );
         cumulativeDays += attempt.days;
@@ -803,30 +848,21 @@ function simulateTrial(
             const passDay = attempt.days;
             const passBalance = attempt.state.balance;
             const evalTradesAtPass = attempt.stats.tradesTaken;
-            let isBustedFunded = false;
 
-            for (let day = 0; day < fundedHorizonDays; day++) {
-                const { busted } = runDay(
-                    plan,
-                    attempt.state,
-                    attempt.stats,
-                    winrate,
-                    rrRatio,
-                    riskPerTrade,
-                    tradesPerDay,
-                    commission,
-                    rng,
-                    dayStop,
-                );
-                cumulativeDays += 1;
-                attempt.state.daysElapsed += 1;
-                if (lastEquityCurve)
-                    lastEquityCurve.push(attempt.state.balance);
-                if (busted) {
-                    isBustedFunded = true;
-                    break;
-                }
-            }
+            const fundedHorizon = runFundedHorizon(
+                plan,
+                attempt,
+                winrate,
+                rrRatio,
+                riskPerTrade,
+                tradesPerDay,
+                fundedHorizonDays,
+                commission,
+                rng,
+                dayStop,
+            );
+            cumulativeDays += fundedHorizon.daysElapsed;
+            const isBustedFunded = fundedHorizon.isBustedFunded;
 
             rollUpStats(cumulative, attempt.stats);
 

@@ -3,7 +3,7 @@
 import { Card } from '~/components/ui/Card';
 import InfoPopover from '~/components/ui/InfoPopover';
 import { type SimOutputs } from '~/lib/prop-calculator';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 import DaysToPassHistogramView from './charts/DaysToPassHistogramView';
 import DrawdownCurveChartView from './charts/DrawdownCurveChartView';

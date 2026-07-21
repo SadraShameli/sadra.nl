@@ -79,7 +79,9 @@ describe('PrDetectionPipeline', () => {
     it('runs all detectors and aggregates unlocked PRs', () => {
         const pipeline = new PrDetectionPipeline();
         const unlocked = pipeline.run([s(100, 5)], s(105, 6, 'new'));
-        const kinds = unlocked.map((u) => u.kind).toSorted();
+        const kinds = unlocked
+            .map((u) => u.kind)
+            .toSorted((a, b) => a.localeCompare(b));
         expect(kinds).toContain('estimated_1rm');
         expect(kinds).toContain('heaviest_weight');
         expect(kinds).toContain('best_volume_set');

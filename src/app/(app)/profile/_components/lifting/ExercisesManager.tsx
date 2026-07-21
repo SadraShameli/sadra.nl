@@ -48,7 +48,7 @@ import {
 } from '~/components/ui/Select';
 import {
     type CreateCustomExerciseInput,
-    createCustomExerciseInputSchema,
+    customExerciseInputSchema,
 } from '~/lib/lifting/schemas';
 import {
     EQUIPMENT_VALUES,
@@ -58,7 +58,7 @@ import {
 } from '~/lib/lifting/types';
 import { api, type RouterOutputs } from '~/trpc/react';
 
-type ExerciseFormInput = z.input<typeof createCustomExerciseInputSchema>;
+type ExerciseFormInput = z.input<typeof customExerciseInputSchema>;
 type ExerciseRow = RouterOutputs['lifting']['exercise']['list'][number];
 
 const FILTER_ALL = '__all__';
@@ -112,23 +112,23 @@ export function ExercisesManager() {
         },
     });
 
-    const [createOpen, setCreateOpen] = useState(false);
+    const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [editing, setEditing] = useState<ExerciseRow | null>(null);
     const [muscleFilter, setMuscleFilter] = useState<string>(FILTER_ALL);
     const [equipmentFilter, setEquipmentFilter] = useState<string>(FILTER_ALL);
 
     const rows = useMemo(
         () =>
-            (query.data ?? []).filter((e) => {
-                if (!e.isCustom) return false;
+            (query.data ?? []).filter((exercise) => {
+                if (!exercise.isCustom) return false;
                 if (
                     muscleFilter !== FILTER_ALL &&
-                    e.primaryMuscle !== muscleFilter
+                    exercise.primaryMuscle !== muscleFilter
                 )
                     return false;
                 return (
                     equipmentFilter === FILTER_ALL ||
-                    e.equipment === equipmentFilter
+                    exercise.equipment === equipmentFilter
                 );
             }),
         [query.data, muscleFilter, equipmentFilter],
@@ -238,7 +238,7 @@ export function ExercisesManager() {
                 </p>
                 <Button
                     className="gap-1"
-                    onClick={() => setCreateOpen(true)}
+                    onClick={() => setIsCreateOpen(true)}
                     size="sm"
                 >
                     <Plus className="size-4" /> New exercise
@@ -313,10 +313,13 @@ export function ExercisesManager() {
                                     <SelectItem value={FILTER_ALL}>
                                         All gear
                                     </SelectItem>
-                                    {EQUIPMENT_VALUES.map((e) => (
-                                        <SelectItem key={e} value={e}>
+                                    {EQUIPMENT_VALUES.map((equipment) => (
+                                        <SelectItem
+                                            key={equipment}
+                                            value={equipment}
+                                        >
                                             <span className="capitalize">
-                                                {e}
+                                                {equipment}
                                             </span>
                                         </SelectItem>
                                     ))}
@@ -331,12 +334,12 @@ export function ExercisesManager() {
             />
 
             <ExerciseDialog
-                onClose={() => setCreateOpen(false)}
+                onClose={() => setIsCreateOpen(false)}
                 onSubmit={async (values) => {
                     await create.mutateAsync(values);
-                    setCreateOpen(false);
+                    setIsCreateOpen(false);
                 }}
-                open={createOpen}
+                open={isCreateOpen}
                 pending={create.isPending}
                 title="New exercise"
             />
@@ -421,7 +424,7 @@ function ExerciseDialog({
         {
             defaultValues: initial ?? DEFAULTS,
             mode: 'onTouched',
-            resolver: zodResolver(createCustomExerciseInputSchema),
+            resolver: zodResolver(customExerciseInputSchema),
         },
     );
 

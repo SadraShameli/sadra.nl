@@ -3,7 +3,7 @@ import { TRPCError } from '@trpc/server';
 import { and, desc, eq } from 'drizzle-orm';
 
 import {
-    createGoalInputSchema,
+    goalInputSchema,
     idActionSchema,
     listGoalsInputSchema,
     updateGoalInputSchema,
@@ -14,7 +14,7 @@ import { liftingExercise, liftingGoal } from '~/server/db';
 
 export const liftingGoalRouter = createTRPCRouter({
     create: protectedProcedure
-        .input(createGoalInputSchema)
+        .input(goalInputSchema)
         .mutation(async ({ ctx, input }) => {
             const [row] = await ctx.db
                 .insert(liftingGoal)

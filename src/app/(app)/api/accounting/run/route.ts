@@ -177,17 +177,13 @@ async function loadRoutingConfig(
             bankAccounts: [],
             ruleSet: await loadRuleSet(undefined, userId),
         };
+    const bankAccountFilter = and(
+        eq(accountingBankAccount.credentialId, credentialId),
+        eq(accountingBankAccount.userId, userId),
+    );
     const [ruleSet, bankRows] = await Promise.all([
         loadRuleSet(credentialId, userId),
-        db
-            .select()
-            .from(accountingBankAccount)
-            .where(
-                and(
-                    eq(accountingBankAccount.credentialId, credentialId),
-                    eq(accountingBankAccount.userId, userId),
-                ),
-            ),
+        db.select().from(accountingBankAccount).where(bankAccountFilter),
     ]);
     return {
         bankAccounts: bankRows.map((b) => ({

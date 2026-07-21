@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { env } from '~/env';
+import { environment } from '~/environment';
 
 const ALGO = 'AES-GCM';
 const KEY_BITS = 256;
@@ -8,7 +8,7 @@ const IV_BYTES = 12;
 const ENCODER = new TextEncoder();
 const DECODER = new TextDecoder();
 
-let cachedKey: CryptoKey | null = null;
+const keyCache: { current: CryptoKey | null } = { current: null };
 
 export async function openSecret(sealed: string): Promise<string> {
     const key = await deriveKey();
@@ -44,12 +44,12 @@ function copyToFreshBuffer(view: Uint8Array): Uint8Array<ArrayBuffer> {
 }
 
 async function deriveKey(): Promise<CryptoKey> {
-    if (cachedKey) return cachedKey;
-    const ikm = copyToFreshBuffer(ENCODER.encode(env.AUTH_SECRET));
+    if (keyCache.current) return keyCache.current;
+    const ikm = copyToFreshBuffer(ENCODER.encode(environment.AUTH_SECRET));
     const baseKey = await crypto.subtle.importKey('raw', ikm, 'HKDF', false, [
         'deriveKey',
     ]);
-    cachedKey = await crypto.subtle.deriveKey(
+    keyCache.current = await crypto.subtle.deriveKey(
         {
             hash: 'SHA-256',
             info: copyToFreshBuffer(
@@ -63,7 +63,7 @@ async function deriveKey(): Promise<CryptoKey> {
         false,
         ['encrypt', 'decrypt'],
     );
-    return cachedKey;
+    return keyCache.current;
 }
 
 function fromBase64Url(text: string): Uint8Array {

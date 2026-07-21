@@ -55,7 +55,7 @@ type TradeifyAccountSize = 25_000 | 50_000 | 100_000 | 150_000;
 
 type TradeifyVariant = 'growth' | 'lightning' | 'select';
 
-export function planIdEquals(a: PlanId, b: PlanId): boolean {
+export function arePlanIdsEqual(a: PlanId, b: PlanId): boolean {
     if (a.firm !== b.firm || a.accountSize !== b.accountSize) return false;
     const av = 'variant' in a ? a.variant : undefined;
     const bv = 'variant' in b ? b.variant : undefined;

@@ -1,7 +1,7 @@
 'use client';
 
 import { type Plan } from '~/lib/prop-calculator';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 interface BadgeProperties {
     label: string;

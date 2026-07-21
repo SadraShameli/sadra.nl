@@ -100,7 +100,7 @@ export function RecordingsPanel() {
             await utilities.recording.listAdmin.invalidate();
         },
     });
-    const createRecording = api.recording.createAdmin.useMutation({
+    const recordingCreateMutation = api.recording.createAdmin.useMutation({
         onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Recording created.');
@@ -279,11 +279,11 @@ export function RecordingsPanel() {
                         }))}
                         onClose={() => setNewOpen(false)}
                         onSubmit={(v) =>
-                            createRecording.mutate(v, {
+                            recordingCreateMutation.mutate(v, {
                                 onSuccess: () => setNewOpen(false),
                             })
                         }
-                        pending={createRecording.isPending}
+                        pending={recordingCreateMutation.isPending}
                     />
                 </Dialog>
             </CardHeader>
@@ -493,9 +493,9 @@ function NewRecordingDialog({
                                     <FormControl>
                                         <Input
                                             accept=".wav,audio/wav,audio/x-wav"
-                                            onChange={(e) => {
+                                            onChange={(event) => {
                                                 const file =
-                                                    e.target.files?.[0];
+                                                    event.target.files?.[0];
                                                 if (file) handleFile(file);
                                             }}
                                             type="file"

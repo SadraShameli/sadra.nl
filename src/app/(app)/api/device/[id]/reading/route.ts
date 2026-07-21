@@ -1,26 +1,26 @@
 import { type NextRequest, NextResponse } from 'next/server';
 
-import { idPathParamSchema, parseRouteParams } from '~/lib/schemas/api';
+import { idPathParameterSchema, parseRouteParameters } from '~/lib/schemas/api';
 import { api } from '~/trpc/server';
 
 export async function GET(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> },
 ) {
-    const parsed = parseRouteParams(idPathParamSchema, await params);
+    const parsed = parseRouteParameters(idPathParameterSchema, await params);
     if (parsed.response) return parsed.response;
 
-    const res = await api.device.getDeviceReadings({
+    const result = await api.device.getDeviceReadings({
         device: { device_id: parsed.data.id },
     });
 
-    if (!res.data) {
+    if (!result.data) {
         const status =
-            'status' in res && typeof res.status === 'number'
-                ? res.status
+            'status' in result && typeof result.status === 'number'
+                ? result.status
                 : 500;
-        return NextResponse.json(res, { status });
+        return NextResponse.json(result, { status });
     }
 
-    return NextResponse.json(res.data);
+    return NextResponse.json(result.data);
 }

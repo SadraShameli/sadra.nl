@@ -1,6 +1,6 @@
 import { type Metadata } from 'next';
 
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 import CalculatorShell from './_components/CalculatorShell';
 

@@ -3,11 +3,11 @@ import { z, type ZodError } from 'zod';
 
 export const positiveIntIdSchema = z.coerce.number().int().positive();
 
-export const idPathParamSchema = z.object({
+export const idPathParameterSchema = z.object({
     id: positiveIntIdSchema,
 });
 
-export const idSensorPathParamSchema = z.object({
+export const idSensorPathParameterSchema = z.object({
     id: positiveIntIdSchema,
     sensor_id: positiveIntIdSchema,
 });
@@ -21,7 +21,7 @@ export const recordingBlobSchema = z
         message: `Recording exceeds ${MAX_RECORDING_BYTES} byte limit`,
     });
 
-export function parseRouteParams<T extends z.ZodType>(
+export function parseRouteParameters<T extends z.ZodType>(
     schema: T,
     input: unknown,
 ):

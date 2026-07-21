@@ -8,7 +8,7 @@ import { DataTable } from '~/components/ui/DataTable';
 import InfoPopover from '~/components/ui/InfoPopover';
 import { formatDays, formatPercent } from '~/lib/format';
 import { type SimOutputs } from '~/lib/prop-calculator';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 interface DdEpisode {
     depthPct: number;
@@ -46,21 +46,14 @@ export default function DrawdownDurationPanel({
             underwaterPcts.push(underwaterPct);
             episodesPerPath.push(episodes.length);
             allEpisodes.push(...episodes);
-            for (const ep of episodes) {
-                if (!ep.recovered || ep.recoveryDays === null) {
-                    continue;
-                }
-
-                recoveryTimes.push(ep.recoveryDays);
-                if (ep.recoveryDays < ep.durationDays * 0.4) {
-                    vShapeCount++;
-                }
-                totalWithEpisodes++;
-            }
+            const recovery = tallyRecoveredEpisodes(episodes);
+            recoveryTimes.push(...recovery.recoveryTimes);
+            vShapeCount += recovery.vShapeCount;
+            totalWithEpisodes += recovery.totalWithEpisodes;
         }
 
-        const durations = allEpisodes.map((e) => e.durationDays);
-        const depths = allEpisodes.map((e) => e.depthPct);
+        const durations = allEpisodes.map((episode) => episode.durationDays);
+        const depths = allEpisodes.map((episode) => episode.depthPct);
 
         return {
             avgDepth: avg(depths),
@@ -336,4 +329,30 @@ function StatCard({
             </CardContent>
         </Card>
     );
+}
+
+function tallyRecoveredEpisodes(episodes: readonly DdEpisode[]): {
+    recoveryTimes: number[];
+    totalWithEpisodes: number;
+    vShapeCount: number;
+} {
+    const recoveryTimes: number[] = [];
+    let vShapeCount = 0;
+    let totalWithEpisodes = 0;
+
+    const recovered = episodes.filter(
+        (episode): episode is DdEpisode & { recoveryDays: number } =>
+            episode.recovered && episode.recoveryDays !== null,
+    );
+
+    for (const episode of recovered) {
+        recoveryTimes.push(episode.recoveryDays);
+        if (episode.recoveryDays < episode.durationDays * 0.4) {
+            vShapeCount++;
+        }
+
+        totalWithEpisodes++;
+    }
+
+    return { recoveryTimes, totalWithEpisodes, vShapeCount };
 }

@@ -2,8 +2,8 @@ import { z } from 'zod';
 
 import {
     type DayStopRule,
-    type PropFirm,
     serializePlanId,
+    type TradingFirm,
 } from '~/lib/prop-calculator';
 import {
     dayStopRuleSchema,
@@ -53,7 +53,7 @@ const savedScenarioArraySchema = z.array(savedScenarioRecordSchema);
 
 export function decodeState(
     parameters: URLSearchParams,
-    firms: readonly PropFirm[],
+    firms: readonly TradingFirm[],
     fallback: CalculatorState,
 ): CalculatorState {
     const firmId = parameters.get('firm');
@@ -66,14 +66,14 @@ export function decodeState(
             ? firm.plans.find((p) => serializePlanId(p.id) === planSerial)
             : undefined;
 
-    const number_ = (key: string, def: number): number => {
+    const number_ = (key: string, fallbackValue: number): number => {
         const v = parameters.get(key);
-        if (v === null) return def;
+        if (v === null) return fallbackValue;
         const n = Number(v);
-        return Number.isFinite(n) ? n : def;
+        return Number.isFinite(n) ? n : fallbackValue;
     };
-    const intNumber = (key: string, def: number): number =>
-        Math.floor(number_(key, def));
+    const intNumber = (key: string, fallbackValue: number): number =>
+        Math.floor(number_(key, fallbackValue));
     const sizingMode =
         parameters.get('mode') === SizingMode.Percent
             ? SizingMode.Percent

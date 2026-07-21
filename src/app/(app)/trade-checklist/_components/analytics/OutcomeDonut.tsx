@@ -8,7 +8,7 @@ import {
     type LightAssessment,
     outcomeDistribution,
 } from '~/lib/trading/analytics';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 const COLORS: Record<string, string> = {
     breakeven: 'hsl(45 93% 47%)',

@@ -6,7 +6,13 @@ export default defineCommand({
         name: 'seed',
     },
     subCommands: {
-        list: () => import('./list/command').then((m) => m.default),
-        run: () => import('./run/command').then((m) => m.default),
+        list: async () => {
+            const commandModule = await import('./list/command');
+            return commandModule.default;
+        },
+        run: async () => {
+            const commandModule = await import('./run/command');
+            return commandModule.default;
+        },
     },
 });

@@ -5,7 +5,7 @@ import { useMemo } from 'react';
 
 import { routes, withQuery } from '~/lib/site/routes';
 import { dayCellGrid, type LightAssessment } from '~/lib/trading/analytics';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -73,30 +73,35 @@ export function CalendarHeatmap({
                                                 {cell.total === 1 ? '' : 's'}
                                             </span>
                                             <div className="flex flex-wrap gap-0.5">
-                                                {Array.from({
-                                                    length: cell.wins,
-                                                }).map((_, index) => (
-                                                    <span
-                                                        className="size-1.5 rounded-full bg-emerald-400"
-                                                        key={`w${index}`}
-                                                    />
-                                                ))}
-                                                {Array.from({
-                                                    length: cell.losses,
-                                                }).map((_, index) => (
-                                                    <span
-                                                        className="size-1.5 rounded-full bg-rose-500"
-                                                        key={`l${index}`}
-                                                    />
-                                                ))}
-                                                {Array.from({
-                                                    length: cell.breakevens,
-                                                }).map((_, index) => (
-                                                    <span
-                                                        className="size-1.5 rounded-full bg-amber-400"
-                                                        key={`b${index}`}
-                                                    />
-                                                ))}
+                                                {Array.from(
+                                                    { length: cell.wins },
+                                                    (_, index) => (
+                                                        <span
+                                                            className="size-1.5 rounded-full bg-emerald-400"
+                                                            key={`w${index}`}
+                                                        />
+                                                    ),
+                                                )}
+                                                {Array.from(
+                                                    { length: cell.losses },
+                                                    (_, index) => (
+                                                        <span
+                                                            className="size-1.5 rounded-full bg-rose-500"
+                                                            key={`l${index}`}
+                                                        />
+                                                    ),
+                                                )}
+                                                {Array.from(
+                                                    {
+                                                        length: cell.breakevens,
+                                                    },
+                                                    (_, index) => (
+                                                        <span
+                                                            className="size-1.5 rounded-full bg-amber-400"
+                                                            key={`b${index}`}
+                                                        />
+                                                    ),
+                                                )}
                                             </div>
                                         </div>
                                     )}

@@ -84,7 +84,7 @@ export function percentile(xs: readonly number[], p: number): number {
     return loValue + (hiValue - loValue) * (rank - lo);
 }
 
-export function stdDev(array: readonly number[]): number {
+export function standardDeviation(array: readonly number[]): number {
     if (array.length === 0) return 0;
     const m = array.reduce((s, v) => s + v, 0) / array.length;
     return Math.sqrt(

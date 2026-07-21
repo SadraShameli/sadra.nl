@@ -1,16 +1,12 @@
 export class RetryPolicy {
+    static get default(): RetryPolicy {
+        return new RetryPolicy(3, 250);
+    }
+
     private constructor(
         private readonly maxAttempts: number,
         private readonly baseDelayMs: number,
     ) {}
-
-    static default(): RetryPolicy {
-        return new RetryPolicy(3, 250);
-    }
-
-    static of(maxAttempts: number, baseDelayMs: number): RetryPolicy {
-        return new RetryPolicy(maxAttempts, baseDelayMs);
-    }
 
     async execute<T>(function_: () => Promise<T>): Promise<T> {
         let lastError: unknown;
@@ -25,13 +21,13 @@ export class RetryPolicy {
                 lastError = error;
                 const isLastAttempt = attemptIndex === this.maxAttempts - 1;
                 if (isLastAttempt) break;
-                await this.sleep(this.baseDelayMs * 2 ** attemptIndex);
+                await sleep(this.baseDelayMs * 2 ** attemptIndex);
             }
         }
         throw lastError;
     }
+}
 
-    private sleep(ms: number): Promise<void> {
-        return new Promise((resolve) => setTimeout(resolve, ms));
-    }
+function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
 }

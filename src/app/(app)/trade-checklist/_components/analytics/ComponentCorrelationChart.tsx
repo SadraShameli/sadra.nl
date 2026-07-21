@@ -24,7 +24,7 @@ import {
     componentScoreCorrelation,
     type LightAssessment,
 } from '~/lib/trading/analytics';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 const CATEGORIES: { key: WeightCategory; label: string }[] = [
     { key: 'mental', label: 'Mental state' },

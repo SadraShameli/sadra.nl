@@ -17,18 +17,12 @@ export class PrSyncService {
 
     constructor(private readonly database: typeof DatabaseType) {}
 
-    private static isWorkingType(type: string): boolean {
-        return ['amrap', 'backoff', 'failure', 'topset', 'working'].includes(
-            type,
-        );
-    }
-
     async resolveExerciseId(
         userId: string,
         workoutExerciseId: string,
     ): Promise<null | string> {
         const row = await this.database.query.liftingWorkoutExercise.findFirst({
-            where: (w, { eq: e }) => e(w.id, workoutExerciseId),
+            where: (w, { eq: equals }) => equals(w.id, workoutExerciseId),
             with: { workout: true },
         });
         if (!row) return null;
@@ -71,7 +65,7 @@ export class PrSyncService {
                 (r): r is typeof r & { reps: number; weightKg: number } =>
                     r.weightKg !== null &&
                     r.reps !== null &&
-                    PrSyncService.isWorkingType(r.type),
+                    isWorkingType(r.type),
             )
             .map((r) => ({
                 completedAt: r.completedAt ?? r.startedAt,
@@ -141,4 +135,8 @@ export class PrSyncService {
                 .where(inArray(liftingSet.id, [...prSetIds]));
         }
     }
+}
+
+function isWorkingType(type: string): boolean {
+    return ['amrap', 'backoff', 'failure', 'topset', 'working'].includes(type);
 }

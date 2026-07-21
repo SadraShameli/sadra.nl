@@ -8,7 +8,7 @@ import { endDb } from '~/server/db';
 import { seeders } from '~/server/db/seeds';
 import { SeederRegistry } from '~/server/db/types';
 
-const tokenMatches = (name: string, token: string): boolean =>
+const isTokenMatch = (name: string, token: string): boolean =>
     name === token || name.startsWith(`${token}:`);
 
 export default defineCommand({
@@ -49,7 +49,7 @@ export default defineCommand({
             filter = (s) => chosen.has(s.name);
         } else if (tokens.length > 0) {
             const unmatched = tokens.filter((t) =>
-                names.every((n) => !tokenMatches(n, t)),
+                names.every((n) => !isTokenMatch(n, t)),
             );
             if (unmatched.length > 0) {
                 ui.fail(`No seeders match: ${unmatched.join(', ')}`);
@@ -57,7 +57,7 @@ export default defineCommand({
                 process.exitCode = 1;
                 return;
             }
-            filter = (s) => tokens.some((t) => tokenMatches(s.name, t));
+            filter = (s) => tokens.some((t) => isTokenMatch(s.name, t));
         }
 
         const selected = registry.select(filter);

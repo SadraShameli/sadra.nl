@@ -50,8 +50,9 @@ export class PlaneCsvParser {
             const dateRaw = row[COLUMNS.date]?.trim();
             const amountRaw = row[COLUMNS.amount]?.trim();
             const currencyRaw = row[COLUMNS.currency]?.trim();
-            const bankAccount = row[COLUMNS.bankAccount]?.trim() ?? '';
             if (!dateRaw || !amountRaw || !currencyRaw) continue;
+
+            const bankAccount = row[COLUMNS.bankAccount]?.trim() ?? '';
 
             txns.push({
                 date: isoDateSchema.parse(dateRaw),

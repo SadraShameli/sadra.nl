@@ -12,7 +12,7 @@ import {
     formatR,
 } from '~/lib/format';
 import { type Plan, type SimOutputs } from '~/lib/prop-calculator';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 import { panelDescriptions } from './kpiDescriptions';
 

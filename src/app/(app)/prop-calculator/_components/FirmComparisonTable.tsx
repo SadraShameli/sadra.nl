@@ -12,24 +12,24 @@ import { formatCurrency, formatDays, formatPercent } from '~/lib/format';
 import {
     type FirmId,
     type Plan,
-    type PropFirm,
     type SimInputs,
     type SimOutputs,
     simulate,
+    type TradingFirm,
 } from '~/lib/prop-calculator';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 import { panelDescriptions } from './kpiDescriptions';
 
 interface FirmComparisonTableProperties {
     activeFirmId: FirmId;
     baseInputs: Omit<SimInputs, 'plan'>;
-    firms: readonly PropFirm[];
+    firms: readonly TradingFirm[];
     targetAccountSize: number;
 }
 
 interface Row {
-    firm: PropFirm;
+    firm: TradingFirm;
     out: SimOutputs;
     plan: Plan;
     score: number;
@@ -72,7 +72,7 @@ export default function FirmComparisonTable({
             );
             const bestNet =
                 partial.length === 0
-                    ? Number.NEGATIVE_INFINITY
+                    ? -Infinity
                     : Math.max(...partial.map((r) => r.out.expectedMonthlyNet));
             const withScore: Row[] = partial.map((r) => ({
                 ...r,
@@ -206,7 +206,7 @@ export default function FirmComparisonTable({
     );
 }
 
-function pickPlan(firm: PropFirm, targetSize: number): null | Plan {
+function pickPlan(firm: TradingFirm, targetSize: number): null | Plan {
     const sameSize = firm.plans.filter((p) => p.accountSize === targetSize);
     if (sameSize.length > 0) {
         return sameSize.reduce<null | Plan>((best, p) => {

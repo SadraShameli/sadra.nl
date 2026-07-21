@@ -9,11 +9,11 @@ import {
     CardHeader,
     CardTitle,
 } from '~/components/ui/Card';
-import { env } from '~/env';
+import { environment } from '~/environment';
 import { getServerSession } from '~/lib/auth/server';
 import { signupSearchSchema } from '~/lib/schemas/url';
 import { routes } from '~/lib/site/routes';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 import { OAuthButtons } from '../_components/OAuthButtons';
 import { SignupForm } from './SignupForm';
@@ -57,10 +57,12 @@ export default async function SignupPage({
                         )}
                         <OAuthButtons
                             hasGithub={Boolean(
-                                env.AUTH_GITHUB_ID && env.AUTH_GITHUB_SECRET,
+                                environment.AUTH_GITHUB_ID &&
+                                environment.AUTH_GITHUB_SECRET,
                             )}
                             hasGoogle={Boolean(
-                                env.AUTH_GOOGLE_ID && env.AUTH_GOOGLE_SECRET,
+                                environment.AUTH_GOOGLE_ID &&
+                                environment.AUTH_GOOGLE_SECRET,
                             )}
                         />
                         <SignupForm />

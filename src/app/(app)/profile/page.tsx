@@ -10,7 +10,7 @@ import { getServerSession } from '~/lib/auth/server';
 import { profileSearchSchema } from '~/lib/schemas/url';
 import { routes } from '~/lib/site/routes';
 import { ensureUserHasPlan } from '~/lib/trading/actions';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 import { account, db, tradingPlans } from '~/server/db';
 import { api, HydrateClient } from '~/trpc/server';
 

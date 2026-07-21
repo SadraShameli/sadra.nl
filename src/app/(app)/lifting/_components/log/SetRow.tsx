@@ -33,13 +33,13 @@ import {
     TooltipTrigger,
 } from '~/components/ui/Tooltip';
 import { DistanceUnit, WeightUnit } from '~/lib/lifting/format';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 import { NumberStepper } from '../shared/NumberStepper';
 
 const TEMPO_PATTERN = /^\d-\d-\d-\d$/;
 
-const setRowFormSchema = z.object({
+const logSetFormSchema = z.object({
     displayWeight: z.number().min(0),
     distance: z.string(),
     duration: z.string(),
@@ -62,7 +62,7 @@ export interface SetRowData {
     weightKg: null | number;
 }
 
-type SetRowFormValues = z.infer<typeof setRowFormSchema>;
+type SetRowFormValues = z.infer<typeof logSetFormSchema>;
 
 interface SetRowProperties {
     busy?: boolean;
@@ -106,16 +106,20 @@ export function SetRow({
 }: SetRowProperties) {
     const form = useForm<SetRowFormValues>({
         defaultValues: deriveDefaults(set, unitWeight, unitDistance),
-        resolver: zodResolver(setRowFormSchema),
+        resolver: zodResolver(logSetFormSchema),
     });
-    const [deleteOpen, setDeleteOpen] = useState(false);
+    const [isDeleteDialogOpen, setDeleteOpen] = useState(false);
     const isCompleted = set.completedAt !== null;
 
-    const setReference = useRef(set);
-    setReference.current = set;
+    const currentSetReference = useRef(set);
+    currentSetReference.current = set;
     useEffect(() => {
         form.reset(
-            deriveDefaults(setReference.current, unitWeight, unitDistance),
+            deriveDefaults(
+                currentSetReference.current,
+                unitWeight,
+                unitDistance,
+            ),
         );
     }, [form, set.id, unitDistance, unitWeight]);
 
@@ -194,8 +198,8 @@ export function SetRow({
                             <DropdownMenuContent align="end">
                                 <DropdownMenuItem
                                     className="text-destructive"
-                                    onSelect={(e) => {
-                                        e.preventDefault();
+                                    onSelect={(event) => {
+                                        event.preventDefault();
                                         setDeleteOpen(true);
                                     }}
                                 >
@@ -407,7 +411,10 @@ export function SetRow({
                     />
                 </div>
 
-                <AlertDialog onOpenChange={setDeleteOpen} open={deleteOpen}>
+                <AlertDialog
+                    onOpenChange={setDeleteOpen}
+                    open={isDeleteDialogOpen}
+                >
                     <AlertDialogContent>
                         <AlertDialogHeader>
                             <AlertDialogTitle>Delete set?</AlertDialogTitle>
@@ -448,25 +455,25 @@ function deriveDefaults(
 }
 
 function parseDistance(raw: string, unit: UnitDistance): null | number {
-    const n = Number.parseFloat(raw);
+    const n = Number(raw);
     if (!Number.isFinite(n) || n <= 0) return null;
     return DistanceUnit.fromDisplay(n, unit);
 }
 
 function parseDuration(raw: string): null | number {
-    const n = Number.parseFloat(raw);
+    const n = Number(raw);
     if (!Number.isFinite(n) || n <= 0) return null;
     return Math.round(n);
 }
 
 function parseRir(raw: string): null | number {
-    const n = Number.parseFloat(raw);
+    const n = Number(raw);
     if (!Number.isFinite(n) || n < 0 || n > 10) return null;
     return n;
 }
 
 function parseRpe(raw: string): null | number {
-    const n = Number.parseFloat(raw);
+    const n = Number(raw);
     if (!Number.isFinite(n) || n < 1 || n > 10) return null;
     return n;
 }

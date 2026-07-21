@@ -26,7 +26,7 @@ import type {
     OneRepMaxMap,
     PrKind,
     ProgramCategory,
-    ProgramDayRef,
+    ProgramDayReference,
     ProgramSchedule,
     RoutineBlock,
     SetType,
@@ -211,7 +211,7 @@ export const liftingWorkout = createTable(
         locationTag: varchar('location_tag', { length: 64 }),
         name: varchar('name', { length: 128 }),
         notes: text('notes'),
-        programDayRef: jsonb('program_day_ref').$type<ProgramDayRef>(),
+        programDayRef: jsonb('program_day_ref').$type<ProgramDayReference>(),
         routineId: uuid('routine_id'),
         rpeOverall: real('rpe_overall'),
         startedAt: timestamp('started_at', { withTimezone: true })

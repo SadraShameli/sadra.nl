@@ -1,6 +1,6 @@
 import { type Metadata } from 'next';
 
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 import { api, HydrateClient } from '~/trpc/server';
 
 import { LedgersBrowser } from '../_components/LedgersBrowser';

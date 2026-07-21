@@ -3,7 +3,7 @@
 import { Check, Loader2 } from 'lucide-react';
 import * as React from 'react';
 
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 type Orientation = 'horizontal' | 'vertical';
 type State = 'active' | 'completed' | 'inactive';
@@ -33,17 +33,17 @@ const StepperItemContext = React.createContext<null | StepperItemContextValue>(
     null,
 );
 
-export interface StepperDescriptionProps {
+export interface StepperDescriptionProperties {
     children: React.ReactNode;
     className?: string;
 }
 
-export interface StepperIndicatorProps {
+export interface StepperIndicatorProperties {
     children?: React.ReactNode;
     className?: string;
 }
 
-export interface StepperItemProps {
+export interface StepperItemProperties {
     children: React.ReactNode;
     className?: string;
     completed?: boolean;
@@ -51,18 +51,18 @@ export interface StepperItemProps {
     step: number;
 }
 
-export interface StepperProps {
+export interface StepperProperties {
     children: React.ReactNode;
     className?: string;
     orientation?: Orientation;
     value: number;
 }
 
-export interface StepperSeparatorProps {
+export interface StepperSeparatorProperties {
     className?: string;
 }
 
-export interface StepperTitleProps {
+export interface StepperTitleProperties {
     children: React.ReactNode;
     className?: string;
 }
@@ -72,7 +72,7 @@ export function Stepper({
     className,
     orientation = 'horizontal',
     value,
-}: StepperProps) {
+}: StepperProperties) {
     const context = React.useMemo(
         () => ({ orientation, value }),
         [orientation, value],
@@ -99,7 +99,7 @@ export function Stepper({
 export function StepperDescription({
     children,
     className,
-}: StepperDescriptionProps) {
+}: StepperDescriptionProperties) {
     return (
         <span
             className={cn(
@@ -116,7 +116,7 @@ export function StepperDescription({
 export function StepperIndicator({
     children,
     className,
-}: StepperIndicatorProps) {
+}: StepperIndicatorProperties) {
     const { loading, state, step } = useStepperItemContext();
     return (
         <span
@@ -151,7 +151,7 @@ export function StepperItem({
     completed,
     loading = false,
     step,
-}: StepperItemProps) {
+}: StepperItemProperties) {
     const { value } = useStepperContext();
     const isActive = step === value;
     const isResolvedCompleted = completed ?? step < value;
@@ -177,7 +177,7 @@ export function StepperItem({
     );
 }
 
-export function StepperSeparator({ className }: StepperSeparatorProps) {
+export function StepperSeparator({ className }: StepperSeparatorProperties) {
     const { orientation } = useStepperContext();
     return (
         <span
@@ -194,7 +194,7 @@ export function StepperSeparator({ className }: StepperSeparatorProps) {
     );
 }
 
-export function StepperTitle({ children, className }: StepperTitleProps) {
+export function StepperTitle({ children, className }: StepperTitleProperties) {
     const { state } = useStepperItemContext();
     return (
         <span

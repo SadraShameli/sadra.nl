@@ -14,12 +14,14 @@ import { getPublicSiteOrigin } from '~/lib/site/url';
 
 import { createQueryClient } from './query-client';
 
-let clientQueryClientSingleton: QueryClient | undefined;
+const clientQueryClientSingleton: { current: QueryClient | undefined } = {
+    current: undefined,
+};
 const getQueryClient = () => {
     if (typeof window === 'undefined') {
         return createQueryClient();
     }
-    return (clientQueryClientSingleton ??= createQueryClient());
+    return (clientQueryClientSingleton.current ??= createQueryClient());
 };
 
 export const api = createTRPCReact<AppRouter>();

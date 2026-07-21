@@ -20,8 +20,8 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from '~/components/ui/Popover';
-import { type PropFirm } from '~/lib/prop-calculator';
-import { cn } from '~/lib/utils';
+import { type TradingFirm } from '~/lib/prop-calculator';
+import { cn } from '~/lib/utilities';
 
 import type { CalculatorState } from './types';
 
@@ -39,7 +39,7 @@ const savedScenarioFormSchema = z.object({
 type SavedScenarioFormValues = z.infer<typeof savedScenarioFormSchema>;
 
 interface SavedScenariosProperties {
-    firms: readonly PropFirm[];
+    firms: readonly TradingFirm[];
     onLoad: (next: CalculatorState) => void;
     state: CalculatorState;
 }

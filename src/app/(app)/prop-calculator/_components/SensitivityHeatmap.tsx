@@ -8,7 +8,7 @@ import { DataTable } from '~/components/ui/DataTable';
 import InfoPopover from '~/components/ui/InfoPopover';
 import { formatCompactCurrency, formatPercent } from '~/lib/format';
 import { type Plan, type SimInputs, simulate } from '~/lib/prop-calculator';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 import { panelDescriptions } from './kpiDescriptions';
 

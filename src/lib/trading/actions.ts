@@ -8,11 +8,10 @@ import {
     type AssessmentIdActionInput,
     assessmentIdActionSchema,
     type CreateTradingPlanInput,
-    createTradingPlanInputSchema,
     type DeletePrepInput,
-    deletePrepInputSchema,
     type PlanIdActionInput,
     planIdActionSchema,
+    prepDeletionSchema,
     type RecordAssessmentOutcomeInput,
     recordAssessmentOutcomeInputSchema,
     type ReorderTradingPlansInput,
@@ -21,6 +20,7 @@ import {
     saveAssessmentInputSchema,
     type SavePrepInput,
     savePrepInputSchema,
+    tradingPlanCreationSchema,
     type UpdateTradingPlanInput,
     updateTradingPlanInputSchema,
 } from '~/lib/schemas/trading';
@@ -80,7 +80,7 @@ export async function cloneTradingPlan(
 export async function createTradingPlan(
     input: CreateTradingPlanInput,
 ): Promise<void> {
-    const data = createTradingPlanInputSchema.parse(input);
+    const data = tradingPlanCreationSchema.parse(input);
     const userId = await requireUserId();
 
     const existing = await db
@@ -133,7 +133,7 @@ export async function deleteAssessment(
 }
 
 export async function deletePrep(input: DeletePrepInput): Promise<void> {
-    const data = deletePrepInputSchema.parse(input);
+    const data = prepDeletionSchema.parse(input);
     const userId = await requireUserId();
     await db
         .delete(dailyPreparations)

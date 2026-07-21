@@ -41,7 +41,9 @@ export function ProgramDetail({ program }: ProgramDetailProperties) {
     const unitWeight = settings.data?.unitWeight ?? 'kg';
     const isEnrolled = Boolean(
         mine.data?.enrollments.some(
-            (e) => e.programId === program.id && e.status === 'active',
+            (enrollment) =>
+                enrollment.programId === program.id &&
+                enrollment.status === 'active',
         ),
     );
     const isCloned = Boolean(
@@ -73,7 +75,7 @@ export function ProgramDetail({ program }: ProgramDetailProperties) {
                 }
             }
         }
-        return [...lifts].toSorted();
+        return [...lifts].toSorted((a, b) => a.localeCompare(b));
     }, [schedule]);
 
     const enrollForm = useForm<EnrollProgramInput>({
@@ -141,9 +143,11 @@ export function ProgramDetail({ program }: ProgramDetailProperties) {
                                                             inputMode="decimal"
                                                             max={1500}
                                                             min={0}
-                                                            onChange={(e) => {
+                                                            onChange={(
+                                                                event,
+                                                            ) => {
                                                                 const raw =
-                                                                    e.target
+                                                                    event.target
                                                                         .value;
                                                                 if (
                                                                     raw === ''
@@ -154,9 +158,7 @@ export function ProgramDetail({ program }: ProgramDetailProperties) {
                                                                     return;
                                                                 }
                                                                 const parsed =
-                                                                    Number.parseFloat(
-                                                                        raw,
-                                                                    );
+                                                                    Number(raw);
                                                                 field.onChange(
                                                                     Number.isFinite(
                                                                         parsed,

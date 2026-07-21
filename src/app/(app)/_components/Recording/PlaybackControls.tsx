@@ -3,7 +3,7 @@ import { Repeat, ShuffleIcon, SkipBack, SkipForward } from 'lucide-react';
 import { Button } from '~/components/ui/Button';
 import PauseIcon from '~/components/ui/Icons/Pause';
 import PlayIcon from '~/components/ui/Icons/Play';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 interface PlaybackControlsProperties {
     canGoNext: boolean;

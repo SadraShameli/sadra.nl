@@ -15,7 +15,7 @@ import { Card } from '~/components/ui/Card';
 import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
 import InfoPopover from '~/components/ui/InfoPopover';
 import { formatPercent, formatR } from '~/lib/format';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 const PLACEHOLDER = `Paste your trade results in R-multiples, one per line or comma-separated.
 
@@ -182,7 +182,7 @@ export default function TradeJournal() {
                         'app-prop-calculator__trade-journal-input',
                         'w-full resize-y rounded-md border border-border bg-muted/20 px-3 py-2 font-mono text-xs text-foreground placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary focus:outline-none',
                     )}
-                    onChange={(e) => setRaw(e.target.value)}
+                    onChange={(event) => setRaw(event.target.value)}
                     placeholder={PLACEHOLDER}
                     rows={5}
                     value={raw}

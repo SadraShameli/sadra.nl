@@ -9,7 +9,7 @@ import type {
     Booking,
     BookingDirection,
     ConversionResult,
-    LedgerRef,
+    LedgerReference,
     MatchAudit,
     UnknownMerchant,
 } from '~/lib/accounting/core/types';
@@ -38,7 +38,7 @@ import {
     SelectValue,
 } from '~/components/ui/Select';
 import { Switch } from '~/components/ui/Switch';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 import { DirectionBadge } from './DirectionBadge';
 import { LedgerCombobox } from './LedgerCombobox';
@@ -129,7 +129,7 @@ interface PerCounterpartRow {
 interface RuleView {
     direction: BookingDirection;
     display: string;
-    ledger: LedgerRef;
+    ledger: LedgerReference;
     taxCode: string;
 }
 
@@ -142,7 +142,7 @@ export function BookingsTable({
 }: {
     bookings: Booking[];
     credentialId: string;
-    ledgerOptions: LedgerRef[];
+    ledgerOptions: LedgerReference[];
     onEdit: (txnId: string, patch: Partial<Booking>) => void;
     rules: RuleView[];
 }) {
@@ -734,7 +734,7 @@ export function UnknownsTable({
     result,
 }: {
     credentialId?: string;
-    ledgerOptions?: LedgerRef[];
+    ledgerOptions?: LedgerReference[];
     result: ConversionResult;
 }) {
     const [direction, setDirection] = useState<DirectionFilter>(ALL);
@@ -900,7 +900,7 @@ function BookingEditDialog({
     taxCodeOptions,
 }: {
     booking: Booking;
-    ledgerOptions: LedgerRef[];
+    ledgerOptions: LedgerReference[];
     onClose: () => void;
     onSave: (patch: Partial<Booking>) => void;
     rules: RuleView[];
@@ -931,7 +931,7 @@ function BookingEditDialog({
     const [counterpartName, setCounterpartName] = useState(
         booking.counterpartName,
     );
-    const [counterpartLedger, setCounterpartLedger] = useState<LedgerRef>(
+    const [counterpartLedger, setCounterpartLedger] = useState<LedgerReference>(
         booking.counterpartLedger,
     );
     const [taxCode, setTaxCode] = useState<string>(booking.taxCode);

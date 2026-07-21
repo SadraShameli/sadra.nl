@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Badge } from '~/components/ui/Badge';
 import { Card } from '~/components/ui/Card';
 import { routes } from '~/lib/site/routes';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 const quickLinks = [
     { href: routes.home, label: 'Home' },

@@ -160,4 +160,6 @@ export const eboekhoudenProvider: AccountingProvider = {
     },
 };
 
-ProviderRegistry.instance().register(eboekhoudenProvider);
+{
+    ProviderRegistry.instance().register(eboekhoudenProvider);
+}

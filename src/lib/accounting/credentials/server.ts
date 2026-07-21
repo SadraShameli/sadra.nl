@@ -8,7 +8,7 @@ import '~/lib/accounting/credentials/eboekhouden';
 import '~/lib/accounting/credentials/moneybird';
 import '~/lib/accounting/credentials/wise';
 
-export type CredentialTestFn = (options: {
+export type CredentialTestFunction = (options: {
     fetchImpl?: typeof fetch;
     meta: Record<string, unknown>;
     secret: string;
@@ -31,13 +31,15 @@ export type FieldOptionsLoader = (options: {
     secret: string;
 }) => Promise<FieldOption[]>;
 
-const tests = new Map<string, CredentialTestFn>();
+const tests = new Map<string, CredentialTestFunction>();
 const optionsLoaders = new Map<string, FieldOptionsLoader>();
 
 const optionsKey = (credentialKind: string, fieldKey: string): string =>
     `${credentialKind}:${fieldKey}`;
 
-export function getCredentialTest(id: string): CredentialTestFn | undefined {
+export function getCredentialTest(
+    id: string,
+): CredentialTestFunction | undefined {
     return tests.get(id);
 }
 
@@ -50,7 +52,7 @@ export function getFieldOptionsLoader(
 
 export function registerCredentialTest(
     id: string,
-    function_: CredentialTestFn,
+    function_: CredentialTestFunction,
 ): void {
     tests.set(id, function_);
 }
@@ -92,62 +94,68 @@ async function defaultAccountingTest(
         const ledgers = await session.listLedgers();
         return { detail: `${ledgers.length} ledger(s) reachable`, ok: true };
     } finally {
-        await session.close().catch(swallow);
+        try {
+            await session.close();
+        } catch {}
     }
 }
 
-registerCredentialTest('eboekhouden', (options) =>
-    defaultAccountingTest('eboekhouden', options),
-);
+{
+    registerCredentialTest('eboekhouden', (options) =>
+        defaultAccountingTest('eboekhouden', options),
+    );
 
-registerCredentialTest('moneybird', (options) =>
-    defaultAccountingTest('moneybird', options),
-);
+    registerCredentialTest('moneybird', (options) =>
+        defaultAccountingTest('moneybird', options),
+    );
 
-registerFieldOptionsLoader('moneybird', 'administrationId', async (options) => {
-    const administrations = await listMoneybirdAdministrations(options.secret);
-    return administrations.map((administration) => ({
-        label: `${administration.name} (${administration.currency})`,
-        value: administration.id,
-    }));
-});
+    registerFieldOptionsLoader(
+        'moneybird',
+        'administrationId',
+        async (options) => {
+            const administrations = await listMoneybirdAdministrations(
+                options.secret,
+            );
+            return administrations.map((administration) => ({
+                label: `${administration.name} (${administration.currency})`,
+                value: administration.id,
+            }));
+        },
+    );
 
-registerCredentialTest('wise', async (options) => {
-    const isSandbox =
-        typeof options.meta.sandbox === 'boolean'
-            ? options.meta.sandbox
-            : false;
-    const client = new WiseClient(options.secret, {
-        fetch: options.fetchImpl,
-        sandbox: isSandbox,
+    registerCredentialTest('wise', async (options) => {
+        const isSandbox =
+            typeof options.meta.sandbox === 'boolean'
+                ? options.meta.sandbox
+                : false;
+        const client = new WiseClient(options.secret, {
+            fetch: options.fetchImpl,
+            sandbox: isSandbox,
+        });
+        const profiles = await client.profiles();
+        return { detail: `${profiles.length} profile(s) reachable`, ok: true };
     });
-    const profiles = await client.profiles();
-    return { detail: `${profiles.length} profile(s) reachable`, ok: true };
-});
 
-registerFieldOptionsLoader('wise', 'profileId', async (options) => {
-    const isSandbox =
-        typeof options.meta.sandbox === 'boolean'
-            ? options.meta.sandbox
-            : false;
-    const client = new WiseClient(options.secret, {
-        fetch: options.fetchImpl,
-        sandbox: isSandbox,
+    registerFieldOptionsLoader('wise', 'profileId', async (options) => {
+        const isSandbox =
+            typeof options.meta.sandbox === 'boolean'
+                ? options.meta.sandbox
+                : false;
+        const client = new WiseClient(options.secret, {
+            fetch: options.fetchImpl,
+            sandbox: isSandbox,
+        });
+        const profiles = await client.profiles();
+        return profiles.map((p) => ({
+            description: p.type,
+            label: `${p.type} · ${p.id}`,
+            value: String(p.id),
+        }));
     });
-    const profiles = await client.profiles();
-    return profiles.map((p) => ({
-        description: p.type,
-        label: `${p.type} · ${p.id}`,
-        value: String(p.id),
-    }));
-});
+}
 
 export function knownCredentialIds(): string[] {
     return CredentialRegistry.instance()
         .list()
         .map((d) => d.id);
-}
-
-function swallow(): void {
-    return;
 }

@@ -6,7 +6,7 @@ import {
     mean,
     median,
     percentile,
-    stdDev,
+    standardDeviation,
 } from '~/lib/prop-calculator/stats';
 
 describe('clamp', () => {
@@ -76,17 +76,17 @@ describe('percentile', () => {
     });
 });
 
-describe('stdDev', () => {
+describe('standardDeviation', () => {
     it('returns 0 for empty input', () => {
-        expect(stdDev([])).toBe(0);
+        expect(standardDeviation([])).toBe(0);
     });
 
     it('returns 0 when all values are equal', () => {
-        expect(stdDev([5, 5, 5])).toBe(0);
+        expect(standardDeviation([5, 5, 5])).toBe(0);
     });
 
     it('computes population std-dev', () => {
-        expect(stdDev([1, 2, 3, 4, 5])).toBeCloseTo(Math.sqrt(2), 6);
+        expect(standardDeviation([1, 2, 3, 4, 5])).toBeCloseTo(Math.sqrt(2), 6);
     });
 });
 

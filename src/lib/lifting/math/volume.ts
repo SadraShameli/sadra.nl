@@ -37,24 +37,6 @@ export class VolumeAnalyzer {
         private readonly buckets: readonly RepRangeBucket[] = REP_RANGE_BUCKETS,
     ) {}
 
-    private static emptyMuscleCounter(): Record<MuscleGroup, number> {
-        return {
-            abs: 0,
-            back: 0,
-            biceps: 0,
-            calves: 0,
-            chest: 0,
-            forearms: 0,
-            glutes: 0,
-            hamstrings: 0,
-            lats: 0,
-            quads: 0,
-            shoulders: 0,
-            traps: 0,
-            triceps: 0,
-        };
-    }
-
     setsByRepRange(
         sets: readonly VolumeSet[],
     ): Record<RepRangeBucketId, number> {
@@ -76,15 +58,10 @@ export class VolumeAnalyzer {
     }
 
     setsPerMuscle(sets: readonly VolumeSet[]): Record<MuscleGroup, number> {
-        const counts = VolumeAnalyzer.emptyMuscleCounter();
+        const counts = emptyMuscleCounter();
         for (const s of this.workingSets(sets)) {
             counts[s.primaryMuscle] += 1;
-            const seen = new Set<MuscleGroup>();
-            for (const m of s.secondaryMuscles) {
-                if (m === s.primaryMuscle || seen.has(m)) continue;
-                seen.add(m);
-                counts[m] += 0.5;
-            }
+            applySecondaryMuscles(counts, s);
         }
         return counts;
     }
@@ -100,6 +77,36 @@ export class VolumeAnalyzer {
     workingSets(sets: readonly VolumeSet[]): VolumeSet[] {
         return sets.filter((s) => WORKING_SET_TYPES.has(s.type));
     }
+}
+
+function applySecondaryMuscles(
+    counts: Record<MuscleGroup, number>,
+    set: VolumeSet,
+): void {
+    const seen = new Set<MuscleGroup>();
+    for (const m of set.secondaryMuscles) {
+        if (m === set.primaryMuscle || seen.has(m)) continue;
+        seen.add(m);
+        counts[m] += 0.5;
+    }
+}
+
+function emptyMuscleCounter(): Record<MuscleGroup, number> {
+    return {
+        abs: 0,
+        back: 0,
+        biceps: 0,
+        calves: 0,
+        chest: 0,
+        forearms: 0,
+        glutes: 0,
+        hamstrings: 0,
+        lats: 0,
+        quads: 0,
+        shoulders: 0,
+        traps: 0,
+        triceps: 0,
+    };
 }
 
 export const volumeAnalyzer = new VolumeAnalyzer();

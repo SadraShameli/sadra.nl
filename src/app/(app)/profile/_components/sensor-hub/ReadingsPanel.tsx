@@ -108,7 +108,7 @@ export function ReadingsPanel() {
             await utilities.reading.listAdmin.invalidate();
         },
     });
-    const createReading = api.reading.createAdmin.useMutation({
+    const readingCreateMutation = api.reading.createAdmin.useMutation({
         onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Reading created.');
@@ -303,11 +303,11 @@ export function ReadingsPanel() {
                             }))}
                             onClose={() => setNewOpen(false)}
                             onSubmit={(v) =>
-                                createReading.mutate(v, {
+                                readingCreateMutation.mutate(v, {
                                     onSuccess: () => setNewOpen(false),
                                 })
                             }
-                            pending={createReading.isPending}
+                            pending={readingCreateMutation.isPending}
                             sensors={(sensors.data ?? []).map((s) => ({
                                 id: s.id,
                                 name: s.name,
@@ -524,9 +524,9 @@ function NewReadingDialog({
                                     <FormControl>
                                         <Input
                                             inputMode="decimal"
-                                            onChange={(e) => {
-                                                const n = Number.parseFloat(
-                                                    e.target.value,
+                                            onChange={(event) => {
+                                                const n = Number(
+                                                    event.target.value,
                                                 );
                                                 field.onChange(
                                                     Number.isFinite(n) ? n : 0,

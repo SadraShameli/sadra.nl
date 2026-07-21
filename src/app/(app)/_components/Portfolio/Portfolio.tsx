@@ -1,12 +1,12 @@
 import type { PortfolioSectionView } from '~/lib/site/content';
 
 import RevealAnimation from '~/components/ui/Animations/Reveal';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 import PortfolioHero from './PortfolioHero';
 import PortfolioSection from './PortfolioSection';
 
-export type PortfolioContentProps = {
+export type PortfolioContentProperties = {
     canViewResume: boolean;
     education: PortfolioSectionView[];
     educationSectionTitle: string;
@@ -38,7 +38,7 @@ export default function PortfolioContent({
     profiles,
     projects,
     projectsSectionTitle,
-}: PortfolioContentProps) {
+}: PortfolioContentProperties) {
     return (
         <div className={cn('app-portfolio__content', 'flex flex-col')}>
             <RevealAnimation>

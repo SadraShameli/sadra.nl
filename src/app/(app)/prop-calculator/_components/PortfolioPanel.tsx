@@ -33,29 +33,29 @@ import {
 import {
     type FirmId,
     type Plan,
-    type PropFirm,
     serializePlanId,
     type SimInputs,
     type SimOutputs,
     simulate,
+    type TradingFirm,
 } from '~/lib/prop-calculator';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 import { panelDescriptions } from './kpiDescriptions';
 import { type PortfolioEntry } from './types';
 
 interface PortfolioPanelProperties {
     baseInputs: Omit<SimInputs, 'plan'>;
-    currentFirm: PropFirm;
+    currentFirm: TradingFirm;
     currentPlan: Plan;
-    firms: readonly PropFirm[];
+    firms: readonly TradingFirm[];
     onPortfolioChange: (entries: PortfolioEntry[]) => void;
     portfolio: PortfolioEntry[];
 }
 
 interface PortfolioTableRow {
     entry: PortfolioEntry;
-    firm: PropFirm;
+    firm: TradingFirm;
     plan: Plan;
     sim: SimmedEntry | undefined;
 }
@@ -82,13 +82,13 @@ export default function PortfolioPanel({
         dayStop: baseInputs.dayStop,
         fundedHorizonDays: baseInputs.fundedHorizonDays,
         maxEvalDays: baseInputs.maxEvalDays,
-        portfolio: portfolio.map((e) => ({
-            actDiscount: e.activationDiscountPercent,
-            count: e.count,
-            evalDiscount: e.evalDiscountPercent,
-            firmId: e.firmId,
-            linkAct: e.linkActivationDiscount,
-            planId: e.planId,
+        portfolio: portfolio.map((entry) => ({
+            actDiscount: entry.activationDiscountPercent,
+            count: entry.count,
+            evalDiscount: entry.evalDiscountPercent,
+            firmId: entry.firmId,
+            linkAct: entry.linkActivationDiscount,
+            planId: entry.planId,
         })),
         risk: baseInputs.riskPerTrade,
         rr: baseInputs.rrRatio,
@@ -162,7 +162,10 @@ export default function PortfolioPanel({
             (s, { entry, out }) => s + out.accountSize * entry.count,
             0,
         );
-        const totalAccounts = portfolio.reduce((s, e) => s + e.count, 0);
+        const totalAccounts = portfolio.reduce(
+            (s, entry) => s + entry.count,
+            0,
+        );
         const annualNet = monthlyNet * 12;
         const roi = totalCost > 0 ? annualNet / totalCost - 1 : 0;
         return { monthlyNet, roi, totalAccounts, totalCost, totalFunding };
@@ -189,12 +192,14 @@ export default function PortfolioPanel({
         patch: Partial<Omit<PortfolioEntry, 'id'>>,
     ) {
         onPortfolioChange(
-            portfolio.map((e) => (e.id === id ? { ...e, ...patch } : e)),
+            portfolio.map((entry) =>
+                entry.id === id ? { ...entry, ...patch } : entry,
+            ),
         );
     }
 
     function removeEntry(id: string) {
-        onPortfolioChange(portfolio.filter((e) => e.id !== id));
+        onPortfolioChange(portfolio.filter((entry) => entry.id !== id));
     }
 
     return (
@@ -438,10 +443,10 @@ function CouponCell({
                                 id={`eval-discount-${entry.id}`}
                                 max={100}
                                 min={0}
-                                onChange={(e) =>
+                                onChange={(event) =>
                                     onUpdate(entry.id, {
                                         evalDiscountPercent: Number(
-                                            e.target.value,
+                                            event.target.value,
                                         ),
                                     })
                                 }
@@ -483,10 +488,10 @@ function CouponCell({
                                     id={`activation-discount-${entry.id}`}
                                     max={100}
                                     min={0}
-                                    onChange={(e) =>
+                                    onChange={(event) =>
                                         onUpdate(entry.id, {
                                             activationDiscountPercent: Number(
-                                                e.target.value,
+                                                event.target.value,
                                             ),
                                         })
                                     }
@@ -506,9 +511,9 @@ function CouponCell({
                             <Toggle
                                 className="text-xs whitespace-nowrap"
                                 disabled={plan.fees.activation === 0}
-                                onPressedChange={(v: boolean) =>
+                                onPressedChange={(isLinked: boolean) =>
                                     onUpdate(entry.id, {
-                                        linkActivationDiscount: v,
+                                        linkActivationDiscount: isLinked,
                                     })
                                 }
                                 pressed={entry.linkActivationDiscount}
@@ -548,8 +553,8 @@ function FirmCell({
     onUpdate,
     row,
 }: {
-    firm: PropFirm;
-    firms: readonly PropFirm[];
+    firm: TradingFirm;
+    firms: readonly TradingFirm[];
     onUpdate: (id: string, patch: Partial<Omit<PortfolioEntry, 'id'>>) => void;
     row: PortfolioTableRow;
 }) {
@@ -588,7 +593,7 @@ function PlanCell({
     plan,
     row,
 }: {
-    firm: PropFirm;
+    firm: TradingFirm;
     onUpdate: (id: string, patch: Partial<Omit<PortfolioEntry, 'id'>>) => void;
     plan: Plan;
     row: PortfolioTableRow;
@@ -634,7 +639,7 @@ function PortfolioTable({
     simmed,
     totals,
 }: {
-    firms: readonly PropFirm[];
+    firms: readonly TradingFirm[];
     onRemove: (id: string) => void;
     onUpdate: (id: string, patch: Partial<Omit<PortfolioEntry, 'id'>>) => void;
     pending: boolean;
@@ -725,8 +730,7 @@ function PortfolioTable({
                 id: 'days',
             },
             {
-                accessorFn: (r) =>
-                    r.sim?.out.expectedMonthlyNet ?? Number.NEGATIVE_INFINITY,
+                accessorFn: (r) => r.sim?.out.expectedMonthlyNet ?? -Infinity,
                 cell: ({ row }) => (
                     <ComputedCell
                         className={
@@ -749,7 +753,7 @@ function PortfolioTable({
                 accessorFn: (r) =>
                     r.sim
                         ? r.sim.out.expectedMonthlyNet * r.entry.count
-                        : Number.NEGATIVE_INFINITY,
+                        : -Infinity,
                 cell: ({ row }) => (
                     <ComputedCell
                         className="font-semibold text-foreground"

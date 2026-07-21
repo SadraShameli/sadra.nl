@@ -4,7 +4,7 @@ import { and, desc, eq, gte, inArray, isNull, lt, max, sql } from 'drizzle-orm';
 
 import { rangeEnd } from '~/lib/lifting/date-range';
 import {
-    addExerciseToWorkoutInputSchema,
+    exerciseToWorkoutInputSchema,
     idActionSchema,
     listWorkoutsInputSchema,
     reorderWorkoutExercisesInputSchema,
@@ -25,11 +25,14 @@ import {
 
 export const liftingWorkoutRouter = createTRPCRouter({
     addExercise: protectedProcedure
-        .input(addExerciseToWorkoutInputSchema)
+        .input(exerciseToWorkoutInputSchema)
         .mutation(async ({ ctx, input }) => {
             const workout = await ctx.db.query.liftingWorkout.findFirst({
-                where: (w, { and: a, eq: e }) =>
-                    a(e(w.id, input.workoutId), e(w.userId, ctx.userId)),
+                where: (w, { and: a, eq: equals }) =>
+                    a(
+                        equals(w.id, input.workoutId),
+                        equals(w.userId, ctx.userId),
+                    ),
             });
             if (!workout) {
                 throw new TRPCError({
@@ -82,11 +85,11 @@ export const liftingWorkoutRouter = createTRPCRouter({
         .input(idActionSchema)
         .mutation(async ({ ctx, input }) => {
             const source = await ctx.db.query.liftingWorkout.findFirst({
-                where: (w, { and: a, eq: e }) =>
-                    a(e(w.id, input.id), e(w.userId, ctx.userId)),
+                where: (w, { and: a, eq: equals }) =>
+                    a(equals(w.id, input.id), equals(w.userId, ctx.userId)),
                 with: {
                     exercises: {
-                        orderBy: (e, { asc: a }) => [a(e.order)],
+                        orderBy: (exercise, { asc: a }) => [a(exercise.order)],
                         with: {
                             sets: { orderBy: (s, { asc: a }) => [a(s.order)] },
                         },
@@ -135,7 +138,7 @@ export const liftingWorkoutRouter = createTRPCRouter({
                 });
 
             const idByOrder = new Map(insertedWex.map((w) => [w.order, w.id]));
-            const setRows = source.exercises.flatMap((ex) => {
+            const duplicatedSetRows = source.exercises.flatMap((ex) => {
                 const wexId = idByOrder.get(ex.order);
                 if (!wexId || ex.sets.length === 0) return [];
                 return ex.sets.map((s) => ({
@@ -147,8 +150,8 @@ export const liftingWorkoutRouter = createTRPCRouter({
                     workoutExerciseId: wexId,
                 }));
             });
-            if (setRows.length > 0) {
-                const q = ctx.db.insert(liftingSet).values(setRows);
+            if (duplicatedSetRows.length > 0) {
+                const q = ctx.db.insert(liftingSet).values(duplicatedSetRows);
                 await q;
             }
 
@@ -175,11 +178,11 @@ export const liftingWorkoutRouter = createTRPCRouter({
         .input(idActionSchema)
         .query(async ({ ctx, input }) => {
             const row = await ctx.db.query.liftingWorkout.findFirst({
-                where: (w, { and: a, eq: e }) =>
-                    a(e(w.id, input.id), e(w.userId, ctx.userId)),
+                where: (w, { and: a, eq: equals }) =>
+                    a(equals(w.id, input.id), equals(w.userId, ctx.userId)),
                 with: {
                     exercises: {
-                        orderBy: (e, { asc: a }) => [a(e.order)],
+                        orderBy: (exercise, { asc: a }) => [a(exercise.order)],
                         with: {
                             exercise: true,
                             sets: { orderBy: (s, { asc: a }) => [a(s.order)] },
@@ -198,11 +201,11 @@ export const liftingWorkoutRouter = createTRPCRouter({
 
     getActive: protectedProcedure.query(async ({ ctx }) => {
         const row = await ctx.db.query.liftingWorkout.findFirst({
-            where: (w, { and: a, eq: e, isNull: n }) =>
-                a(e(w.userId, ctx.userId), n(w.endedAt)),
+            where: (w, { and: a, eq: equals, isNull: n }) =>
+                a(equals(w.userId, ctx.userId), n(w.endedAt)),
             with: {
                 exercises: {
-                    orderBy: (e, { asc: a }) => [a(e.order)],
+                    orderBy: (exercise, { asc: a }) => [a(exercise.order)],
                     with: {
                         exercise: true,
                         sets: { orderBy: (s, { asc: a }) => [a(s.order)] },
@@ -235,7 +238,7 @@ export const liftingWorkoutRouter = createTRPCRouter({
         .input(idActionSchema)
         .mutation(async ({ ctx, input }) => {
             const wex = await ctx.db.query.liftingWorkoutExercise.findFirst({
-                where: (w, { eq: e }) => e(w.id, input.id),
+                where: (w, { eq: equals }) => equals(w.id, input.id),
                 with: { workout: true },
             });
             if (wex?.workout.userId !== ctx.userId) {
@@ -254,8 +257,11 @@ export const liftingWorkoutRouter = createTRPCRouter({
         .input(reorderWorkoutExercisesInputSchema)
         .mutation(async ({ ctx, input }) => {
             const workout = await ctx.db.query.liftingWorkout.findFirst({
-                where: (w, { and: a, eq: e }) =>
-                    a(e(w.id, input.workoutId), e(w.userId, ctx.userId)),
+                where: (w, { and: a, eq: equals }) =>
+                    a(
+                        equals(w.id, input.workoutId),
+                        equals(w.userId, ctx.userId),
+                    ),
             });
             if (!workout) {
                 throw new TRPCError({
@@ -342,8 +348,11 @@ export const liftingWorkoutRouter = createTRPCRouter({
             const routineId = input.routineId;
             if (routineId) {
                 const routine = await ctx.db.query.liftingRoutine.findFirst({
-                    where: (r, { and: a, eq: e }) =>
-                        a(e(r.id, routineId), e(r.userId, ctx.userId)),
+                    where: (r, { and: a, eq: equals }) =>
+                        a(
+                            equals(r.id, routineId),
+                            equals(r.userId, ctx.userId),
+                        ),
                 });
                 if (routine) {
                     const slugs = routine.blocks.map((b) => b.exerciseSlug);
@@ -363,7 +372,10 @@ export const liftingWorkoutRouter = createTRPCRouter({
                                       ),
                                   );
                     const bySlug = new Map(
-                        exercises.map((e) => [e.slug, e.id]),
+                        exercises.map((exercise) => [
+                            exercise.slug,
+                            exercise.id,
+                        ]),
                     );
                     const wexRows = routine.blocks
                         .map((block, index) => {

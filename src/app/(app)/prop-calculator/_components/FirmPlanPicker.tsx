@@ -11,15 +11,15 @@ import { formatCompactCurrency } from '~/lib/format';
 import {
     type FirmId,
     type Plan,
-    type PropFirm,
     serializePlanId,
+    type TradingFirm,
 } from '~/lib/prop-calculator';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 interface FirmPlanPickerProperties {
-    firm: PropFirm;
-    firms: readonly PropFirm[];
-    onFirmChange: (firm: PropFirm) => void;
+    firm: TradingFirm;
+    firms: readonly TradingFirm[];
+    onFirmChange: (firm: TradingFirm) => void;
     onPlanChange: (plan: Plan) => void;
     plan: Plan;
 }

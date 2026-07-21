@@ -6,7 +6,7 @@ import { useEffect, useRef } from 'react';
 import type { LogLevel } from '~/lib/accounting/runner-types';
 
 import { EmptyState } from '~/components/ui/EmptyState';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 export interface LogLine {
     level: LogLevel;

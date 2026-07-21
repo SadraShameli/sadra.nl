@@ -1,5 +1,5 @@
 import { Card } from '~/components/ui/Card';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 import GallerySection, { type GalleryItem } from './GallerySection';
 

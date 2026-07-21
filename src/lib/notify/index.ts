@@ -23,11 +23,16 @@ export async function fanOutEvent(
 
     for (const sub of subscribers) {
         if (!sub.email) continue;
-        mailer.send(factory(sub.email)).catch((error: unknown) =>
-            captureError(error, {
-                fields: { eventType, to: sub.email },
-                tag: 'notify.fanOut',
-            }),
-        );
+        const { email } = sub;
+        void (async () => {
+            try {
+                await mailer.send(factory(email));
+            } catch (error: unknown) {
+                captureError(error, {
+                    fields: { eventType, to: email },
+                    tag: 'notify.fanOut',
+                });
+            }
+        })();
     }
 }

@@ -5,7 +5,7 @@ import {
     IntradayTrailingDrawdown,
     Plan,
     type PlanInit,
-    PropFirm,
+    TradingFirm,
 } from '~/lib/prop-calculator/core';
 
 class ApexPlan extends Plan {}
@@ -55,7 +55,7 @@ const SIZES = [
 
 type ApexSize = (typeof SIZES)[number];
 
-export class ApexTraderFunding extends PropFirm {
+export class ApexTraderFunding extends TradingFirm {
     readonly displayName = 'Apex Trader Funding';
     readonly id = FirmId.Apex;
     readonly plans = SIZES.flatMap((s) => [

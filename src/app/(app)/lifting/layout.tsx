@@ -1,7 +1,7 @@
 import { type ReactNode } from 'react';
 
 import { TooltipProvider } from '~/components/ui/Tooltip';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 import { LiftingSubnav } from './_components/LiftingSubnav';
 

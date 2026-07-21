@@ -11,19 +11,19 @@ import InfoPopover from '~/components/ui/InfoPopover';
 import { formatCurrency, formatDays, formatPercent } from '~/lib/format';
 import {
     type Plan,
-    type PropFirm,
     type SimInputs,
     type SimOutputs,
     simulate,
+    type TradingFirm,
 } from '~/lib/prop-calculator';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 import { panelDescriptions } from './kpiDescriptions';
 
 interface PlanComparisonTableProperties {
     activePlan: Plan;
     baseInputs: Omit<SimInputs, 'plan'>;
-    firm: PropFirm;
+    firm: TradingFirm;
 }
 
 interface Row {
@@ -62,13 +62,12 @@ export default function PlanComparisonTable({
             }));
             const bestNet =
                 partial.length === 0
-                    ? Number.NEGATIVE_INFINITY
+                    ? -Infinity
                     : Math.max(...partial.map((r) => r.out.expectedMonthlyNet));
             const withScore: Row[] = partial.map((r) => ({
                 ...r,
                 isBest:
-                    r.out.expectedMonthlyNet === bestNet &&
-                    bestNet > Number.NEGATIVE_INFINITY,
+                    r.out.expectedMonthlyNet === bestNet && bestNet > -Infinity,
                 score:
                     bestNet > 0
                         ? Math.max(

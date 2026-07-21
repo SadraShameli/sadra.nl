@@ -6,7 +6,7 @@ import {
     Plan,
     type PlanId,
     type PlanInit,
-    PropFirm,
+    TradingFirm,
 } from '~/lib/prop-calculator/core';
 
 class MffuPlan extends Plan {}
@@ -87,7 +87,7 @@ type MffuFlexSize = (typeof FLEX_SIZES)[number];
 type MffuProSize = (typeof PRO_SIZES)[number];
 type MffuRapidSize = (typeof RAPID_SIZES)[number];
 
-export class MyFundedFutures extends PropFirm {
+export class MyFundedFutures extends TradingFirm {
     readonly displayName = 'My Funded Futures';
     readonly id = FirmId.Mffu;
     readonly plans = [

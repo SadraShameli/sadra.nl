@@ -4,7 +4,7 @@ import {
     FirmId,
     Plan,
     type PlanInit,
-    PropFirm,
+    TradingFirm,
 } from '~/lib/prop-calculator/core';
 
 class FundedNextPlan extends Plan {}
@@ -69,7 +69,7 @@ type FunctionBoltSize = (typeof BOLT_SIZES)[number];
 type FunctionLegacySize = (typeof LEGACY_SIZES)[number];
 type FunctionRapidSize = (typeof RAPID_SIZES)[number];
 
-export class FundedNext extends PropFirm {
+export class FundedNext extends TradingFirm {
     readonly displayName = 'FundedNext';
     readonly id = FirmId.FundedNext;
     readonly plans = [

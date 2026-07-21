@@ -4,7 +4,7 @@ import {
     FirmId,
     Plan,
     type PlanInit,
-    PropFirm,
+    TradingFirm,
 } from '~/lib/prop-calculator/core';
 
 class AlphaFuturesPlan extends Plan {}
@@ -101,7 +101,7 @@ type AfExpressSize = (typeof EXPRESS_SIZES)[number];
 type AfPremiumSize = (typeof PREMIUM_SIZES)[number];
 type AfZeroSize = (typeof ZERO_SIZES)[number];
 
-export class AlphaFutures extends PropFirm {
+export class AlphaFutures extends TradingFirm {
     readonly displayName = 'Alpha Futures';
     readonly id = FirmId.AlphaFutures;
     readonly plans = [

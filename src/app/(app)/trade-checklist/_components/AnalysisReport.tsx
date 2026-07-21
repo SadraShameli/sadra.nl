@@ -30,7 +30,7 @@ import { Progress } from '~/components/ui/Progress';
 import { Separator } from '~/components/ui/Separator';
 import { saveAssessment } from '~/lib/trading/actions';
 import { WEIGHT_CATEGORIES } from '~/lib/trading/defaults';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 import { OutcomeDialog } from './OutcomeDialog';
 

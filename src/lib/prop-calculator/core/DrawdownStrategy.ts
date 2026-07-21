@@ -13,17 +13,16 @@ export interface DrawdownStrategyInit {
 }
 
 export abstract class DrawdownStrategy {
+    readonly amount: number;
+
     abstract readonly kind: DrawdownKind;
 
-    get amount(): number {
-        return this.init.amount;
-    }
+    readonly lock: DrawdownLockConfig | undefined;
 
-    get lock(): DrawdownLockConfig | undefined {
-        return this.init.lock;
+    constructor(protected readonly init: DrawdownStrategyInit) {
+        this.amount = init.amount;
+        this.lock = init.lock;
     }
-
-    constructor(protected readonly init: DrawdownStrategyInit) {}
 
     initialThreshold(startingBalance: number): number {
         return startingBalance - this.init.amount;

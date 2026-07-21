@@ -5,7 +5,7 @@ import { notFound, redirect } from 'next/navigation';
 import { isRoot } from '~/lib/auth/roles';
 import { getServerSession } from '~/lib/auth/server';
 import { routes } from '~/lib/site/routes';
-import { cn } from '~/lib/utils';
+import { cn } from '~/lib/utilities';
 
 import { AccountingSubnav } from './_components/AccountingSubnav';
 
