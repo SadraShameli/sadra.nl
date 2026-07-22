@@ -62,8 +62,8 @@ export function RunDetail({ initial }: { initial: RunDetailData }) {
     );
     const accountingCredentialId = accountingCredential?.id ?? '';
     const targetLabel = accountingCredential
-        ? (CredentialRegistry.instance().get(accountingCredential.kind)
-              ?.label ?? accountingCredential.label)
+        ? (CredentialRegistry.instance.get(accountingCredential.kind)?.label ??
+          accountingCredential.label)
         : 'accounting backend';
     const isPostable =
         accountingCredentialId.length > 0 && PUSHABLE_STATUSES.has(run.status);

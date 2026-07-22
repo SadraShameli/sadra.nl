@@ -94,7 +94,7 @@ async function loadFieldOptions(input: {
 }): Promise<{
     options: { description?: string; label: string; value: string }[];
 }> {
-    const descriptor = CredentialRegistry.instance().get(input.kind);
+    const descriptor = CredentialRegistry.instance.get(input.kind);
     if (!descriptor) {
         throw new TRPCError({
             code: 'BAD_REQUEST',
@@ -138,7 +138,7 @@ async function loadFieldOptions(input: {
 }
 
 function requireAccountingSession(cred: LoadedCredential) {
-    const descriptor = CredentialRegistry.instance().get(cred.kind);
+    const descriptor = CredentialRegistry.instance.get(cred.kind);
     if (!descriptor) {
         throw new TRPCError({
             code: 'BAD_REQUEST',
@@ -177,7 +177,7 @@ function requireSecret(cred: LoadedCredential): string {
 }
 
 function requireTransactionSource(cred: LoadedCredential): ApiSource {
-    const descriptor = CredentialRegistry.instance().get(cred.kind);
+    const descriptor = CredentialRegistry.instance.get(cred.kind);
     if (!descriptor) {
         throw new TRPCError({
             code: 'BAD_REQUEST',
@@ -185,8 +185,8 @@ function requireTransactionSource(cred: LoadedCredential): ApiSource {
         });
     }
     const source = descriptor.transactionSourceId
-        ? SourceRegistry.instance().get(descriptor.transactionSourceId)
-        : SourceRegistry.instance().findByCredentialKind(cred.kind);
+        ? SourceRegistry.instance.get(descriptor.transactionSourceId)
+        : SourceRegistry.instance.findByCredentialKind(cred.kind);
     if (source?.kind !== 'api') {
         throw new TRPCError({
             code: 'BAD_REQUEST',
@@ -267,9 +267,7 @@ export const accountingRouter = createTRPCRouter({
         create: rootProcedure
             .input(credentialCreateSchema)
             .mutation(async ({ ctx, input }) => {
-                const descriptor = CredentialRegistry.instance().get(
-                    input.kind,
-                );
+                const descriptor = CredentialRegistry.instance.get(input.kind);
                 if (!descriptor) {
                     throw new TRPCError({
                         code: 'BAD_REQUEST',
@@ -335,14 +333,14 @@ export const accountingRouter = createTRPCRouter({
             .input(credentialIdSchema)
             .mutation(async ({ ctx, input }) => {
                 const cred = await loadCredentialOrThrow(input.id, ctx.userId);
-                const role = CredentialRegistry.instance().get(cred.kind)?.role;
+                const role = CredentialRegistry.instance.get(cred.kind)?.role;
                 if (!role) {
                     throw new TRPCError({
                         code: 'BAD_REQUEST',
                         message: `Unknown credential kind "${cred.kind}"`,
                     });
                 }
-                const roleKinds = CredentialRegistry.instance()
+                const roleKinds = CredentialRegistry.instance
                     .listByRole(role)
                     .map((d) => d.id);
                 await ctx.db.transaction(async (tx) => {
@@ -371,7 +369,7 @@ export const accountingRouter = createTRPCRouter({
             .input(credentialIdSchema)
             .mutation(async ({ ctx, input }) => {
                 const cred = await loadCredentialOrThrow(input.id, ctx.userId);
-                const descriptor = CredentialRegistry.instance().get(cred.kind);
+                const descriptor = CredentialRegistry.instance.get(cred.kind);
                 if (!descriptor) {
                     return {
                         detail: `Unknown credential kind "${cred.kind}"`,
@@ -452,7 +450,7 @@ export const accountingRouter = createTRPCRouter({
                             message: 'Credential not found',
                         });
                     }
-                    const descriptor = CredentialRegistry.instance().get(
+                    const descriptor = CredentialRegistry.instance.get(
                         row.kind,
                     );
                     patch.meta = descriptor
@@ -476,19 +474,17 @@ export const accountingRouter = createTRPCRouter({
     }),
 
     descriptors: rootProcedure.query(() =>
-        CredentialRegistry.instance()
-            .list()
-            .map((d) => ({
-                accountingProviderId: d.accountingProviderId ?? null,
-                description: d.description ?? null,
-                id: d.id,
-                label: d.label,
-                metaFields: d.metaFields,
-                role: d.role,
-                secret: d.secret,
-                tone: d.tone,
-                transactionSourceId: d.transactionSourceId ?? null,
-            })),
+        CredentialRegistry.instance.list().map((d) => ({
+            accountingProviderId: d.accountingProviderId ?? null,
+            description: d.description ?? null,
+            id: d.id,
+            label: d.label,
+            metaFields: d.metaFields,
+            role: d.role,
+            secret: d.secret,
+            tone: d.tone,
+            transactionSourceId: d.transactionSourceId ?? null,
+        })),
     ),
 
     fieldOptions: createTRPCRouter({

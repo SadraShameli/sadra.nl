@@ -70,7 +70,7 @@ import { useImportStream } from './useImportStream';
 const toastError = (e: { message: string }) => toast.error(e.message);
 
 const isFileSourceKind = (kind: string): boolean =>
-    CredentialRegistry.instance().get(kind)?.transactionSourceKind === 'file';
+    CredentialRegistry.instance.get(kind)?.transactionSourceKind === 'file';
 
 interface LoadedFile {
     content: string;
@@ -438,7 +438,7 @@ export function AccountingDashboard() {
                     accountingCredentialId={accountingCredentialId}
                     accountingDescriptor={
                         accounting
-                            ? CredentialRegistry.instance().get(accounting.kind)
+                            ? CredentialRegistry.instance.get(accounting.kind)
                             : undefined
                     }
                     onPushedComplete={async (s) => {

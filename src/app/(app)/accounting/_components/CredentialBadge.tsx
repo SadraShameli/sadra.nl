@@ -6,7 +6,7 @@ import {
 import { cn } from '~/lib/utilities';
 
 export function CredentialBadge({ kind }: { kind: string }) {
-    const d = CredentialRegistry.instance().get(kind);
+    const d = CredentialRegistry.instance.get(kind);
     if (!d) return <Badge variant="outline">{kind}</Badge>;
     return (
         <Badge

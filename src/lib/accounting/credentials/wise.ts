@@ -15,7 +15,7 @@ const metaSchema = z
     })
     .strict();
 
-CredentialRegistry.instance().register({
+CredentialRegistry.instance.register({
     id: CredentialKind.Wise,
     label: 'Wise',
     metaFields: [

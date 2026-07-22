@@ -26,7 +26,7 @@ function hasValidDateRange(v: {
 
 export const credentialKindSchema = z
     .enum(CredentialKind)
-    .refine((id) => CredentialRegistry.instance().get(id) !== undefined, {
+    .refine((id) => CredentialRegistry.instance.get(id) !== undefined, {
         error: (issue) => `Unknown credential kind "${String(issue.input)}"`,
     });
 
@@ -42,8 +42,8 @@ export const credentialCreateSchema = z
     .refine(
         (value) => {
             const requiresSecret =
-                CredentialRegistry.instance().get(value.kind)
-                    ?.requiresSecret !== false;
+                CredentialRegistry.instance.get(value.kind)?.requiresSecret !==
+                false;
             return !requiresSecret || (value.secret?.length ?? 0) >= 8;
         },
         {

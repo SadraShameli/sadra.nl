@@ -73,7 +73,7 @@ async function defaultAccountingTest(
         secret: string;
     },
 ): Promise<CredentialTestResult> {
-    const descriptor = CredentialRegistry.instance().get(credentialId);
+    const descriptor = CredentialRegistry.instance.get(credentialId);
     if (!descriptor?.accountingProviderId) {
         return { detail: 'No accounting provider registered', ok: false };
     }
@@ -155,7 +155,5 @@ async function defaultAccountingTest(
 }
 
 export function knownCredentialIds(): string[] {
-    return CredentialRegistry.instance()
-        .list()
-        .map((d) => d.id);
+    return CredentialRegistry.instance.list().map((d) => d.id);
 }

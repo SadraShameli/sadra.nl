@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
         try {
             const cred = await loadCredential(credentialId, userId);
             if (!cred) continue;
-            const descriptor = CredentialRegistry.instance().get(cred.kind);
+            const descriptor = CredentialRegistry.instance.get(cred.kind);
             if (descriptor?.role === CredentialRole.Transactions) {
                 apiCredentials.push(cred);
             }
@@ -87,9 +87,7 @@ export async function POST(request: NextRequest) {
                 userId,
             );
             if (!credential) continue;
-            const descriptor = CredentialRegistry.instance().get(
-                credential.kind,
-            );
+            const descriptor = CredentialRegistry.instance.get(credential.kind);
             if (descriptor?.role === CredentialRole.Transactions) {
                 fileInputs.push({ content: file.content, credential });
             }

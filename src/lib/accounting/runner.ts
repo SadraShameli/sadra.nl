@@ -189,7 +189,7 @@ export async function* runPush(input: PushInput): AsyncIterable<ImportEvent> {
         return;
     }
 
-    const descriptor = CredentialRegistry.instance().get(
+    const descriptor = CredentialRegistry.instance.get(
         input.accountingCredential.kind,
     );
     if (!descriptor?.accountingProviderId) {
@@ -325,10 +325,10 @@ async function fetchFromApiCredential(
     fetchImpl?: typeof fetch,
 ): Promise<{ events: ImportEvent[]; txns: RawTransaction[] }> {
     const events: ImportEvent[] = [];
-    const descriptor = CredentialRegistry.instance().get(credential.kind);
+    const descriptor = CredentialRegistry.instance.get(credential.kind);
     const source = descriptor?.transactionSourceId
-        ? SourceRegistry.instance().get(descriptor.transactionSourceId)
-        : SourceRegistry.instance().findByCredentialKind(credential.kind);
+        ? SourceRegistry.instance.get(descriptor.transactionSourceId)
+        : SourceRegistry.instance.findByCredentialKind(credential.kind);
     if (source?.kind !== 'api') {
         events.push({
             kind: 'log',
@@ -373,12 +373,12 @@ function parseFromFileInput(fileInput: FileInput): {
     txns: RawTransaction[];
 } {
     const events: ImportEvent[] = [];
-    const descriptor = CredentialRegistry.instance().get(
+    const descriptor = CredentialRegistry.instance.get(
         fileInput.credential.kind,
     );
     const source = descriptor?.transactionSourceId
-        ? SourceRegistry.instance().get(descriptor.transactionSourceId)
-        : SourceRegistry.instance().findByCredentialKind(
+        ? SourceRegistry.instance.get(descriptor.transactionSourceId)
+        : SourceRegistry.instance.findByCredentialKind(
               fileInput.credential.kind,
           );
     if (source?.kind !== 'file') {

@@ -26,7 +26,7 @@ export function useActiveCredentials(): ActiveCredentials {
 
     const listByRole = (role: CredentialRole): ActiveCredential[] =>
         all.filter(
-            (c) => CredentialRegistry.instance().get(c.kind)?.role === role,
+            (c) => CredentialRegistry.instance.get(c.kind)?.role === role,
         );
     const resolve = (role: CredentialRole): ActiveCredential | undefined => {
         const ofRole = listByRole(role);

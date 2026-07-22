@@ -9,7 +9,7 @@ export function ActiveConnectionNote({
     roleNoun: string;
 }) {
     const descriptor = credential
-        ? CredentialRegistry.instance().get(credential.kind)
+        ? CredentialRegistry.instance.get(credential.kind)
         : undefined;
     return (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">

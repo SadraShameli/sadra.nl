@@ -103,5 +103,5 @@ class WiseApiSource extends ApiSourceBase {
 export const wiseApiSource = new WiseApiSource();
 
 {
-    SourceRegistry.instance().register(wiseApiSource);
+    SourceRegistry.instance.register(wiseApiSource);
 }

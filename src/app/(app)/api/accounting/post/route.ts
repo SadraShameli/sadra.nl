@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
             { status: 404 },
         );
     }
-    const descriptor = CredentialRegistry.instance().get(row.kind);
+    const descriptor = CredentialRegistry.instance.get(row.kind);
     if (descriptor?.role !== CredentialRole.Accounting) {
         return NextResponse.json(
             { error: 'credential_not_accounting' },

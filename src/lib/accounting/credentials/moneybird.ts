@@ -14,7 +14,7 @@ const metaSchema = z
     })
     .strict();
 
-CredentialRegistry.instance().register({
+CredentialRegistry.instance.register({
     accountingProviderId: 'moneybird',
     id: CredentialKind.Moneybird,
     label: 'Moneybird',

@@ -14,7 +14,7 @@ const metaSchema = z
     })
     .strict();
 
-CredentialRegistry.instance().register({
+CredentialRegistry.instance.register({
     accountingProviderId: 'eboekhouden',
     id: CredentialKind.EBoekhouden,
     label: 'eBoekhouden',

@@ -83,7 +83,7 @@ export function ConnectionsManager() {
         },
     });
 
-    const descriptors = useMemo(() => CredentialRegistry.instance().list(), []);
+    const descriptors = useMemo(() => CredentialRegistry.instance.list(), []);
     const [editing, setEditing] = useState<null | StoredCredential>(null);
 
     const grouped = useMemo(() => {
@@ -92,7 +92,7 @@ export function ConnectionsManager() {
             transactions: [],
         };
         for (const c of credentialsQ.data ?? []) {
-            const role = CredentialRegistry.instance().get(c.kind)?.role;
+            const role = CredentialRegistry.instance.get(c.kind)?.role;
             if (role) byRole[role].push(c);
         }
         return byRole;
@@ -108,7 +108,7 @@ export function ConnectionsManager() {
         isActive: boolean,
         canSetActive: boolean,
     ) => {
-        const descriptor = CredentialRegistry.instance().get(cred.kind);
+        const descriptor = CredentialRegistry.instance.get(cred.kind);
         const isTesting = testMut.isPending && testMut.variables.id === cred.id;
         const isDeleting =
             deleteMut.isPending && deleteMut.variables.id === cred.id;
@@ -323,7 +323,7 @@ function EditCredentialForm({
     onClose: () => void;
     onSaved: () => Promise<void>;
 }) {
-    const descriptor = CredentialRegistry.instance().get(credential.kind);
+    const descriptor = CredentialRegistry.instance.get(credential.kind);
     const updateMut = api.accounting.credentials.update.useMutation();
     const form = useForm<CredentialUpdateInput>({
         defaultValues: {

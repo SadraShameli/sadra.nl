@@ -14,7 +14,7 @@ const metaSchema = z
     })
     .strict();
 
-CredentialRegistry.instance().register({
+CredentialRegistry.instance.register({
     id: CredentialKind.Plane,
     label: 'Plane.com (CSV)',
     metaFields: [

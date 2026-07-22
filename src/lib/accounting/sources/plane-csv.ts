@@ -23,5 +23,5 @@ class PlaneCsvSource implements FileSource {
 export const planeCsvSource = new PlaneCsvSource();
 
 {
-    SourceRegistry.instance().register(planeCsvSource);
+    SourceRegistry.instance.register(planeCsvSource);
 }
