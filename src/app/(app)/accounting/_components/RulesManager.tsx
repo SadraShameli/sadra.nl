@@ -53,7 +53,7 @@ import { type TaxCodeOption, useTaxCodes } from './useTaxCodes';
 
 const ALL = '__all__';
 const VAT_NONE = '__none__';
-const toastError = (e: { message: string }) => toast.error(e.message);
+const toastError = (error: { message: string }) => toast.error(error.message);
 
 export interface RuleFormDialogPrefill {
     direction: BookingDirection;
@@ -238,7 +238,7 @@ export function RuleFormDialog({
                     <Field label="Match (merchant contains)">
                         <Input
                             className="h-8 text-xs"
-                            onChange={(e) => setMatch(e.target.value)}
+                            onChange={(event) => setMatch(event.target.value)}
                             placeholder="e.g. amazon"
                             value={match}
                         />
@@ -258,7 +258,7 @@ export function RuleFormDialog({
                     <Field label="Counterpart name">
                         <Input
                             className="h-8 text-xs"
-                            onChange={(e) => setDisplay(e.target.value)}
+                            onChange={(event) => setDisplay(event.target.value)}
                             placeholder="e.g. Amazon EU"
                             value={display}
                         />
@@ -281,7 +281,9 @@ export function RuleFormDialog({
                         <Field label="Min amount (optional)">
                             <Input
                                 className="h-8 text-xs"
-                                onChange={(e) => setMinAmount(e.target.value)}
+                                onChange={(event) =>
+                                    setMinAmount(event.target.value)
+                                }
                                 placeholder="e.g. 10"
                                 type="number"
                                 value={minAmount}
@@ -290,7 +292,9 @@ export function RuleFormDialog({
                         <Field label="Max amount (optional)">
                             <Input
                                 className="h-8 text-xs"
-                                onChange={(e) => setMaxAmount(e.target.value)}
+                                onChange={(event) =>
+                                    setMaxAmount(event.target.value)
+                                }
                                 placeholder="e.g. 500"
                                 type="number"
                                 value={maxAmount}
@@ -300,8 +304,8 @@ export function RuleFormDialog({
                     <Field label="Currency (optional)">
                         <Input
                             className="h-8 text-xs"
-                            onChange={(e) =>
-                                setCurrency(e.target.value.toUpperCase())
+                            onChange={(event) =>
+                                setCurrency(event.target.value.toUpperCase())
                             }
                             placeholder="e.g. EUR"
                             value={currency}
@@ -467,8 +471,8 @@ function BankAccountFormDialog({
                     <Field label="Currency">
                         <Input
                             className="h-8 text-xs"
-                            onChange={(e) =>
-                                setCurrency(e.target.value.toUpperCase())
+                            onChange={(event) =>
+                                setCurrency(event.target.value.toUpperCase())
                             }
                             placeholder="EUR"
                             value={currency}
@@ -701,10 +705,10 @@ function RulesCard({
         [rulesQ.data],
     );
     const move = useCallback(
-        (id: string, dir: 'down' | 'up') => {
+        (id: string, direction: 'down' | 'up') => {
             const index = allRules.findIndex((r) => r.id === id);
             if (index === -1) return;
-            const swapWith = dir === 'up' ? index - 1 : index + 1;
+            const swapWith = direction === 'up' ? index - 1 : index + 1;
             const a = allRules[index];
             const b = allRules[swapWith];
             if (!a || !b) return;

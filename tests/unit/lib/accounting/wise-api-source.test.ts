@@ -54,18 +54,17 @@ function wiseFetch(activities: object[]): typeof fetch {
 
 describe('wiseApiSource – sourceCurrency selection', () => {
     it('EUR primary, USD secondary (e.g. STRATO from USD balance): uses EUR primary directly', async () => {
-        const txns = await wiseApiSource.fetch(
-            makeContext(
-                wiseFetch([
-                    activity({
-                        primaryAmount: '28 EUR',
-                        secondaryAmount: '32.33 USD',
-                        title: 'STRATO GmbH',
-                        type: 'DIRECT_DEBIT_TRANSACTION',
-                    }),
-                ]),
-            ),
+        const context = makeContext(
+            wiseFetch([
+                activity({
+                    primaryAmount: '28 EUR',
+                    secondaryAmount: '32.33 USD',
+                    title: 'STRATO GmbH',
+                    type: 'DIRECT_DEBIT_TRANSACTION',
+                }),
+            ]),
         );
+        const txns = await wiseApiSource.fetch(context);
         expect(txns).toHaveLength(1);
         expect(txns[0]).toMatchObject({
             sourceAmount: 28,
@@ -74,16 +73,15 @@ describe('wiseApiSource – sourceCurrency selection', () => {
     });
 
     it('EUR primary, null secondary (e.g. Amazon from EUR balance): uses EUR primary', async () => {
-        const txns = await wiseApiSource.fetch(
-            makeContext(
-                wiseFetch([
-                    activity({
-                        primaryAmount: '32.34 EUR',
-                        title: 'Amazon',
-                    }),
-                ]),
-            ),
+        const context = makeContext(
+            wiseFetch([
+                activity({
+                    primaryAmount: '32.34 EUR',
+                    title: 'Amazon',
+                }),
+            ]),
         );
+        const txns = await wiseApiSource.fetch(context);
         expect(txns[0]).toMatchObject({
             sourceAmount: 32.34,
             sourceCurrency: 'EUR',
@@ -91,16 +89,15 @@ describe('wiseApiSource – sourceCurrency selection', () => {
     });
 
     it('USD primary, null secondary (e.g. Apex from USD balance): uses USD primary for ECB conversion', async () => {
-        const txns = await wiseApiSource.fetch(
-            makeContext(
-                wiseFetch([
-                    activity({
-                        primaryAmount: '345 USD',
-                        title: 'ApexFutures',
-                    }),
-                ]),
-            ),
+        const context = makeContext(
+            wiseFetch([
+                activity({
+                    primaryAmount: '345 USD',
+                    title: 'ApexFutures',
+                }),
+            ]),
         );
+        const txns = await wiseApiSource.fetch(context);
         expect(txns[0]).toMatchObject({
             sourceAmount: 345,
             sourceCurrency: 'USD',
@@ -108,17 +105,16 @@ describe('wiseApiSource – sourceCurrency selection', () => {
     });
 
     it('USD primary, EUR secondary (e.g. Apex from EUR balance): uses exact EUR secondary, no ECB needed', async () => {
-        const txns = await wiseApiSource.fetch(
-            makeContext(
-                wiseFetch([
-                    activity({
-                        primaryAmount: '29.90 USD',
-                        secondaryAmount: '25.85 EUR',
-                        title: 'ApexFutures',
-                    }),
-                ]),
-            ),
+        const context = makeContext(
+            wiseFetch([
+                activity({
+                    primaryAmount: '29.90 USD',
+                    secondaryAmount: '25.85 EUR',
+                    title: 'ApexFutures',
+                }),
+            ]),
         );
+        const txns = await wiseApiSource.fetch(context);
         expect(txns[0]).toMatchObject({
             sourceAmount: 25.85,
             sourceCurrency: 'EUR',
@@ -126,17 +122,16 @@ describe('wiseApiSource – sourceCurrency selection', () => {
     });
 
     it('EUR primary, "USD, EUR" secondary (TradingView/MediaMarkt: unparseable secondary): uses EUR primary', async () => {
-        const txns = await wiseApiSource.fetch(
-            makeContext(
-                wiseFetch([
-                    activity({
-                        primaryAmount: '101.64 EUR',
-                        secondaryAmount: 'USD, EUR',
-                        title: 'TradingView',
-                    }),
-                ]),
-            ),
+        const context = makeContext(
+            wiseFetch([
+                activity({
+                    primaryAmount: '101.64 EUR',
+                    secondaryAmount: 'USD, EUR',
+                    title: 'TradingView',
+                }),
+            ]),
         );
+        const txns = await wiseApiSource.fetch(context);
         expect(txns[0]).toMatchObject({
             sourceAmount: 101.64,
             sourceCurrency: 'EUR',

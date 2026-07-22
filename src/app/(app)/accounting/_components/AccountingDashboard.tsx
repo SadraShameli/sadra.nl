@@ -67,7 +67,7 @@ import { type StageState, StageStepper } from './StageStepper';
 import { useActiveCredentials } from './useActiveCredentials';
 import { useImportStream } from './useImportStream';
 
-const toastError = (e: { message: string }) => toast.error(e.message);
+const toastError = (error: { message: string }) => toast.error(error.message);
 
 const isFileSourceKind = (kind: string): boolean =>
     CredentialRegistry.instance.get(kind)?.transactionSourceKind === 'file';
@@ -147,12 +147,12 @@ export function AccountingDashboard() {
         new Map(),
     );
     const sourceSelectionTouched = useRef(false);
-    const toggleSource = (id: string, checked: boolean) => {
+    const toggleSource = (id: string, isChecked: boolean) => {
         sourceSelectionTouched.current = true;
         setApiCredentialIds((previous) =>
-            checked ? [...previous, id] : previous.filter((x) => x !== id),
+            isChecked ? [...previous, id] : previous.filter((x) => x !== id),
         );
-        if (!checked) {
+        if (!isChecked) {
             setFileContents((previous) => {
                 if (!previous.has(id)) return previous;
                 const next = new Map(previous);
@@ -327,9 +327,11 @@ export function AccountingDashboard() {
                                                         <input
                                                             accept=".csv"
                                                             className="hidden"
-                                                            onChange={(e) => {
+                                                            onChange={(
+                                                                event,
+                                                            ) => {
                                                                 const file =
-                                                                    e.target
+                                                                    event.target
                                                                         .files?.[0];
                                                                 if (!file)
                                                                     return;
@@ -475,7 +477,7 @@ function ResultsView({
     pushOpen: boolean;
     result: ConversionResult;
     runId: null | RunId;
-    setPushOpen: (open: boolean) => void;
+    setPushOpen: (isOpen: boolean) => void;
 }) {
     const isPostable =
         accountingCredentialId.length > 0 &&

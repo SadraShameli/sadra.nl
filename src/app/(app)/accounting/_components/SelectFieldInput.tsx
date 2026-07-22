@@ -66,7 +66,7 @@ export function SelectFieldInput({
 
     const load = async () => {
         try {
-            const res = isUsingStoredSecret
+            const result = isUsingStoredSecret
                 ? await loadForCredentialMut.mutateAsync({
                       credentialId: credentialId,
                       fieldKey: field.key,
@@ -78,7 +78,7 @@ export function SelectFieldInput({
                       meta,
                       secret,
                   });
-            setOptions(res.options);
+            setOptions(result.options);
         } catch {}
     };
 
@@ -125,8 +125,8 @@ export function SelectFieldInput({
                 </Select>
                 <Button
                     disabled={!canLoad}
-                    onClick={(e) => {
-                        e.preventDefault();
+                    onClick={(event) => {
+                        event.preventDefault();
                         void load();
                     }}
                     size="sm"

@@ -73,10 +73,12 @@ export function ConnectionsManager() {
     const utilities = api.useUtils();
     const credentialsQ = api.accounting.credentials.list.useQuery();
     const testMut = api.accounting.credentials.test.useMutation();
-    const setActiveMut = api.accounting.credentials.setActive.useMutation({
-        onSuccess: () => utilities.accounting.credentials.list.invalidate(),
-    });
-    const deleteMut = api.accounting.credentials.delete.useMutation({
+    const activationMutation = api.accounting.credentials.setActive.useMutation(
+        {
+            onSuccess: () => utilities.accounting.credentials.list.invalidate(),
+        },
+    );
+    const deletionMutation = api.accounting.credentials.delete.useMutation({
         onSuccess: async () => {
             await utilities.accounting.credentials.list.invalidate();
             await utilities.accounting.summary.invalidate();
@@ -91,7 +93,8 @@ export function ConnectionsManager() {
             accounting: [],
             transactions: [],
         };
-        for (const c of credentialsQ.data ?? []) {
+        const credentials = credentialsQ.data ?? [];
+        for (const c of credentials) {
             const role = CredentialRegistry.instance.get(c.kind)?.role;
             if (role) byRole[role].push(c);
         }
@@ -111,9 +114,11 @@ export function ConnectionsManager() {
         const descriptor = CredentialRegistry.instance.get(cred.kind);
         const isTesting = testMut.isPending && testMut.variables.id === cred.id;
         const isDeleting =
-            deleteMut.isPending && deleteMut.variables.id === cred.id;
+            deletionMutation.isPending &&
+            deletionMutation.variables.id === cred.id;
         const isActivating =
-            setActiveMut.isPending && setActiveMut.variables.id === cred.id;
+            activationMutation.isPending &&
+            activationMutation.variables.id === cred.id;
         return (
             <Card key={cred.id}>
                 <CardContent className="flex flex-wrap items-center justify-between gap-4">
@@ -143,7 +148,7 @@ export function ConnectionsManager() {
                             <Button
                                 disabled={isActivating}
                                 onClick={async () => {
-                                    await setActiveMut.mutateAsync({
+                                    await activationMutation.mutateAsync({
                                         id: cred.id,
                                     });
                                     toast.success(
@@ -165,17 +170,17 @@ export function ConnectionsManager() {
                             <Button
                                 disabled={isTesting}
                                 onClick={async () => {
-                                    const res = await testMut.mutateAsync({
+                                    const result = await testMut.mutateAsync({
                                         id: cred.id,
                                     });
-                                    if (res.ok) {
+                                    if (result.ok) {
                                         toast.success(
-                                            `${cred.label}: OK · ${res.detail} · ${res.latencyMs}ms`,
+                                            `${cred.label}: OK · ${result.detail} · ${result.latencyMs}ms`,
                                         );
                                         await utilities.accounting.credentials.list.invalidate();
                                     } else {
                                         toast.error(
-                                            `${cred.label}: ${res.detail}`,
+                                            `${cred.label}: ${result.detail}`,
                                         );
                                     }
                                 }}
@@ -209,7 +214,9 @@ export function ConnectionsManager() {
                                 ) {
                                     return;
                                 }
-                                await deleteMut.mutateAsync({ id: cred.id });
+                                await deletionMutation.mutateAsync({
+                                    id: cred.id,
+                                });
                                 toast.success('Credential deleted');
                             }}
                             size="sm"
@@ -501,7 +508,7 @@ function NewCredentialDialog({
 }) {
     const [open, setOpen] = useState(false);
     const initialDescriptor = descriptors[0];
-    const createMut = api.accounting.credentials.create.useMutation();
+    const creationMutation = api.accounting.credentials.create.useMutation();
     const form = useForm<
         z.input<typeof credentialCreateSchema>,
         unknown,
@@ -524,6 +531,14 @@ function NewCredentialDialog({
     const meta = form.watch('meta') ?? {};
     const descriptor = descriptors.find((d) => d.id === kind);
 
+    if (!descriptor) {
+        return (
+            <Button disabled>
+                <Plus className="size-4" /> Add credential
+            </Button>
+        );
+    }
+
     const reset = () => {
         const first = descriptors[0];
         if (!first) return;
@@ -535,17 +550,9 @@ function NewCredentialDialog({
         });
     };
 
-    if (!descriptor) {
-        return (
-            <Button disabled>
-                <Plus className="size-4" /> Add credential
-            </Button>
-        );
-    }
-
     const onSubmit = form.handleSubmit(async (values) => {
         try {
-            await createMut.mutateAsync({
+            await creationMutation.mutateAsync({
                 kind: values.kind,
                 label: values.label.trim(),
                 meta: values.meta,
@@ -630,16 +637,16 @@ function NewCredentialDialog({
                             secretRequired={descriptor.requiresSecret !== false}
                         />
 
-                        {createMut.error && (
+                        {creationMutation.error && (
                             <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive-foreground">
                                 <AlertCircle className="mt-0.5 size-3.5" />
-                                <span>{createMut.error.message}</span>
+                                <span>{creationMutation.error.message}</span>
                             </div>
                         )}
 
                         <DialogFooter>
                             <Button
-                                disabled={createMut.isPending}
+                                disabled={creationMutation.isPending}
                                 onClick={() => setOpen(false)}
                                 type="button"
                                 variant="ghost"
@@ -647,10 +654,10 @@ function NewCredentialDialog({
                                 Cancel
                             </Button>
                             <Button
-                                disabled={createMut.isPending}
+                                disabled={creationMutation.isPending}
                                 type="submit"
                             >
-                                {createMut.isPending && (
+                                {creationMutation.isPending && (
                                     <Loader2 className="size-3 animate-spin" />
                                 )}
                                 Save

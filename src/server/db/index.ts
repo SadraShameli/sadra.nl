@@ -98,7 +98,7 @@ if (isPoolLifecycleAttached && environment.NODE_ENV !== 'production') {
     globalForDatabase.pool = pool;
 }
 
-export const db = drizzle(pool, {
+const database = drizzle(pool, {
     schema: {
         ...mainSchema,
         ...schema,
@@ -111,7 +111,9 @@ export const db = drizzle(pool, {
         ...relationsModule,
     },
 });
+export { database as db };
 
-export async function endDb() {
+async function endDatabase() {
     await pool.end();
 }
+export { endDatabase as endDb };

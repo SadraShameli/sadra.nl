@@ -36,15 +36,6 @@ export interface RuleRow {
 }
 
 export class Rule {
-    constructor(
-        readonly id: string,
-        readonly display: string,
-        readonly ledger: LedgerReference,
-        readonly taxCode: TaxCode,
-        private readonly matcher: RuleMatcher,
-        private readonly conditions: readonly RuleCondition[],
-    ) {}
-
     static fromRow(row: RuleRow): Rule {
         const conditions: RuleCondition[] = [
             new DirectionCondition(row.direction),
@@ -88,6 +79,15 @@ export class Rule {
             conditions,
         );
     }
+
+    constructor(
+        readonly id: string,
+        readonly display: string,
+        readonly ledger: LedgerReference,
+        readonly taxCode: TaxCode,
+        private readonly matcher: RuleMatcher,
+        private readonly conditions: readonly RuleCondition[],
+    ) {}
 
     matches(tx: RawTransaction): boolean {
         if (!tx.merchant) return false;

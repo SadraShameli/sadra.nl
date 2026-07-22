@@ -61,15 +61,15 @@ export interface ProviderSession {
 export class ProviderRegistry {
     private static instanceValue: null | ProviderRegistry = null;
 
+    static instance(): ProviderRegistry {
+        this.instanceValue ??= new ProviderRegistry();
+        return this.instanceValue;
+    }
+
     private readonly providers: Map<string, AccountingProvider>;
 
     private constructor() {
         this.providers = new Map<string, AccountingProvider>();
-    }
-
-    static instance(): ProviderRegistry {
-        this.instanceValue ??= new ProviderRegistry();
-        return this.instanceValue;
     }
 
     get(id: string): AccountingProvider | undefined {

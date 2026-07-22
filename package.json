@@ -110,6 +110,7 @@
         "zxcvbn": "^4.4.2"
     },
     "devDependencies": {
+        "@eslint/js": "^10.0.1",
         "@next/eslint-plugin-next": "^16.2.11",
         "@playwright/test": "^1.61.1",
         "@tailwindcss/postcss": "^4.3.3",
@@ -126,6 +127,7 @@
         "cssnano-preset-default": "^8.0.2",
         "drizzle-kit": "^0.31.10",
         "eslint": "^10.7.0",
+        "eslint-config-prettier": "^10.1.8",
         "eslint-plugin-drizzle": "^0.2.3",
         "eslint-plugin-jsx-a11y": "^6.10.2",
         "eslint-plugin-perfectionist": "^5.10.0",

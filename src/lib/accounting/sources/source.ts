@@ -47,12 +47,12 @@ export abstract class ApiSourceBase implements ApiSource {
 }
 
 export class SourceRegistry {
+    private static instanceValue: null | SourceRegistry = null;
+
     static get instance(): SourceRegistry {
         this.instanceValue ??= new SourceRegistry();
         return this.instanceValue;
     }
-
-    private static instanceValue: null | SourceRegistry = null;
 
     private readonly sources: Map<string, Source>;
 

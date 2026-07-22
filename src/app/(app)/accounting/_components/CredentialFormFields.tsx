@@ -82,7 +82,7 @@ export function CredentialFormFields({
                 <Label htmlFor="cred-label">Label</Label>
                 <Input
                     id="cred-label"
-                    onChange={(e) => onLabelChange(e.target.value)}
+                    onChange={(event) => onLabelChange(event.target.value)}
                     placeholder="e.g. Primary account"
                     required
                     value={label}
@@ -98,11 +98,11 @@ export function CredentialFormFields({
                         autoComplete="new-password"
                         id="cred-secret"
                         minLength={
-                            secret.length === 0 && !secretRequired
+                            !secretRequired && secret.length === 0
                                 ? 0
                                 : descriptor.secret.minLength
                         }
-                        onChange={(e) => onSecretChange(e.target.value)}
+                        onChange={(event) => onSecretChange(event.target.value)}
                         placeholder={descriptor.secret.placeholder}
                         required={secretRequired}
                         type="password"

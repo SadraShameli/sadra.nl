@@ -54,9 +54,10 @@ export function ResultsCharts({ result }: { result: ConversionResult }) {
             else row.out += b.amountEur;
             map.set(b.date, row);
         }
-        return [...map.values()].toSorted((a, b) =>
-            a.date < b.date ? -1 : a.date > b.date ? 1 : 0,
-        );
+        return map
+            .values()
+            .toArray()
+            .toSorted((a, b) => a.date.localeCompare(b.date));
     }, [result]);
 
     const byCounterpart = useMemo(() => {

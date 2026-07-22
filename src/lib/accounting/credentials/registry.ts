@@ -57,12 +57,12 @@ export interface CredentialMetaField {
 }
 
 export class CredentialRegistry {
+    private static instanceValue: CredentialRegistry | null = null;
+
     static get instance(): CredentialRegistry {
         this.instanceValue ??= new CredentialRegistry();
         return this.instanceValue;
     }
-
-    private static instanceValue: CredentialRegistry | null = null;
 
     private readonly descriptors: Map<CredentialKind, CredentialDescriptor>;
 

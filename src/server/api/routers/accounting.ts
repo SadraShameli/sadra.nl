@@ -196,10 +196,69 @@ function requireTransactionSource(cred: LoadedCredential): ApiSource {
     return source;
 }
 
+const idInputSchema = z.object({ id: z.uuid() });
+const credentialIdInputSchema = z.object({ credentialId: z.uuid() });
+
+const fieldOptionsLoadInputSchema = z.object({
+    fieldKey: z.string().min(1).max(64),
+    kind: z.string().min(1).max(32),
+    meta: z.record(z.string(), z.unknown()).default({}),
+    secret: z.string().min(1),
+});
+
+const fieldOptionsLoadForCredentialInputSchema = z.object({
+    credentialId: z.uuid(),
+    fieldKey: z.string().min(1).max(64),
+    metaOverride: z.record(z.string(), z.unknown()).optional(),
+});
+
+const ledgersListInputSchema = z.object({
+    category: z.string().min(1).max(16).optional(),
+    credentialId: z.uuid(),
+});
+
+const mutationsListInputSchema = z.object({
+    credentialId: z.uuid(),
+    dateFrom: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .optional(),
+    dateTo: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .optional(),
+    limit: z.number().int().min(1).max(2000).default(20),
+    offset: z.number().int().min(0).default(0),
+});
+
+const runsListInputSchema = z.object({
+    limit: z.number().int().min(1).max(100).default(20),
+    offset: z.number().int().min(0).default(0),
+});
+
+const runsUpdateBookingInputSchema = z.object({
+    patch: z.object({
+        counterpartLedger: ledgerReferenceSchema.optional(),
+        counterpartName: z.string().min(1).optional(),
+        direction: z.enum(BOOKING_DIRECTIONS).optional(),
+        isRefund: z.boolean().optional(),
+        taxCode: z.string().min(1).max(32).optional(),
+    }),
+    runId: z.uuid(),
+    txnId: z.string().min(1),
+});
+
+const transactionsListInputSchema = z.object({
+    accountingCredentialId: z.uuid().optional(),
+    credentialId: z.uuid(),
+    from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
 export const accountingRouter = createTRPCRouter({
     bankAccounts: createTRPCRouter({
         delete: rootProcedure
-            .input(z.object({ id: z.uuid() }))
+            .input(idInputSchema)
             .mutation(async ({ ctx, input }) => {
                 await ctx.db
                     .delete(accountingBankAccount)
@@ -212,7 +271,7 @@ export const accountingRouter = createTRPCRouter({
                 return { ok: true };
             }),
         list: rootProcedure
-            .input(z.object({ credentialId: z.uuid() }))
+            .input(credentialIdInputSchema)
             .query(async ({ ctx, input }) => {
                 const rows = await ctx.db
                     .select()
@@ -489,14 +548,7 @@ export const accountingRouter = createTRPCRouter({
 
     fieldOptions: createTRPCRouter({
         load: rootProcedure
-            .input(
-                z.object({
-                    fieldKey: z.string().min(1).max(64),
-                    kind: z.string().min(1).max(32),
-                    meta: z.record(z.string(), z.unknown()).default({}),
-                    secret: z.string().min(1),
-                }),
-            )
+            .input(fieldOptionsLoadInputSchema)
             .mutation(async ({ input }) => {
                 return loadFieldOptions({
                     fieldKey: input.fieldKey,
@@ -506,13 +558,7 @@ export const accountingRouter = createTRPCRouter({
                 });
             }),
         loadForCredential: rootProcedure
-            .input(
-                z.object({
-                    credentialId: z.uuid(),
-                    fieldKey: z.string().min(1).max(64),
-                    metaOverride: z.record(z.string(), z.unknown()).optional(),
-                }),
-            )
+            .input(fieldOptionsLoadForCredentialInputSchema)
             .mutation(async ({ ctx, input }) => {
                 const cred = await loadCredentialOrThrow(
                     input.credentialId,
@@ -529,12 +575,7 @@ export const accountingRouter = createTRPCRouter({
 
     ledgers: createTRPCRouter({
         list: rootProcedure
-            .input(
-                z.object({
-                    category: z.string().min(1).max(16).optional(),
-                    credentialId: z.uuid(),
-                }),
-            )
+            .input(ledgersListInputSchema)
             .query(async ({ ctx, input }) => {
                 const cred = await loadCredentialOrThrow(
                     input.credentialId,
@@ -550,14 +591,18 @@ export const accountingRouter = createTRPCRouter({
                         category: input.category,
                     });
                 } finally {
-                    await session.close().catch(noop);
+                    try {
+                        await session.close();
+                    } catch {
+                        noop();
+                    }
                 }
             }),
     }),
 
     mutations: createTRPCRouter({
         latestDate: rootProcedure
-            .input(z.object({ credentialId: z.uuid() }))
+            .input(credentialIdInputSchema)
             .query(async ({ ctx, input }) => {
                 const cred = await loadCredentialOrThrow(
                     input.credentialId,
@@ -571,26 +616,16 @@ export const accountingRouter = createTRPCRouter({
                 try {
                     return await session.latestMutationDate();
                 } finally {
-                    await session.close().catch(noop);
+                    try {
+                        await session.close();
+                    } catch {
+                        noop();
+                    }
                 }
             }),
 
         list: rootProcedure
-            .input(
-                z.object({
-                    credentialId: z.uuid(),
-                    dateFrom: z
-                        .string()
-                        .regex(/^\d{4}-\d{2}-\d{2}$/)
-                        .optional(),
-                    dateTo: z
-                        .string()
-                        .regex(/^\d{4}-\d{2}-\d{2}$/)
-                        .optional(),
-                    limit: z.number().int().min(1).max(2000).default(20),
-                    offset: z.number().int().min(0).default(0),
-                }),
-            )
+            .input(mutationsListInputSchema)
             .query(async ({ ctx, input }) => {
                 const cred = await loadCredentialOrThrow(
                     input.credentialId,
@@ -609,7 +644,11 @@ export const accountingRouter = createTRPCRouter({
                         offset: input.offset,
                     });
                 } finally {
-                    await session.close().catch(noop);
+                    try {
+                        await session.close();
+                    } catch {
+                        noop();
+                    }
                 }
             }),
     }),
@@ -698,7 +737,7 @@ export const accountingRouter = createTRPCRouter({
                 return { id: row.id };
             }),
         delete: rootProcedure
-            .input(z.object({ id: z.uuid() }))
+            .input(idInputSchema)
             .mutation(async ({ ctx, input }) => {
                 await ctx.db
                     .delete(accountingRule)
@@ -711,7 +750,7 @@ export const accountingRouter = createTRPCRouter({
                 return { ok: true };
             }),
         list: rootProcedure
-            .input(z.object({ credentialId: z.uuid() }))
+            .input(credentialIdInputSchema)
             .query(async ({ ctx, input }) => {
                 const rows = await ctx.db
                     .select()
@@ -802,7 +841,7 @@ export const accountingRouter = createTRPCRouter({
 
     runs: createTRPCRouter({
         get: rootProcedure
-            .input(z.object({ id: z.uuid() }))
+            .input(idInputSchema)
             .query(async ({ ctx, input }) => {
                 const run = await accountingRunRepo.get(
                     RunId(input.id),
@@ -817,12 +856,7 @@ export const accountingRouter = createTRPCRouter({
                 return run;
             }),
         list: rootProcedure
-            .input(
-                z.object({
-                    limit: z.number().int().min(1).max(100).default(20),
-                    offset: z.number().int().min(0).default(0),
-                }),
-            )
+            .input(runsListInputSchema)
             .query(async ({ ctx, input }) => {
                 const runs = await accountingRunRepo.list(UserId(ctx.userId), {
                     limit: input.limit,
@@ -838,19 +872,7 @@ export const accountingRouter = createTRPCRouter({
                 }));
             }),
         updateBooking: rootProcedure
-            .input(
-                z.object({
-                    patch: z.object({
-                        counterpartLedger: ledgerReferenceSchema.optional(),
-                        counterpartName: z.string().min(1).optional(),
-                        direction: z.enum(BOOKING_DIRECTIONS).optional(),
-                        isRefund: z.boolean().optional(),
-                        taxCode: z.string().min(1).max(32).optional(),
-                    }),
-                    runId: z.uuid(),
-                    txnId: z.string().min(1),
-                }),
-            )
+            .input(runsUpdateBookingInputSchema)
             .mutation(async ({ ctx, input }) => {
                 try {
                     await accountingRunRepo.updateBooking(
@@ -887,7 +909,7 @@ export const accountingRouter = createTRPCRouter({
 
     taxCodes: createTRPCRouter({
         list: rootProcedure
-            .input(z.object({ credentialId: z.uuid() }))
+            .input(credentialIdInputSchema)
             .query(async ({ ctx, input }) => {
                 const cred = await loadCredentialOrThrow(
                     input.credentialId,
@@ -905,21 +927,18 @@ export const accountingRouter = createTRPCRouter({
                         label: opt.label,
                     }));
                 } finally {
-                    await session.close().catch(noop);
+                    try {
+                        await session.close();
+                    } catch {
+                        noop();
+                    }
                 }
             }),
     }),
 
     transactions: createTRPCRouter({
         list: rootProcedure
-            .input(
-                z.object({
-                    accountingCredentialId: z.uuid().optional(),
-                    credentialId: z.uuid(),
-                    from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-                    to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-                }),
-            )
+            .input(transactionsListInputSchema)
             .query(async ({ ctx, input }) => {
                 const cred = await loadCredentialOrThrow(
                     input.credentialId,

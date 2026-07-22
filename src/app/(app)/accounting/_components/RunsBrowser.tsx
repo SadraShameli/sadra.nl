@@ -45,7 +45,8 @@ export function RunsBrowser() {
 
     const labelByCredentialId = useMemo(() => {
         const map = new Map<string, string>();
-        for (const c of credentialsQ.data ?? []) map.set(c.id, c.label);
+        const credentials = credentialsQ.data ?? [];
+        for (const c of credentials) map.set(c.id, c.label);
         return map;
     }, [credentialsQ.data]);
 

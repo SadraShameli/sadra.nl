@@ -95,6 +95,39 @@ export class WiseClient {
         this.timeoutMs = options.timeoutMs ?? 30_000;
     }
 
+    private async get<T>(
+        path: string,
+        parameters?: Record<string, string>,
+    ): Promise<T> {
+        const url = new URL(path, this.baseUrl);
+        if (parameters)
+            for (const [k, v] of Object.entries(parameters))
+                url.searchParams.set(k, v);
+
+        const controller = new AbortController();
+        const timeout = setTimeout(
+            () => controller.abort(new Error('Wise request timed out')),
+            this.timeoutMs,
+        );
+        try {
+            const resp = await this.fetchImpl(url, {
+                headers: {
+                    Authorization: `Bearer ${this.token}`,
+                    'User-Agent': WiseClient.USER_AGENT,
+                },
+                signal: controller.signal,
+            });
+            if (!resp.ok) {
+                throw new Error(
+                    `Wise GET ${path} failed: ${resp.status} ${resp.statusText}`,
+                );
+            }
+            return (await resp.json()) as T;
+        } finally {
+            clearTimeout(timeout);
+        }
+    }
+
     async getRecipient(accountId: number): Promise<null | WiseRecipient> {
         try {
             const body = await this.get<unknown>(`/v2/accounts/${accountId}`);
@@ -179,39 +212,6 @@ export class WiseClient {
     async profiles(): Promise<WiseProfile[]> {
         const body = await this.get<unknown>('/v2/profiles');
         return z.array(profileSchema).parse(body);
-    }
-
-    private async get<T>(
-        path: string,
-        parameters?: Record<string, string>,
-    ): Promise<T> {
-        const url = new URL(path, this.baseUrl);
-        if (parameters)
-            for (const [k, v] of Object.entries(parameters))
-                url.searchParams.set(k, v);
-
-        const controller = new AbortController();
-        const timeout = setTimeout(
-            () => controller.abort(new Error('Wise request timed out')),
-            this.timeoutMs,
-        );
-        try {
-            const resp = await this.fetchImpl(url, {
-                headers: {
-                    Authorization: `Bearer ${this.token}`,
-                    'User-Agent': WiseClient.USER_AGENT,
-                },
-                signal: controller.signal,
-            });
-            if (!resp.ok) {
-                throw new Error(
-                    `Wise GET ${path} failed: ${resp.status} ${resp.statusText}`,
-                );
-            }
-            return (await resp.json()) as T;
-        } finally {
-            clearTimeout(timeout);
-        }
     }
 }
 

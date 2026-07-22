@@ -49,6 +49,20 @@ export function useImportStream<TEvent>(): StreamHandle<TEvent> {
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
                 let buffer = '';
+                const processChunk = (chunk: string) => {
+                    for (const line of chunk.split('\n')) {
+                        if (!line.startsWith('data:')) {
+                            continue;
+                        }
+
+                        const json = line.slice(5).trim();
+                        if (!json) continue;
+                        try {
+                            const parsed = JSON.parse(json) as TEvent;
+                            setEvents((previous) => [...previous, parsed]);
+                        } catch {}
+                    }
+                };
                 for (;;) {
                     const { done, value } = await reader.read();
                     if (done) break;
@@ -57,18 +71,7 @@ export function useImportStream<TEvent>(): StreamHandle<TEvent> {
                     while ((index = buffer.indexOf('\n\n')) !== -1) {
                         const chunk = buffer.slice(0, index);
                         buffer = buffer.slice(index + 2);
-                        for (const line of chunk.split('\n')) {
-                            if (!line.startsWith('data:')) {
-                                continue;
-                            }
-
-                            const json = line.slice(5).trim();
-                            if (!json) continue;
-                            try {
-                                const parsed = JSON.parse(json) as TEvent;
-                                setEvents((previous) => [...previous, parsed]);
-                            } catch {}
-                        }
+                        processChunk(chunk);
                     }
                 }
             } catch (error_) {

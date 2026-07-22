@@ -825,7 +825,6 @@ function simulateTrial(
     let cumulativeDays = 0;
     let attemptsUsed = 0;
     let resetFeesPaid = 0;
-    let lastEquityCurve: null | number[] = null;
 
     for (;;) {
         attemptsUsed += 1;
@@ -842,7 +841,7 @@ function simulateTrial(
             dayStop,
         );
         cumulativeDays += attempt.days;
-        lastEquityCurve = attempt.equityCurve;
+        const lastEquityCurve = attempt.equityCurve;
 
         if (attempt.outcome === 'passed') {
             const passDay = attempt.days;

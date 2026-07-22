@@ -19,7 +19,7 @@ import { BookingsTable, Tile } from './ResultTables';
 
 type RunDetailData = RouterOutputs['accounting']['runs']['get'];
 
-const toastError = (e: { message: string }) => toast.error(e.message);
+const toastError = (error: { message: string }) => toast.error(error.message);
 
 const STATUS_VARIANT: Record<RunStatus, BadgeProperties['variant']> = {
     failed: 'destructive',

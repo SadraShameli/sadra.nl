@@ -93,8 +93,8 @@ export function MetaFieldInput({
             <Label htmlFor={fieldId}>{field.label}</Label>
             <Input
                 id={fieldId}
-                onChange={(e) => {
-                    const raw = e.target.value;
+                onChange={(event) => {
+                    const raw = event.target.value;
                     if (raw === '') {
                         onChange();
                         return;

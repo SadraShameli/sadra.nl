@@ -32,14 +32,14 @@ export abstract class BaseTaxCodeCatalog implements TaxCodeCatalog {
 }
 
 export class TaxCode {
-    private constructor(private readonly value: string) {}
-
     static of(value: string): TaxCode {
         if (value.trim().length === 0) {
             throw new Error('TaxCode value must not be empty');
         }
         return new TaxCode(value);
     }
+
+    private constructor(private readonly value: string) {}
 
     equals(other: TaxCode): boolean {
         return this.value === other.value;

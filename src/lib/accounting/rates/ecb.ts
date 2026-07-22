@@ -40,6 +40,18 @@ export class EcbRateProvider implements RateProvider {
         this.timeoutMs = options.timeoutMs ?? 30_000;
     }
 
+    private isCached(currency: CurrencyCode, range: DateRange): boolean {
+        const ranges = this.cachedRanges.get(currency);
+        if (!ranges) return false;
+        return ranges.some((r) => r.start <= range.start && r.end >= range.end);
+    }
+
+    private recordCached(currency: CurrencyCode, range: DateRange): void {
+        const existing = this.cachedRanges.get(currency) ?? [];
+        existing.push({ end: range.end, start: range.start });
+        this.cachedRanges.set(currency, existing);
+    }
+
     async ensureCurrencyRange(
         currency: CurrencyCode,
         range: DateRange,
@@ -115,18 +127,6 @@ export class EcbRateProvider implements RateProvider {
             throw new Error(`No ECB rate available on or before ${options.on}`);
         }
         return value;
-    }
-
-    private isCached(currency: CurrencyCode, range: DateRange): boolean {
-        const ranges = this.cachedRanges.get(currency);
-        if (!ranges) return false;
-        return ranges.some((r) => r.start <= range.start && r.end >= range.end);
-    }
-
-    private recordCached(currency: CurrencyCode, range: DateRange): void {
-        const existing = this.cachedRanges.get(currency) ?? [];
-        existing.push({ end: range.end, start: range.start });
-        this.cachedRanges.set(currency, existing);
     }
 }
 

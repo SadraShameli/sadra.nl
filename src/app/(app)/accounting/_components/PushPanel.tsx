@@ -60,9 +60,8 @@ export function PushPanel({
         const map = new Map<string, RowState>();
         for (const b of bookings)
             map.set(b.txnId, { status: 'pending', txnId: b.txnId });
-        for (const [txnId, outcome] of Object.entries(
-            runQ.data?.outcomes ?? {},
-        )) {
+        const outcomeEntries = Object.entries(runQ.data?.outcomes ?? {});
+        for (const [txnId, outcome] of outcomeEntries) {
             map.set(txnId, {
                 error: outcome.error,
                 externalId: outcome.externalId,
@@ -100,12 +99,14 @@ export function PushPanel({
                 setProgress({ current: event.current, total: event.total });
             }
             if (event.kind === 'done') {
-                const posted = [...rowMap.values()].filter(
-                    (r) => r.status === 'posted',
-                ).length;
-                const failed = [...rowMap.values()].filter(
-                    (r) => r.status === 'failed',
-                ).length;
+                const posted = rowMap
+                    .values()
+                    .filter((r) => r.status === 'posted')
+                    .toArray().length;
+                const failed = rowMap
+                    .values()
+                    .filter((r) => r.status === 'failed')
+                    .toArray().length;
                 onCompleted({ failed, posted });
             }
         }
@@ -126,12 +127,14 @@ export function PushPanel({
         });
     };
 
-    const failedCount = [...rowMap.values()].filter(
-        (r) => r.status === 'failed',
-    ).length;
-    const postedCount = [...rowMap.values()].filter(
-        (r) => r.status === 'posted',
-    ).length;
+    const failedCount = rowMap
+        .values()
+        .filter((r) => r.status === 'failed')
+        .toArray().length;
+    const postedCount = rowMap
+        .values()
+        .filter((r) => r.status === 'posted')
+        .toArray().length;
     const isPending = stream.running;
 
     return (

@@ -1,4 +1,6 @@
+import js from '@eslint/js';
 import nextPlugin from '@next/eslint-plugin-next';
+import prettier from 'eslint-config-prettier';
 // @ts-expect-error - no types published
 import drizzle from 'eslint-plugin-drizzle';
 // @ts-expect-error - no types published
@@ -23,11 +25,13 @@ export default tseslint.config(
     },
     {
         extends: [
+            js.configs.recommended,
             ...tseslint.configs.strictTypeChecked,
             ...tseslint.configs.stylisticTypeChecked,
             unicorn.configs.recommended,
             promise.configs['flat/recommended'],
             perfectionist.configs['recommended-natural'],
+            prettier,
         ],
         files: ['**/*.ts', '**/*.tsx'],
         languageOptions: { parserOptions: { projectService: true } },
@@ -57,7 +61,7 @@ export default tseslint.config(
                 { checksVoidReturn: { attributes: false } },
             ],
             '@typescript-eslint/no-unused-vars': [
-                'warn',
+                'error',
                 { argsIgnorePattern: '^_' },
             ],
             '@typescript-eslint/require-await': 'off',
@@ -75,6 +79,8 @@ export default tseslint.config(
                 'error',
                 { drizzleObjectName: ['db', 'ctx.db'] },
             ],
+            'no-empty': ['error', { allowEmptyCatch: true }],
+            'perfectionist/sort-classes': 'off',
             'promise/always-return': 'off',
             'promise/catch-or-return': 'off',
             'react-hooks/exhaustive-deps': 'warn',
@@ -94,24 +100,25 @@ export default tseslint.config(
             'unicorn/no-array-reduce': 'off',
             'unicorn/no-nested-ternary': 'off',
             'unicorn/no-null': 'off',
-            'unicorn/number-literal-case': 'off',
 
+            'unicorn/number-literal-case': 'off',
             'unicorn/prefer-global-this': 'off',
             'unicorn/prefer-spread': 'off',
             'unicorn/prevent-abbreviations': 'off',
         },
-        settings: {
-            react: { version: 'detect' },
-        },
     },
     {
         extends: [
+            js.configs.recommended,
             ...tseslint.configs.recommended,
             unicorn.configs.recommended,
             perfectionist.configs['recommended-natural'],
+            prettier,
         ],
         files: ['**/*.{js,mjs,cjs}'],
         rules: {
+            'no-empty': ['error', { allowEmptyCatch: true }],
+            'perfectionist/sort-classes': 'off',
             'unicorn/no-null': 'off',
             'unicorn/prefer-module': 'off',
             'unicorn/prevent-abbreviations': 'off',

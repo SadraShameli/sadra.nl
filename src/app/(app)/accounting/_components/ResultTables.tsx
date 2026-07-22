@@ -97,7 +97,7 @@ function HeaderActionsShell({ children }: { children: React.ReactNode }) {
     );
 }
 
-function isoInRange(iso: string, range: DateRange | undefined): boolean {
+function isIsoInRange(iso: string, range: DateRange | undefined): boolean {
     if (!range?.from) return true;
     const d = new Date(iso);
     const from = new Date(range.from);
@@ -180,7 +180,7 @@ export function BookingsTable({
                     return false;
                 if (currency !== ALL && b.sourceCurrency !== currency)
                     return false;
-                return isoInRange(b.date, dateRange);
+                return isIsoInRange(b.date, dateRange);
             }),
         [bookings, direction, taxCode, counterpart, currency, dateRange],
     );
@@ -566,11 +566,14 @@ export function PerCounterpartTable({ result }: { result: ConversionResult }) {
                 });
             }
         }
-        return [...map.values()].toSorted((a, b) => {
-            if (a.direction !== b.direction)
-                return a.direction < b.direction ? -1 : 1;
-            return a.name.localeCompare(b.name);
-        });
+        return map
+            .values()
+            .toArray()
+            .toSorted((a, b) => {
+                if (a.direction !== b.direction)
+                    return a.direction < b.direction ? -1 : 1;
+                return a.name.localeCompare(b.name);
+            });
     }, [result]);
     const rows = useMemo(
         () =>
@@ -748,7 +751,7 @@ export function UnknownsTable({
             result.unknowns.filter((u) => {
                 if (direction !== ALL && u.direction !== direction)
                     return false;
-                return isoInRange(u.firstSeen, dateRange);
+                return isIsoInRange(u.firstSeen, dateRange);
             }),
         [result.unknowns, direction, dateRange],
     );
@@ -937,12 +940,12 @@ function BookingEditDialog({
     const [taxCode, setTaxCode] = useState<string>(booking.taxCode);
     const [isRefund, setIsRefund] = useState(() => booking.isRefund === true);
 
-    const toggleRefund = (checked: boolean) => {
-        setIsRefund(checked);
-        if (checked && purchaseRule) {
+    const toggleRefund = (isChecked: boolean) => {
+        setIsRefund(isChecked);
+        if (isChecked && purchaseRule) {
             setCounterpartLedger(purchaseRule.ledger);
             setTaxCode(purchaseRule.taxCode);
-        } else if (!checked) {
+        } else if (!isChecked) {
             setCounterpartLedger(
                 payoutRule?.ledger ?? booking.counterpartLedger,
             );
@@ -1012,7 +1015,9 @@ function BookingEditDialog({
                     <FilterField label="Counterpart">
                         <Input
                             className="h-8 text-xs"
-                            onChange={(e) => setCounterpartName(e.target.value)}
+                            onChange={(event) =>
+                                setCounterpartName(event.target.value)
+                            }
                             value={counterpartName}
                         />
                     </FilterField>
