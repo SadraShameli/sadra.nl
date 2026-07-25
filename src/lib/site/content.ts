@@ -106,11 +106,11 @@ export const siteContent: SiteData = {
         {
             platform: 'instagram',
             title: 'Instagram',
-            url: 'https://instagram.com/sadra22._',
+            url: 'https://instagram.com/sadra_shml',
         },
     ],
     socialLinks: [
-        { platform: 'instagram', url: 'https://instagram.com/sadra22._' },
+        { platform: 'instagram', url: 'https://instagram.com/sadra_shml' },
         { platform: 'youtube', url: 'https://youtube.com/@sadrashameli' },
     ],
 };
