@@ -88,7 +88,6 @@ function buildBoltPlan(size: FunctionBoltSize): PlanInit {
     return {
         accountSize: size.accountSize,
         consistency: new ConsistencyRule('eval', 0.4),
-        dailyLossLimit: size.dailyLossLimit,
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
@@ -96,6 +95,7 @@ function buildBoltPlan(size: FunctionBoltSize): PlanInit {
                 lockedThreshold: (start) => start,
             },
         }),
+        evalDailyLossLimit: { amount: size.dailyLossLimit, kind: 'flat' },
         fees: {
             activation: 0,
             monthlySubscription: 0,
@@ -121,7 +121,6 @@ function buildLegacyPlan(size: FunctionLegacySize): PlanInit {
     return {
         accountSize: size.accountSize,
         consistency: new ConsistencyRule('eval', 0.4),
-        dailyLossLimit: null,
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
@@ -129,6 +128,7 @@ function buildLegacyPlan(size: FunctionLegacySize): PlanInit {
                 lockedThreshold: (start) => start,
             },
         }),
+        evalDailyLossLimit: { kind: 'none' },
         fees: {
             activation: 0,
             monthlySubscription: 0,
@@ -154,7 +154,6 @@ function buildRapidPlan(size: FunctionRapidSize): PlanInit {
     return {
         accountSize: size.accountSize,
         consistency: new ConsistencyRule('funded', 0.4),
-        dailyLossLimit: null,
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
@@ -162,6 +161,7 @@ function buildRapidPlan(size: FunctionRapidSize): PlanInit {
                 lockedThreshold: (start) => start,
             },
         }),
+        evalDailyLossLimit: { kind: 'none' },
         fees: {
             activation: 0,
             monthlySubscription: 0,

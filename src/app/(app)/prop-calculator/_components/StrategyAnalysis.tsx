@@ -12,6 +12,7 @@ import {
     formatR,
 } from '~/lib/format';
 import { type Plan, type SimOutputs } from '~/lib/prop-calculator';
+import { standardDeviation } from '~/lib/prop-calculator/stats';
 import { cn } from '~/lib/utilities';
 
 import { panelDescriptions } from './kpiDescriptions';
@@ -95,7 +96,7 @@ export default function StrategyAnalysis({
         const meanMonthly =
             monthlyReturns.reduce((s, v) => s + v, 0) /
             (monthlyReturns.length || 1);
-        const sdMonthly = localStdDevelopment(monthlyReturns);
+        const sdMonthly = standardDeviation(monthlyReturns);
         const sharpe =
             sdMonthly > 0 ? (meanMonthly / sdMonthly) * Math.sqrt(12) : 0;
 
@@ -563,13 +564,6 @@ function kellyLabel(index: number): string {
     if (index > 0.75) return 'high variance';
     if (index >= 0.25) return 'optimal zone';
     return 'under-betting';
-}
-function localStdDevelopment(array: readonly number[]): number {
-    if (array.length === 0) return 0;
-    const m = array.reduce((s, v) => s + v, 0) / array.length;
-    return Math.sqrt(
-        array.reduce((s, v) => s + (v - m) ** 2, 0) / array.length,
-    );
 }
 function Metric({
     label,

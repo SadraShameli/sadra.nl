@@ -1,3 +1,8 @@
+export interface PayoutLadder {
+    minRequestAmount: number;
+    steps: readonly number[];
+}
+
 export interface PayoutTier {
     thresholdProfit: number;
     traderShare: number;

@@ -1,6 +1,10 @@
 'use client';
 
-import { type Plan } from '~/lib/prop-calculator';
+import {
+    type DailyLossLimitConfig,
+    type Plan,
+    resolveDailyLossLimit,
+} from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
 interface BadgeProperties {
@@ -22,6 +26,7 @@ export default function PlanStatsBadges({ plan }: PlanStatsBadgesProperties) {
     const consistencyPct = hasConsistency
         ? (plan.consistency.maxBestDayShare * 100).toFixed(0)
         : null;
+    const dailyLossLimitValue = dailyLossLimitLabel(plan.fundedDailyLossLimit);
 
     return (
         <div
@@ -43,11 +48,8 @@ export default function PlanStatsBadges({ plan }: PlanStatsBadgesProperties) {
             {consistencyPct !== null && (
                 <Badge label="Consistency" value={`${consistencyPct}% rule`} />
             )}
-            {plan.dailyLossLimit !== null && (
-                <Badge
-                    label="Daily loss"
-                    value={`$${plan.dailyLossLimit.toLocaleString()}`}
-                />
+            {dailyLossLimitValue !== null && (
+                <Badge label="Daily loss" value={dailyLossLimitValue} />
             )}
         </div>
     );
@@ -62,6 +64,20 @@ function Badge({ label, value, valueClassName }: BadgeProperties) {
             </span>
         </span>
     );
+}
+
+function dailyLossLimitLabel(config: DailyLossLimitConfig): null | string {
+    const baseline = resolveDailyLossLimit(config, 0);
+    if (baseline === null) return null;
+
+    if (config.kind !== 'tiered') {
+        return `$${baseline.toLocaleString()}`;
+    }
+
+    const max = Math.max(...config.tiers.map((tier) => tier.dailyLossLimit));
+    if (max <= baseline) return `$${baseline.toLocaleString()}`;
+
+    return `$${baseline.toLocaleString()}–$${max.toLocaleString()} (scales)`;
 }
 
 function drawdownLabel(kind: string): string {

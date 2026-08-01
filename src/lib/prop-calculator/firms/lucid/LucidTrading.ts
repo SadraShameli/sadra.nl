@@ -97,7 +97,6 @@ function buildDirectPlan(size: LucidDirectSize): PlanInit {
     return {
         accountSize: size.accountSize,
         consistency: new ConsistencyRule('funded', 0.2),
-        dailyLossLimit: null,
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
@@ -105,6 +104,7 @@ function buildDirectPlan(size: LucidDirectSize): PlanInit {
                 lockedThreshold: (start) => start,
             },
         }),
+        evalDailyLossLimit: { kind: 'none' },
         fees: {
             activation: 0,
             monthlySubscription: 0,
@@ -131,7 +131,6 @@ function buildFlexPlan(size: LucidFlexSize): PlanInit {
     return {
         accountSize: size.accountSize,
         consistency: new ConsistencyRule('eval', 0.5),
-        dailyLossLimit: null,
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
@@ -139,6 +138,7 @@ function buildFlexPlan(size: LucidFlexSize): PlanInit {
                 lockedThreshold: (start) => start,
             },
         }),
+        evalDailyLossLimit: { kind: 'none' },
         fees: {
             activation: 0,
             monthlySubscription: 0,
@@ -165,7 +165,6 @@ function buildProPlan(size: LucidProSize): PlanInit {
     return {
         accountSize: size.accountSize,
         consistency: new ConsistencyRule('funded', 0.4),
-        dailyLossLimit: size.dailyLossLimit,
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
@@ -173,6 +172,10 @@ function buildProPlan(size: LucidProSize): PlanInit {
                 lockedThreshold: (start) => start,
             },
         }),
+        evalDailyLossLimit:
+            size.dailyLossLimit === null
+                ? { kind: 'none' }
+                : { amount: size.dailyLossLimit, kind: 'flat' },
         fees: {
             activation: 0,
             monthlySubscription: 0,

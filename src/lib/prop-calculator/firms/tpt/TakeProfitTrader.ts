@@ -61,7 +61,6 @@ function buildPlan(size: TptSize): PlanInit {
     return {
         accountSize: size.accountSize,
         consistency: new ConsistencyRule('eval', 0.5),
-        dailyLossLimit: null,
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
@@ -69,6 +68,7 @@ function buildPlan(size: TptSize): PlanInit {
                 lockedThreshold: (start) => start,
             },
         }),
+        evalDailyLossLimit: { kind: 'none' },
         fees: {
             activation: 130,
             monthlySubscription: size.monthlySubscription,

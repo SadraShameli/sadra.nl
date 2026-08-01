@@ -4,11 +4,10 @@ import { useState } from 'react';
 
 import { Card } from '~/components/ui/Card';
 import { formatCompactCurrency, formatDays } from '~/lib/format';
-import { FirmId } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
+import CashFlowPanel from './CashFlowPanel';
 import ChartPanel from './ChartPanel';
-import CompoundingPanel from './CompoundingPanel';
 import DrawdownDurationPanel from './DrawdownDurationPanel';
 import FirmComparisonTable from './FirmComparisonTable';
 import FirmPlanPicker from './FirmPlanPicker';
@@ -20,6 +19,7 @@ import PlanStatsBadges from './PlanStatsBadges';
 import PortfolioPanel from './PortfolioPanel';
 import ResiliencePanel from './ResiliencePanel';
 import ResultsPanel from './ResultsPanel';
+import RuleStressTestPanel from './RuleStressTestPanel';
 import SavedScenarios from './SavedScenarios';
 import SectionNav from './SectionNav';
 import SensitivityHeatmap from './SensitivityHeatmap';
@@ -28,7 +28,7 @@ import StrategyAnalysis from './StrategyAnalysis';
 import StrategyLabPanel from './StrategyLabPanel';
 import TailRiskPanel from './TailRiskPanel';
 import TradingInputs from './TradingInputs';
-import { ChartType, type PortfolioEntry, SizingMode } from './types';
+import { ChartType, SizingMode } from './types';
 import { useCalculator } from './useCalculator';
 
 export default function CalculatorShell() {
@@ -36,22 +36,6 @@ export default function CalculatorShell() {
     const [chartType, setChartType] = useState<ChartType>(
         ChartType.DaysToPassHistogram,
     );
-    const [portfolio, setPortfolio] = useState<PortfolioEntry[]>([
-        {
-            activationDiscountPercent: 0,
-            count: 20,
-            evalDiscountPercent: 0,
-            firmId: FirmId.Apex,
-            id: 'default-apex-50k-eod',
-            linkActivationDiscount: false,
-            memory: {},
-            planId: {
-                accountSize: 50_000,
-                firm: FirmId.Apex,
-                variant: 'eod' as const,
-            },
-        },
-    ]);
 
     return (
         <div
@@ -199,8 +183,8 @@ export default function CalculatorShell() {
                     currentFirm={c.state.firm}
                     currentPlan={c.state.plan}
                     firms={c.firms}
-                    onPortfolioChange={setPortfolio}
-                    portfolio={portfolio}
+                    onPortfolioChange={c.setPortfolio}
+                    portfolio={c.state.portfolio}
                 />
             </div>
 
@@ -260,20 +244,21 @@ export default function CalculatorShell() {
 
             <div
                 className={cn(
-                    'app-prop-calculator__section-compounding',
+                    'app-prop-calculator__section-cash-flow',
                     'scroll-mt-26',
                 )}
-                data-section-label="Compounding"
-                id="compounding"
+                data-section-label="Cash Flow"
+                id="cash-flow"
             >
-                <CompoundingPanel
-                    riskPercent={
-                        (c.simInputs.riskPerTrade / c.state.plan.accountSize) *
-                        100
-                    }
+                <CashFlowPanel
+                    commissionPerRoundTrip={c.simInputs.commissionPerRoundTrip}
+                    dayStop={c.simInputs.dayStop}
+                    discounts={c.simInputs.discounts}
+                    maxEvalDays={c.state.maxEvalDays}
+                    plan={c.state.plan}
+                    riskPerTrade={c.simInputs.riskPerTrade}
                     rrRatio={c.state.rrRatio}
                     seed={c.state.seed}
-                    startBalance={c.state.plan.accountSize}
                     tradesPerDay={c.state.tradesPerDay}
                     winrate={c.state.winrate}
                 />
@@ -293,6 +278,17 @@ export default function CalculatorShell() {
                     riskPerTrade={c.simInputs.riskPerTrade}
                     winrate={c.state.winrate}
                 />
+            </div>
+
+            <div
+                className={cn(
+                    'app-prop-calculator__section-rule-stress-test',
+                    'scroll-mt-26',
+                )}
+                data-section-label="Rule Stress"
+                id="rule-stress-test"
+            >
+                <RuleStressTestPanel baseInputs={c.simInputs} />
             </div>
 
             <div
@@ -327,7 +323,6 @@ export default function CalculatorShell() {
                     baseInputs={c.simInputs}
                     currentRR={c.state.rrRatio}
                     currentWinrate={c.state.winrate}
-                    plan={c.state.plan}
                 />
             </div>
 

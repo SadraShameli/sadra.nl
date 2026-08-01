@@ -14,7 +14,12 @@ import {
     type TradingFirm,
 } from '~/lib/prop-calculator';
 
-import { type CalculatorState, type LabScenario, SizingMode } from './types';
+import {
+    type CalculatorState,
+    type LabScenario,
+    type PortfolioEntry,
+    SizingMode,
+} from './types';
 import { decodeState, encodeState } from './urlState';
 
 const SIM_DEBOUNCE_MS = 180;
@@ -76,6 +81,7 @@ export interface UseCalculatorReturn {
     setMaxAttempts: (n: number) => void;
     setMaxEvalDays: (n: number) => void;
     setPlan: (plan: Plan) => void;
+    setPortfolio: (entries: PortfolioEntry[]) => void;
     setRiskDollars: (n: number) => void;
     setRiskPercent: (n: number) => void;
     setRrRatio: (n: number) => void;
@@ -382,6 +388,8 @@ export function useCalculator(): UseCalculatorReturn {
                 maxEvalDays: clampInt(n, 10, 365, s.maxEvalDays),
             })),
         setPlan,
+        setPortfolio: (entries) =>
+            setState((s) => ({ ...s, portfolio: entries })),
         setRiskDollars: (n) =>
             setState((s) => ({
                 ...s,
@@ -451,6 +459,22 @@ function defaultState(): CalculatorState {
         maxAttempts: 1,
         maxEvalDays: 60,
         plan: DEFAULT_PLAN,
+        portfolio: [
+            {
+                activationDiscountPercent: 0,
+                count: 20,
+                evalDiscountPercent: 0,
+                firmId: FirmId.Apex,
+                id: 'default-apex-50k-eod',
+                linkActivationDiscount: false,
+                memory: {},
+                planId: {
+                    accountSize: 50_000,
+                    firm: FirmId.Apex,
+                    variant: 'eod' as const,
+                },
+            },
+        ],
         riskDollars: 250,
         riskPercent: 0.5,
         rrRatio: 2,

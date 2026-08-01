@@ -7,7 +7,7 @@ import { Card } from '~/components/ui/Card';
 import { DataTable } from '~/components/ui/DataTable';
 import InfoPopover from '~/components/ui/InfoPopover';
 import { formatCompactCurrency, formatPercent } from '~/lib/format';
-import { type Plan, type SimInputs, simulate } from '~/lib/prop-calculator';
+import { type SimInputs, simulate } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
 import { panelDescriptions } from './kpiDescriptions';
@@ -38,16 +38,14 @@ interface SensitivityHeatmapProperties {
     baseInputs: SimInputs;
     currentRR: number;
     currentWinrate: number;
-    plan: Plan;
 }
 
 export default function SensitivityHeatmap({
     baseInputs,
     currentRR,
     currentWinrate,
-    plan,
 }: SensitivityHeatmapProperties) {
-    const { cells, pending } = useSensitivityGrid(plan, baseInputs);
+    const { cells, pending } = useSensitivityGrid(baseInputs);
 
     return (
         <div
@@ -263,10 +261,10 @@ function useDebouncedKey(inputs: SimInputs, delay: number): string {
     return debounced;
 }
 
-function useSensitivityGrid(
-    _plan: Plan,
-    baseInputs: SimInputs,
-): { cells: Cell[]; pending: boolean } {
+function useSensitivityGrid(baseInputs: SimInputs): {
+    cells: Cell[];
+    pending: boolean;
+} {
     const [cells, setCells] = useState<Cell[]>([]);
     const [pending, setPending] = useState(false);
     const inputsReference = useRef(baseInputs);

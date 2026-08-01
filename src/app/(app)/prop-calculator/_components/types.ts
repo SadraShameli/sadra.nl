@@ -34,6 +34,7 @@ export interface CalculatorState {
     maxAttempts: number;
     maxEvalDays: number;
     plan: Plan;
+    portfolio: PortfolioEntry[];
     riskDollars: number;
     riskPercent: number;
     rrRatio: number;

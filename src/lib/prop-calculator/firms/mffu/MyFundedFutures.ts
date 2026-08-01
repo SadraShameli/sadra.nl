@@ -111,11 +111,11 @@ function buildBuilderPlan(): PlanInit {
     return {
         accountSize: 50_000,
         consistency: new ConsistencyRule('funded', 0.5),
-        dailyLossLimit: 1000,
         drawdown: new EodTrailingDrawdown({
             amount: 2000,
             lock: { atProfit: 2100, lockedThreshold: LOCK },
         }),
+        evalDailyLossLimit: { amount: 1000, kind: 'flat' },
         fees: {
             activation: 0,
             monthlySubscription: 0,
@@ -137,11 +137,11 @@ function buildFlexPlan(size: MffuFlexSize): PlanInit {
     return {
         accountSize: size.accountSize,
         consistency: new ConsistencyRule('eval', 0.5),
-        dailyLossLimit: null,
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: { atProfit: size.maxDrawdown + 100, lockedThreshold: LOCK },
         }),
+        evalDailyLossLimit: { kind: 'none' },
         fees: {
             activation: 0,
             monthlySubscription: size.monthlyFee,
@@ -167,11 +167,11 @@ function buildProPlan(size: MffuProSize): PlanInit {
     return {
         accountSize: size.accountSize,
         consistency: new ConsistencyRule('eval', 0.5),
-        dailyLossLimit: null,
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: { atProfit: size.maxDrawdown + 100, lockedThreshold: LOCK },
         }),
+        evalDailyLossLimit: { kind: 'none' },
         fees: {
             activation: 0,
             monthlySubscription: size.monthlyFee,
@@ -197,11 +197,11 @@ function buildRapidPlan(size: MffuRapidSize): PlanInit {
     return {
         accountSize: size.accountSize,
         consistency: new ConsistencyRule('eval', 0.5),
-        dailyLossLimit: null,
         drawdown: new IntradayTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: { atProfit: size.maxDrawdown + 100, lockedThreshold: LOCK },
         }),
+        evalDailyLossLimit: { kind: 'none' },
         fees: {
             activation: 0,
             monthlySubscription: size.monthlyFee,

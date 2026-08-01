@@ -114,7 +114,6 @@ function buildGrowthPlan(size: TradeifyGrowthSize): PlanInit {
     return {
         accountSize: size.accountSize,
         consistency: new ConsistencyRule('funded', 0.35),
-        dailyLossLimit: null,
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
@@ -122,6 +121,7 @@ function buildGrowthPlan(size: TradeifyGrowthSize): PlanInit {
                 lockedThreshold: (start) => start + 100,
             },
         }),
+        evalDailyLossLimit: { kind: 'none' },
         fees: {
             activation: 0,
             monthlySubscription: 0,
@@ -147,7 +147,6 @@ function buildLightningPlan(size: TradeifyLightningSize): PlanInit {
     return {
         accountSize: size.accountSize,
         consistency: new ConsistencyRule('funded', 0.2),
-        dailyLossLimit: null,
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
@@ -155,6 +154,7 @@ function buildLightningPlan(size: TradeifyLightningSize): PlanInit {
                 lockedThreshold: (start) => start + 100,
             },
         }),
+        evalDailyLossLimit: { kind: 'none' },
         fees: {
             activation: 0,
             monthlySubscription: 0,
@@ -181,7 +181,6 @@ function buildSelectPlan(size: TradeifySelectSize): PlanInit {
     return {
         accountSize: size.accountSize,
         consistency: new ConsistencyRule('eval', 0.4),
-        dailyLossLimit: null,
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
@@ -189,6 +188,7 @@ function buildSelectPlan(size: TradeifySelectSize): PlanInit {
                 lockedThreshold: (start) => start + 100,
             },
         }),
+        evalDailyLossLimit: { kind: 'none' },
         fees: {
             activation: 0,
             monthlySubscription: 0,

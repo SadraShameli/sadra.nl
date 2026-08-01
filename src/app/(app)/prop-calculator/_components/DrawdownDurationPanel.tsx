@@ -8,6 +8,7 @@ import { DataTable } from '~/components/ui/DataTable';
 import InfoPopover from '~/components/ui/InfoPopover';
 import { formatDays, formatPercent } from '~/lib/format';
 import { type SimOutputs } from '~/lib/prop-calculator';
+import { mean } from '~/lib/prop-calculator/stats';
 import { cn } from '~/lib/utilities';
 
 interface DdEpisode {
@@ -56,11 +57,11 @@ export default function DrawdownDurationPanel({
         const depths = allEpisodes.map((episode) => episode.depthPct);
 
         return {
-            avgDepth: avg(depths),
-            avgDuration: avg(durations),
-            avgEpisodesPerPath: avg(episodesPerPath),
-            avgRecovery: avg(recoveryTimes),
-            avgUnderwaterPct: avg(underwaterPcts),
+            avgDepth: mean(depths),
+            avgDuration: mean(durations),
+            avgEpisodesPerPath: mean(episodesPerPath),
+            avgRecovery: mean(recoveryTimes),
+            avgUnderwaterPct: mean(underwaterPcts),
             maxDuration: durations.length > 0 ? Math.max(...durations) : 0,
             sampleSize: curves.length,
             totalEpisodes: allEpisodes.length,
@@ -218,12 +219,6 @@ function analyzeEquityCurve(path: number[]): {
         episodes,
         underwaterPct: underwaterDays / path.length,
     };
-}
-
-function avg(nums: number[]): number {
-    return nums.length === 0
-        ? 0
-        : nums.reduce((s, v) => s + v, 0) / nums.length;
 }
 
 function RecoveryTaxTable({ avgDepth }: { avgDepth: number }) {

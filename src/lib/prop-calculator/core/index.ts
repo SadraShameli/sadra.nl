@@ -5,6 +5,11 @@ export {
 } from './AccountState';
 export { ConsistencyRule, type ConsistencyScope } from './ConsistencyRule';
 export {
+    type DailyLossLimitConfig,
+    type DllTier,
+    resolveDailyLossLimit,
+} from './DailyLossLimit';
+export {
     type DrawdownKind,
     type DrawdownLockConfig,
     DrawdownStrategy,
@@ -19,7 +24,12 @@ export {
     totalFees,
 } from './FeeSchedule';
 export { FirmId } from './FirmId';
-export { type PayoutTier, walkPayoutTiers } from './PayoutTiers';
+export {
+    type PayoutLadder,
+    type PayoutTier,
+    walkPayoutTiers,
+} from './PayoutTiers';
 export { type PayoutSchedule, Plan, type PlanInit } from './Plan';
 export { arePlanIdsEqual, type PlanId, serializePlanId } from './PlanId';
+export { withPlanOverrides } from './PlanVariant';
 export { TradingFirm } from './TradingFirm';

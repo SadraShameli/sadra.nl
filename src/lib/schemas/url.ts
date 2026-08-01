@@ -72,6 +72,16 @@ export const labScenarioSchema = z.object({
     winrate: z.number(),
 });
 
+export const portfolioEntrySchema = z.object({
+    activationDiscountPercent: z.number(),
+    count: z.number(),
+    evalDiscountPercent: z.number(),
+    firmId: z.string(),
+    id: z.string(),
+    linkActivationDiscount: z.boolean(),
+    planId: z.string(),
+});
+
 export const savedScenarioRecordSchema = z.object({
     name: z.string(),
     params: z.string(),

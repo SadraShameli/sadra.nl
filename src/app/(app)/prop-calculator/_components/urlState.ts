@@ -8,11 +8,12 @@ import {
 import {
     dayStopRuleSchema,
     labScenarioSchema,
+    portfolioEntrySchema,
     type SavedScenarioRecord as SavedScenarioRecordSchema,
     savedScenarioRecordSchema,
 } from '~/lib/schemas/url';
 
-import type { CalculatorState, LabScenario } from './types';
+import type { CalculatorState, LabScenario, PortfolioEntry } from './types';
 
 import { SizingMode } from './types';
 
@@ -49,6 +50,7 @@ function base64UrlEncode(s: string): string {
 }
 
 const labScenarioArraySchema = z.array(labScenarioSchema);
+const portfolioEntryArraySchema = z.array(portfolioEntrySchema);
 const savedScenarioArraySchema = z.array(savedScenarioRecordSchema);
 
 export function decodeState(
@@ -102,6 +104,41 @@ export function decodeState(
         } catch {}
     }
 
+    let portfolio: PortfolioEntry[] = fallback.portfolio;
+    const portfolioParameter = parameters.get('pf');
+    if (portfolioParameter) {
+        try {
+            const parsed: unknown = JSON.parse(
+                base64UrlDecode(portfolioParameter),
+            );
+            const ok = portfolioEntryArraySchema.safeParse(parsed);
+            if (ok.success) {
+                portfolio = ok.data
+                    .map((wire): null | PortfolioEntry => {
+                        const firm = firms.find(
+                            (f) => (f.id as string) === wire.firmId,
+                        );
+                        const plan = firm?.plans.find(
+                            (p) => serializePlanId(p.id) === wire.planId,
+                        );
+                        if (!firm || !plan) return null;
+                        return {
+                            activationDiscountPercent:
+                                wire.activationDiscountPercent,
+                            count: wire.count,
+                            evalDiscountPercent: wire.evalDiscountPercent,
+                            firmId: firm.id,
+                            id: wire.id,
+                            linkActivationDiscount: wire.linkActivationDiscount,
+                            memory: {},
+                            planId: plan.id,
+                        };
+                    })
+                    .filter((entry): entry is PortfolioEntry => entry !== null);
+            }
+        } catch {}
+    }
+
     return {
         activationDiscountPercent: number_(
             'act',
@@ -122,6 +159,7 @@ export function decodeState(
         maxAttempts: intNumber('attempts', fallback.maxAttempts),
         maxEvalDays: intNumber('maxDays', fallback.maxEvalDays),
         plan: resolvedPlan,
+        portfolio,
         riskDollars: number_('rd', fallback.riskDollars),
         riskPercent: number_('rp', fallback.riskPercent),
         rrRatio: number_('rr', fallback.rrRatio),
@@ -160,6 +198,19 @@ export function encodeState(state: CalculatorState): URLSearchParams {
     if (state.labScenarios.length > 0) {
         const lab = base64UrlEncode(JSON.stringify(state.labScenarios));
         if (lab) p.set('lab', lab);
+    }
+    if (state.portfolio.length > 0) {
+        const wire = state.portfolio.map((entry) => ({
+            activationDiscountPercent: entry.activationDiscountPercent,
+            count: entry.count,
+            evalDiscountPercent: entry.evalDiscountPercent,
+            firmId: entry.firmId,
+            id: entry.id,
+            linkActivationDiscount: entry.linkActivationDiscount,
+            planId: serializePlanId(entry.planId),
+        }));
+        const pf = base64UrlEncode(JSON.stringify(wire));
+        if (pf) p.set('pf', pf);
     }
     return p;
 }

@@ -2,6 +2,8 @@ export interface AccountState {
     balance: number;
     bestDayProfit: number;
     daysElapsed: number;
+    fundingBaseline: number;
+    qualifyingDays: number;
     startingBalance: number;
     threshold: number;
     thresholdLocked: boolean;
@@ -18,6 +20,10 @@ export function createInitialState(
         balance: startingBalance,
         bestDayProfit: 0,
         daysElapsed: 0,
+        // Not meaningful until the account is funded; set for real the
+        // moment the funded phase begins (see `runFundedHorizon`).
+        fundingBaseline: startingBalance,
+        qualifyingDays: 0,
         startingBalance,
         threshold: initialThreshold,
         thresholdLocked: false,

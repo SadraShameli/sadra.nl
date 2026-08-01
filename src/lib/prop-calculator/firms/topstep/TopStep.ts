@@ -72,7 +72,6 @@ function buildExpressPlan(size: ExpressSize): PlanInit {
     return {
         accountSize: size.accountSize,
         consistency: new ConsistencyRule('eval', 0.5),
-        dailyLossLimit: null,
         drawdown: new EodTrailingDrawdown({
             amount: size.maxLossLimit,
             lock: {
@@ -80,6 +79,7 @@ function buildExpressPlan(size: ExpressSize): PlanInit {
                 lockedThreshold: (start) => start,
             },
         }),
+        evalDailyLossLimit: { kind: 'none' },
         fees: {
             activation: 0,
             monthlySubscription: size.monthlySubscription,
@@ -105,7 +105,6 @@ function buildStandardPlan(size: StandardSize): PlanInit {
     return {
         accountSize: size.accountSize,
         consistency: new ConsistencyRule('eval', 0.5),
-        dailyLossLimit: null,
         drawdown: new EodTrailingDrawdown({
             amount: size.maxLossLimit,
             lock: {
@@ -113,6 +112,7 @@ function buildStandardPlan(size: StandardSize): PlanInit {
                 lockedThreshold: (start) => start,
             },
         }),
+        evalDailyLossLimit: { kind: 'none' },
         fees: {
             activation: 149,
             monthlySubscription: size.monthlySubscription,

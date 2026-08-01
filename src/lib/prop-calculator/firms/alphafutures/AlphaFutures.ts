@@ -126,7 +126,6 @@ function buildAdvancedPlan(size: AfAdvancedSize): PlanInit {
     return {
         accountSize: size.accountSize,
         consistency: new ConsistencyRule('eval', 0.5),
-        dailyLossLimit: null,
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
@@ -134,6 +133,7 @@ function buildAdvancedPlan(size: AfAdvancedSize): PlanInit {
                 lockedThreshold: (start) => start,
             },
         }),
+        evalDailyLossLimit: { kind: 'none' },
         fees: {
             activation: 149,
             monthlySubscription: size.monthlyFee,
@@ -159,7 +159,6 @@ function buildExpressPlan(size: AfExpressSize): PlanInit {
     return {
         accountSize: size.accountSize,
         consistency: new ConsistencyRule('eval', 0.5),
-        dailyLossLimit: null,
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
@@ -167,6 +166,7 @@ function buildExpressPlan(size: AfExpressSize): PlanInit {
                 lockedThreshold: (start) => start,
             },
         }),
+        evalDailyLossLimit: { kind: 'none' },
         fees: {
             activation: 0,
             monthlySubscription: size.monthlyFee,
@@ -192,7 +192,6 @@ function buildPremiumPlan(size: AfPremiumSize): PlanInit {
     return {
         accountSize: size.accountSize,
         consistency: new ConsistencyRule('eval', 0.5),
-        dailyLossLimit: null,
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
@@ -200,6 +199,7 @@ function buildPremiumPlan(size: AfPremiumSize): PlanInit {
                 lockedThreshold: (start) => start,
             },
         }),
+        evalDailyLossLimit: { kind: 'none' },
         fees: {
             activation: 149,
             monthlySubscription: size.monthlyFee,
@@ -225,7 +225,6 @@ function buildZeroPlan(size: AfZeroSize): PlanInit {
     return {
         accountSize: size.accountSize,
         consistency: new ConsistencyRule('funded', 0.4),
-        dailyLossLimit: size.dailyLossLimit,
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
@@ -233,6 +232,7 @@ function buildZeroPlan(size: AfZeroSize): PlanInit {
                 lockedThreshold: (start) => start,
             },
         }),
+        evalDailyLossLimit: { amount: size.dailyLossLimit, kind: 'flat' },
         fees: {
             activation: 0,
             monthlySubscription: size.monthlyFee,

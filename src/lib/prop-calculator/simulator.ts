@@ -35,6 +35,16 @@ export interface MultiAccountResult {
     theoreticalPassProb: number;
 }
 
+export interface PathStats {
+    currentLossStreak: number;
+    grossLosses: number;
+    grossWins: number;
+    maxDrawdown: number;
+    maxLosingStreak: number;
+    peakBalance: number;
+    tradesTaken: number;
+}
+
 export interface PortfolioSimInputs extends SimInputs {
     accounts: number;
     correlation: CorrelationMode;
@@ -113,16 +123,6 @@ export type TrialOutcome =
     | 'pass-violation'
     | 'timeout-eval';
 
-interface PathStats {
-    currentLossStreak: number;
-    grossLosses: number;
-    grossWins: number;
-    maxDrawdown: number;
-    maxLosingStreak: number;
-    peakBalance: number;
-    tradesTaken: number;
-}
-
 interface TrialResult {
     attemptsUsed: number;
     daysElapsed: number;
@@ -149,9 +149,7 @@ interface TrialResult {
 const TRADING_DAYS_PER_MONTH = 21;
 const SAMPLE_CURVE_COUNT = 50;
 
-type EvalAttemptOutcome = 'busted' | 'passed' | 'timed-out';
-
-interface EvalAttemptResult {
+export interface EvalAttemptResult {
     bestDayProfit: number;
     days: number;
     equityCurve: null | number[];
@@ -159,6 +157,8 @@ interface EvalAttemptResult {
     state: AccountState;
     stats: PathStats;
 }
+
+type EvalAttemptOutcome = 'busted' | 'passed' | 'timed-out';
 
 interface FinishTrialArguments {
     attemptsUsed: number;
@@ -171,9 +171,163 @@ interface FinishTrialArguments {
     finalBalance: number;
     firstPayoutDay: null | number;
     fundedProfit: number;
+    ladderPayout: number;
     outcome: TrialOutcome;
     plan: Plan;
     resetFeesPaid: number;
+}
+
+interface FundedHorizonResult {
+    daysElapsed: number;
+    firstPayoutDay: null | number;
+    isBustedFunded: boolean;
+    isClosed: boolean;
+    payoutsIssued: number;
+    totalPayout: number;
+}
+
+export function isPassingOutcome(o: TrialOutcome): boolean {
+    return o === 'pass-clean' || o === 'pass-violation';
+}
+
+export function newPathStats(startingBalance: number): PathStats {
+    return {
+        currentLossStreak: 0,
+        grossLosses: 0,
+        grossWins: 0,
+        maxDrawdown: 0,
+        maxLosingStreak: 0,
+        peakBalance: startingBalance,
+        tradesTaken: 0,
+    };
+}
+
+export function rollUpStats(target: PathStats, source: PathStats): void {
+    target.tradesTaken += source.tradesTaken;
+    target.grossWins += source.grossWins;
+    target.grossLosses += source.grossLosses;
+    if (source.maxLosingStreak > target.maxLosingStreak) {
+        target.maxLosingStreak = source.maxLosingStreak;
+    }
+    if (source.maxDrawdown > target.maxDrawdown) {
+        target.maxDrawdown = source.maxDrawdown;
+    }
+}
+
+export function runDay(
+    plan: Plan,
+    state: AccountState,
+    stats: PathStats,
+    winrate: number,
+    rrRatio: number,
+    riskPerTrade: number,
+    tradesPerDay: number,
+    commission: number,
+    rng: Rng,
+    dayStop: DayStopRule | undefined,
+    phase: 'eval' | 'funded',
+): { busted: boolean; traded: boolean } {
+    state.todayHigh = state.balance;
+    state.todayPnL = 0;
+    let isTraded = false;
+    let lossesToday = 0;
+
+    for (let t = 0; t < tradesPerDay; t++) {
+        const isWon = rng() < winrate;
+        const tradeGross = isWon ? rrRatio * riskPerTrade : -riskPerTrade;
+        const pnl = tradeGross - commission;
+        state.balance += pnl;
+        state.todayPnL += pnl;
+        isTraded = true;
+        stats.tradesTaken += 1;
+        if (state.balance > state.todayHigh) state.todayHigh = state.balance;
+        if (state.balance > stats.peakBalance)
+            stats.peakBalance = state.balance;
+        const dd = stats.peakBalance - state.balance;
+        if (dd > stats.maxDrawdown) stats.maxDrawdown = dd;
+        if (isWon) {
+            stats.grossWins += pnl;
+            stats.currentLossStreak = 0;
+        } else {
+            stats.grossLosses += -pnl;
+            stats.currentLossStreak += 1;
+            lossesToday += 1;
+            if (stats.currentLossStreak > stats.maxLosingStreak) {
+                stats.maxLosingStreak = stats.currentLossStreak;
+            }
+        }
+        plan.drawdown.onTrade(state, pnl);
+        if (plan.isBust(state, phase)) {
+            return { busted: true, traded: isTraded };
+        }
+        if (shouldStopDay(dayStop, isWon, lossesToday, state.todayPnL)) break;
+    }
+
+    if (isTraded) {
+        state.tradingDays += 1;
+        if (state.todayPnL >= (plan.minQualifyingDayProfit ?? -Infinity)) {
+            state.qualifyingDays += 1;
+        }
+    }
+    plan.drawdown.onDayClose(state);
+    if (plan.isBust(state, phase)) return { busted: true, traded: isTraded };
+    return { busted: false, traded: isTraded };
+}
+
+export function runEvalAttempt(
+    plan: Plan,
+    winrate: number,
+    rrRatio: number,
+    riskPerTrade: number,
+    tradesPerDay: number,
+    maxEvalDays: number,
+    commission: number,
+    rng: Rng,
+    shouldCaptureEquity: boolean,
+    dayStop: DayStopRule | undefined,
+): EvalAttemptResult {
+    const state = plan.initialState();
+    const stats = newPathStats(state.startingBalance);
+    const equityCurve: null | number[] = shouldCaptureEquity
+        ? [state.balance]
+        : null;
+    let bestDayProfit = 0;
+    let days = 0;
+    let outcome: EvalAttemptOutcome = 'timed-out';
+
+    for (let day = 0; day < maxEvalDays; day++) {
+        const { busted } = runDay(
+            plan,
+            state,
+            stats,
+            winrate,
+            rrRatio,
+            riskPerTrade,
+            tradesPerDay,
+            commission,
+            rng,
+            dayStop,
+            'eval',
+        );
+        days += 1;
+        state.daysElapsed = days;
+        if (state.todayPnL > bestDayProfit) bestDayProfit = state.todayPnL;
+        if (state.todayPnL > state.bestDayProfit) {
+            state.bestDayProfit = state.todayPnL;
+        }
+        if (equityCurve) equityCurve.push(state.balance);
+
+        if (busted) {
+            outcome = 'busted';
+            break;
+        }
+        if (plan.isPassed(state)) {
+            outcome = 'passed';
+            break;
+        }
+    }
+
+    return { bestDayProfit, days, equityCurve, outcome, state, stats };
 }
 
 export function simulate(inputs: SimInputs): SimOutputs {
@@ -573,14 +727,17 @@ function finishTrial(arguments_: FinishTrialArguments): TrialResult {
         finalBalance,
         firstPayoutDay,
         fundedProfit,
+        ladderPayout,
         outcome,
         plan,
         resetFeesPaid,
     } = arguments_;
-    const grossPayout =
-        outcome === 'pass-clean' || outcome === 'pass-violation'
-            ? plan.payoutFromProfit(fundedProfit)
-            : 0;
+    const isPassed = outcome === 'pass-clean' || outcome === 'pass-violation';
+    const grossPayout = isPassed
+        ? plan.payoutLadder
+            ? ladderPayout
+            : plan.payoutFromProfit(fundedProfit)
+        : 0;
     const baseCost = plan.totalCostThroughDay(cumulativeDays, discounts);
     const totalCost = baseCost + resetFeesPaid;
     const net = grossPayout - totalCost;
@@ -608,141 +765,6 @@ function finishTrial(arguments_: FinishTrialArguments): TrialResult {
     };
 }
 
-function isPassingOutcome(o: TrialOutcome): boolean {
-    return o === 'pass-clean' || o === 'pass-violation';
-}
-
-function newPathStats(startingBalance: number): PathStats {
-    return {
-        currentLossStreak: 0,
-        grossLosses: 0,
-        grossWins: 0,
-        maxDrawdown: 0,
-        maxLosingStreak: 0,
-        peakBalance: startingBalance,
-        tradesTaken: 0,
-    };
-}
-
-function rollUpStats(target: PathStats, source: PathStats): void {
-    target.tradesTaken += source.tradesTaken;
-    target.grossWins += source.grossWins;
-    target.grossLosses += source.grossLosses;
-    if (source.maxLosingStreak > target.maxLosingStreak) {
-        target.maxLosingStreak = source.maxLosingStreak;
-    }
-    if (source.maxDrawdown > target.maxDrawdown) {
-        target.maxDrawdown = source.maxDrawdown;
-    }
-}
-
-function runDay(
-    plan: Plan,
-    state: AccountState,
-    stats: PathStats,
-    winrate: number,
-    rrRatio: number,
-    riskPerTrade: number,
-    tradesPerDay: number,
-    commission: number,
-    rng: Rng,
-    dayStop: DayStopRule | undefined,
-): { busted: boolean; traded: boolean } {
-    state.todayHigh = state.balance;
-    state.todayPnL = 0;
-    let isTraded = false;
-    let lossesToday = 0;
-
-    for (let t = 0; t < tradesPerDay; t++) {
-        const isWon = rng() < winrate;
-        const tradeGross = isWon ? rrRatio * riskPerTrade : -riskPerTrade;
-        const pnl = tradeGross - commission;
-        state.balance += pnl;
-        state.todayPnL += pnl;
-        isTraded = true;
-        stats.tradesTaken += 1;
-        if (state.balance > state.todayHigh) state.todayHigh = state.balance;
-        if (state.balance > stats.peakBalance)
-            stats.peakBalance = state.balance;
-        const dd = stats.peakBalance - state.balance;
-        if (dd > stats.maxDrawdown) stats.maxDrawdown = dd;
-        if (isWon) {
-            stats.grossWins += pnl;
-            stats.currentLossStreak = 0;
-        } else {
-            stats.grossLosses += -pnl;
-            stats.currentLossStreak += 1;
-            lossesToday += 1;
-            if (stats.currentLossStreak > stats.maxLosingStreak) {
-                stats.maxLosingStreak = stats.currentLossStreak;
-            }
-        }
-        plan.drawdown.onTrade(state, pnl);
-        if (plan.isBust(state)) return { busted: true, traded: isTraded };
-        if (shouldStopDay(dayStop, isWon, lossesToday, state.todayPnL)) break;
-    }
-
-    if (isTraded) state.tradingDays += 1;
-    plan.drawdown.onDayClose(state);
-    if (plan.isBust(state)) return { busted: true, traded: isTraded };
-    return { busted: false, traded: isTraded };
-}
-
-function runEvalAttempt(
-    plan: Plan,
-    winrate: number,
-    rrRatio: number,
-    riskPerTrade: number,
-    tradesPerDay: number,
-    maxEvalDays: number,
-    commission: number,
-    rng: Rng,
-    shouldCaptureEquity: boolean,
-    dayStop: DayStopRule | undefined,
-): EvalAttemptResult {
-    const state = plan.initialState();
-    const stats = newPathStats(state.startingBalance);
-    const equityCurve: null | number[] = shouldCaptureEquity
-        ? [state.balance]
-        : null;
-    let bestDayProfit = 0;
-    let days = 0;
-    let outcome: EvalAttemptOutcome = 'timed-out';
-
-    for (let day = 0; day < maxEvalDays; day++) {
-        const { busted } = runDay(
-            plan,
-            state,
-            stats,
-            winrate,
-            rrRatio,
-            riskPerTrade,
-            tradesPerDay,
-            commission,
-            rng,
-            dayStop,
-        );
-        days += 1;
-        state.daysElapsed = days;
-        if (state.todayPnL > bestDayProfit) bestDayProfit = state.todayPnL;
-        if (state.todayPnL > state.bestDayProfit) {
-            state.bestDayProfit = state.todayPnL;
-        }
-        if (equityCurve) equityCurve.push(state.balance);
-
-        if (busted) {
-            outcome = 'busted';
-            break;
-        }
-        if (plan.isPassed(state)) {
-            outcome = 'passed';
-            break;
-        }
-    }
-
-    return { bestDayProfit, days, equityCurve, outcome, state, stats };
-}
-
 function runFundedHorizon(
     plan: Plan,
     attempt: EvalAttemptResult,
@@ -754,14 +776,29 @@ function runFundedHorizon(
     commission: number,
     rng: Rng,
     dayStop: DayStopRule | undefined,
-): { daysElapsed: number; isBustedFunded: boolean } {
+): FundedHorizonResult {
+    const { state } = attempt;
+    // The funded phase begins now: this is the balance the tiered funded
+    // DLL and the trailing-drawdown ratchet measure profit against.
+    state.fundingBaseline = state.balance;
+
+    const ladder = plan.payoutLadder;
     let daysElapsed = 0;
     let isBustedFunded = false;
+    let isClosed = false;
+    let payoutsIssued = 0;
+    let totalPayout = 0;
+    let firstPayoutDay: null | number = null;
+    // "Last payout" for cycle 1 is funding start — every cycle, including
+    // the first, resets its own qualifying-day/profit/consistency baseline.
+    let lastPayoutBalance = state.balance;
+    let qualifyingDaysAtLastPayout = state.qualifyingDays;
+    let cycleBestDayProfit = 0;
 
     for (let day = 0; day < fundedHorizonDays; day++) {
         const { busted } = runDay(
             plan,
-            attempt.state,
+            state,
             attempt.stats,
             winrate,
             rrRatio,
@@ -770,20 +807,70 @@ function runFundedHorizon(
             commission,
             rng,
             dayStop,
+            'funded',
         );
         daysElapsed += 1;
-        attempt.state.daysElapsed += 1;
+        state.daysElapsed += 1;
         if (attempt.equityCurve) {
-            attempt.equityCurve.push(attempt.state.balance);
+            attempt.equityCurve.push(state.balance);
+        }
+        if (state.todayPnL > cycleBestDayProfit) {
+            cycleBestDayProfit = state.todayPnL;
         }
 
         if (busted) {
             isBustedFunded = true;
             break;
         }
+
+        if (!ladder) continue;
+
+        const cycleProfit = state.balance - lastPayoutBalance;
+        const requiredProfit =
+            payoutsIssued === 0
+                ? plan.minPayoutProfit
+                : ladder.minRequestAmount;
+        const hasQualifyingDays =
+            state.qualifyingDays - qualifyingDaysAtLastPayout >=
+            plan.minDaysAfterPassForPayout;
+        const isConsistent =
+            !plan.consistency ||
+            !plan.consistency.appliesToFunded() ||
+            !plan.consistency.isViolated(cycleBestDayProfit, cycleProfit);
+
+        if (
+            !hasQualifyingDays ||
+            !isConsistent ||
+            cycleProfit < requiredProfit
+        ) {
+            continue;
+        }
+
+        const step = ladder.steps[payoutsIssued];
+        if (step === undefined) continue;
+
+        totalPayout += step;
+        state.balance -= step;
+        lastPayoutBalance = state.balance;
+        qualifyingDaysAtLastPayout = state.qualifyingDays;
+        cycleBestDayProfit = 0;
+        payoutsIssued += 1;
+        firstPayoutDay ??= daysElapsed;
+
+        if (payoutsIssued >= ladder.steps.length) {
+            isClosed = true;
+            break;
+        }
     }
 
-    return { daysElapsed, isBustedFunded };
+    return {
+        daysElapsed,
+        firstPayoutDay,
+        isBustedFunded,
+        isClosed,
+        payoutsIssued,
+        totalPayout,
+    };
 }
 
 function shouldStopDay(
@@ -869,8 +956,15 @@ function simulateTrial(
                 0,
                 attempt.state.balance - passBalance,
             );
+            // For ladder-based plans (Apex), the real first-payout day comes
+            // straight out of the day-loop instead of this cosmetic estimate.
             let firstPayoutDay: null | number = null;
-            if (fundedProfit >= plan.minPayoutProfit) {
+            if (plan.payoutLadder) {
+                firstPayoutDay =
+                    fundedHorizon.firstPayoutDay === null
+                        ? null
+                        : passDay + fundedHorizon.firstPayoutDay;
+            } else if (fundedProfit >= plan.minPayoutProfit) {
                 const earliest = passDay + plan.minDaysAfterPassForPayout;
                 firstPayoutDay = Math.max(earliest, passDay + 1);
             }
@@ -901,6 +995,7 @@ function simulateTrial(
                 finalBalance: attempt.state.balance,
                 firstPayoutDay,
                 fundedProfit,
+                ladderPayout: fundedHorizon.totalPayout,
                 outcome,
                 plan,
                 resetFeesPaid,
@@ -927,6 +1022,7 @@ function simulateTrial(
             finalBalance: attempt.state.balance,
             firstPayoutDay: null,
             fundedProfit: 0,
+            ladderPayout: 0,
             outcome: finalOutcome,
             plan,
             resetFeesPaid,
