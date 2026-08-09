@@ -23,7 +23,12 @@ import {
 } from '~/components/ui/AlertDialog';
 import { Button } from '~/components/ui/Button';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
+import {
+    DataTable,
+    type DataTableColumn,
+    DataTableFilterFunction,
+    hasActiveColumnFilter,
+} from '~/components/ui/DataTable';
 import { DateRangePicker } from '~/components/ui/DatePicker';
 import {
     Dialog,
@@ -75,17 +80,28 @@ const DURATION_OPTIONS = [
 type DurationFilter = (typeof DURATION_OPTIONS)[number]['value'];
 type StatusFilter = (typeof STATUS_OPTIONS)[number]['value'];
 
-function isInDurationBucket(
-    secs: null | number,
-    bucket: DurationFilter,
-): boolean {
-    if (bucket === FILTER_ALL) return true;
-    if (secs === null) return false;
-    const mins = secs / 60;
-    if (bucket === 'under-15') return mins < 15;
-    if (bucket === '15-60') return mins >= 15 && mins < 60;
-    if (bucket === '60-120') return mins >= 60 && mins < 120;
-    return mins >= 120;
+const DURATION_RANGES: Record<
+    Exclude<DurationFilter, typeof FILTER_ALL>,
+    [number, number]
+> = {
+    '15-60': [15 * 60, 60 * 60 - 1],
+    '60-120': [60 * 60, 120 * 60 - 1],
+    'over-120': [120 * 60, Infinity],
+    'under-15': [0, 15 * 60 - 1],
+};
+
+const DURATION_RANGE_ENTRIES = Object.entries(DURATION_RANGES) as [
+    Exclude<DurationFilter, typeof FILTER_ALL>,
+    [number, number],
+][];
+
+function durationBucketOf(filterValue: unknown): DurationFilter {
+    if (!Array.isArray(filterValue)) return FILTER_ALL;
+    const [min, max] = filterValue as [number, number];
+    const match = DURATION_RANGE_ENTRIES.find(
+        ([, range]) => range[0] === min && range[1] === max,
+    );
+    return match ? match[0] : FILTER_ALL;
 }
 
 const workoutEditSchema = z.object({
@@ -120,42 +136,9 @@ export function WorkoutsManager() {
     });
 
     const [editing, setEditing] = useState<null | WorkoutRow>(null);
-    const [statusFilter, setStatusFilter] = useState<StatusFilter>(FILTER_ALL);
-    const [durationFilter, setDurationFilter] =
-        useState<DurationFilter>(FILTER_ALL);
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
-    const rows = useMemo(() => {
-        const all = workouts.data ?? [];
-        const from = dateRange?.from ? startOfDay(dateRange.from) : null;
-        const to = dateRange?.to
-            ? endOfDay(dateRange.to)
-            : dateRange?.from
-              ? endOfDay(dateRange.from)
-              : null;
-        return all.filter((w) => {
-            if (statusFilter === 'completed' && !w.endedAt) return false;
-            if (statusFilter === 'in-progress' && w.endedAt) return false;
-            if (!isInDurationBucket(durationSeconds(w), durationFilter))
-                return false;
-            if (from) {
-                const started = new Date(w.startedAt);
-                if (started < from) return false;
-                if (to && started > to) return false;
-            }
-            return true;
-        });
-    }, [workouts.data, statusFilter, durationFilter, dateRange]);
-
-    const hasFilters =
-        statusFilter !== FILTER_ALL ||
-        durationFilter !== FILTER_ALL ||
-        Boolean(dateRange?.from);
-    const resetFilters = () => {
-        setStatusFilter(FILTER_ALL);
-        setDurationFilter(FILTER_ALL);
-        setDateRange(undefined);
-    };
+    const rows = useMemo(() => workouts.data ?? [], [workouts.data]);
 
     const columns = useMemo<DataTableColumn<WorkoutRow>[]>(
         () => [
@@ -178,6 +161,7 @@ export function WorkoutsManager() {
                         {format(new Date(row.original.startedAt), 'EEE MMM d')}
                     </span>
                 ),
+                filterFn: DataTableFilterFunction.InNumberRange,
                 header: 'Date',
                 id: 'date',
             },
@@ -191,8 +175,15 @@ export function WorkoutsManager() {
                         </span>
                     );
                 },
+                filterFn: DataTableFilterFunction.InNumberRange,
                 header: 'Duration',
                 id: 'duration',
+            },
+            {
+                accessorFn: (r) => (r.endedAt ? 'completed' : 'in-progress'),
+                filterFn: DataTableFilterFunction.Equals,
+                header: 'Status',
+                id: 'status',
             },
             {
                 cell: ({ row }) => (
@@ -273,94 +264,138 @@ export function WorkoutsManager() {
             </p>
 
             <DataTable
-                belowFilter={
+                belowFilter={(table) => (
                     <ClearFiltersButton
-                        active={hasFilters}
-                        onReset={resetFilters}
+                        active={hasActiveColumnFilter(table)}
+                        onReset={() => {
+                            setDateRange(undefined);
+                            table.resetColumnFilters();
+                        }}
                     />
-                }
+                )}
                 columns={columns}
                 data={rows}
-                emptyState={
+                emptyState={(table) => (
                     <EmptyState
                         description={
-                            hasFilters
+                            hasActiveColumnFilter(table)
                                 ? 'No workouts match these filters.'
                                 : 'Start a workout from the log.'
                         }
                         icon={Calendar}
-                        title={hasFilters ? 'No matches' : 'No workouts yet'}
+                        title={
+                            hasActiveColumnFilter(table)
+                                ? 'No matches'
+                                : 'No workouts yet'
+                        }
                     />
-                }
+                )}
                 filterPlaceholder="Search workouts…"
                 filterPosition="bottom"
-                headerActions={
-                    <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-end">
-                        <div className="flex flex-col gap-1">
-                            <span className="text-[10px] tracking-wider text-muted-foreground uppercase">
-                                Status
-                            </span>
-                            <Select
-                                onValueChange={(v) =>
-                                    setStatusFilter(v as StatusFilter)
-                                }
-                                value={statusFilter}
-                            >
-                                <SelectTrigger className="h-8 w-36 text-xs">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {STATUS_OPTIONS.map((o) => (
-                                        <SelectItem
-                                            key={o.value}
-                                            value={o.value}
-                                        >
-                                            {o.label}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                headerActions={(table) => {
+                    const statusColumn = table.getColumn('status');
+                    const durationColumn = table.getColumn('duration');
+                    const dateColumn = table.getColumn('date');
+                    return (
+                        <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-end">
+                            <div className="flex flex-col gap-1">
+                                <span className="text-[10px] tracking-wider text-muted-foreground uppercase">
+                                    Status
+                                </span>
+                                <Select
+                                    onValueChange={(v) =>
+                                        statusColumn?.setFilterValue(
+                                            v === FILTER_ALL ? undefined : v,
+                                        )
+                                    }
+                                    value={
+                                        (statusColumn?.getFilterValue() as
+                                            StatusFilter | undefined) ??
+                                        FILTER_ALL
+                                    }
+                                >
+                                    <SelectTrigger className="h-8 w-36 text-xs">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {STATUS_OPTIONS.map((o) => (
+                                            <SelectItem
+                                                key={o.value}
+                                                value={o.value}
+                                            >
+                                                {o.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <span className="text-[10px] tracking-wider text-muted-foreground uppercase">
+                                    Duration
+                                </span>
+                                <Select
+                                    onValueChange={(v) =>
+                                        durationColumn?.setFilterValue(
+                                            v === FILTER_ALL
+                                                ? undefined
+                                                : DURATION_RANGES[
+                                                      v as Exclude<
+                                                          DurationFilter,
+                                                          typeof FILTER_ALL
+                                                      >
+                                                  ],
+                                        )
+                                    }
+                                    value={durationBucketOf(
+                                        durationColumn?.getFilterValue(),
+                                    )}
+                                >
+                                    <SelectTrigger className="h-8 w-36 text-xs">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {DURATION_OPTIONS.map((o) => (
+                                            <SelectItem
+                                                key={o.value}
+                                                value={o.value}
+                                            >
+                                                {o.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <span className="text-[10px] tracking-wider text-muted-foreground uppercase">
+                                    Date range
+                                </span>
+                                <DateRangePicker
+                                    align="end"
+                                    className="h-8 text-xs"
+                                    maxDate={new Date()}
+                                    onChange={(range) => {
+                                        setDateRange(range);
+                                        dateColumn?.setFilterValue(
+                                            range?.from
+                                                ? [
+                                                      startOfDay(
+                                                          range.from,
+                                                      ).getTime(),
+                                                      endOfDay(
+                                                          range.to ??
+                                                              range.from,
+                                                      ).getTime(),
+                                                  ]
+                                                : undefined,
+                                        );
+                                    }}
+                                    placeholder="Any time"
+                                    value={dateRange}
+                                />
+                            </div>
                         </div>
-                        <div className="flex flex-col gap-1">
-                            <span className="text-[10px] tracking-wider text-muted-foreground uppercase">
-                                Duration
-                            </span>
-                            <Select
-                                onValueChange={(v) =>
-                                    setDurationFilter(v as DurationFilter)
-                                }
-                                value={durationFilter}
-                            >
-                                <SelectTrigger className="h-8 w-36 text-xs">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {DURATION_OPTIONS.map((o) => (
-                                        <SelectItem
-                                            key={o.value}
-                                            value={o.value}
-                                        >
-                                            {o.label}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                            <span className="text-[10px] tracking-wider text-muted-foreground uppercase">
-                                Date range
-                            </span>
-                            <DateRangePicker
-                                align="end"
-                                className="h-8 text-xs"
-                                maxDate={new Date()}
-                                onChange={setDateRange}
-                                placeholder="Any time"
-                                value={dateRange}
-                            />
-                        </div>
-                    </div>
-                }
+                    );
+                }}
                 isLoading={workouts.isLoading}
                 pageSize={20}
                 rowId={(r) => r.id}

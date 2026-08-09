@@ -21,7 +21,13 @@ import {
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
+import {
+    DataTable,
+    DataTableAlign,
+    type DataTableColumn,
+    DataTableFilterFunction,
+    hasActiveColumnFilter,
+} from '~/components/ui/DataTable';
 import { DateRangePicker } from '~/components/ui/DatePicker';
 import { EmptyState } from '~/components/ui/EmptyState';
 import { Label } from '~/components/ui/Label';
@@ -66,11 +72,23 @@ const DURATION_OPTIONS = [
 type DurationFilter = (typeof DURATION_OPTIONS)[number]['value'];
 type StatusFilter = (typeof STATUS_OPTIONS)[number]['value'];
 
+const DURATION_RANGES: Record<
+    Exclude<DurationFilter, typeof FILTER_ALL>,
+    [number, number]
+> = {
+    '15-60': [15 * 60, 60 * 60 - 1],
+    '60-120': [60 * 60, 120 * 60 - 1],
+    'over-120': [120 * 60, Infinity],
+    'under-15': [0, 15 * 60 - 1],
+};
+
+const DURATION_RANGE_ENTRIES = Object.entries(DURATION_RANGES) as [
+    Exclude<DurationFilter, typeof FILTER_ALL>,
+    [number, number],
+][];
+
 export function HistoryView({ from }: HistoryViewProperties) {
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
-    const [statusFilter, setStatusFilter] = useState<StatusFilter>(FILTER_ALL);
-    const [durationFilter, setDurationFilter] =
-        useState<DurationFilter>(FILTER_ALL);
 
     const queryFrom = dateRange?.from ? startOfDay(dateRange.from) : from;
     const queryTo = dateRange?.to ? endOfDay(dateRange.to) : undefined;
@@ -91,23 +109,6 @@ export function HistoryView({ from }: HistoryViewProperties) {
     });
 
     const allRows = useMemo(() => workouts.data ?? [], [workouts.data]);
-    const rows = useMemo(() => {
-        return allRows.filter((w) => {
-            if (statusFilter === 'completed' && !w.endedAt) return false;
-            if (statusFilter === 'in-progress' && w.endedAt) return false;
-            return isInDurationBucket(durationSeconds(w), durationFilter);
-        });
-    }, [allRows, statusFilter, durationFilter]);
-
-    const hasFilters =
-        Boolean(dateRange) ||
-        statusFilter !== FILTER_ALL ||
-        durationFilter !== FILTER_ALL;
-    const reset = () => {
-        setDateRange(undefined);
-        setStatusFilter(FILTER_ALL);
-        setDurationFilter(FILTER_ALL);
-    };
 
     const columns = useMemo<DataTableColumn<WorkoutRow>[]>(
         () => [
@@ -150,15 +151,21 @@ export function HistoryView({ from }: HistoryViewProperties) {
                 cell: ({ row }) => {
                     const dur = durationSeconds(row.original);
                     return (
-                        <span className="block text-right text-muted-foreground tabular-nums">
+                        <span className="text-muted-foreground tabular-nums">
                             {dur === null ? '—' : DurationFormat.seconds(dur)}
                         </span>
                     );
                 },
-                header: () => (
-                    <span className="block text-right">Duration</span>
-                ),
+                filterFn: DataTableFilterFunction.InNumberRange,
+                header: 'Duration',
                 id: 'duration',
+                meta: { align: DataTableAlign.End },
+            },
+            {
+                accessorFn: (r) => (r.endedAt ? 'completed' : 'in-progress'),
+                filterFn: DataTableFilterFunction.Equals,
+                header: 'Status',
+                id: 'status',
             },
             {
                 cell: ({ row }) => (
@@ -218,7 +225,7 @@ export function HistoryView({ from }: HistoryViewProperties) {
         [remove],
     );
 
-    if (!hasFilters && !workouts.isLoading && allRows.length === 0) {
+    if (!dateRange && !workouts.isLoading && allRows.length === 0) {
         return (
             <Card>
                 <CardContent>
@@ -242,46 +249,6 @@ export function HistoryView({ from }: HistoryViewProperties) {
             <CardContent className="flex flex-col gap-4">
                 <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_2fr]">
                     <div className="flex flex-col gap-1.5">
-                        <Label className="text-xs">Status</Label>
-                        <Select
-                            onValueChange={(v) =>
-                                setStatusFilter(v as StatusFilter)
-                            }
-                            value={statusFilter}
-                        >
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {STATUS_OPTIONS.map((o) => (
-                                    <SelectItem key={o.value} value={o.value}>
-                                        {o.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                        <Label className="text-xs">Duration</Label>
-                        <Select
-                            onValueChange={(v) =>
-                                setDurationFilter(v as DurationFilter)
-                            }
-                            value={durationFilter}
-                        >
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {DURATION_OPTIONS.map((o) => (
-                                    <SelectItem key={o.value} value={o.value}>
-                                        {o.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="flex flex-col gap-1.5">
                         <Label className="text-xs">Date range</Label>
                         <DateRangePicker
                             maxDate={new Date()}
@@ -294,7 +261,7 @@ export function HistoryView({ from }: HistoryViewProperties) {
 
                 <DataTable
                     columns={columns}
-                    data={rows}
+                    data={allRows}
                     emptyState={
                         <EmptyState
                             description="Try widening the filters or logging a workout."
@@ -302,12 +269,87 @@ export function HistoryView({ from }: HistoryViewProperties) {
                             title="No workouts match"
                         />
                     }
-                    headerActions={
-                        <ClearFiltersButton
-                            active={hasFilters}
-                            onReset={reset}
-                        />
-                    }
+                    headerActions={(table) => {
+                        const statusColumn = table.getColumn('status');
+                        const durationColumn = table.getColumn('duration');
+                        return (
+                            <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-end">
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-[10px] tracking-wider text-muted-foreground uppercase">
+                                        Status
+                                    </span>
+                                    <Select
+                                        onValueChange={(v) =>
+                                            statusColumn?.setFilterValue(
+                                                v === FILTER_ALL
+                                                    ? undefined
+                                                    : v,
+                                            )
+                                        }
+                                        value={
+                                            (statusColumn?.getFilterValue() as
+                                                StatusFilter | undefined) ??
+                                            FILTER_ALL
+                                        }
+                                    >
+                                        <SelectTrigger className="h-8 w-36 text-xs">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {STATUS_OPTIONS.map((o) => (
+                                                <SelectItem
+                                                    key={o.value}
+                                                    value={o.value}
+                                                >
+                                                    {o.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-[10px] tracking-wider text-muted-foreground uppercase">
+                                        Duration
+                                    </span>
+                                    <Select
+                                        onValueChange={(v) =>
+                                            durationColumn?.setFilterValue(
+                                                v === FILTER_ALL
+                                                    ? undefined
+                                                    : DURATION_RANGES[
+                                                          v as Exclude<
+                                                              DurationFilter,
+                                                              typeof FILTER_ALL
+                                                          >
+                                                      ],
+                                            )
+                                        }
+                                        value={durationBucketOf(
+                                            durationColumn?.getFilterValue(),
+                                        )}
+                                    >
+                                        <SelectTrigger className="h-8 w-36 text-xs">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {DURATION_OPTIONS.map((o) => (
+                                                <SelectItem
+                                                    key={o.value}
+                                                    value={o.value}
+                                                >
+                                                    {o.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <ClearFiltersButton
+                                    active={hasActiveColumnFilter(table)}
+                                    onReset={() => table.resetColumnFilters()}
+                                />
+                            </div>
+                        );
+                    }}
                     isLoading={workouts.isLoading}
                     pageSize={20}
                     rowId={(r) => r.id}
@@ -318,23 +360,19 @@ export function HistoryView({ from }: HistoryViewProperties) {
     );
 }
 
+function durationBucketOf(filterValue: unknown): DurationFilter {
+    if (!Array.isArray(filterValue)) return FILTER_ALL;
+    const [min, max] = filterValue as [number, number];
+    const match = DURATION_RANGE_ENTRIES.find(
+        ([, range]) => range[0] === min && range[1] === max,
+    );
+    return match ? match[0] : FILTER_ALL;
+}
+
 function durationSeconds(w: WorkoutRow): null | number {
     if (!w.endedAt) return null;
     return Math.round(
         (new Date(w.endedAt).getTime() - new Date(w.startedAt).getTime()) /
             1000,
     );
-}
-
-function isInDurationBucket(
-    secs: null | number,
-    bucket: DurationFilter,
-): boolean {
-    if (bucket === FILTER_ALL) return true;
-    if (secs === null) return false;
-    const mins = secs / 60;
-    if (bucket === 'under-15') return mins < 15;
-    if (bucket === '15-60') return mins >= 15 && mins < 60;
-    if (bucket === '60-120') return mins >= 60 && mins < 120;
-    return mins >= 120;
 }

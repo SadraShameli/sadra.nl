@@ -10,7 +10,11 @@ import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import AreaChartNew from '~/components/ui/Chart/AreaChartNew';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
+import {
+    DataTable,
+    DataTableAlign,
+    type DataTableColumn,
+} from '~/components/ui/DataTable';
 import { DateRangePicker } from '~/components/ui/DatePicker';
 import { EmptyState } from '~/components/ui/EmptyState';
 import {
@@ -118,22 +122,24 @@ export function ExerciseDetail({ exercise }: ExerciseDetailProperties) {
             },
             {
                 cell: ({ row }) => (
-                    <span className="block text-right font-semibold tabular-nums">
+                    <span className="font-semibold tabular-nums">
                         {WeightUnit.format(row.original.weightKg, unitWeight)} ×{' '}
                         {row.original.reps}
                     </span>
                 ),
-                header: () => <span className="block text-right">Lift</span>,
+                header: 'Lift',
                 id: 'lift',
+                meta: { align: DataTableAlign.End },
             },
             {
                 accessorKey: 'achievedAt',
                 cell: ({ row }) => (
-                    <span className="block text-right text-muted-foreground tabular-nums">
+                    <span className="text-muted-foreground tabular-nums">
                         {format(new Date(row.original.achievedAt), 'MMM d')}
                     </span>
                 ),
-                header: () => <span className="block text-right">Date</span>,
+                header: 'Date',
+                meta: { align: DataTableAlign.End },
             },
         ],
         [unitWeight],

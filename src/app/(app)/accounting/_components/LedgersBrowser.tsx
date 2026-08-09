@@ -1,22 +1,21 @@
 'use client';
 
 import { BookOpen } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import type { LedgerId } from '~/lib/accounting/core/ids';
 
 import { Badge } from '~/components/ui/Badge';
 import { Card, CardContent } from '~/components/ui/Card';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
-import { EmptyState } from '~/components/ui/EmptyState';
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/Select';
+    DataTable,
+    type DataTableColumn,
+    DataTableFilterFunction,
+    type DataTableInstance,
+} from '~/components/ui/DataTable';
+import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
+import { EmptyState } from '~/components/ui/EmptyState';
 import { LedgerCategory } from '~/lib/accounting/providers/eboekhouden/enums';
 import { api } from '~/trpc/react';
 
@@ -31,7 +30,9 @@ type Ledger = {
     group: null | string;
 };
 
-const ALL = '__all__';
+function hasActiveFilter(table: DataTableInstance<Ledger>): boolean {
+    return table.getColumn('category')?.getFilterValue() !== undefined;
+}
 
 const LEDGER_CATEGORY_LABEL: Record<LedgerCategory, string> = {
     [LedgerCategory.Af]: 'Depreciation',
@@ -50,30 +51,12 @@ const LEDGER_CATEGORY_LABEL: Record<LedgerCategory, string> = {
 export function LedgersBrowser() {
     const { accounting } = useActiveCredentials();
     const credentialId = accounting?.id ?? '';
-    const [category, setCategory] = useState<string>(ALL);
 
     const ledgersQ = api.accounting.ledgers.list.useQuery(
         { credentialId },
         { enabled: !!credentialId },
     );
     const allLedgers = useMemo(() => ledgersQ.data ?? [], [ledgersQ.data]);
-    const categoryOptions = useMemo(
-        () =>
-            [...new Set(allLedgers.map((l) => l.category))].toSorted((a, b) =>
-                a.localeCompare(b),
-            ),
-        [allLedgers],
-    );
-    const filtered = useMemo(
-        () =>
-            category === ALL
-                ? allLedgers
-                : allLedgers.filter((l) => l.category === category),
-        [allLedgers, category],
-    );
-
-    const hasFilters = category !== ALL;
-    const reset = () => setCategory(ALL);
 
     const columns = useMemo<DataTableColumn<Ledger>[]>(
         () => [
@@ -108,6 +91,7 @@ export function LedgersBrowser() {
                         ] ?? row.original.category}
                     </Badge>
                 ),
+                filterFn: DataTableFilterFunction.Equals,
                 header: 'Category',
             },
             {
@@ -134,12 +118,12 @@ export function LedgersBrowser() {
                 ) : (
                     <DataTable
                         columns={columns}
-                        data={filtered}
-                        emptyState={
+                        data={allLedgers}
+                        emptyState={(table) => (
                             <EmptyState
                                 description={
                                     credentialId
-                                        ? hasFilters
+                                        ? hasActiveFilter(table)
                                             ? 'No ledgers match this filter.'
                                             : 'Try a different category or pick another credential.'
                                         : 'Pick an accounting credential to load its ledgers.'
@@ -151,49 +135,39 @@ export function LedgersBrowser() {
                                         : 'No credential selected'
                                 }
                             />
-                        }
+                        )}
                         filterPlaceholder="Search ledgers…"
-                        headerActions={
+                        headerActions={(table) => (
                             <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
                                 <ClearFiltersButton
-                                    active={hasFilters}
+                                    active={hasActiveFilter(table)}
                                     className="hidden md:flex"
-                                    onReset={reset}
+                                    onReset={() => table.resetColumnFilters()}
                                 />
                                 <ActiveConnectionNote
                                     credential={accounting}
                                     roleNoun="accounting credential"
                                 />
-                                <Select
-                                    onValueChange={setCategory}
-                                    value={category}
-                                >
-                                    <SelectTrigger className="h-8 w-48 text-xs">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value={ALL}>
-                                            All categories
-                                        </SelectItem>
-                                        {categoryOptions.map((c) => (
-                                            <SelectItem key={c} value={c}>
-                                                {(
-                                                    LEDGER_CATEGORY_LABEL as Record<
-                                                        string,
-                                                        string
-                                                    >
-                                                )[c] ?? c}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <DataTableFacetSelect
+                                    className="w-48"
+                                    column={table.getColumn('category')}
+                                    format={(value) =>
+                                        (
+                                            LEDGER_CATEGORY_LABEL as Record<
+                                                string,
+                                                string
+                                            >
+                                        )[value] ?? value
+                                    }
+                                    placeholder="All categories"
+                                />
                                 <ClearFiltersButton
-                                    active={hasFilters}
+                                    active={hasActiveFilter(table)}
                                     className="md:hidden"
-                                    onReset={reset}
+                                    onReset={() => table.resetColumnFilters()}
                                 />
                             </div>
-                        }
+                        )}
                         isLoading={!!credentialId && ledgersQ.isPending}
                         pageSize={25}
                         rowId={(r) => r.externalId}

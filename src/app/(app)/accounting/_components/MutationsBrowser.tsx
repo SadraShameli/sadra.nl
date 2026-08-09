@@ -7,7 +7,6 @@ import { type DateRange } from 'react-day-picker';
 import type { ExternalId, LedgerId } from '~/lib/accounting/core/ids';
 
 import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
 import { Card, CardContent } from '~/components/ui/Card';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
 import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
@@ -159,9 +158,6 @@ export function MutationsBrowser() {
         [],
     );
 
-    const hasPrevious = offset > 0;
-    const hasNext = rows.length === PAGE_SIZE;
-
     return (
         <Card>
             <CardContent>
@@ -252,43 +248,17 @@ export function MutationsBrowser() {
                             }
                             initialSorting={[{ desc: true, id: 'date' }]}
                             isLoading={!!credentialId && mutationsQ.isPending}
-                            pageSize={25}
                             rowId={(r) => r.externalId}
+                            serverPagination={{
+                                hasNextPage: rows.length === PAGE_SIZE,
+                                isPending: mutationsQ.isPending,
+                                onPageIndexChange: (pageIndex) =>
+                                    setOffset(pageIndex * PAGE_SIZE),
+                                pageIndex: offset / PAGE_SIZE,
+                                pageSize: PAGE_SIZE,
+                            }}
                             showFilter
                         />
-                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                            <span>
-                                {rows.length > 0
-                                    ? `${offset + 1}–${offset + rows.length}`
-                                    : '0 results'}
-                            </span>
-                            <div className="flex gap-2">
-                                <Button
-                                    disabled={
-                                        !hasPrevious || mutationsQ.isPending
-                                    }
-                                    onClick={() =>
-                                        setOffset(
-                                            Math.max(0, offset - PAGE_SIZE),
-                                        )
-                                    }
-                                    size="sm"
-                                    variant="outline"
-                                >
-                                    Previous
-                                </Button>
-                                <Button
-                                    disabled={!hasNext || mutationsQ.isPending}
-                                    onClick={() =>
-                                        setOffset(offset + PAGE_SIZE)
-                                    }
-                                    size="sm"
-                                    variant="outline"
-                                >
-                                    Next
-                                </Button>
-                            </div>
-                        </div>
                     </div>
                 )}
             </CardContent>

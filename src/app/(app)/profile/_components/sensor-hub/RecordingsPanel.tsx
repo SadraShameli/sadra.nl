@@ -20,7 +20,11 @@ import {
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
+import {
+    DataTable,
+    type DataTableColumn,
+    dataTableExpanderColumn,
+} from '~/components/ui/DataTable';
 import {
     Dialog,
     DialogContent,
@@ -78,7 +82,6 @@ export function RecordingsPanel() {
 
     const [locFilter, setLocFilter] = useState(ALL);
     const [developmentFilter, setDevelopmentFilter] = useState(ALL);
-    const [previewing, setPreviewing] = useState<null | number>(null);
     const hasFilters = locFilter !== ALL || developmentFilter !== ALL;
     const resetFilters = () => {
         setLocFilter(ALL);
@@ -129,24 +132,13 @@ export function RecordingsPanel() {
 
     const columns = useMemo<DataTableColumn<RecordingRow>[]>(
         () => [
+            dataTableExpanderColumn<RecordingRow>(),
             {
                 accessorKey: 'file_name',
                 cell: ({ row }) => (
-                    <Button
-                        className="h-auto justify-start p-0 font-medium text-foreground hover:text-primary"
-                        onClick={() =>
-                            setPreviewing(
-                                previewing === row.original.id
-                                    ? null
-                                    : row.original.id,
-                            )
-                        }
-                        size="sm"
-                        type="button"
-                        variant="link"
-                    >
+                    <span className="font-medium text-foreground">
                         {row.original.file_name}
-                    </Button>
+                    </span>
                 ),
                 header: 'File',
             },
@@ -255,10 +247,8 @@ export function RecordingsPanel() {
                 id: 'actions',
             },
         ],
-        [del, deviceMap, locMap, previewing],
+        [del, deviceMap, locMap],
     );
-
-    const previewingRow = rows.find((r) => r.id === previewing);
 
     return (
         <Card>
@@ -326,21 +316,6 @@ export function RecordingsPanel() {
                     </div>
                 </div>
 
-                {previewingRow && (
-                    <div className="flex flex-col gap-2 rounded-lg border border-border/60 bg-background p-3">
-                        <p className="text-xs text-muted-foreground">
-                            Playing: {previewingRow.file_name}
-                        </p>
-                        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-                        <audio
-                            className="w-full"
-                            controls
-                            preload="none"
-                            src={apiRoutes.recording(previewingRow.id)}
-                        />
-                    </div>
-                )}
-
                 <DataTable
                     columns={columns}
                     data={rows}
@@ -351,6 +326,7 @@ export function RecordingsPanel() {
                             title="No recordings"
                         />
                     }
+                    getRowCanExpand={() => true}
                     headerActions={
                         <ClearFiltersButton
                             active={hasFilters}
@@ -359,6 +335,20 @@ export function RecordingsPanel() {
                     }
                     isLoading={recordings.isLoading}
                     pageSize={20}
+                    renderExpanded={(row) => (
+                        <div className="flex flex-col gap-2 bg-background p-3">
+                            <p className="text-xs text-muted-foreground">
+                                Playing: {row.original.file_name}
+                            </p>
+                            {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                            <audio
+                                className="w-full"
+                                controls
+                                preload="none"
+                                src={apiRoutes.recording(row.original.id)}
+                            />
+                        </div>
+                    )}
                     rowId={(r) => String(r.id)}
                     showFilter
                 />

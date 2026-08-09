@@ -17,7 +17,14 @@ import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent } from '~/components/ui/Card';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
+import {
+    DataTable,
+    type DataTableColumn,
+    DataTableFilterFunction,
+    type DataTableInstance,
+    hasActiveColumnFilter,
+} from '~/components/ui/DataTable';
+import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
 import { DateRangePicker } from '~/components/ui/DatePicker';
 import {
     Dialog,
@@ -148,26 +155,8 @@ export function BookingsTable({
     const { labelOf, options: taxCodeOptions } = useTaxCodes(credentialId);
     const [direction, setDirection] = useState<DirectionFilter>(ALL);
     const [taxCode, setTaxCode] = useState<string>(ALL);
-    const [counterpart, setCounterpart] = useState<string>(ALL);
-    const [currency, setCurrency] = useState<string>(ALL);
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
     const [editing, setEditing] = useState<Booking | null>(null);
-
-    const counterpartOptions = useMemo(
-        () =>
-            [...new Set(bookings.map((b) => b.counterpartName))].toSorted(
-                (a, b) => a.localeCompare(b),
-            ),
-        [bookings],
-    );
-
-    const currencyOptions = useMemo(
-        () =>
-            [...new Set(bookings.map((b) => b.sourceCurrency))].toSorted(
-                (a, b) => a.localeCompare(b),
-            ),
-        [bookings],
-    );
 
     const rows = useMemo(
         () =>
@@ -175,28 +164,22 @@ export function BookingsTable({
                 if (direction !== ALL && b.direction !== direction)
                     return false;
                 if (taxCode !== ALL && b.taxCode !== taxCode) return false;
-                if (counterpart !== ALL && b.counterpartName !== counterpart)
-                    return false;
-                if (currency !== ALL && b.sourceCurrency !== currency)
-                    return false;
                 return isIsoInRange(b.date, dateRange);
             }),
-        [bookings, direction, taxCode, counterpart, currency, dateRange],
+        [bookings, direction, taxCode, dateRange],
     );
 
-    const hasFilters =
+    const hasFilters = (table: DataTableInstance<Booking>): boolean =>
         direction !== ALL ||
         taxCode !== ALL ||
-        counterpart !== ALL ||
-        currency !== ALL ||
-        Boolean(dateRange?.from);
+        Boolean(dateRange?.from) ||
+        hasActiveColumnFilter(table);
 
-    const reset = () => {
+    const reset = (table: DataTableInstance<Booking>) => {
         setDirection(ALL);
         setTaxCode(ALL);
-        setCounterpart(ALL);
-        setCurrency(ALL);
         setDateRange(undefined);
+        table.resetColumnFilters();
     };
 
     const columns = useMemo<DataTableColumn<Booking>[]>(
@@ -224,6 +207,7 @@ export function BookingsTable({
                         {row.original.counterpartName}
                     </span>
                 ),
+                filterFn: DataTableFilterFunction.Equals,
                 header: 'Counterpart',
             },
             {
@@ -234,6 +218,11 @@ export function BookingsTable({
                     </span>
                 ),
                 header: 'Ledger',
+            },
+            {
+                accessorKey: 'sourceCurrency',
+                filterFn: DataTableFilterFunction.Equals,
+                header: 'Currency',
             },
             {
                 accessorKey: 'amountEur',
@@ -305,9 +294,12 @@ export function BookingsTable({
     return (
         <>
             <DataTable
-                belowFilter={
-                    <ClearFiltersButton active={hasFilters} onReset={reset} />
-                }
+                belowFilter={(table) => (
+                    <ClearFiltersButton
+                        active={hasFilters(table)}
+                        onReset={() => reset(table)}
+                    />
+                )}
                 columns={columns}
                 data={rows}
                 emptyState={
@@ -318,7 +310,7 @@ export function BookingsTable({
                 }
                 filterPlaceholder="Filter bookings…"
                 filterPosition="bottom"
-                headerActions={
+                headerActions={(table) => (
                     <HeaderActionsShell>
                         <FilterField label="Direction">
                             <DirectionSelect
@@ -344,45 +336,21 @@ export function BookingsTable({
                             </Select>
                         </FilterField>
                         <FilterField label="Counterpart">
-                            <Select
-                                onValueChange={setCounterpart}
-                                value={counterpart}
-                            >
-                                <SelectTrigger className="h-8 w-48 text-xs">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value={ALL}>
-                                        All counterparts
-                                    </SelectItem>
-                                    {counterpartOptions.map((c) => (
-                                        <SelectItem key={c} value={c}>
-                                            {c}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <DataTableFacetSelect
+                                className="w-48"
+                                column={table.getColumn('counterpartName')}
+                                placeholder="All counterparts"
+                            />
                         </FilterField>
-                        {currencyOptions.length > 1 && (
+                        {(table
+                            .getColumn('sourceCurrency')
+                            ?.getFacetedUniqueValues().size ?? 0) > 1 && (
                             <FilterField label="Currency">
-                                <Select
-                                    onValueChange={setCurrency}
-                                    value={currency}
-                                >
-                                    <SelectTrigger className="h-8 w-28 text-xs">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value={ALL}>
-                                            All currencies
-                                        </SelectItem>
-                                        {currencyOptions.map((c) => (
-                                            <SelectItem key={c} value={c}>
-                                                {c}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <DataTableFacetSelect
+                                    className="w-28"
+                                    column={table.getColumn('sourceCurrency')}
+                                    placeholder="All currencies"
+                                />
                             </FilterField>
                         )}
                         <FilterField label="Date range">
@@ -395,7 +363,8 @@ export function BookingsTable({
                             />
                         </FilterField>
                     </HeaderActionsShell>
-                }
+                )}
+                initialColumnVisibility={{ sourceCurrency: false }}
                 pageSize={20}
                 rowId={(r) => r.txnId}
                 showFilter
@@ -416,30 +385,21 @@ export function BookingsTable({
 
 export function MatchAuditTable({ result }: { result: ConversionResult }) {
     const [direction, setDirection] = useState<DirectionFilter>(ALL);
-    const [matched, setMatched] = useState<string>(ALL);
-
-    const matchedOptions = useMemo(
-        () =>
-            [...new Set(result.matches.map((m) => m.matchedDisplay))].toSorted(
-                (a, b) => a.localeCompare(b),
-            ),
-        [result.matches],
-    );
 
     const rows = useMemo(
         () =>
-            result.matches.filter((m) => {
-                if (direction !== ALL && m.direction !== direction)
-                    return false;
-                return matched === ALL || m.matchedDisplay === matched;
-            }),
-        [result.matches, direction, matched],
+            direction === ALL
+                ? result.matches
+                : result.matches.filter((m) => m.direction === direction),
+        [result.matches, direction],
     );
 
-    const hasFilters = direction !== ALL || matched !== ALL;
-    const reset = () => {
+    const hasFilters = (table: DataTableInstance<MatchAudit>): boolean =>
+        direction !== ALL || hasActiveColumnFilter(table);
+
+    const reset = (table: DataTableInstance<MatchAudit>) => {
         setDirection(ALL);
-        setMatched(ALL);
+        table.resetColumnFilters();
     };
 
     const columns = useMemo<DataTableColumn<MatchAudit>[]>(
@@ -467,6 +427,7 @@ export function MatchAuditTable({ result }: { result: ConversionResult }) {
                         {row.original.matchedDisplay}
                     </span>
                 ),
+                filterFn: DataTableFilterFunction.Equals,
                 header: 'Matched as',
             },
             {
@@ -501,9 +462,12 @@ export function MatchAuditTable({ result }: { result: ConversionResult }) {
     }
     return (
         <DataTable
-            belowFilter={
-                <ClearFiltersButton active={hasFilters} onReset={reset} />
-            }
+            belowFilter={(table) => (
+                <ClearFiltersButton
+                    active={hasFilters(table)}
+                    onReset={() => reset(table)}
+                />
+            )}
             columns={columns}
             data={rows}
             emptyState={
@@ -514,7 +478,7 @@ export function MatchAuditTable({ result }: { result: ConversionResult }) {
             }
             filterPlaceholder="Filter matches…"
             filterPosition="bottom"
-            headerActions={
+            headerActions={(table) => (
                 <HeaderActionsShell>
                     <FilterField label="Direction">
                         <DirectionSelect
@@ -523,22 +487,14 @@ export function MatchAuditTable({ result }: { result: ConversionResult }) {
                         />
                     </FilterField>
                     <FilterField label="Matched ledger">
-                        <Select onValueChange={setMatched} value={matched}>
-                            <SelectTrigger className="h-8 w-48 text-xs">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value={ALL}>All ledgers</SelectItem>
-                                {matchedOptions.map((m) => (
-                                    <SelectItem key={m} value={m}>
-                                        {m}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        <DataTableFacetSelect
+                            className="w-48"
+                            column={table.getColumn('matchedDisplay')}
+                            placeholder="All ledgers"
+                        />
                     </FilterField>
                 </HeaderActionsShell>
-            }
+            )}
             pageSize={20}
             rowId={(r) => `${r.direction}|${r.matchedDisplay}|${r.rawName}`}
             showFilter

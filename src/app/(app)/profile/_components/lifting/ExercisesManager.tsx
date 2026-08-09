@@ -20,7 +20,13 @@ import {
 } from '~/components/ui/AlertDialog';
 import { Button } from '~/components/ui/Button';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
+import {
+    DataTable,
+    type DataTableColumn,
+    DataTableFilterFunction,
+    hasActiveColumnFilter,
+} from '~/components/ui/DataTable';
+import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
 import {
     Dialog,
     DialogContent,
@@ -59,8 +65,6 @@ import { api, type RouterOutputs } from '~/trpc/react';
 
 type ExerciseFormInput = z.input<typeof customExerciseInputSchema>;
 type ExerciseRow = RouterOutputs['lifting']['exercise']['list'][number];
-
-const FILTER_ALL = '__all__';
 
 const DEFAULTS: CreateCustomExerciseInput = {
     equipment: 'barbell',
@@ -113,32 +117,11 @@ export function ExercisesManager() {
 
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [editing, setEditing] = useState<ExerciseRow | null>(null);
-    const [muscleFilter, setMuscleFilter] = useState<string>(FILTER_ALL);
-    const [equipmentFilter, setEquipmentFilter] = useState<string>(FILTER_ALL);
 
     const rows = useMemo(
-        () =>
-            (query.data ?? []).filter((exercise) => {
-                if (!exercise.isCustom) return false;
-                if (
-                    muscleFilter !== FILTER_ALL &&
-                    exercise.primaryMuscle !== muscleFilter
-                )
-                    return false;
-                return (
-                    equipmentFilter === FILTER_ALL ||
-                    exercise.equipment === equipmentFilter
-                );
-            }),
-        [query.data, muscleFilter, equipmentFilter],
+        () => (query.data ?? []).filter((exercise) => exercise.isCustom),
+        [query.data],
     );
-
-    const hasFilters =
-        muscleFilter !== FILTER_ALL || equipmentFilter !== FILTER_ALL;
-    const resetFilters = () => {
-        setMuscleFilter(FILTER_ALL);
-        setEquipmentFilter(FILTER_ALL);
-    };
 
     const columns = useMemo<DataTableColumn<ExerciseRow>[]>(
         () => [
@@ -158,6 +141,7 @@ export function ExercisesManager() {
                         {row.original.primaryMuscle}
                     </span>
                 ),
+                filterFn: DataTableFilterFunction.Equals,
                 header: 'Muscle',
             },
             {
@@ -167,6 +151,7 @@ export function ExercisesManager() {
                         {row.original.equipment}
                     </span>
                 ),
+                filterFn: DataTableFilterFunction.Equals,
                 header: 'Equipment',
             },
             {
@@ -245,88 +230,61 @@ export function ExercisesManager() {
             </div>
 
             <DataTable
-                belowFilter={
+                belowFilter={(table) => (
                     <ClearFiltersButton
-                        active={hasFilters}
-                        onReset={resetFilters}
+                        active={hasActiveColumnFilter(table)}
+                        onReset={() => table.resetColumnFilters()}
                     />
-                }
+                )}
                 columns={columns}
                 data={rows}
-                emptyState={
+                emptyState={(table) => (
                     <EmptyState
                         description={
-                            hasFilters
+                            hasActiveColumnFilter(table)
                                 ? 'No exercises match these filters.'
                                 : 'Create one from the New exercise button.'
                         }
                         icon={Dumbbell}
                         title={
-                            hasFilters
+                            hasActiveColumnFilter(table)
                                 ? 'No matches'
                                 : 'No custom exercises yet'
                         }
                     />
-                }
+                )}
                 filterPlaceholder="Search exercises…"
                 filterPosition="bottom"
-                headerActions={
+                headerActions={(table) => (
                     <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-end">
                         <div className="flex flex-col gap-1">
                             <span className="text-[10px] tracking-wider text-muted-foreground uppercase">
                                 Muscle
                             </span>
-                            <Select
-                                onValueChange={setMuscleFilter}
-                                value={muscleFilter}
-                            >
-                                <SelectTrigger className="h-8 w-36 text-xs">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value={FILTER_ALL}>
-                                        All muscles
-                                    </SelectItem>
-                                    {MUSCLE_VALUES.map((m) => (
-                                        <SelectItem key={m} value={m}>
-                                            <span className="capitalize">
-                                                {m}
-                                            </span>
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <DataTableFacetSelect
+                                className="w-36"
+                                column={table.getColumn('primaryMuscle')}
+                                format={(value) => (
+                                    <span className="capitalize">{value}</span>
+                                )}
+                                placeholder="All muscles"
+                            />
                         </div>
                         <div className="flex flex-col gap-1">
                             <span className="text-[10px] tracking-wider text-muted-foreground uppercase">
                                 Equipment
                             </span>
-                            <Select
-                                onValueChange={setEquipmentFilter}
-                                value={equipmentFilter}
-                            >
-                                <SelectTrigger className="h-8 w-36 text-xs">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value={FILTER_ALL}>
-                                        All gear
-                                    </SelectItem>
-                                    {EQUIPMENT_VALUES.map((equipment) => (
-                                        <SelectItem
-                                            key={equipment}
-                                            value={equipment}
-                                        >
-                                            <span className="capitalize">
-                                                {equipment}
-                                            </span>
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <DataTableFacetSelect
+                                className="w-36"
+                                column={table.getColumn('equipment')}
+                                format={(value) => (
+                                    <span className="capitalize">{value}</span>
+                                )}
+                                placeholder="All gear"
+                            />
                         </div>
                     </div>
-                }
+                )}
                 isLoading={query.isLoading}
                 rowId={(r) => r.id}
                 showFilter

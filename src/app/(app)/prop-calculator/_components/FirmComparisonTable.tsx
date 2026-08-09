@@ -66,9 +66,6 @@ export default function FirmComparisonTable({
                 const sim = simulate({ ...inputs, plan, trials });
                 partial.push({ firm, out: sim, plan });
             }
-            partial.sort(
-                (a, b) => b.out.expectedMonthlyNet - a.out.expectedMonthlyNet,
-            );
             const bestNet =
                 partial.length === 0
                     ? -Infinity
@@ -193,6 +190,7 @@ export default function FirmComparisonTable({
                         title={pending ? 'Computing…' : 'No matching plans'}
                     />
                 }
+                initialSorting={[{ desc: true, id: 'monthlyNet' }]}
                 pageSize={null}
                 rowClassName={(r) =>
                     r.firm.id === activeFirmId

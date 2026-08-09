@@ -2,57 +2,44 @@
 
 import { ChevronRight, Dumbbell, Search } from 'lucide-react';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { Badge } from '~/components/ui/Badge';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { Checkbox } from '~/components/ui/Checkbox';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
+import {
+    DataTable,
+    type DataTableColumn,
+    DataTableFilterFunction,
+    hasActiveColumnFilter,
+} from '~/components/ui/DataTable';
+import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
 import { EmptyState } from '~/components/ui/EmptyState';
 import { Input } from '~/components/ui/Input';
 import { Label } from '~/components/ui/Label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/Select';
-import {
-    type Equipment,
-    EQUIPMENT_VALUES,
-    MUSCLE_VALUES,
-    type MuscleGroup,
-} from '~/lib/lifting/types';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
 
 type ExerciseRow = RouterOutputs['lifting']['exercise']['list'][number];
 
-const FILTER_ALL = '__all__';
-
 export function ExercisesBrowser() {
     const [search, setSearch] = useState('');
-    const [muscle, setMuscle] = useState<string>(FILTER_ALL);
-    const [equipment, setEquipment] = useState<string>(FILTER_ALL);
-    const [customOnly, setCustomOnly] = useState(false);
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+
+    useEffect(() => {
+        const id = setTimeout(() => setDebouncedSearch(search), 250);
+        return () => clearTimeout(id);
+    }, [search]);
 
     const exercises = api.lifting.exercise.list.useQuery({
-        equipment:
-            equipment === FILTER_ALL ? undefined : (equipment as Equipment),
         includeCustom: true,
         limit: 200,
-        muscle: muscle === FILTER_ALL ? undefined : (muscle as MuscleGroup),
         offset: 0,
-        search,
+        search: debouncedSearch,
     });
 
     const allRows = useMemo(() => exercises.data ?? [], [exercises.data]);
-    const rows = useMemo(
-        () => (customOnly ? allRows.filter((row) => row.isCustom) : allRows),
-        [allRows, customOnly],
-    );
 
     const stats = useMemo(() => {
         const custom = allRows.filter((row) => row.isCustom).length;
@@ -62,19 +49,6 @@ export function ExercisesBrowser() {
             total: allRows.length,
         };
     }, [allRows]);
-
-    const hasFilters =
-        search !== '' ||
-        muscle !== FILTER_ALL ||
-        equipment !== FILTER_ALL ||
-        customOnly;
-
-    const reset = () => {
-        setSearch('');
-        setMuscle(FILTER_ALL);
-        setEquipment(FILTER_ALL);
-        setCustomOnly(false);
-    };
 
     const columns = useMemo<DataTableColumn<ExerciseRow>[]>(
         () => [
@@ -97,6 +71,7 @@ export function ExercisesBrowser() {
                         {row.original.primaryMuscle}
                     </span>
                 ),
+                filterFn: DataTableFilterFunction.Equals,
                 header: 'Muscle',
             },
             {
@@ -106,6 +81,7 @@ export function ExercisesBrowser() {
                         {row.original.equipment}
                     </span>
                 ),
+                filterFn: DataTableFilterFunction.Equals,
                 header: 'Equipment',
             },
             {
@@ -118,6 +94,7 @@ export function ExercisesBrowser() {
                             Built-in
                         </span>
                     ),
+                filterFn: DataTableFilterFunction.Equals,
                 header: 'Source',
                 id: 'source',
             },
@@ -154,83 +131,24 @@ export function ExercisesBrowser() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-4">
-                    <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_auto]">
-                        <div className="flex flex-col gap-1.5">
-                            <Label className="text-xs">Search</Label>
-                            <div className="relative">
-                                <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                                <Input
-                                    className="pl-9"
-                                    onChange={(event) =>
-                                        setSearch(event.target.value)
-                                    }
-                                    placeholder="Search exercises…"
-                                    value={search}
-                                />
-                            </div>
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                            <Label className="text-xs">Muscle</Label>
-                            <Select onValueChange={setMuscle} value={muscle}>
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value={FILTER_ALL}>
-                                        All muscles
-                                    </SelectItem>
-                                    {MUSCLE_VALUES.map((m) => (
-                                        <SelectItem key={m} value={m}>
-                                            <span className="capitalize">
-                                                {m}
-                                            </span>
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                            <Label className="text-xs">Equipment</Label>
-                            <Select
-                                onValueChange={setEquipment}
-                                value={equipment}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value={FILTER_ALL}>
-                                        All gear
-                                    </SelectItem>
-                                    {EQUIPMENT_VALUES.map((eq) => (
-                                        <SelectItem key={eq} value={eq}>
-                                            <span className="capitalize">
-                                                {eq}
-                                            </span>
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <label
-                            className="flex h-9 cursor-pointer items-center gap-2 rounded-md border border-border/60 px-3 text-xs whitespace-nowrap"
-                            htmlFor="exercises-custom-only"
-                        >
-                            <Checkbox
-                                checked={customOnly}
-                                id="exercises-custom-only"
-                                onCheckedChange={(v) =>
-                                    setCustomOnly(v === true)
+                    <div className="flex flex-col gap-1.5">
+                        <Label className="text-xs">Search</Label>
+                        <div className="relative">
+                            <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                                className="pl-9"
+                                onChange={(event) =>
+                                    setSearch(event.target.value)
                                 }
+                                placeholder="Search exercises…"
+                                value={search}
                             />
-                            Custom only
-                        </label>
+                        </div>
                     </div>
-                    <ClearFiltersButton active={hasFilters} onReset={reset} />
 
                     <DataTable<ExerciseRow>
                         columns={columns}
-                        data={rows}
+                        data={allRows}
                         emptyState={
                             <EmptyState
                                 description="Try a different search or clear the filters."
@@ -238,6 +156,59 @@ export function ExercisesBrowser() {
                                 title="No exercises match"
                             />
                         }
+                        headerActions={(table) => {
+                            const sourceColumn = table.getColumn('source');
+                            return (
+                                <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto_auto]">
+                                    <div className="flex flex-col gap-1.5">
+                                        <Label className="text-xs">
+                                            Muscle
+                                        </Label>
+                                        <DataTableFacetSelect
+                                            column={table.getColumn(
+                                                'primaryMuscle',
+                                            )}
+                                            placeholder="All muscles"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <Label className="text-xs">
+                                            Equipment
+                                        </Label>
+                                        <DataTableFacetSelect
+                                            column={table.getColumn(
+                                                'equipment',
+                                            )}
+                                            placeholder="All gear"
+                                        />
+                                    </div>
+                                    <label
+                                        className="flex h-8 cursor-pointer items-center gap-2 rounded-md border border-border/60 px-3 text-xs whitespace-nowrap"
+                                        htmlFor="exercises-custom-only"
+                                    >
+                                        <Checkbox
+                                            checked={
+                                                sourceColumn?.getFilterValue() ===
+                                                1
+                                            }
+                                            id="exercises-custom-only"
+                                            onCheckedChange={(v) =>
+                                                sourceColumn?.setFilterValue(
+                                                    v === true ? 1 : undefined,
+                                                )
+                                            }
+                                        />
+                                        Custom only
+                                    </label>
+                                    <ClearFiltersButton
+                                        active={hasActiveColumnFilter(table)}
+                                        onReset={() =>
+                                            table.resetColumnFilters()
+                                        }
+                                    />
+                                </div>
+                            );
+                        }}
                         isLoading={exercises.isLoading}
                         pageSize={25}
                         rowId={(r) => r.id}

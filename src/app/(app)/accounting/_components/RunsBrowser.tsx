@@ -1,12 +1,12 @@
 'use client';
 
+import { type SortingState } from '@tanstack/react-table';
 import { format } from 'date-fns';
 import { ChevronRight, History } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
 import { Badge, type BadgeProperties } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
 import { Card, CardContent } from '~/components/ui/Card';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
 import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
@@ -22,11 +22,16 @@ import {
     CredentialRegistry,
     CredentialRole,
 } from '~/lib/accounting/credentials/index';
-import { RUN_STATUSES, type RunStatus } from '~/lib/accounting/runs/types';
+import {
+    RUN_SORT_KEYS,
+    RUN_STATUSES,
+    type RunStatus,
+} from '~/lib/accounting/runs/types';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
 
 const ALL = '__all__';
+const DEFAULT_SORTING: SortingState = [{ desc: true, id: 'createdAt' }];
 const PAGE_SIZE = 20;
 
 type RunRow = RouterOutputs['accounting']['runs']['list'][number];
@@ -53,11 +58,15 @@ export function RunsBrowser() {
         ALL,
     );
     const [targetFilter, setTargetFilter] = useState<string>(ALL);
+    const [sorting, setSorting] = useState<SortingState>(DEFAULT_SORTING);
     const credentialsQ = api.accounting.credentials.list.useQuery();
+    const sort = sorting[0];
     const runsQ = api.accounting.runs.list.useQuery({
         accountingCredentialId: targetFilter === ALL ? undefined : targetFilter,
         limit: PAGE_SIZE,
         offset,
+        sortBy: RUN_SORT_KEYS.find((k) => k === sort?.id),
+        sortDir: sort?.desc === false ? 'asc' : 'desc',
         status: statusFilter === ALL ? undefined : statusFilter,
     });
 
@@ -65,6 +74,10 @@ export function RunsBrowser() {
     const reset = () => {
         setStatusFilter(ALL);
         setTargetFilter(ALL);
+        setOffset(0);
+    };
+    const sortBy = (next: SortingState) => {
+        setSorting(next.length > 0 ? next : DEFAULT_SORTING);
         setOffset(0);
     };
 
@@ -86,8 +99,6 @@ export function RunsBrowser() {
     );
 
     const rows = runsQ.data ?? [];
-    const hasPrevious = offset > 0;
-    const hasNext = rows.length === PAGE_SIZE;
 
     const columns = useMemo<DataTableColumn<RunRow>[]>(
         () => [
@@ -266,42 +277,20 @@ export function RunsBrowser() {
                                     </Select>
                                 </div>
                             }
-                            initialSorting={[{ desc: true, id: 'createdAt' }]}
+                            initialSorting={DEFAULT_SORTING}
                             isLoading={runsQ.isPending}
+                            onSortingChange={sortBy}
                             pageSize={null}
                             rowId={(r) => r.id}
+                            serverPagination={{
+                                hasNextPage: rows.length === PAGE_SIZE,
+                                isPending: runsQ.isPending,
+                                onPageIndexChange: (pageIndex) =>
+                                    setOffset(pageIndex * PAGE_SIZE),
+                                pageIndex: offset / PAGE_SIZE,
+                                pageSize: PAGE_SIZE,
+                            }}
                         />
-                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                            <span>
-                                {rows.length > 0
-                                    ? `${offset + 1}–${offset + rows.length}`
-                                    : '0 results'}
-                            </span>
-                            <div className="flex gap-2">
-                                <Button
-                                    disabled={!hasPrevious || runsQ.isPending}
-                                    onClick={() =>
-                                        setOffset(
-                                            Math.max(0, offset - PAGE_SIZE),
-                                        )
-                                    }
-                                    size="sm"
-                                    variant="outline"
-                                >
-                                    Previous
-                                </Button>
-                                <Button
-                                    disabled={!hasNext || runsQ.isPending}
-                                    onClick={() =>
-                                        setOffset(offset + PAGE_SIZE)
-                                    }
-                                    size="sm"
-                                    variant="outline"
-                                >
-                                    Next
-                                </Button>
-                            </div>
-                        </div>
                     </div>
                 )}
             </CardContent>

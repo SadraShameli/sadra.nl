@@ -30,7 +30,13 @@ import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { Checkbox } from '~/components/ui/Checkbox';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
+import {
+    DataTable,
+    type DataTableColumn,
+    DataTableFilterFunction,
+    hasActiveColumnFilter,
+} from '~/components/ui/DataTable';
+import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
 import {
     Dialog,
     DialogContent,
@@ -49,7 +55,6 @@ import {
     FormMessage,
 } from '~/components/ui/Form';
 import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
 import {
     Select,
     SelectContent,
@@ -85,14 +90,10 @@ type EditDeviceValues = {
     register_interval: number;
 };
 
-const ALL = '__all__';
-
 export function DevicesPanel() {
     const utilities = api.useUtils();
     const devices = api.device.listAdmin.useQuery();
     const locations = api.location.listAdmin.useQuery();
-    const sensors = api.sensor.listAdmin.useQuery();
-    const deviceSensorMappings = api.sensor.listDeviceMappings.useQuery();
     const create = api.device.create.useMutation({
         onError: (error) => toast.error(error.message),
         onSuccess: async () => {
@@ -138,41 +139,7 @@ export function DevicesPanel() {
         token: string;
     }>(null);
 
-    const [locFilter, setLocFilter] = useState<string>(ALL);
-    const [developmentFilter, setDevelopmentFilter] = useState<string>(ALL);
-    const [sensFilter, setSensFilter] = useState<string>(ALL);
-    const hasFilters =
-        locFilter !== ALL || developmentFilter !== ALL || sensFilter !== ALL;
-    const resetFilters = () => {
-        setLocFilter(ALL);
-        setDevelopmentFilter(ALL);
-        setSensFilter(ALL);
-    };
     const allRows = useMemo(() => devices.data ?? [], [devices.data]);
-    const sensorOptions = useMemo(() => sensors.data ?? [], [sensors.data]);
-    const deviceIdsWithSensor = useMemo(() => {
-        if (sensFilter === ALL) return null;
-        const sensorId = Number(sensFilter);
-        return new Set(
-            (deviceSensorMappings.data ?? [])
-                .filter((m) => m.sensor_id === sensorId)
-                .map((m) => m.device_id),
-        );
-    }, [deviceSensorMappings.data, sensFilter]);
-    const rows = useMemo(
-        () =>
-            allRows.filter((d) => {
-                if (locFilter !== ALL && String(d.location_id) !== locFilter)
-                    return false;
-                if (
-                    developmentFilter !== ALL &&
-                    String(d.id) !== developmentFilter
-                )
-                    return false;
-                return !deviceIdsWithSensor || deviceIdsWithSensor.has(d.id);
-            }),
-        [allRows, locFilter, developmentFilter, deviceIdsWithSensor],
-    );
     const locOptions = useMemo(() => locations.data ?? [], [locations.data]);
     const locMap = useMemo(
         () => new Map(locOptions.map((l) => [l.id, l.name])),
@@ -204,6 +171,7 @@ export function DevicesPanel() {
                             `loc#${row.original.location_id}`}
                     </span>
                 ),
+                filterFn: DataTableFilterFunction.Equals,
                 header: 'Location',
                 id: 'location',
             },
@@ -379,39 +347,9 @@ export function DevicesPanel() {
             </CardHeader>
             <Separator />
             <CardContent className="flex flex-col gap-3">
-                <div className="grid grid-cols-1 items-end gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                    <FilterField
-                        label="Location"
-                        onChange={setLocFilter}
-                        options={locOptions.map((l) => ({
-                            id: String(l.id),
-                            name: l.name,
-                        }))}
-                        value={locFilter}
-                    />
-                    <FilterField
-                        label="Device"
-                        onChange={setDevelopmentFilter}
-                        options={allRows.map((d) => ({
-                            id: String(d.id),
-                            name: d.name,
-                        }))}
-                        value={developmentFilter}
-                    />
-                    <FilterField
-                        label="Sensor"
-                        onChange={setSensFilter}
-                        options={sensorOptions.map((s) => ({
-                            id: String(s.id),
-                            name: s.name,
-                        }))}
-                        value={sensFilter}
-                    />
-                </div>
-
                 <DataTable
                     columns={columns}
-                    data={rows}
+                    data={allRows}
                     emptyState={
                         <EmptyState
                             description="Register a sensor device to start collecting readings."
@@ -419,12 +357,19 @@ export function DevicesPanel() {
                             title="No devices yet"
                         />
                     }
-                    headerActions={
-                        <ClearFiltersButton
-                            active={hasFilters}
-                            onReset={resetFilters}
-                        />
-                    }
+                    headerActions={(table) => (
+                        <div className="flex w-full flex-wrap items-center gap-2">
+                            <ClearFiltersButton
+                                active={hasActiveColumnFilter(table)}
+                                onReset={() => table.resetColumnFilters()}
+                            />
+                            <DataTableFacetSelect
+                                className="w-40"
+                                column={table.getColumn('location')}
+                                placeholder="All locations"
+                            />
+                        </div>
+                    )}
                     isLoading={devices.isLoading}
                     rowId={(r) => String(r.id)}
                     showFilter
@@ -629,37 +574,6 @@ function EditDeviceDialog({
                 </form>
             </Form>
         </DialogContent>
-    );
-}
-
-function FilterField({
-    label,
-    onChange,
-    options,
-    value,
-}: {
-    label: string;
-    onChange: (v: string) => void;
-    options: { id: string; name: string }[];
-    value: string;
-}) {
-    return (
-        <div className="flex flex-col gap-1.5">
-            <Label className="text-xs">{label}</Label>
-            <Select onValueChange={onChange} value={value}>
-                <SelectTrigger>
-                    <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value={ALL}>All</SelectItem>
-                    {options.map((o) => (
-                        <SelectItem key={o.id} value={o.id}>
-                            {o.name}
-                        </SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
-        </div>
     );
 }
 

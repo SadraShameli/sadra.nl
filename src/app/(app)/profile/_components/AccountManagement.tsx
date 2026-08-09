@@ -20,7 +20,12 @@ import {
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
+import {
+    DataTable,
+    type DataTableColumn,
+    DataTableFilterFunction,
+} from '~/components/ui/DataTable';
+import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
 import {
     Dialog,
     DialogContent,
@@ -38,7 +43,6 @@ import {
     FormMessage,
 } from '~/components/ui/Form';
 import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
 import {
     Select,
     SelectContent,
@@ -48,14 +52,12 @@ import {
 } from '~/components/ui/Select';
 import { Separator } from '~/components/ui/Separator';
 import { authClient } from '~/lib/auth/client';
-import { type Role, ROLE_VALUES } from '~/lib/auth/roles';
+import { type Role } from '~/lib/auth/roles';
 import {
     type AdminUserCreateInput,
     adminUserCreateInputSchema,
 } from '~/lib/schemas/auth';
 import { cn } from '~/lib/utilities';
-
-const ALL = '__all__';
 
 interface UserRow {
     createdAt: Date | string;
@@ -71,7 +73,6 @@ export function AccountManagement({ callerRole }: { callerRole: Role }) {
     const [rows, setRows] = useState<UserRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [pending, setPending] = useState(false);
-    const [roleFilter, setRoleFilter] = useState<string>(ALL);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
 
     const refetch = useCallback(async () => {
@@ -84,14 +85,6 @@ export function AccountManagement({ callerRole }: { callerRole: Role }) {
     useEffect(() => {
         void refetch().finally(() => setLoading(false));
     }, [refetch]);
-
-    const filtered = useMemo(
-        () =>
-            roleFilter === ALL
-                ? rows
-                : rows.filter((r) => (r.role ?? 'user') === roleFilter),
-        [rows, roleFilter],
-    );
 
     const onSetRole = useCallback(
         async (userId: string, role: 'admin' | 'user') => {
@@ -175,11 +168,13 @@ export function AccountManagement({ callerRole }: { callerRole: Role }) {
                 header: 'Email',
             },
             {
-                accessorKey: 'role',
+                accessorFn: (r) => r.role ?? 'user',
                 cell: ({ row }) => (
                     <RoleBadge role={row.original.role ?? 'user'} />
                 ),
+                filterFn: DataTableFilterFunction.Equals,
                 header: 'Role',
+                id: 'role',
             },
             {
                 accessorKey: 'createdAt',
@@ -286,17 +281,17 @@ export function AccountManagement({ callerRole }: { callerRole: Role }) {
             </CardHeader>
             <Separator />
             <CardContent className="flex flex-col gap-3">
-                <FilterField
-                    label="Role"
-                    onChange={setRoleFilter}
-                    options={ROLE_VALUES.map((r) => ({ id: r, name: r }))}
-                    value={roleFilter}
-                />
-
                 <DataTable
                     columns={columns}
-                    data={filtered}
+                    data={rows}
                     emptyState={<EmptyState icon={Users} title="No users" />}
+                    headerActions={(table) => (
+                        <DataTableFacetSelect
+                            className="w-32"
+                            column={table.getColumn('role')}
+                            placeholder="All roles"
+                        />
+                    )}
                     isLoading={loading}
                     rowId={(r) => r.id}
                     showFilter
@@ -446,37 +441,6 @@ function CreateUserDialog({
                 </Form>
             </DialogContent>
         </Dialog>
-    );
-}
-
-function FilterField({
-    label,
-    onChange,
-    options,
-    value,
-}: {
-    label: string;
-    onChange: (v: string) => void;
-    options: { id: string; name: string }[];
-    value: string;
-}) {
-    return (
-        <div className="flex flex-col gap-1.5">
-            <Label className="text-xs">{label}</Label>
-            <Select onValueChange={onChange} value={value}>
-                <SelectTrigger>
-                    <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value={ALL}>All</SelectItem>
-                    {options.map((o) => (
-                        <SelectItem key={o.id} value={o.id}>
-                            {o.name}
-                        </SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
-        </div>
     );
 }
 

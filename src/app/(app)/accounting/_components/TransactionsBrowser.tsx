@@ -12,7 +12,12 @@ import type {
 import { Badge } from '~/components/ui/Badge';
 import { Card, CardContent } from '~/components/ui/Card';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
+import {
+    DataTable,
+    type DataTableColumn,
+    DataTableFilterFunction,
+    hasActiveColumnFilter,
+} from '~/components/ui/DataTable';
 import { DateRangePicker } from '~/components/ui/DatePicker';
 import { EmptyState } from '~/components/ui/EmptyState';
 import {
@@ -53,8 +58,6 @@ export function TransactionsBrowser() {
     const { accounting, source } = useActiveCredentials();
     const credentialId = source?.id ?? '';
     const accountingCredentialId = accounting?.id ?? '';
-    const [directionFilter, setDirectionFilter] = useState<string>(ALL);
-    const [matchFilter, setMatchFilter] = useState<string>(ALL);
     const [dateRange, setDateRange] = useState<DateRange | undefined>(
         defaultRange,
     );
@@ -77,21 +80,7 @@ export function TransactionsBrowser() {
         { enabled: !!credentialId && !!range },
     );
 
-    const rows = useMemo(() => {
-        const all = txnsQ.data ?? [];
-        return all.filter((t) => {
-            if (directionFilter !== ALL && t.direction !== directionFilter)
-                return false;
-            if (matchFilter === MATCHED && t.match === null) return false;
-            return matchFilter !== UNKNOWN || t.match === null;
-        });
-    }, [txnsQ.data, directionFilter, matchFilter]);
-
-    const hasFilters = directionFilter !== ALL || matchFilter !== ALL;
-    const reset = () => {
-        setDirectionFilter(ALL);
-        setMatchFilter(ALL);
-    };
+    const rows = useMemo(() => txnsQ.data ?? [], [txnsQ.data]);
 
     const columns = useMemo<DataTableColumn<TxnRow>[]>(
         () => [
@@ -119,6 +108,7 @@ export function TransactionsBrowser() {
                 cell: ({ row }) => (
                     <DirectionBadge direction={row.original.direction} />
                 ),
+                filterFn: DataTableFilterFunction.Equals,
                 header: 'Dir',
             },
             {
@@ -183,6 +173,12 @@ export function TransactionsBrowser() {
                         </div>
                     );
                 },
+                filterFn: (row, _columnId, filterValue: string) => {
+                    const match = row.original.match;
+                    if (filterValue === MATCHED) return match !== null;
+                    if (filterValue === UNKNOWN) return match === null;
+                    return true;
+                },
                 header: 'Match',
             },
         ],
@@ -201,11 +197,11 @@ export function TransactionsBrowser() {
                     <DataTable
                         columns={columns}
                         data={rows}
-                        emptyState={
+                        emptyState={(table) => (
                             <EmptyState
                                 description={
                                     credentialId
-                                        ? hasFilters
+                                        ? hasActiveColumnFilter(table)
                                             ? 'No transactions match this filter.'
                                             : 'Fetched transactions from this credential will appear here.'
                                         : 'Pick a transactions credential above to load transactions.'
@@ -217,14 +213,14 @@ export function TransactionsBrowser() {
                                         : 'No credential selected'
                                 }
                             />
-                        }
+                        )}
                         filterPlaceholder="Search transactions…"
-                        headerActions={
+                        headerActions={(table) => (
                             <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
                                 <ClearFiltersButton
-                                    active={hasFilters}
+                                    active={hasActiveColumnFilter(table)}
                                     className="hidden md:flex"
-                                    onReset={reset}
+                                    onReset={() => table.resetColumnFilters()}
                                 />
                                 <ActiveConnectionNote
                                     credential={source}
@@ -242,8 +238,19 @@ export function TransactionsBrowser() {
                                     value={dateRange}
                                 />
                                 <Select
-                                    onValueChange={setDirectionFilter}
-                                    value={directionFilter}
+                                    onValueChange={(v) =>
+                                        table
+                                            .getColumn('direction')
+                                            ?.setFilterValue(
+                                                v === ALL ? undefined : v,
+                                            )
+                                    }
+                                    value={
+                                        (table
+                                            .getColumn('direction')
+                                            ?.getFilterValue() as
+                                            string | undefined) ?? ALL
+                                    }
                                 >
                                     <SelectTrigger className="h-8 w-36 shrink-0 text-xs">
                                         <SelectValue />
@@ -257,8 +264,19 @@ export function TransactionsBrowser() {
                                     </SelectContent>
                                 </Select>
                                 <Select
-                                    onValueChange={setMatchFilter}
-                                    value={matchFilter}
+                                    onValueChange={(v) =>
+                                        table
+                                            .getColumn('match')
+                                            ?.setFilterValue(
+                                                v === ALL ? undefined : v,
+                                            )
+                                    }
+                                    value={
+                                        (table
+                                            .getColumn('match')
+                                            ?.getFilterValue() as
+                                            string | undefined) ?? ALL
+                                    }
                                 >
                                     <SelectTrigger className="h-8 w-36 shrink-0 text-xs">
                                         <SelectValue />
@@ -276,12 +294,12 @@ export function TransactionsBrowser() {
                                     </SelectContent>
                                 </Select>
                                 <ClearFiltersButton
-                                    active={hasFilters}
+                                    active={hasActiveColumnFilter(table)}
                                     className="md:hidden"
-                                    onReset={reset}
+                                    onReset={() => table.resetColumnFilters()}
                                 />
                             </div>
-                        }
+                        )}
                         initialSorting={[{ desc: true, id: 'date' }]}
                         isLoading={!!credentialId && txnsQ.isPending}
                         pageSize={25}

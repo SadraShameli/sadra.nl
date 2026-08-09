@@ -1,30 +1,31 @@
 'use client';
 
 import {
-    type ColumnDef,
-    columnFilteringFeature,
     type ColumnFiltersState,
-    columnVisibilityFeature,
-    createCoreRowModel,
-    createFilteredRowModel,
-    createPaginatedRowModel,
-    createSortedRowModel,
+    type ColumnVisibilityState,
     flexRender,
-    globalFilteringFeature,
     type ReactTable,
     type RowData,
-    rowPaginationFeature,
-    rowSelectionFeature,
     type RowSelectionState,
-    rowSortingFeature,
     type SortingState,
-    tableFeatures,
     useTable,
 } from '@tanstack/react-table';
-import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronRight } from 'lucide-react';
+import { Fragment, useState } from 'react';
 
-import { Button } from '~/components/ui/Button';
+import {
+    DATA_TABLE_ALIGN_CLASS_NAME,
+    DataTableAlign,
+    type DataTableColumn,
+    dataTableFeatures,
+    type DataTableRow,
+    type DataTableServerPagination,
+    type DataTableSlot,
+} from '~/components/ui/DataTable.features';
+import {
+    DataTableClientPagination,
+    DataTableServerPaginationControls,
+} from '~/components/ui/DataTablePagination';
 import { EmptyState } from '~/components/ui/EmptyState';
 import { Input } from '~/components/ui/Input';
 import { Skeleton } from '~/components/ui/Skeleton';
@@ -39,42 +40,42 @@ import {
 } from '~/components/ui/Table';
 import { cn } from '~/lib/utilities';
 
-const dataTableFeatures = tableFeatures({
-    columnFilteringFeature,
-    columnVisibilityFeature,
-    coreRowModel: createCoreRowModel(),
-    filteredRowModel: createFilteredRowModel(),
-    globalFilteringFeature,
-    paginatedRowModel: createPaginatedRowModel(),
-    rowPaginationFeature,
-    rowSelectionFeature,
-    rowSortingFeature,
-    sortedRowModel: createSortedRowModel(),
-});
-
-export type DataTableColumn<TData extends RowData> = ColumnDef<
-    typeof dataTableFeatures,
-    TData
->;
+export {
+    DataTableAlign,
+    type DataTableColumn,
+    type DataTableColumnMeta,
+    DataTableFilterFunction,
+    type DataTableInstance,
+    type DataTableRow,
+    type DataTableServerPagination,
+    type DataTableSlot,
+    DataTableSortFunction,
+    hasActiveColumnFilter,
+} from '~/components/ui/DataTable.features';
 
 export type DataTableProperties<TData extends RowData> = {
-    belowFilter?: React.ReactNode;
+    belowFilter?: DataTableSlot<TData>;
     className?: string;
     columns: DataTableColumn<TData>[];
     data: TData[];
     emptyMessage?: string;
-    emptyState?: React.ReactNode;
+    emptyState?: DataTableSlot<TData>;
     filterPlaceholder?: string;
     filterPosition?: 'bottom' | 'top';
-    footer?: React.ReactNode;
-    headerActions?: React.ReactNode;
+    footer?: DataTableSlot<TData>;
+    getRowCanExpand?: (row: DataTableRow<TData>) => boolean;
+    headerActions?: DataTableSlot<TData>;
+    initialColumnVisibility?: ColumnVisibilityState;
     initialSorting?: SortingState;
     isLoading?: boolean;
     onRowSelectionChange?: (rows: TData[]) => void;
+    onSortingChange?: (sorting: SortingState) => void;
     pageSize?: null | number;
+    renderExpanded?: (row: DataTableRow<TData>) => React.ReactNode;
     rowClassName?: (row: TData) => string | undefined;
     rowId?: (row: TData) => string;
     rowSelection?: boolean;
+    serverPagination?: DataTableServerPagination;
     showFilter?: boolean;
     skeletonRows?: number;
     tableClassName?: string;
@@ -90,14 +91,19 @@ export function DataTable<TData extends RowData>({
     filterPlaceholder = 'Search…',
     filterPosition = 'top',
     footer,
+    getRowCanExpand,
     headerActions,
+    initialColumnVisibility,
     initialSorting,
     isLoading,
     onRowSelectionChange,
+    onSortingChange,
     pageSize = 10,
+    renderExpanded,
     rowClassName,
     rowId,
     rowSelection: enableSelection = false,
+    serverPagination,
     showFilter = false,
     skeletonRows = 5,
     tableClassName,
@@ -108,34 +114,42 @@ export function DataTable<TData extends RowData>({
     const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 
     const table = useTable({
+        autoResetExpanded: false,
         columns,
         data,
         enableRowSelection: enableSelection,
         features: dataTableFeatures,
+        getRowCanExpand,
         getRowId: rowId ? (row) => rowId(row) : (_row, index) => String(index),
         initialState: {
+            columnVisibility: initialColumnVisibility,
             pagination: {
                 pageIndex: 0,
-                pageSize: pageSize ?? Infinity,
+                pageSize: serverPagination?.pageSize ?? pageSize ?? Infinity,
             },
         },
+        manualPagination: serverPagination !== undefined,
+        manualSorting: onSortingChange !== undefined,
         onColumnFiltersChange: setColumnFilters,
         onGlobalFilterChange: setGlobalFilter,
         onRowSelectionChange: (updater) => {
-            setRowSelection((previous) => {
-                const next =
-                    typeof updater === 'function' ? updater(previous) : updater;
-                if (onRowSelectionChange) {
-                    const selectedRows = table
-                        .getRowModel()
-                        .rows.filter((r) => next[r.id])
-                        .map((r) => r.original);
-                    onRowSelectionChange(selectedRows);
-                }
-                return next;
-            });
+            const next =
+                typeof updater === 'function' ? updater(rowSelection) : updater;
+            setRowSelection(next);
+            if (onRowSelectionChange) {
+                const selectedRows = table
+                    .getFilteredRowModel()
+                    .rows.filter((r) => next[r.id])
+                    .map((r) => r.original);
+                onRowSelectionChange(selectedRows);
+            }
         },
-        onSortingChange: setSorting,
+        onSortingChange: (updater) => {
+            const next =
+                typeof updater === 'function' ? updater(sorting) : updater;
+            setSorting(next);
+            onSortingChange?.(next);
+        },
         state: {
             columnFilters,
             globalFilter,
@@ -144,7 +158,7 @@ export function DataTable<TData extends RowData>({
         },
     });
 
-    const colCount = columns.length;
+    const colCount = table.getVisibleLeafColumns().length;
 
     return (
         <div className={cn('flex w-full min-w-0 flex-col gap-3', className)}>
@@ -153,7 +167,7 @@ export function DataTable<TData extends RowData>({
                 belowFilter !== undefined) &&
                 (filterPosition === 'bottom' ? (
                     <div className="flex flex-col gap-2">
-                        {headerActions}
+                        {renderDataTableSlot(headerActions, table)}
                         {(showFilter || belowFilter) && (
                             <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between md:gap-3">
                                 {showFilter ? (
@@ -168,7 +182,7 @@ export function DataTable<TData extends RowData>({
                                 ) : (
                                     <span />
                                 )}
-                                {belowFilter}
+                                {renderDataTableSlot(belowFilter, table)}
                             </div>
                         )}
                     </div>
@@ -186,7 +200,7 @@ export function DataTable<TData extends RowData>({
                         ) : (
                             <span />
                         )}
-                        {headerActions}
+                        {renderDataTableSlot(headerActions, table)}
                     </div>
                 ))}
             <div className="w-full min-w-0 overflow-hidden rounded-lg border border-border/60 bg-background">
@@ -203,19 +217,40 @@ export function DataTable<TData extends RowData>({
                                     const isSortable =
                                         header.column.getCanSort();
                                     const sorted = header.column.getIsSorted();
+                                    const align =
+                                        header.column.columnDef.meta?.align;
+                                    const headerLabel =
+                                        header.column.columnDef.meta?.label ??
+                                        flexRender(
+                                            header.column.columnDef.header,
+                                            header.getContext(),
+                                        );
                                     return (
-                                        <TableHead key={header.id}>
+                                        <TableHead
+                                            className={
+                                                align
+                                                    ? DATA_TABLE_ALIGN_CLASS_NAME[
+                                                          align
+                                                      ]
+                                                    : undefined
+                                            }
+                                            key={header.id}
+                                        >
                                             {header.isPlaceholder ? null : isSortable ? (
                                                 <button
-                                                    className="flex items-center gap-1 text-left transition-colors hover:text-white"
+                                                    className={cn(
+                                                        'flex items-center gap-1 text-left transition-colors hover:text-white',
+                                                        align ===
+                                                            DataTableAlign.End &&
+                                                            'w-full justify-end',
+                                                        align ===
+                                                            DataTableAlign.Center &&
+                                                            'w-full justify-center',
+                                                    )}
                                                     onClick={header.column.getToggleSortingHandler()}
                                                     type="button"
                                                 >
-                                                    {flexRender(
-                                                        header.column.columnDef
-                                                            .header,
-                                                        header.getContext(),
-                                                    )}
+                                                    {headerLabel}
                                                     {sorted === 'asc' && (
                                                         <ArrowUp className="size-3" />
                                                     )}
@@ -227,11 +262,7 @@ export function DataTable<TData extends RowData>({
                                                     )}
                                                 </button>
                                             ) : (
-                                                flexRender(
-                                                    header.column.columnDef
-                                                        .header,
-                                                    header.getContext(),
-                                                )
+                                                headerLabel
                                             )}
                                         </TableHead>
                                     );
@@ -262,7 +293,7 @@ export function DataTable<TData extends RowData>({
                         ) : table.getRowModel().rows.length === 0 ? (
                             <TableRow className="animate-in duration-500 fade-in-0 fill-mode-both hover:bg-transparent">
                                 <TableCell className="p-0" colSpan={colCount}>
-                                    {emptyState ?? (
+                                    {renderDataTableSlot(emptyState, table) ?? (
                                         <EmptyState title={emptyMessage} />
                                     )}
                                 </TableCell>
@@ -271,82 +302,120 @@ export function DataTable<TData extends RowData>({
                             table.getRowModel().rows.map((row, index) => {
                                 const delay = `${Math.min(index, 12) * 35}ms`;
                                 return (
-                                    <TableRow
-                                        className={cn(
-                                            'animate-in duration-500 fade-in-0 fill-mode-both',
-                                            rowClassName?.(row.original),
-                                        )}
-                                        data-state={
-                                            row.getIsSelected()
-                                                ? 'selected'
-                                                : undefined
-                                        }
-                                        key={row.id}
-                                        style={{ animationDelay: delay }}
-                                    >
-                                        {row.getVisibleCells().map((cell) => (
-                                            <TableCell key={cell.id}>
-                                                <div
-                                                    className="animate-in duration-500 fade-in-0 fill-mode-both slide-in-from-bottom-1"
-                                                    style={{
-                                                        animationDelay: delay,
-                                                    }}
-                                                >
-                                                    {flexRender(
+                                    <Fragment key={row.id}>
+                                        <TableRow
+                                            className={cn(
+                                                'animate-in duration-500 fade-in-0 fill-mode-both',
+                                                rowClassName?.(row.original),
+                                            )}
+                                            data-state={
+                                                row.getIsSelected()
+                                                    ? 'selected'
+                                                    : undefined
+                                            }
+                                            style={{ animationDelay: delay }}
+                                        >
+                                            {row
+                                                .getVisibleCells()
+                                                .map((cell) => {
+                                                    const align =
                                                         cell.column.columnDef
-                                                            .cell,
-                                                        cell.getContext(),
-                                                    )}
-                                                </div>
-                                            </TableCell>
-                                        ))}
-                                    </TableRow>
+                                                            .meta?.align;
+                                                    return (
+                                                        <TableCell
+                                                            className={
+                                                                align
+                                                                    ? DATA_TABLE_ALIGN_CLASS_NAME[
+                                                                          align
+                                                                      ]
+                                                                    : undefined
+                                                            }
+                                                            key={cell.id}
+                                                        >
+                                                            <div
+                                                                className="animate-in duration-500 fade-in-0 fill-mode-both slide-in-from-bottom-1"
+                                                                style={{
+                                                                    animationDelay:
+                                                                        delay,
+                                                                }}
+                                                            >
+                                                                {flexRender(
+                                                                    cell.column
+                                                                        .columnDef
+                                                                        .cell,
+                                                                    cell.getContext(),
+                                                                )}
+                                                            </div>
+                                                        </TableCell>
+                                                    );
+                                                })}
+                                        </TableRow>
+                                        {renderExpanded &&
+                                            row.getIsExpanded() && (
+                                                <TableRow className="hover:bg-transparent">
+                                                    <TableCell
+                                                        className="p-0"
+                                                        colSpan={colCount}
+                                                    >
+                                                        {renderExpanded(row)}
+                                                    </TableCell>
+                                                </TableRow>
+                                            )}
+                                    </Fragment>
                                 );
                             })
                         )}
                     </TableBody>
-                    {footer && !isLoading && data.length > 0 && (
-                        <TableFooter>{footer}</TableFooter>
+                    {footer !== undefined && !isLoading && data.length > 0 && (
+                        <TableFooter>
+                            {renderDataTableSlot(footer, table)}
+                        </TableFooter>
                     )}
                 </Table>
             </div>
-            {pageSize !== null && table.getPageCount() > 1 && (
-                <Pagination table={table} />
+            {serverPagination ? (
+                <DataTableServerPaginationControls
+                    pagination={serverPagination}
+                    rowCount={data.length}
+                />
+            ) : (
+                pageSize !== null &&
+                table.getPageCount() > 1 && (
+                    <DataTableClientPagination table={table} />
+                )
             )}
         </div>
     );
 }
 
-function Pagination<TData extends RowData>({
-    table,
-}: {
-    table: ReactTable<typeof dataTableFeatures, TData>;
-}) {
-    const pageIndex = table.state.pagination.pageIndex;
-    const pageCount = table.getPageCount();
-    return (
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>
-                Page {pageIndex + 1} of {pageCount}
-            </span>
-            <div className="flex gap-2">
-                <Button
-                    disabled={!table.getCanPreviousPage()}
-                    onClick={() => table.previousPage()}
-                    size="sm"
-                    variant="outline"
+export function dataTableExpanderColumn<
+    TData extends RowData,
+>(): DataTableColumn<TData> {
+    return {
+        cell: ({ row }) =>
+            row.getCanExpand() && (
+                <button
+                    className="flex size-6 items-center justify-center text-muted-foreground transition-colors hover:text-white"
+                    onClick={row.getToggleExpandedHandler()}
+                    type="button"
                 >
-                    Previous
-                </Button>
-                <Button
-                    disabled={!table.getCanNextPage()}
-                    onClick={() => table.nextPage()}
-                    size="sm"
-                    variant="outline"
-                >
-                    Next
-                </Button>
-            </div>
-        </div>
-    );
+                    <ChevronRight
+                        className={cn(
+                            'size-4 transition-transform',
+                            row.getIsExpanded() && 'rotate-90',
+                        )}
+                    />
+                </button>
+            ),
+        enableSorting: false,
+        header: () => <span className="sr-only">Expand</span>,
+        id: 'expander',
+    };
+}
+
+function renderDataTableSlot<TData extends RowData>(
+    slot: DataTableSlot<TData> | undefined,
+    table: ReactTable<typeof dataTableFeatures, TData>,
+): React.ReactNode {
+    return typeof slot === 'function' ? slot(table) : slot;
 }

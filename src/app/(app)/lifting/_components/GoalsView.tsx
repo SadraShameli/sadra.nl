@@ -47,7 +47,14 @@ import { Button } from '~/components/ui/Button';
 import { Calendar } from '~/components/ui/Calendar';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
+import {
+    DataTable,
+    DataTableAlign,
+    type DataTableColumn,
+    DataTableFilterFunction,
+    type DataTableInstance,
+} from '~/components/ui/DataTable';
+import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
 import { DatePicker, DateRangePicker } from '~/components/ui/DatePicker';
 import { EmptyState } from '~/components/ui/EmptyState';
 import {
@@ -68,7 +75,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '~/components/ui/Select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
+import { Tabs, TabsList, TabsTrigger } from '~/components/ui/Tabs';
 import {
     Tooltip,
     TooltipContent,
@@ -99,7 +106,6 @@ const STATUS_FILTER = {
     PAUSED: 'paused',
 } as const;
 
-const FILTER_ALL = '__all__';
 const EXERCISE_NONE = '__none__';
 
 const STATUS_FILTER_VALUES = [
@@ -109,8 +115,6 @@ const STATUS_FILTER_VALUES = [
 
 type StatusBadgeVariant =
     'default' | 'destructive' | 'secondary' | 'success' | 'warning';
-
-type StatusFilter = (typeof STATUS_FILTER_VALUES)[number];
 
 const STATUS_LABEL: Record<GoalStatus, string> = {
     achieved: 'Achieved',
@@ -225,13 +229,6 @@ export function GoalsView() {
         },
         resolver: zodResolver(goalInputSchema),
     });
-    const [statusFilter, setStatusFilter] = useState<StatusFilter>(
-        STATUS_FILTER.ACTIVE,
-    );
-    const [kindFilter, setKindFilter] = useState<GoalKind | typeof FILTER_ALL>(
-        FILTER_ALL,
-    );
-    const [exerciseFilter, setExerciseFilter] = useState<string>(FILTER_ALL);
     const [targetDateRange, setTargetDateRange] = useState<
         DateRange | undefined
     >();
@@ -241,55 +238,29 @@ export function GoalsView() {
     const heatmap = useMemo(() => buildHeatmap(goals), [goals]);
     const calendarMarkers = useMemo(() => buildCalendarMarkers(goals), [goals]);
 
-    const exerciseOptions = useMemo(() => {
-        const seen = new Map<string, string>();
+    const exerciseNameById = useMemo(() => {
+        const map = new Map<string, string>();
         for (const g of goals) {
-            if (g.exerciseId && g.exerciseName && !seen.has(g.exerciseId)) {
-                seen.set(g.exerciseId, g.exerciseName);
+            if (g.exerciseId && g.exerciseName) {
+                map.set(g.exerciseId, g.exerciseName);
             }
         }
-        return [...seen].map(([id, name]) => ({ id, name }));
+        return map;
     }, [goals]);
 
-    const targetFrom = targetDateRange?.from
-        ? startOfDay(targetDateRange.from)
-        : undefined;
-    const targetTo = targetDateRange?.to
-        ? endOfDay(targetDateRange.to)
-        : undefined;
+    const EXTRA_FILTER_COLUMNS = ['kind', 'exercise', 'targetDate'] as const;
 
-    const filtered = useMemo(() => {
-        return goals.filter((g) => {
-            if (statusFilter !== STATUS_FILTER.ALL && g.status !== statusFilter)
-                return false;
-            if (kindFilter !== FILTER_ALL && g.kind !== kindFilter)
-                return false;
-            if (exerciseFilter !== FILTER_ALL) {
-                if (exerciseFilter === EXERCISE_NONE) {
-                    if (g.exerciseId) return false;
-                } else if (g.exerciseId !== exerciseFilter) {
-                    return false;
-                }
-            }
-            if (targetFrom || targetTo) {
-                if (!g.targetDate) return false;
-                const t = parseISO(g.targetDate);
-                if (targetFrom && t < targetFrom) return false;
-                if (targetTo && t > targetTo) return false;
-            }
-            return true;
-        });
-    }, [goals, statusFilter, kindFilter, exerciseFilter, targetFrom, targetTo]);
+    const hasExtraFilters = (table: DataTableInstance<GoalRow>): boolean =>
+        EXTRA_FILTER_COLUMNS.some(
+            (id) => table.getColumn(id)?.getFilterValue() !== undefined,
+        );
 
-    const clearExtraFilters = () => {
-        setKindFilter(FILTER_ALL);
-        setExerciseFilter(FILTER_ALL);
+    const clearExtraFilters = (table: DataTableInstance<GoalRow>) => {
         setTargetDateRange(undefined);
+        for (const id of EXTRA_FILTER_COLUMNS) {
+            table.getColumn(id)?.setFilterValue(undefined);
+        }
     };
-    const hasExtraFilters =
-        kindFilter !== FILTER_ALL ||
-        exerciseFilter !== FILTER_ALL ||
-        Boolean(targetDateRange);
 
     const setStatus = useCallback(
         (g: GoalRow, status: GoalStatus) => {
@@ -325,6 +296,7 @@ export function GoalsView() {
                         {KIND_LABEL[row.original.kind]}
                     </Badge>
                 ),
+                filterFn: DataTableFilterFunction.Equals,
                 header: 'Kind',
                 id: 'kind',
             },
@@ -342,6 +314,7 @@ export function GoalsView() {
                 header: 'Target',
             },
             {
+                accessorFn: (row) => row.exerciseId ?? EXERCISE_NONE,
                 cell: ({ row }) =>
                     row.original.exerciseSlug && row.original.exerciseName ? (
                         <Link
@@ -356,17 +329,20 @@ export function GoalsView() {
                         <span className="text-xs text-muted-foreground">—</span>
                     ),
                 enableSorting: false,
+                filterFn: DataTableFilterFunction.Equals,
                 header: 'Exercise',
                 id: 'exercise',
             },
             {
-                accessorFn: (row) => row.targetDate ?? '',
+                accessorFn: (row) =>
+                    row.targetDate ? parseISO(row.targetDate).getTime() : -1,
                 cell: ({ row }) => (
                     <TargetDateCell
                         status={row.original.status}
                         targetDate={row.original.targetDate}
                     />
                 ),
+                filterFn: DataTableFilterFunction.InNumberRange,
                 header: 'Target date',
                 id: 'targetDate',
             },
@@ -377,6 +353,7 @@ export function GoalsView() {
                         {STATUS_LABEL[row.original.status]}
                     </Badge>
                 ),
+                filterFn: DataTableFilterFunction.Equals,
                 header: 'Status',
                 id: 'status',
             },
@@ -425,8 +402,9 @@ export function GoalsView() {
                     />
                 ),
                 enableSorting: false,
-                header: () => <span className="block text-right">Actions</span>,
+                header: 'Actions',
                 id: 'actions',
+                meta: { align: DataTableAlign.End },
             },
         ],
         [markAchieved, update, remove, setStatus, unitWeight],
@@ -658,124 +636,149 @@ export function GoalsView() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <Tabs
-                        onValueChange={(v) =>
-                            setStatusFilter(v as StatusFilter)
-                        }
-                        value={statusFilter}
-                    >
-                        <TabsList className="mb-3 flex h-auto w-fit flex-wrap self-start">
-                            {STATUS_FILTER_VALUES.map((s) => (
-                                <TabsTrigger key={s} value={s}>
-                                    <span className="capitalize">
-                                        {s === STATUS_FILTER.ALL
-                                            ? 'All'
-                                            : STATUS_LABEL[s]}
-                                    </span>
-                                    <span className="ml-1.5 text-[10px] text-muted-foreground tabular-nums">
-                                        {tabCount(goals, s)}
-                                    </span>
-                                </TabsTrigger>
-                            ))}
-                        </TabsList>
+                    <DataTable<GoalRow>
+                        belowFilter={(table) => (
+                            <ClearFiltersButton
+                                active={hasExtraFilters(table)}
+                                onReset={() => clearExtraFilters(table)}
+                            />
+                        )}
+                        columns={columns}
+                        data={goals}
+                        emptyState={(table) => {
+                            const status =
+                                (table.getColumn('status')?.getFilterValue() as
+                                    GoalStatus | undefined) ??
+                                STATUS_FILTER.ALL;
+                            return (
+                                <EmptyState
+                                    description={
+                                        status === STATUS_FILTER.ALL
+                                            ? 'Set a target so you have something to chase.'
+                                            : `No ${STATUS_LABEL[status].toLowerCase()} goals.`
+                                    }
+                                    icon={Target}
+                                    title="Nothing here yet"
+                                />
+                            );
+                        }}
+                        filterPosition="bottom"
+                        headerActions={(table) => {
+                            const statusColumn = table.getColumn('status');
+                            const statusFacets =
+                                statusColumn?.getFacetedUniqueValues() ??
+                                new Map<string, number>();
+                            const totalCount = statusFacets
+                                .values()
+                                .reduce((sum, n) => sum + n, 0);
+                            const currentStatus =
+                                (statusColumn?.getFilterValue() as
+                                    GoalStatus | undefined) ??
+                                STATUS_FILTER.ALL;
+                            return (
+                                <div className="flex w-full flex-col gap-3">
+                                    <Tabs
+                                        onValueChange={(v) =>
+                                            statusColumn?.setFilterValue(
+                                                v === STATUS_FILTER.ALL
+                                                    ? undefined
+                                                    : v,
+                                            )
+                                        }
+                                        value={currentStatus}
+                                    >
+                                        <TabsList className="flex h-auto w-fit flex-wrap self-start">
+                                            {STATUS_FILTER_VALUES.map((s) => (
+                                                <TabsTrigger key={s} value={s}>
+                                                    <span className="capitalize">
+                                                        {s === STATUS_FILTER.ALL
+                                                            ? 'All'
+                                                            : STATUS_LABEL[s]}
+                                                    </span>
+                                                    <span className="ml-1.5 text-[10px] text-muted-foreground tabular-nums">
+                                                        {s === STATUS_FILTER.ALL
+                                                            ? totalCount
+                                                            : (statusFacets.get(
+                                                                  s,
+                                                              ) ?? 0)}
+                                                    </span>
+                                                </TabsTrigger>
+                                            ))}
+                                        </TabsList>
+                                    </Tabs>
 
-                        <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_2fr]">
-                            <div className="flex flex-col gap-1.5">
-                                <Label className="text-xs">Kind</Label>
-                                <Select
-                                    onValueChange={(v) =>
-                                        setKindFilter(
-                                            v as GoalKind | typeof FILTER_ALL,
-                                        )
-                                    }
-                                    value={kindFilter}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value={FILTER_ALL}>
-                                            All kinds
-                                        </SelectItem>
-                                        {GOAL_KIND_VALUES.map((k) => (
-                                            <SelectItem key={k} value={k}>
-                                                {KIND_LABEL[k]}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="flex flex-col gap-1.5">
-                                <Label className="text-xs">Exercise</Label>
-                                <Select
-                                    onValueChange={setExerciseFilter}
-                                    value={exerciseFilter}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value={FILTER_ALL}>
-                                            All exercises
-                                        </SelectItem>
-                                        <SelectItem value={EXERCISE_NONE}>
-                                            Unassigned
-                                        </SelectItem>
-                                        {exerciseOptions.map((exercise) => (
-                                            <SelectItem
-                                                key={exercise.id}
-                                                value={exercise.id}
-                                            >
-                                                {exercise.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="flex flex-col gap-1.5">
-                                <Label className="text-xs">Target date</Label>
-                                <DateRangePicker
-                                    onChange={setTargetDateRange}
-                                    placeholder="Any target date"
-                                    value={targetDateRange}
-                                />
-                            </div>
-                        </div>
-                        {STATUS_FILTER_VALUES.map((s) => (
-                            <TabsContent key={s} value={s}>
-                                <DataTable<GoalRow>
-                                    columns={columns}
-                                    data={filtered}
-                                    emptyState={
-                                        <EmptyState
-                                            description={
-                                                s === STATUS_FILTER.ALL
-                                                    ? 'Set a target so you have something to chase.'
-                                                    : `No ${STATUS_LABEL[s].toLowerCase()} goals.`
-                                            }
-                                            icon={Target}
-                                            title="Nothing here yet"
-                                        />
-                                    }
-                                    headerActions={
-                                        <ClearFiltersButton
-                                            active={hasExtraFilters}
-                                            onReset={clearExtraFilters}
-                                        />
-                                    }
-                                    isLoading={goalsQuery.isLoading}
-                                    pageSize={10}
-                                    rowClassName={(r) =>
-                                        r.status === GOAL_STATUS.ACHIEVED
-                                            ? 'bg-emerald-500/5'
-                                            : undefined
-                                    }
-                                    rowId={(r) => r.id}
-                                    showFilter
-                                />
-                            </TabsContent>
-                        ))}
-                    </Tabs>
+                                    <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_2fr]">
+                                        <div className="flex flex-col gap-1.5">
+                                            <Label className="text-xs">
+                                                Kind
+                                            </Label>
+                                            <DataTableFacetSelect
+                                                column={table.getColumn('kind')}
+                                                format={(k) =>
+                                                    KIND_LABEL[k as GoalKind]
+                                                }
+                                                placeholder="All kinds"
+                                            />
+                                        </div>
+                                        <div className="flex flex-col gap-1.5">
+                                            <Label className="text-xs">
+                                                Exercise
+                                            </Label>
+                                            <DataTableFacetSelect
+                                                column={table.getColumn(
+                                                    'exercise',
+                                                )}
+                                                format={(id) =>
+                                                    id === EXERCISE_NONE
+                                                        ? 'Unassigned'
+                                                        : (exerciseNameById.get(
+                                                              id,
+                                                          ) ?? id)
+                                                }
+                                                placeholder="All exercises"
+                                            />
+                                        </div>
+                                        <div className="flex flex-col gap-1.5">
+                                            <Label className="text-xs">
+                                                Target date
+                                            </Label>
+                                            <DateRangePicker
+                                                onChange={(range) => {
+                                                    setTargetDateRange(range);
+                                                    table
+                                                        .getColumn('targetDate')
+                                                        ?.setFilterValue(
+                                                            range?.from
+                                                                ? [
+                                                                      startOfDay(
+                                                                          range.from,
+                                                                      ).getTime(),
+                                                                      endOfDay(
+                                                                          range.to ??
+                                                                              range.from,
+                                                                      ).getTime(),
+                                                                  ]
+                                                                : undefined,
+                                                        );
+                                                }}
+                                                placeholder="Any target date"
+                                                value={targetDateRange}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        }}
+                        isLoading={goalsQuery.isLoading}
+                        pageSize={10}
+                        rowClassName={(r) =>
+                            r.status === GOAL_STATUS.ACHIEVED
+                                ? 'bg-emerald-500/5'
+                                : undefined
+                        }
+                        rowId={(r) => r.id}
+                        showFilter
+                    />
                 </CardContent>
             </Card>
         </div>
@@ -791,11 +794,6 @@ function computeStats(goals: GoalRow[]): Stats {
     };
     for (const g of goals) counts[g.status]++;
     return { ...counts, total: goals.length };
-}
-
-function tabCount(goals: GoalRow[], status: StatusFilter): number {
-    if (status === STATUS_FILTER.ALL) return goals.length;
-    return goals.filter((g) => g.status === status).length;
 }
 
 const STAT_TONE: Record<

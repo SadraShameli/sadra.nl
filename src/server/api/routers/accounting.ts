@@ -26,7 +26,11 @@ import '~/lib/accounting/providers/index';
 import { ProviderRegistry } from '~/lib/accounting/providers/provider';
 import { loadRuleSet } from '~/lib/accounting/rules/load';
 import { accountingRunRepo } from '~/lib/accounting/runs/repo';
-import { RUN_STATUSES } from '~/lib/accounting/runs/types';
+import {
+    RUN_SORT_KEYS,
+    RUN_STATUSES,
+    SORT_DIRECTIONS,
+} from '~/lib/accounting/runs/types';
 import '~/lib/accounting/sources/index';
 import {
     type ApiSource,
@@ -241,6 +245,8 @@ const runsListInputSchema = z.object({
     accountingCredentialId: z.uuid().optional(),
     limit: z.number().int().min(1).max(100).default(20),
     offset: z.number().int().min(0).default(0),
+    sortBy: z.enum(RUN_SORT_KEYS).optional(),
+    sortDir: z.enum(SORT_DIRECTIONS).optional(),
     status: z.enum(RUN_STATUSES).optional(),
 });
 
@@ -873,6 +879,8 @@ export const accountingRouter = createTRPCRouter({
                             : CredentialId(input.accountingCredentialId),
                     limit: input.limit,
                     offset: input.offset,
+                    sortBy: input.sortBy,
+                    sortDir: input.sortDir,
                     status: input.status,
                 });
                 return runs.map((r) => ({

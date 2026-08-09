@@ -3,7 +3,7 @@
 import { format } from 'date-fns';
 import { ExternalLink, LibraryBig, LogOut, Trash2 } from 'lucide-react';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { toast } from 'sonner';
 
 import {
@@ -20,7 +20,13 @@ import {
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
+import {
+    DataTable,
+    type DataTableColumn,
+    DataTableFilterFunction,
+    hasActiveColumnFilter,
+} from '~/components/ui/DataTable';
+import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
 import { EmptyState } from '~/components/ui/EmptyState';
 import {
     Select,
@@ -29,10 +35,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '~/components/ui/Select';
-import {
-    PROGRAM_CATEGORY_VALUES,
-    USER_PROGRAM_STATUS_VALUES,
-} from '~/lib/lifting/types';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
 
@@ -64,40 +66,11 @@ export function ProgramsManager() {
         },
     });
 
-    const [categoryFilter, setCategoryFilter] = useState<string>(FILTER_ALL);
-    const [daysFilter, setDaysFilter] = useState<string>(FILTER_ALL);
-    const ownedRows = useMemo(() => {
-        const all = mine.data?.owned ?? [];
-        return all.filter((p) => {
-            if (categoryFilter !== FILTER_ALL && p.category !== categoryFilter)
-                return false;
-            return (
-                daysFilter === FILTER_ALL ||
-                String(p.daysPerWeek) === daysFilter
-            );
-        });
-    }, [mine.data, categoryFilter, daysFilter]);
-    const daysOptions = useMemo(
-        () =>
-            [
-                ...new Set((mine.data?.owned ?? []).map((p) => p.daysPerWeek)),
-            ].toSorted((a, b) => a - b),
+    const ownedRows = useMemo(() => mine.data?.owned ?? [], [mine.data]);
+    const enrollments = useMemo(
+        () => mine.data?.enrollments ?? [],
         [mine.data],
     );
-    const hasOwnedFilters =
-        categoryFilter !== FILTER_ALL || daysFilter !== FILTER_ALL;
-    const resetOwnedFilters = () => {
-        setCategoryFilter(FILTER_ALL);
-        setDaysFilter(FILTER_ALL);
-    };
-    const [statusFilter, setStatusFilter] = useState<string>(FILTER_ALL);
-    const enrollments = useMemo(() => {
-        const all = mine.data?.enrollments ?? [];
-        if (statusFilter === FILTER_ALL) return all;
-        return all.filter((enrollment) => enrollment.status === statusFilter);
-    }, [mine.data, statusFilter]);
-    const hasEnrollmentFilters = statusFilter !== FILTER_ALL;
-    const resetEnrollmentFilters = () => setStatusFilter(FILTER_ALL);
 
     const programNameById = useMemo(() => {
         const map = new Map<string, string>();
@@ -128,6 +101,7 @@ export function ProgramsManager() {
                         {row.original.category}
                     </span>
                 ),
+                filterFn: DataTableFilterFunction.Equals,
                 header: 'Category',
             },
             {
@@ -138,6 +112,7 @@ export function ProgramsManager() {
                         {row.original.lengthWeeks} wk
                     </span>
                 ),
+                filterFn: DataTableFilterFunction.Equals,
                 header: 'Structure',
             },
             {
@@ -219,6 +194,7 @@ export function ProgramsManager() {
                 cell: ({ row }) => (
                     <Badge variant="secondary">{row.original.status}</Badge>
                 ),
+                filterFn: DataTableFilterFunction.Equals,
                 header: 'Status',
             },
             {
@@ -319,86 +295,101 @@ export function ProgramsManager() {
                     </Button>
                 </div>
                 <DataTable
-                    belowFilter={
+                    belowFilter={(table) => (
                         <ClearFiltersButton
-                            active={hasOwnedFilters}
-                            onReset={resetOwnedFilters}
+                            active={hasActiveColumnFilter(table)}
+                            onReset={() => table.resetColumnFilters()}
                         />
-                    }
+                    )}
                     columns={ownedColumns}
                     data={ownedRows}
-                    emptyState={
+                    emptyState={(table) => (
                         <EmptyState
                             description={
-                                hasOwnedFilters
+                                hasActiveColumnFilter(table)
                                     ? 'No programs match these filters.'
                                     : 'Build one from the programs page, or duplicate an official program to customize.'
                             }
                             icon={LibraryBig}
                             title={
-                                hasOwnedFilters
+                                hasActiveColumnFilter(table)
                                     ? 'No matches'
                                     : 'No custom programs'
                             }
                         />
-                    }
+                    )}
                     filterPlaceholder="Search programs…"
                     filterPosition="bottom"
-                    headerActions={
-                        <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-end">
-                            <div className="flex flex-col gap-1">
-                                <span className="text-[10px] tracking-wider text-muted-foreground uppercase">
-                                    Category
-                                </span>
-                                <Select
-                                    onValueChange={setCategoryFilter}
-                                    value={categoryFilter}
-                                >
-                                    <SelectTrigger className="h-8 w-40 text-xs">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value={FILTER_ALL}>
-                                            All categories
-                                        </SelectItem>
-                                        {PROGRAM_CATEGORY_VALUES.map((c) => (
-                                            <SelectItem key={c} value={c}>
-                                                <span className="capitalize">
-                                                    {c}
-                                                </span>
+                    headerActions={(table) => {
+                        const daysColumn = table.getColumn('daysPerWeek');
+                        if (!daysColumn) return null;
+                        const daysOptions = (
+                            [...daysColumn.getFacetedUniqueValues()] as [
+                                number,
+                                number,
+                            ][]
+                        ).toSorted(([a], [b]) => a - b);
+                        return (
+                            <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-end">
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-[10px] tracking-wider text-muted-foreground uppercase">
+                                        Category
+                                    </span>
+                                    <DataTableFacetSelect
+                                        className="w-40"
+                                        column={table.getColumn('category')}
+                                        format={(value) => (
+                                            <span className="capitalize">
+                                                {value}
+                                            </span>
+                                        )}
+                                        placeholder="All categories"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-[10px] tracking-wider text-muted-foreground uppercase">
+                                        Frequency
+                                    </span>
+                                    <Select
+                                        onValueChange={(v) =>
+                                            daysColumn.setFilterValue(
+                                                v === FILTER_ALL
+                                                    ? undefined
+                                                    : Number(v),
+                                            )
+                                        }
+                                        value={
+                                            daysColumn.getFilterValue() ===
+                                            undefined
+                                                ? FILTER_ALL
+                                                : String(
+                                                      daysColumn.getFilterValue(),
+                                                  )
+                                        }
+                                    >
+                                        <SelectTrigger className="h-8 w-36 text-xs">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value={FILTER_ALL}>
+                                                Any frequency
                                             </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                            {daysOptions.map(
+                                                ([days, count]) => (
+                                                    <SelectItem
+                                                        key={days}
+                                                        value={String(days)}
+                                                    >
+                                                        {days}× / week ({count})
+                                                    </SelectItem>
+                                                ),
+                                            )}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             </div>
-                            <div className="flex flex-col gap-1">
-                                <span className="text-[10px] tracking-wider text-muted-foreground uppercase">
-                                    Frequency
-                                </span>
-                                <Select
-                                    onValueChange={setDaysFilter}
-                                    value={daysFilter}
-                                >
-                                    <SelectTrigger className="h-8 w-36 text-xs">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value={FILTER_ALL}>
-                                            Any frequency
-                                        </SelectItem>
-                                        {daysOptions.map((d) => (
-                                            <SelectItem
-                                                key={d}
-                                                value={String(d)}
-                                            >
-                                                {d}× / week
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-                    }
+                        );
+                    }}
                     isLoading={mine.isLoading}
                     rowId={(r) => r.id}
                     showFilter
@@ -415,60 +406,50 @@ export function ProgramsManager() {
                     </p>
                 </div>
                 <DataTable
-                    belowFilter={
+                    belowFilter={(table) => (
                         <ClearFiltersButton
-                            active={hasEnrollmentFilters}
-                            onReset={resetEnrollmentFilters}
+                            active={hasActiveColumnFilter(table)}
+                            onReset={() => table.resetColumnFilters()}
                         />
-                    }
+                    )}
                     columns={enrollmentColumns}
                     data={enrollments}
-                    emptyState={
+                    emptyState={(table) => (
                         <EmptyState
                             description={
-                                hasEnrollmentFilters
+                                hasActiveColumnFilter(table)
                                     ? 'No enrollments match this filter.'
                                     : 'Enroll in a program from the programs page.'
                             }
                             icon={LibraryBig}
                             title={
-                                hasEnrollmentFilters
+                                hasActiveColumnFilter(table)
                                     ? 'No matches'
                                     : 'No active enrollments'
                             }
                         />
-                    }
+                    )}
                     filterPlaceholder="Search enrollments…"
                     filterPosition="bottom"
-                    headerActions={
+                    headerActions={(table) => (
                         <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-end">
                             <div className="flex flex-col gap-1">
                                 <span className="text-[10px] tracking-wider text-muted-foreground uppercase">
                                     Status
                                 </span>
-                                <Select
-                                    onValueChange={setStatusFilter}
-                                    value={statusFilter}
-                                >
-                                    <SelectTrigger className="h-8 w-36 text-xs">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value={FILTER_ALL}>
-                                            All statuses
-                                        </SelectItem>
-                                        {USER_PROGRAM_STATUS_VALUES.map((s) => (
-                                            <SelectItem key={s} value={s}>
-                                                <span className="capitalize">
-                                                    {s}
-                                                </span>
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <DataTableFacetSelect
+                                    className="w-36"
+                                    column={table.getColumn('status')}
+                                    format={(value) => (
+                                        <span className="capitalize">
+                                            {value}
+                                        </span>
+                                    )}
+                                    placeholder="All statuses"
+                                />
                             </div>
                         </div>
-                    }
+                    )}
                     isLoading={mine.isLoading}
                     rowId={(r) => r.id}
                     showFilter

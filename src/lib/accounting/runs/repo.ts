@@ -1,16 +1,28 @@
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, sql, type SQLWrapper } from 'drizzle-orm';
 import 'server-only';
 
 import type { Booking } from '~/lib/accounting/core/types';
 import type {
     RunOutcome,
+    RunSortKey,
     RunStatus,
     RunSummary,
+    SortDirection,
 } from '~/lib/accounting/runs/types';
 
 import { CredentialId, RunId, UserId } from '~/lib/accounting/core/ids';
 import { canEditBooking } from '~/lib/accounting/runs/edit-policy';
-import { accountingRun, db } from '~/server/db';
+import { accountingCredential, accountingRun, db } from '~/server/db';
+
+const RUN_SORT_EXPRESSIONS: Record<RunSortKey, SQLWrapper> = {
+    accountingCredentialId: sql`(select ${accountingCredential.label} from ${accountingCredential} where ${accountingCredential.id} = ${accountingRun.accountingCredentialId})`,
+    bookingsCount: sql`(${accountingRun.summary} ->> 'bookingsCount')::numeric`,
+    createdAt: accountingRun.createdAt,
+    startDate: accountingRun.startDate,
+    status: accountingRun.status,
+    totalEur: sql`(${accountingRun.summary} ->> 'totalEur')::numeric`,
+    unknownsCount: sql`(${accountingRun.summary} ->> 'unknownsCount')::numeric`,
+};
 
 export interface AccountingRun {
     accountingCredentialId: CredentialId | null;
@@ -73,9 +85,12 @@ export class AccountingRunRepo {
             accountingCredentialId?: CredentialId;
             limit?: number;
             offset?: number;
+            sortBy?: RunSortKey;
+            sortDir?: SortDirection;
             status?: RunStatus;
         } = {},
     ): Promise<AccountingRun[]> {
+        const orderBy = options.sortDir === 'asc' ? asc : desc;
         const rows = await db
             .select()
             .from(accountingRun)
@@ -93,7 +108,9 @@ export class AccountingRunRepo {
                         : eq(accountingRun.status, options.status),
                 ),
             )
-            .orderBy(desc(accountingRun.createdAt))
+            .orderBy(
+                orderBy(RUN_SORT_EXPRESSIONS[options.sortBy ?? 'createdAt']),
+            )
             .limit(options.limit ?? 20)
             .offset(options.offset ?? 0);
         return rows.map(toAccountingRun);

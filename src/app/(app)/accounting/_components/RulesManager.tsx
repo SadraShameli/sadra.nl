@@ -23,7 +23,13 @@ import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
+import {
+    DataTable,
+    type DataTableColumn,
+    DataTableFilterFunction,
+    hasActiveColumnFilter,
+} from '~/components/ui/DataTable';
+import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
 import { DateRangePicker } from '~/components/ui/DatePicker';
 import {
     Dialog,
@@ -50,7 +56,6 @@ import { LedgerCombobox } from './LedgerCombobox';
 import { useActiveCredentials } from './useActiveCredentials';
 import { type TaxCodeOption, useTaxCodes } from './useTaxCodes';
 
-const ALL = '__all__';
 const VAT_NONE = '__none__';
 const toastError = (error: { message: string }) => toast.error(error.message);
 
@@ -513,43 +518,11 @@ function BankAccountsCard({
     });
 
     const [form, setForm] = useState<'new' | BankAccountView | null>(null);
-    const [currencyFilter, setCurrencyFilter] = useState<string>(ALL);
-    const [ledgerFilter, setLedgerFilter] = useState<string>(ALL);
 
     const allAccounts = useMemo(
         () => (banksQ.data ?? []) as BankAccountView[],
         [banksQ.data],
     );
-    const currencies = useMemo(
-        () =>
-            [...new Set(allAccounts.map((a) => a.currency))].toSorted((a, b) =>
-                a.localeCompare(b),
-            ),
-        [allAccounts],
-    );
-    const ledgerLabels = useMemo(
-        () =>
-            [...new Set(allAccounts.map((a) => a.ledger.label))].toSorted(
-                (a, b) => a.localeCompare(b),
-            ),
-        [allAccounts],
-    );
-
-    const rows = useMemo(
-        () =>
-            allAccounts.filter((a) => {
-                if (currencyFilter !== ALL && a.currency !== currencyFilter)
-                    return false;
-                return ledgerFilter === ALL || a.ledger.label === ledgerFilter;
-            }),
-        [allAccounts, currencyFilter, ledgerFilter],
-    );
-
-    const hasFilters = currencyFilter !== ALL || ledgerFilter !== ALL;
-    const reset = () => {
-        setCurrencyFilter(ALL);
-        setLedgerFilter(ALL);
-    };
 
     const columns = useMemo<DataTableColumn<BankAccountView>[]>(
         () => [
@@ -561,6 +534,7 @@ function BankAccountsCard({
                     </span>
                 ),
                 enableSorting: true,
+                filterFn: DataTableFilterFunction.Equals,
                 header: 'Currency',
             },
             {
@@ -571,6 +545,7 @@ function BankAccountsCard({
                     </span>
                 ),
                 enableSorting: true,
+                filterFn: DataTableFilterFunction.Equals,
                 header: 'Ledger',
                 id: 'ledger',
             },
@@ -609,64 +584,40 @@ function BankAccountsCard({
             <CardContent className="flex flex-col gap-3">
                 <DataTable
                     columns={columns}
-                    data={rows}
-                    emptyState={
+                    data={allAccounts}
+                    emptyState={(table) => (
                         <EmptyState
                             description={
-                                hasFilters
+                                hasActiveColumnFilter(table)
                                     ? 'No bank accounts match the current filters.'
                                     : 'Map a Wise currency to a ledger to start importing.'
                             }
                             icon={Landmark}
                             title={
-                                hasFilters ? 'No matches' : 'No bank accounts'
+                                hasActiveColumnFilter(table)
+                                    ? 'No matches'
+                                    : 'No bank accounts'
                             }
                         />
-                    }
+                    )}
                     filterPlaceholder="Search accounts…"
-                    headerActions={
+                    headerActions={(table) => (
                         <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
                             <ClearFiltersButton
-                                active={hasFilters}
+                                active={hasActiveColumnFilter(table)}
                                 className="hidden md:flex"
-                                onReset={reset}
+                                onReset={() => table.resetColumnFilters()}
                             />
-                            <Select
-                                onValueChange={setCurrencyFilter}
-                                value={currencyFilter}
-                            >
-                                <SelectTrigger className="h-8 w-40 shrink-0 text-xs">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value={ALL}>
-                                        All currencies
-                                    </SelectItem>
-                                    {currencies.map((c) => (
-                                        <SelectItem key={c} value={c}>
-                                            {c}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <Select
-                                onValueChange={setLedgerFilter}
-                                value={ledgerFilter}
-                            >
-                                <SelectTrigger className="h-8 w-48 shrink-0 text-xs">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value={ALL}>
-                                        All ledgers
-                                    </SelectItem>
-                                    {ledgerLabels.map((l) => (
-                                        <SelectItem key={l} value={l}>
-                                            {l}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <DataTableFacetSelect
+                                className="w-40"
+                                column={table.getColumn('currency')}
+                                placeholder="All currencies"
+                            />
+                            <DataTableFacetSelect
+                                className="w-48"
+                                column={table.getColumn('ledger')}
+                                placeholder="All ledgers"
+                            />
                             <Button
                                 className="shrink-0"
                                 onClick={() => setForm('new')}
@@ -675,7 +626,7 @@ function BankAccountsCard({
                                 <Plus className="size-3.5" /> Add account
                             </Button>
                         </div>
-                    }
+                    )}
                     initialSorting={[{ desc: false, id: 'currency' }]}
                     isLoading={banksQ.isPending}
                     pageSize={25}
@@ -767,7 +718,7 @@ function RulesCard({
     ledgerOptions: LedgerReference[];
     sourceCredentialId?: string;
 }) {
-    const { labelOf, options: taxCodeOptions } = useTaxCodes(credentialId);
+    const { labelOf } = useTaxCodes(credentialId);
     const utilities = api.useUtils();
     const rulesQ = api.accounting.rules.list.useQuery({ credentialId });
     const del = api.accounting.rules.delete.useMutation({
@@ -782,9 +733,6 @@ function RulesCard({
     });
 
     const [form, setForm] = useState<'new' | null | RuleView>(null);
-    const [directionFilter, setDirectionFilter] = useState<string>(ALL);
-    const [vatFilter, setVatFilter] = useState<string>(ALL);
-    const [ledgerFilter, setLedgerFilter] = useState<string>(ALL);
 
     const allRules = useMemo(
         () => (rulesQ.data ?? []) as RuleView[],
@@ -808,32 +756,6 @@ function RulesCard({
         },
         [allRules, credentialId, reorderMutate],
     );
-    const ledgerLabels = useMemo(
-        () =>
-            [...new Set(allRules.map((r) => r.ledger.label))].toSorted((a, b) =>
-                a.localeCompare(b),
-            ),
-        [allRules],
-    );
-
-    const rows = useMemo(
-        () =>
-            allRules.filter((r) => {
-                if (directionFilter !== ALL && r.direction !== directionFilter)
-                    return false;
-                if (vatFilter !== ALL && r.taxCode !== vatFilter) return false;
-                return ledgerFilter === ALL || r.ledger.label === ledgerFilter;
-            }),
-        [allRules, directionFilter, vatFilter, ledgerFilter],
-    );
-
-    const hasFilters =
-        directionFilter !== ALL || vatFilter !== ALL || ledgerFilter !== ALL;
-    const reset = () => {
-        setDirectionFilter(ALL);
-        setVatFilter(ALL);
-        setLedgerFilter(ALL);
-    };
 
     const columns = useMemo<DataTableColumn<RuleView>[]>(
         () => [
@@ -853,6 +775,7 @@ function RulesCard({
                     <DirectionBadge direction={row.original.direction} />
                 ),
                 enableSorting: true,
+                filterFn: DataTableFilterFunction.Equals,
                 header: 'Dir',
             },
             {
@@ -868,6 +791,7 @@ function RulesCard({
                     </span>
                 ),
                 enableSorting: true,
+                filterFn: DataTableFilterFunction.Equals,
                 header: 'Ledger',
                 id: 'ledger',
             },
@@ -879,17 +803,19 @@ function RulesCard({
                     </Badge>
                 ),
                 enableSorting: true,
+                filterFn: DataTableFilterFunction.Equals,
                 header: 'VAT',
             },
             {
-                cell: ({ row }) => {
+                cell: ({ row, table }) => {
                     const index = allRules.findIndex(
                         (r) => r.id === row.original.id,
                     );
+                    const isFiltered = hasActiveColumnFilter(table);
                     return (
                         <div className="flex items-center gap-1">
                             <Button
-                                disabled={hasFilters || index <= 0}
+                                disabled={isFiltered || index <= 0}
                                 onClick={() => move(row.original.id, 'up')}
                                 size="icon"
                                 variant="ghost"
@@ -898,7 +824,7 @@ function RulesCard({
                             </Button>
                             <Button
                                 disabled={
-                                    hasFilters ||
+                                    isFiltered ||
                                     index === -1 ||
                                     index >= allRules.length - 1
                                 }
@@ -932,7 +858,7 @@ function RulesCard({
                 id: 'actions',
             },
         ],
-        [allRules, del, hasFilters, labelOf, move],
+        [allRules, del, labelOf, move],
     );
 
     return (
@@ -943,77 +869,46 @@ function RulesCard({
             <CardContent className="flex flex-col gap-3">
                 <DataTable
                     columns={columns}
-                    data={rows}
-                    emptyState={
+                    data={allRules}
+                    emptyState={(table) => (
                         <EmptyState
                             description={
-                                hasFilters
+                                hasActiveColumnFilter(table)
                                     ? 'No rules match the current filters.'
                                     : 'Add a rule to classify transactions.'
                             }
                             icon={Filter}
-                            title={hasFilters ? 'No matches' : 'No rules yet'}
+                            title={
+                                hasActiveColumnFilter(table)
+                                    ? 'No matches'
+                                    : 'No rules yet'
+                            }
                         />
-                    }
+                    )}
                     filterPlaceholder="Search rules…"
-                    headerActions={
+                    headerActions={(table) => (
                         <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
                             <ClearFiltersButton
-                                active={hasFilters}
+                                active={hasActiveColumnFilter(table)}
                                 className="hidden md:flex"
-                                onReset={reset}
+                                onReset={() => table.resetColumnFilters()}
                             />
-                            <Select
-                                onValueChange={setDirectionFilter}
-                                value={directionFilter}
-                            >
-                                <SelectTrigger className="h-8 w-40 shrink-0 text-xs">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value={ALL}>
-                                        All directions
-                                    </SelectItem>
-                                    <SelectItem value="IN">In</SelectItem>
-                                    <SelectItem value="OUT">Out</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <Select
-                                onValueChange={setLedgerFilter}
-                                value={ledgerFilter}
-                            >
-                                <SelectTrigger className="h-8 w-48 shrink-0 text-xs">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value={ALL}>
-                                        All ledgers
-                                    </SelectItem>
-                                    {ledgerLabels.map((l) => (
-                                        <SelectItem key={l} value={l}>
-                                            {l}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <Select
-                                onValueChange={setVatFilter}
-                                value={vatFilter}
-                            >
-                                <SelectTrigger className="h-8 w-44 shrink-0 text-xs">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value={ALL}>
-                                        All VAT codes
-                                    </SelectItem>
-                                    {taxCodeOptions.map((o) => (
-                                        <SelectItem key={o.code} value={o.code}>
-                                            {o.label}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <DataTableFacetSelect
+                                className="w-40"
+                                column={table.getColumn('direction')}
+                                placeholder="All directions"
+                            />
+                            <DataTableFacetSelect
+                                className="w-48"
+                                column={table.getColumn('ledger')}
+                                placeholder="All ledgers"
+                            />
+                            <DataTableFacetSelect
+                                className="w-44"
+                                column={table.getColumn('taxCode')}
+                                format={labelOf}
+                                placeholder="All VAT codes"
+                            />
                             <Button
                                 className="shrink-0"
                                 onClick={() => setForm('new')}
@@ -1022,7 +917,7 @@ function RulesCard({
                                 <Plus className="size-3.5" /> Add rule
                             </Button>
                         </div>
-                    }
+                    )}
                     isLoading={rulesQ.isPending}
                     pageSize={25}
                     rowId={(r) => r.id}

@@ -23,7 +23,14 @@ import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import AreaChartNew from '~/components/ui/Chart/AreaChartNew';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
+import {
+    DataTable,
+    type DataTableColumn,
+    DataTableFilterFunction,
+    type DataTableSlot,
+    hasActiveColumnFilter,
+} from '~/components/ui/DataTable';
+import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
 import { DatePicker, DateRangePicker } from '~/components/ui/DatePicker';
 import { EmptyState } from '~/components/ui/EmptyState';
 import {
@@ -79,8 +86,6 @@ const TAPE_KINDS: ReadonlySet<MeasurementKind> = new Set([
     'waist',
 ]);
 
-const FILTER_ALL = '__all__';
-
 interface Stats {
     bodyfat: MeasurementRow | undefined;
     total: number;
@@ -94,18 +99,9 @@ export function BodyView() {
     const unitWeight = settings.data?.unitWeight ?? 'kg';
     const unitLength = settings.data?.unitLength ?? 'cm';
 
-    const [kindFilter, setKindFilter] = useState<string>(FILTER_ALL);
-    const [unitFilter, setUnitFilter] = useState<string>(FILTER_ALL);
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
-    const measurements = api.lifting.measurement.list.useQuery({
-        from: dateRange?.from ? startOfDay(dateRange.from) : undefined,
-        kind:
-            kindFilter === FILTER_ALL
-                ? undefined
-                : (kindFilter as MeasurementKind),
-        to: dateRange?.to ? endOfDay(dateRange.to) : undefined,
-    });
+    const measurements = api.lifting.measurement.list.useQuery({});
 
     const create = api.lifting.measurement.create.useMutation({
         onError: (error) => toast.error(error.message),
@@ -119,21 +115,8 @@ export function BodyView() {
         onSuccess: () => utilities.lifting.measurement.list.invalidate(),
     });
 
-    const allRows = useMemo(() => measurements.data ?? [], [measurements.data]);
-    const rows = useMemo(
-        () =>
-            unitFilter === FILTER_ALL
-                ? allRows
-                : allRows.filter((r) => r.unit === unitFilter),
-        [allRows, unitFilter],
-    );
+    const rows = useMemo(() => measurements.data ?? [], [measurements.data]);
     const stats = useStats(rows);
-
-    const clearFilters = () => {
-        setKindFilter(FILTER_ALL);
-        setUnitFilter(FILTER_ALL);
-        setDateRange(undefined);
-    };
 
     return (
         <div className="flex flex-col gap-6">
@@ -155,73 +138,67 @@ export function BodyView() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-4">
-                    <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_2fr]">
-                        <div className="flex flex-col gap-1.5">
-                            <Label className="text-xs">Kind</Label>
-                            <Select
-                                onValueChange={setKindFilter}
-                                value={kindFilter}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value={FILTER_ALL}>
-                                        All kinds
-                                    </SelectItem>
-                                    {MEASUREMENT_KIND_VALUES.map((k) => (
-                                        <SelectItem key={k} value={k}>
-                                            <span className="capitalize">
-                                                {k.replaceAll('_', ' ')}
-                                            </span>
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                            <Label className="text-xs">Unit</Label>
-                            <Select
-                                onValueChange={setUnitFilter}
-                                value={unitFilter}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value={FILTER_ALL}>
-                                        All units
-                                    </SelectItem>
-                                    {MEASUREMENT_UNIT_VALUES.map((u) => (
-                                        <SelectItem key={u} value={u}>
-                                            {u}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                            <Label className="text-xs">Date range</Label>
-                            <DateRangePicker
-                                maxDate={new Date()}
-                                onChange={setDateRange}
-                                placeholder="Any time"
-                                value={dateRange}
-                            />
-                        </div>
-                    </div>
-
                     <MeasurementsHistoryTable
-                        headerActions={
-                            <ClearFiltersButton
-                                active={
-                                    kindFilter !== FILTER_ALL ||
-                                    unitFilter !== FILTER_ALL ||
-                                    Boolean(dateRange)
-                                }
-                                onReset={clearFilters}
-                            />
-                        }
+                        headerActions={(table) => (
+                            <div className="flex w-full flex-col gap-3">
+                                <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_2fr]">
+                                    <div className="flex flex-col gap-1.5">
+                                        <Label className="text-xs">Kind</Label>
+                                        <DataTableFacetSelect
+                                            column={table.getColumn('kind')}
+                                            format={(k) => (
+                                                <span className="capitalize">
+                                                    {k.replaceAll('_', ' ')}
+                                                </span>
+                                            )}
+                                            placeholder="All kinds"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <Label className="text-xs">Unit</Label>
+                                        <DataTableFacetSelect
+                                            column={table.getColumn('unit')}
+                                            placeholder="All units"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <Label className="text-xs">
+                                            Date range
+                                        </Label>
+                                        <DateRangePicker
+                                            maxDate={new Date()}
+                                            onChange={(range) => {
+                                                setDateRange(range);
+                                                table
+                                                    .getColumn('takenAt')
+                                                    ?.setFilterValue(
+                                                        range?.from
+                                                            ? [
+                                                                  startOfDay(
+                                                                      range.from,
+                                                                  ).getTime(),
+                                                                  endOfDay(
+                                                                      range.to ??
+                                                                          range.from,
+                                                                  ).getTime(),
+                                                              ]
+                                                            : undefined,
+                                                    );
+                                            }}
+                                            placeholder="Any time"
+                                            value={dateRange}
+                                        />
+                                    </div>
+                                </div>
+                                <ClearFiltersButton
+                                    active={hasActiveColumnFilter(table)}
+                                    onReset={() => {
+                                        setDateRange(undefined);
+                                        table.resetColumnFilters();
+                                    }}
+                                />
+                            </div>
+                        )}
                         isLoading={measurements.isLoading}
                         onDelete={(id) => remove.mutate({ id })}
                         rows={rows}
@@ -516,7 +493,7 @@ function MeasurementsHistoryTable({
     onDelete,
     rows,
 }: {
-    headerActions?: React.ReactNode;
+    headerActions?: DataTableSlot<MeasurementRow>;
     isLoading: boolean;
     onDelete: (id: string) => void;
     rows: MeasurementRow[];
@@ -530,6 +507,7 @@ function MeasurementsHistoryTable({
                         {row.original.kind.replaceAll('_', ' ')}
                     </span>
                 ),
+                filterFn: DataTableFilterFunction.Equals,
                 header: 'Kind',
                 id: 'kind',
             },
@@ -544,12 +522,19 @@ function MeasurementsHistoryTable({
                 id: 'value',
             },
             {
+                accessorFn: (r) => r.unit,
+                filterFn: DataTableFilterFunction.Equals,
+                header: 'Unit',
+                id: 'unit',
+            },
+            {
                 accessorFn: (r) => new Date(r.takenAt).getTime(),
                 cell: ({ row }) => (
                     <span className="text-xs text-muted-foreground tabular-nums">
                         {format(new Date(row.original.takenAt), 'MMM d HH:mm')}
                     </span>
                 ),
+                filterFn: DataTableFilterFunction.InNumberRange,
                 header: 'Logged',
                 id: 'takenAt',
             },
@@ -628,6 +613,7 @@ function MeasurementsHistoryTable({
                 />
             }
             headerActions={headerActions}
+            initialColumnVisibility={{ unit: false }}
             isLoading={isLoading}
             pageSize={25}
             rowId={(r) => r.id}
