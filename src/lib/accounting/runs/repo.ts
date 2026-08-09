@@ -69,12 +69,30 @@ export class AccountingRunRepo {
 
     async list(
         userId: UserId,
-        options: { limit?: number; offset?: number } = {},
+        options: {
+            accountingCredentialId?: CredentialId;
+            limit?: number;
+            offset?: number;
+            status?: RunStatus;
+        } = {},
     ): Promise<AccountingRun[]> {
         const rows = await db
             .select()
             .from(accountingRun)
-            .where(eq(accountingRun.userId, userId))
+            .where(
+                and(
+                    eq(accountingRun.userId, userId),
+                    options.accountingCredentialId === undefined
+                        ? undefined
+                        : eq(
+                              accountingRun.accountingCredentialId,
+                              options.accountingCredentialId,
+                          ),
+                    options.status === undefined
+                        ? undefined
+                        : eq(accountingRun.status, options.status),
+                ),
+            )
             .orderBy(desc(accountingRun.createdAt))
             .limit(options.limit ?? 20)
             .offset(options.offset ?? 0);

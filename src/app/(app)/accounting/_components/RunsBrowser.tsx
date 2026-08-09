@@ -8,12 +8,25 @@ import { useMemo, useState } from 'react';
 import { Badge, type BadgeProperties } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent } from '~/components/ui/Card';
+import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
 import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import { EmptyState } from '~/components/ui/EmptyState';
-import { type RunStatus } from '~/lib/accounting/runs/types';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '~/components/ui/Select';
+import {
+    CredentialRegistry,
+    CredentialRole,
+} from '~/lib/accounting/credentials/index';
+import { RUN_STATUSES, type RunStatus } from '~/lib/accounting/runs/types';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
 
+const ALL = '__all__';
 const PAGE_SIZE = 20;
 
 type RunRow = RouterOutputs['accounting']['runs']['list'][number];
@@ -36,11 +49,24 @@ const formatEur = (n: number) =>
 
 export function RunsBrowser() {
     const [offset, setOffset] = useState(0);
+    const [statusFilter, setStatusFilter] = useState<RunStatus | typeof ALL>(
+        ALL,
+    );
+    const [targetFilter, setTargetFilter] = useState<string>(ALL);
     const credentialsQ = api.accounting.credentials.list.useQuery();
     const runsQ = api.accounting.runs.list.useQuery({
+        accountingCredentialId: targetFilter === ALL ? undefined : targetFilter,
         limit: PAGE_SIZE,
         offset,
+        status: statusFilter === ALL ? undefined : statusFilter,
     });
+
+    const hasFilters = statusFilter !== ALL || targetFilter !== ALL;
+    const reset = () => {
+        setStatusFilter(ALL);
+        setTargetFilter(ALL);
+        setOffset(0);
+    };
 
     const labelByCredentialId = useMemo(() => {
         const map = new Map<string, string>();
@@ -48,6 +74,16 @@ export function RunsBrowser() {
         for (const c of credentials) map.set(c.id, c.label);
         return map;
     }, [credentialsQ.data]);
+
+    const targets = useMemo(
+        () =>
+            (credentialsQ.data ?? []).filter(
+                (c) =>
+                    CredentialRegistry.instance.get(c.kind)?.role ===
+                    CredentialRole.Accounting,
+            ),
+        [credentialsQ.data],
+    );
 
     const rows = runsQ.data ?? [];
     const hasPrevious = offset > 0;
@@ -161,10 +197,74 @@ export function RunsBrowser() {
                             data={rows}
                             emptyState={
                                 <EmptyState
-                                    description="Plan a run from the dashboard to see it appear here."
+                                    description={
+                                        hasFilters
+                                            ? 'No runs match the current filters.'
+                                            : 'Plan a run from the dashboard to see it appear here.'
+                                    }
                                     icon={History}
-                                    title="No runs yet"
+                                    title={
+                                        hasFilters
+                                            ? 'No matches'
+                                            : 'No runs yet'
+                                    }
                                 />
+                            }
+                            headerActions={
+                                <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
+                                    <ClearFiltersButton
+                                        active={hasFilters}
+                                        className="hidden md:flex"
+                                        onReset={reset}
+                                    />
+                                    <Select
+                                        onValueChange={(v) => {
+                                            setStatusFilter(
+                                                v as RunStatus | typeof ALL,
+                                            );
+                                            setOffset(0);
+                                        }}
+                                        value={statusFilter}
+                                    >
+                                        <SelectTrigger className="h-8 w-40 shrink-0 text-xs">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value={ALL}>
+                                                All statuses
+                                            </SelectItem>
+                                            {RUN_STATUSES.map((s) => (
+                                                <SelectItem key={s} value={s}>
+                                                    {s}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <Select
+                                        onValueChange={(v) => {
+                                            setTargetFilter(v);
+                                            setOffset(0);
+                                        }}
+                                        value={targetFilter}
+                                    >
+                                        <SelectTrigger className="h-8 w-48 shrink-0 text-xs">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value={ALL}>
+                                                All targets
+                                            </SelectItem>
+                                            {targets.map((c) => (
+                                                <SelectItem
+                                                    key={c.id}
+                                                    value={c.id}
+                                                >
+                                                    {c.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             }
                             initialSorting={[{ desc: true, id: 'createdAt' }]}
                             isLoading={runsQ.isPending}

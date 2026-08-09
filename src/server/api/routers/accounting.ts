@@ -3,7 +3,12 @@ import { and, asc, eq, inArray } from 'drizzle-orm';
 import 'server-only';
 import { z } from 'zod';
 
-import { LedgerId, RunId, UserId } from '~/lib/accounting/core/ids';
+import {
+    CredentialId,
+    LedgerId,
+    RunId,
+    UserId,
+} from '~/lib/accounting/core/ids';
 import { Rule } from '~/lib/accounting/core/rules/rule';
 import { RuleSet } from '~/lib/accounting/core/rules/rule-set';
 import { BOOKING_DIRECTIONS } from '~/lib/accounting/core/types';
@@ -21,6 +26,7 @@ import '~/lib/accounting/providers/index';
 import { ProviderRegistry } from '~/lib/accounting/providers/provider';
 import { loadRuleSet } from '~/lib/accounting/rules/load';
 import { accountingRunRepo } from '~/lib/accounting/runs/repo';
+import { RUN_STATUSES } from '~/lib/accounting/runs/types';
 import '~/lib/accounting/sources/index';
 import {
     type ApiSource,
@@ -232,8 +238,10 @@ const mutationsListInputSchema = z.object({
 });
 
 const runsListInputSchema = z.object({
+    accountingCredentialId: z.uuid().optional(),
     limit: z.number().int().min(1).max(100).default(20),
     offset: z.number().int().min(0).default(0),
+    status: z.enum(RUN_STATUSES).optional(),
 });
 
 const runsUpdateBookingInputSchema = z.object({
@@ -859,8 +867,13 @@ export const accountingRouter = createTRPCRouter({
             .input(runsListInputSchema)
             .query(async ({ ctx, input }) => {
                 const runs = await accountingRunRepo.list(UserId(ctx.userId), {
+                    accountingCredentialId:
+                        input.accountingCredentialId === undefined
+                            ? undefined
+                            : CredentialId(input.accountingCredentialId),
                     limit: input.limit,
                     offset: input.offset,
+                    status: input.status,
                 });
                 return runs.map((r) => ({
                     accountingCredentialId: r.accountingCredentialId,

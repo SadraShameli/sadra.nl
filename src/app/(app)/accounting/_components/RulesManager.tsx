@@ -513,7 +513,43 @@ function BankAccountsCard({
     });
 
     const [form, setForm] = useState<'new' | BankAccountView | null>(null);
-    const rows = (banksQ.data ?? []) as BankAccountView[];
+    const [currencyFilter, setCurrencyFilter] = useState<string>(ALL);
+    const [ledgerFilter, setLedgerFilter] = useState<string>(ALL);
+
+    const allAccounts = useMemo(
+        () => (banksQ.data ?? []) as BankAccountView[],
+        [banksQ.data],
+    );
+    const currencies = useMemo(
+        () =>
+            [...new Set(allAccounts.map((a) => a.currency))].toSorted((a, b) =>
+                a.localeCompare(b),
+            ),
+        [allAccounts],
+    );
+    const ledgerLabels = useMemo(
+        () =>
+            [...new Set(allAccounts.map((a) => a.ledger.label))].toSorted(
+                (a, b) => a.localeCompare(b),
+            ),
+        [allAccounts],
+    );
+
+    const rows = useMemo(
+        () =>
+            allAccounts.filter((a) => {
+                if (currencyFilter !== ALL && a.currency !== currencyFilter)
+                    return false;
+                return ledgerFilter === ALL || a.ledger.label === ledgerFilter;
+            }),
+        [allAccounts, currencyFilter, ledgerFilter],
+    );
+
+    const hasFilters = currencyFilter !== ALL || ledgerFilter !== ALL;
+    const reset = () => {
+        setCurrencyFilter(ALL);
+        setLedgerFilter(ALL);
+    };
 
     const columns = useMemo<DataTableColumn<BankAccountView>[]>(
         () => [
@@ -576,24 +612,75 @@ function BankAccountsCard({
                     data={rows}
                     emptyState={
                         <EmptyState
-                            description="Map a Wise currency to a ledger to start importing."
+                            description={
+                                hasFilters
+                                    ? 'No bank accounts match the current filters.'
+                                    : 'Map a Wise currency to a ledger to start importing.'
+                            }
                             icon={Landmark}
-                            title="No bank accounts"
+                            title={
+                                hasFilters ? 'No matches' : 'No bank accounts'
+                            }
                         />
                     }
+                    filterPlaceholder="Search accounts…"
                     headerActions={
-                        <Button
-                            className="shrink-0"
-                            onClick={() => setForm('new')}
-                            size="sm"
-                        >
-                            <Plus className="size-3.5" /> Add account
-                        </Button>
+                        <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
+                            <ClearFiltersButton
+                                active={hasFilters}
+                                className="hidden md:flex"
+                                onReset={reset}
+                            />
+                            <Select
+                                onValueChange={setCurrencyFilter}
+                                value={currencyFilter}
+                            >
+                                <SelectTrigger className="h-8 w-40 shrink-0 text-xs">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value={ALL}>
+                                        All currencies
+                                    </SelectItem>
+                                    {currencies.map((c) => (
+                                        <SelectItem key={c} value={c}>
+                                            {c}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <Select
+                                onValueChange={setLedgerFilter}
+                                value={ledgerFilter}
+                            >
+                                <SelectTrigger className="h-8 w-48 shrink-0 text-xs">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value={ALL}>
+                                        All ledgers
+                                    </SelectItem>
+                                    {ledgerLabels.map((l) => (
+                                        <SelectItem key={l} value={l}>
+                                            {l}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <Button
+                                className="shrink-0"
+                                onClick={() => setForm('new')}
+                                size="sm"
+                            >
+                                <Plus className="size-3.5" /> Add account
+                            </Button>
+                        </div>
                     }
                     initialSorting={[{ desc: false, id: 'currency' }]}
                     isLoading={banksQ.isPending}
                     pageSize={25}
                     rowId={(r) => r.id}
+                    showFilter
                 />
                 {form !== null && (
                     <BankAccountFormDialog
