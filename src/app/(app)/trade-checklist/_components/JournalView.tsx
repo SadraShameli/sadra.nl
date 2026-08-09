@@ -1,6 +1,5 @@
 'use client';
 
-import { type ColumnDef } from '@tanstack/react-table';
 import { formatDistanceToNow } from 'date-fns';
 import { ClipboardList } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -10,7 +9,7 @@ import type { TradeAssessmentRow } from '~/lib/trading/types';
 
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
-import { DataTable } from '~/components/ui/DataTable';
+import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import { EmptyState } from '~/components/ui/EmptyState';
 import { dateKey, filterAssessments } from '~/lib/trading/analytics';
 import { cn } from '~/lib/utilities';
@@ -138,7 +137,7 @@ export function JournalView({ history, plans }: JournalViewProperties) {
         state.dateTo !== null ||
         state.singleDate !== null;
 
-    const columns = useMemo<ColumnDef<Row>[]>(
+    const columns = useMemo<DataTableColumn<Row>[]>(
         () => [
             {
                 cell: ({ row }) => (
@@ -197,7 +196,7 @@ export function JournalView({ history, plans }: JournalViewProperties) {
                 )}
             </div>
 
-            <DataTable<Row, unknown>
+            <DataTable<Row>
                 columns={columns}
                 data={filtered}
                 emptyState={

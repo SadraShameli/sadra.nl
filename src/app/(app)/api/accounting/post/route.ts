@@ -12,7 +12,7 @@ import { asSseResponse } from '~/lib/accounting/sse';
 import { isRoot } from '~/lib/auth/roles';
 import { getServerSession } from '~/lib/auth/server';
 import { openSecret } from '~/lib/crypto/secrets';
-import { checkRateLimit } from '~/lib/observability/rate-limit';
+import { isWithinRateLimit } from '~/lib/observability/rate-limit';
 import { runPushRequestSchema } from '~/lib/schemas/accounting';
 import { accountingCredential, db } from '~/server/db';
 
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'forbidden' }, { status: 403 });
     }
     const userId = session.user.id;
-    const isOk = await checkRateLimit({
+    const isOk = await isWithinRateLimit({
         bucket: 'accounting:push',
         key: userId,
         max: 10,

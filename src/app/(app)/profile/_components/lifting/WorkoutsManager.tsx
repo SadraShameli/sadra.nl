@@ -1,7 +1,6 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { type ColumnDef } from '@tanstack/react-table';
 import { endOfDay, format, startOfDay } from 'date-fns';
 import { Calendar, ExternalLink, Pencil, Trash2 } from 'lucide-react';
 import Link from 'next/link';
@@ -24,7 +23,7 @@ import {
 } from '~/components/ui/AlertDialog';
 import { Button } from '~/components/ui/Button';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { DataTable } from '~/components/ui/DataTable';
+import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import { DateRangePicker } from '~/components/ui/DatePicker';
 import {
     Dialog,
@@ -158,7 +157,7 @@ export function WorkoutsManager() {
         setDateRange(undefined);
     };
 
-    const columns = useMemo<ColumnDef<WorkoutRow>[]>(
+    const columns = useMemo<DataTableColumn<WorkoutRow>[]>(
         () => [
             {
                 accessorKey: 'name',

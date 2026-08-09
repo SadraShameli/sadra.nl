@@ -1,12 +1,11 @@
 'use client';
 
-import { type ColumnDef } from '@tanstack/react-table';
 import { Tag } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent } from '~/components/ui/Card';
-import { DataTable } from '~/components/ui/DataTable';
+import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import InfoPopover from '~/components/ui/InfoPopover';
 import { Input } from '~/components/ui/Input';
 import {
@@ -669,7 +668,7 @@ function PortfolioTable({
         [portfolio, firms, simmed],
     );
 
-    const columns = useMemo<ColumnDef<PortfolioTableRow>[]>(
+    const columns = useMemo<DataTableColumn<PortfolioTableRow>[]>(
         () => [
             {
                 cell: ({ row }) => (

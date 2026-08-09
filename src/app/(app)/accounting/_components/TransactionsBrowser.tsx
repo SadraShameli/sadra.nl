@@ -1,6 +1,5 @@
 'use client';
 
-import { type ColumnDef } from '@tanstack/react-table';
 import { ArrowLeftRight } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { type DateRange } from 'react-day-picker';
@@ -13,7 +12,7 @@ import type {
 import { Badge } from '~/components/ui/Badge';
 import { Card, CardContent } from '~/components/ui/Card';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { DataTable } from '~/components/ui/DataTable';
+import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import { DateRangePicker } from '~/components/ui/DatePicker';
 import { EmptyState } from '~/components/ui/EmptyState';
 import {
@@ -94,7 +93,7 @@ export function TransactionsBrowser() {
         setMatchFilter(ALL);
     };
 
-    const columns = useMemo<ColumnDef<TxnRow>[]>(
+    const columns = useMemo<DataTableColumn<TxnRow>[]>(
         () => [
             {
                 accessorKey: 'txnId',

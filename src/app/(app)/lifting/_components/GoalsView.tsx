@@ -1,7 +1,6 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { type ColumnDef } from '@tanstack/react-table';
 import {
     differenceInCalendarDays,
     eachDayOfInterval,
@@ -48,7 +47,7 @@ import { Button } from '~/components/ui/Button';
 import { Calendar } from '~/components/ui/Calendar';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { DataTable } from '~/components/ui/DataTable';
+import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import { DatePicker, DateRangePicker } from '~/components/ui/DatePicker';
 import { EmptyState } from '~/components/ui/EmptyState';
 import {
@@ -317,7 +316,7 @@ export function GoalsView() {
         });
     });
 
-    const columns = useMemo<ColumnDef<GoalRow>[]>(
+    const columns = useMemo<DataTableColumn<GoalRow>[]>(
         () => [
             {
                 accessorKey: 'kind',
@@ -744,7 +743,7 @@ export function GoalsView() {
                         </div>
                         {STATUS_FILTER_VALUES.map((s) => (
                             <TabsContent key={s} value={s}>
-                                <DataTable<GoalRow, unknown>
+                                <DataTable<GoalRow>
                                     columns={columns}
                                     data={filtered}
                                     emptyState={

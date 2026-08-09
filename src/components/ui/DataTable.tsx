@@ -2,16 +2,24 @@
 
 import {
     type ColumnDef,
+    columnFilteringFeature,
     type ColumnFiltersState,
+    columnVisibilityFeature,
+    createCoreRowModel,
+    createFilteredRowModel,
+    createPaginatedRowModel,
+    createSortedRowModel,
     flexRender,
-    getCoreRowModel,
-    getFilteredRowModel,
-    getPaginationRowModel,
-    getSortedRowModel,
+    globalFilteringFeature,
+    type ReactTable,
+    type RowData,
+    rowPaginationFeature,
+    rowSelectionFeature,
     type RowSelectionState,
+    rowSortingFeature,
     type SortingState,
-    type Table as TableInstance,
-    useReactTable,
+    tableFeatures,
+    useTable,
 } from '@tanstack/react-table';
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import { useState } from 'react';
@@ -31,10 +39,28 @@ import {
 } from '~/components/ui/Table';
 import { cn } from '~/lib/utilities';
 
-export type DataTableProperties<TData, TValue> = {
+const dataTableFeatures = tableFeatures({
+    columnFilteringFeature,
+    columnVisibilityFeature,
+    coreRowModel: createCoreRowModel(),
+    filteredRowModel: createFilteredRowModel(),
+    globalFilteringFeature,
+    paginatedRowModel: createPaginatedRowModel(),
+    rowPaginationFeature,
+    rowSelectionFeature,
+    rowSortingFeature,
+    sortedRowModel: createSortedRowModel(),
+});
+
+export type DataTableColumn<TData extends RowData> = ColumnDef<
+    typeof dataTableFeatures,
+    TData
+>;
+
+export type DataTableProperties<TData extends RowData> = {
     belowFilter?: React.ReactNode;
     className?: string;
-    columns: ColumnDef<TData, TValue>[];
+    columns: DataTableColumn<TData>[];
     data: TData[];
     emptyMessage?: string;
     emptyState?: React.ReactNode;
@@ -54,7 +80,7 @@ export type DataTableProperties<TData, TValue> = {
     tableClassName?: string;
 };
 
-export function DataTable<TData, TValue>({
+export function DataTable<TData extends RowData>({
     belowFilter,
     className,
     columns,
@@ -75,26 +101,24 @@ export function DataTable<TData, TValue>({
     showFilter = false,
     skeletonRows = 5,
     tableClassName,
-}: DataTableProperties<TData, TValue>) {
+}: DataTableProperties<TData>) {
     const [sorting, setSorting] = useState<SortingState>(initialSorting ?? []);
     const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
     const [globalFilter, setGlobalFilter] = useState('');
     const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 
-    const table = useReactTable({
+    const table = useTable({
         columns,
         data,
         enableRowSelection: enableSelection,
-        getCoreRowModel: getCoreRowModel(),
-        getFilteredRowModel: getFilteredRowModel(),
-        getPaginationRowModel:
-            pageSize === null ? undefined : getPaginationRowModel(),
+        features: dataTableFeatures,
         getRowId: rowId ? (row) => rowId(row) : (_row, index) => String(index),
-        getSortedRowModel: getSortedRowModel(),
-        initialState:
-            pageSize === null
-                ? undefined
-                : { pagination: { pageIndex: 0, pageSize } },
+        initialState: {
+            pagination: {
+                pageIndex: 0,
+                pageSize: pageSize ?? Infinity,
+            },
+        },
         onColumnFiltersChange: setColumnFilters,
         onGlobalFilterChange: setGlobalFilter,
         onRowSelectionChange: (updater) => {
@@ -293,8 +317,12 @@ export function DataTable<TData, TValue>({
     );
 }
 
-function Pagination<TData>({ table }: { table: TableInstance<TData> }) {
-    const pageIndex = table.getState().pagination.pageIndex;
+function Pagination<TData extends RowData>({
+    table,
+}: {
+    table: ReactTable<typeof dataTableFeatures, TData>;
+}) {
+    const pageIndex = table.state.pagination.pageIndex;
     const pageCount = table.getPageCount();
     return (
         <div className="flex items-center justify-between text-xs text-muted-foreground">

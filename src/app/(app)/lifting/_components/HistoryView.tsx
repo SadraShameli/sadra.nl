@@ -1,6 +1,5 @@
 'use client';
 
-import { type ColumnDef } from '@tanstack/react-table';
 import { endOfDay, format, startOfDay } from 'date-fns';
 import { Calendar, Trash2 } from 'lucide-react';
 import Link from 'next/link';
@@ -22,7 +21,7 @@ import {
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { DataTable } from '~/components/ui/DataTable';
+import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import { DateRangePicker } from '~/components/ui/DatePicker';
 import { EmptyState } from '~/components/ui/EmptyState';
 import { Label } from '~/components/ui/Label';
@@ -110,7 +109,7 @@ export function HistoryView({ from }: HistoryViewProperties) {
         setDurationFilter(FILTER_ALL);
     };
 
-    const columns = useMemo<ColumnDef<WorkoutRow>[]>(
+    const columns = useMemo<DataTableColumn<WorkoutRow>[]>(
         () => [
             {
                 accessorKey: 'name',

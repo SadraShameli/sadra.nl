@@ -1,6 +1,5 @@
 'use client';
 
-import { type ColumnDef } from '@tanstack/react-table';
 import { format } from 'date-fns';
 import {
     ArrowLeft,
@@ -30,7 +29,7 @@ import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { Checkbox } from '~/components/ui/Checkbox';
-import { DataTable } from '~/components/ui/DataTable';
+import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import { EmptyState } from '~/components/ui/EmptyState';
 import { Input } from '~/components/ui/Input';
 import { Label } from '~/components/ui/Label';
@@ -123,7 +122,7 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
         setPrOnly(false);
     };
 
-    const workoutSetColumns = useMemo<ColumnDef<SetRow>[]>(
+    const workoutSetColumns = useMemo<DataTableColumn<SetRow>[]>(
         () => [
             {
                 accessorKey: 'order',

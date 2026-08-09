@@ -1,10 +1,9 @@
 'use client';
 
-import { type ColumnDef } from '@tanstack/react-table';
 import { useMemo } from 'react';
 
 import { Card, CardContent } from '~/components/ui/Card';
-import { DataTable } from '~/components/ui/DataTable';
+import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import InfoPopover from '~/components/ui/InfoPopover';
 import { formatDays, formatPercent } from '~/lib/format';
 import { type SimOutputs } from '~/lib/prop-calculator';
@@ -232,7 +231,7 @@ function RecoveryTaxTable({ avgDepth }: { avgDepth: number }) {
             })),
         [avgDepth],
     );
-    const columns = useMemo<ColumnDef<RecoveryRow>[]>(
+    const columns = useMemo<DataTableColumn<RecoveryRow>[]>(
         () => [
             {
                 accessorFn: (r) => r.ddPct,
@@ -275,7 +274,7 @@ function RecoveryTaxTable({ avgDepth }: { avgDepth: number }) {
         [],
     );
     return (
-        <DataTable<RecoveryRow, unknown>
+        <DataTable<RecoveryRow>
             columns={columns}
             data={rows}
             pageSize={null}

@@ -1,6 +1,5 @@
 'use client';
 
-import { type ColumnDef } from '@tanstack/react-table';
 import { formatDistanceToNow } from 'date-fns';
 import { LogOut, Monitor, Smartphone } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -17,7 +16,7 @@ import { UAParser } from 'ua-parser-js';
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { DataTable } from '~/components/ui/DataTable';
+import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import { EmptyState } from '~/components/ui/EmptyState';
 import {
     Select,
@@ -86,7 +85,7 @@ export function SessionsList() {
 
     type Row = (typeof allRows)[number];
 
-    const columns = useMemo<ColumnDef<Row>[]>(
+    const columns = useMemo<DataTableColumn<Row>[]>(
         () => [
             {
                 cell: ({ row }) => {
@@ -179,7 +178,7 @@ export function SessionsList() {
 
     return (
         <div className={cn('app-profile__sessions', 'flex flex-col gap-3')}>
-            <DataTable<Row, unknown>
+            <DataTable<Row>
                 columns={columns}
                 data={rows}
                 emptyState={

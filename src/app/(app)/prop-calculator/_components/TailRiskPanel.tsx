@@ -1,10 +1,9 @@
 'use client';
 
-import { type ColumnDef } from '@tanstack/react-table';
 import { useMemo } from 'react';
 
 import { Card, CardContent } from '~/components/ui/Card';
-import { DataTable } from '~/components/ui/DataTable';
+import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import InfoPopover from '~/components/ui/InfoPopover';
 import { formatCompactCurrency, formatPercent } from '~/lib/format';
 import { type SimOutputs } from '~/lib/prop-calculator';
@@ -209,7 +208,7 @@ function StatCell({
 }
 
 function TailRiskTable({ rows }: { rows: TailRiskRow[] }) {
-    const columns = useMemo<ColumnDef<TailRiskRow>[]>(
+    const columns = useMemo<DataTableColumn<TailRiskRow>[]>(
         () => [
             {
                 accessorFn: (r) => r.label,
@@ -280,7 +279,7 @@ function TailRiskTable({ rows }: { rows: TailRiskRow[] }) {
         [],
     );
     return (
-        <DataTable<TailRiskRow, unknown>
+        <DataTable<TailRiskRow>
             columns={columns}
             data={rows}
             pageSize={null}

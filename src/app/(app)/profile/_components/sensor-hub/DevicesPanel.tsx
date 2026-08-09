@@ -1,7 +1,6 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { type ColumnDef } from '@tanstack/react-table';
 import {
     Copy,
     Cpu,
@@ -31,7 +30,7 @@ import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { Checkbox } from '~/components/ui/Checkbox';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { DataTable } from '~/components/ui/DataTable';
+import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import {
     Dialog,
     DialogContent,
@@ -180,7 +179,7 @@ export function DevicesPanel() {
         [locOptions],
     );
 
-    const columns = useMemo<ColumnDef<DeviceRow>[]>(
+    const columns = useMemo<DataTableColumn<DeviceRow>[]>(
         () => [
             {
                 accessorKey: 'name',

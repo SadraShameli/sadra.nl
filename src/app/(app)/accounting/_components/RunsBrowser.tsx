@@ -1,6 +1,5 @@
 'use client';
 
-import { type ColumnDef } from '@tanstack/react-table';
 import { format } from 'date-fns';
 import { ChevronRight, History } from 'lucide-react';
 import Link from 'next/link';
@@ -9,7 +8,7 @@ import { useMemo, useState } from 'react';
 import { Badge, type BadgeProperties } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent } from '~/components/ui/Card';
-import { DataTable } from '~/components/ui/DataTable';
+import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import { EmptyState } from '~/components/ui/EmptyState';
 import { type RunStatus } from '~/lib/accounting/runs/types';
 import { routes } from '~/lib/site/routes';
@@ -54,7 +53,7 @@ export function RunsBrowser() {
     const hasPrevious = offset > 0;
     const hasNext = rows.length === PAGE_SIZE;
 
-    const columns = useMemo<ColumnDef<RunRow>[]>(
+    const columns = useMemo<DataTableColumn<RunRow>[]>(
         () => [
             {
                 accessorKey: 'createdAt',

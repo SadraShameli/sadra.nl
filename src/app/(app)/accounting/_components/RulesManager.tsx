@@ -1,6 +1,5 @@
 'use client';
 
-import { type ColumnDef } from '@tanstack/react-table';
 import {
     ArrowDown,
     ArrowUp,
@@ -24,7 +23,7 @@ import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { DataTable } from '~/components/ui/DataTable';
+import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import { DateRangePicker } from '~/components/ui/DatePicker';
 import {
     Dialog,
@@ -516,7 +515,7 @@ function BankAccountsCard({
     const [form, setForm] = useState<'new' | BankAccountView | null>(null);
     const rows = (banksQ.data ?? []) as BankAccountView[];
 
-    const columns = useMemo<ColumnDef<BankAccountView>[]>(
+    const columns = useMemo<DataTableColumn<BankAccountView>[]>(
         () => [
             {
                 accessorKey: 'currency',
@@ -749,7 +748,7 @@ function RulesCard({
         setLedgerFilter(ALL);
     };
 
-    const columns = useMemo<ColumnDef<RuleView>[]>(
+    const columns = useMemo<DataTableColumn<RuleView>[]>(
         () => [
             {
                 accessorKey: 'match',

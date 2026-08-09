@@ -5,7 +5,7 @@ import { db, rateLimitBucket } from '~/server/db';
 
 import { evaluateRateLimit } from './rate-limit-policy';
 
-export async function checkRateLimit(arguments_: {
+export async function isWithinRateLimit(arguments_: {
     bucket: string;
     key: string;
     max: number;

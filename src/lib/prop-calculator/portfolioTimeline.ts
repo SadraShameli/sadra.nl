@@ -79,7 +79,9 @@ export interface CardResult {
 
 export interface PayoutEvent {
     amount: number;
-    /** 1-based number of calendar days elapsed since this card started. */
+    /**
+    1-based number of calendar days elapsed since this card started.
+    */
     dayOffset: number;
 }
 

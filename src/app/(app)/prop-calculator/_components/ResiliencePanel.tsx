@@ -1,11 +1,10 @@
 'use client';
 
-import { type ColumnDef } from '@tanstack/react-table';
 import { useMemo } from 'react';
 
 import { Alert } from '~/components/ui/Alert';
 import { Card, CardContent } from '~/components/ui/Card';
-import { DataTable } from '~/components/ui/DataTable';
+import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import InfoPopover from '~/components/ui/InfoPopover';
 import { formatCurrency, formatPercent } from '~/lib/format';
 import { type Plan, type SimOutputs } from '~/lib/prop-calculator';
@@ -139,7 +138,7 @@ export default function ResiliencePanel({
 }
 
 function ResilienceTable({ rows }: { rows: ResilienceRow[] }) {
-    const columns = useMemo<ColumnDef<ResilienceRow>[]>(
+    const columns = useMemo<DataTableColumn<ResilienceRow>[]>(
         () => [
             {
                 accessorFn: (r) => r.n,
@@ -178,7 +177,7 @@ function ResilienceTable({ rows }: { rows: ResilienceRow[] }) {
         [],
     );
     return (
-        <DataTable<ResilienceRow, unknown>
+        <DataTable<ResilienceRow>
             columns={columns}
             data={rows}
             pageSize={null}

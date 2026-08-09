@@ -1,6 +1,5 @@
 'use client';
 
-import { type ColumnDef } from '@tanstack/react-table';
 import { endOfDay, format, startOfDay, subDays, subMonths } from 'date-fns';
 import { ExternalLink, TrendingUp, Trophy } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -11,7 +10,7 @@ import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import AreaChartNew from '~/components/ui/Chart/AreaChartNew';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { DataTable } from '~/components/ui/DataTable';
+import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import { DateRangePicker } from '~/components/ui/DatePicker';
 import { EmptyState } from '~/components/ui/EmptyState';
 import {
@@ -106,7 +105,7 @@ export function ExerciseDetail({ exercise }: ExerciseDetailProperties) {
         setPrKindFilter(PR_KIND_ALL);
     };
 
-    const columns = useMemo<ColumnDef<PrRow>[]>(
+    const columns = useMemo<DataTableColumn<PrRow>[]>(
         () => [
             {
                 accessorKey: 'kind',

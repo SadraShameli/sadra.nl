@@ -1,7 +1,6 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { type ColumnDef } from '@tanstack/react-table';
 import { Activity, Plus, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -22,7 +21,7 @@ import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { Checkbox } from '~/components/ui/Checkbox';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { DataTable } from '~/components/ui/DataTable';
+import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import {
     Dialog,
     DialogContent,
@@ -127,7 +126,7 @@ export function ReadingsPanel() {
         [devices.data],
     );
 
-    const columns = useMemo<ColumnDef<ReadingRow>[]>(
+    const columns = useMemo<DataTableColumn<ReadingRow>[]>(
         () => [
             {
                 cell: ({ row }) => (

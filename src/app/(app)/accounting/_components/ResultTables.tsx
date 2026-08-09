@@ -1,6 +1,5 @@
 'use client';
 
-import { type ColumnDef } from '@tanstack/react-table';
 import { Pencil, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { type DateRange } from 'react-day-picker';
@@ -18,7 +17,7 @@ import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent } from '~/components/ui/Card';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { DataTable } from '~/components/ui/DataTable';
+import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import { DateRangePicker } from '~/components/ui/DatePicker';
 import {
     Dialog,
@@ -200,7 +199,7 @@ export function BookingsTable({
         setDateRange(undefined);
     };
 
-    const columns = useMemo<ColumnDef<Booking>[]>(
+    const columns = useMemo<DataTableColumn<Booking>[]>(
         () => [
             {
                 accessorKey: 'date',
@@ -443,7 +442,7 @@ export function MatchAuditTable({ result }: { result: ConversionResult }) {
         setMatched(ALL);
     };
 
-    const columns = useMemo<ColumnDef<MatchAudit>[]>(
+    const columns = useMemo<DataTableColumn<MatchAudit>[]>(
         () => [
             {
                 accessorKey: 'direction',
@@ -583,7 +582,7 @@ export function PerCounterpartTable({ result }: { result: ConversionResult }) {
         [allRows, direction],
     );
 
-    const columns = useMemo<ColumnDef<PerCounterpartRow>[]>(
+    const columns = useMemo<DataTableColumn<PerCounterpartRow>[]>(
         () => [
             {
                 accessorKey: 'direction',
@@ -764,7 +763,7 @@ export function UnknownsTable({
 
     const canCreateRule = !!credentialId && !!ledgerOptions;
 
-    const columns = useMemo<ColumnDef<UnknownMerchant>[]>(
+    const columns = useMemo<DataTableColumn<UnknownMerchant>[]>(
         () => [
             {
                 accessorKey: 'direction',
@@ -829,7 +828,7 @@ export function UnknownsTable({
                           header: '',
                           id: 'actions',
                       },
-                  ] as ColumnDef<UnknownMerchant>[])
+                  ] as DataTableColumn<UnknownMerchant>[])
                 : []),
         ],
         [canCreateRule],

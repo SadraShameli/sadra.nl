@@ -1,11 +1,10 @@
 'use client';
 
-import { type ColumnDef } from '@tanstack/react-table';
 import { TriangleAlert } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Card } from '~/components/ui/Card';
-import { DataTable } from '~/components/ui/DataTable';
+import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import { EmptyState } from '~/components/ui/EmptyState';
 import InfoPopover from '~/components/ui/InfoPopover';
 import { formatCurrency, formatPercent } from '~/lib/format';
@@ -95,7 +94,7 @@ export default function RuleStressTestPanel({
         [rows],
     );
 
-    const columns = useMemo<ColumnDef<ScenarioRow>[]>(
+    const columns = useMemo<DataTableColumn<ScenarioRow>[]>(
         () => [
             {
                 accessorFn: (r) => r.label,
@@ -216,7 +215,7 @@ export default function RuleStressTestPanel({
             ) : (
                 <div className="flex flex-col gap-4">
                     <RuleStressBarChartView rows={chartRows} />
-                    <DataTable<ScenarioRow, unknown>
+                    <DataTable<ScenarioRow>
                         className="app-prop-calculator__rule-stress-table text-xs tabular-nums"
                         columns={columns}
                         data={rows}

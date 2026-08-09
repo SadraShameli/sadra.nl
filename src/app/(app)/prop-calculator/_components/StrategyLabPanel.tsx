@@ -1,13 +1,12 @@
 'use client';
 
-import { type ColumnDef } from '@tanstack/react-table';
 import { Plus, RotateCcw, X } from 'lucide-react';
 import { useMemo } from 'react';
 
 import { Alert, AlertDescription } from '~/components/ui/Alert';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent } from '~/components/ui/Card';
-import { DataTable } from '~/components/ui/DataTable';
+import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import InfoPopover from '~/components/ui/InfoPopover';
 import { Input } from '~/components/ui/Input';
 import {
@@ -321,7 +320,7 @@ function StrategyLabTable({
     pending: boolean;
     rows: StrategyLabRow[];
 }) {
-    const columns = useMemo<ColumnDef<StrategyLabRow>[]>(
+    const columns = useMemo<DataTableColumn<StrategyLabRow>[]>(
         () => [
             {
                 cell: ({ row }) => (
@@ -634,7 +633,7 @@ function StrategyLabTable({
     );
 
     return (
-        <DataTable<StrategyLabRow, unknown>
+        <DataTable<StrategyLabRow>
             columns={columns}
             data={rows}
             isLoading={pending && rows.every((r) => !r.result)}

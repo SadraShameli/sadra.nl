@@ -1,11 +1,10 @@
 'use client';
 
-import { type ColumnDef } from '@tanstack/react-table';
 import { Layers } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Card } from '~/components/ui/Card';
-import { DataTable } from '~/components/ui/DataTable';
+import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import { EmptyState } from '~/components/ui/EmptyState';
 import InfoPopover from '~/components/ui/InfoPopover';
 import { formatCurrency, formatDays, formatPercent } from '~/lib/format';
@@ -89,7 +88,7 @@ export default function PlanComparisonTable({
         };
     }, [debouncedKey]);
 
-    const columns = useMemo<ColumnDef<Row>[]>(
+    const columns = useMemo<DataTableColumn<Row>[]>(
         () => [
             {
                 accessorFn: (r) => r.plan.label,
@@ -187,7 +186,7 @@ export default function PlanComparisonTable({
                         : `${rows.length} plan${rows.length === 1 ? '' : 's'}`}
                 </span>
             </div>
-            <DataTable<Row, unknown>
+            <DataTable<Row>
                 className="app-prop-calculator__plan-comparison-table text-xs tabular-nums"
                 columns={columns}
                 data={rows}

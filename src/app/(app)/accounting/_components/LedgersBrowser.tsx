@@ -1,6 +1,5 @@
 'use client';
 
-import { type ColumnDef } from '@tanstack/react-table';
 import { BookOpen } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
@@ -9,7 +8,7 @@ import type { LedgerId } from '~/lib/accounting/core/ids';
 import { Badge } from '~/components/ui/Badge';
 import { Card, CardContent } from '~/components/ui/Card';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { DataTable } from '~/components/ui/DataTable';
+import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import { EmptyState } from '~/components/ui/EmptyState';
 import {
     Select,
@@ -76,7 +75,7 @@ export function LedgersBrowser() {
     const hasFilters = category !== ALL;
     const reset = () => setCategory(ALL);
 
-    const columns = useMemo<ColumnDef<Ledger>[]>(
+    const columns = useMemo<DataTableColumn<Ledger>[]>(
         () => [
             {
                 accessorKey: 'externalId',

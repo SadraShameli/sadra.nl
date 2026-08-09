@@ -1,7 +1,6 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { type ColumnDef } from '@tanstack/react-table';
 import { Dumbbell, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -21,7 +20,7 @@ import {
 } from '~/components/ui/AlertDialog';
 import { Button } from '~/components/ui/Button';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { DataTable } from '~/components/ui/DataTable';
+import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import {
     Dialog,
     DialogContent,
@@ -141,7 +140,7 @@ export function ExercisesManager() {
         setEquipmentFilter(FILTER_ALL);
     };
 
-    const columns = useMemo<ColumnDef<ExerciseRow>[]>(
+    const columns = useMemo<DataTableColumn<ExerciseRow>[]>(
         () => [
             {
                 accessorKey: 'name',

@@ -1,6 +1,5 @@
 'use client';
 
-import { type ColumnDef } from '@tanstack/react-table';
 import { ChevronRight, Dumbbell, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
@@ -9,7 +8,7 @@ import { Badge } from '~/components/ui/Badge';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { Checkbox } from '~/components/ui/Checkbox';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { DataTable } from '~/components/ui/DataTable';
+import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import { EmptyState } from '~/components/ui/EmptyState';
 import { Input } from '~/components/ui/Input';
 import { Label } from '~/components/ui/Label';
@@ -77,7 +76,7 @@ export function ExercisesBrowser() {
         setCustomOnly(false);
     };
 
-    const columns = useMemo<ColumnDef<ExerciseRow>[]>(
+    const columns = useMemo<DataTableColumn<ExerciseRow>[]>(
         () => [
             {
                 accessorKey: 'name',
@@ -229,7 +228,7 @@ export function ExercisesBrowser() {
                     </div>
                     <ClearFiltersButton active={hasFilters} onReset={reset} />
 
-                    <DataTable<ExerciseRow, unknown>
+                    <DataTable<ExerciseRow>
                         columns={columns}
                         data={rows}
                         emptyState={

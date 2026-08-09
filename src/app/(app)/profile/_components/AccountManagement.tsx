@@ -1,7 +1,6 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { type ColumnDef } from '@tanstack/react-table';
 import { Plus, Trash2, Users } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -21,7 +20,7 @@ import {
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import { DataTable } from '~/components/ui/DataTable';
+import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import {
     Dialog,
     DialogContent,
@@ -155,7 +154,7 @@ export function AccountManagement({ callerRole }: { callerRole: Role }) {
         }
     };
 
-    const columns = useMemo<ColumnDef<UserRow>[]>(
+    const columns = useMemo<DataTableColumn<UserRow>[]>(
         () => [
             {
                 accessorKey: 'name',

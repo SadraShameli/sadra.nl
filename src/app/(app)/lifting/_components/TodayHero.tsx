@@ -1,6 +1,5 @@
 'use client';
 
-import { type ColumnDef } from '@tanstack/react-table';
 import { endOfDay, format, startOfDay, subDays } from 'date-fns';
 import { Activity, Flame, Play, Trophy } from 'lucide-react';
 import Link from 'next/link';
@@ -12,7 +11,7 @@ import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { DataTable } from '~/components/ui/DataTable';
+import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import { DateRangePicker } from '~/components/ui/DatePicker';
 import { EmptyState } from '~/components/ui/EmptyState';
 import {
@@ -94,7 +93,7 @@ export function TodayHero() {
         setPrKindFilter(PR_KIND_ALL);
     };
 
-    const prColumns = useMemo<ColumnDef<PrRow>[]>(
+    const prColumns = useMemo<DataTableColumn<PrRow>[]>(
         () => [
             {
                 accessorKey: 'kind',

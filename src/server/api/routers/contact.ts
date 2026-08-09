@@ -3,7 +3,7 @@ import { TRPCError } from '@trpc/server';
 import { ROOT_EMAIL } from '~/lib/auth/roles';
 import { ContactFormEmail, mailer } from '~/lib/email';
 import { captureError } from '~/lib/observability/logger';
-import { checkRateLimit } from '~/lib/observability/rate-limit';
+import { isWithinRateLimit } from '~/lib/observability/rate-limit';
 import { contactInputSchema } from '~/lib/schemas/contact';
 import { createTRPCRouter, publicProcedure } from '~/server/api/trpc';
 
@@ -19,13 +19,13 @@ export const contactRouter = createTRPCRouter({
                 ctx.headers.get('x-forwarded-for')?.split(',', 1)[0]?.trim() ??
                 ctx.headers.get('x-real-ip') ??
                 'unknown';
-            const isOkEmail = await checkRateLimit({
+            const isOkEmail = await isWithinRateLimit({
                 bucket: 'contact:email',
                 key: input.email,
                 max: 3,
                 windowMs: 60 * 60 * 1000,
             });
-            const isOkIp = await checkRateLimit({
+            const isOkIp = await isWithinRateLimit({
                 bucket: 'contact:ip',
                 key: ip,
                 max: 10,

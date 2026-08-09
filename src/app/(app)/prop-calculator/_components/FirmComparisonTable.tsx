@@ -1,11 +1,10 @@
 'use client';
 
-import { type ColumnDef } from '@tanstack/react-table';
 import { Building2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Card } from '~/components/ui/Card';
-import { DataTable } from '~/components/ui/DataTable';
+import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import { EmptyState } from '~/components/ui/EmptyState';
 import InfoPopover from '~/components/ui/InfoPopover';
 import { formatCurrency, formatDays, formatPercent } from '~/lib/format';
@@ -97,7 +96,7 @@ export default function FirmComparisonTable({
         };
     }, [debouncedKey]);
 
-    const columns = useMemo<ColumnDef<Row>[]>(
+    const columns = useMemo<DataTableColumn<Row>[]>(
         () => [
             {
                 accessorFn: (r) => r.firm.displayName,
@@ -184,7 +183,7 @@ export default function FirmComparisonTable({
                         : `closest plan to $${(targetAccountSize / 1000).toFixed(0)}K`}
                 </span>
             </div>
-            <DataTable<Row, unknown>
+            <DataTable<Row>
                 className="app-prop-calculator__firm-comparison-table text-xs tabular-nums"
                 columns={columns}
                 data={rows}

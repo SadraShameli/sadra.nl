@@ -1,10 +1,9 @@
 'use client';
 
-import { type ColumnDef } from '@tanstack/react-table';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Card } from '~/components/ui/Card';
-import { DataTable } from '~/components/ui/DataTable';
+import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import InfoPopover from '~/components/ui/InfoPopover';
 import { formatCompactCurrency, formatPercent } from '~/lib/format';
 import { type SimInputs, simulate } from '~/lib/prop-calculator';
@@ -166,8 +165,8 @@ function HeatmapCells({
     const closestWinrate = nearest(currentWinrate, WINRATES);
     const closestRR = nearest(currentRR, RR_RATIOS);
 
-    const columns = useMemo<ColumnDef<HeatmapRow>[]>(() => {
-        const cols: ColumnDef<HeatmapRow>[] = [
+    const columns = useMemo<DataTableColumn<HeatmapRow>[]>(() => {
+        const cols: DataTableColumn<HeatmapRow>[] = [
             {
                 cell: ({ row }) => (
                     <span className="text-muted-foreground">
@@ -220,7 +219,7 @@ function HeatmapCells({
     }, [closestRR, closestWinrate, maxAbs, metric]);
 
     return (
-        <DataTable<HeatmapRow, unknown>
+        <DataTable<HeatmapRow>
             columns={columns}
             data={rows}
             isLoading={rows.length === 0}

@@ -1,11 +1,10 @@
 'use client';
 
-import { type ColumnDef } from '@tanstack/react-table';
 import { Target } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Card } from '~/components/ui/Card';
-import { DataTable } from '~/components/ui/DataTable';
+import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import { EmptyState } from '~/components/ui/EmptyState';
 import InfoPopover from '~/components/ui/InfoPopover';
 import {
@@ -92,7 +91,7 @@ export default function OptimalRiskTable({
 
     const closestRiskPct = nearestRisk(currentRiskPercent);
 
-    const columns = useMemo<ColumnDef<Row>[]>(
+    const columns = useMemo<DataTableColumn<Row>[]>(
         () => [
             {
                 accessorFn: (r) => r.riskPct,
@@ -178,7 +177,7 @@ export default function OptimalRiskTable({
                           )}`}
                 </span>
             </div>
-            <DataTable<Row, unknown>
+            <DataTable<Row>
                 className="app-prop-calculator__optimal-risk-table text-xs tabular-nums"
                 columns={columns}
                 data={rows}

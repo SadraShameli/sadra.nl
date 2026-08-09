@@ -1,7 +1,6 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { type ColumnDef } from '@tanstack/react-table';
 import { Check, Pencil, Plus, Radio, Ruler, Trash2, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -20,7 +19,7 @@ import {
 } from '~/components/ui/AlertDialog';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import { DataTable } from '~/components/ui/DataTable';
+import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import {
     Dialog,
     DialogContent,
@@ -99,7 +98,7 @@ export function SensorsPanel() {
     const rows = sensors.data ?? [];
     const unitOptions = units.data ?? [];
 
-    const columns = useMemo<ColumnDef<SensorRow>[]>(
+    const columns = useMemo<DataTableColumn<SensorRow>[]>(
         () => [
             {
                 accessorKey: 'name',

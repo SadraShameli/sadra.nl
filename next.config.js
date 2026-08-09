@@ -40,12 +40,29 @@ const securityHeaders = [
     },
 ];
 
-/** @type {import("next").NextConfig} */
+/**
+@type {import("next").NextConfig}
+*/
 const config = {
     async headers() {
         return [{ headers: securityHeaders, source: '/:path*' }];
     },
     poweredByHeader: false,
+    turbopack: {
+        rules: {
+            '*.{ts,tsx}': {
+                condition: {
+                    all: [{ not: 'foreign' }, { content: /[Zz]od/ }],
+                },
+                loaders: [
+                    {
+                        loader: 'zod-compiler/turbopack',
+                        options: { include: ['src/lib'] },
+                    },
+                ],
+            },
+        },
+    },
 };
 
 export default withSentryConfig(config, {

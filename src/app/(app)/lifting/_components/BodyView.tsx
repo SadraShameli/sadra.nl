@@ -1,7 +1,6 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { type ColumnDef } from '@tanstack/react-table';
 import { endOfDay, format, startOfDay, subDays } from 'date-fns';
 import { LineChart, Plus, Ruler, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -24,7 +23,7 @@ import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import AreaChartNew from '~/components/ui/Chart/AreaChartNew';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { DataTable } from '~/components/ui/DataTable';
+import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import { DatePicker, DateRangePicker } from '~/components/ui/DatePicker';
 import { EmptyState } from '~/components/ui/EmptyState';
 import {
@@ -522,7 +521,7 @@ function MeasurementsHistoryTable({
     onDelete: (id: string) => void;
     rows: MeasurementRow[];
 }) {
-    const columns = useMemo<ColumnDef<MeasurementRow>[]>(
+    const columns = useMemo<DataTableColumn<MeasurementRow>[]>(
         () => [
             {
                 accessorFn: (r) => r.kind,
@@ -618,7 +617,7 @@ function MeasurementsHistoryTable({
     );
 
     return (
-        <DataTable<MeasurementRow, unknown>
+        <DataTable<MeasurementRow>
             columns={columns}
             data={rows}
             emptyState={

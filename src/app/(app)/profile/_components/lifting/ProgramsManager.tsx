@@ -1,6 +1,5 @@
 'use client';
 
-import { type ColumnDef } from '@tanstack/react-table';
 import { format } from 'date-fns';
 import { ExternalLink, LibraryBig, LogOut, Trash2 } from 'lucide-react';
 import Link from 'next/link';
@@ -21,7 +20,7 @@ import {
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { DataTable } from '~/components/ui/DataTable';
+import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import { EmptyState } from '~/components/ui/EmptyState';
 import {
     Select,
@@ -108,7 +107,7 @@ export function ProgramsManager() {
         return map;
     }, [ownedRows, official.data]);
 
-    const ownedColumns = useMemo<ColumnDef<ProgramOwned>[]>(
+    const ownedColumns = useMemo<DataTableColumn<ProgramOwned>[]>(
         () => [
             {
                 accessorKey: 'name',
@@ -203,7 +202,7 @@ export function ProgramsManager() {
         [customProgramDeleteMutation],
     );
 
-    const enrollmentColumns = useMemo<ColumnDef<ProgramEnrollment>[]>(
+    const enrollmentColumns = useMemo<DataTableColumn<ProgramEnrollment>[]>(
         () => [
             {
                 accessorKey: 'programId',
