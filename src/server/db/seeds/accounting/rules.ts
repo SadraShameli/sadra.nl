@@ -181,6 +181,13 @@ const RULES: SeedRule[] = [
         vatCode: VatCode.HoogInk21,
     },
     {
+        direction: 'OUT',
+        display: 'AliExpress',
+        ledger: HARDWARE,
+        match: 'AliExpress',
+        vatCode: VatCode.HoogInk21,
+    },
+    {
         direction: 'IN',
         display: 'Apex Trader Funding',
         ledger: PAYOUTS,
