@@ -11,39 +11,14 @@ class LucidPlan extends Plan {}
 
 const FLEX_SIZES = [
     {
-        accountSize: 25_000,
-        evalCost: 100,
-        maxDrawdown: 1000,
-        resetFee: 60,
-    },
-    {
         accountSize: 50_000,
         evalCost: 140,
         maxDrawdown: 2000,
         resetFee: 95,
     },
-    {
-        accountSize: 100_000,
-        evalCost: 225,
-        maxDrawdown: 3000,
-        resetFee: 140,
-    },
-    {
-        accountSize: 150_000,
-        evalCost: 420,
-        maxDrawdown: 4500,
-        resetFee: 280,
-    },
 ] as const;
 
 const PRO_SIZES = [
-    {
-        accountSize: 25_000,
-        dailyLossLimit: null as null | number,
-        evalCost: 135,
-        maxDrawdown: 1000,
-        resetFee: 90,
-    },
     {
         accountSize: 50_000,
         dailyLossLimit: 1200 as null | number,
@@ -51,27 +26,10 @@ const PRO_SIZES = [
         maxDrawdown: 2000,
         resetFee: 120,
     },
-    {
-        accountSize: 100_000,
-        dailyLossLimit: 1800 as null | number,
-        evalCost: 285,
-        maxDrawdown: 3000,
-        resetFee: 180,
-    },
-    {
-        accountSize: 150_000,
-        dailyLossLimit: 2700 as null | number,
-        evalCost: 370,
-        maxDrawdown: 4500,
-        resetFee: 245,
-    },
 ] as const;
 
 const DIRECT_SIZES = [
-    { accountSize: 25_000, evalCost: 340, maxDrawdown: 1000 },
     { accountSize: 50_000, evalCost: 520, maxDrawdown: 2000 },
-    { accountSize: 100_000, evalCost: 700, maxDrawdown: 3500 },
-    { accountSize: 150_000, evalCost: 840, maxDrawdown: 5000 },
 ] as const;
 
 type LucidDirectSize = (typeof DIRECT_SIZES)[number];

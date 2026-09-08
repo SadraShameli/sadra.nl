@@ -55,9 +55,16 @@ export const tradingPlanSearchSchema = z.object({
 export const dayStopRuleSchema = z.discriminatedUnion('kind', [
     z.object({ kind: z.literal('none') }),
     z.object({ kind: z.literal('first-win') }),
+    z.object({ kind: z.literal('day-green') }),
     z.object({ k: z.number(), kind: z.literal('after-k-losses') }),
     z.object({ dollars: z.number(), kind: z.literal('after-target') }),
 ]);
+
+export const dayPolicySchema = z.object({
+    ladder: z.array(z.number()),
+    maxLossesPerDay: z.number().nullable(),
+    stopRule: dayStopRuleSchema,
+});
 
 export const labScenarioSchema = z.object({
     accounts: z.number(),

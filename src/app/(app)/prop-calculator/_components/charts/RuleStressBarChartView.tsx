@@ -65,9 +65,6 @@ export default function RuleStressBarChartView({ rows }: Properties) {
                 />
                 <YAxis
                     axisLine={false}
-                    // Force zero into view even when every scenario happens
-                    // to land on the same side of it — otherwise the y=0
-                    // reference line below can end up clipped out of frame.
                     domain={[
                         (min: number) => Math.min(0, min),
                         (max: number) => Math.max(0, max),
@@ -98,18 +95,8 @@ export default function RuleStressBarChartView({ rows }: Properties) {
                             x = 0,
                             y = 0,
                         } = properties as BarShapeProperties;
-                        // Baseline (always the first bar) vs every stressed
-                        // variant — reusing the same green/red status colors
-                        // used throughout this app (pass/good vs bust/bad),
-                        // not a new palette.
                         const fill =
                             index === 0 ? 'hsl(142 76% 45%)' : 'hsl(0 84% 60%)';
-                        // `monthlyNet` can be negative (a losing setup), in
-                        // which case Recharts hands this shape a *negative*
-                        // height with `y` at the bar's top edge — clamping
-                        // to `Math.max(0, height)` (fine for the
-                        // always-non-negative bars elsewhere in this app)
-                        // would silently zero those bars out here.
                         const rectHeight = Math.abs(height);
                         const rectY = height < 0 ? y + height : y;
                         return (

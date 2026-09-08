@@ -43,9 +43,6 @@ const HORIZON_OPTIONS = [
     { days: 756, label: '3 years' },
 ] as const;
 
-// This panel gets its own small, independent trial/account controls,
-// decoupled from the global calculator sliders — see `useCashFlowSimulation`
-// for why (no web workers, so worst-case cost has to stay bounded).
 const DEFAULT_ACCOUNTS = 5;
 const MAX_ACCOUNTS = 10;
 const MIN_ACCOUNTS = 1;

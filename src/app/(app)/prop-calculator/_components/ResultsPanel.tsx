@@ -105,9 +105,9 @@ export default function ResultsPanel({
               : 'neutral';
 
     const roiAccent: KpiProperties['accent'] =
-        result.roiOnCost > 0
+        result.roiOnCost.value > 0
             ? 'positive'
-            : result.roiOnCost < 0
+            : result.roiOnCost.value < 0
               ? 'negative'
               : 'neutral';
     const isShowCycleEconomics = result.expectedAttempts > 1.01;
@@ -361,7 +361,7 @@ export default function ResultsPanel({
                         }}
                         label="ROI on cost"
                         sub={`net ${formatCurrency(result.expectedNet)} / cost`}
-                        value={formatPercent(result.roiOnCost)}
+                        value={formatPercent(result.roiOnCost.value)}
                     />
                     <Kpi
                         info={{

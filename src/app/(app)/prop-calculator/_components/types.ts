@@ -1,5 +1,6 @@
 import {
     type CorrelationMode,
+    type DayPolicy,
     type DayStopRule,
     type FirmId,
     type Plan,
@@ -24,6 +25,7 @@ export interface CalculatorState {
     activationDiscountPercent: number;
     commissionPerRoundTrip: number;
     copyAccounts: number;
+    dayPolicy: DayPolicy | null;
     dayStop: DayStopRule;
     evalDiscountPercent: number;
     firm: TradingFirm;

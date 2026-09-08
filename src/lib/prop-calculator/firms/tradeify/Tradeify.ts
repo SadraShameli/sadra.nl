@@ -11,82 +11,28 @@ class TradeifyPlan extends Plan {}
 
 const GROWTH_SIZES = [
     {
-        accountSize: 25_000,
-        evalCost: 99,
-        maxDrawdown: 1000,
-        minPayoutProfit: 1500,
-    },
-    {
         accountSize: 50_000,
         evalCost: 145,
         maxDrawdown: 2000,
         minPayoutProfit: 3000,
     },
-    {
-        accountSize: 100_000,
-        evalCost: 255,
-        maxDrawdown: 3500,
-        minPayoutProfit: 4500,
-    },
-    {
-        accountSize: 150_000,
-        evalCost: 369,
-        maxDrawdown: 5000,
-        minPayoutProfit: 6500,
-    },
 ] as const;
 
 const SELECT_SIZES = [
-    {
-        accountSize: 25_000,
-        evalCost: 109,
-        maxDrawdown: 1000,
-        minPayoutProfit: 1100,
-    },
     {
         accountSize: 50_000,
         evalCost: 165,
         maxDrawdown: 2000,
         minPayoutProfit: 2100,
     },
-    {
-        accountSize: 100_000,
-        evalCost: 265,
-        maxDrawdown: 3000,
-        minPayoutProfit: 2600,
-    },
-    {
-        accountSize: 150_000,
-        evalCost: 369,
-        maxDrawdown: 4500,
-        minPayoutProfit: 3600,
-    },
 ] as const;
 
 const LIGHTNING_SIZES = [
-    {
-        accountSize: 25_000,
-        evalCost: 345,
-        maxDrawdown: 1000,
-        minPayoutProfit: 1500,
-    },
     {
         accountSize: 50_000,
         evalCost: 492,
         maxDrawdown: 2000,
         minPayoutProfit: 3000,
-    },
-    {
-        accountSize: 100_000,
-        evalCost: 660,
-        maxDrawdown: 4000,
-        minPayoutProfit: 6000,
-    },
-    {
-        accountSize: 150_000,
-        evalCost: 796,
-        maxDrawdown: 5250,
-        minPayoutProfit: 9000,
     },
 ] as const;
 

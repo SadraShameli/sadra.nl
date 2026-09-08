@@ -1,5 +1,6 @@
 import { type AccountState, createInitialState } from './AccountState';
 import { type ConsistencyRule } from './ConsistencyRule';
+import { type ContractLimits } from './ContractLimits';
 import {
     type DailyLossLimitConfig,
     resolveDailyLossLimit,
@@ -28,6 +29,7 @@ export type PayoutSchedule =
 export interface PlanInit {
     accountSize: number;
     consistency: ConsistencyRule | null;
+    contractLimits?: ContractLimits;
     drawdown: DrawdownStrategy;
     evalDailyLossLimit: DailyLossLimitConfig;
     fees: FeeSchedule;
@@ -36,9 +38,11 @@ export interface PlanInit {
     label: string;
     minDaysAfterPassForPayout?: number;
     minPayoutProfit?: number;
+    minPayoutRequest?: number;
     minQualifyingDayProfit?: null | number;
     minTradingDays: number;
     payoutLadder?: null | PayoutLadder;
+    payoutProfitShare?: number;
     payoutSchedule: PayoutSchedule;
     payoutTiers: readonly PayoutTier[];
     profitTarget: number;
@@ -48,6 +52,8 @@ export abstract class Plan {
     readonly accountSize: number;
 
     readonly consistency: ConsistencyRule | null;
+
+    readonly contractLimits: ContractLimits | null;
 
     readonly drawdown: DrawdownStrategy;
 
@@ -65,11 +71,15 @@ export abstract class Plan {
 
     readonly minPayoutProfit: number;
 
+    readonly minPayoutRequest: number;
+
     readonly minQualifyingDayProfit: null | number;
 
     readonly minTradingDays: number;
 
     readonly payoutLadder: null | PayoutLadder;
+
+    readonly payoutProfitShare: null | number;
 
     readonly payoutSchedule: PayoutSchedule;
 
@@ -80,6 +90,7 @@ export abstract class Plan {
     constructor(protected readonly init: PlanInit) {
         this.accountSize = init.accountSize;
         this.consistency = init.consistency;
+        this.contractLimits = init.contractLimits ?? null;
         this.drawdown = init.drawdown;
         this.evalDailyLossLimit = init.evalDailyLossLimit;
         this.fees = init.fees;
@@ -89,9 +100,12 @@ export abstract class Plan {
         this.label = init.label;
         this.minDaysAfterPassForPayout = init.minDaysAfterPassForPayout ?? 0;
         this.minPayoutProfit = init.minPayoutProfit ?? 0;
+        this.minPayoutRequest =
+            init.minPayoutRequest ?? init.minPayoutProfit ?? 0;
         this.minQualifyingDayProfit = init.minQualifyingDayProfit ?? null;
         this.minTradingDays = init.minTradingDays;
         this.payoutLadder = init.payoutLadder ?? null;
+        this.payoutProfitShare = init.payoutProfitShare ?? null;
         this.payoutSchedule = init.payoutSchedule;
         this.payoutTiers = init.payoutTiers;
         this.profitTarget = init.profitTarget;
@@ -127,9 +141,12 @@ export abstract class Plan {
 
     isPassed(state: AccountState): boolean {
         const profit = state.balance - state.startingBalance;
-        return (
-            profit >= this.init.profitTarget &&
-            state.tradingDays >= this.init.minTradingDays
+        if (profit < this.init.profitTarget) return false;
+        if (state.tradingDays < this.init.minTradingDays) return false;
+        const consistency = this.init.consistency;
+        return !(
+            consistency?.appliesToEval() &&
+            consistency.isViolated(state.bestDayProfit, profit)
         );
     }
 

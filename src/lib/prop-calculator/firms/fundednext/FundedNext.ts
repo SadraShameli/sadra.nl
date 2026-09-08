@@ -11,46 +11,20 @@ class FundedNextPlan extends Plan {}
 
 const LEGACY_SIZES = [
     {
-        accountSize: 25_000,
-        evalCost: 80,
-        maxDrawdown: 1000,
-        profitTarget: 1250,
-    },
-    {
         accountSize: 50_000,
         evalCost: 150,
         maxDrawdown: 2000,
         profitTarget: 3000,
     },
-    {
-        accountSize: 100_000,
-        evalCost: 250,
-        maxDrawdown: 3000,
-        profitTarget: 6000,
-    },
 ] as const;
 
 const RAPID_SIZES = [
-    {
-        accountSize: 25_000,
-        evalCost: 100,
-        maxDrawdown: 1000,
-        minPayoutProfit: 250,
-        profitTarget: 1500,
-    },
     {
         accountSize: 50_000,
         evalCost: 200,
         maxDrawdown: 2000,
         minPayoutProfit: 250,
         profitTarget: 3000,
-    },
-    {
-        accountSize: 100_000,
-        evalCost: 280,
-        maxDrawdown: 2500,
-        minPayoutProfit: 500,
-        profitTarget: 5000,
     },
 ] as const;
 

@@ -36,11 +36,6 @@ interface UseCashFlowSimulationReturn {
     result: null | PortfolioTimelineResult;
 }
 
-// This panel has no web workers available (everything runs main-thread), so
-// `tradesPerDay` is capped independently of the global calculator's slider
-// (which allows up to 50) to keep the worst-case cost bounded — see
-// `portfolioTimeline.ts`'s own perf-guardrail comments for the arithmetic
-// this is based on.
 export const CASH_FLOW_MAX_TRADES_PER_DAY = 10;
 
 const DEBOUNCE_MS = 550;

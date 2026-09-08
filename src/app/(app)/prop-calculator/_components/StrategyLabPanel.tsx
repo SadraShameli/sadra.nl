@@ -284,6 +284,9 @@ function describeDayStop(rule: DayStopRule): string {
         case 'after-target': {
             return `Stop $${rule.dollars}`;
         }
+        case 'day-green': {
+            return 'Stop when green';
+        }
         case 'first-win': {
             return 'Stop on win';
         }

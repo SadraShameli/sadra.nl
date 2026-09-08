@@ -37,29 +37,26 @@ export type PlanId =
           readonly firm: FirmId.Tradeify;
           readonly variant: TradeifyVariant;
       };
-type AlphaFuturesAccountSize = 25_000 | 50_000 | 100_000 | 150_000;
+type AlphaFuturesAccountSize = 50_000;
 type AlphaFuturesVariant = 'advanced' | 'express' | 'premium' | 'zero';
-type ApexAccountSize = 25_000 | 50_000 | 100_000 | 150_000;
+type ApexAccountSize = 50_000;
 type ApexVariant = 'eod' | 'intraday';
-type FundedNextAccountSize = 25_000 | 50_000 | 100_000;
+type FundedNextAccountSize = 50_000;
 type FundedNextVariant = 'bolt' | 'legacy' | 'rapid';
-type LucidAccountSize = 25_000 | 50_000 | 100_000 | 150_000;
+type LucidAccountSize = 50_000;
 
 type LucidVariant = 'direct' | 'flex' | 'pro';
-type MffuAccountSize = 25_000 | 50_000 | 100_000 | 150_000;
+type MffuAccountSize = 50_000;
 type MffuVariant = 'builder' | 'flex' | 'pro' | 'rapid' | 'rapid-eod';
-type TopStepAccountSize = 50_000 | 100_000 | 150_000;
+type TopStepAccountSize = 50_000;
 type TopStepVariant = 'express' | 'standard';
-type TptAccountSize = 25_000 | 50_000 | 75_000 | 100_000 | 150_000;
-type TradeifyAccountSize = 25_000 | 50_000 | 100_000 | 150_000;
+type TptAccountSize = 50_000;
+type TradeifyAccountSize = 50_000;
 
 type TradeifyVariant = 'growth' | 'lightning' | 'select';
 
 export function arePlanIdsEqual(a: PlanId, b: PlanId): boolean {
-    if (a.firm !== b.firm || a.accountSize !== b.accountSize) return false;
-    const av = 'variant' in a ? a.variant : undefined;
-    const bv = 'variant' in b ? b.variant : undefined;
-    return av === bv;
+    return serializePlanId(a) === serializePlanId(b);
 }
 
 export function serializePlanId(id: PlanId): string {

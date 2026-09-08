@@ -24,19 +24,12 @@ import {
     TooltipTrigger,
 } from '~/components/ui/Tooltip';
 import { routes } from '~/lib/site/routes';
-import { api } from '~/trpc/react';
+import { api, type RouterOutputs } from '~/trpc/react';
+
+type Routine = RouterOutputs['lifting']['routine']['list'][number];
 
 export function RoutinesView() {
-    const router = useRouter();
-    const utilities = api.useUtils();
     const routines = api.lifting.routine.list.useQuery();
-    const routineDeletion = api.lifting.routine.delete.useMutation({
-        onSuccess: () => utilities.lifting.routine.list.invalidate(),
-    });
-    // eslint-disable-next-line unicorn/no-declarations-before-early-exit
-    const startWorkout = api.lifting.workout.start.useMutation({
-        onSuccess: () => router.push(routes.lifting.log),
-    });
 
     if (routines.isLoading) {
         return (
@@ -63,9 +56,22 @@ export function RoutinesView() {
         );
     }
 
+    return <RoutinesList routines={routines.data} />;
+}
+
+function RoutinesList({ routines }: { routines: readonly Routine[] }) {
+    const router = useRouter();
+    const utilities = api.useUtils();
+    const routineDeletion = api.lifting.routine.delete.useMutation({
+        onSuccess: () => utilities.lifting.routine.list.invalidate(),
+    });
+    const startWorkout = api.lifting.workout.start.useMutation({
+        onSuccess: () => router.push(routes.lifting.log),
+    });
+
     return (
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {routines.data.map((r) => (
+            {routines.map((r) => (
                 <li key={r.id}>
                     <Card>
                         <CardHeader className="pb-0">

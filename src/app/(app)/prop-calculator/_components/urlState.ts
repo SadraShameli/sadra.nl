@@ -1,11 +1,13 @@
 import { z } from 'zod';
 
 import {
+    type DayPolicy,
     type DayStopRule,
     serializePlanId,
     type TradingFirm,
 } from '~/lib/prop-calculator';
 import {
+    dayPolicySchema,
     dayStopRuleSchema,
     labScenarioSchema,
     portfolioEntrySchema,
@@ -94,6 +96,16 @@ export function decodeState(
         } catch {}
     }
 
+    let dayPolicy: DayPolicy | null = fallback.dayPolicy;
+    const dpParameter = parameters.get('dp');
+    if (dpParameter) {
+        try {
+            const parsed: unknown = JSON.parse(base64UrlDecode(dpParameter));
+            const ok = dayPolicySchema.safeParse(parsed);
+            if (ok.success) dayPolicy = ok.data;
+        } catch {}
+    }
+
     let labScenarios: LabScenario[] = fallback.labScenarios;
     const labParameter = parameters.get('lab');
     if (labParameter) {
@@ -149,6 +161,7 @@ export function decodeState(
             fallback.commissionPerRoundTrip,
         ),
         copyAccounts: intNumber('copy', fallback.copyAccounts),
+        dayPolicy,
         dayStop,
         evalDiscountPercent: number_('eval', fallback.evalDiscountPercent),
         firm: resolvedFirm,
@@ -194,6 +207,10 @@ export function encodeState(state: CalculatorState): URLSearchParams {
     if (state.dayStop.kind !== 'none') {
         const ds = base64UrlEncode(JSON.stringify(state.dayStop));
         if (ds) p.set('ds', ds);
+    }
+    if (state.dayPolicy) {
+        const dp = base64UrlEncode(JSON.stringify(state.dayPolicy));
+        if (dp) p.set('dp', dp);
     }
     if (state.labScenarios.length > 0) {
         const lab = base64UrlEncode(JSON.stringify(state.labScenarios));

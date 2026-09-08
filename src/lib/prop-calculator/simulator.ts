@@ -1,11 +1,21 @@
 import { type AccountState } from './core/AccountState';
 import { TRADING_DAYS_PER_MONTH } from './core/constants';
+import {
+    type DayPolicy,
+    type DayStopRule,
+    DEFAULT_RUNG_SIZING,
+    flatDayPolicy,
+    resolveTradeRisk,
+    type RungSizing,
+    shouldStopDay,
+} from './core/DayPolicy';
 import { type CouponDiscounts } from './core/FeeSchedule';
 import {
     newFundedCycleTracker,
     tryFundedPayout,
 } from './core/FundedPayoutCycle';
 import { type Plan } from './core/Plan';
+import { type Roi, totalRoiOnCost } from './core/Roi';
 import { deriveSubSeed, mulberry32, type Rng } from './rng';
 import { percentile } from './stats';
 
@@ -20,11 +30,18 @@ export interface CostBreakdown {
     resetFeesTotal: number;
 }
 
-export type DayStopRule =
-    | { dollars: number; kind: 'after-target' }
-    | { k: number; kind: 'after-k-losses' }
-    | { kind: 'first-win' }
-    | { kind: 'none' };
+export interface DayRunOptions {
+    commission: number;
+    dayPolicy: DayPolicy;
+    phase: 'eval' | 'funded';
+    plan: Plan;
+    rng: Rng;
+    rrRatio: number;
+    rungSizing: RungSizing;
+    state: AccountState;
+    stats: PathStats;
+    winrate: number;
+}
 
 export interface MultiAccountResult {
     accountsPassDistribution: number[];
@@ -59,14 +76,18 @@ export interface PortfolioSimInputs extends SimInputs {
 export interface SimInputs {
     commissionPerRoundTrip?: number;
     copyAccounts?: number;
+    dayPolicy?: DayPolicy;
     dayStop?: DayStopRule;
     discounts?: CouponDiscounts;
     fundedHorizonDays: number;
     maxAttempts?: number;
     maxEvalDays: number;
+    minRetainedCushion?: number;
+    payoutRequestSize?: number;
     plan: Plan;
     riskPerTrade: number;
     rrRatio: number;
+    rungSizing?: RungSizing;
     seed: number;
     tradesPerDay: number;
     trials: number;
@@ -115,7 +136,7 @@ export interface SimOutputs {
     profitTarget: number;
     risk5LossesPercent: number;
     risk10LossesPercent: number;
-    roiOnCost: number;
+    roiOnCost: Roi;
     sampleEquityCurves: number[][];
     timeoutProbability: number;
     tradesPerSuccessfulAttempt: number;
@@ -153,6 +174,18 @@ interface TrialResult {
 
 const SAMPLE_CURVE_COUNT = 50;
 
+export interface EvalAttemptOptions {
+    commission: number;
+    dayPolicy: DayPolicy;
+    maxEvalDays: number;
+    plan: Plan;
+    rng: Rng;
+    rrRatio: number;
+    rungSizing: RungSizing;
+    shouldCaptureEquity: boolean;
+    winrate: number;
+}
+
 export interface EvalAttemptResult {
     bestDayProfit: number;
     days: number;
@@ -181,6 +214,20 @@ interface FinishTrialArguments {
     resetFeesPaid: number;
 }
 
+interface FundedHorizonOptions {
+    attempt: EvalAttemptResult;
+    commission: number;
+    dayPolicy: DayPolicy;
+    fundedHorizonDays: number;
+    minRetainedCushion: number;
+    payoutRequestSize: number | undefined;
+    plan: Plan;
+    rng: Rng;
+    rrRatio: number;
+    rungSizing: RungSizing;
+    winrate: number;
+}
+
 interface FundedHorizonResult {
     daysElapsed: number;
     firstPayoutDay: null | number;
@@ -188,6 +235,23 @@ interface FundedHorizonResult {
     isClosed: boolean;
     payoutsIssued: number;
     totalPayout: number;
+}
+
+interface TrialOptions {
+    commission: number;
+    dayPolicy: DayPolicy;
+    discounts: CouponDiscounts | undefined;
+    fundedHorizonDays: number;
+    maxAttempts: number;
+    maxEvalDays: number;
+    minRetainedCushion: number;
+    payoutRequestSize: number | undefined;
+    plan: Plan;
+    rng: Rng;
+    rrRatio: number;
+    rungSizing: RungSizing;
+    shouldCaptureEquity: boolean;
+    winrate: number;
 }
 
 export function isPassingOutcome(o: TrialOutcome): boolean {
@@ -206,6 +270,17 @@ export function newPathStats(startingBalance: number): PathStats {
     };
 }
 
+export function resolveDayPolicy(inputs: SimInputs): DayPolicy {
+    return (
+        inputs.dayPolicy ??
+        flatDayPolicy(
+            inputs.riskPerTrade,
+            inputs.tradesPerDay,
+            inputs.dayStop ?? { kind: 'none' },
+        )
+    );
+}
+
 export function rollUpStats(target: PathStats, source: PathStats): void {
     target.tradesTaken += source.tradesTaken;
     target.grossWins += source.grossWins;
@@ -218,27 +293,34 @@ export function rollUpStats(target: PathStats, source: PathStats): void {
     }
 }
 
-export function runDay(
-    plan: Plan,
-    state: AccountState,
-    stats: PathStats,
-    winrate: number,
-    rrRatio: number,
-    riskPerTrade: number,
-    tradesPerDay: number,
-    commission: number,
-    rng: Rng,
-    dayStop: DayStopRule | undefined,
-    phase: 'eval' | 'funded',
-): { busted: boolean; traded: boolean } {
+export function runDay(options: DayRunOptions): {
+    busted: boolean;
+    traded: boolean;
+} {
+    const {
+        commission,
+        dayPolicy,
+        phase,
+        plan,
+        rng,
+        rrRatio,
+        rungSizing,
+        state,
+        stats,
+        winrate,
+    } = options;
     state.todayHigh = state.balance;
     state.todayPnL = 0;
     let isTraded = false;
     let lossesToday = 0;
 
-    for (let t = 0; t < tradesPerDay; t++) {
+    for (const intendedRisk of dayPolicy.ladder) {
+        const cushion = state.balance - state.threshold;
+        const risk = resolveTradeRisk(intendedRisk, cushion, rungSizing);
+        if (risk <= 0) break;
+
         const isWon = rng() < winrate;
-        const tradeGross = isWon ? rrRatio * riskPerTrade : -riskPerTrade;
+        const tradeGross = isWon ? rrRatio * risk : -risk;
         const pnl = tradeGross - commission;
         state.balance += pnl;
         state.todayPnL += pnl;
@@ -264,7 +346,22 @@ export function runDay(
         if (plan.isBust(state, phase)) {
             return { busted: true, traded: isTraded };
         }
-        if (shouldStopDay(dayStop, isWon, lossesToday, state.todayPnL)) break;
+        if (
+            dayPolicy.maxLossesPerDay !== null &&
+            lossesToday >= dayPolicy.maxLossesPerDay
+        ) {
+            break;
+        }
+        if (
+            shouldStopDay(
+                dayPolicy.stopRule,
+                isWon,
+                lossesToday,
+                state.todayPnL,
+            )
+        ) {
+            break;
+        }
     }
 
     if (isTraded) {
@@ -278,18 +375,18 @@ export function runDay(
     return { busted: false, traded: isTraded };
 }
 
-export function runEvalAttempt(
-    plan: Plan,
-    winrate: number,
-    rrRatio: number,
-    riskPerTrade: number,
-    tradesPerDay: number,
-    maxEvalDays: number,
-    commission: number,
-    rng: Rng,
-    shouldCaptureEquity: boolean,
-    dayStop: DayStopRule | undefined,
-): EvalAttemptResult {
+export function runEvalAttempt(options: EvalAttemptOptions): EvalAttemptResult {
+    const {
+        commission,
+        dayPolicy,
+        maxEvalDays,
+        plan,
+        rng,
+        rrRatio,
+        rungSizing,
+        shouldCaptureEquity,
+        winrate,
+    } = options;
     const state = plan.initialState();
     const stats = newPathStats(state.startingBalance);
     const equityCurve: null | number[] = shouldCaptureEquity
@@ -300,19 +397,18 @@ export function runEvalAttempt(
     let outcome: EvalAttemptOutcome = 'timed-out';
 
     for (let day = 0; day < maxEvalDays; day++) {
-        const { busted } = runDay(
+        const { busted } = runDay({
+            commission,
+            dayPolicy,
+            phase: 'eval',
             plan,
+            rng,
+            rrRatio,
+            rungSizing,
             state,
             stats,
             winrate,
-            rrRatio,
-            riskPerTrade,
-            tradesPerDay,
-            commission,
-            rng,
-            dayStop,
-            'eval',
-        );
+        });
         days += 1;
         state.daysElapsed = days;
         if (state.todayPnL > bestDayProfit) bestDayProfit = state.todayPnL;
@@ -338,19 +434,21 @@ export function simulate(inputs: SimInputs): SimOutputs {
     const {
         commissionPerRoundTrip = 0,
         copyAccounts = 1,
-        dayStop,
         discounts,
         fundedHorizonDays,
         maxAttempts = 1,
         maxEvalDays,
+        minRetainedCushion = 0,
+        payoutRequestSize,
         plan,
         riskPerTrade,
         rrRatio,
+        rungSizing = DEFAULT_RUNG_SIZING,
         seed,
-        tradesPerDay,
         trials,
-        winrate,
     } = inputs;
+    const winrate = inputs.winrate;
+    const dayPolicy = resolveDayPolicy(inputs);
     const accountMultiplier = Math.max(1, Math.floor(copyAccounts));
     const rng = mulberry32(seed);
 
@@ -359,21 +457,22 @@ export function simulate(inputs: SimInputs): SimOutputs {
         const stride = Math.max(1, Math.floor(trials / SAMPLE_CURVE_COUNT));
         const isCaptureEquity = index % stride === 0;
         trialResults.push(
-            simulateTrial(
-                plan,
-                winrate,
-                rrRatio,
-                riskPerTrade,
-                tradesPerDay,
-                maxEvalDays,
-                fundedHorizonDays,
-                Math.max(1, maxAttempts),
-                commissionPerRoundTrip,
-                rng,
-                isCaptureEquity,
+            simulateTrial({
+                commission: commissionPerRoundTrip,
+                dayPolicy,
                 discounts,
-                dayStop,
-            ),
+                fundedHorizonDays,
+                maxAttempts: Math.max(1, maxAttempts),
+                maxEvalDays,
+                minRetainedCushion,
+                payoutRequestSize,
+                plan,
+                rng,
+                rrRatio,
+                rungSizing,
+                shouldCaptureEquity: isCaptureEquity,
+                winrate,
+            }),
         );
     }
 
@@ -468,8 +567,7 @@ export function simulate(inputs: SimInputs): SimOutputs {
               : 0;
     const tradesPerSuccessfulAttempt =
         passingTrialsCount > 0 ? passingTradesSum / passingTrialsCount : 0;
-    const roiOnCost =
-        expectedTotalCost > 0 ? expectedNet / expectedTotalCost : 0;
+    const roiOnCost = totalRoiOnCost(expectedNet, expectedTotalCost);
 
     const avgDaysForCost =
         passes > 0 ? daysToPassSum / passes : expectedDaysPerTrial;
@@ -555,20 +653,21 @@ export function simulatePortfolio(
         accounts,
         commissionPerRoundTrip = 0,
         correlation,
-        dayStop,
         discounts,
         fundedHorizonDays,
         groups,
         maxAttempts = 1,
         maxEvalDays,
+        minRetainedCushion = 0,
+        payoutRequestSize,
         plan,
-        riskPerTrade,
         rrRatio,
+        rungSizing = DEFAULT_RUNG_SIZING,
         seed,
-        tradesPerDay,
         trials,
         winrate,
     } = inputs;
+    const dayPolicy = resolveDayPolicy(inputs);
 
     const N = Math.max(1, Math.floor(accounts));
     const groupSizes =
@@ -603,21 +702,22 @@ export function simulatePortfolio(
         for (const [g, groupSize] of groupSizes.entries()) {
             const size = groupSize;
             const groupRng = mulberry32(deriveSubSeed(seed, index, g));
-            const r = simulateTrial(
-                plan,
-                winrate,
-                rrRatio,
-                riskPerTrade,
-                tradesPerDay,
-                maxEvalDays,
-                fundedHorizonDays,
-                Math.max(1, maxAttempts),
-                commissionPerRoundTrip,
-                groupRng,
-                false,
+            const r = simulateTrial({
+                commission: commissionPerRoundTrip,
+                dayPolicy,
                 discounts,
-                dayStop,
-            );
+                fundedHorizonDays,
+                maxAttempts: Math.max(1, maxAttempts),
+                maxEvalDays,
+                minRetainedCushion,
+                payoutRequestSize,
+                plan,
+                rng: groupRng,
+                rrRatio,
+                rungSizing,
+                shouldCaptureEquity: false,
+                winrate,
+            });
             const isPasses = isPassingOutcome(r.outcome);
             if (isPasses) trialPasses += size;
             if (r.outcome === 'bust-eval' || r.outcome === 'bust-funded')
@@ -769,21 +869,21 @@ function finishTrial(arguments_: FinishTrialArguments): TrialResult {
     };
 }
 
-function runFundedHorizon(
-    plan: Plan,
-    attempt: EvalAttemptResult,
-    winrate: number,
-    rrRatio: number,
-    riskPerTrade: number,
-    tradesPerDay: number,
-    fundedHorizonDays: number,
-    commission: number,
-    rng: Rng,
-    dayStop: DayStopRule | undefined,
-): FundedHorizonResult {
+function runFundedHorizon(options: FundedHorizonOptions): FundedHorizonResult {
+    const {
+        attempt,
+        commission,
+        dayPolicy,
+        fundedHorizonDays,
+        minRetainedCushion,
+        payoutRequestSize,
+        plan,
+        rng,
+        rrRatio,
+        rungSizing,
+        winrate,
+    } = options;
     const { state } = attempt;
-    // The funded phase begins now: this is the balance the tiered funded
-    // DLL and the trailing-drawdown ratchet measure profit against.
     state.fundingBaseline = state.balance;
 
     const ladder = plan.payoutLadder;
@@ -795,19 +895,18 @@ function runFundedHorizon(
     const tracker = newFundedCycleTracker(state);
 
     for (let day = 0; day < fundedHorizonDays; day++) {
-        const { busted } = runDay(
-            plan,
-            state,
-            attempt.stats,
-            winrate,
-            rrRatio,
-            riskPerTrade,
-            tradesPerDay,
+        const { busted } = runDay({
             commission,
+            dayPolicy,
+            phase: 'funded',
+            plan,
             rng,
-            dayStop,
-            'funded',
-        );
+            rrRatio,
+            rungSizing,
+            state,
+            stats: attempt.stats,
+            winrate,
+        });
         daysElapsed += 1;
         state.daysElapsed += 1;
         if (attempt.equityCurve) {
@@ -822,10 +921,17 @@ function runFundedHorizon(
             break;
         }
 
-        const payout = tryFundedPayout(plan, state, tracker, Infinity);
+        const payout = tryFundedPayout({
+            maxPayouts: Infinity,
+            minRetainedCushion,
+            payoutRequestSize,
+            plan,
+            state,
+            tracker,
+        });
         if (payout === null) continue;
 
-        totalPayout += payout;
+        totalPayout += payout.traderReceives;
         firstPayoutDay ??= daysElapsed;
 
         if (ladder && tracker.payoutsIssued >= ladder.steps.length) {
@@ -844,41 +950,23 @@ function runFundedHorizon(
     };
 }
 
-function shouldStopDay(
-    rule: DayStopRule | undefined,
-    hasWon: boolean,
-    lossesToday: number,
-    pnlToday: number,
-): boolean {
-    if (!rule || rule.kind === 'none') return false;
-    switch (rule.kind) {
-        case 'after-k-losses': {
-            return lossesToday >= rule.k;
-        }
-        case 'after-target': {
-            return pnlToday >= rule.dollars;
-        }
-        case 'first-win': {
-            return hasWon;
-        }
-    }
-}
-
-function simulateTrial(
-    plan: Plan,
-    winrate: number,
-    rrRatio: number,
-    riskPerTrade: number,
-    tradesPerDay: number,
-    maxEvalDays: number,
-    fundedHorizonDays: number,
-    maxAttempts: number,
-    commission: number,
-    rng: Rng,
-    shouldCaptureEquity: boolean,
-    discounts: CouponDiscounts | undefined,
-    dayStop: DayStopRule | undefined,
-): TrialResult {
+function simulateTrial(options: TrialOptions): TrialResult {
+    const {
+        commission,
+        dayPolicy,
+        discounts,
+        fundedHorizonDays,
+        maxAttempts,
+        maxEvalDays,
+        minRetainedCushion,
+        payoutRequestSize,
+        plan,
+        rng,
+        rrRatio,
+        rungSizing,
+        shouldCaptureEquity,
+        winrate,
+    } = options;
     const cumulative = newPathStats(plan.accountSize);
     let cumulativeDays = 0;
     let attemptsUsed = 0;
@@ -886,18 +974,17 @@ function simulateTrial(
 
     for (;;) {
         attemptsUsed += 1;
-        const attempt = runEvalAttempt(
-            plan,
-            winrate,
-            rrRatio,
-            riskPerTrade,
-            tradesPerDay,
-            maxEvalDays,
+        const attempt = runEvalAttempt({
             commission,
+            dayPolicy,
+            maxEvalDays,
+            plan,
             rng,
+            rrRatio,
+            rungSizing,
             shouldCaptureEquity,
-            dayStop,
-        );
+            winrate,
+        });
         cumulativeDays += attempt.days;
         const lastEquityCurve = attempt.equityCurve;
 
@@ -906,18 +993,19 @@ function simulateTrial(
             const passBalance = attempt.state.balance;
             const evalTradesAtPass = attempt.stats.tradesTaken;
 
-            const fundedHorizon = runFundedHorizon(
-                plan,
+            const fundedHorizon = runFundedHorizon({
                 attempt,
-                winrate,
-                rrRatio,
-                riskPerTrade,
-                tradesPerDay,
-                fundedHorizonDays,
                 commission,
+                dayPolicy,
+                fundedHorizonDays,
+                minRetainedCushion,
+                payoutRequestSize,
+                plan,
                 rng,
-                dayStop,
-            );
+                rrRatio,
+                rungSizing,
+                winrate,
+            });
             cumulativeDays += fundedHorizon.daysElapsed;
             const isBustedFunded = fundedHorizon.isBustedFunded;
 
@@ -927,8 +1015,6 @@ function simulateTrial(
                 0,
                 attempt.state.balance - passBalance,
             );
-            // For ladder-based plans (Apex), the real first-payout day comes
-            // straight out of the day-loop instead of this cosmetic estimate.
             let firstPayoutDay: null | number = null;
             if (plan.payoutLadder) {
                 firstPayoutDay =

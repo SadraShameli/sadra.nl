@@ -11,25 +11,11 @@ class AlphaFuturesPlan extends Plan {}
 
 const ZERO_SIZES = [
     {
-        accountSize: 25_000,
-        dailyLossLimit: 500,
-        maxDrawdown: 1000,
-        monthlyFee: 79,
-        profitTarget: 1500,
-    },
-    {
         accountSize: 50_000,
         dailyLossLimit: 1000,
         maxDrawdown: 2000,
         monthlyFee: 119,
         profitTarget: 3000,
-    },
-    {
-        accountSize: 100_000,
-        dailyLossLimit: 2000,
-        maxDrawdown: 3000,
-        monthlyFee: 239,
-        profitTarget: 6000,
     },
 ] as const;
 
@@ -40,18 +26,6 @@ const ADVANCED_SIZES = [
         monthlyFee: 139,
         profitTarget: 4000,
     },
-    {
-        accountSize: 100_000,
-        maxDrawdown: 3500,
-        monthlyFee: 279,
-        profitTarget: 8000,
-    },
-    {
-        accountSize: 150_000,
-        maxDrawdown: 5250,
-        monthlyFee: 419,
-        profitTarget: 12_000,
-    },
 ] as const;
 
 const PREMIUM_SIZES = [
@@ -61,18 +35,6 @@ const PREMIUM_SIZES = [
         monthlyFee: 79,
         profitTarget: 3000,
     },
-    {
-        accountSize: 100_000,
-        maxDrawdown: 3000,
-        monthlyFee: 159,
-        profitTarget: 6000,
-    },
-    {
-        accountSize: 150_000,
-        maxDrawdown: 4500,
-        monthlyFee: 239,
-        profitTarget: 9000,
-    },
 ] as const;
 
 const EXPRESS_SIZES = [
@@ -81,18 +43,6 @@ const EXPRESS_SIZES = [
         maxDrawdown: 2000,
         monthlyFee: 159,
         profitTarget: 3000,
-    },
-    {
-        accountSize: 100_000,
-        maxDrawdown: 3000,
-        monthlyFee: 269,
-        profitTarget: 6000,
-    },
-    {
-        accountSize: 150_000,
-        maxDrawdown: 4500,
-        monthlyFee: 379,
-        profitTarget: 9000,
     },
 ] as const;
 

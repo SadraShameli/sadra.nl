@@ -9,7 +9,7 @@ import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFu
 
 const firm = new ApexTraderFunding();
 
-function findPlan(accountSize: 25_000, variant: 'eod') {
+function findPlan(accountSize: 50_000, variant: 'eod') {
     const plan = firm.findPlan({ accountSize, firm: FirmId.Apex, variant });
     if (!plan) {
         throw new Error(`Apex plan not found: ${accountSize} ${variant}`);
@@ -17,8 +17,6 @@ function findPlan(accountSize: 25_000, variant: 'eod') {
     return plan;
 }
 
-// Every public field currently on `Plan` (post Part A), used to prove the
-// original plan is left completely unmutated by `withPlanOverrides`.
 function snapshotOf(plan: Plan) {
     return {
         accountSize: plan.accountSize,
@@ -41,27 +39,21 @@ function snapshotOf(plan: Plan) {
 }
 
 describe('withPlanOverrides', () => {
-    // 25K EOD: profitTarget 1500, minTradingDays 0, evalDailyLossLimit
-    // { amount: 500, kind: 'flat' }, payoutTiers [{ thresholdProfit: 0,
-    // traderShare: 1 }] (100% share, per Apex's post-Part-A ladder model).
-    const basePlan = findPlan(25_000, 'eod');
+    const basePlan = findPlan(50_000, 'eod');
 
     it('flows an overridden profitTarget through isPassed', () => {
         const state = basePlan.initialState();
-        state.balance = state.startingBalance + 1000; // $1,000 profit
+        state.balance = state.startingBalance + 1000;
         state.tradingDays = 5;
 
-        // Baseline: $1,000 profit is below the 25K plan's $1,500 target.
         expect(basePlan.isPassed(state)).toBe(false);
 
         const loweredTarget = withPlanOverrides(basePlan, {
             profitTarget: 500,
         });
 
-        // Same state, lowered target: now clears it.
         expect(loweredTarget.isPassed(state)).toBe(true);
-        // Baseline plan itself must be untouched by the variant's creation.
-        expect(basePlan.profitTarget).toBe(1500);
+        expect(basePlan.profitTarget).toBe(3000);
         expect(basePlan.isPassed(state)).toBe(false);
     });
 
@@ -69,21 +61,17 @@ describe('withPlanOverrides', () => {
         const lossState = basePlan.initialState();
         lossState.todayPnL = -300;
 
-        // Baseline flat $500 eval DLL: a $300 loss doesn't breach it (and
-        // doesn't breach the $1,000 trailing drawdown either).
         expect(basePlan.isBust(lossState, 'eval')).toBe(false);
 
         const stricterDll = withPlanOverrides(basePlan, {
             evalDailyLossLimit: { amount: 200, kind: 'flat' },
         });
 
-        // Same loss, tightened $200 eval DLL: now busts.
         expect(stricterDll.isBust(lossState, 'eval')).toBe(true);
         expect(basePlan.isBust(lossState, 'eval')).toBe(false);
     });
 
     it('flows overridden payoutTiers through payoutFromProfit', () => {
-        // Baseline: Apex's post-Part-A payoutTiers is a flat 100% share.
         expect(basePlan.payoutFromProfit(1000)).toBe(1000);
 
         const halfShare = withPlanOverrides(basePlan, {
@@ -127,8 +115,6 @@ describe('withPlanOverrides', () => {
         });
 
         expect(snapshotOf(basePlan)).toEqual(before);
-        // Reference equality too, not just value equality: the original
-        // plan's own object graph was never touched or replaced.
         expect(basePlan.fees).toBe(feesReference);
         expect(basePlan.payoutTiers).toBe(payoutTiersReference);
         expect(basePlan.drawdown).toBe(drawdownReference);
@@ -138,6 +124,6 @@ describe('withPlanOverrides', () => {
         const variant = withPlanOverrides(basePlan, { profitTarget: 1 });
         expect(variant).not.toBe(basePlan);
         expect(variant.profitTarget).toBe(1);
-        expect(basePlan.profitTarget).toBe(1500);
+        expect(basePlan.profitTarget).toBe(3000);
     });
 });

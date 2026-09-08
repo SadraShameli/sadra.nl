@@ -1,14 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    type DailyLossLimitConfig,
     type DllTier,
     resolveDailyLossLimit,
 } from '~/lib/prop-calculator/core/DailyLossLimit';
 
-// Tables verified against the plan's A1 section ("Funded DLL tiers"), one
-// entry per Apex account size. Kept literal here (rather than imported from
-// ApexTraderFunding.ts) so a firm-data typo can't accidentally pass this
-// pure-function test too.
 const FUNDED_TIERS_25K: readonly DllTier[] = [
     { dailyLossLimit: 500, maxContracts: 4, minProfit: 0 },
     { dailyLossLimit: 500, maxContracts: 4, minProfit: 1000 },
@@ -146,5 +143,44 @@ describe('resolveDailyLossLimit', () => {
             expect(resolveDailyLossLimit(config, 9999)).toBe(3000);
             expect(resolveDailyLossLimit(config, 10_000)).toBe(4000);
         });
+    });
+});
+
+describe('unsorted tiered configs', () => {
+    it('picks the highest applicable tier regardless of array order', () => {
+        const ascending: DailyLossLimitConfig = {
+            kind: 'tiered',
+            tiers: [
+                { dailyLossLimit: 1000, maxContracts: 6, minProfit: 0 },
+                { dailyLossLimit: 2000, maxContracts: 6, minProfit: 3000 },
+                { dailyLossLimit: 3000, maxContracts: 6, minProfit: 6000 },
+            ],
+        };
+        const shuffled: DailyLossLimitConfig = {
+            kind: 'tiered',
+            tiers: [
+                { dailyLossLimit: 3000, maxContracts: 6, minProfit: 6000 },
+                { dailyLossLimit: 1000, maxContracts: 6, minProfit: 0 },
+                { dailyLossLimit: 2000, maxContracts: 6, minProfit: 3000 },
+            ],
+        };
+        for (const profit of [-500, 0, 2999, 3000, 5999, 6000, 99_999]) {
+            expect(resolveDailyLossLimit(shuffled, profit)).toBe(
+                resolveDailyLossLimit(ascending, profit),
+            );
+        }
+        expect(resolveDailyLossLimit(shuffled, 4000)).toBe(2000);
+        expect(resolveDailyLossLimit(shuffled, 10_000)).toBe(3000);
+    });
+
+    it('falls back to the lowest-threshold tier when no tier qualifies', () => {
+        const config: DailyLossLimitConfig = {
+            kind: 'tiered',
+            tiers: [
+                { dailyLossLimit: 2000, maxContracts: 6, minProfit: 5000 },
+                { dailyLossLimit: 1000, maxContracts: 6, minProfit: 1000 },
+            ],
+        };
+        expect(resolveDailyLossLimit(config, -1)).toBe(1000);
     });
 });

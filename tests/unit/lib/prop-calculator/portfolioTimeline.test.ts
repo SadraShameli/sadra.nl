@@ -10,10 +10,7 @@ import {
 
 const firm = new ApexTraderFunding();
 
-function findPlan(
-    accountSize: 25_000 | 50_000 | 100_000 | 150_000,
-    variant: 'eod' | 'intraday',
-) {
+function findPlan(accountSize: 50_000, variant: 'eod' | 'intraday') {
     const plan = firm.findPlan({ accountSize, firm: FirmId.Apex, variant });
     if (!plan) {
         throw new Error(`Apex plan not found: ${accountSize} ${variant}`);
@@ -88,8 +85,6 @@ describe('simulatePortfolioTimeline', () => {
         const a = simulatePortfolioTimeline(baseInputs({ seed: 1 }));
         const b = simulatePortfolioTimeline(baseInputs({ seed: 2 }));
 
-        // Not a guarantee for every possible field, but at 50% winrate over
-        // many trials the median net path should differ at least somewhere.
         expect(a.netP50).not.toEqual(b.netP50);
     });
 
@@ -110,8 +105,6 @@ describe('simulatePortfolioTimeline', () => {
             }),
         );
         assertWellFormed(out);
-        // With a very high winrate this portfolio should end up net-positive
-        // at least sometimes within a year's day-budget.
         expect(out.pEverCashflowPositive).toBeGreaterThan(0);
     });
 
@@ -144,9 +137,6 @@ describe('simulatePortfolioTimeline', () => {
 
         const elapsedMs = performance.now() - start;
 
-        // Vitest's default per-test timeout is 5000ms; leave generous
-        // headroom so this fails loudly (not by silently timing out) if the
-        // hang-prevention bounds are ever regressed.
         expect(elapsedMs).toBeLessThan(4000);
         assertWellFormed(out);
         expect(out.days.at(-1)).toBe(252);
@@ -172,8 +162,6 @@ describe('simulatePortfolioTimeline', () => {
 
         expect(elapsedMs).toBeLessThan(4000);
         assertWellFormed(out);
-        // Both `dayBudget: 0` and `maxEvalDays: 0` are defensively clamped up
-        // to a minimum of 1, so the timeline still spans at least 1 day.
         expect(out.days.at(-1)).toBe(1);
     });
 
@@ -185,8 +173,6 @@ describe('simulatePortfolioTimeline', () => {
         for (const month of out.breakEvenMonthValues) {
             expect(month).toBeGreaterThan(0);
         }
-        // pEverCashflowPositive should agree with the fraction of trials
-        // that produced a breakEvenMonthValues entry.
         expect(out.pEverCashflowPositive).toBeCloseTo(
             out.breakEvenMonthValues.length / 30,
             6,

@@ -11,34 +11,10 @@ class TptPlan extends Plan {}
 
 const SIZES = [
     {
-        accountSize: 25_000,
-        maxDrawdown: 1500,
-        monthlySubscription: 150,
-        profitTarget: 1500,
-    },
-    {
         accountSize: 50_000,
         maxDrawdown: 2000,
         monthlySubscription: 170,
         profitTarget: 3000,
-    },
-    {
-        accountSize: 75_000,
-        maxDrawdown: 2500,
-        monthlySubscription: 245,
-        profitTarget: 4500,
-    },
-    {
-        accountSize: 100_000,
-        maxDrawdown: 3000,
-        monthlySubscription: 330,
-        profitTarget: 6000,
-    },
-    {
-        accountSize: 150_000,
-        maxDrawdown: 4500,
-        monthlySubscription: 360,
-        profitTarget: 9000,
     },
 ] as const;
 

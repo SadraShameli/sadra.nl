@@ -1,0 +1,364 @@
+import { describe, expect, it } from 'vitest';
+
+import { FirmId, flatDayPolicy } from '~/lib/prop-calculator/core';
+import {
+    buildLadderGrid,
+    canonicaliseGrid,
+    enumerateDay,
+    type LadderScoreConfig,
+    runLadderSearch,
+    scoreLadder,
+} from '~/lib/prop-calculator/core/LadderSearch';
+import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
+import { mulberry32 } from '~/lib/prop-calculator/rng';
+import { newPathStats, runDay } from '~/lib/prop-calculator/simulator';
+
+const firm = new MyFundedFutures();
+
+function config(): LadderScoreConfig {
+    return {
+        cushion: 2000,
+        evalPrice: 104.5,
+        maxDays: 150,
+        plan: rapidEod(),
+        rrRatio: 2,
+        rungSizing: 'capToCushion',
+        seedOffset: 0,
+        sims: 20_000,
+        stopRule: { kind: 'day-green' },
+        winrate: 0.4,
+    };
+}
+
+function rapidEod() {
+    const plan = firm.findPlan({
+        accountSize: 50_000,
+        firm: FirmId.Mffu,
+        variant: 'rapid-eod',
+    });
+    if (!plan) throw new Error('Rapid EOD 50K plan missing');
+    return plan;
+}
+
+describe('MFF Rapid EOD 50K plan parameters', () => {
+    it('matches the validated help-centre rule set', () => {
+        const plan = rapidEod();
+        expect(plan.profitTarget).toBe(3000);
+        expect(plan.drawdown.amount).toBe(2000);
+        expect(plan.drawdown.kind).toBe('eod-trailing');
+        expect(plan.minTradingDays).toBe(4);
+        expect(plan.consistency?.maxBestDayShare).toBe(0.3);
+        expect(plan.consistency?.appliesToEval()).toBe(true);
+        expect(plan.consistency?.appliesToFunded()).toBe(false);
+        expect(plan.evalDailyLossLimit.kind).toBe('none');
+    });
+});
+
+describe('enumerateDay', () => {
+    it('produces a proper probability distribution', () => {
+        const distribution = enumerateDay({
+            cushion: 2000,
+            dayPolicy: {
+                ladder: [400, 600, 800, 200],
+                maxLossesPerDay: null,
+                stopRule: { kind: 'day-green' },
+            },
+            rrRatio: 2,
+            rungSizing: 'capToCushion',
+            winrate: 0.4,
+        });
+        const total = distribution.outcomes.reduce(
+            (sum, outcome) => sum + outcome.probability,
+            0,
+        );
+        expect(total).toBeCloseTo(1, 10);
+        expect(distribution.cumulative.at(-1)).toBeCloseTo(1, 10);
+    });
+
+    it('reproduces the closed-form blow-up probability for a ladder summing to the cushion', () => {
+        for (const ladder of [
+            [400, 600, 800, 200],
+            [500, 500, 500, 500],
+            [100, 300, 600, 1000],
+        ]) {
+            expect(ladder.reduce((a, b) => a + b, 0)).toBe(2000);
+            const distribution = enumerateDay({
+                cushion: 2000,
+                dayPolicy: {
+                    ladder,
+                    maxLossesPerDay: null,
+                    stopRule: { kind: 'day-green' },
+                },
+                rrRatio: 2,
+                rungSizing: 'capToCushion',
+                winrate: 0.4,
+            });
+            const blown = distribution.outcomes
+                .filter((outcome) => outcome.worstPnL <= -2000)
+                .reduce((sum, outcome) => sum + outcome.probability, 0);
+            expect(blown).toBeCloseTo(0.6 ** 4, 10);
+        }
+    });
+
+    it('never risks more than the remaining cushion on any path', () => {
+        const distribution = enumerateDay({
+            cushion: 2000,
+            dayPolicy: {
+                ladder: [400, 600, 900, 1400],
+                maxLossesPerDay: null,
+                stopRule: { kind: 'day-green' },
+            },
+            rrRatio: 2,
+            rungSizing: 'capToCushion',
+            winrate: 0.4,
+        });
+        for (const outcome of distribution.outcomes) {
+            expect(outcome.worstPnL).toBeGreaterThanOrEqual(-2000);
+        }
+    });
+
+    it('skips unaffordable rungs entirely under skipIfUnaffordable', () => {
+        const capped = enumerateDay({
+            cushion: 1000,
+            dayPolicy: {
+                ladder: [400, 900],
+                maxLossesPerDay: null,
+                stopRule: { kind: 'none' },
+            },
+            rrRatio: 2,
+            rungSizing: 'capToCushion',
+            winrate: 0.4,
+        });
+        const skipped = enumerateDay({
+            cushion: 1000,
+            dayPolicy: {
+                ladder: [400, 900],
+                maxLossesPerDay: null,
+                stopRule: { kind: 'none' },
+            },
+            rrRatio: 2,
+            rungSizing: 'skipIfUnaffordable',
+            winrate: 0.4,
+        });
+        expect(Math.min(...capped.outcomes.map((o) => o.worstPnL))).toBe(-1000);
+        expect(Math.min(...skipped.outcomes.map((o) => o.worstPnL))).toBe(-400);
+    });
+});
+
+describe('scoreLadder golden values (MFF Rapid EOD 50K, 40% WR, 1:2 R:R)', () => {
+    const cases: {
+        days: number;
+        ladder: number[];
+        pass: number;
+    }[] = [
+        { days: 19.2, ladder: [300, 300, 200, 300], pass: 0.604 },
+        { days: 33.7, ladder: [200, 100, 100, 200], pass: 0.759 },
+        { days: 64.5, ladder: [100, 100, 100, 100], pass: 0.908 },
+        { days: 8.2, ladder: [400, 600, 800, 200], pass: 0.47 },
+        { days: 11, ladder: [400, 600, 500], pass: 0.533 },
+    ];
+
+    for (const { days, ladder, pass } of cases) {
+        it(`scores ${JSON.stringify(ladder)} near ${(pass * 100).toFixed(1)}% / ${days}d`, () => {
+            const score = scoreLadder(ladder, config(), mulberry32(90_210));
+            expect(score.passRate).toBeCloseTo(pass, 1);
+            expect(score.expectedDaysToFunded).toBeGreaterThan(days * 0.85);
+            expect(score.expectedDaysToFunded).toBeLessThan(days * 1.15);
+        });
+    }
+
+    it('ranks the speed-optimal ladder fastest and the safest ladder highest on pass rate', () => {
+        const fast = scoreLadder(
+            [400, 600, 800, 200],
+            config(),
+            mulberry32(90_210),
+        );
+        const safe = scoreLadder(
+            [100, 100, 100, 100],
+            config(),
+            mulberry32(90_210),
+        );
+        expect(fast.expectedDaysToFunded).toBeLessThan(
+            safe.expectedDaysToFunded,
+        );
+        expect(safe.passRate).toBeGreaterThan(fast.passRate);
+        expect(safe.costPerFunded).toBeLessThan(fast.costPerFunded);
+    });
+});
+
+describe('consistency rule is a pass gate, not a failure', () => {
+    it('forces a large-best-day account to keep trading past the profit target', () => {
+        const plan = rapidEod();
+        const state = plan.initialState();
+        state.balance = state.startingBalance + 3000;
+        state.bestDayProfit = 3000;
+        state.tradingDays = 4;
+
+        expect(plan.isPassed(state)).toBe(false);
+
+        state.balance = state.startingBalance + 10_000;
+        expect(plan.isPassed(state)).toBe(true);
+    });
+
+    it('requires total profit of bestDay / consistencyPct to pass', () => {
+        const plan = rapidEod();
+        const state = plan.initialState();
+        state.tradingDays = 4;
+        state.bestDayProfit = 1800;
+
+        state.balance = state.startingBalance + 5999;
+        expect(plan.isPassed(state)).toBe(false);
+
+        state.balance = state.startingBalance + 6000;
+        expect(plan.isPassed(state)).toBe(true);
+    });
+
+    it('does not gate a plan whose consistency rule is funded-scope only', () => {
+        const builder = firm.findPlan({
+            accountSize: 50_000,
+            firm: FirmId.Mffu,
+            variant: 'builder',
+        });
+        if (!builder) throw new Error('Builder plan missing');
+        expect(builder.consistency?.appliesToEval()).toBe(false);
+
+        const state = builder.initialState();
+        state.balance = state.startingBalance + builder.profitTarget;
+        state.bestDayProfit = builder.profitTarget;
+        state.tradingDays = builder.minTradingDays;
+        expect(builder.isPassed(state)).toBe(true);
+    });
+});
+
+describe('cushion cap invariant', () => {
+    it('never lets a single trade lose more than the cushion available before it', () => {
+        const plan = rapidEod();
+        const rng = mulberry32(4242);
+        for (let trial = 0; trial < 2000; trial++) {
+            const state = plan.initialState();
+            const stats = newPathStats(state.startingBalance);
+            const floorBefore = state.threshold;
+            runDay({
+                commission: 0,
+                dayPolicy: {
+                    ladder: [400, 600, 900, 1400],
+                    maxLossesPerDay: null,
+                    stopRule: { kind: 'day-green' },
+                },
+                phase: 'eval',
+                plan,
+                rng,
+                rrRatio: 2,
+                rungSizing: 'capToCushion',
+                state,
+                stats,
+                winrate: 0.4,
+            });
+            expect(state.balance).toBeGreaterThanOrEqual(floorBefore);
+        }
+    });
+
+    it('caps an oversized rung to the cushion instead of over-risking', () => {
+        const plan = rapidEod();
+        const state = plan.initialState();
+        const stats = newPathStats(state.startingBalance);
+        runDay({
+            commission: 0,
+            dayPolicy: flatDayPolicy(999_999, 1, { kind: 'none' }),
+            phase: 'eval',
+            plan,
+            rng: () => 0.99,
+            rrRatio: 2,
+            rungSizing: 'capToCushion',
+            state,
+            stats,
+            winrate: 0.4,
+        });
+        expect(state.balance).toBe(state.startingBalance - 2000);
+    });
+});
+
+describe('grid search bounding', () => {
+    it('enumerates ladders with the no-gap constraint', () => {
+        const grid = buildLadderGrid({
+            lo: 100,
+            max: 200,
+            slots: 2,
+            step: 100,
+        });
+        const keys = grid.map((l) => l.join(','));
+        expect(keys).toContain('100');
+        expect(keys).toContain('100,200');
+        expect(keys).not.toContain('0,100');
+    });
+
+    it('de-duplicates ladders that alias to the same effective strategy', () => {
+        const aliases = [
+            [400, 600, 1800, 100],
+            [400, 600, 1400, 0],
+            [400, 600, 2000, 900],
+        ];
+        const canonical = canonicaliseGrid(aliases, 2000);
+        expect(canonical).toHaveLength(1);
+        expect(canonical[0]).toEqual([400, 600, 1000]);
+    });
+});
+
+describe('runLadderSearch', () => {
+    it('rediscovers the documented speed-optimal ladder from a full grid', () => {
+        const result = runLadderSearch({
+            grid: { lo: 100, max: 800, slots: 4, step: 100 },
+            score: { ...config(), sims: 4000 },
+            seed: 90_210,
+            topN: 5,
+        });
+
+        expect(result.bySpeed[0]?.ladder).toEqual([400, 600, 800, 200]);
+        expect(result.byCost[0]?.ladder).toEqual([100, 100, 100, 100]);
+
+        const winner = result.bySpeed[0];
+        if (!winner) throw new Error('no speed winner');
+        expect(winner.ladder.reduce((a, b) => a + b, 0)).toBe(2000);
+    });
+
+    it('drops aliased ladders and reports how many', () => {
+        const result = runLadderSearch({
+            grid: { lo: 100, max: 800, slots: 4, step: 100 },
+            score: { ...config(), sims: 200 },
+            seed: 90_210,
+        });
+        expect(result.gridSize).toBeGreaterThan(result.laddersScored);
+        expect(result.droppedAliasCount).toBe(
+            result.gridSize - result.laddersScored,
+        );
+    });
+
+    it('returns a frontier that is strictly improving on both axes', () => {
+        const result = runLadderSearch({
+            grid: { lo: 100, max: 600, slots: 3, step: 100 },
+            score: { ...config(), sims: 1000 },
+            seed: 90_210,
+        });
+        for (let index = 1; index < result.frontier.length; index++) {
+            const previous = result.frontier[index - 1];
+            const current = result.frontier[index];
+            if (!previous || !current) throw new Error('frontier gap');
+            expect(current.expectedDaysToFunded).toBeGreaterThanOrEqual(
+                previous.expectedDaysToFunded,
+            );
+            expect(current.costPerFunded).toBeLessThan(previous.costPerFunded);
+        }
+    });
+
+    it('gives every ladder an independent RNG stream', () => {
+        const result = runLadderSearch({
+            grid: { lo: 300, max: 300, slots: 2, step: 100 },
+            score: { ...config(), sims: 3000 },
+            seed: 90_210,
+        });
+        const identical = result.bySpeed.filter(
+            (s) => s.ladder.join(',') === '300,300',
+        );
+        expect(identical).toHaveLength(1);
+    });
+});

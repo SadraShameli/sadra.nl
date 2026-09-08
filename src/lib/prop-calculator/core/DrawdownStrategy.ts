@@ -29,7 +29,7 @@ export abstract class DrawdownStrategy {
     }
 
     isBreached(state: AccountState): boolean {
-        return state.balance < state.threshold;
+        return state.balance <= state.threshold;
     }
     abstract onDayClose(state: AccountState): void;
 

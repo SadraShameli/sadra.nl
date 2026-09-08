@@ -20,8 +20,6 @@ export function createInitialState(
         balance: startingBalance,
         bestDayProfit: 0,
         daysElapsed: 0,
-        // Not meaningful until the account is funded; set for real the
-        // moment the funded phase begins (see `runFundedHorizon`).
         fundingBaseline: startingBalance,
         qualifyingDays: 0,
         startingBalance,

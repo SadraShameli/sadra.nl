@@ -141,8 +141,9 @@ export default function OptimalRiskTable({
                 id: 'monthlyNet',
             },
             {
-                accessorFn: (r) => r.out.roiOnCost,
-                cell: ({ row }) => formatPercent(row.original.out.roiOnCost),
+                accessorFn: (r) => r.out.roiOnCost.value,
+                cell: ({ row }) =>
+                    formatPercent(row.original.out.roiOnCost.value),
                 header: 'ROI',
                 id: 'roi',
             },

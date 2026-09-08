@@ -1,0 +1,96 @@
+export interface DayPolicy {
+    readonly ladder: readonly number[];
+    readonly maxLossesPerDay: null | number;
+    readonly stopRule: DayStopRule;
+}
+
+export type DayStopRule =
+    | { dollars: number; kind: 'after-target' }
+    | { k: number; kind: 'after-k-losses' }
+    | { kind: 'day-green' }
+    | { kind: 'first-win' }
+    | { kind: 'none' };
+
+export type RungSizing = 'capToCushion' | 'skipIfUnaffordable';
+
+export const DEFAULT_RUNG_SIZING: RungSizing = 'capToCushion';
+
+export function canonicaliseLadder(
+    ladder: readonly number[],
+    cushion: number,
+): number[] {
+    const out: number[] = [];
+    let remaining = cushion;
+    for (const rung of ladder) {
+        if (rung <= 0 || remaining <= 0) break;
+        const clamped = Math.min(rung, remaining);
+        out.push(clamped);
+        remaining -= clamped;
+    }
+    return out;
+}
+
+export function flatDayPolicy(
+    riskPerTrade: number,
+    tradesPerDay: number,
+    stopRule?: DayStopRule,
+): DayPolicy {
+    const slots = Math.max(1, Math.floor(tradesPerDay));
+    return {
+        ladder: Array.from({ length: slots }, () => riskPerTrade),
+        maxLossesPerDay: null,
+        stopRule: stopRule ?? { kind: 'none' },
+    };
+}
+
+export function isFlatLadder(ladder: readonly number[]): boolean {
+    const first = ladder[0];
+    if (first === undefined) return true;
+    return ladder.every((rung) => rung === first);
+}
+
+export function ladderSum(ladder: readonly number[]): number {
+    let total = 0;
+    for (const rung of ladder) {
+        if (rung <= 0) break;
+        total += rung;
+    }
+    return total;
+}
+
+export function resolveTradeRisk(
+    intendedRisk: number,
+    cushion: number,
+    rungSizing: RungSizing,
+): number {
+    if (cushion <= 0 || intendedRisk <= 0) return 0;
+    if (rungSizing === 'skipIfUnaffordable') {
+        return cushion < intendedRisk ? 0 : intendedRisk;
+    }
+    return Math.min(intendedRisk, cushion);
+}
+
+export function shouldStopDay(
+    rule: DayStopRule,
+    hasWon: boolean,
+    lossesToday: number,
+    pnlToday: number,
+): boolean {
+    switch (rule.kind) {
+        case 'after-k-losses': {
+            return lossesToday >= rule.k;
+        }
+        case 'after-target': {
+            return pnlToday >= rule.dollars;
+        }
+        case 'day-green': {
+            return pnlToday > 0;
+        }
+        case 'first-win': {
+            return hasWon;
+        }
+        case 'none': {
+            return false;
+        }
+    }
+}

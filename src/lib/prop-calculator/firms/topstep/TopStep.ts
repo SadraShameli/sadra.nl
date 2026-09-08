@@ -16,18 +16,6 @@ const STANDARD_SIZES = [
         monthlySubscription: 49,
         profitTarget: 3000,
     },
-    {
-        accountSize: 100_000,
-        maxLossLimit: 3000,
-        monthlySubscription: 99,
-        profitTarget: 6000,
-    },
-    {
-        accountSize: 150_000,
-        maxLossLimit: 4500,
-        monthlySubscription: 149,
-        profitTarget: 9000,
-    },
 ] as const;
 
 const EXPRESS_SIZES = [
@@ -36,18 +24,6 @@ const EXPRESS_SIZES = [
         maxLossLimit: 2000,
         monthlySubscription: 95,
         profitTarget: 3000,
-    },
-    {
-        accountSize: 100_000,
-        maxLossLimit: 3000,
-        monthlySubscription: 149,
-        profitTarget: 6000,
-    },
-    {
-        accountSize: 150_000,
-        maxLossLimit: 4500,
-        monthlySubscription: 229,
-        profitTarget: 9000,
     },
 ] as const;
 

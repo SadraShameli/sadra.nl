@@ -22,6 +22,7 @@ type Kind = DayStopRule['kind'];
 const KIND_LABEL: Record<Kind, string> = {
     'after-k-losses': 'Stop after K losses',
     'after-target': 'Stop after $ target',
+    'day-green': 'Stop when day is green',
     'first-win': 'Stop after first win',
     none: 'No stop',
 };
@@ -51,6 +52,10 @@ export default function DayStopRulePicker({
                             : 500,
                     kind: 'after-target',
                 });
+                return;
+            }
+            case 'day-green': {
+                onChange({ kind: 'day-green' });
                 return;
             }
             case 'first-win': {

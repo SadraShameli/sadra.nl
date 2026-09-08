@@ -12,6 +12,7 @@ import DrawdownDurationPanel from './DrawdownDurationPanel';
 import FirmComparisonTable from './FirmComparisonTable';
 import FirmPlanPicker from './FirmPlanPicker';
 import { kpiDescriptions } from './kpiDescriptions';
+import LadderLabPanel from './LadderLabPanel';
 import OptimalRiskTable from './OptimalRiskTable';
 import PercentileBar from './PercentileBar';
 import PlanComparisonTable from './PlanComparisonTable';
@@ -354,6 +355,25 @@ export default function CalculatorShell() {
                     baseInputs={c.simInputs}
                     firms={c.firms}
                     targetAccountSize={c.state.plan.accountSize}
+                />
+            </div>
+
+            <div
+                className={cn(
+                    'app-prop-calculator__section-ladder-lab',
+                    'scroll-mt-26',
+                )}
+                data-section-label="Ladder Lab"
+                id="ladder-lab-section"
+            >
+                <LadderLabPanel
+                    activePolicy={c.state.dayPolicy}
+                    maxEvalDays={c.state.maxEvalDays}
+                    onApply={c.setDayPolicy}
+                    plan={c.state.plan}
+                    rrRatio={c.state.rrRatio}
+                    seed={c.state.seed}
+                    winrate={c.state.winrate}
                 />
             </div>
 

@@ -30,8 +30,10 @@ import {
     formatPercent,
 } from '~/lib/format';
 import {
+    annualisedRoiOnCost,
     type FirmId,
     type Plan,
+    type Roi,
     serializePlanId,
     type SimInputs,
     type SimOutputs,
@@ -165,8 +167,7 @@ export default function PortfolioPanel({
             (s, entry) => s + entry.count,
             0,
         );
-        const annualNet = monthlyNet * 12;
-        const roi = totalCost > 0 ? annualNet / totalCost : 0;
+        const roi = annualisedRoiOnCost(monthlyNet, totalCost);
         return { monthlyNet, roi, totalAccounts, totalCost, totalFunding };
     }, [simmed, portfolio]);
 
@@ -291,8 +292,8 @@ export default function PortfolioPanel({
                                     title: 'Annual ROI on fees',
                                 }}
                                 label="Annual ROI on fees"
-                                positive={totals.roi > 0}
-                                value={formatPercent(totals.roi)}
+                                positive={totals.roi.value > 0}
+                                value={formatPercent(totals.roi.value)}
                             />
                         </div>
                     )}
@@ -646,7 +647,7 @@ function PortfolioTable({
     simmed: SimmedEntry[];
     totals: null | {
         monthlyNet: number;
-        roi: number;
+        roi: Roi;
         totalAccounts: number;
         totalCost: number;
         totalFunding: number;

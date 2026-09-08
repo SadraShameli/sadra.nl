@@ -54,16 +54,7 @@ export default function RuleStressTestPanel({
         const handle = setTimeout(() => {
             const inputs = inputsReference.current;
             const trials = Math.min(MAX_TRIALS, inputs.trials);
-            // Identical seed and trial count across every scenario for a
-            // like-for-like comparison. Note this isn't a pure common-
-            // random-numbers setup: `simulate()` advances one shared RNG
-            // across all trials in a call, and a funded-phase-only rule
-            // change (e.g. the ladder cut) can change how many days a
-            // given trial's funded phase runs before busting or closing
-            // out, which shifts how much of the stream later trials
-            // consume. Trial 0 is always a true apples-to-apples replay;
-            // later trials can diverge once an earlier trial's funded
-            // phase does.
+
             const scenarios = buildStressScenarios(inputs.plan);
             const results: ScenarioRow[] = scenarios.map(
                 ({ isNoOp, label, plan }) => ({
@@ -260,8 +251,6 @@ function buildLadderCutScenario(basePlan: Plan): StressScenario {
             }),
         };
     }
-    // No ladder on this firm — the closest analog is cutting the trader's
-    // profit share on every payout tier by the same 20%.
     return {
         isNoOp: false,
         label: 'Payout share −20%',
@@ -284,9 +273,6 @@ function buildQualifyingBarScenario(basePlan: Plan): StressScenario {
             }),
         };
     }
-    // No qualifying-day concept on this firm — the closest analog is making
-    // the eval's profit target itself 40% harder to reach (an interpretation
-    // call, not a hard fact about that firm's actual rules).
     return {
         isNoOp: false,
         label: 'Profit target +40% (proxy)',

@@ -15,47 +15,29 @@ const LOCK = (start: number) => start + 100;
 
 const RAPID_SIZES = [
     {
-        accountSize: 25_000,
-        evalCost: 109,
-        maxDrawdown: 1000,
-        minPayoutProfit: 1100,
-        profitTarget: 1500,
-    },
-    {
         accountSize: 50_000,
+        contractLimits: {
+            evalMicros: 50,
+            evalMinis: 5,
+            fundedMicros: 50,
+            fundedMinis: 5,
+        },
         evalCost: 157,
         maxDrawdown: 2000,
         minPayoutProfit: 2100,
         profitTarget: 3000,
     },
-    {
-        accountSize: 100_000,
-        evalCost: 267,
-        maxDrawdown: 3000,
-        minPayoutProfit: 3100,
-        profitTarget: 6000,
-    },
-    {
-        accountSize: 150_000,
-        evalCost: 347,
-        maxDrawdown: 4500,
-        minPayoutProfit: 4600,
-        profitTarget: 9000,
-    },
 ] as const;
 
 const FLEX_SIZES = [
     {
-        accountSize: 25_000,
-        evalCost: 84,
-        maxDrawdown: 1000,
-        minPayoutProfit: 250,
-        minQualifyingDayProfit: 100,
-        payoutCap: 1000,
-        profitTarget: 1500,
-    },
-    {
         accountSize: 50_000,
+        contractLimits: {
+            evalMicros: 30,
+            evalMinis: 3,
+            fundedMicros: 30,
+            fundedMinis: 3,
+        },
         evalCost: 127,
         maxDrawdown: 2000,
         minPayoutProfit: 500,
@@ -68,24 +50,16 @@ const FLEX_SIZES = [
 const PRO_SIZES = [
     {
         accountSize: 50_000,
+        contractLimits: {
+            evalMicros: 30,
+            evalMinis: 3,
+            fundedMicros: null,
+            fundedMinis: 5,
+        },
         evalCost: 227,
         maxDrawdown: 2000,
         minPayoutProfit: 2100,
         profitTarget: 3000,
-    },
-    {
-        accountSize: 100_000,
-        evalCost: 344,
-        maxDrawdown: 3000,
-        minPayoutProfit: 3100,
-        profitTarget: 6000,
-    },
-    {
-        accountSize: 150_000,
-        evalCost: 477,
-        maxDrawdown: 4500,
-        minPayoutProfit: 4600,
-        profitTarget: 9000,
     },
 ] as const;
 
@@ -108,8 +82,7 @@ export class MyFundedFutures extends TradingFirm {
     maxFundedAccounts(plan: Plan): number {
         const id = plan.id as Extract<PlanId, { firm: FirmId.Mffu }>;
         if (id.variant === 'builder') return 1;
-        if (id.variant === 'flex' && plan.accountSize === 50_000) return 3;
-        if (id.variant === 'pro' && plan.accountSize >= 100_000) return 3;
+        if (id.variant === 'flex') return 3;
         return 5;
     }
 }
@@ -118,6 +91,12 @@ function buildBuilderPlan(): PlanInit {
     return {
         accountSize: 50_000,
         consistency: new ConsistencyRule('funded', 0.5),
+        contractLimits: {
+            evalMicros: 40,
+            evalMinis: 4,
+            fundedMicros: 40,
+            fundedMinis: 4,
+        },
         drawdown: new EodTrailingDrawdown({
             amount: 2000,
             lock: { atProfit: 2100, lockedThreshold: LOCK },
@@ -148,6 +127,7 @@ function buildFlexPlan(size: MffuFlexSize): PlanInit {
     return {
         accountSize: size.accountSize,
         consistency: new ConsistencyRule('eval', 0.5),
+        contractLimits: size.contractLimits,
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: { atProfit: size.maxDrawdown + 100, lockedThreshold: LOCK },
@@ -179,6 +159,7 @@ function buildFlexPlan(size: MffuFlexSize): PlanInit {
                 size.payoutCap,
             ],
         },
+        payoutProfitShare: 0.5,
         payoutSchedule: { kind: 'every-n-win-days', n: 5 },
         payoutTiers: [{ thresholdProfit: 0, traderShare: 0.8 }],
         profitTarget: size.profitTarget,
@@ -189,6 +170,7 @@ function buildProPlan(size: MffuProSize): PlanInit {
     return {
         accountSize: size.accountSize,
         consistency: new ConsistencyRule('eval', 0.5),
+        contractLimits: size.contractLimits,
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: { atProfit: size.maxDrawdown + 100, lockedThreshold: LOCK },
@@ -208,6 +190,7 @@ function buildProPlan(size: MffuProSize): PlanInit {
         label: `$${(size.accountSize / 1000).toFixed(0)}K — Pro`,
         minDaysAfterPassForPayout: 10,
         minPayoutProfit: size.minPayoutProfit,
+        minPayoutRequest: 1000,
         minTradingDays: 2,
         payoutSchedule: { kind: 'biweekly' },
         payoutTiers: [{ thresholdProfit: 0, traderShare: 0.8 }],
@@ -220,6 +203,12 @@ function buildRapidEodPlan(): PlanInit {
     return {
         accountSize: 50_000,
         consistency: new ConsistencyRule('eval', 0.3),
+        contractLimits: {
+            evalMicros: 30,
+            evalMinis: 3,
+            fundedMicros: 30,
+            fundedMinis: 3,
+        },
         drawdown: new EodTrailingDrawdown({
             amount: maxDrawdown,
             lock: { atProfit: maxDrawdown + 100, lockedThreshold: LOCK },
@@ -235,6 +224,7 @@ function buildRapidEodPlan(): PlanInit {
         label: '$50K — Rapid EOD',
         minDaysAfterPassForPayout: 3,
         minPayoutProfit: maxDrawdown + 100,
+        minPayoutRequest: 500,
         minTradingDays: 4,
         payoutSchedule: { kind: 'daily' },
         payoutTiers: [{ thresholdProfit: 0, traderShare: 0.9 }],
@@ -246,6 +236,7 @@ function buildRapidPlan(size: MffuRapidSize): PlanInit {
     return {
         accountSize: size.accountSize,
         consistency: new ConsistencyRule('eval', 0.5),
+        contractLimits: size.contractLimits,
         drawdown: new IntradayTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: { atProfit: size.maxDrawdown + 100, lockedThreshold: LOCK },
@@ -265,6 +256,7 @@ function buildRapidPlan(size: MffuRapidSize): PlanInit {
         label: `$${(size.accountSize / 1000).toFixed(0)}K — Rapid`,
         minDaysAfterPassForPayout: 3,
         minPayoutProfit: size.minPayoutProfit,
+        minPayoutRequest: 500,
         minTradingDays: 2,
         payoutSchedule: { kind: 'daily' },
         payoutTiers: [{ thresholdProfit: 0, traderShare: 0.9 }],

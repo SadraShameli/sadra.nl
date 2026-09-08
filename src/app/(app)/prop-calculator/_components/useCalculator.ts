@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
     ALL_FIRMS,
+    type DayPolicy,
     type DayStopRule,
     findFirm,
     FirmId,
@@ -73,6 +74,7 @@ export interface UseCalculatorReturn {
     setActivationDiscountPercent: (n: number) => void;
     setCommissionPerRoundTrip: (n: number) => void;
     setCopyAccounts: (n: number) => void;
+    setDayPolicy: (policy: DayPolicy | null) => void;
     setDayStop: (rule: DayStopRule) => void;
     setEvalDiscountPercent: (n: number) => void;
     setFirm: (firm: TradingFirm) => void;
@@ -192,6 +194,7 @@ export function useCalculator(): UseCalculatorReturn {
         () => ({
             commissionPerRoundTrip: state.commissionPerRoundTrip,
             copyAccounts: state.copyAccounts,
+            dayPolicy: state.dayPolicy ?? undefined,
             dayStop: state.dayStop,
             discounts: {
                 activationPercent: effectiveActivationDiscount,
@@ -224,6 +227,7 @@ export function useCalculator(): UseCalculatorReturn {
             state.maxAttempts,
             state.copyAccounts,
             state.dayStop,
+            state.dayPolicy,
         ],
     );
 
@@ -361,6 +365,8 @@ export function useCalculator(): UseCalculatorReturn {
                     },
                 };
             }),
+        setDayPolicy: (policy: DayPolicy | null) =>
+            setState((s) => ({ ...s, dayPolicy: policy })),
         setDayStop: (rule) => setState((s) => ({ ...s, dayStop: rule })),
         setEvalDiscountPercent: (n) =>
             setState((s) => ({
@@ -449,6 +455,7 @@ function defaultState(): CalculatorState {
         activationDiscountPercent: 0,
         commissionPerRoundTrip: 0,
         copyAccounts: 1,
+        dayPolicy: null,
         dayStop: { kind: 'none' },
         evalDiscountPercent: 0,
         firm: DEFAULT_FIRM,

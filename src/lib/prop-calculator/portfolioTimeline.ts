@@ -1,4 +1,11 @@
 import { TRADING_DAYS_PER_MONTH } from './core/constants';
+import {
+    type DayPolicy,
+    type DayStopRule,
+    DEFAULT_RUNG_SIZING,
+    flatDayPolicy,
+    type RungSizing,
+} from './core/DayPolicy';
 import { type CouponDiscounts } from './core/FeeSchedule';
 import {
     newFundedCycleTracker,
@@ -6,36 +13,9 @@ import {
 } from './core/FundedPayoutCycle';
 import { type Plan } from './core/Plan';
 import { deriveSubSeed, mulberry32, type Rng } from './rng';
-import {
-    type DayStopRule,
-    type EvalAttemptResult,
-    runDay,
-    runEvalAttempt,
-} from './simulator';
+import { type EvalAttemptResult, runDay, runEvalAttempt } from './simulator';
 import { percentile } from './stats';
 
-// --- Hang-prevention -------------------------------------------------------
-// An earlier (Python) prototype of this exact "retry evals until funded,
-// then cycle payouts" idea hung for close to an hour on a low-win-rate input
-// because its retry loop had no ceiling independent of the caller. This file
-// is written so that is structurally impossible, via four independent bounds
-// that all have to hold at once:
-//   1. The calendar day-budget (`dayBudget`) is the *primary* termination
-//      bound for `runAccountTimeline`'s card loop: every card is guaranteed
-//      to consume >= 1 day (see `MAX_EVAL_ATTEMPTS_PER_CARD` clamp below), so
-//      that loop can run at most `dayBudget` times no matter what the other
-//      inputs are.
-//   2. `MAX_EVAL_ATTEMPTS_PER_CARD` hard-caps eval retries within a single
-//      card, independent of any user-supplied parameter (this engine does
-//      not expose a `maxAttempts` knob at all, unlike `simulator.ts`).
-//   3. `MAX_CARDS_PER_TIMELINE` hard-caps the number of cards a single
-//      account timeline will ever run, as defense-in-depth in case the
-//      "every card consumes >= 1 day" invariant above is ever violated by a
-//      future change.
-//   4. Every day-count input (`maxEvalDays`, `dayBudget`) is defensively
-//      clamped with `Math.max(1, Math.floor(x))` before use, so a
-//      misconfigured 0 (or negative, or fractional) value can never cause a
-//      loop to spin without making progress.
 const MAX_EVAL_ATTEMPTS_PER_CARD = 25;
 const MAX_CARDS_PER_TIMELINE = 2000;
 
@@ -47,14 +27,18 @@ const STEP = 5;
 export interface AccountTimelineInputs {
     commissionPerRoundTrip?: number;
     dayBudget?: number;
+    dayPolicy?: DayPolicy;
     dayStop?: DayStopRule;
     discounts?: CouponDiscounts;
     maxEvalDays: number;
     maxPayoutsPerCard?: number;
+    minRetainedCushion?: number;
+    payoutRequestSize?: number;
     plan: Plan;
     riskPerTrade: number;
     rng: Rng;
     rrRatio: number;
+    rungSizing?: RungSizing;
     tradesPerDay: number;
     winrate: number;
 }
@@ -81,6 +65,22 @@ export interface CardResult {
     totalDays: number;
 }
 
+export interface EvalToFundedCycleOptions {
+    commission: number;
+    dayPolicy: DayPolicy;
+    discounts: CouponDiscounts | undefined;
+    maxEvalDays: number;
+    maxFundedDays: number;
+    maxPayoutsPerCard?: number;
+    minRetainedCushion: number;
+    payoutRequestSize: number | undefined;
+    plan: Plan;
+    rng: Rng;
+    rrRatio: number;
+    rungSizing: RungSizing;
+    winrate: number;
+}
+
 export interface PayoutEvent {
     amount: number;
     /**
@@ -93,13 +93,17 @@ export interface PortfolioTimelineInputs {
     accounts: number;
     commissionPerRoundTrip?: number;
     dayBudget?: number;
+    dayPolicy?: DayPolicy;
     dayStop?: DayStopRule;
     discounts?: CouponDiscounts;
     maxEvalDays: number;
     maxPayoutsPerCard?: number;
+    minRetainedCushion?: number;
+    payoutRequestSize?: number;
     plan: Plan;
     riskPerTrade: number;
     rrRatio: number;
+    rungSizing?: RungSizing;
     seed: number;
     tradesPerDay: number;
     trials: number;
@@ -137,19 +141,25 @@ export function runAccountTimeline(
     const {
         commissionPerRoundTrip = 0,
         dayBudget = DEFAULT_DAY_BUDGET,
-        dayStop,
         discounts,
         maxEvalDays,
         maxPayoutsPerCard = DEFAULT_MAX_PAYOUTS_PER_CARD,
+        minRetainedCushion = 0,
+        payoutRequestSize,
         plan,
-        riskPerTrade,
         rng,
         rrRatio,
-        tradesPerDay,
+        rungSizing = DEFAULT_RUNG_SIZING,
         winrate,
     } = inputs;
+    const dayPolicy =
+        inputs.dayPolicy ??
+        flatDayPolicy(
+            inputs.riskPerTrade,
+            inputs.tradesPerDay,
+            inputs.dayStop ?? { kind: 'none' },
+        );
 
-    // Hang-prevention bound #4: defensively clamp day-count inputs.
     const safeDayBudget = Math.max(1, Math.floor(dayBudget));
     const safeMaxEvalDays = Math.max(1, Math.floor(maxEvalDays));
 
@@ -162,31 +172,26 @@ export function runAccountTimeline(
     let currentDay = 0;
     let cardsRun = 0;
 
-    // Hang-prevention bound #1 (primary): `currentDay` strictly increases by
-    // at least 1 every iteration, since every card consumes >= 1 day (a
-    // consequence of `safeMaxEvalDays` being clamped to >= 1 above), so this
-    // loop is already bounded by `safeDayBudget` alone. Bound #3
-    // (`MAX_CARDS_PER_TIMELINE`) only guards against that invariant ever
-    // being violated by a future change.
     while (currentDay < safeDayBudget && cardsRun < MAX_CARDS_PER_TIMELINE) {
         cardsRun += 1;
         const cardStart = currentDay;
         const remainingDays = safeDayBudget - cardStart;
 
-        const card = runEvalToFundedCycle(
-            plan,
-            winrate,
-            rrRatio,
-            riskPerTrade,
-            tradesPerDay,
-            safeMaxEvalDays,
-            remainingDays,
-            commissionPerRoundTrip,
-            rng,
-            dayStop,
+        const card = runEvalToFundedCycle({
+            commission: commissionPerRoundTrip,
+            dayPolicy,
             discounts,
+            maxEvalDays: safeMaxEvalDays,
+            maxFundedDays: remainingDays,
             maxPayoutsPerCard,
-        );
+            minRetainedCushion,
+            payoutRequestSize,
+            plan,
+            rng,
+            rrRatio,
+            rungSizing,
+            winrate,
+        });
 
         spendSoFar += card.totalCost;
         let payoutIndex = 0;
@@ -212,9 +217,6 @@ export function runAccountTimeline(
         currentDay = Math.min(safeDayBudget, cardStart + card.totalDays);
     }
 
-    // Defense-in-depth tail: only reachable if `MAX_CARDS_PER_TIMELINE` was
-    // hit before the day-budget was exhausted. Any untouched trailing days
-    // simply carry the last known cumulative values forward.
     for (let d = currentDay + 1; d <= safeDayBudget; d++) {
         cumulativeSpend[d] = spendSoFar;
         cumulativePayout[d] = payoutSoFar;
@@ -224,34 +226,24 @@ export function runAccountTimeline(
     return { cardsRun, cumulativeNet, cumulativePayout, cumulativeSpend };
 }
 
-/**
- * Runs a single "card": buy an eval, retry (buying a fresh eval each time,
- * per Apex's real "no reset fees" rule) until it passes or a hard attempt
- * ceiling is hit, then — on pass — run the funded/payout day-loop until
- * bust or the payout ladder is exhausted (or the day-loop's budget runs
- * out first).
- *
- * The funded day-loop below mirrors `simulator.ts`'s internal (unexported)
- * `runFundedHorizon` cycle-by-cycle logic exactly — the same qualifying-day
- * baseline reset on every payout including the first, the ladder-vs-safety-
- * net profit gate, and the funded consistency check — but is driven
- * directly off the exported `runDay` primitive, since only the primitives
- * (not that private orchestration function) are exported from `simulator.ts`.
- */
 export function runEvalToFundedCycle(
-    plan: Plan,
-    winrate: number,
-    rrRatio: number,
-    riskPerTrade: number,
-    tradesPerDay: number,
-    maxEvalDays: number,
-    maxFundedDays: number,
-    commission: number,
-    rng: Rng,
-    dayStop: DayStopRule | undefined,
-    discounts: CouponDiscounts | undefined,
-    maxPayoutsPerCard: number = DEFAULT_MAX_PAYOUTS_PER_CARD,
+    options: EvalToFundedCycleOptions,
 ): CardResult {
+    const {
+        commission,
+        dayPolicy,
+        discounts,
+        maxEvalDays,
+        maxFundedDays,
+        maxPayoutsPerCard = DEFAULT_MAX_PAYOUTS_PER_CARD,
+        minRetainedCushion,
+        payoutRequestSize,
+        plan,
+        rng,
+        rrRatio,
+        rungSizing,
+        winrate,
+    } = options;
     const safeMaxEvalDays = Math.max(1, Math.floor(maxEvalDays));
     const safeMaxFundedDays = Math.max(0, Math.floor(maxFundedDays));
     const payoutCap = Math.max(0, Math.floor(maxPayoutsPerCard));
@@ -261,21 +253,19 @@ export function runEvalToFundedCycle(
     let attemptsUsed = 0;
     let passedAttempt: EvalAttemptResult;
 
-    // Bounded eval-retry loop (hang-prevention bound #2 above).
     for (;;) {
         attemptsUsed += 1;
-        const attempt = runEvalAttempt(
-            plan,
-            winrate,
-            rrRatio,
-            riskPerTrade,
-            tradesPerDay,
-            safeMaxEvalDays,
+        const attempt = runEvalAttempt({
             commission,
+            dayPolicy,
+            maxEvalDays: safeMaxEvalDays,
+            plan,
             rng,
-            false,
-            dayStop,
-        );
+            rrRatio,
+            rungSizing,
+            shouldCaptureEquity: false,
+            winrate,
+        });
         totalDays += attempt.days;
 
         if (attempt.outcome === 'passed') {
@@ -304,8 +294,6 @@ export function runEvalToFundedCycle(
     }
 
     const { state } = passedAttempt;
-    // The funded phase begins now: this is the balance the tiered funded DLL
-    // and the trailing-drawdown ratchet measure profit against.
     state.fundingBaseline = state.balance;
 
     const ladder = plan.payoutLadder;
@@ -316,19 +304,18 @@ export function runEvalToFundedCycle(
     let isLadderExhausted = false;
 
     for (let day = 0; day < safeMaxFundedDays; day++) {
-        const { busted } = runDay(
-            plan,
-            state,
-            passedAttempt.stats,
-            winrate,
-            rrRatio,
-            riskPerTrade,
-            tradesPerDay,
+        const { busted } = runDay({
             commission,
+            dayPolicy,
+            phase: 'funded',
+            plan,
             rng,
-            dayStop,
-            'funded',
-        );
+            rrRatio,
+            rungSizing,
+            state,
+            stats: passedAttempt.stats,
+            winrate,
+        });
         fundedDays += 1;
         if (state.todayPnL > tracker.cycleBestDayProfit) {
             tracker.cycleBestDayProfit = state.todayPnL;
@@ -339,10 +326,20 @@ export function runEvalToFundedCycle(
             break;
         }
 
-        const payout = tryFundedPayout(plan, state, tracker, payoutCap);
+        const payout = tryFundedPayout({
+            maxPayouts: payoutCap,
+            minRetainedCushion,
+            payoutRequestSize,
+            plan,
+            state,
+            tracker,
+        });
         if (payout === null) continue;
 
-        payouts.push({ amount: payout, dayOffset: totalDays + fundedDays });
+        payouts.push({
+            amount: payout.traderReceives,
+            dayOffset: totalDays + fundedDays,
+        });
 
         if (
             tracker.payoutsIssued >= payoutCap ||
@@ -383,13 +380,17 @@ export function simulatePortfolioTimeline(
         accounts,
         commissionPerRoundTrip = 0,
         dayBudget = DEFAULT_DAY_BUDGET,
+        dayPolicy,
         dayStop,
         discounts,
         maxEvalDays,
         maxPayoutsPerCard = DEFAULT_MAX_PAYOUTS_PER_CARD,
+        minRetainedCushion = 0,
+        payoutRequestSize,
         plan,
         riskPerTrade,
         rrRatio,
+        rungSizing,
         seed,
         tradesPerDay,
         trials,
@@ -416,14 +417,18 @@ export function simulatePortfolioTimeline(
             const account = runAccountTimeline({
                 commissionPerRoundTrip,
                 dayBudget: safeDayBudget,
+                dayPolicy,
                 dayStop,
                 discounts,
                 maxEvalDays,
                 maxPayoutsPerCard,
+                minRetainedCushion,
+                payoutRequestSize,
                 plan,
                 riskPerTrade,
                 rng: accountRng,
                 rrRatio,
+                rungSizing,
                 tradesPerDay,
                 winrate,
             });
