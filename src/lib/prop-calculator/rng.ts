@@ -1,5 +1,13 @@
 export type Rng = () => number;
 
+export function deriveSubSeed(
+    seed: number,
+    trialIndex: number,
+    subIndex: number,
+): number {
+    return seed + trialIndex * 1_000_003 + subIndex * 7919 + 1;
+}
+
 export function mulberry32(seed: number): Rng {
     let state = seed >>> 0;
     return function rng(): number {

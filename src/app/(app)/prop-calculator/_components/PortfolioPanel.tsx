@@ -166,7 +166,7 @@ export default function PortfolioPanel({
             0,
         );
         const annualNet = monthlyNet * 12;
-        const roi = totalCost > 0 ? annualNet / totalCost - 1 : 0;
+        const roi = totalCost > 0 ? annualNet / totalCost : 0;
         return { monthlyNet, roi, totalAccounts, totalCost, totalFunding };
     }, [simmed, portfolio]);
 
@@ -287,7 +287,7 @@ export default function PortfolioPanel({
                             />
                             <SummaryCard
                                 info={{
-                                    body: 'Annualised return on your total evaluation spend. = (combined monthly net × 12) ÷ total eval cost − 1. Above 0 % means your expected payouts recover the full fee outlay within a year.',
+                                    body: 'Annualised net profit divided by total eval cost, expressed as a percentage. = (combined monthly net × 12) ÷ total eval cost. Above 0 % means the portfolio is expected to be net profitable over the year, after fees.',
                                     title: 'Annual ROI on fees',
                                 }}
                                 label="Annual ROI on fees"

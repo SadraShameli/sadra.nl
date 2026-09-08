@@ -4,6 +4,7 @@ import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts';
 
 import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
 import { formatCompactCurrency } from '~/lib/format';
+import { TRADING_DAYS_PER_MONTH } from '~/lib/prop-calculator';
 import { type PortfolioTimelineResult } from '~/lib/prop-calculator/portfolioTimeline';
 import { cn } from '~/lib/utilities';
 
@@ -16,8 +17,6 @@ interface ChartRow {
 interface Properties {
     result: PortfolioTimelineResult;
 }
-
-const TRADING_DAYS_PER_MONTH = 21;
 
 const chartConfig: ChartConfig = {
     payout: { color: 'hsl(142 76% 45%)', label: 'Cumulative payout' },

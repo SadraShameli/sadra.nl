@@ -80,34 +80,6 @@ class BookingAccumulator {
     }
 }
 
-class MatchTotal {
-    private count = 1;
-    private total: Eur;
-
-    constructor(eur: Eur) {
-        this.total = eur;
-    }
-
-    add(eur: Eur): void {
-        this.count += 1;
-        this.total = Eur.add(this.total, eur);
-    }
-
-    toAudit(
-        rawName: string,
-        matchedDisplay: string,
-        direction: BookingDirection,
-    ): MatchAudit {
-        return {
-            count: this.count,
-            direction,
-            matchedDisplay,
-            rawName,
-            totalEur: Eur.toNumber(this.total),
-        };
-    }
-}
-
 class MatchAuditTracker {
     private readonly totals = new Map<
         string,
@@ -151,29 +123,30 @@ class MatchAuditTracker {
     }
 }
 
-class UnknownOccurrences {
-    private readonly dates: ISODate[] = [];
+class MatchTotal {
+    private count = 1;
+    private total: Eur;
 
-    record(date: ISODate): void {
-        this.dates.push(date);
+    constructor(eur: Eur) {
+        this.total = eur;
     }
 
-    toUnknownMerchant(
+    add(eur: Eur): void {
+        this.count += 1;
+        this.total = Eur.add(this.total, eur);
+    }
+
+    toAudit(
         rawName: string,
+        matchedDisplay: string,
         direction: BookingDirection,
-    ): null | UnknownMerchant {
-        const sorted = this.dates.toSorted(
-            (a, b) => Number(a > b) - Number(a < b),
-        );
-        const firstSeen = sorted[0];
-        const lastSeen = sorted.at(-1);
-        if (firstSeen === undefined || lastSeen === undefined) return null;
+    ): MatchAudit {
         return {
-            count: this.dates.length,
+            count: this.count,
             direction,
-            firstSeen,
-            lastSeen,
+            matchedDisplay,
             rawName,
+            totalEur: Eur.toNumber(this.total),
         };
     }
 }
@@ -207,6 +180,33 @@ class UnknownMerchantTracker {
             }
         }
         return out.toSorted(compareUnknowns);
+    }
+}
+
+class UnknownOccurrences {
+    private readonly dates: ISODate[] = [];
+
+    record(date: ISODate): void {
+        this.dates.push(date);
+    }
+
+    toUnknownMerchant(
+        rawName: string,
+        direction: BookingDirection,
+    ): null | UnknownMerchant {
+        const sorted = this.dates.toSorted(
+            (a, b) => Number(a > b) - Number(a < b),
+        );
+        const firstSeen = sorted[0];
+        const lastSeen = sorted.at(-1);
+        if (firstSeen === undefined || lastSeen === undefined) return null;
+        return {
+            count: this.dates.length,
+            direction,
+            firstSeen,
+            lastSeen,
+            rawName,
+        };
     }
 }
 

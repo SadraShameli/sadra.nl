@@ -30,7 +30,7 @@ function readSamples(buffer: Buffer): Int16Array {
     const out = new Int16Array(dataLength / 2);
     for (let index = 0; index < out.length; index++)
         out[index] = buffer.readInt16LE(44 + index * 2);
-    void sampleRate;
+    sampleRate;
     return out;
 }
 

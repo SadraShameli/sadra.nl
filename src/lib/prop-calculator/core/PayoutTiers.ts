@@ -14,13 +14,17 @@ export function walkPayoutTiers(
 ): number {
     if (fundedProfit <= 0) return 0;
 
+    const sorted = tiers.toSorted(
+        (a, b) => a.thresholdProfit - b.thresholdProfit,
+    );
+
     let payout = 0;
     let remaining = fundedProfit;
 
-    for (let index = 0; index < tiers.length; index++) {
-        const tier = tiers[index];
+    for (let index = 0; index < sorted.length; index++) {
+        const tier = sorted[index];
         if (!tier) continue;
-        const next = tiers[index + 1];
+        const next = sorted[index + 1];
         const tierCap = next ? next.thresholdProfit : Infinity;
         const tierStart = tier.thresholdProfit;
         if (fundedProfit <= tierStart) break;

@@ -225,6 +225,7 @@ function useDebouncedKey(
         attempts: inputs.maxAttempts ?? 1,
         commission: inputs.commissionPerRoundTrip ?? 0,
         copy: inputs.copyAccounts ?? 1,
+        dayStop: inputs.dayStop ?? null,
         eval: inputs.discounts?.evalPercent ?? 0,
         firmId,
         funded: inputs.fundedHorizonDays,

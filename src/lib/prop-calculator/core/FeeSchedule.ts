@@ -1,3 +1,5 @@
+import { TRADING_DAYS_PER_MONTH } from './constants';
+
 export interface CouponDiscounts {
     activationPercent: number;
     evalPercent: number;
@@ -9,8 +11,6 @@ export interface FeeSchedule {
     oneTimeEval: number;
     reset: number;
 }
-
-const TRADING_DAYS_PER_MONTH = 21;
 
 export function feesUntilPass(
     fees: FeeSchedule,

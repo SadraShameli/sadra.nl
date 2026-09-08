@@ -1,6 +1,11 @@
+import { TRADING_DAYS_PER_MONTH } from './core/constants';
 import { type CouponDiscounts } from './core/FeeSchedule';
+import {
+    newFundedCycleTracker,
+    tryFundedPayout,
+} from './core/FundedPayoutCycle';
 import { type Plan } from './core/Plan';
-import { mulberry32, type Rng } from './rng';
+import { deriveSubSeed, mulberry32, type Rng } from './rng';
 import {
     type DayStopRule,
     type EvalAttemptResult,
@@ -38,7 +43,6 @@ export const DEFAULT_DAY_BUDGET = 252;
 export const DEFAULT_MAX_PAYOUTS_PER_CARD = 6;
 
 const STEP = 5;
-const TRADING_DAYS_PER_MONTH = 21;
 
 export interface AccountTimelineInputs {
     commissionPerRoundTrip?: number;
@@ -306,12 +310,7 @@ export function runEvalToFundedCycle(
 
     const ladder = plan.payoutLadder;
     const payouts: PayoutEvent[] = [];
-    // "Last payout" for cycle 1 is funding start — every cycle, including
-    // the first, resets its own qualifying-day/profit/consistency baseline.
-    let lastPayoutBalance = state.balance;
-    let qualifyingDaysAtLastPayout = state.qualifyingDays;
-    let cycleBestDayProfit = 0;
-    let payoutsIssued = 0;
+    const tracker = newFundedCycleTracker(state);
     let fundedDays = 0;
     let isBustedFunded = false;
     let isLadderExhausted = false;
@@ -331,8 +330,8 @@ export function runEvalToFundedCycle(
             'funded',
         );
         fundedDays += 1;
-        if (state.todayPnL > cycleBestDayProfit) {
-            cycleBestDayProfit = state.todayPnL;
+        if (state.todayPnL > tracker.cycleBestDayProfit) {
+            tracker.cycleBestDayProfit = state.todayPnL;
         }
 
         if (busted) {
@@ -340,42 +339,14 @@ export function runEvalToFundedCycle(
             break;
         }
 
-        if (!ladder || payoutCap <= 0) continue;
+        const payout = tryFundedPayout(plan, state, tracker, payoutCap);
+        if (payout === null) continue;
 
-        const cycleProfit = state.balance - lastPayoutBalance;
-        const requiredProfit =
-            payoutsIssued === 0
-                ? plan.minPayoutProfit
-                : ladder.minRequestAmount;
-        const hasQualifyingDays =
-            state.qualifyingDays - qualifyingDaysAtLastPayout >=
-            plan.minDaysAfterPassForPayout;
-        const isConsistent =
-            !plan.consistency ||
-            !plan.consistency.appliesToFunded() ||
-            !plan.consistency.isViolated(cycleBestDayProfit, cycleProfit);
+        payouts.push({ amount: payout, dayOffset: totalDays + fundedDays });
 
         if (
-            !hasQualifyingDays ||
-            !isConsistent ||
-            cycleProfit < requiredProfit
-        ) {
-            continue;
-        }
-
-        const step = ladder.steps[payoutsIssued];
-        if (step === undefined) continue;
-
-        payouts.push({ amount: step, dayOffset: totalDays + fundedDays });
-        state.balance -= step;
-        lastPayoutBalance = state.balance;
-        qualifyingDaysAtLastPayout = state.qualifyingDays;
-        cycleBestDayProfit = 0;
-        payoutsIssued += 1;
-
-        if (
-            payoutsIssued >= payoutCap ||
-            payoutsIssued >= ladder.steps.length
+            tracker.payoutsIssued >= payoutCap ||
+            (ladder && tracker.payoutsIssued >= ladder.steps.length)
         ) {
             isLadderExhausted = true;
             break;
@@ -441,7 +412,7 @@ export function simulatePortfolioTimeline(
         const combinedNet = new Float64Array(safeDayBudget + 1);
 
         for (let a = 0; a < N; a++) {
-            const accountRng = mulberry32(seed + t * 1_000_003 + a * 7919 + 1);
+            const accountRng = mulberry32(deriveSubSeed(seed, t, a));
             const account = runAccountTimeline({
                 commissionPerRoundTrip,
                 dayBudget: safeDayBudget,

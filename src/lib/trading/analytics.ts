@@ -447,7 +447,7 @@ export function drawdownStats(points: EquityPoint[]): DrawdownStats {
         const runLength = points.length - currentRunStart;
         if (runLength > worstRun) worstRun = runLength;
     }
-    void runStart;
+    runStart;
 
     return {
         durationTrades: worstRun,

@@ -21,14 +21,21 @@ export function resolveDailyLossLimit(
             return null;
         }
         case 'tiered': {
-            const first = config.tiers[0];
-            if (!first) return null;
-
-            let selected = first;
+            let lowest: DllTier | undefined;
+            let best: DllTier | undefined;
             for (const tier of config.tiers) {
-                if (profitInCycle >= tier.minProfit) selected = tier;
+                if (!lowest || tier.minProfit < lowest.minProfit) {
+                    lowest = tier;
+                }
+                if (
+                    profitInCycle >= tier.minProfit &&
+                    (!best || tier.minProfit > best.minProfit)
+                ) {
+                    best = tier;
+                }
             }
-            return selected.dailyLossLimit;
+            const selected = best ?? lowest;
+            return selected ? selected.dailyLossLimit : null;
         }
     }
 }
