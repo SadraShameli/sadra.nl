@@ -47,7 +47,7 @@ type LucidAccountSize = 25_000 | 50_000 | 100_000 | 150_000;
 
 type LucidVariant = 'direct' | 'flex' | 'pro';
 type MffuAccountSize = 25_000 | 50_000 | 100_000 | 150_000;
-type MffuVariant = 'builder' | 'flex' | 'pro' | 'rapid';
+type MffuVariant = 'builder' | 'flex' | 'pro' | 'rapid' | 'rapid-eod';
 type TopStepAccountSize = 50_000 | 100_000 | 150_000;
 type TopStepVariant = 'express' | 'standard';
 type TptAccountSize = 25_000 | 50_000 | 75_000 | 100_000 | 150_000;

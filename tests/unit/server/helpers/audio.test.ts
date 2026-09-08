@@ -25,12 +25,10 @@ function makeWav(samples: Int16Array, sampleRate = 16_000): Buffer {
 }
 
 function readSamples(buffer: Buffer): Int16Array {
-    const sampleRate = buffer.readUInt32LE(24);
     const dataLength = buffer.readUInt32LE(40);
     const out = new Int16Array(dataLength / 2);
     for (let index = 0; index < out.length; index++)
         out[index] = buffer.readInt16LE(44 + index * 2);
-    sampleRate;
     return out;
 }
 

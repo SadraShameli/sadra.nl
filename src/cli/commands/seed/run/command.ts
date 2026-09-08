@@ -41,7 +41,7 @@ export default defineCommand({
                 options: names.map((name) => ({ label: name, value: name })),
                 required: true,
             });
-            if (clack.isCancel(picked)) {
+            if (!Array.isArray(picked)) {
                 ui.warn('Cancelled.');
                 return;
             }

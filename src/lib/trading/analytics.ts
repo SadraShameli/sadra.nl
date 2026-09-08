@@ -412,7 +412,6 @@ export function drawdownStats(points: EquityPoint[]): DrawdownStats {
     let maxDdPct = 0;
     let maxDdDollars = 0;
     let trough = points[0]?.balance ?? 0;
-    let runStart = -1;
     let worstRun = 0;
     let peak = points[0]?.balance ?? 0;
     let isInDrawdown = false;
@@ -424,10 +423,7 @@ export function drawdownStats(points: EquityPoint[]): DrawdownStats {
             if (isInDrawdown) {
                 isInDrawdown = false;
                 const runLength = index - currentRunStart;
-                if (runLength > worstRun) {
-                    worstRun = runLength;
-                    runStart = currentRunStart;
-                }
+                if (runLength > worstRun) worstRun = runLength;
             }
         } else {
             if (!isInDrawdown) {
@@ -447,7 +443,6 @@ export function drawdownStats(points: EquityPoint[]): DrawdownStats {
         const runLength = points.length - currentRunStart;
         if (runLength > worstRun) worstRun = runLength;
     }
-    runStart;
 
     return {
         durationTrades: worstRun,
