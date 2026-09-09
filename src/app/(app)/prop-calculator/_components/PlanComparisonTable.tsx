@@ -1,7 +1,7 @@
 'use client';
 
 import { Layers } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo } from 'react';
 
 import { Card } from '~/components/ui/Card';
 import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
@@ -18,6 +18,12 @@ import {
 import { cn } from '~/lib/utilities';
 
 import { panelDescriptions } from './kpiDescriptions';
+import { ptddColor } from './metricColors';
+import { bestExpectedMonthlyNet, scoreByExpectedMonthlyNet } from './scoring';
+import { useDebouncedComputation } from './useDebouncedSimulation';
+
+const DEBOUNCE_MS = 600;
+const MAX_TRIALS = 500;
 
 interface PlanComparisonTableProperties {
     activePlan: Plan;
@@ -38,55 +44,30 @@ export default function PlanComparisonTable({
     baseInputs,
     firm,
 }: PlanComparisonTableProperties) {
-    const [rows, setRows] = useState<Row[]>([]);
-    const [pending, setPending] = useState(false);
-    const inputsReference = useRef(baseInputs);
-    inputsReference.current = baseInputs;
-    const firmReference = useRef(firm);
-    firmReference.current = firm;
-
-    const debouncedKey = useDebouncedKey(baseInputs, firm.id, 600);
-
-    useEffect(() => {
-        let isCancelled = false;
-        setPending(true);
-        const handle = setTimeout(() => {
-            const inputs = inputsReference.current;
-            const plans = firmReference.current.plans;
-            const trials = Math.min(500, inputs.trials);
-            const partial = plans.map((plan) => ({
-                out: simulate({ ...inputs, plan, trials }),
+    const key = buildCacheKey(baseInputs, firm.id);
+    const { pending, result: rows } = useDebouncedComputation<Row[]>(
+        key,
+        DEBOUNCE_MS,
+        () => {
+            const trials = Math.min(MAX_TRIALS, baseInputs.trials);
+            const partial = firm.plans.map((plan) => ({
+                out: simulate({ ...baseInputs, plan, trials }),
                 plan,
                 ptdd: plan.profitTarget / plan.drawdown.amount,
             }));
-            const bestNet =
-                partial.length === 0
-                    ? -Infinity
-                    : Math.max(...partial.map((r) => r.out.expectedMonthlyNet));
-            const withScore: Row[] = partial.map((r) => ({
+            const bestNet = bestExpectedMonthlyNet(partial);
+            return partial.map((r) => ({
                 ...r,
                 isBest:
                     r.out.expectedMonthlyNet === bestNet && bestNet > -Infinity,
-                score:
-                    bestNet > 0
-                        ? Math.max(
-                              1,
-                              Math.round(
-                                  (r.out.expectedMonthlyNet / bestNet) * 5,
-                              ),
-                          )
-                        : 1,
+                score: scoreByExpectedMonthlyNet(
+                    r.out.expectedMonthlyNet,
+                    bestNet,
+                ),
             }));
-            if (!isCancelled) {
-                setRows(withScore);
-                setPending(false);
-            }
-        }, 0);
-        return () => {
-            isCancelled = true;
-            clearTimeout(handle);
-        };
-    }, [debouncedKey]);
+        },
+        [],
+    );
 
     const columns = useMemo<DataTableColumn<Row>[]>(
         () => [
@@ -209,19 +190,11 @@ export default function PlanComparisonTable({
     );
 }
 
-function ptddColor(ratio: number): string {
-    if (ratio <= 1) return 'text-emerald-400';
-    if (ratio <= 1.5) return '';
-    if (ratio <= 2) return 'text-amber-400';
-    return 'text-rose-400';
-}
-
-function useDebouncedKey(
+function buildCacheKey(
     inputs: Omit<SimInputs, 'plan'>,
     firmId: string,
-    delay: number,
 ): string {
-    const key = JSON.stringify({
+    return JSON.stringify({
         act: inputs.discounts?.activationPercent ?? 0,
         attempts: inputs.maxAttempts ?? 1,
         commission: inputs.commissionPerRoundTrip ?? 0,
@@ -239,10 +212,4 @@ function useDebouncedKey(
         trials: inputs.trials,
         winrate: inputs.winrate,
     });
-    const [debounced, setDebounced] = useState(key);
-    useEffect(() => {
-        const t = setTimeout(() => setDebounced(key), delay);
-        return () => clearTimeout(t);
-    }, [key, delay]);
-    return debounced;
 }

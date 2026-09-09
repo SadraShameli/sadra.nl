@@ -2,13 +2,15 @@
 
 import { useMemo } from 'react';
 
-import { Card, CardContent } from '~/components/ui/Card';
+import { Card } from '~/components/ui/Card';
 import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import InfoPopover from '~/components/ui/InfoPopover';
 import { formatDays, formatPercent } from '~/lib/format';
 import { type SimOutputs } from '~/lib/prop-calculator';
 import { mean } from '~/lib/prop-calculator/stats';
 import { cn } from '~/lib/utilities';
+
+import StatCard from './StatCard';
 
 interface DdEpisode {
     depthPct: number;
@@ -121,7 +123,7 @@ export default function DrawdownDurationPanel({
                         label="Time underwater"
                         sub="avg % of days below peak"
                         value={formatPercent(m.avgUnderwaterPct)}
-                        valueClass={underwaterClass}
+                        valueClassName={underwaterClass}
                     />
                     <StatCard
                         label="DD episodes / path"
@@ -144,13 +146,13 @@ export default function DrawdownDurationPanel({
                         value={
                             m.avgRecovery > 0 ? formatDays(m.avgRecovery) : '—'
                         }
-                        valueClass={recoveryClass}
+                        valueClassName={recoveryClass}
                     />
                     <StatCard
                         label="V-shape episodes"
                         sub="fast recovery (&lt; 40% of dur.)"
                         value={formatPercent(m.vShapePct)}
-                        valueClass={vShapeClass}
+                        valueClassName={vShapeClass}
                     />
                 </div>
 
@@ -287,41 +289,6 @@ function RecoveryTaxTable({ avgDepth }: { avgDepth: number }) {
                 'text-xs tabular-nums',
             )}
         />
-    );
-}
-
-function StatCard({
-    label,
-    sub,
-    value,
-    valueClass,
-}: {
-    label: string;
-    sub?: string;
-    value: string;
-    valueClass?: string;
-}) {
-    return (
-        <Card className="gap-1 py-2.5">
-            <CardContent className="flex flex-col gap-1 px-3">
-                <span className="text-[11px] text-muted-foreground">
-                    {label}
-                </span>
-                <span
-                    className={cn(
-                        'font-mono text-lg leading-none font-bold tabular-nums',
-                        valueClass,
-                    )}
-                >
-                    {value}
-                </span>
-                {sub && (
-                    <span className="text-[10px] text-muted-foreground">
-                        {sub}
-                    </span>
-                )}
-            </CardContent>
-        </Card>
     );
 }
 

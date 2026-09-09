@@ -22,6 +22,7 @@ import { type DayStopRule, type Plan } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
 import DayStopRulePicker from './DayStopRulePicker';
+import { riskDollarsToPercent, riskPercentToDollars } from './riskConversion';
 import { SizingMode } from './types';
 
 interface TradingInputsProperties {
@@ -105,10 +106,10 @@ export default function TradingInputs({
     const computedRisk =
         sizingMode === SizingMode.Dollar
             ? riskDollars
-            : (accountSize * riskPercent) / 100;
+            : riskPercentToDollars(riskPercent, accountSize);
     const otherRepresentation =
         sizingMode === SizingMode.Dollar
-            ? `≈ ${formatPercent(riskDollars / accountSize, 2)} of account`
+            ? `≈ ${formatPercent(riskDollarsToPercent(riskDollars, accountSize) / 100, 2)} of account`
             : `≈ ${formatCurrency(computedRisk)} on $${(accountSize / 1000).toFixed(0)}K`;
 
     return (

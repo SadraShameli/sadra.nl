@@ -1,7 +1,7 @@
 'use client';
 
 import { Target } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo } from 'react';
 
 import { Card } from '~/components/ui/Card';
 import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
@@ -22,8 +22,12 @@ import {
 import { cn } from '~/lib/utilities';
 
 import { panelDescriptions } from './kpiDescriptions';
+import { bestExpectedMonthlyNet } from './scoring';
+import { useDebouncedComputation } from './useDebouncedSimulation';
 
 const RISK_LEVELS = [0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 4, 5] as const;
+const DEBOUNCE_MS = 500;
+const MAX_TRIALS = 500;
 
 interface OptimalRiskTableProperties {
     baseInputs: Omit<SimInputs, 'riskPerTrade'>;
@@ -43,50 +47,31 @@ export default function OptimalRiskTable({
     currentRiskPercent,
     plan,
 }: OptimalRiskTableProperties) {
-    const [rows, setRows] = useState<Row[]>([]);
-    const [pending, setPending] = useState(false);
-    const inputsReference = useRef(baseInputs);
-    inputsReference.current = baseInputs;
-    const planReference = useRef(plan);
-    planReference.current = plan;
-
-    const debouncedKey = useDebouncedKey(baseInputs);
-
-    useEffect(() => {
-        let isCancelled = false;
-        setPending(true);
-        const handle = setTimeout(() => {
-            const inputs = inputsReference.current;
-            const accountSize = planReference.current.accountSize;
-            const trials = Math.min(500, inputs.trials);
+    const key = buildCacheKey(baseInputs);
+    const { pending, result: rows } = useDebouncedComputation<Row[]>(
+        key,
+        DEBOUNCE_MS,
+        () => {
+            const accountSize = plan.accountSize;
+            const trials = Math.min(MAX_TRIALS, baseInputs.trials);
             const partial = RISK_LEVELS.map((riskPct) => {
                 const riskDollars = (accountSize * riskPct) / 100;
                 const out = simulate({
-                    ...inputs,
+                    ...baseInputs,
                     evalDayPolicy: undefined,
                     riskPerTrade: riskDollars,
                     trials,
                 });
                 return { accountSize, out, riskPct };
             });
-            const bestNet = partial.reduce(
-                (best, r) => Math.max(r.out.expectedMonthlyNet, best),
-                -Infinity,
-            );
-            const results: Row[] = partial.map((r) => ({
+            const bestNet = bestExpectedMonthlyNet(partial);
+            return partial.map((r) => ({
                 ...r,
                 isBest: r.out.expectedMonthlyNet === bestNet,
             }));
-            if (!isCancelled) {
-                setRows(results);
-                setPending(false);
-            }
-        }, 0);
-        return () => {
-            isCancelled = true;
-            clearTimeout(handle);
-        };
-    }, [debouncedKey]);
+        },
+        [],
+    );
 
     const bestRow = useMemo(() => rows.find((r) => r.isBest) ?? null, [rows]);
 
@@ -202,18 +187,13 @@ export default function OptimalRiskTable({
     );
 }
 
-function nearestRisk(target: number): number {
-    return RISK_LEVELS.reduce((best, v) =>
-        Math.abs(v - target) < Math.abs(best - target) ? v : best,
-    );
-}
-
-function useDebouncedKey(inputs: Omit<SimInputs, 'riskPerTrade'>): string {
-    const key = JSON.stringify({
+function buildCacheKey(inputs: Omit<SimInputs, 'riskPerTrade'>): string {
+    return JSON.stringify({
         act: inputs.discounts?.activationPercent ?? 0,
         attempts: inputs.maxAttempts ?? 1,
         commission: inputs.commissionPerRoundTrip ?? 0,
         copy: inputs.copyAccounts ?? 1,
+        dayStop: inputs.dayStop ?? null,
         eval: inputs.discounts?.evalPercent ?? 0,
         firmId: inputs.plan.id,
         funded: inputs.fundedHorizonDays,
@@ -224,10 +204,10 @@ function useDebouncedKey(inputs: Omit<SimInputs, 'riskPerTrade'>): string {
         trials: inputs.trials,
         winrate: inputs.winrate,
     });
-    const [debounced, setDebounced] = useState(key);
-    useEffect(() => {
-        const t = setTimeout(() => setDebounced(key), 500);
-        return () => clearTimeout(t);
-    }, [key]);
-    return debounced;
+}
+
+function nearestRisk(target: number): number {
+    return RISK_LEVELS.reduce((best, v) =>
+        Math.abs(v - target) < Math.abs(best - target) ? v : best,
+    );
 }

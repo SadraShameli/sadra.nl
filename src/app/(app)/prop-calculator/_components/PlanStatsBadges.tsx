@@ -9,6 +9,8 @@ import {
 } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
+import { ptddColor } from './metricColors';
+
 interface BadgeProperties {
     label: string;
     value: string;
@@ -86,11 +88,4 @@ function drawdownLabel(kind: DrawdownKind): string {
     if (kind === DrawdownKind.EodTrailing) return 'EOD trailing';
     if (kind === DrawdownKind.IntradayTrailing) return 'Intraday trailing';
     return 'Static';
-}
-
-function ptddColor(ratio: number): string {
-    if (ratio <= 1) return 'text-emerald-400';
-    if (ratio <= 1.5) return 'text-foreground';
-    if (ratio <= 2) return 'text-amber-400';
-    return 'text-rose-400';
 }

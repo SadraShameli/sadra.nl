@@ -9,6 +9,7 @@ import {
     type TradingFirm,
 } from '~/lib/prop-calculator';
 import {
+    calculatorScalarFieldsSchema,
     dayPolicySchema,
     dayStopRuleSchema,
     labScenarioSchema,
@@ -73,14 +74,9 @@ export function decodeState(
             ? firm.plans.find((p) => serializePlanId(p.id) === planSerial)
             : undefined;
 
-    const number_ = (key: string, fallbackValue: number): number => {
-        const v = parameters.get(key);
-        if (v === null) return fallbackValue;
-        const n = Number(v);
-        return Number.isFinite(n) ? n : fallbackValue;
-    };
-    const intNumber = (key: string, fallbackValue: number): number =>
-        Math.floor(number_(key, fallbackValue));
+    const scalarFields = calculatorScalarFieldsSchema.parse(
+        Object.fromEntries(parameters),
+    );
     const sizingMode =
         parameters.get('mode') === SizingMode.Percent
             ? SizingMode.Percent
@@ -144,7 +140,6 @@ export function decodeState(
                             firmId: firm.id,
                             id: wire.id,
                             linkActivationDiscount: wire.linkActivationDiscount,
-                            memory: {},
                             planId: plan.id,
                         };
                     })
@@ -154,35 +149,29 @@ export function decodeState(
     }
 
     return {
-        activationDiscountPercent: number_(
-            'act',
-            fallback.activationDiscountPercent,
-        ),
-        commissionPerRoundTrip: number_(
-            'comm',
-            fallback.commissionPerRoundTrip,
-        ),
-        copyAccounts: intNumber('copy', fallback.copyAccounts),
+        activationDiscountPercent: scalarFields.act,
+        commissionPerRoundTrip: scalarFields.comm,
+        copyAccounts: scalarFields.copy,
         dayStop,
         evalDayPolicy,
-        evalDiscountPercent: number_('eval', fallback.evalDiscountPercent),
+        evalDiscountPercent: scalarFields.eval,
         firm: resolvedFirm,
         firmMemory: fallback.firmMemory,
-        fundedHorizonDays: intNumber('fundedDays', fallback.fundedHorizonDays),
+        fundedHorizonDays: scalarFields.fundedDays,
         labScenarios,
         linkActivationDiscount: parameters.get('linkAct') === '1',
-        maxAttempts: intNumber('attempts', fallback.maxAttempts),
-        maxEvalDays: intNumber('maxDays', fallback.maxEvalDays),
+        maxAttempts: scalarFields.attempts,
+        maxEvalDays: scalarFields.maxDays,
         plan: resolvedPlan,
         portfolio,
-        riskDollars: number_('rd', fallback.riskDollars),
-        riskPercent: number_('rp', fallback.riskPercent),
-        rrRatio: number_('rr', fallback.rrRatio),
-        seed: intNumber('seed', fallback.seed),
+        riskDollars: scalarFields.rd,
+        riskPercent: scalarFields.rp,
+        rrRatio: scalarFields.rr,
+        seed: scalarFields.seed,
         sizingMode,
-        tradesPerDay: intNumber('tpd', fallback.tradesPerDay),
-        trials: intNumber('trials', fallback.trials),
-        winrate: number_('wr', fallback.winrate),
+        tradesPerDay: scalarFields.tpd,
+        trials: scalarFields.trials,
+        winrate: scalarFields.wr,
     };
 }
 

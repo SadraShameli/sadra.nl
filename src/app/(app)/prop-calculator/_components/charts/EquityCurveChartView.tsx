@@ -12,7 +12,10 @@ import {
 import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
 import { formatCompactCurrency } from '~/lib/format';
 import { type SimOutputs } from '~/lib/prop-calculator';
+import { median } from '~/lib/prop-calculator/stats';
 import { cn } from '~/lib/utilities';
+
+import { type SampledPathChartRow } from './types';
 
 interface Properties {
     result: SimOutputs;
@@ -22,8 +25,6 @@ const chartConfig: ChartConfig = {
     median: { color: 'hsl(var(--chart-1))', label: 'Median path' },
     sample: { color: 'hsl(var(--chart-2))', label: 'Sample path' },
 };
-
-type ChartRow = Record<string, null | number>;
 
 export default function EquityCurveChartView({ result }: Properties) {
     if (result.sampleEquityCurves.length === 0) {
@@ -120,14 +121,14 @@ export default function EquityCurveChartView({ result }: Properties) {
     );
 }
 
-function buildChartData(curves: readonly number[][]): ChartRow[] {
+function buildChartData(curves: readonly number[][]): SampledPathChartRow[] {
     if (curves.length === 0) return [];
     let maxLength = 0;
     for (const c of curves) if (c.length > maxLength) maxLength = c.length;
 
-    const rows: ChartRow[] = [];
+    const rows: SampledPathChartRow[] = [];
     for (let day = 0; day < maxLength; day++) {
-        const row: ChartRow = { day, median: null };
+        const row: SampledPathChartRow = { day, median: null };
         const valuesAtDay: number[] = [];
         for (const [index, curve] of curves.entries()) {
             const v = curve[day];
@@ -135,13 +136,7 @@ function buildChartData(curves: readonly number[][]): ChartRow[] {
             if (v !== undefined) valuesAtDay.push(v);
         }
         if (valuesAtDay.length > 0) {
-            valuesAtDay.sort((a, b) => a - b);
-            const mid = Math.floor(valuesAtDay.length / 2);
-            row.median =
-                valuesAtDay.length % 2 === 0
-                    ? ((valuesAtDay[mid - 1] ?? 0) + (valuesAtDay[mid] ?? 0)) /
-                      2
-                    : (valuesAtDay[mid] ?? 0);
+            row.median = median(valuesAtDay);
         }
         rows.push(row);
     }

@@ -1,7 +1,5 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-
 import {
     type CouponDiscounts,
     type DayPolicy,
@@ -13,6 +11,8 @@ import {
     type PortfolioTimelineResult,
     simulatePortfolioTimeline,
 } from '~/lib/prop-calculator/portfolioTimeline';
+
+import { useDebouncedComputation } from './useDebouncedSimulation';
 
 interface Arguments {
     accounts: number;
@@ -68,7 +68,7 @@ export function useCashFlowSimulation(
     );
     const isTradesPerDayCapped = tradesPerDay > CASH_FLOW_MAX_TRADES_PER_DAY;
 
-    const latest = useRef({
+    const key = buildCacheKey({
         accounts,
         commissionPerRoundTrip,
         dayBudget,
@@ -84,116 +84,66 @@ export function useCashFlowSimulation(
         trials,
         winrate,
     });
-    latest.current = {
-        accounts,
-        commissionPerRoundTrip,
-        dayBudget,
-        dayStop,
-        discounts,
-        effectiveTradesPerDay,
-        evalDayPolicy,
-        maxEvalDays,
-        plan,
-        riskPerTrade,
-        rrRatio,
-        seed,
-        trials,
-        winrate,
-    };
 
-    const key = useMemo(
-        () =>
-            JSON.stringify({
-                accounts,
-                commission: commissionPerRoundTrip ?? 0,
-                dayBudget,
-                dayStop,
-                discActivation: discounts?.activationPercent ?? 0,
-                discEval: discounts?.evalPercent ?? 0,
-                evalDayPolicy,
-                maxEvalDays,
-                planId: plan.id,
-                risk: riskPerTrade,
-                rr: rrRatio,
-                seed,
-                tpd: effectiveTradesPerDay,
-                trials,
-                winrate,
-            }),
-        [
-            accounts,
-            commissionPerRoundTrip,
-            dayBudget,
-            evalDayPolicy,
-            dayStop,
-            discounts?.activationPercent,
-            discounts?.evalPercent,
-            maxEvalDays,
-            plan.id,
-            riskPerTrade,
-            rrRatio,
-            seed,
-            effectiveTradesPerDay,
-            trials,
-            winrate,
-        ],
-    );
-
-    const [debouncedKey, setDebouncedKey] = useState(key);
-    useEffect(() => {
-        const t = setTimeout(() => setDebouncedKey(key), DEBOUNCE_MS);
-        return () => clearTimeout(t);
-    }, [key]);
-
-    const [result, setResult] = useState<null | PortfolioTimelineResult>(null);
-    const [pending, setPending] = useState(true);
-
-    useEffect(() => {
-        const {
-            accounts,
-            commissionPerRoundTrip,
-            dayBudget,
-            dayStop,
-            discounts,
-            effectiveTradesPerDay,
-            evalDayPolicy,
-            maxEvalDays,
-            plan,
-            riskPerTrade,
-            rrRatio,
-            seed,
-            trials,
-            winrate,
-        } = latest.current;
-        let isCancelled = false;
-        setPending(true);
-        const handle = setTimeout(() => {
-            const next = simulatePortfolioTimeline({
-                accounts,
-                commissionPerRoundTrip,
-                dayBudget,
-                dayStop,
-                discounts,
-                evalDayPolicy,
-                maxEvalDays,
-                plan,
-                riskPerTrade,
-                rrRatio,
-                seed,
-                tradesPerDay: effectiveTradesPerDay,
-                trials,
-                winrate,
-            });
-            if (!isCancelled) {
-                setResult(next);
-                setPending(false);
-            }
-        }, 0);
-        return () => {
-            isCancelled = true;
-            clearTimeout(handle);
-        };
-    }, [debouncedKey]);
+    const { pending, result } =
+        useDebouncedComputation<null | PortfolioTimelineResult>(
+            key,
+            DEBOUNCE_MS,
+            () =>
+                simulatePortfolioTimeline({
+                    accounts,
+                    commissionPerRoundTrip,
+                    dayBudget,
+                    dayStop,
+                    discounts,
+                    evalDayPolicy,
+                    maxEvalDays,
+                    plan,
+                    riskPerTrade,
+                    rrRatio,
+                    seed,
+                    tradesPerDay: effectiveTradesPerDay,
+                    trials,
+                    winrate,
+                }),
+            null,
+            true,
+        );
 
     return { effectiveTradesPerDay, isTradesPerDayCapped, pending, result };
+}
+
+function buildCacheKey(fields: {
+    accounts: number;
+    commissionPerRoundTrip: number | undefined;
+    dayBudget: number;
+    dayStop: DayStopRule | undefined;
+    discounts: CouponDiscounts | undefined;
+    effectiveTradesPerDay: number;
+    evalDayPolicy: DayPolicy | undefined;
+    maxEvalDays: number;
+    plan: Plan;
+    riskPerTrade: number;
+    rrRatio: number;
+    seed: number;
+    trials: number;
+    winrate: number;
+}): string {
+    return JSON.stringify({
+        accounts: fields.accounts,
+        commission: fields.commissionPerRoundTrip ?? 0,
+        dayBudget: fields.dayBudget,
+        dayStop: fields.dayStop,
+        discActivation: fields.discounts?.activationPercent ?? 0,
+        discEval: fields.discounts?.evalPercent ?? 0,
+        evalDayPolicy: fields.evalDayPolicy,
+        maxEvalDays: fields.maxEvalDays,
+        planId: fields.plan.id,
+        risk: fields.riskPerTrade,
+        rr: fields.rrRatio,
+        seed: fields.seed,
+        tpd: fields.effectiveTradesPerDay,
+        trials: fields.trials,
+        winrate: fields.winrate,
+    });
 }

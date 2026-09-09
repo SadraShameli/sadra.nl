@@ -1,7 +1,7 @@
 'use client';
 
 import { Tag } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo } from 'react';
 
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent } from '~/components/ui/Card';
@@ -45,6 +45,7 @@ import { cn } from '~/lib/utilities';
 
 import { panelDescriptions } from './kpiDescriptions';
 import { type PortfolioEntry } from './types';
+import { useDebouncedComputation } from './useDebouncedSimulation';
 
 interface PortfolioPanelProperties {
     baseInputs: Omit<SimInputs, 'plan'>;
@@ -67,6 +68,10 @@ interface SimmedEntry {
     out: SimOutputs;
 }
 
+const DEBOUNCE_MS = 600;
+const MAX_TRIALS = 500;
+const EMPTY_SIMMED: SimmedEntry[] = [];
+
 export default function PortfolioPanel({
     baseInputs,
     currentFirm,
@@ -75,51 +80,12 @@ export default function PortfolioPanel({
     onPortfolioChange,
     portfolio,
 }: PortfolioPanelProperties) {
-    const [simmed, setSimmed] = useState<SimmedEntry[]>([]);
-    const [pending, setPending] = useState(false);
-
-    const simKey = JSON.stringify({
-        attempts: baseInputs.maxAttempts ?? 1,
-        commission: baseInputs.commissionPerRoundTrip ?? 0,
-        dayStop: baseInputs.dayStop,
-        fundedHorizonDays: baseInputs.fundedHorizonDays,
-        maxEvalDays: baseInputs.maxEvalDays,
-        portfolio: portfolio.map((entry) => ({
-            actDiscount: entry.activationDiscountPercent,
-            count: entry.count,
-            evalDiscount: entry.evalDiscountPercent,
-            firmId: entry.firmId,
-            linkAct: entry.linkActivationDiscount,
-            planId: entry.planId,
-        })),
-        risk: baseInputs.riskPerTrade,
-        rr: baseInputs.rrRatio,
-        seed: baseInputs.seed,
-        tpd: baseInputs.tradesPerDay,
-        trials: baseInputs.trials,
-        winrate: baseInputs.winrate,
-    });
-
-    const [debouncedKey, setDebouncedKey] = useState(simKey);
-    useEffect(() => {
-        const t = setTimeout(() => setDebouncedKey(simKey), 600);
-        return () => clearTimeout(t);
-    }, [simKey]);
-
-    const latest = useRef({ baseInputs, firms, portfolio });
-    latest.current = { baseInputs, firms, portfolio };
-
-    useEffect(() => {
-        const { baseInputs, firms, portfolio } = latest.current;
-        if (portfolio.length === 0) {
-            setSimmed([]);
-            setPending(false);
-            return;
-        }
-        let isCancelled = false;
-        setPending(true);
-        const handle = setTimeout(() => {
-            const trials = Math.min(500, baseInputs.trials);
+    const key = buildCacheKey(baseInputs, portfolio);
+    const computation = useDebouncedComputation<SimmedEntry[]>(
+        key,
+        DEBOUNCE_MS,
+        () => {
+            const trials = Math.min(MAX_TRIALS, baseInputs.trials);
             const results: SimmedEntry[] = [];
             for (const entry of portfolio) {
                 const firm = firms.find((f) => f.id === entry.firmId);
@@ -141,16 +107,12 @@ export default function PortfolioPanel({
                 });
                 results.push({ entry, out });
             }
-            if (!isCancelled) {
-                setSimmed(results);
-                setPending(false);
-            }
-        }, 0);
-        return () => {
-            isCancelled = true;
-            clearTimeout(handle);
-        };
-    }, [debouncedKey]);
+            return results;
+        },
+        EMPTY_SIMMED,
+    );
+    const isPending = portfolio.length === 0 ? false : computation.pending;
+    const simmed = portfolio.length === 0 ? EMPTY_SIMMED : computation.result;
 
     const totals = useMemo(() => {
         if (simmed.length === 0) return null;
@@ -184,7 +146,6 @@ export default function PortfolioPanel({
                 firmId: currentFirm.id,
                 id: crypto.randomUUID(),
                 linkActivationDiscount: false,
-                memory: {},
                 planId: currentPlan.id,
             },
         ]);
@@ -217,7 +178,7 @@ export default function PortfolioPanel({
                     </InfoPopover>
                 </div>
                 <div className="flex items-center gap-3">
-                    {pending && (
+                    {isPending && (
                         <span className="text-xs text-muted-foreground">
                             computing…
                         </span>
@@ -304,7 +265,7 @@ export default function PortfolioPanel({
                         firms={firms}
                         onRemove={removeEntry}
                         onUpdate={updateEntry}
-                        pending={pending}
+                        pending={isPending}
                         portfolio={portfolio}
                         simmed={simmed}
                         totals={totals}
@@ -368,6 +329,34 @@ function AccountsCell({
             </Button>
         </div>
     );
+}
+
+function buildCacheKey(
+    baseInputs: Omit<SimInputs, 'plan'>,
+    portfolio: PortfolioEntry[],
+): string {
+    return JSON.stringify({
+        attempts: baseInputs.maxAttempts ?? 1,
+        commission: baseInputs.commissionPerRoundTrip ?? 0,
+        dayStop: baseInputs.dayStop,
+        evalDayPolicy: baseInputs.evalDayPolicy ?? null,
+        fundedHorizonDays: baseInputs.fundedHorizonDays,
+        maxEvalDays: baseInputs.maxEvalDays,
+        portfolio: portfolio.map((entry) => ({
+            actDiscount: entry.activationDiscountPercent,
+            count: entry.count,
+            evalDiscount: entry.evalDiscountPercent,
+            firmId: entry.firmId,
+            linkAct: entry.linkActivationDiscount,
+            planId: entry.planId,
+        })),
+        risk: baseInputs.riskPerTrade,
+        rr: baseInputs.rrRatio,
+        seed: baseInputs.seed,
+        tpd: baseInputs.tradesPerDay,
+        trials: baseInputs.trials,
+        winrate: baseInputs.winrate,
+    });
 }
 
 function ComputedCell({

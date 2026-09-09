@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 
 import Eyebrow from '~/components/Eyebrow';
-import { Card, CardContent } from '~/components/ui/Card';
+import { Card } from '~/components/ui/Card';
 import InfoPopover from '~/components/ui/InfoPopover';
 import {
     formatCompactCurrency,
@@ -11,31 +11,30 @@ import {
     formatPercent,
     formatR,
 } from '~/lib/format';
-import { type Plan, type SimOutputs } from '~/lib/prop-calculator';
+import { type SimInputs, type SimOutputs } from '~/lib/prop-calculator';
 import { standardDeviation } from '~/lib/prop-calculator/stats';
 import { cn } from '~/lib/utilities';
 
 import { panelDescriptions } from './kpiDescriptions';
+import StatCard from './StatCard';
 
 interface StrategyAnalysisProperties {
-    copyAccounts: number;
-    fundedHorizonDays: number;
-    plan: Plan;
+    baseInputs: SimInputs;
     result: SimOutputs;
-    riskPerTrade: number;
-    rrRatio: number;
-    winrate: number;
 }
 
 export default function StrategyAnalysis({
-    copyAccounts,
-    fundedHorizonDays,
-    plan,
+    baseInputs,
     result,
-    riskPerTrade,
-    rrRatio,
-    winrate,
 }: StrategyAnalysisProperties) {
+    const {
+        copyAccounts = 1,
+        fundedHorizonDays,
+        plan,
+        riskPerTrade,
+        rrRatio,
+        winrate,
+    } = baseInputs;
     const accounts = Math.max(1, Math.floor(copyAccounts));
     const edge = useMemo(() => {
         const breakEvenWR = 1 / (1 + rrRatio);
@@ -312,81 +311,93 @@ export default function StrategyAnalysis({
                         title="Risk-Adjusted Returns"
                     />
                     <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                        <RatioCard
-                            bench={pfBench(ratios.profitFactor)}
-                            color={pfColor(ratios.profitFactor)}
+                        <StatCard
                             label="Profit factor"
+                            sub={pfBench(ratios.profitFactor)}
+                            subInheritsColor
                             value={
                                 Number.isFinite(ratios.profitFactor)
                                     ? ratios.profitFactor.toFixed(2)
                                     : '∞'
                             }
+                            valueClassName={pfColor(ratios.profitFactor)}
                         />
-                        <RatioCard
-                            bench={sharpeBench(ratios.sharpe)}
-                            color={sharpeColor(ratios.sharpe)}
+                        <StatCard
                             label="Sharpe (ann.)"
+                            sub={riskAdjustedRatioBench(ratios.sharpe)}
+                            subInheritsColor
                             value={ratios.sharpe.toFixed(2)}
+                            valueClassName={riskAdjustedRatioColor(
+                                ratios.sharpe,
+                            )}
                         />
-                        <RatioCard
-                            bench={sortinoBench(ratios.sortino)}
-                            color={sortinoColor(ratios.sortino)}
+                        <StatCard
                             label="Sortino (ann.)"
+                            sub={riskAdjustedRatioBench(ratios.sortino)}
+                            subInheritsColor
                             value={ratios.sortino.toFixed(2)}
+                            valueClassName={riskAdjustedRatioColor(
+                                ratios.sortino,
+                            )}
                         />
-                        <RatioCard
-                            bench={calmarBench(ratios.calmar)}
-                            color={calmarColor(ratios.calmar)}
+                        <StatCard
                             label="Calmar"
+                            sub={calmarBench(ratios.calmar)}
+                            subInheritsColor
                             value={ratios.calmar.toFixed(2)}
+                            valueClassName={calmarColor(ratios.calmar)}
                         />
-                        <RatioCard
-                            bench={
+                        <StatCard
+                            label="Recovery factor"
+                            sub={
                                 ratios.recovery > 1
                                     ? 'net > max DD'
                                     : 'net < max DD'
                             }
-                            color={
+                            subInheritsColor
+                            value={ratios.recovery.toFixed(2)}
+                            valueClassName={
                                 ratios.recovery > 1
                                     ? 'text-emerald-400'
                                     : 'text-rose-400'
                             }
-                            label="Recovery factor"
-                            value={ratios.recovery.toFixed(2)}
                         />
-                        <RatioCard
-                            bench={omegaBench(ratios.omega)}
-                            color={omegaColor(ratios.omega)}
+                        <StatCard
                             label="Omega ratio"
+                            sub={omegaBench(ratios.omega)}
+                            subInheritsColor
                             value={omegaString}
+                            valueClassName={omegaColor(ratios.omega)}
                         />
-                        <RatioCard
-                            bench={
+                        <StatCard
+                            label="Gain-to-pain"
+                            sub={
                                 ratios.gainToPain > 1.5
                                     ? 'strong'
                                     : ratios.gainToPain > 1
                                       ? 'acceptable'
                                       : 'losing'
                             }
-                            color={gainToPainColor(ratios.gainToPain)}
-                            label="Gain-to-pain"
+                            subInheritsColor
                             value={
                                 Number.isFinite(ratios.gainToPain)
                                     ? ratios.gainToPain.toFixed(2)
                                     : '∞'
                             }
+                            valueClassName={gainToPainColor(ratios.gainToPain)}
                         />
-                        <RatioCard
-                            bench={
+                        <StatCard
+                            label="Ulcer index"
+                            sub={
                                 ratios.ulcerIndex < 3
                                     ? 'low DD pain'
                                     : ratios.ulcerIndex < 8
                                       ? 'moderate'
                                       : 'high DD pain'
                             }
-                            color={ulcerColor(ratios.ulcerIndex)}
-                            label="Ulcer index"
+                            subInheritsColor
                             value={ratios.ulcerIndex.toFixed(1)}
+                            valueClassName={ulcerColor(ratios.ulcerIndex)}
                         />
                     </div>
                 </section>
@@ -614,35 +625,17 @@ function pfColor(v: number): string {
     if (v > 1) return 'text-amber-400';
     return 'text-rose-400';
 }
-function RatioCard({
-    bench,
-    color,
-    label,
-    value,
-}: {
-    bench: string;
-    color: string;
-    label: string;
-    value: string;
-}) {
-    return (
-        <Card className="gap-1 py-2.5">
-            <CardContent className="flex flex-col gap-1 px-3">
-                <span className="text-[11px] text-muted-foreground">
-                    {label}
-                </span>
-                <span
-                    className={cn(
-                        'font-mono text-lg leading-none font-bold tabular-nums',
-                        color,
-                    )}
-                >
-                    {value}
-                </span>
-                <span className={cn('text-[10px]', color)}>{bench}</span>
-            </CardContent>
-        </Card>
-    );
+function riskAdjustedRatioBench(v: number): string {
+    if (v > 2) return 'excellent';
+    if (v > 1) return 'good';
+    if (v > 0.5) return 'acceptable';
+    return 'poor';
+}
+function riskAdjustedRatioColor(v: number): string {
+    if (v > 2) return 'text-emerald-400';
+    if (v > 1) return 'text-green-400';
+    if (v > 0.5) return 'text-amber-400';
+    return 'text-rose-400';
 }
 function SectionHeader({
     description,
@@ -657,30 +650,6 @@ function SectionHeader({
             <InfoPopover title={title}>{description}</InfoPopover>
         </div>
     );
-}
-function sharpeBench(v: number): string {
-    if (v > 2) return 'excellent';
-    if (v > 1) return 'good';
-    if (v > 0.5) return 'acceptable';
-    return 'poor';
-}
-function sharpeColor(v: number): string {
-    if (v > 2) return 'text-emerald-400';
-    if (v > 1) return 'text-green-400';
-    if (v > 0.5) return 'text-amber-400';
-    return 'text-rose-400';
-}
-function sortinoBench(v: number): string {
-    if (v > 2) return 'excellent';
-    if (v > 1) return 'good';
-    if (v > 0.5) return 'acceptable';
-    return 'poor';
-}
-function sortinoColor(v: number): string {
-    if (v > 2) return 'text-emerald-400';
-    if (v > 1) return 'text-green-400';
-    if (v > 0.5) return 'text-amber-400';
-    return 'text-rose-400';
 }
 function ulcerColor(v: number): string {
     if (v < 3) return 'text-emerald-400';

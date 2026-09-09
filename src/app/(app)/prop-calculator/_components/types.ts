@@ -74,15 +74,6 @@ export interface PortfolioEntry {
     firmId: FirmId;
     id: string;
     linkActivationDiscount: boolean;
-    memory: Partial<Record<FirmId, PortfolioEntryMemory>>;
-    planId: PlanId;
-}
-
-export interface PortfolioEntryMemory {
-    activationDiscountPercent: number;
-    count: number;
-    evalDiscountPercent: number;
-    linkActivationDiscount: boolean;
     planId: PlanId;
 }
 

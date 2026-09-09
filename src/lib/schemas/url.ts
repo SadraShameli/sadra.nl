@@ -105,3 +105,27 @@ export const savedScenarioRecordSchema = z.object({
 });
 
 export type SavedScenarioRecord = z.infer<typeof savedScenarioRecordSchema>;
+
+const intFromQueryParameter = (fallback: number) =>
+    z.coerce.number().transform(Math.floor).catch(fallback);
+
+export const calculatorScalarFieldsSchema = z.object({
+    act: z.coerce.number().catch(0),
+    attempts: intFromQueryParameter(1),
+    comm: z.coerce.number().catch(0),
+    copy: intFromQueryParameter(1),
+    eval: z.coerce.number().catch(0),
+    fundedDays: intFromQueryParameter(60),
+    maxDays: intFromQueryParameter(60),
+    rd: z.coerce.number().catch(250),
+    rp: z.coerce.number().catch(0.5),
+    rr: z.coerce.number().catch(2),
+    seed: intFromQueryParameter(42),
+    tpd: intFromQueryParameter(1),
+    trials: intFromQueryParameter(2000),
+    wr: z.coerce.number().catch(0.4),
+});
+
+export type CalculatorScalarFields = z.infer<
+    typeof calculatorScalarFieldsSchema
+>;

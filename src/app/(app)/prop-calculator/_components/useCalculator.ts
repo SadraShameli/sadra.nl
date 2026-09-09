@@ -19,6 +19,7 @@ import {
     type TradingFirm,
 } from '~/lib/prop-calculator';
 
+import { riskPercentToDollars } from './riskConversion';
 import {
     type CalculatorState,
     type LabScenario,
@@ -26,6 +27,7 @@ import {
     SizingMode,
 } from './types';
 import { decodeState, encodeState } from './urlState';
+import { useDebouncedValue } from './useDebouncedSimulation';
 
 const SIM_DEBOUNCE_MS = 180;
 
@@ -186,7 +188,10 @@ export function useCalculator(): UseCalculatorReturn {
         () =>
             state.sizingMode === SizingMode.Dollar
                 ? state.riskDollars
-                : (state.plan.accountSize * state.riskPercent) / 100,
+                : riskPercentToDollars(
+                      state.riskPercent,
+                      state.plan.accountSize,
+                  ),
         [state.sizingMode, state.riskDollars, state.riskPercent, state.plan],
     );
 
@@ -478,7 +483,6 @@ function defaultState(): CalculatorState {
                 firmId: FirmId.Apex,
                 id: 'default-apex-50k-eod',
                 linkActivationDiscount: false,
-                memory: {},
                 planId: {
                     accountSize: 50_000,
                     firm: FirmId.Apex,
@@ -505,13 +509,4 @@ function freshId(): string {
         return crypto.randomUUID();
     }
     return `lab-${Math.random().toString(36).slice(2, 11)}`;
-}
-
-function useDebouncedValue<T>(value: T, delay: number): T {
-    const [debounced, setDebounced] = useState(value);
-    useEffect(() => {
-        const t = setTimeout(() => setDebounced(value), delay);
-        return () => clearTimeout(t);
-    }, [value, delay]);
-    return debounced;
 }

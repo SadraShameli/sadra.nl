@@ -1,7 +1,7 @@
 'use client';
 
 import { TriangleAlert } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo } from 'react';
 
 import { Card } from '~/components/ui/Card';
 import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
@@ -22,6 +22,7 @@ import {
 import { cn } from '~/lib/utilities';
 
 import RuleStressBarChartView from './charts/RuleStressBarChartView';
+import { useDebouncedComputation } from './useDebouncedSimulation';
 
 interface RuleStressTestPanelProperties {
     baseInputs: SimInputs;
@@ -40,42 +41,26 @@ interface StressScenario {
 }
 
 const MAX_TRIALS = 500;
+const DEBOUNCE_MS = 500;
 
 export default function RuleStressTestPanel({
     baseInputs,
 }: RuleStressTestPanelProperties) {
-    const [rows, setRows] = useState<ScenarioRow[]>([]);
-    const [pending, setPending] = useState(false);
-    const inputsReference = useRef(baseInputs);
-    inputsReference.current = baseInputs;
-
-    const debouncedKey = useDebouncedKey(baseInputs);
-
-    useEffect(() => {
-        let isCancelled = false;
-        setPending(true);
-        const handle = setTimeout(() => {
-            const inputs = inputsReference.current;
-            const trials = Math.min(MAX_TRIALS, inputs.trials);
-
-            const scenarios = buildStressScenarios(inputs.plan);
-            const results: ScenarioRow[] = scenarios.map(
-                ({ isNoOp, label, plan }) => ({
-                    isNoOp,
-                    label,
-                    out: simulate({ ...inputs, plan, trials }),
-                }),
-            );
-            if (!isCancelled) {
-                setRows(results);
-                setPending(false);
-            }
-        }, 0);
-        return () => {
-            isCancelled = true;
-            clearTimeout(handle);
-        };
-    }, [debouncedKey]);
+    const key = buildCacheKey(baseInputs);
+    const { pending, result: rows } = useDebouncedComputation<ScenarioRow[]>(
+        key,
+        DEBOUNCE_MS,
+        () => {
+            const trials = Math.min(MAX_TRIALS, baseInputs.trials);
+            const scenarios = buildStressScenarios(baseInputs.plan);
+            return scenarios.map(({ isNoOp, label, plan }) => ({
+                isNoOp,
+                label,
+                out: simulate({ ...baseInputs, plan, trials }),
+            }));
+        },
+        [],
+    );
 
     const baseline = rows[0] ?? null;
 
@@ -222,6 +207,27 @@ export default function RuleStressTestPanel({
     );
 }
 
+function buildCacheKey(inputs: SimInputs): string {
+    return JSON.stringify({
+        act: inputs.discounts?.activationPercent ?? 0,
+        attempts: inputs.maxAttempts ?? 1,
+        commission: inputs.commissionPerRoundTrip ?? 0,
+        copy: inputs.copyAccounts ?? 1,
+        dayStop: inputs.dayStop ?? null,
+        eval: inputs.discounts?.evalPercent ?? 0,
+        evalDayPolicy: inputs.evalDayPolicy ?? null,
+        funded: inputs.fundedHorizonDays,
+        max: inputs.maxEvalDays,
+        planId: inputs.plan.id,
+        risk: inputs.riskPerTrade,
+        rr: inputs.rrRatio,
+        seed: inputs.seed,
+        tpd: inputs.tradesPerDay,
+        trials: inputs.trials,
+        winrate: inputs.winrate,
+    });
+}
+
 function buildDllHalvedScenario(basePlan: Plan): StressScenario {
     const isNoOp =
         basePlan.evalDailyLossLimit.kind === DailyLossLimitKind.None &&
@@ -353,25 +359,4 @@ function pctDelta(value: number, baseline: null | ScenarioRow): number {
         (value - baseline.out.expectedMonthlyNet) /
         Math.abs(baseline.out.expectedMonthlyNet)
     );
-}
-
-function useDebouncedKey(inputs: SimInputs): string {
-    const key = JSON.stringify({
-        act: inputs.discounts?.activationPercent ?? 0,
-        commission: inputs.commissionPerRoundTrip ?? 0,
-        eval: inputs.discounts?.evalPercent ?? 0,
-        planId: inputs.plan.id,
-        risk: inputs.riskPerTrade,
-        rr: inputs.rrRatio,
-        seed: inputs.seed,
-        tpd: inputs.tradesPerDay,
-        trials: inputs.trials,
-        winrate: inputs.winrate,
-    });
-    const [debounced, setDebounced] = useState(key);
-    useEffect(() => {
-        const t = setTimeout(() => setDebounced(key), 500);
-        return () => clearTimeout(t);
-    }, [key]);
-    return debounced;
 }

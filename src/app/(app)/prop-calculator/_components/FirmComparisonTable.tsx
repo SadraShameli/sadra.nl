@@ -1,7 +1,7 @@
 'use client';
 
 import { Building2 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo } from 'react';
 
 import { Card } from '~/components/ui/Card';
 import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
@@ -19,6 +19,11 @@ import {
 import { cn } from '~/lib/utilities';
 
 import { panelDescriptions } from './kpiDescriptions';
+import { bestExpectedMonthlyNet, scoreByExpectedMonthlyNet } from './scoring';
+import { useDebouncedComputation } from './useDebouncedSimulation';
+
+const DEBOUNCE_MS = 700;
+const MAX_TRIALS = 500;
 
 interface FirmComparisonTableProperties {
     activeFirmId: FirmId;
@@ -40,58 +45,30 @@ export default function FirmComparisonTable({
     firms,
     targetAccountSize,
 }: FirmComparisonTableProperties) {
-    const [rows, setRows] = useState<Row[]>([]);
-    const [pending, setPending] = useState(false);
-    const inputsReference = useRef(baseInputs);
-    inputsReference.current = baseInputs;
-    const firmsReference = useRef(firms);
-    firmsReference.current = firms;
-    const targetSizeReference = useRef(targetAccountSize);
-    targetSizeReference.current = targetAccountSize;
-
-    const debouncedKey = useDebouncedKey(baseInputs, targetAccountSize, 700);
-
-    useEffect(() => {
-        let isCancelled = false;
-        setPending(true);
-        const handle = setTimeout(() => {
-            const inputs = inputsReference.current;
-            const firmList = firmsReference.current;
-            const targetSize = targetSizeReference.current;
-            const trials = Math.min(500, inputs.trials);
+    const key = buildCacheKey(baseInputs, targetAccountSize);
+    const { pending, result: rows } = useDebouncedComputation<Row[]>(
+        key,
+        DEBOUNCE_MS,
+        () => {
+            const trials = Math.min(MAX_TRIALS, baseInputs.trials);
             const partial: Omit<Row, 'score'>[] = [];
-            for (const firm of firmList) {
-                const plan = pickPlan(firm, targetSize);
+            for (const firm of firms) {
+                const plan = pickPlan(firm, targetAccountSize);
                 if (!plan) continue;
-                const sim = simulate({ ...inputs, plan, trials });
+                const sim = simulate({ ...baseInputs, plan, trials });
                 partial.push({ firm, out: sim, plan });
             }
-            const bestNet =
-                partial.length === 0
-                    ? -Infinity
-                    : Math.max(...partial.map((r) => r.out.expectedMonthlyNet));
-            const withScore: Row[] = partial.map((r) => ({
+            const bestNet = bestExpectedMonthlyNet(partial);
+            return partial.map((r) => ({
                 ...r,
-                score:
-                    bestNet > 0
-                        ? Math.max(
-                              1,
-                              Math.round(
-                                  (r.out.expectedMonthlyNet / bestNet) * 5,
-                              ),
-                          )
-                        : 1,
+                score: scoreByExpectedMonthlyNet(
+                    r.out.expectedMonthlyNet,
+                    bestNet,
+                ),
             }));
-            if (!isCancelled) {
-                setRows(withScore);
-                setPending(false);
-            }
-        }, 0);
-        return () => {
-            isCancelled = true;
-            clearTimeout(handle);
-        };
-    }, [debouncedKey]);
+        },
+        [],
+    );
 
     const columns = useMemo<DataTableColumn<Row>[]>(
         () => [
@@ -204,6 +181,30 @@ export default function FirmComparisonTable({
     );
 }
 
+function buildCacheKey(
+    inputs: Omit<SimInputs, 'plan'>,
+    accountSize: number,
+): string {
+    return JSON.stringify({
+        accountSize,
+        act: inputs.discounts?.activationPercent ?? 0,
+        attempts: inputs.maxAttempts ?? 1,
+        commission: inputs.commissionPerRoundTrip ?? 0,
+        copy: inputs.copyAccounts ?? 1,
+        dayStop: inputs.dayStop ?? null,
+        eval: inputs.discounts?.evalPercent ?? 0,
+        evalDayPolicy: inputs.evalDayPolicy ?? null,
+        funded: inputs.fundedHorizonDays,
+        max: inputs.maxEvalDays,
+        risk: inputs.riskPerTrade,
+        rr: inputs.rrRatio,
+        seed: inputs.seed,
+        tpd: inputs.tradesPerDay,
+        trials: inputs.trials,
+        winrate: inputs.winrate,
+    });
+}
+
 function pickPlan(firm: TradingFirm, targetSize: number): null | Plan {
     const sameSize = firm.plans.filter((p) => p.accountSize === targetSize);
     if (sameSize.length > 0) {
@@ -222,35 +223,4 @@ function pickPlan(firm: TradingFirm, targetSize: number): null | Plan {
         }
     }
     return closest;
-}
-
-function useDebouncedKey(
-    inputs: Omit<SimInputs, 'plan'>,
-    accountSize: number,
-    delay: number,
-): string {
-    const key = JSON.stringify({
-        accountSize,
-        act: inputs.discounts?.activationPercent ?? 0,
-        attempts: inputs.maxAttempts ?? 1,
-        commission: inputs.commissionPerRoundTrip ?? 0,
-        copy: inputs.copyAccounts ?? 1,
-        dayStop: inputs.dayStop ?? null,
-        eval: inputs.discounts?.evalPercent ?? 0,
-        evalDayPolicy: inputs.evalDayPolicy ?? null,
-        funded: inputs.fundedHorizonDays,
-        max: inputs.maxEvalDays,
-        risk: inputs.riskPerTrade,
-        rr: inputs.rrRatio,
-        seed: inputs.seed,
-        tpd: inputs.tradesPerDay,
-        trials: inputs.trials,
-        winrate: inputs.winrate,
-    });
-    const [debounced, setDebounced] = useState(key);
-    useEffect(() => {
-        const t = setTimeout(() => setDebounced(key), delay);
-        return () => clearTimeout(t);
-    }, [key, delay]);
-    return debounced;
 }

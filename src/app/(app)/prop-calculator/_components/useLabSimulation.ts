@@ -1,7 +1,5 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-
 import {
     CorrelationMode,
     type MultiAccountResult,
@@ -12,6 +10,7 @@ import {
 
 import { gamblersRuinAsymmetric } from './lab/labMath';
 import { type LabScenario } from './types';
+import { useDebouncedComputation } from './useDebouncedSimulation';
 
 interface Arguments {
     activationDiscountPercent?: number;
@@ -25,14 +24,10 @@ interface Arguments {
     seed: number;
 }
 
-interface LabResult {
-    result: MultiAccountResult;
-    scenarioId: string;
-}
-
 const DEBOUNCE_MS = 600;
 const TRIALS_BASE = 400;
 const TRIALS_INDEPENDENT = 250;
+const EMPTY_RESULTS = new Map<string, MultiAccountResult>();
 
 export function useLabSimulation(arguments_: Arguments): {
     pending: boolean;
@@ -50,7 +45,7 @@ export function useLabSimulation(arguments_: Arguments): {
         seed,
     } = arguments_;
 
-    const latest = useRef({
+    const key = buildCacheKey({
         activationDiscountPercent,
         commissionPerRoundTrip,
         discountPercent,
@@ -61,87 +56,14 @@ export function useLabSimulation(arguments_: Arguments): {
         scenarios,
         seed,
     });
-    latest.current = {
-        activationDiscountPercent,
-        commissionPerRoundTrip,
-        discountPercent,
-        fundedHorizonDays,
-        linkActivationDiscount,
-        maxEvalDays,
-        plan,
-        scenarios,
-        seed,
-    };
 
-    const key = useMemo(
-        () =>
-            JSON.stringify({
-                actDiscount: activationDiscountPercent,
-                commission: commissionPerRoundTrip,
-                evalDiscount: discountPercent,
-                fundedHorizonDays,
-                linkAct: linkActivationDiscount,
-                maxEvalDays,
-                planId: plan.id,
-                scenarios: scenarios.map((s) => ({
-                    a: s.accounts,
-                    c: s.correlation,
-                    ds: s.dayStop,
-                    g: s.groups,
-                    id: s.id,
-                    risk: s.riskPerTrade,
-                    rr: s.rrRatio,
-                    tpd: s.tradesPerDay,
-                    wr: s.winrate,
-                })),
-                seed,
-            }),
-        [
-            plan.id,
-            seed,
-            maxEvalDays,
-            fundedHorizonDays,
-            commissionPerRoundTrip,
-            discountPercent,
-            activationDiscountPercent,
-            linkActivationDiscount,
-            scenarios,
-        ],
-    );
-
-    const [debouncedKey, setDebouncedKey] = useState(key);
-    useEffect(() => {
-        const t = setTimeout(() => setDebouncedKey(key), DEBOUNCE_MS);
-        return () => clearTimeout(t);
-    }, [key]);
-
-    const [results, setResults] = useState<Map<string, MultiAccountResult>>(
-        () => new Map(),
-    );
-    const [pending, setPending] = useState(false);
-
-    useEffect(() => {
-        const {
-            activationDiscountPercent,
-            commissionPerRoundTrip,
-            discountPercent,
-            fundedHorizonDays,
-            linkActivationDiscount,
-            maxEvalDays,
-            plan,
-            scenarios,
-            seed,
-        } = latest.current;
-        if (scenarios.length === 0) {
-            setResults(new Map());
-            setPending(false);
-            return;
-        }
-        let isCancelled = false;
-        setPending(true);
-        const handle = setTimeout(() => {
+    const computation = useDebouncedComputation<
+        Map<string, MultiAccountResult>
+    >(
+        key,
+        DEBOUNCE_MS,
+        () => {
             const next = new Map<string, MultiAccountResult>();
-            const out: LabResult[] = [];
             const dd = plan.drawdown.amount;
             const target = plan.profitTarget;
             for (const sc of scenarios) {
@@ -183,23 +105,48 @@ export function useLabSimulation(arguments_: Arguments): {
                     targetUnits,
                     ddUnits,
                 );
-                const enriched: MultiAccountResult = {
-                    ...r,
-                    theoreticalPassProb: theoretical,
-                };
-                next.set(sc.id, enriched);
-                out.push({ result: enriched, scenarioId: sc.id });
+                next.set(sc.id, { ...r, theoreticalPassProb: theoretical });
             }
-            if (!isCancelled) {
-                setResults(next);
-                setPending(false);
-            }
-        }, 0);
-        return () => {
-            isCancelled = true;
-            clearTimeout(handle);
-        };
-    }, [debouncedKey]);
+            return next;
+        },
+        EMPTY_RESULTS,
+    );
+    const isPending = scenarios.length === 0 ? false : computation.pending;
+    const results = scenarios.length === 0 ? EMPTY_RESULTS : computation.result;
 
-    return { pending, results };
+    return { pending: isPending, results };
+}
+
+function buildCacheKey(fields: {
+    activationDiscountPercent: number;
+    commissionPerRoundTrip: number;
+    discountPercent: number;
+    fundedHorizonDays: number;
+    linkActivationDiscount: boolean;
+    maxEvalDays: number;
+    plan: Plan;
+    scenarios: LabScenario[];
+    seed: number;
+}): string {
+    return JSON.stringify({
+        actDiscount: fields.activationDiscountPercent,
+        commission: fields.commissionPerRoundTrip,
+        evalDiscount: fields.discountPercent,
+        fundedHorizonDays: fields.fundedHorizonDays,
+        linkAct: fields.linkActivationDiscount,
+        maxEvalDays: fields.maxEvalDays,
+        planId: fields.plan.id,
+        scenarios: fields.scenarios.map((s) => ({
+            a: s.accounts,
+            c: s.correlation,
+            ds: s.dayStop,
+            g: s.groups,
+            id: s.id,
+            risk: s.riskPerTrade,
+            rr: s.rrRatio,
+            tpd: s.tradesPerDay,
+            wr: s.winrate,
+        })),
+        seed: fields.seed,
+    });
 }

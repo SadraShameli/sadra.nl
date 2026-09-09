@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo } from 'react';
 
 import { Card } from '~/components/ui/Card';
 import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
@@ -10,6 +10,12 @@ import { type SimInputs, simulate } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
 import { panelDescriptions } from './kpiDescriptions';
+import { useDebouncedComputation } from './useDebouncedSimulation';
+
+enum SensitivityMetric {
+    MonthlyNet = 'net',
+    Pass = 'pass',
+}
 
 interface HeatmapRow {
     cellsByRr: Map<number, Cell>;
@@ -18,6 +24,8 @@ interface HeatmapRow {
 
 const WINRATES = [0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6] as const;
 const RR_RATIOS = [1, 1.5, 2, 2.5, 3, 3.5, 4] as const;
+const DEBOUNCE_MS = 700;
+const MAX_TRIALS = 300;
 
 interface Cell {
     monthlyNet: number;
@@ -30,7 +38,7 @@ interface HeatmapCellsProperties {
     cells: Cell[];
     currentRR: number;
     currentWinrate: number;
-    metric: 'net' | 'pass';
+    metric: SensitivityMetric;
 }
 
 interface SensitivityHeatmapProperties {
@@ -78,7 +86,7 @@ export default function SensitivityHeatmap({
                     cells={cells}
                     currentRR={currentRR}
                     currentWinrate={currentWinrate}
-                    metric="pass"
+                    metric={SensitivityMetric.Pass}
                 />
             </Card>
             <Card
@@ -106,11 +114,30 @@ export default function SensitivityHeatmap({
                     cells={cells}
                     currentRR={currentRR}
                     currentWinrate={currentWinrate}
-                    metric="net"
+                    metric={SensitivityMetric.MonthlyNet}
                 />
             </Card>
         </div>
     );
+}
+
+function buildCacheKey(inputs: SimInputs): string {
+    return JSON.stringify({
+        act: inputs.discounts?.activationPercent ?? 0,
+        attempts: inputs.maxAttempts ?? 1,
+        commission: inputs.commissionPerRoundTrip ?? 0,
+        copy: inputs.copyAccounts ?? 1,
+        dayStop: inputs.dayStop ?? null,
+        eval: inputs.discounts?.evalPercent ?? 0,
+        evalDayPolicy: inputs.evalDayPolicy ?? null,
+        firmId: inputs.plan.id,
+        funded: inputs.fundedHorizonDays,
+        max: inputs.maxEvalDays,
+        risk: inputs.riskPerTrade,
+        seed: inputs.seed,
+        tpd: inputs.tradesPerDay,
+        trials: inputs.trials,
+    });
 }
 
 function colorForNet(net: number, maxAbs: number): string {
@@ -141,7 +168,7 @@ function HeatmapCells({
     metric,
 }: HeatmapCellsProperties) {
     const maxAbs = useMemo(() => {
-        if (metric !== 'net') return 0;
+        if (metric !== SensitivityMetric.MonthlyNet) return 0;
         let m = 0;
         for (const c of cells) {
             const abs = Math.abs(c.monthlyNet);
@@ -185,12 +212,12 @@ function HeatmapCells({
                         row.original.winrate === closestWinrate &&
                         rr === closestRR;
                     const colorClass = cell
-                        ? metric === 'pass'
+                        ? metric === SensitivityMetric.Pass
                             ? colorForPass(cell.pass)
                             : colorForNet(cell.monthlyNet, maxAbs)
                         : '';
                     const display = cell
-                        ? metric === 'pass'
+                        ? metric === SensitivityMetric.Pass
                             ? formatPercent(cell.pass, 0)
                             : formatCompactCurrency(cell.monthlyNet)
                         : '';
@@ -237,52 +264,21 @@ function nearest<T extends number>(target: number, options: readonly T[]): T {
     );
 }
 
-function useDebouncedKey(inputs: SimInputs, delay: number): string {
-    const key = JSON.stringify({
-        act: inputs.discounts?.activationPercent ?? 0,
-        attempts: inputs.maxAttempts ?? 1,
-        commission: inputs.commissionPerRoundTrip ?? 0,
-        copy: inputs.copyAccounts ?? 1,
-        eval: inputs.discounts?.evalPercent ?? 0,
-        evalDayPolicy: inputs.evalDayPolicy ?? null,
-        firmId: inputs.plan.id,
-        funded: inputs.fundedHorizonDays,
-        max: inputs.maxEvalDays,
-        risk: inputs.riskPerTrade,
-        seed: inputs.seed,
-        tpd: inputs.tradesPerDay,
-        trials: inputs.trials,
-    });
-    const [debounced, setDebounced] = useState(key);
-    useEffect(() => {
-        const t = setTimeout(() => setDebounced(key), delay);
-        return () => clearTimeout(t);
-    }, [key, delay]);
-    return debounced;
-}
-
 function useSensitivityGrid(baseInputs: SimInputs): {
     cells: Cell[];
     pending: boolean;
 } {
-    const [cells, setCells] = useState<Cell[]>([]);
-    const [pending, setPending] = useState(false);
-    const inputsReference = useRef(baseInputs);
-    inputsReference.current = baseInputs;
-
-    const debouncedKey = useDebouncedKey(baseInputs, 700);
-
-    useEffect(() => {
-        let isCancelled = false;
-        setPending(true);
-        const handle = setTimeout(() => {
-            const inputs = inputsReference.current;
-            const trials = Math.min(300, inputs.trials);
+    const key = buildCacheKey(baseInputs);
+    const { pending, result: cells } = useDebouncedComputation<Cell[]>(
+        key,
+        DEBOUNCE_MS,
+        () => {
+            const trials = Math.min(MAX_TRIALS, baseInputs.trials);
             const out: Cell[] = [];
             for (const winrate of WINRATES) {
                 for (const rr of RR_RATIOS) {
                     const result = simulate({
-                        ...inputs,
+                        ...baseInputs,
                         rrRatio: rr,
                         trials,
                         winrate,
@@ -295,16 +291,10 @@ function useSensitivityGrid(baseInputs: SimInputs): {
                     });
                 }
             }
-            if (!isCancelled) {
-                setCells(out);
-                setPending(false);
-            }
-        }, 0);
-        return () => {
-            isCancelled = true;
-            clearTimeout(handle);
-        };
-    }, [debouncedKey]);
+            return out;
+        },
+        [],
+    );
 
     return { cells, pending };
 }

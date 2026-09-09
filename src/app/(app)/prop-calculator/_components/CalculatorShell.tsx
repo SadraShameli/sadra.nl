@@ -20,6 +20,7 @@ import PlanStatsBadges from './PlanStatsBadges';
 import PortfolioPanel from './PortfolioPanel';
 import ResiliencePanel from './ResiliencePanel';
 import ResultsPanel from './ResultsPanel';
+import { riskDollarsToPercent } from './riskConversion';
 import RuleStressTestPanel from './RuleStressTestPanel';
 import SavedScenarios from './SavedScenarios';
 import SectionNav from './SectionNav';
@@ -149,15 +150,7 @@ export default function CalculatorShell() {
                 data-section-label="Strategy"
                 id="strategy"
             >
-                <StrategyAnalysis
-                    copyAccounts={c.state.copyAccounts}
-                    fundedHorizonDays={c.simInputs.fundedHorizonDays}
-                    plan={c.state.plan}
-                    result={c.result}
-                    riskPerTrade={c.simInputs.riskPerTrade}
-                    rrRatio={c.state.rrRatio}
-                    winrate={c.state.winrate}
-                />
+                <StrategyAnalysis baseInputs={c.simInputs} result={c.result} />
             </div>
 
             <div
@@ -251,19 +244,7 @@ export default function CalculatorShell() {
                 data-section-label="Cash Flow"
                 id="cash-flow"
             >
-                <CashFlowPanel
-                    commissionPerRoundTrip={c.simInputs.commissionPerRoundTrip}
-                    dayStop={c.simInputs.dayStop}
-                    discounts={c.simInputs.discounts}
-                    evalDayPolicy={c.simInputs.evalDayPolicy}
-                    maxEvalDays={c.state.maxEvalDays}
-                    plan={c.state.plan}
-                    riskPerTrade={c.simInputs.riskPerTrade}
-                    rrRatio={c.state.rrRatio}
-                    seed={c.state.seed}
-                    tradesPerDay={c.state.tradesPerDay}
-                    winrate={c.state.winrate}
-                />
+                <CashFlowPanel baseInputs={c.simInputs} />
             </div>
 
             <div
@@ -274,12 +255,7 @@ export default function CalculatorShell() {
                 data-section-label="Resilience"
                 id="resilience"
             >
-                <ResiliencePanel
-                    plan={c.state.plan}
-                    result={c.result}
-                    riskPerTrade={c.simInputs.riskPerTrade}
-                    winrate={c.state.winrate}
-                />
+                <ResiliencePanel baseInputs={c.simInputs} result={c.result} />
             </div>
 
             <div
@@ -306,8 +282,10 @@ export default function CalculatorShell() {
                     currentRiskPercent={
                         c.state.sizingMode === SizingMode.Percent
                             ? c.state.riskPercent
-                            : (c.state.riskDollars / c.state.plan.accountSize) *
-                              100
+                            : riskDollarsToPercent(
+                                  c.state.riskDollars,
+                                  c.state.plan.accountSize,
+                              )
                     }
                     plan={c.state.plan}
                 />
@@ -369,12 +347,8 @@ export default function CalculatorShell() {
             >
                 <LadderLabPanel
                     activePolicy={c.state.evalDayPolicy}
-                    maxEvalDays={c.state.maxEvalDays}
+                    baseInputs={c.simInputs}
                     onApply={c.setEvalDayPolicy}
-                    plan={c.state.plan}
-                    rrRatio={c.state.rrRatio}
-                    seed={c.state.seed}
-                    winrate={c.state.winrate}
                 />
             </div>
 

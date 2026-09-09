@@ -3,39 +3,25 @@
 import { useState } from 'react';
 
 import { Button } from '~/components/ui/Button';
-import { Card, CardContent } from '~/components/ui/Card';
+import { Card } from '~/components/ui/Card';
 import InfoPopover from '~/components/ui/InfoPopover';
 import { Input } from '~/components/ui/Input';
 import { formatCompactCurrency, formatPercent } from '~/lib/format';
-import {
-    type CouponDiscounts,
-    type DayPolicy,
-    type DayStopRule,
-    type Plan,
-} from '~/lib/prop-calculator';
+import { type SimInputs } from '~/lib/prop-calculator';
 import { clamp, median } from '~/lib/prop-calculator/stats';
 import { cn } from '~/lib/utilities';
 
 import BreakevenMonthHistogramView from './charts/BreakevenMonthHistogramView';
 import CashFlowBandChartView from './charts/CashFlowBandChartView';
 import CashFlowPaybackChartView from './charts/CashFlowPaybackChartView';
+import StatCard from './StatCard';
 import {
     CASH_FLOW_MAX_TRADES_PER_DAY,
     useCashFlowSimulation,
 } from './useCashFlowSimulation';
 
 interface CashFlowPanelProperties {
-    commissionPerRoundTrip?: number;
-    dayStop?: DayStopRule;
-    discounts?: CouponDiscounts;
-    evalDayPolicy?: DayPolicy;
-    maxEvalDays: number;
-    plan: Plan;
-    riskPerTrade: number;
-    rrRatio: number;
-    seed: number;
-    tradesPerDay: number;
-    winrate: number;
+    baseInputs: SimInputs;
 }
 
 const HORIZON_OPTIONS = [
@@ -52,19 +38,20 @@ const DEFAULT_TRIALS = 150;
 const MAX_TRIALS = 300;
 const MIN_TRIALS = 25;
 
-export default function CashFlowPanel({
-    commissionPerRoundTrip,
-    dayStop,
-    discounts,
-    evalDayPolicy,
-    maxEvalDays,
-    plan,
-    riskPerTrade,
-    rrRatio,
-    seed,
-    tradesPerDay,
-    winrate,
-}: CashFlowPanelProperties) {
+export default function CashFlowPanel({ baseInputs }: CashFlowPanelProperties) {
+    const {
+        commissionPerRoundTrip,
+        dayStop,
+        discounts,
+        evalDayPolicy,
+        maxEvalDays,
+        plan,
+        riskPerTrade,
+        rrRatio,
+        seed,
+        tradesPerDay,
+        winrate,
+    } = baseInputs;
     const [horizonIndex, setHorizonIndex] = useState(1);
     const [accounts, setAccounts] = useState(DEFAULT_ACCOUNTS);
     const [trials, setTrials] = useState(DEFAULT_TRIALS);
@@ -209,27 +196,27 @@ export default function CashFlowPanel({
                 )}
 
                 <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-                    <StatCell
+                    <StatCard
                         label="Median final net"
                         sub={`through ${horizon.label}`}
                         value={formatCompactCurrency(finalNet50)}
-                        valueClass={
+                        valueClassName={
                             finalNet50 >= 0
                                 ? 'text-emerald-400'
                                 : 'text-rose-400'
                         }
                     />
-                    <StatCell
+                    <StatCard
                         label="P10 final net"
                         sub="10th percentile outcome"
                         value={formatCompactCurrency(finalNet10)}
                     />
-                    <StatCell
+                    <StatCard
                         label="P90 final net"
                         sub="90th percentile outcome"
                         value={formatCompactCurrency(finalNet90)}
                     />
-                    <StatCell
+                    <StatCard
                         label="Median break-even"
                         sub="month net turns positive"
                         value={
@@ -237,27 +224,27 @@ export default function CashFlowPanel({
                                 ? '—'
                                 : `${medianBreakEvenMonth.toFixed(1)}mo`
                         }
-                        valueClass={
+                        valueClassName={
                             medianBreakEvenMonth === null
                                 ? 'text-muted-foreground'
                                 : 'text-emerald-400'
                         }
                     />
-                    <StatCell
+                    <StatCard
                         label="P(ever break-even)"
                         sub="within the horizon"
                         value={formatPercent(pEverBreakEven)}
-                        valueClass={
+                        valueClassName={
                             pEverBreakEven >= 0.5
                                 ? 'text-emerald-400'
                                 : 'text-amber-400'
                         }
                     />
-                    <StatCell
+                    <StatCard
                         label="ROI on spend"
                         sub="median final net ÷ median spend"
                         value={formatPercent(roiOnSpend)}
-                        valueClass={
+                        valueClassName={
                             roiOnSpend >= 0
                                 ? 'text-emerald-400'
                                 : 'text-rose-400'
@@ -301,41 +288,6 @@ export default function CashFlowPanel({
                     </div>
                 )}
             </div>
-        </Card>
-    );
-}
-
-function StatCell({
-    label,
-    sub,
-    value,
-    valueClass,
-}: {
-    label: string;
-    sub?: string;
-    value: string;
-    valueClass?: string;
-}) {
-    return (
-        <Card className="gap-1 py-2.5">
-            <CardContent className="flex flex-col gap-1 px-3">
-                <span className="text-[11px] text-muted-foreground">
-                    {label}
-                </span>
-                <span
-                    className={cn(
-                        'font-mono text-lg leading-none font-bold tabular-nums',
-                        valueClass,
-                    )}
-                >
-                    {value}
-                </span>
-                {sub && (
-                    <span className="text-[10px] text-muted-foreground">
-                        {sub}
-                    </span>
-                )}
-            </CardContent>
         </Card>
     );
 }

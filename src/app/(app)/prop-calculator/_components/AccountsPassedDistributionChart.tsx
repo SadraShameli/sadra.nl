@@ -12,13 +12,7 @@ import {
 import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
 import { cn } from '~/lib/utilities';
 
-interface BarShapeProperties {
-    height?: number;
-    index?: number;
-    width?: number;
-    x?: number;
-    y?: number;
-}
+import { type BarShapeProperties } from './charts/types';
 
 interface Properties {
     distribution: number[];

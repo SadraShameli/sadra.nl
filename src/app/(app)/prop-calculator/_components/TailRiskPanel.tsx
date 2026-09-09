@@ -2,13 +2,15 @@
 
 import { useMemo } from 'react';
 
-import { Card, CardContent } from '~/components/ui/Card';
+import { Card } from '~/components/ui/Card';
 import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import InfoPopover from '~/components/ui/InfoPopover';
 import { formatCompactCurrency, formatPercent } from '~/lib/format';
 import { type SimOutputs } from '~/lib/prop-calculator';
 import { percentile } from '~/lib/prop-calculator/stats';
 import { cn } from '~/lib/utilities';
+
+import StatCard from './StatCard';
 
 interface TailRiskPanelProperties {
     result: SimOutputs;
@@ -103,35 +105,40 @@ export default function TailRiskPanel({ result }: TailRiskPanelProperties) {
 
             <div className="flex flex-col gap-5">
                 <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-5">
-                    <StatCell
+                    <StatCard
                         label="VaR 95%"
                         sub="loss in 1-of-20 trials"
+                        subInheritsColor
                         value={formatCompactCurrency(m.var95)}
-                        valueClass="text-rose-400"
+                        valueClassName="text-rose-400"
                     />
-                    <StatCell
+                    <StatCard
                         label="CVaR 95% (ES)"
                         sub="avg loss in worst 5%"
+                        subInheritsColor
                         value={formatCompactCurrency(m.cvar95)}
-                        valueClass="text-rose-400"
+                        valueClassName="text-rose-400"
                     />
-                    <StatCell
+                    <StatCard
                         label="VaR 99%"
                         sub="loss in 1-of-100 trials"
+                        subInheritsColor
                         value={formatCompactCurrency(m.var99)}
-                        valueClass="text-rose-500"
+                        valueClassName="text-rose-500"
                     />
-                    <StatCell
+                    <StatCard
                         label="CVaR 99% (ES)"
                         sub="avg loss in worst 1%"
+                        subInheritsColor
                         value={formatCompactCurrency(m.cvar99)}
-                        valueClass="text-rose-500"
+                        valueClassName="text-rose-500"
                     />
-                    <StatCell
+                    <StatCard
                         label="Tail ratio"
                         sub="upside / downside tail"
+                        subInheritsColor
                         value={tailRatioString}
-                        valueClass={tailColor}
+                        valueClassName={tailColor}
                     />
                 </div>
 
@@ -163,46 +170,6 @@ export default function TailRiskPanel({ result }: TailRiskPanelProperties) {
                     />
                 </div>
             </div>
-        </Card>
-    );
-}
-
-function StatCell({
-    label,
-    sub,
-    value,
-    valueClass,
-}: {
-    label: string;
-    sub?: string;
-    value: string;
-    valueClass?: string;
-}) {
-    return (
-        <Card className="gap-1 py-2.5">
-            <CardContent className="flex flex-col gap-1 px-3">
-                <span className="text-[11px] text-muted-foreground">
-                    {label}
-                </span>
-                <span
-                    className={cn(
-                        'font-mono text-lg leading-none font-bold tabular-nums',
-                        valueClass,
-                    )}
-                >
-                    {value}
-                </span>
-                {sub && (
-                    <span
-                        className={cn(
-                            'text-[10px]',
-                            valueClass ?? 'text-muted-foreground',
-                        )}
-                    >
-                        {sub}
-                    </span>
-                )}
-            </CardContent>
         </Card>
     );
 }

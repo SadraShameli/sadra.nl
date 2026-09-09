@@ -13,17 +13,11 @@ import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
 import { formatCompactCurrency } from '~/lib/format';
 import { cn } from '~/lib/utilities';
 
+import { type BarShapeProperties } from './types';
+
 export interface RuleStressBarDatum {
     label: string;
     monthlyNet: number;
-}
-
-interface BarShapeProperties {
-    height?: number;
-    index?: number;
-    width?: number;
-    x?: number;
-    y?: number;
 }
 
 interface Properties {

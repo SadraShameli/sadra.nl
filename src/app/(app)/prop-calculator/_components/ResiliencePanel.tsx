@@ -7,17 +7,15 @@ import { Card, CardContent } from '~/components/ui/Card';
 import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import InfoPopover from '~/components/ui/InfoPopover';
 import { formatCurrency, formatPercent } from '~/lib/format';
-import { type Plan, type SimOutputs } from '~/lib/prop-calculator';
+import { type SimInputs, type SimOutputs } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
 import { panelDescriptions } from './kpiDescriptions';
 import { probStreakAtLeast } from './lab/labMath';
 
 interface ResiliencePanelProperties {
-    plan: Plan;
+    baseInputs: SimInputs;
     result: SimOutputs;
-    riskPerTrade: number;
-    winrate: number;
 }
 
 interface ResilienceRow {
@@ -31,11 +29,10 @@ interface ResilienceRow {
 const BASE_STREAKS = [3, 4, 5, 6, 7, 8, 10] as const;
 
 export default function ResiliencePanel({
-    plan,
+    baseInputs,
     result,
-    riskPerTrade,
-    winrate,
 }: ResiliencePanelProperties) {
+    const { plan, riskPerTrade, winrate } = baseInputs;
     const data = useMemo(() => {
         const dd = plan.drawdown.amount;
         const accountSize = plan.accountSize;

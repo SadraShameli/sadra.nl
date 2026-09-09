@@ -19,8 +19,8 @@ import {
     type LadderScore,
     ladderSum,
     minStopPoints,
-    type Plan,
     RungSizing,
+    type SimInputs,
 } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
@@ -30,23 +30,16 @@ import { useLadderSearch } from './useLadderSearch';
 
 interface LadderLabPanelProperties {
     activePolicy: DayPolicy | null;
-    maxEvalDays: number;
+    baseInputs: SimInputs;
     onApply: (policy: DayPolicy | null) => void;
-    plan: Plan;
-    rrRatio: number;
-    seed: number;
-    winrate: number;
 }
 
 export default function LadderLabPanel({
     activePolicy,
-    maxEvalDays,
+    baseInputs,
     onApply,
-    plan,
-    rrRatio,
-    seed,
-    winrate,
 }: LadderLabPanelProperties) {
+    const { maxEvalDays, plan, rrRatio, seed, winrate } = baseInputs;
     const cushion = plan.drawdown.amount;
     const [lo, setLo] = useState(100);
     const [max, setMax] = useState(Math.round(cushion * 0.4));
