@@ -62,6 +62,8 @@ export class FundedNext extends TradingFirm {
 
 const MAX_FUNDED_ACCOUNTS = 5;
 
+const BOLT_LOCK_OFFSET = 100;
+
 function buildBoltPlan(size: FunctionBoltSize): PlanInit {
     return {
         accountSize: size.accountSize,
@@ -69,8 +71,8 @@ function buildBoltPlan(size: FunctionBoltSize): PlanInit {
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
-                atProfit: size.maxDrawdown,
-                lockedThreshold: lockThresholdAt(0),
+                atProfit: dollars(size.maxDrawdown + BOLT_LOCK_OFFSET),
+                lockedThreshold: lockThresholdAt(BOLT_LOCK_OFFSET),
             },
         }),
         evalDailyLossLimit: {

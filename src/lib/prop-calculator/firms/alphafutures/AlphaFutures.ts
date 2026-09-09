@@ -85,7 +85,7 @@ function buildAdvancedPlan(size: AfAdvancedSize): PlanInit {
         }),
         evalDailyLossLimit: { kind: DailyLossLimitKind.None },
         fees: {
-            activation: dollars(149),
+            activation: dollars(0),
             monthlySubscription: dollars(size.monthlyFee),
             oneTimeEval: dollars(0),
             reset: dollars(Math.round(size.monthlyFee * RESET_FEE_DISCOUNT)),

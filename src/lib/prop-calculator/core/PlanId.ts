@@ -42,7 +42,8 @@ export enum TopStepVariant {
 export enum TradeifyVariant {
     Growth = 'growth',
     Lightning = 'lightning',
-    Select = 'select',
+    SelectDaily = 'select-daily',
+    SelectFlex = 'select-flex',
 }
 
 export type PlanId =

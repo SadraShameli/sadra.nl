@@ -43,6 +43,7 @@ export function runDay(options: DayRunOptions): {
     state.todayPnL = 0;
     let isTraded = false;
     let lossesToday = 0;
+    const drawdown = plan.drawdownFor(phase);
 
     for (const intendedRisk of dayPolicy.ladder) {
         const cushion = state.balance - state.threshold;
@@ -58,7 +59,7 @@ export function runDay(options: DayRunOptions): {
         if (state.balance > state.todayHigh) state.todayHigh = state.balance;
         stats.recordTrade(isWon, pnl, state.balance);
         if (!isWon) lossesToday += 1;
-        plan.drawdown.onTrade(state, pnl);
+        drawdown.onTrade(state, pnl);
         if (plan.isBust(state, phase)) {
             return { busted: true, traded: isTraded };
         }
@@ -86,7 +87,7 @@ export function runDay(options: DayRunOptions): {
             state.qualifyingDays += 1;
         }
     }
-    plan.drawdown.onDayClose(state);
+    drawdown.onDayClose(state);
     if (isTraded && plan.isBust(state, phase)) {
         return { busted: true, traded: isTraded };
     }

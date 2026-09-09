@@ -1,6 +1,7 @@
 import { type Dollars, type Fraction0to1 } from './units';
 
 export interface PayoutLadder {
+    capsAtLastStep?: boolean;
     minRequestAmount: number;
     steps: readonly number[];
 }

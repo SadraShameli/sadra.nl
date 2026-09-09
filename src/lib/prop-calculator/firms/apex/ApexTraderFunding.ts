@@ -92,10 +92,7 @@ function buildEodPlan(size: ApexSize): PlanInit {
             fraction(0.5),
         ),
         contractLimits: size.contractLimits,
-        drawdown: new EodTrailingDrawdown({
-            amount: size.maxDrawdown,
-            lock: lockOf(size),
-        }),
+        drawdown: new EodTrailingDrawdown({ amount: size.maxDrawdown }),
         evalDailyLossLimit: {
             amount: size.evalDailyLossLimit,
             kind: DailyLossLimitKind.Flat,
@@ -107,6 +104,10 @@ function buildEodPlan(size: ApexSize): PlanInit {
             reset: dollars(pricing.evalCost),
         },
         fundedDailyLossLimit: fundedDailyLossLimitOf(size),
+        fundedDrawdown: new EodTrailingDrawdown({
+            amount: size.maxDrawdown,
+            lock: lockOf(size),
+        }),
         id: {
             accountSize: 50_000,
             firm: FirmId.Apex,
@@ -138,10 +139,7 @@ function buildIntradayPlan(size: ApexSize): PlanInit {
             fraction(0.5),
         ),
         contractLimits: size.contractLimits,
-        drawdown: new IntradayTrailingDrawdown({
-            amount: size.maxDrawdown,
-            lock: lockOf(size),
-        }),
+        drawdown: new IntradayTrailingDrawdown({ amount: size.maxDrawdown }),
         evalDailyLossLimit: { kind: DailyLossLimitKind.None },
         fees: {
             activation: dollars(pricing.activation),
@@ -150,6 +148,10 @@ function buildIntradayPlan(size: ApexSize): PlanInit {
             reset: dollars(pricing.evalCost),
         },
         fundedDailyLossLimit: fundedDailyLossLimitOf(size),
+        fundedDrawdown: new IntradayTrailingDrawdown({
+            amount: size.maxDrawdown,
+            lock: lockOf(size),
+        }),
         id: {
             accountSize: 50_000,
             firm: FirmId.Apex,

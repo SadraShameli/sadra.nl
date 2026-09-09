@@ -5,6 +5,7 @@ import {
     DailyLossLimitKind,
     DrawdownKind,
     FirmId,
+    LucidVariant,
     MffuVariant,
     TopStepVariant,
 } from '~/lib/prop-calculator/core';
@@ -13,11 +14,13 @@ import {
     tryFundedPayout,
 } from '~/lib/prop-calculator/core/FundedPayoutCycle';
 import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFunding';
+import { LucidTrading } from '~/lib/prop-calculator/firms/lucid/LucidTrading';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 import { TopStep } from '~/lib/prop-calculator/firms/topstep/TopStep';
 
 const mffu = new MyFundedFutures();
 const apex = new ApexTraderFunding();
+const lucid = new LucidTrading();
 
 function fundedState(profit: number, threshold: number) {
     const target = plan(MffuVariant.RapidEod);
@@ -356,6 +359,70 @@ describe('payout-triggered early lock (help.myfundedfutures.com Flex plan)', () 
 
         expect(payout).not.toBeNull();
         expect(state.threshold).toBe(thresholdBeforePayout);
+    });
+});
+
+describe('payout ladder capped-at-last-step (help.myfundedfutures.com / support.lucidtrading.com)', () => {
+    it('LucidPro caps every payout from #2 onward at the last ladder step instead of exhausting', () => {
+        const pro = lucid.findPlan({
+            accountSize: 50_000,
+            firm: FirmId.Lucid,
+            variant: LucidVariant.Pro,
+        });
+        if (!pro) throw new Error('lucid pro missing');
+        expect(pro.payoutLadder?.steps).toEqual([2000, 2500]);
+
+        const state = pro.initialState();
+        state.balance = state.startingBalance + 50_000;
+        state.threshold = state.startingBalance + 100;
+        state.thresholdLocked = true;
+        state.qualifyingDays = 999;
+        const tracker = newFundedCycleTracker(state);
+        tracker.lastPayoutBalance = state.startingBalance;
+        tracker.qualifyingDaysAtLastPayout = 0;
+
+        const amounts: number[] = [];
+        for (let attempt = 0; attempt < 5; attempt++) {
+            const payout = tryFundedPayout({
+                maxPayouts: Infinity,
+                minRetainedCushion: 0,
+                payoutRequestSize: undefined,
+                plan: pro,
+                state,
+                tracker,
+            });
+            if (payout === null) break;
+            amounts.push(payout.debited);
+            tracker.lastPayoutBalance = state.startingBalance;
+            tracker.qualifyingDaysAtLastPayout = 0;
+        }
+
+        expect(amounts).toEqual([2000, 2500, 2500, 2500, 2500]);
+    });
+});
+
+describe('Apex eval-phase drawdown never locks under Tradovate (apextraderfunding.com/help-center)', () => {
+    it('eval drawdown keeps trailing indefinitely; funded drawdown still locks at +$100', () => {
+        const eod = apex.findPlan({
+            accountSize: 50_000,
+            firm: FirmId.Apex,
+            variant: ApexVariant.Eod,
+        });
+        if (!eod) throw new Error('apex eod missing');
+
+        const evalState = eod.initialState();
+        evalState.balance = evalState.startingBalance + 10_000;
+        eod.drawdownFor('eval').onDayClose(evalState);
+        expect(evalState.thresholdLocked).toBe(false);
+        expect(evalState.threshold).toBe(
+            evalState.balance - eod.drawdown.amount,
+        );
+
+        const fundedState = eod.initialState();
+        fundedState.balance = fundedState.startingBalance + 2100;
+        eod.drawdownFor('funded').onDayClose(fundedState);
+        expect(fundedState.thresholdLocked).toBe(true);
+        expect(fundedState.threshold).toBe(fundedState.startingBalance + 100);
     });
 });
 

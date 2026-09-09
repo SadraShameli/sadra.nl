@@ -32,6 +32,7 @@ export interface PlanInit {
     fees: FeeSchedule;
     fundedConsistency?: ConsistencyOverride;
     fundedDailyLossLimit?: DailyLossLimitConfig;
+    fundedDrawdown?: DrawdownStrategy;
     id: PlanId;
     label: string;
     maxFundedAccounts: number;
@@ -65,6 +66,8 @@ export abstract class Plan {
     readonly fees: FeeSchedule;
 
     readonly fundedDailyLossLimit: DailyLossLimitConfig;
+
+    readonly fundedDrawdown: DrawdownStrategy;
 
     readonly id: PlanId;
 
@@ -109,6 +112,7 @@ export abstract class Plan {
         this.fees = init.fees;
         this.fundedDailyLossLimit =
             init.fundedDailyLossLimit ?? init.evalDailyLossLimit;
+        this.fundedDrawdown = init.fundedDrawdown ?? init.drawdown;
         this.id = init.id;
         this.label = init.label;
         this.maxFundedAccounts = init.maxFundedAccounts;
@@ -129,6 +133,10 @@ export abstract class Plan {
         this.profitTarget = init.profitTarget;
     }
 
+    drawdownFor(phase: 'eval' | 'funded'): DrawdownStrategy {
+        return phase === 'funded' ? this.fundedDrawdown : this.drawdown;
+    }
+
     feesUntilPass(daysToPass: number, discounts?: CouponDiscounts): number {
         return feesUntilPass(this.init.fees, daysToPass, discounts);
     }
@@ -141,7 +149,7 @@ export abstract class Plan {
     }
 
     isBust(state: AccountState, phase: 'eval' | 'funded'): boolean {
-        if (this.init.drawdown.isBreached(state)) return true;
+        if (this.drawdownFor(phase).isBreached(state)) return true;
 
         if (phase === 'eval') {
             const profit = state.balance - state.startingBalance;

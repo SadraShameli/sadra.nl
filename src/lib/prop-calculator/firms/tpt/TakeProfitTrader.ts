@@ -6,6 +6,7 @@ import {
     EodTrailingDrawdown,
     FirmId,
     fraction,
+    IntradayTrailingDrawdown,
     type PlanInit,
     TradingFirm,
 } from '~/lib/prop-calculator/core';
@@ -48,8 +49,15 @@ function buildPlan(size: TptSize): PlanInit {
             activation: dollars(130),
             monthlySubscription: dollars(size.monthlySubscription),
             oneTimeEval: dollars(0),
-            reset: dollars(0),
+            reset: dollars(99),
         },
+        fundedDrawdown: new IntradayTrailingDrawdown({
+            amount: size.maxDrawdown,
+            lock: {
+                atProfit: size.maxDrawdown,
+                lockedThreshold: lockThresholdAt(0),
+            },
+        }),
         id: { accountSize: 50_000, firm: FirmId.Tpt },
         label: planLabel(size.accountSize, 'Test → PRO'),
         maxFundedAccounts: MAX_FUNDED_ACCOUNTS,

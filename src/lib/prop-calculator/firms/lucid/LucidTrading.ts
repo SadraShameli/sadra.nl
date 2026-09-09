@@ -15,6 +15,7 @@ import {
 import { lockThresholdAt, planLabel } from '../shared';
 
 const PROFIT_TARGET_RATIO = 0.06;
+const LOCK_OFFSET = 100;
 
 const FLEX_SIZES = [
     {
@@ -66,8 +67,8 @@ function buildDirectPlan(size: LucidDirectSize): PlanInit {
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
-                atProfit: size.maxDrawdown,
-                lockedThreshold: lockThresholdAt(0),
+                atProfit: dollars(size.maxDrawdown + LOCK_OFFSET),
+                lockedThreshold: lockThresholdAt(LOCK_OFFSET),
             },
         }),
         evalDailyLossLimit: { kind: DailyLossLimitKind.None },
@@ -85,8 +86,14 @@ function buildDirectPlan(size: LucidDirectSize): PlanInit {
         label: planLabel(size.accountSize, 'LucidDirect'),
         maxFundedAccounts: MAX_FUNDED_ACCOUNTS,
         minDaysAfterPassForPayout: 5,
-        minPayoutProfit: dollars(500),
+        minPayoutProfit: dollars(3000),
+        minPayoutProfitPerCycle: dollars(2500),
+        minPayoutRequest: dollars(500),
         minTradingDays: 0,
+        payoutLadder: {
+            minRequestAmount: 500,
+            steps: [2000, 2000, 2000, 2500, 2500],
+        },
         payoutTiers: [
             { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
         ],
@@ -102,8 +109,8 @@ function buildFlexPlan(size: LucidFlexSize): PlanInit {
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
-                atProfit: size.maxDrawdown,
-                lockedThreshold: lockThresholdAt(0),
+                atProfit: dollars(size.maxDrawdown + LOCK_OFFSET),
+                lockedThreshold: lockThresholdAt(LOCK_OFFSET),
             },
         }),
         evalDailyLossLimit: { kind: DailyLossLimitKind.None },
@@ -123,9 +130,12 @@ function buildFlexPlan(size: LucidFlexSize): PlanInit {
         minDaysAfterPassForPayout: 5,
         minPayoutProfit: dollars(500),
         minTradingDays: 2,
+        payoutProfitShare: fraction(0.5),
+        payoutRequestCap: dollars(2000),
         payoutTiers: [
             { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
         ],
+        payoutTriggersLock: true,
         profitTarget,
     };
 }
@@ -141,8 +151,8 @@ function buildProPlan(size: LucidProSize): PlanInit {
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
-                atProfit: size.maxDrawdown,
-                lockedThreshold: lockThresholdAt(0),
+                atProfit: dollars(size.maxDrawdown + LOCK_OFFSET),
+                lockedThreshold: lockThresholdAt(LOCK_OFFSET),
             },
         }),
         evalDailyLossLimit:
@@ -168,6 +178,11 @@ function buildProPlan(size: LucidProSize): PlanInit {
         minDaysAfterPassForPayout: 3,
         minPayoutProfit: dollars(500),
         minTradingDays: 1,
+        payoutLadder: {
+            capsAtLastStep: true,
+            minRequestAmount: 500,
+            steps: [2000, 2500],
+        },
         payoutTiers: [
             { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
         ],

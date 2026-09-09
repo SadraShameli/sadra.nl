@@ -106,7 +106,7 @@ export class FundedCycleTracker {
             state.thresholdLocked = true;
         }
         if (plan.payoutTriggersLock) {
-            plan.drawdown.forceLock(state);
+            plan.fundedDrawdown.forceLock(state);
         }
         this.lastPayoutBalance = state.balance;
         this.qualifyingDaysAtLastPayout = state.qualifyingDays;
@@ -134,9 +134,12 @@ function ladderStepLookup(
 ): LadderStepLookup {
     if (!ladder) return { kind: 'no-ladder' };
     const step = ladder.steps[index];
-    return step === undefined
-        ? { kind: 'exhausted' }
-        : { amount: step, kind: 'step' };
+    if (step !== undefined) return { amount: step, kind: 'step' };
+    if (ladder.capsAtLastStep) {
+        const lastStep = ladder.steps.at(-1);
+        if (lastStep !== undefined) return { amount: lastStep, kind: 'step' };
+    }
+    return { kind: 'exhausted' };
 }
 
 function resolveWithdrawal(options: {
