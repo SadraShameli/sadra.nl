@@ -83,6 +83,7 @@ export interface FinishTrialArguments {
     daysToPass: null | number;
     discounts: CouponDiscounts | undefined;
     equityCurve: null | number[];
+    evalDays: number;
     evalTradesAtPass: number;
     finalBalance: number;
     firstPayoutDay: null | number;

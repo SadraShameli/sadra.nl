@@ -49,7 +49,8 @@ export function runEvalToFundedCycle(
         winrate,
     });
     const { attemptsUsed, resetFeesPaid } = retryResult;
-    let totalDays = retryResult.daysElapsed;
+    const evalDays = retryResult.daysElapsed;
+    let totalDays = evalDays;
 
     if (retryResult.terminalOutcome !== null) {
         const outcome: CardOutcome =
@@ -61,7 +62,7 @@ export function runEvalToFundedCycle(
             outcome,
             payouts: [],
             totalCost:
-                plan.totalCostThroughDay(totalDays, discounts) + resetFeesPaid,
+                plan.totalCostThroughDay(evalDays, discounts) + resetFeesPaid,
             totalDays,
         };
     }
@@ -132,7 +133,7 @@ export function runEvalToFundedCycle(
         outcome,
         payouts,
         totalCost:
-            plan.totalCostThroughDay(totalDays, discounts) + resetFeesPaid,
+            plan.totalCostThroughDay(evalDays, discounts) + resetFeesPaid,
         totalDays,
     };
 }
