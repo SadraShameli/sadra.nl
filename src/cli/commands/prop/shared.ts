@@ -6,10 +6,12 @@ import { ui } from '~/cli/ui';
 import {
     ALL_FIRMS,
     type DailyLossLimitConfig,
-    DailyLossLimitKind,
+    type DailyLossLimitDescriptor,
+    DailyLossLimitShape,
     type DayPolicy,
     type DayStopRule,
     DayStopRuleKind,
+    describeDailyLossLimit,
     findFirm,
     FirmId,
     INSTRUMENTS,
@@ -306,8 +308,8 @@ export const planArguments = {
     },
 } satisfies ArgsDef;
 
-export function describeDll(kind: DailyLossLimitConfig['kind']): string {
-    return kind === DailyLossLimitKind.None ? 'none' : kind;
+export function describeDll(config: DailyLossLimitConfig): string {
+    return describeDllShape(describeDailyLossLimit(config));
 }
 
 export function describeShare(maxBestDayShare: number | undefined): string {
@@ -328,6 +330,26 @@ export function readNumber(raw: unknown, name: string): number {
         throw new TypeError(`--${name} must be a number, got "${String(raw)}"`);
     }
     return parsed.data;
+}
+
+function describeDllShape(descriptor: DailyLossLimitDescriptor): string {
+    switch (descriptor.kind) {
+        case DailyLossLimitShape.Fixed: {
+            return `$${descriptor.amount}`;
+        }
+        case DailyLossLimitShape.None: {
+            return 'none';
+        }
+        case DailyLossLimitShape.Range: {
+            return `$${descriptor.min}-$${descriptor.max}`;
+        }
+        case DailyLossLimitShape.ShareOfPeak: {
+            return `${descriptor.share * 100}% peak`;
+        }
+        case DailyLossLimitShape.Staged: {
+            return `${describeDllShape(descriptor.before)} -> ${describeDllShape(descriptor.after)}`;
+        }
+    }
 }
 
 function readLadder(raw: string | undefined): null | number[] {

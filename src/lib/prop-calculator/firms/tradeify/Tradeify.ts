@@ -110,10 +110,7 @@ function buildGrowthPlan(size: TradeifyGrowthSize): PlanInit {
 function buildLightningPlan(size: TradeifyLightningSize): PlanInit {
     return {
         accountSize: size.accountSize,
-        consistency: new ConsistencyRule(
-            ConsistencyScope.Funded,
-            fraction(0.2),
-        ),
+        consistency: null,
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
@@ -127,6 +124,9 @@ function buildLightningPlan(size: TradeifyLightningSize): PlanInit {
             monthlySubscription: dollars(0),
             oneTimeEval: dollars(size.evalCost),
             reset: dollars(size.evalCost),
+        },
+        fundedConsistencyLadder: {
+            steps: [fraction(0.2), fraction(0.25), fraction(0.3)],
         },
         id: {
             accountSize: 50_000,

@@ -7,6 +7,7 @@ import {
     FirmId,
     fraction,
     type Plan,
+    TradingPhase,
     withPlanOverrides,
 } from '~/lib/prop-calculator/core';
 import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFunding';
@@ -64,7 +65,7 @@ describe('withPlanOverrides', () => {
         const lossState = basePlan.initialState();
         lossState.todayPnL = -300;
 
-        expect(basePlan.isBust(lossState, 'eval')).toBe(false);
+        expect(basePlan.isBust(lossState, TradingPhase.Eval)).toBe(false);
 
         const stricterDll = withPlanOverrides(basePlan, {
             evalDailyLossLimit: {
@@ -73,8 +74,8 @@ describe('withPlanOverrides', () => {
             },
         });
 
-        expect(stricterDll.isBust(lossState, 'eval')).toBe(true);
-        expect(basePlan.isBust(lossState, 'eval')).toBe(false);
+        expect(stricterDll.isBust(lossState, TradingPhase.Eval)).toBe(true);
+        expect(basePlan.isBust(lossState, TradingPhase.Eval)).toBe(false);
     });
 
     it('flows overridden payoutTiers through payoutFromProfit', () => {

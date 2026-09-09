@@ -12,9 +12,14 @@ export {
 } from './ContractLimits';
 export {
     type DailyLossLimitConfig,
+    type DailyLossLimitContext,
+    type DailyLossLimitDescriptor,
     DailyLossLimitKind,
+    DailyLossLimitShape,
+    describeDailyLossLimit,
     type DllTier,
     resolveDailyLossLimit,
+    scaleDailyLossLimit,
 } from './DailyLossLimit';
 export {
     canonicaliseLadder,
@@ -71,6 +76,7 @@ export {
     runLadderSearch,
     scoreLadder,
 } from './LadderSearch';
+export { PayoutBuffer } from './PayoutBuffer';
 export {
     type PayoutLadder,
     type PayoutTier,
@@ -99,12 +105,13 @@ export {
     totalRoiOnCost,
 } from './Roi';
 export { TradingFirm } from './TradingFirm';
+export { TradingPhase } from './TradingPhase';
 export {
     type ContractCount,
     contractCountSchema,
     contracts,
-    type Dollars,
     dollars,
+    type Dollars,
     dollarsSchema,
     fraction,
     type Fraction0to1,
@@ -112,7 +119,7 @@ export {
     percent,
     type Percent0to100,
     percentSchema,
-    type Points,
     points,
+    type Points,
     pointsSchema,
 } from './units';

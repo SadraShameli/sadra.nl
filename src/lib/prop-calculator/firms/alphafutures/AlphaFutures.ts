@@ -34,27 +34,17 @@ const ADVANCED_SIZES = [
     },
 ] as const;
 
-const PREMIUM_SIZES = [
+const STANDARD_SIZES = [
     {
         accountSize: dollars(50_000),
         maxDrawdown: dollars(2000),
-        monthlyFee: 79,
-        profitTarget: dollars(3000),
-    },
-] as const;
-
-const EXPRESS_SIZES = [
-    {
-        accountSize: dollars(50_000),
-        maxDrawdown: dollars(2000),
-        monthlyFee: 159,
+        monthlyFee: 129,
         profitTarget: dollars(3000),
     },
 ] as const;
 
 type AfAdvancedSize = (typeof ADVANCED_SIZES)[number];
-type AfExpressSize = (typeof EXPRESS_SIZES)[number];
-type AfPremiumSize = (typeof PREMIUM_SIZES)[number];
+type AfStandardSize = (typeof STANDARD_SIZES)[number];
 type AfZeroSize = (typeof ZERO_SIZES)[number];
 
 export class AlphaFutures extends TradingFirm {
@@ -62,8 +52,7 @@ export class AlphaFutures extends TradingFirm {
     readonly id = FirmId.AlphaFutures;
     readonly plans = [
         ...ZERO_SIZES.map((s) => this.buildPlan(buildZeroPlan(s))),
-        ...PREMIUM_SIZES.map((s) => this.buildPlan(buildPremiumPlan(s))),
-        ...EXPRESS_SIZES.map((s) => this.buildPlan(buildExpressPlan(s))),
+        ...STANDARD_SIZES.map((s) => this.buildPlan(buildStandardPlan(s))),
         ...ADVANCED_SIZES.map((s) => this.buildPlan(buildAdvancedPlan(s))),
     ];
     readonly website = 'https://alpha-futures.com';
@@ -75,7 +64,7 @@ const MAX_FUNDED_ACCOUNTS_HARD_CAP = 5;
 function buildAdvancedPlan(size: AfAdvancedSize): PlanInit {
     return {
         accountSize: size.accountSize,
-        consistency: new ConsistencyRule(ConsistencyScope.Eval, fraction(0.5)),
+        consistency: new ConsistencyRule(ConsistencyScope.Eval, fraction(0.4)),
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
@@ -107,7 +96,7 @@ function buildAdvancedPlan(size: AfAdvancedSize): PlanInit {
     };
 }
 
-function buildExpressPlan(size: AfExpressSize): PlanInit {
+function buildStandardPlan(size: AfStandardSize): PlanInit {
     return {
         accountSize: size.accountSize,
         consistency: new ConsistencyRule(ConsistencyScope.Eval, fraction(0.5)),
@@ -125,47 +114,16 @@ function buildExpressPlan(size: AfExpressSize): PlanInit {
             oneTimeEval: dollars(0),
             reset: dollars(Math.round(size.monthlyFee * RESET_FEE_DISCOUNT)),
         },
-        id: {
-            accountSize: 50_000,
-            firm: FirmId.AlphaFutures,
-            variant: AlphaFuturesVariant.Express,
-        },
-        label: planLabel(size.accountSize, 'Premium Express'),
-        maxFundedAccounts: maxFundedAccountsByAllocation(size.accountSize),
-        minDaysAfterPassForPayout: 5,
-        minPayoutProfit: dollars(500),
-        minTradingDays: 2,
-        payoutTiers: [
-            { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
-        ],
-        profitTarget: size.profitTarget,
-    };
-}
-
-function buildPremiumPlan(size: AfPremiumSize): PlanInit {
-    return {
-        accountSize: size.accountSize,
-        consistency: new ConsistencyRule(ConsistencyScope.Eval, fraction(0.5)),
-        drawdown: new EodTrailingDrawdown({
-            amount: size.maxDrawdown,
-            lock: {
-                atProfit: size.maxDrawdown,
-                lockedThreshold: lockThresholdAt(0),
-            },
-        }),
-        evalDailyLossLimit: { kind: DailyLossLimitKind.None },
-        fees: {
-            activation: dollars(149),
-            monthlySubscription: dollars(size.monthlyFee),
-            oneTimeEval: dollars(0),
-            reset: dollars(Math.round(size.monthlyFee * RESET_FEE_DISCOUNT)),
+        fundedConsistency: {
+            kind: 'set',
+            rule: new ConsistencyRule(ConsistencyScope.Funded, fraction(0.4)),
         },
         id: {
             accountSize: 50_000,
             firm: FirmId.AlphaFutures,
-            variant: AlphaFuturesVariant.Premium,
+            variant: AlphaFuturesVariant.Standard,
         },
-        label: planLabel(size.accountSize, 'Premium'),
+        label: planLabel(size.accountSize, 'Standard'),
         maxFundedAccounts: maxFundedAccountsByAllocation(size.accountSize),
         minDaysAfterPassForPayout: 5,
         minPayoutProfit: dollars(500),

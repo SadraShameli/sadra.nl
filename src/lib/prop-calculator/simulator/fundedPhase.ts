@@ -2,6 +2,7 @@ import {
     newFundedCycleTracker,
     tryFundedPayout,
 } from '../core/FundedPayoutCycle';
+import { TradingPhase } from '../core/TradingPhase';
 import { runDay } from './day';
 import {
     type FundedDayStepOptions,
@@ -26,9 +27,9 @@ export function runFundedHorizon(
         winrate,
     } = options;
     const { state } = attempt;
-    state.fundingBaseline = state.balance;
+    plan.beginFundedPhase(state);
+    attempt.stats.rebasePeak(state.balance);
 
-    const ladder = plan.payoutLadder;
     let daysElapsed = 0;
     let isBustedFunded = false;
     let isClosed = false;
@@ -73,7 +74,7 @@ export function runFundedHorizon(
         totalPayout += payout.traderReceives;
         firstPayoutDay ??= daysElapsed;
 
-        if (ladder && tracker.payoutsIssued >= ladder.steps.length) {
+        if (plan.isAccountConcluded(tracker.payoutsIssued)) {
             isClosed = true;
             break;
         }
@@ -107,7 +108,7 @@ export function stepFundedDay(options: FundedDayStepOptions): {
     const { busted } = runDay({
         commission,
         dayPolicy,
-        phase: 'funded',
+        phase: TradingPhase.Funded,
         plan,
         rng,
         rrRatio,

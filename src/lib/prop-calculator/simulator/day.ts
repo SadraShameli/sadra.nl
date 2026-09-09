@@ -1,3 +1,4 @@
+import { resetForNewDay } from '../core/AccountState';
 import {
     type DayPolicy,
     DayStopRuleKind,
@@ -5,14 +6,17 @@ import {
     resolveTradeRisk,
     shouldStopDay,
 } from '../core/DayPolicy';
+import { TradingPhase } from '../core/TradingPhase';
 import { type DayRunOptions, type SimInputs } from './types';
 
 export function resolveDayPolicy(
     inputs: SimInputs,
-    phase: 'eval' | 'funded',
+    phase: TradingPhase,
 ): DayPolicy {
     const declared =
-        phase === 'eval' ? inputs.evalDayPolicy : inputs.fundedDayPolicy;
+        phase === TradingPhase.Eval
+            ? inputs.evalDayPolicy
+            : inputs.fundedDayPolicy;
     return (
         declared ??
         flatDayPolicy(
@@ -39,8 +43,7 @@ export function runDay(options: DayRunOptions): {
         stats,
         winrate,
     } = options;
-    state.todayHigh = state.balance;
-    state.todayPnL = 0;
+    resetForNewDay(state);
     let isTraded = false;
     let lossesToday = 0;
     const drawdown = plan.drawdownFor(phase);
@@ -88,6 +91,7 @@ export function runDay(options: DayRunOptions): {
         }
     }
     drawdown.onDayClose(state);
+    plan.recordDayClosePeak(state);
     if (isTraded && plan.isBust(state, phase)) {
         return { busted: true, traded: isTraded };
     }

@@ -2,8 +2,7 @@ import type { FirmId } from './FirmId';
 
 export enum AlphaFuturesVariant {
     Advanced = 'advanced',
-    Express = 'express',
-    Premium = 'premium',
+    Standard = 'standard',
     Zero = 'zero',
 }
 
@@ -13,9 +12,9 @@ export enum ApexVariant {
 }
 
 export enum FundedNextVariant {
-    Bolt = 'bolt',
     Legacy = 'legacy',
-    Rapid = 'rapid',
+    RapidDaily = 'rapid-daily',
+    RapidPro = 'rapid-pro',
 }
 
 export enum LucidVariant {

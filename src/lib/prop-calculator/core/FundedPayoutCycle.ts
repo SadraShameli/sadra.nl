@@ -58,7 +58,9 @@ export class FundedCycleTracker {
         const hasQualifyingDays =
             state.qualifyingDays - this.qualifyingDaysAtLastPayout >=
             plan.minDaysAfterPassForPayout;
-        const fundedConsistency = plan.fundedConsistencyRule();
+        const fundedConsistency = plan.fundedConsistencyRule(
+            this.payoutsIssued,
+        );
         const isConsistent = !fundedConsistency?.isViolated(
             this.cycleBestDayProfit,
             cycleProfit,
@@ -73,7 +75,7 @@ export class FundedCycleTracker {
         }
 
         const cushionRoom =
-            state.balance - state.threshold - Math.max(0, minRetainedCushion);
+            state.balance - plan.payoutBalanceFloor(state, minRetainedCushion);
         const dollarCappedWithdrawable =
             plan.payoutRequestCap === null
                 ? cushionRoom
@@ -89,6 +91,7 @@ export class FundedCycleTracker {
 
         const debited = resolveWithdrawal({
             cycleProfit,
+            deniesIfUnaffordable: ladder?.deniesIfUnaffordable ?? false,
             ladderStep: ladderStepLookup(ladder, this.payoutsIssued),
             minRequest: ladder?.minRequestAmount ?? plan.minPayoutRequest,
             payoutRequestSize,
@@ -144,6 +147,7 @@ function ladderStepLookup(
 
 function resolveWithdrawal(options: {
     cycleProfit: number;
+    deniesIfUnaffordable: boolean;
     ladderStep: LadderStepLookup;
     minRequest: number;
     payoutRequestSize: number | undefined;
@@ -152,6 +156,7 @@ function resolveWithdrawal(options: {
 }): null | number {
     const {
         cycleProfit,
+        deniesIfUnaffordable,
         ladderStep,
         minRequest,
         payoutRequestSize,
@@ -176,6 +181,9 @@ function resolveWithdrawal(options: {
             return debited < minRequest ? null : debited;
         }
         case 'step': {
+            if (deniesIfUnaffordable) {
+                return ladderStep.amount > ceiling ? null : ladderStep.amount;
+            }
             const debited = Math.min(ladderStep.amount, ceiling);
             return debited < minRequest ? null : debited;
         }

@@ -9,11 +9,11 @@ import { EmptyState } from '~/components/ui/EmptyState';
 import InfoPopover from '~/components/ui/InfoPopover';
 import { formatCurrency, formatPercent } from '~/lib/format';
 import {
-    type DailyLossLimitConfig,
     DailyLossLimitKind,
     dollars,
     fraction,
     type Plan,
+    scaleDailyLossLimit,
     type SimInputs,
     type SimOutputs,
     simulate,
@@ -236,11 +236,13 @@ function buildDllHalvedScenario(basePlan: Plan): StressScenario {
         isNoOp,
         label: 'DLL ×0.5',
         plan: withPlanOverrides(basePlan, {
-            evalDailyLossLimit: halveDailyLossLimit(
+            evalDailyLossLimit: scaleDailyLossLimit(
                 basePlan.evalDailyLossLimit,
+                fraction(0.5),
             ),
-            fundedDailyLossLimit: halveDailyLossLimit(
+            fundedDailyLossLimit: scaleDailyLossLimit(
                 basePlan.fundedDailyLossLimit,
+                fraction(0.5),
             ),
         }),
     };
@@ -326,31 +328,6 @@ function formatSignedCurrency(n: number): string {
 function formatSignedPercent(p: number): string {
     const sign = p > 0 ? '+' : '';
     return `${sign}${formatPercent(p)}`;
-}
-
-function halveDailyLossLimit(
-    config: DailyLossLimitConfig,
-): DailyLossLimitConfig {
-    switch (config.kind) {
-        case DailyLossLimitKind.Flat: {
-            return {
-                amount: dollars(config.amount / 2),
-                kind: DailyLossLimitKind.Flat,
-            };
-        }
-        case DailyLossLimitKind.None: {
-            return config;
-        }
-        case DailyLossLimitKind.Tiered: {
-            return {
-                kind: DailyLossLimitKind.Tiered,
-                tiers: config.tiers.map((tier) => ({
-                    ...tier,
-                    dailyLossLimit: dollars(tier.dailyLossLimit / 2),
-                })),
-            };
-        }
-    }
 }
 
 function pctDelta(value: number, baseline: null | ScenarioRow): number {

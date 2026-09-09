@@ -10,6 +10,7 @@ import {
     fraction,
     MffuVariant,
     RungSizing,
+    TradingPhase,
 } from '~/lib/prop-calculator/core';
 import {
     buildLadderGrid,
@@ -21,6 +22,7 @@ import {
 } from '~/lib/prop-calculator/core/LadderSearch';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 import { mulberry32 } from '~/lib/prop-calculator/rng';
+import { type SimOutputs } from '~/lib/prop-calculator/simulator';
 import {
     newPathStats,
     runDay,
@@ -259,7 +261,7 @@ describe('cushion cap invariant', () => {
                     maxLossesPerDay: null,
                     stopRule: { kind: DayStopRuleKind.DayGreen },
                 },
-                phase: 'eval',
+                phase: TradingPhase.Eval,
                 plan,
                 rng,
                 rrRatio: 2,
@@ -281,7 +283,7 @@ describe('cushion cap invariant', () => {
             dayPolicy: flatDayPolicy(999_999, 1, {
                 kind: DayStopRuleKind.None,
             }),
-            phase: 'eval',
+            phase: TradingPhase.Eval,
             plan,
             rng: () => 0.99,
             rrRatio: 2,
@@ -385,10 +387,16 @@ const aggressiveLadder = {
     stopRule: { kind: DayStopRuleKind.DayGreen as const },
 };
 
+function condFundedBust(out: SimOutputs): number {
+    const reachedFunded = out.passProbability + out.fundedBustProbability;
+    return out.fundedBustProbability / reachedFunded;
+}
+
 function runPhaseSim(overrides: Partial<Parameters<typeof simulate>[0]>) {
     return simulate({
         fundedHorizonDays: 60,
         maxEvalDays: 60,
+        minRetainedCushion: 2000,
         plan: rapidEod(),
         riskPerTrade: 250,
         rrRatio: 2,
@@ -406,10 +414,7 @@ describe('eval and funded day policies are independent', () => {
         const flat = runPhaseSim({});
         const evalLadder = runPhaseSim({ evalDayPolicy: aggressiveLadder });
 
-        expect(evalLadder.fundedBustProbability).toBeCloseTo(
-            flat.fundedBustProbability,
-            1,
-        );
+        expect(condFundedBust(evalLadder)).toBeCloseTo(condFundedBust(flat), 2);
     });
 
     it('does not collapse the pass rate the way a funded-phase ladder does', () => {
@@ -419,8 +424,8 @@ describe('eval and funded day policies are independent', () => {
             fundedDayPolicy: aggressiveLadder,
         });
 
-        expect(bothPhases.fundedBustProbability).toBeGreaterThan(
-            evalOnly.fundedBustProbability * 2,
+        expect(condFundedBust(bothPhases)).toBeGreaterThan(
+            condFundedBust(evalOnly) + 0.2,
         );
         expect(evalOnly.passProbability).toBeGreaterThan(
             bothPhases.passProbability * 10,

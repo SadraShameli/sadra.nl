@@ -68,9 +68,9 @@ export function runEvalToFundedCycle(
     }
 
     const { state } = retryResult.attempt;
-    state.fundingBaseline = state.balance;
+    plan.beginFundedPhase(state);
+    retryResult.attempt.stats.rebasePeak(state.balance);
 
-    const ladder = plan.payoutLadder;
     const payouts: PayoutEvent[] = [];
     const tracker = newFundedCycleTracker(state);
     let fundedDays = 0;
@@ -114,7 +114,7 @@ export function runEvalToFundedCycle(
 
         if (
             tracker.payoutsIssued >= payoutCap ||
-            (ladder && tracker.payoutsIssued >= ladder.steps.length)
+            plan.isAccountConcluded(tracker.payoutsIssued)
         ) {
             isLadderExhausted = true;
             break;

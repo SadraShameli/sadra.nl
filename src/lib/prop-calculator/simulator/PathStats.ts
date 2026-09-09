@@ -34,6 +34,10 @@ export class PathStats {
         }
     }
 
+    rebasePeak(balance: number): void {
+        this.peakBalance = balance;
+    }
+
     rollUp(source: PathStats): void {
         this.tradesTaken += source.tradesTaken;
         this.grossWins += source.grossWins;

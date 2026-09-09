@@ -63,8 +63,8 @@ export default defineCommand({
                 );
                 ui.muted(
                     [
-                        `    eval DLL ${describeDll(plan.evalDailyLossLimit.kind)}`,
-                        `funded DLL ${describeDll(plan.fundedDailyLossLimit.kind)}`,
+                        `    eval DLL ${describeDll(plan.evalDailyLossLimit)}`,
+                        `funded DLL ${describeDll(plan.fundedDailyLossLimit)}`,
                         `consistency eval ${describeShare(consistencyEval?.maxBestDayShare)}`,
                         `funded ${describeShare(consistencyFunded?.maxBestDayShare)}`,
                     ].join(' | '),
@@ -94,6 +94,16 @@ export default defineCommand({
                             : `winning day >= ${formatCurrency(plan.minQualifyingDayProfit)}`,
                     ].join(' | '),
                 );
+                if (plan.payoutBuffer !== null) {
+                    ui.muted(
+                        `    payout buffer: EOD balance must clear ${formatCurrency(
+                            plan.payoutBuffer.requiredBalance(
+                                plan.accountSize,
+                                plan.fundedDrawdown.amount,
+                            ),
+                        )}`,
+                    );
+                }
                 if (plan.payoutRequestCap !== null) {
                     ui.muted(
                         `    per-request cap ${formatCurrency(plan.payoutRequestCap)}`,

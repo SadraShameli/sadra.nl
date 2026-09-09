@@ -67,7 +67,6 @@ describe('funded-phase duration must not inflate a stopped-at-pass subscription'
         const out = simulate(alwaysWinInputs({ fundedHorizonDays: 252, plan }));
 
         expect(out.passProbability).toBe(1);
-        // $500/day profit (win: risk 250 * rr 2), $3,000 target -> 6 days -> 1 month.
         expect(out.expectedDaysToPass).toBe(6);
         expect(out.expectedTotalCost).toBe(149 + 49 * 1);
     });

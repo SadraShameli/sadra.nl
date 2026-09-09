@@ -2,10 +2,11 @@
 
 import {
     type DailyLossLimitConfig,
-    DailyLossLimitKind,
+    type DailyLossLimitDescriptor,
+    DailyLossLimitShape,
+    describeDailyLossLimit,
     DrawdownKind,
     type Plan,
-    resolveDailyLossLimit,
 } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
@@ -71,17 +72,34 @@ function Badge({ label, value, valueClassName }: BadgeProperties) {
 }
 
 function dailyLossLimitLabel(config: DailyLossLimitConfig): null | string {
-    const baseline = resolveDailyLossLimit(config, 0);
-    if (baseline === null) return null;
+    return describeLabel(describeDailyLossLimit(config));
+}
 
-    if (config.kind !== DailyLossLimitKind.Tiered) {
-        return `$${baseline.toLocaleString()}`;
+function describeLabel(descriptor: DailyLossLimitDescriptor): null | string {
+    switch (descriptor.kind) {
+        case DailyLossLimitShape.Fixed: {
+            return `$${descriptor.amount.toLocaleString()}`;
+        }
+        case DailyLossLimitShape.None: {
+            return null;
+        }
+        case DailyLossLimitShape.Range: {
+            if (descriptor.max <= descriptor.min) {
+                return `$${descriptor.min.toLocaleString()}`;
+            }
+            return `$${descriptor.min.toLocaleString()}–$${descriptor.max.toLocaleString()} (scales)`;
+        }
+        case DailyLossLimitShape.ShareOfPeak: {
+            return `${(descriptor.share * 100).toFixed(0)}% of peak`;
+        }
+        case DailyLossLimitShape.Staged: {
+            const before = describeLabel(descriptor.before);
+            const after = describeLabel(descriptor.after);
+            if (before === null) return after;
+            if (after === null) return before;
+            return `${before} → ${after}`;
+        }
     }
-
-    const max = Math.max(...config.tiers.map((tier) => tier.dailyLossLimit));
-    if (max <= baseline) return `$${baseline.toLocaleString()}`;
-
-    return `$${baseline.toLocaleString()}–$${max.toLocaleString()} (scales)`;
 }
 
 function drawdownLabel(kind: DrawdownKind): string {

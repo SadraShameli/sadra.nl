@@ -120,6 +120,7 @@ function buildEodPlan(size: ApexSize): PlanInit {
         minQualifyingDayProfit: pricing.minQualifyingDayProfit,
         minTradingDays: 0,
         payoutLadder: {
+            deniesIfUnaffordable: true,
             minRequestAmount: MIN_REQUEST_AMOUNT,
             steps: pricing.payoutLadderSteps,
         },
@@ -164,6 +165,7 @@ function buildIntradayPlan(size: ApexSize): PlanInit {
         minQualifyingDayProfit: pricing.minQualifyingDayProfit,
         minTradingDays: 0,
         payoutLadder: {
+            deniesIfUnaffordable: true,
             minRequestAmount: MIN_REQUEST_AMOUNT,
             steps: pricing.payoutLadderSteps,
         },

@@ -2,11 +2,16 @@ import { describe, expect, it } from 'vitest';
 
 import {
     type DailyLossLimitConfig,
+    type DailyLossLimitContext,
     DailyLossLimitKind,
     type DllTier,
     resolveDailyLossLimit,
 } from '~/lib/prop-calculator/core/DailyLossLimit';
 import { contracts, dollars } from '~/lib/prop-calculator/core/units';
+
+function atProfit(profit: number): DailyLossLimitContext {
+    return { isThresholdLocked: false, peakDayCloseProfit: 0, profit };
+}
 
 const FUNDED_TIERS_25K: readonly DllTier[] = [
     { dailyLossLimit: dollars(500), maxContracts: contracts(4), minProfit: 0 },
@@ -100,18 +105,18 @@ describe('resolveDailyLossLimit', () => {
                 amount: dollars(500),
                 kind: DailyLossLimitKind.Flat,
             } as const;
-            expect(resolveDailyLossLimit(config, -10_000)).toBe(500);
-            expect(resolveDailyLossLimit(config, 0)).toBe(500);
-            expect(resolveDailyLossLimit(config, 10_000)).toBe(500);
+            expect(resolveDailyLossLimit(config, atProfit(-10_000))).toBe(500);
+            expect(resolveDailyLossLimit(config, atProfit(0))).toBe(500);
+            expect(resolveDailyLossLimit(config, atProfit(10_000))).toBe(500);
         });
     });
 
     describe('kind: none', () => {
         it('always returns null', () => {
             const config = { kind: DailyLossLimitKind.None } as const;
-            expect(resolveDailyLossLimit(config, -10_000)).toBeNull();
-            expect(resolveDailyLossLimit(config, 0)).toBeNull();
-            expect(resolveDailyLossLimit(config, 10_000)).toBeNull();
+            expect(resolveDailyLossLimit(config, atProfit(-10_000))).toBeNull();
+            expect(resolveDailyLossLimit(config, atProfit(0))).toBeNull();
+            expect(resolveDailyLossLimit(config, atProfit(10_000))).toBeNull();
         });
     });
 
@@ -120,7 +125,7 @@ describe('resolveDailyLossLimit', () => {
             expect(
                 resolveDailyLossLimit(
                     { kind: DailyLossLimitKind.Tiered, tiers: [] },
-                    5000,
+                    atProfit(5000),
                 ),
             ).toBeNull();
         });
@@ -133,22 +138,24 @@ describe('resolveDailyLossLimit', () => {
         } as const;
 
         it('floors at the lowest tier for profit below every threshold', () => {
-            expect(resolveDailyLossLimit(config, -50_000)).toBe(500);
-            expect(resolveDailyLossLimit(config, 0)).toBe(500);
+            expect(resolveDailyLossLimit(config, atProfit(-50_000))).toBe(500);
+            expect(resolveDailyLossLimit(config, atProfit(0))).toBe(500);
         });
 
         it('stays at $500 through the $1,000 tier', () => {
-            expect(resolveDailyLossLimit(config, 999)).toBe(500);
-            expect(resolveDailyLossLimit(config, 1000)).toBe(500);
+            expect(resolveDailyLossLimit(config, atProfit(999))).toBe(500);
+            expect(resolveDailyLossLimit(config, atProfit(1000))).toBe(500);
         });
 
         it('boundary: $1,999 vs $2,000 profit ($500 -> $1,250)', () => {
-            expect(resolveDailyLossLimit(config, 1999)).toBe(500);
-            expect(resolveDailyLossLimit(config, 2000)).toBe(1250);
+            expect(resolveDailyLossLimit(config, atProfit(1999))).toBe(500);
+            expect(resolveDailyLossLimit(config, atProfit(2000))).toBe(1250);
         });
 
         it('stays at the top tier far beyond the last threshold', () => {
-            expect(resolveDailyLossLimit(config, 1_000_000)).toBe(1250);
+            expect(resolveDailyLossLimit(config, atProfit(1_000_000))).toBe(
+                1250,
+            );
         });
     });
 
@@ -159,19 +166,19 @@ describe('resolveDailyLossLimit', () => {
         } as const;
 
         it('stays at $1,000 across the first two (equal) tiers', () => {
-            expect(resolveDailyLossLimit(config, 0)).toBe(1000);
-            expect(resolveDailyLossLimit(config, 1500)).toBe(1000);
-            expect(resolveDailyLossLimit(config, 2999)).toBe(1000);
+            expect(resolveDailyLossLimit(config, atProfit(0))).toBe(1000);
+            expect(resolveDailyLossLimit(config, atProfit(1500))).toBe(1000);
+            expect(resolveDailyLossLimit(config, atProfit(2999))).toBe(1000);
         });
 
         it('boundary: $2,999 vs $3,000 profit ($1,000 -> $2,000)', () => {
-            expect(resolveDailyLossLimit(config, 2999)).toBe(1000);
-            expect(resolveDailyLossLimit(config, 3000)).toBe(2000);
+            expect(resolveDailyLossLimit(config, atProfit(2999))).toBe(1000);
+            expect(resolveDailyLossLimit(config, atProfit(3000))).toBe(2000);
         });
 
         it('boundary: $5,999 vs $6,000 profit ($2,000 -> $3,000)', () => {
-            expect(resolveDailyLossLimit(config, 5999)).toBe(2000);
-            expect(resolveDailyLossLimit(config, 6000)).toBe(3000);
+            expect(resolveDailyLossLimit(config, atProfit(5999))).toBe(2000);
+            expect(resolveDailyLossLimit(config, atProfit(6000))).toBe(3000);
         });
     });
 
@@ -182,19 +189,19 @@ describe('resolveDailyLossLimit', () => {
         } as const;
 
         it('stays at $1,750 across the first three (equal) tiers', () => {
-            expect(resolveDailyLossLimit(config, 0)).toBe(1750);
-            expect(resolveDailyLossLimit(config, 2000)).toBe(1750);
-            expect(resolveDailyLossLimit(config, 4999)).toBe(1750);
+            expect(resolveDailyLossLimit(config, atProfit(0))).toBe(1750);
+            expect(resolveDailyLossLimit(config, atProfit(2000))).toBe(1750);
+            expect(resolveDailyLossLimit(config, atProfit(4999))).toBe(1750);
         });
 
         it('boundary: $4,999 vs $5,000 profit ($1,750 -> $2,500)', () => {
-            expect(resolveDailyLossLimit(config, 4999)).toBe(1750);
-            expect(resolveDailyLossLimit(config, 5000)).toBe(2500);
+            expect(resolveDailyLossLimit(config, atProfit(4999))).toBe(1750);
+            expect(resolveDailyLossLimit(config, atProfit(5000))).toBe(2500);
         });
 
         it('boundary: $9,999 vs $10,000 profit ($2,500 -> $3,500)', () => {
-            expect(resolveDailyLossLimit(config, 9999)).toBe(2500);
-            expect(resolveDailyLossLimit(config, 10_000)).toBe(3500);
+            expect(resolveDailyLossLimit(config, atProfit(9999))).toBe(2500);
+            expect(resolveDailyLossLimit(config, atProfit(10_000))).toBe(3500);
         });
     });
 
@@ -205,19 +212,19 @@ describe('resolveDailyLossLimit', () => {
         } as const;
 
         it('stays at $2,500 across the first three (equal) tiers', () => {
-            expect(resolveDailyLossLimit(config, 0)).toBe(2500);
-            expect(resolveDailyLossLimit(config, 2000)).toBe(2500);
-            expect(resolveDailyLossLimit(config, 4999)).toBe(2500);
+            expect(resolveDailyLossLimit(config, atProfit(0))).toBe(2500);
+            expect(resolveDailyLossLimit(config, atProfit(2000))).toBe(2500);
+            expect(resolveDailyLossLimit(config, atProfit(4999))).toBe(2500);
         });
 
         it('boundary: $4,999 vs $5,000 profit ($2,500 -> $3,000)', () => {
-            expect(resolveDailyLossLimit(config, 4999)).toBe(2500);
-            expect(resolveDailyLossLimit(config, 5000)).toBe(3000);
+            expect(resolveDailyLossLimit(config, atProfit(4999))).toBe(2500);
+            expect(resolveDailyLossLimit(config, atProfit(5000))).toBe(3000);
         });
 
         it('boundary: $9,999 vs $10,000 profit ($3,000 -> $4,000)', () => {
-            expect(resolveDailyLossLimit(config, 9999)).toBe(3000);
-            expect(resolveDailyLossLimit(config, 10_000)).toBe(4000);
+            expect(resolveDailyLossLimit(config, atProfit(9999))).toBe(3000);
+            expect(resolveDailyLossLimit(config, atProfit(10_000))).toBe(4000);
         });
     });
 });
@@ -265,12 +272,12 @@ describe('unsorted tiered configs', () => {
             ],
         };
         for (const profit of [-500, 0, 2999, 3000, 5999, 6000, 99_999]) {
-            expect(resolveDailyLossLimit(shuffled, profit)).toBe(
-                resolveDailyLossLimit(ascending, profit),
+            expect(resolveDailyLossLimit(shuffled, atProfit(profit))).toBe(
+                resolveDailyLossLimit(ascending, atProfit(profit)),
             );
         }
-        expect(resolveDailyLossLimit(shuffled, 4000)).toBe(2000);
-        expect(resolveDailyLossLimit(shuffled, 10_000)).toBe(3000);
+        expect(resolveDailyLossLimit(shuffled, atProfit(4000))).toBe(2000);
+        expect(resolveDailyLossLimit(shuffled, atProfit(10_000))).toBe(3000);
     });
 
     it('falls back to the lowest-threshold tier when no tier qualifies', () => {
@@ -289,6 +296,6 @@ describe('unsorted tiered configs', () => {
                 },
             ],
         };
-        expect(resolveDailyLossLimit(config, -1)).toBe(1000);
+        expect(resolveDailyLossLimit(config, atProfit(-1))).toBe(1000);
     });
 });

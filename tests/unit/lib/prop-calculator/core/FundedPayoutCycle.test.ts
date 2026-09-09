@@ -8,6 +8,8 @@ import {
     LucidVariant,
     MffuVariant,
     TopStepVariant,
+    TradeifyVariant,
+    TradingPhase,
 } from '~/lib/prop-calculator/core';
 import {
     newFundedCycleTracker,
@@ -17,10 +19,12 @@ import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFu
 import { LucidTrading } from '~/lib/prop-calculator/firms/lucid/LucidTrading';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 import { TopStep } from '~/lib/prop-calculator/firms/topstep/TopStep';
+import { Tradeify } from '~/lib/prop-calculator/firms/tradeify/Tradeify';
 
 const mffu = new MyFundedFutures();
 const apex = new ApexTraderFunding();
 const lucid = new LucidTrading();
+const tradeify = new Tradeify();
 
 function fundedState(profit: number, threshold: number) {
     const target = plan(MffuVariant.RapidEod);
@@ -236,6 +240,36 @@ describe('ladder payouts', () => {
         expect(payout?.debited).toBe(1500);
         expect(payout?.traderReceives).toBe(1500);
     });
+
+    it('denies an Apex payout outright when cushion cannot cover the ladder step, instead of shrinking it', () => {
+        const apexPlan = apex.findPlan({
+            accountSize: 50_000,
+            firm: FirmId.Apex,
+            variant: ApexVariant.Eod,
+        });
+        if (!apexPlan) throw new Error('apex plan missing');
+        expect(apexPlan.payoutLadder?.deniesIfUnaffordable).toBe(true);
+
+        const state = apexPlan.initialState();
+        state.balance = state.startingBalance + 3000;
+        state.threshold = state.startingBalance + 2100;
+        state.thresholdLocked = true;
+        state.qualifyingDays = 999;
+        const tracker = newFundedCycleTracker(state);
+        tracker.lastPayoutBalance = state.startingBalance;
+        tracker.qualifyingDaysAtLastPayout = 0;
+
+        const payout = tryFundedPayout({
+            maxPayouts: Infinity,
+            minRetainedCushion: 0,
+            payoutRequestSize: undefined,
+            plan: apexPlan,
+            state,
+            tracker,
+        });
+
+        expect(payout).toBeNull();
+    });
 });
 
 describe('payout profit-share cap', () => {
@@ -412,7 +446,7 @@ describe('Apex eval-phase drawdown never locks under Tradovate (apextraderfundin
 
         const evalState = eod.initialState();
         evalState.balance = evalState.startingBalance + 10_000;
-        eod.drawdownFor('eval').onDayClose(evalState);
+        eod.drawdownFor(TradingPhase.Eval).onDayClose(evalState);
         expect(evalState.thresholdLocked).toBe(false);
         expect(evalState.threshold).toBe(
             evalState.balance - eod.drawdown.amount,
@@ -420,9 +454,58 @@ describe('Apex eval-phase drawdown never locks under Tradovate (apextraderfundin
 
         const fundedState = eod.initialState();
         fundedState.balance = fundedState.startingBalance + 2100;
-        eod.drawdownFor('funded').onDayClose(fundedState);
+        eod.drawdownFor(TradingPhase.Funded).onDayClose(fundedState);
         expect(fundedState.thresholdLocked).toBe(true);
         expect(fundedState.threshold).toBe(fundedState.startingBalance + 100);
+    });
+});
+
+describe('funded consistency ladder (help.tradeify.co Lightning Funded)', () => {
+    const lightning = tradeify.findPlan({
+        accountSize: 50_000,
+        firm: FirmId.Tradeify,
+        variant: TradeifyVariant.Lightning,
+    });
+    if (!lightning) throw new Error('lightning missing');
+
+    it('the consistency ceiling escalates by payout count and caps at the last step', () => {
+        expect(lightning.fundedConsistencyRule(0)?.maxBestDayShare).toBe(0.2);
+        expect(lightning.fundedConsistencyRule(1)?.maxBestDayShare).toBe(0.25);
+        expect(lightning.fundedConsistencyRule(2)?.maxBestDayShare).toBe(0.3);
+        expect(lightning.fundedConsistencyRule(9)?.maxBestDayShare).toBe(0.3);
+    });
+
+    it('a payout blocked by the stricter first-payout ceiling clears once the ceiling loosens', () => {
+        const state = lightning.initialState();
+        state.balance = state.startingBalance + 10_000;
+        state.threshold = state.startingBalance + 100;
+        state.thresholdLocked = true;
+        state.qualifyingDays = 999;
+        const tracker = newFundedCycleTracker(state);
+        tracker.lastPayoutBalance = state.startingBalance;
+        tracker.qualifyingDaysAtLastPayout = 0;
+        tracker.cycleBestDayProfit = 2200;
+
+        const firstAttempt = tryFundedPayout({
+            maxPayouts: Infinity,
+            minRetainedCushion: 0,
+            payoutRequestSize: undefined,
+            plan: lightning,
+            state,
+            tracker,
+        });
+        expect(firstAttempt).toBeNull();
+
+        tracker.payoutsIssued = 1;
+        const secondAttempt = tryFundedPayout({
+            maxPayouts: Infinity,
+            minRetainedCushion: 0,
+            payoutRequestSize: undefined,
+            plan: lightning,
+            state,
+            tracker,
+        });
+        expect(secondAttempt?.debited).toBe(2000);
     });
 });
 

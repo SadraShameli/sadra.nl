@@ -8,6 +8,7 @@ import { type CouponDiscounts } from '../core/FeeSchedule';
 import { type FundedCycleTracker } from '../core/FundedPayoutCycle';
 import { type Plan } from '../core/Plan';
 import { type Roi } from '../core/Roi';
+import { type TradingPhase } from '../core/TradingPhase';
 import { type Dollars, type Fraction0to1 } from '../core/units';
 import { type Rng } from '../rng';
 import { type PathStats } from './PathStats';
@@ -32,7 +33,7 @@ export interface CostBreakdown {
 export interface DayRunOptions {
     commission: Dollars;
     dayPolicy: DayPolicy;
-    phase: 'eval' | 'funded';
+    phase: TradingPhase;
     plan: Plan;
     rng: Rng;
     rrRatio: number;

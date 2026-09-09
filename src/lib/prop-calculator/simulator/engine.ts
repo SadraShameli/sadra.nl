@@ -3,6 +3,7 @@ import { DEFAULT_RUNG_SIZING } from '../core/DayPolicy';
 import { type CouponDiscounts } from '../core/FeeSchedule';
 import { type Plan } from '../core/Plan';
 import { totalRoiOnCost } from '../core/Roi';
+import { TradingPhase } from '../core/TradingPhase';
 import { dollars, fraction } from '../core/units';
 import { deriveSubSeed, mulberry32 } from '../rng';
 import { percentile } from '../stats';
@@ -45,8 +46,8 @@ export function simulate(inputs: SimInputs): SimOutputs {
             ? undefined
             : dollars(payoutRequestSize);
     const winrate = fraction(inputs.winrate);
-    const evalDayPolicy = resolveDayPolicy(inputs, 'eval');
-    const fundedDayPolicy = resolveDayPolicy(inputs, 'funded');
+    const evalDayPolicy = resolveDayPolicy(inputs, TradingPhase.Eval);
+    const fundedDayPolicy = resolveDayPolicy(inputs, TradingPhase.Funded);
     const accountMultiplier = Math.max(1, Math.floor(copyAccounts));
     const rng = mulberry32(seed);
 
@@ -270,8 +271,8 @@ export function simulatePortfolio(
             ? undefined
             : dollars(payoutRequestSize);
     const winrate = fraction(winrateInput);
-    const evalDayPolicy = resolveDayPolicy(inputs, 'eval');
-    const fundedDayPolicy = resolveDayPolicy(inputs, 'funded');
+    const evalDayPolicy = resolveDayPolicy(inputs, TradingPhase.Eval);
+    const fundedDayPolicy = resolveDayPolicy(inputs, TradingPhase.Funded);
 
     const N = Math.max(1, Math.floor(accounts));
     const groupSizes =

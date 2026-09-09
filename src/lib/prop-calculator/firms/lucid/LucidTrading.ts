@@ -1,6 +1,7 @@
 import {
     ConsistencyRule,
     ConsistencyScope,
+    type DailyLossLimitConfig,
     DailyLossLimitKind,
     type Dollars,
     dollars,
@@ -16,6 +17,19 @@ import { lockThresholdAt, planLabel } from '../shared';
 
 const PROFIT_TARGET_RATIO = 0.06;
 const LOCK_OFFSET = 100;
+const FIXED_DLL = dollars(1200);
+const SCALING_DLL_SHARE = 0.6;
+
+function scalingDllAfterTrail(fixedDll: Dollars): DailyLossLimitConfig {
+    return {
+        afterLock: {
+            kind: DailyLossLimitKind.PeakProfitShare,
+            share: fraction(SCALING_DLL_SHARE),
+        },
+        beforeLock: { amount: fixedDll, kind: DailyLossLimitKind.Flat },
+        kind: DailyLossLimitKind.AfterThresholdLock,
+    };
+}
 
 const FLEX_SIZES = [
     {
@@ -71,13 +85,17 @@ function buildDirectPlan(size: LucidDirectSize): PlanInit {
                 lockedThreshold: lockThresholdAt(LOCK_OFFSET),
             },
         }),
-        evalDailyLossLimit: { kind: DailyLossLimitKind.None },
+        evalDailyLossLimit: {
+            amount: FIXED_DLL,
+            kind: DailyLossLimitKind.Flat,
+        },
         fees: {
             activation: dollars(0),
             monthlySubscription: dollars(0),
             oneTimeEval: dollars(size.evalCost),
             reset: dollars(size.evalCost),
         },
+        fundedDailyLossLimit: scalingDllAfterTrail(FIXED_DLL),
         id: {
             accountSize: 50_000,
             firm: FirmId.Lucid,
@@ -85,7 +103,7 @@ function buildDirectPlan(size: LucidDirectSize): PlanInit {
         },
         label: planLabel(size.accountSize, 'LucidDirect'),
         maxFundedAccounts: MAX_FUNDED_ACCOUNTS,
-        minDaysAfterPassForPayout: 5,
+        minDaysAfterPassForPayout: 0,
         minPayoutProfit: dollars(3000),
         minPayoutProfitPerCycle: dollars(2500),
         minPayoutRequest: dollars(500),
@@ -129,6 +147,7 @@ function buildFlexPlan(size: LucidFlexSize): PlanInit {
         maxFundedAccounts: MAX_FUNDED_ACCOUNTS,
         minDaysAfterPassForPayout: 5,
         minPayoutProfit: dollars(500),
+        minQualifyingDayProfit: dollars(150),
         minTradingDays: 2,
         payoutProfitShare: fraction(0.5),
         payoutRequestCap: dollars(2000),
@@ -168,6 +187,9 @@ function buildProPlan(size: LucidProSize): PlanInit {
             oneTimeEval: dollars(size.evalCost),
             reset: dollars(size.resetFee),
         },
+        fundedDailyLossLimit: scalingDllAfterTrail(
+            size.dailyLossLimit ?? FIXED_DLL,
+        ),
         id: {
             accountSize: 50_000,
             firm: FirmId.Lucid,
@@ -175,7 +197,7 @@ function buildProPlan(size: LucidProSize): PlanInit {
         },
         label: planLabel(size.accountSize, 'LucidPro'),
         maxFundedAccounts: MAX_FUNDED_ACCOUNTS,
-        minDaysAfterPassForPayout: 3,
+        minDaysAfterPassForPayout: 0,
         minPayoutProfit: dollars(500),
         minTradingDays: 1,
         payoutLadder: {

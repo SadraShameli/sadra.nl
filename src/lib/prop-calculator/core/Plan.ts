@@ -1,8 +1,13 @@
-import { type AccountState, createInitialState } from './AccountState';
-import { type ConsistencyRule } from './ConsistencyRule';
+import {
+    type AccountState,
+    createInitialState,
+    resetForNewDay,
+} from './AccountState';
+import { ConsistencyRule, ConsistencyScope } from './ConsistencyRule';
 import { type ContractLimits } from './ContractLimits';
 import {
     type DailyLossLimitConfig,
+    type DailyLossLimitContext,
     resolveDailyLossLimit,
 } from './DailyLossLimit';
 import { type DrawdownStrategy } from './DrawdownStrategy';
@@ -12,13 +17,19 @@ import {
     feesUntilPass,
     totalFees,
 } from './FeeSchedule';
+import { type PayoutBuffer } from './PayoutBuffer';
 import {
     type PayoutLadder,
     type PayoutTier,
     walkPayoutTiers,
 } from './PayoutTiers';
 import { type PlanId } from './PlanId';
+import { TradingPhase } from './TradingPhase';
 import { type Dollars, dollars, type Fraction0to1 } from './units';
+
+export interface ConsistencyLadder {
+    steps: readonly Fraction0to1[];
+}
 
 export type ConsistencyOverride =
     { kind: 'inherit' } | { kind: 'set'; rule: ConsistencyRule | null };
@@ -31,11 +42,13 @@ export interface PlanInit {
     evalDailyLossLimit: DailyLossLimitConfig;
     fees: FeeSchedule;
     fundedConsistency?: ConsistencyOverride;
+    fundedConsistencyLadder?: ConsistencyLadder;
     fundedDailyLossLimit?: DailyLossLimitConfig;
     fundedDrawdown?: DrawdownStrategy;
     id: PlanId;
     label: string;
     maxFundedAccounts: number;
+    maxLifetimePayouts?: number;
     minDaysAfterPassForPayout?: number;
     minPayoutProfit?: Dollars;
     minPayoutProfitPerCycle?: Dollars;
@@ -43,6 +56,7 @@ export interface PlanInit {
     minQualifyingDayProfit?: Dollars | null;
     minTradingDays: number;
     payoutBalanceShareCap?: Fraction0to1;
+    payoutBuffer?: PayoutBuffer;
     payoutLadder?: null | PayoutLadder;
     payoutProfitShare?: Fraction0to1;
     payoutRequestCap?: Dollars;
@@ -75,6 +89,8 @@ export abstract class Plan {
 
     readonly maxFundedAccounts: number;
 
+    readonly maxLifetimePayouts: null | number;
+
     readonly minDaysAfterPassForPayout: number;
 
     readonly minPayoutProfit: Dollars;
@@ -88,6 +104,8 @@ export abstract class Plan {
     readonly minTradingDays: number;
 
     readonly payoutBalanceShareCap: Fraction0to1 | null;
+
+    readonly payoutBuffer: null | PayoutBuffer;
 
     readonly payoutLadder: null | PayoutLadder;
 
@@ -116,6 +134,7 @@ export abstract class Plan {
         this.id = init.id;
         this.label = init.label;
         this.maxFundedAccounts = init.maxFundedAccounts;
+        this.maxLifetimePayouts = init.maxLifetimePayouts ?? null;
         this.minDaysAfterPassForPayout = init.minDaysAfterPassForPayout ?? 0;
         this.minPayoutProfit = init.minPayoutProfit ?? dollars(0);
         this.minPayoutProfitPerCycle = init.minPayoutProfitPerCycle ?? null;
@@ -124,6 +143,7 @@ export abstract class Plan {
         this.minQualifyingDayProfit = init.minQualifyingDayProfit ?? null;
         this.minTradingDays = init.minTradingDays;
         this.payoutBalanceShareCap = init.payoutBalanceShareCap ?? null;
+        this.payoutBuffer = init.payoutBuffer ?? null;
         this.payoutLadder = init.payoutLadder ?? null;
         this.payoutProfitShare = init.payoutProfitShare ?? null;
         this.payoutRequestCap = init.payoutRequestCap ?? null;
@@ -133,8 +153,47 @@ export abstract class Plan {
         this.profitTarget = init.profitTarget;
     }
 
-    drawdownFor(phase: 'eval' | 'funded'): DrawdownStrategy {
-        return phase === 'funded' ? this.fundedDrawdown : this.drawdown;
+    accountProfit(state: AccountState): number {
+        return state.balance - state.startingBalance;
+    }
+
+    beginFundedPhase(state: AccountState): void {
+        state.balance = this.accountSize;
+        state.bestDayProfit = 0;
+        state.fundingBaseline = this.accountSize;
+        state.peakDayCloseProfit = 0;
+        state.qualifyingDays = 0;
+        state.threshold = this.fundedDrawdown.initialThreshold(
+            this.accountSize,
+        );
+        state.thresholdLocked = false;
+        state.tradingDays = 0;
+        resetForNewDay(state);
+    }
+
+    dailyLossLimitFor(phase: TradingPhase): DailyLossLimitConfig {
+        return phase === TradingPhase.Funded
+            ? this.fundedDailyLossLimit
+            : this.evalDailyLossLimit;
+    }
+
+    drawdownFor(phase: TradingPhase): DrawdownStrategy {
+        return phase === TradingPhase.Funded
+            ? this.fundedDrawdown
+            : this.drawdown;
+    }
+
+    profitFor(state: AccountState, phase: TradingPhase): number {
+        return phase === TradingPhase.Funded
+            ? state.balance - state.fundingBaseline
+            : this.accountProfit(state);
+    }
+
+    recordDayClosePeak(state: AccountState): void {
+        const profit = this.accountProfit(state);
+        if (profit > state.peakDayCloseProfit) {
+            state.peakDayCloseProfit = profit;
+        }
     }
 
     feesUntilPass(daysToPass: number, discounts?: CouponDiscounts): number {
@@ -148,20 +207,33 @@ export abstract class Plan {
         );
     }
 
-    isBust(state: AccountState, phase: 'eval' | 'funded'): boolean {
+    dailyLossLimitContext(
+        state: AccountState,
+        phase: TradingPhase,
+    ): DailyLossLimitContext {
+        return {
+            isThresholdLocked: state.thresholdLocked,
+            peakDayCloseProfit: state.peakDayCloseProfit,
+            profit: this.profitFor(state, phase),
+        };
+    }
+
+    isAccountConcluded(payoutsIssued: number): boolean {
+        if (this.maxLifetimePayouts !== null) {
+            return payoutsIssued >= this.maxLifetimePayouts;
+        }
+        const ladder = this.payoutLadder;
+        if (ladder === null || ladder.capsAtLastStep === true) return false;
+        return payoutsIssued >= ladder.steps.length;
+    }
+
+    isBust(state: AccountState, phase: TradingPhase): boolean {
         if (this.drawdownFor(phase).isBreached(state)) return true;
 
-        if (phase === 'eval') {
-            const profit = state.balance - state.startingBalance;
-            const limit = resolveDailyLossLimit(
-                this.evalDailyLossLimit,
-                profit,
-            );
-            return limit !== null && state.todayPnL <= -limit;
-        }
-
-        const profit = state.balance - state.fundingBaseline;
-        const limit = resolveDailyLossLimit(this.fundedDailyLossLimit, profit);
+        const limit = resolveDailyLossLimit(
+            this.dailyLossLimitFor(phase),
+            this.dailyLossLimitContext(state, phase),
+        );
         return limit !== null && state.todayPnL <= -limit;
     }
 
@@ -170,7 +242,15 @@ export abstract class Plan {
         return rule?.appliesToEval() ? rule : null;
     }
 
-    fundedConsistencyRule(): ConsistencyRule | null {
+    fundedConsistencyRule(payoutsIssued = 0): ConsistencyRule | null {
+        const ladder = this.init.fundedConsistencyLadder;
+        if (ladder) {
+            const share =
+                ladder.steps[Math.min(payoutsIssued, ladder.steps.length - 1)];
+            return share === undefined
+                ? null
+                : new ConsistencyRule(ConsistencyScope.Funded, share);
+        }
         const override = this.init.fundedConsistency;
         if (override?.kind === 'set') {
             return override.rule;
@@ -185,6 +265,21 @@ export abstract class Plan {
         if (state.tradingDays < this.init.minTradingDays) return false;
         const consistency = this.evalConsistencyRule();
         return !consistency?.isViolated(state.bestDayProfit, profit);
+    }
+
+    payoutBalanceFloor(
+        state: AccountState,
+        minRetainedCushion: number,
+    ): number {
+        const cushionFloor = state.threshold + Math.max(0, minRetainedCushion);
+        if (this.payoutBuffer === null) return cushionFloor;
+        return Math.max(
+            cushionFloor,
+            this.payoutBuffer.requiredBalance(
+                this.accountSize,
+                this.fundedDrawdown.amount,
+            ),
+        );
     }
 
     payoutFromProfit(fundedProfit: number): number {

@@ -1,3 +1,4 @@
+import { TradingPhase } from '../core/TradingPhase';
 import { runDay } from './day';
 import { newPathStats } from './PathStats';
 import {
@@ -33,7 +34,7 @@ export function runEvalAttempt(options: EvalAttemptOptions): EvalAttemptResult {
         const { busted } = runDay({
             commission,
             dayPolicy,
-            phase: 'eval',
+            phase: TradingPhase.Eval,
             plan,
             rng,
             rrRatio,

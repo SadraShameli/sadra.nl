@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
     ApexVariant,
+    type DailyLossLimitContext,
     DailyLossLimitKind,
     DayStopRuleKind,
     dollars,
@@ -10,6 +11,7 @@ import {
     fraction,
     resolveDailyLossLimit,
     RungSizing,
+    TradingPhase,
 } from '~/lib/prop-calculator/core';
 import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFunding';
 import { mulberry32 } from '~/lib/prop-calculator/rng';
@@ -20,6 +22,10 @@ import {
 } from '~/lib/prop-calculator/simulator';
 
 const firm = new ApexTraderFunding();
+
+function atProfit(profit: number): DailyLossLimitContext {
+    return { isThresholdLocked: false, peakDayCloseProfit: 0, profit };
+}
 
 function findPlan(accountSize: 50_000, variant: ApexVariant) {
     const plan = firm.findPlan({ accountSize, firm: FirmId.Apex, variant });
@@ -72,7 +78,7 @@ describe('Apex qualifying-day threshold', () => {
         runDay({
             commission: dollars(0),
             dayPolicy: flatDayPolicy(200, 1, { kind: DayStopRuleKind.None }),
-            phase: 'eval',
+            phase: TradingPhase.Eval,
             plan: plan50kEodQualifying,
             rng: rng,
             rrRatio: 1,
@@ -87,7 +93,7 @@ describe('Apex qualifying-day threshold', () => {
         runDay({
             commission: dollars(0),
             dayPolicy: flatDayPolicy(300, 1, { kind: DayStopRuleKind.None }),
-            phase: 'eval',
+            phase: TradingPhase.Eval,
             plan: plan50kEodQualifying,
             rng: rng,
             rrRatio: 1,
@@ -127,8 +133,12 @@ describe('Apex Intraday daily-loss-limit: bust behavior differs by phase', () =>
         lossState.balance -= 1500;
         lossState.todayPnL = -1500;
 
-        expect(plan50kIntraday.isBust(lossState, 'eval')).toBe(false);
-        expect(plan50kIntraday.isBust(lossState, 'funded')).toBe(true);
+        expect(plan50kIntraday.isBust(lossState, TradingPhase.Eval)).toBe(
+            false,
+        );
+        expect(plan50kIntraday.isBust(lossState, TradingPhase.Funded)).toBe(
+            true,
+        );
     });
 
     it('does not bust in eval but does bust once funded, for an identical loss (via runDay)', () => {
@@ -137,7 +147,7 @@ describe('Apex Intraday daily-loss-limit: bust behavior differs by phase', () =>
         const evalResult = runDay({
             commission: dollars(0),
             dayPolicy: flatDayPolicy(1500, 1, { kind: DayStopRuleKind.None }),
-            phase: 'eval',
+            phase: TradingPhase.Eval,
             plan: plan50kIntraday,
             rng: mulberry32(2),
             rrRatio: 1,
@@ -154,7 +164,7 @@ describe('Apex Intraday daily-loss-limit: bust behavior differs by phase', () =>
         const fundedResult = runDay({
             commission: dollars(0),
             dayPolicy: flatDayPolicy(1500, 1, { kind: DayStopRuleKind.None }),
-            phase: 'funded',
+            phase: TradingPhase.Funded,
             plan: plan50kIntraday,
             rng: mulberry32(3),
             rrRatio: 1,
@@ -185,33 +195,38 @@ describe('Apex EOD daily-loss-limit: flat in eval, tiered once funded', () => {
 
     it('escalates the funded DLL with cycle profit while the eval DLL stays flat', () => {
         for (const profit of [0, 1500, 3000, 6000, 20_000]) {
-            expect(resolveDailyLossLimit(plan.evalDailyLossLimit, profit)).toBe(
-                1000,
-            );
+            expect(
+                resolveDailyLossLimit(
+                    plan.evalDailyLossLimit,
+                    atProfit(profit),
+                ),
+            ).toBe(1000);
         }
-        expect(resolveDailyLossLimit(plan.fundedDailyLossLimit, 0)).toBe(1000);
-        expect(resolveDailyLossLimit(plan.fundedDailyLossLimit, 1500)).toBe(
-            1000,
-        );
-        expect(resolveDailyLossLimit(plan.fundedDailyLossLimit, 3000)).toBe(
-            2000,
-        );
-        expect(resolveDailyLossLimit(plan.fundedDailyLossLimit, 6000)).toBe(
-            3000,
-        );
+        expect(
+            resolveDailyLossLimit(plan.fundedDailyLossLimit, atProfit(0)),
+        ).toBe(1000);
+        expect(
+            resolveDailyLossLimit(plan.fundedDailyLossLimit, atProfit(1500)),
+        ).toBe(1000);
+        expect(
+            resolveDailyLossLimit(plan.fundedDailyLossLimit, atProfit(3000)),
+        ).toBe(2000);
+        expect(
+            resolveDailyLossLimit(plan.fundedDailyLossLimit, atProfit(6000)),
+        ).toBe(3000);
     });
 
     it('busts on a $1,500 day at funding start but tolerates it once the tier has escalated', () => {
         const atStart = plan.initialState();
         atStart.fundingBaseline = atStart.balance;
         atStart.todayPnL = -1500;
-        expect(plan.isBust(atStart, 'funded')).toBe(true);
+        expect(plan.isBust(atStart, TradingPhase.Funded)).toBe(true);
 
         const escalated = plan.initialState();
         escalated.fundingBaseline = escalated.balance;
         escalated.balance = escalated.fundingBaseline + 3000;
         escalated.todayPnL = -1500;
-        expect(plan.isBust(escalated, 'funded')).toBe(false);
+        expect(plan.isBust(escalated, TradingPhase.Funded)).toBe(false);
     });
 });
 
