@@ -18,8 +18,8 @@ import type {
     LadderWorkerResponse,
 } from '../_workers/ladderWorkerMessages';
 
-const BLOCK_SIZE = 60;
-const MAX_WORKERS = 8;
+const BLOCK_SIZE = 20;
+const MAX_WORKERS = 16;
 const TOP_N = 25;
 
 export interface LadderSearchInputs {

@@ -63,6 +63,7 @@ export default function OptimalRiskTable({
                 const riskDollars = (accountSize * riskPct) / 100;
                 const out = simulate({
                     ...inputs,
+                    evalDayPolicy: undefined,
                     riskPerTrade: riskDollars,
                     trials,
                 });

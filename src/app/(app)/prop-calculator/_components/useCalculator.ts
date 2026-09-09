@@ -74,8 +74,8 @@ export interface UseCalculatorReturn {
     setActivationDiscountPercent: (n: number) => void;
     setCommissionPerRoundTrip: (n: number) => void;
     setCopyAccounts: (n: number) => void;
-    setDayPolicy: (policy: DayPolicy | null) => void;
     setDayStop: (rule: DayStopRule) => void;
+    setEvalDayPolicy: (policy: DayPolicy | null) => void;
     setEvalDiscountPercent: (n: number) => void;
     setFirm: (firm: TradingFirm) => void;
     setLabScenarios: (entries: LabScenario[]) => void;
@@ -194,12 +194,12 @@ export function useCalculator(): UseCalculatorReturn {
         () => ({
             commissionPerRoundTrip: state.commissionPerRoundTrip,
             copyAccounts: state.copyAccounts,
-            dayPolicy: state.dayPolicy ?? undefined,
             dayStop: state.dayStop,
             discounts: {
                 activationPercent: effectiveActivationDiscount,
                 evalPercent: state.evalDiscountPercent,
             },
+            evalDayPolicy: state.evalDayPolicy ?? undefined,
             fundedHorizonDays: state.fundedHorizonDays,
             maxAttempts: state.maxAttempts,
             maxEvalDays: state.maxEvalDays,
@@ -227,7 +227,7 @@ export function useCalculator(): UseCalculatorReturn {
             state.maxAttempts,
             state.copyAccounts,
             state.dayStop,
-            state.dayPolicy,
+            state.evalDayPolicy,
         ],
     );
 
@@ -365,9 +365,9 @@ export function useCalculator(): UseCalculatorReturn {
                     },
                 };
             }),
-        setDayPolicy: (policy: DayPolicy | null) =>
-            setState((s) => ({ ...s, dayPolicy: policy })),
         setDayStop: (rule) => setState((s) => ({ ...s, dayStop: rule })),
+        setEvalDayPolicy: (policy: DayPolicy | null) =>
+            setState((s) => ({ ...s, evalDayPolicy: policy })),
         setEvalDiscountPercent: (n) =>
             setState((s) => ({
                 ...s,
@@ -455,8 +455,8 @@ function defaultState(): CalculatorState {
         activationDiscountPercent: 0,
         commissionPerRoundTrip: 0,
         copyAccounts: 1,
-        dayPolicy: null,
         dayStop: { kind: 'none' },
+        evalDayPolicy: null,
         evalDiscountPercent: 0,
         firm: DEFAULT_FIRM,
         firmMemory: {},

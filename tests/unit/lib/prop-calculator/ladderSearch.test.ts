@@ -11,7 +11,11 @@ import {
 } from '~/lib/prop-calculator/core/LadderSearch';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 import { mulberry32 } from '~/lib/prop-calculator/rng';
-import { newPathStats, runDay } from '~/lib/prop-calculator/simulator';
+import {
+    newPathStats,
+    runDay,
+    simulate,
+} from '~/lib/prop-calculator/simulator';
 
 const firm = new MyFundedFutures();
 
@@ -360,5 +364,60 @@ describe('runLadderSearch', () => {
             (s) => s.ladder.join(',') === '300,300',
         );
         expect(identical).toHaveLength(1);
+    });
+});
+
+const aggressiveLadder = {
+    ladder: [400, 600, 800, 200],
+    maxLossesPerDay: null,
+    stopRule: { kind: 'day-green' as const },
+};
+
+function runPhaseSim(overrides: Partial<Parameters<typeof simulate>[0]>) {
+    return simulate({
+        fundedHorizonDays: 60,
+        maxEvalDays: 60,
+        plan: rapidEod(),
+        riskPerTrade: 250,
+        rrRatio: 2,
+        rungSizing: 'capToCushion',
+        seed: 42,
+        tradesPerDay: 2,
+        trials: 4000,
+        winrate: 0.4,
+        ...overrides,
+    });
+}
+
+describe('eval and funded day policies are independent', () => {
+    it('leaves the funded phase on flat risk when only an eval ladder is set', () => {
+        const flat = runPhaseSim({});
+        const evalLadder = runPhaseSim({ evalDayPolicy: aggressiveLadder });
+
+        expect(evalLadder.fundedBustProbability).toBeCloseTo(
+            flat.fundedBustProbability,
+            1,
+        );
+    });
+
+    it('does not collapse the pass rate the way a funded-phase ladder does', () => {
+        const evalOnly = runPhaseSim({ evalDayPolicy: aggressiveLadder });
+        const bothPhases = runPhaseSim({
+            evalDayPolicy: aggressiveLadder,
+            fundedDayPolicy: aggressiveLadder,
+        });
+
+        expect(bothPhases.fundedBustProbability).toBeGreaterThan(
+            evalOnly.fundedBustProbability * 2,
+        );
+        expect(evalOnly.passProbability).toBeGreaterThan(
+            bothPhases.passProbability * 10,
+        );
+    });
+
+    it('changes the eval phase without touching funded risk', () => {
+        const flat = runPhaseSim({});
+        const evalLadder = runPhaseSim({ evalDayPolicy: aggressiveLadder });
+        expect(evalLadder.daysToPassP50).not.toBe(flat.daysToPassP50);
     });
 });

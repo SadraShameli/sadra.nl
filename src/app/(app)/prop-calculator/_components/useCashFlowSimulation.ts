@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
     type CouponDiscounts,
+    type DayPolicy,
     type DayStopRule,
     type Plan,
 } from '~/lib/prop-calculator';
@@ -19,6 +20,7 @@ interface Arguments {
     dayBudget?: number;
     dayStop?: DayStopRule;
     discounts?: CouponDiscounts;
+    evalDayPolicy?: DayPolicy;
     maxEvalDays: number;
     plan: Plan;
     riskPerTrade: number;
@@ -49,6 +51,7 @@ export function useCashFlowSimulation(
         dayBudget = DEFAULT_DAY_BUDGET,
         dayStop,
         discounts,
+        evalDayPolicy,
         maxEvalDays,
         plan,
         riskPerTrade,
@@ -72,6 +75,7 @@ export function useCashFlowSimulation(
         dayStop,
         discounts,
         effectiveTradesPerDay,
+        evalDayPolicy,
         maxEvalDays,
         plan,
         riskPerTrade,
@@ -87,6 +91,7 @@ export function useCashFlowSimulation(
         dayStop,
         discounts,
         effectiveTradesPerDay,
+        evalDayPolicy,
         maxEvalDays,
         plan,
         riskPerTrade,
@@ -105,6 +110,7 @@ export function useCashFlowSimulation(
                 dayStop,
                 discActivation: discounts?.activationPercent ?? 0,
                 discEval: discounts?.evalPercent ?? 0,
+                evalDayPolicy,
                 maxEvalDays,
                 planId: plan.id,
                 risk: riskPerTrade,
@@ -118,6 +124,7 @@ export function useCashFlowSimulation(
             accounts,
             commissionPerRoundTrip,
             dayBudget,
+            evalDayPolicy,
             dayStop,
             discounts?.activationPercent,
             discounts?.evalPercent,
@@ -149,6 +156,7 @@ export function useCashFlowSimulation(
             dayStop,
             discounts,
             effectiveTradesPerDay,
+            evalDayPolicy,
             maxEvalDays,
             plan,
             riskPerTrade,
@@ -166,6 +174,7 @@ export function useCashFlowSimulation(
                 dayBudget,
                 dayStop,
                 discounts,
+                evalDayPolicy,
                 maxEvalDays,
                 plan,
                 riskPerTrade,

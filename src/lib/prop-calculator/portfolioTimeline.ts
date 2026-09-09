@@ -27,9 +27,10 @@ const STEP = 5;
 export interface AccountTimelineInputs {
     commissionPerRoundTrip?: number;
     dayBudget?: number;
-    dayPolicy?: DayPolicy;
     dayStop?: DayStopRule;
     discounts?: CouponDiscounts;
+    evalDayPolicy?: DayPolicy;
+    fundedDayPolicy?: DayPolicy;
     maxEvalDays: number;
     maxPayoutsPerCard?: number;
     minRetainedCushion?: number;
@@ -67,8 +68,9 @@ export interface CardResult {
 
 export interface EvalToFundedCycleOptions {
     commission: number;
-    dayPolicy: DayPolicy;
     discounts: CouponDiscounts | undefined;
+    evalDayPolicy: DayPolicy;
+    fundedDayPolicy: DayPolicy;
     maxEvalDays: number;
     maxFundedDays: number;
     maxPayoutsPerCard?: number;
@@ -93,9 +95,10 @@ export interface PortfolioTimelineInputs {
     accounts: number;
     commissionPerRoundTrip?: number;
     dayBudget?: number;
-    dayPolicy?: DayPolicy;
     dayStop?: DayStopRule;
     discounts?: CouponDiscounts;
+    evalDayPolicy?: DayPolicy;
+    fundedDayPolicy?: DayPolicy;
     maxEvalDays: number;
     maxPayoutsPerCard?: number;
     minRetainedCushion?: number;
@@ -152,13 +155,13 @@ export function runAccountTimeline(
         rungSizing = DEFAULT_RUNG_SIZING,
         winrate,
     } = inputs;
-    const dayPolicy =
-        inputs.dayPolicy ??
-        flatDayPolicy(
-            inputs.riskPerTrade,
-            inputs.tradesPerDay,
-            inputs.dayStop ?? { kind: 'none' },
-        );
+    const flatPolicy = flatDayPolicy(
+        inputs.riskPerTrade,
+        inputs.tradesPerDay,
+        inputs.dayStop ?? { kind: 'none' },
+    );
+    const evalDayPolicy = inputs.evalDayPolicy ?? flatPolicy;
+    const fundedDayPolicy = inputs.fundedDayPolicy ?? flatPolicy;
 
     const safeDayBudget = Math.max(1, Math.floor(dayBudget));
     const safeMaxEvalDays = Math.max(1, Math.floor(maxEvalDays));
@@ -179,8 +182,9 @@ export function runAccountTimeline(
 
         const card = runEvalToFundedCycle({
             commission: commissionPerRoundTrip,
-            dayPolicy,
             discounts,
+            evalDayPolicy,
+            fundedDayPolicy,
             maxEvalDays: safeMaxEvalDays,
             maxFundedDays: remainingDays,
             maxPayoutsPerCard,
@@ -231,8 +235,9 @@ export function runEvalToFundedCycle(
 ): CardResult {
     const {
         commission,
-        dayPolicy,
         discounts,
+        evalDayPolicy,
+        fundedDayPolicy,
         maxEvalDays,
         maxFundedDays,
         maxPayoutsPerCard = DEFAULT_MAX_PAYOUTS_PER_CARD,
@@ -257,7 +262,7 @@ export function runEvalToFundedCycle(
         attemptsUsed += 1;
         const attempt = runEvalAttempt({
             commission,
-            dayPolicy,
+            dayPolicy: evalDayPolicy,
             maxEvalDays: safeMaxEvalDays,
             plan,
             rng,
@@ -306,7 +311,7 @@ export function runEvalToFundedCycle(
     for (let day = 0; day < safeMaxFundedDays; day++) {
         const { busted } = runDay({
             commission,
-            dayPolicy,
+            dayPolicy: fundedDayPolicy,
             phase: 'funded',
             plan,
             rng,
@@ -380,9 +385,10 @@ export function simulatePortfolioTimeline(
         accounts,
         commissionPerRoundTrip = 0,
         dayBudget = DEFAULT_DAY_BUDGET,
-        dayPolicy,
         dayStop,
         discounts,
+        evalDayPolicy,
+        fundedDayPolicy,
         maxEvalDays,
         maxPayoutsPerCard = DEFAULT_MAX_PAYOUTS_PER_CARD,
         minRetainedCushion = 0,
@@ -417,9 +423,10 @@ export function simulatePortfolioTimeline(
             const account = runAccountTimeline({
                 commissionPerRoundTrip,
                 dayBudget: safeDayBudget,
-                dayPolicy,
                 dayStop,
                 discounts,
+                evalDayPolicy,
+                fundedDayPolicy,
                 maxEvalDays,
                 maxPayoutsPerCard,
                 minRetainedCushion,

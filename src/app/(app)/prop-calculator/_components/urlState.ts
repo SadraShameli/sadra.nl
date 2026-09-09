@@ -96,13 +96,13 @@ export function decodeState(
         } catch {}
     }
 
-    let dayPolicy: DayPolicy | null = fallback.dayPolicy;
+    let evalDayPolicy: DayPolicy | null = fallback.evalDayPolicy;
     const dpParameter = parameters.get('dp');
     if (dpParameter) {
         try {
             const parsed: unknown = JSON.parse(base64UrlDecode(dpParameter));
             const ok = dayPolicySchema.safeParse(parsed);
-            if (ok.success) dayPolicy = ok.data;
+            if (ok.success) evalDayPolicy = ok.data;
         } catch {}
     }
 
@@ -161,8 +161,8 @@ export function decodeState(
             fallback.commissionPerRoundTrip,
         ),
         copyAccounts: intNumber('copy', fallback.copyAccounts),
-        dayPolicy,
         dayStop,
+        evalDayPolicy,
         evalDiscountPercent: number_('eval', fallback.evalDiscountPercent),
         firm: resolvedFirm,
         firmMemory: fallback.firmMemory,
@@ -208,8 +208,8 @@ export function encodeState(state: CalculatorState): URLSearchParams {
         const ds = base64UrlEncode(JSON.stringify(state.dayStop));
         if (ds) p.set('ds', ds);
     }
-    if (state.dayPolicy) {
-        const dp = base64UrlEncode(JSON.stringify(state.dayPolicy));
+    if (state.evalDayPolicy) {
+        const dp = base64UrlEncode(JSON.stringify(state.evalDayPolicy));
         if (dp) p.set('dp', dp);
     }
     if (state.labScenarios.length > 0) {

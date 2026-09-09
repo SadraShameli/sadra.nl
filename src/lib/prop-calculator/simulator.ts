@@ -76,9 +76,10 @@ export interface PortfolioSimInputs extends SimInputs {
 export interface SimInputs {
     commissionPerRoundTrip?: number;
     copyAccounts?: number;
-    dayPolicy?: DayPolicy;
     dayStop?: DayStopRule;
     discounts?: CouponDiscounts;
+    evalDayPolicy?: DayPolicy;
+    fundedDayPolicy?: DayPolicy;
     fundedHorizonDays: number;
     maxAttempts?: number;
     maxEvalDays: number;
@@ -218,6 +219,7 @@ interface FundedHorizonOptions {
     attempt: EvalAttemptResult;
     commission: number;
     dayPolicy: DayPolicy;
+
     fundedHorizonDays: number;
     minRetainedCushion: number;
     payoutRequestSize: number | undefined;
@@ -239,8 +241,9 @@ interface FundedHorizonResult {
 
 interface TrialOptions {
     commission: number;
-    dayPolicy: DayPolicy;
     discounts: CouponDiscounts | undefined;
+    evalDayPolicy: DayPolicy;
+    fundedDayPolicy: DayPolicy;
     fundedHorizonDays: number;
     maxAttempts: number;
     maxEvalDays: number;
@@ -270,9 +273,14 @@ export function newPathStats(startingBalance: number): PathStats {
     };
 }
 
-export function resolveDayPolicy(inputs: SimInputs): DayPolicy {
+export function resolveDayPolicy(
+    inputs: SimInputs,
+    phase: 'eval' | 'funded',
+): DayPolicy {
+    const declared =
+        phase === 'eval' ? inputs.evalDayPolicy : inputs.fundedDayPolicy;
     return (
-        inputs.dayPolicy ??
+        declared ??
         flatDayPolicy(
             inputs.riskPerTrade,
             inputs.tradesPerDay,
@@ -448,7 +456,8 @@ export function simulate(inputs: SimInputs): SimOutputs {
         trials,
     } = inputs;
     const winrate = inputs.winrate;
-    const dayPolicy = resolveDayPolicy(inputs);
+    const evalDayPolicy = resolveDayPolicy(inputs, 'eval');
+    const fundedDayPolicy = resolveDayPolicy(inputs, 'funded');
     const accountMultiplier = Math.max(1, Math.floor(copyAccounts));
     const rng = mulberry32(seed);
 
@@ -459,8 +468,9 @@ export function simulate(inputs: SimInputs): SimOutputs {
         trialResults.push(
             simulateTrial({
                 commission: commissionPerRoundTrip,
-                dayPolicy,
                 discounts,
+                evalDayPolicy,
+                fundedDayPolicy,
                 fundedHorizonDays,
                 maxAttempts: Math.max(1, maxAttempts),
                 maxEvalDays,
@@ -667,7 +677,8 @@ export function simulatePortfolio(
         trials,
         winrate,
     } = inputs;
-    const dayPolicy = resolveDayPolicy(inputs);
+    const evalDayPolicy = resolveDayPolicy(inputs, 'eval');
+    const fundedDayPolicy = resolveDayPolicy(inputs, 'funded');
 
     const N = Math.max(1, Math.floor(accounts));
     const groupSizes =
@@ -704,8 +715,9 @@ export function simulatePortfolio(
             const groupRng = mulberry32(deriveSubSeed(seed, index, g));
             const r = simulateTrial({
                 commission: commissionPerRoundTrip,
-                dayPolicy,
                 discounts,
+                evalDayPolicy,
+                fundedDayPolicy,
                 fundedHorizonDays,
                 maxAttempts: Math.max(1, maxAttempts),
                 maxEvalDays,
@@ -953,8 +965,9 @@ function runFundedHorizon(options: FundedHorizonOptions): FundedHorizonResult {
 function simulateTrial(options: TrialOptions): TrialResult {
     const {
         commission,
-        dayPolicy,
         discounts,
+        evalDayPolicy,
+        fundedDayPolicy,
         fundedHorizonDays,
         maxAttempts,
         maxEvalDays,
@@ -976,7 +989,7 @@ function simulateTrial(options: TrialOptions): TrialResult {
         attemptsUsed += 1;
         const attempt = runEvalAttempt({
             commission,
-            dayPolicy,
+            dayPolicy: evalDayPolicy,
             maxEvalDays,
             plan,
             rng,
@@ -996,7 +1009,7 @@ function simulateTrial(options: TrialOptions): TrialResult {
             const fundedHorizon = runFundedHorizon({
                 attempt,
                 commission,
-                dayPolicy,
+                dayPolicy: fundedDayPolicy,
                 fundedHorizonDays,
                 minRetainedCushion,
                 payoutRequestSize,

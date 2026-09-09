@@ -25,8 +25,8 @@ export interface CalculatorState {
     activationDiscountPercent: number;
     commissionPerRoundTrip: number;
     copyAccounts: number;
-    dayPolicy: DayPolicy | null;
     dayStop: DayStopRule;
+    evalDayPolicy: DayPolicy | null;
     evalDiscountPercent: number;
     firm: TradingFirm;
     firmMemory: FirmMemory;

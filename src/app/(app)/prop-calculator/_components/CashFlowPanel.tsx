@@ -9,6 +9,7 @@ import { Input } from '~/components/ui/Input';
 import { formatCompactCurrency, formatPercent } from '~/lib/format';
 import {
     type CouponDiscounts,
+    type DayPolicy,
     type DayStopRule,
     type Plan,
 } from '~/lib/prop-calculator';
@@ -27,6 +28,7 @@ interface CashFlowPanelProperties {
     commissionPerRoundTrip?: number;
     dayStop?: DayStopRule;
     discounts?: CouponDiscounts;
+    evalDayPolicy?: DayPolicy;
     maxEvalDays: number;
     plan: Plan;
     riskPerTrade: number;
@@ -54,6 +56,7 @@ export default function CashFlowPanel({
     commissionPerRoundTrip,
     dayStop,
     discounts,
+    evalDayPolicy,
     maxEvalDays,
     plan,
     riskPerTrade,
@@ -75,6 +78,7 @@ export default function CashFlowPanel({
             dayBudget: horizon.days,
             dayStop,
             discounts,
+            evalDayPolicy,
             maxEvalDays,
             plan,
             riskPerTrade,

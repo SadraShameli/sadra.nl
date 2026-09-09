@@ -255,6 +255,7 @@ export default function CalculatorShell() {
                     commissionPerRoundTrip={c.simInputs.commissionPerRoundTrip}
                     dayStop={c.simInputs.dayStop}
                     discounts={c.simInputs.discounts}
+                    evalDayPolicy={c.simInputs.evalDayPolicy}
                     maxEvalDays={c.state.maxEvalDays}
                     plan={c.state.plan}
                     riskPerTrade={c.simInputs.riskPerTrade}
@@ -367,9 +368,9 @@ export default function CalculatorShell() {
                 id="ladder-lab-section"
             >
                 <LadderLabPanel
-                    activePolicy={c.state.dayPolicy}
+                    activePolicy={c.state.evalDayPolicy}
                     maxEvalDays={c.state.maxEvalDays}
-                    onApply={c.setDayPolicy}
+                    onApply={c.setEvalDayPolicy}
                     plan={c.state.plan}
                     rrRatio={c.state.rrRatio}
                     seed={c.state.seed}

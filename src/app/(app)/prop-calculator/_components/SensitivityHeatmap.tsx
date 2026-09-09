@@ -244,6 +244,7 @@ function useDebouncedKey(inputs: SimInputs, delay: number): string {
         commission: inputs.commissionPerRoundTrip ?? 0,
         copy: inputs.copyAccounts ?? 1,
         eval: inputs.discounts?.evalPercent ?? 0,
+        evalDayPolicy: inputs.evalDayPolicy ?? null,
         firmId: inputs.plan.id,
         funded: inputs.fundedHorizonDays,
         max: inputs.maxEvalDays,

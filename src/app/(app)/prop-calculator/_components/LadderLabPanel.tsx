@@ -1,10 +1,11 @@
 'use client';
 
 import { FlaskConical } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { Button } from '~/components/ui/Button';
 import { Card } from '~/components/ui/Card';
+import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import InfoPopover from '~/components/ui/InfoPopover';
 import { Input } from '~/components/ui/Input';
 import { formatCurrency, formatPercent } from '~/lib/format';
@@ -65,6 +66,122 @@ export default function LadderLabPanel({
     const pointValue =
         instrument === '' ? null : INSTRUMENTS[instrument].pointValue;
     const contractCap = plan.contractLimits?.evalMinis ?? null;
+
+    const rows = useMemo(() => {
+        const result = state.result;
+        if (!result) return [];
+        const seen = new Set<string>();
+        const merged: LadderScore[] = [];
+        for (const score of [
+            ...result.bySpeed,
+            ...result.byCost,
+            ...result.byPassRate,
+        ]) {
+            const key = score.ladder.join(',');
+            if (seen.has(key)) continue;
+            seen.add(key);
+            merged.push(score);
+        }
+        return merged;
+    }, [state.result]);
+
+    const columns = useMemo<DataTableColumn<LadderScore>[]>(
+        () => [
+            {
+                accessorFn: (r) => r.ladder.join(' / '),
+                cell: ({ row }) => (
+                    <span className="font-mono">
+                        {row.original.ladder.join(' / ')}
+                    </span>
+                ),
+                header: 'Ladder',
+                id: 'ladder',
+            },
+            {
+                accessorFn: (r) => ladderSum(r.ladder),
+                cell: ({ row }) =>
+                    formatCurrency(ladderSum(row.original.ladder)),
+                header: 'Sum',
+                id: 'sum',
+            },
+            {
+                accessorFn: (r) => r.passRate,
+                cell: ({ row }) => formatPercent(row.original.passRate),
+                header: 'Pass%',
+                id: 'pass',
+            },
+            {
+                accessorFn: (r) => r.expectedDaysToFunded,
+                cell: ({ row }) => row.original.expectedDaysToFunded.toFixed(1),
+                header: 'Days to funded',
+                id: 'days',
+            },
+            {
+                accessorFn: (r) => r.costPerFunded,
+                cell: ({ row }) => formatCurrency(row.original.costPerFunded),
+                header: '$ / funded',
+                id: 'cost',
+            },
+            {
+                accessorFn: (r) =>
+                    contractCap === null || pointValue === null
+                        ? 0
+                        : (minStopPoints(
+                              Math.max(...r.ladder),
+                              contractCap,
+                              pointValue,
+                          ) ?? 0),
+                cell: ({ row }) => {
+                    const stop =
+                        contractCap === null || pointValue === null
+                            ? null
+                            : minStopPoints(
+                                  Math.max(...row.original.ladder),
+                                  contractCap,
+                                  pointValue,
+                              );
+                    return (
+                        <span className="text-muted-foreground">
+                            {stop === null ? '—' : `${stop.toFixed(1)} pt`}
+                        </span>
+                    );
+                },
+                header: 'Min stop',
+                id: 'minStop',
+            },
+            {
+                cell: ({ row }) => {
+                    const isActive =
+                        activePolicy !== null &&
+                        activePolicy.ladder.join(',') ===
+                            row.original.ladder.join(',');
+                    return (
+                        <button
+                            className="text-xs text-muted-foreground underline"
+                            onClick={() =>
+                                onApply(
+                                    isActive
+                                        ? null
+                                        : {
+                                              ladder: [...row.original.ladder],
+                                              maxLossesPerDay: null,
+                                              stopRule,
+                                          },
+                                )
+                            }
+                            type="button"
+                        >
+                            {isActive ? 'Clear' : 'Apply'}
+                        </button>
+                    );
+                },
+                enableSorting: false,
+                header: '',
+                id: 'apply',
+            },
+        ],
+        [activePolicy, contractCap, onApply, pointValue, stopRule],
+    );
 
     return (
         <Card
@@ -228,109 +345,29 @@ export default function LadderLabPanel({
                         />
                     </div>
 
-                    <div className="grid gap-5 lg:grid-cols-3">
-                        <ScoreTable
-                            activePolicy={activePolicy}
-                            cap={contractCap}
-                            caption="Fastest to funded"
-                            onApply={onApply}
-                            pointValue={pointValue}
-                            rows={state.result.bySpeed}
-                            stopRule={stopRule}
-                        />
-                        <ScoreTable
-                            activePolicy={activePolicy}
-                            cap={contractCap}
-                            caption="Cheapest per funded account"
-                            onApply={onApply}
-                            pointValue={pointValue}
-                            rows={state.result.byCost}
-                            stopRule={stopRule}
-                        />
-                        <ScoreTable
-                            activePolicy={activePolicy}
-                            cap={contractCap}
-                            caption="Highest pass rate"
-                            onApply={onApply}
-                            pointValue={pointValue}
-                            rows={state.result.byPassRate}
-                            stopRule={stopRule}
+                    <div className="flex flex-col gap-2">
+                        <h4 className="text-xs font-semibold">
+                            Ranked ladders ({rows.length})
+                        </h4>
+                        <DataTable<LadderScore>
+                            className="app-prop-calculator__ladder-table text-xs tabular-nums"
+                            columns={columns}
+                            data={rows}
+                            initialSorting={[{ desc: false, id: 'days' }]}
+                            pageSize={15}
+                            rowClassName={(r) =>
+                                activePolicy !== null &&
+                                activePolicy.ladder.join(',') ===
+                                    r.ladder.join(',')
+                                    ? 'bg-emerald-500/10'
+                                    : undefined
+                            }
+                            rowId={(r) => r.ladder.join(',')}
                         />
                     </div>
                 </div>
             )}
         </Card>
-    );
-}
-
-function LadderRow({
-    activePolicy,
-    cap,
-    onApply,
-    pointValue,
-    row,
-    stopRule,
-}: {
-    activePolicy: DayPolicy | null;
-    cap: null | number;
-    onApply: (policy: DayPolicy | null) => void;
-    pointValue: null | number;
-    row: LadderScore;
-    stopRule: DayStopRule;
-}) {
-    const largestRung = Math.max(...row.ladder);
-    const stopPoints =
-        cap === null || pointValue === null
-            ? null
-            : minStopPoints(largestRung, cap, pointValue);
-    const rungTotal = ladderSum(row.ladder);
-    const isActive =
-        activePolicy !== null &&
-        activePolicy.ladder.join(',') === row.ladder.join(',');
-
-    return (
-        <tr
-            className={cn(
-                'border-t border-border/50',
-                isActive && 'bg-emerald-500/10',
-            )}
-        >
-            <td className="py-1 font-mono">
-                {row.ladder.join(' / ')}
-                <span className="ml-1 text-muted-foreground">
-                    ({formatCurrency(rungTotal)})
-                </span>
-            </td>
-            <td className="py-1 text-right">{formatPercent(row.passRate)}</td>
-            <td className="py-1 text-right">
-                {row.expectedDaysToFunded.toFixed(1)}
-            </td>
-            <td className="py-1 text-right">
-                {formatCurrency(row.costPerFunded)}
-            </td>
-            <td className="py-1 text-right text-muted-foreground">
-                {stopPoints === null ? '—' : `${stopPoints.toFixed(1)} pt`}
-            </td>
-            <td className="py-1 pl-2 text-right">
-                <button
-                    className="text-xs text-muted-foreground underline"
-                    onClick={() =>
-                        onApply(
-                            isActive
-                                ? null
-                                : {
-                                      ladder: [...row.ladder],
-                                      maxLossesPerDay: null,
-                                      stopRule,
-                                  },
-                        )
-                    }
-                    type="button"
-                >
-                    {isActive ? 'Clear' : 'Apply'}
-                </button>
-            </td>
-        </tr>
     );
 }
 
@@ -356,56 +393,5 @@ function NumberField({
                 value={value}
             />
         </label>
-    );
-}
-
-function ScoreTable({
-    activePolicy,
-    cap,
-    caption,
-    onApply,
-    pointValue,
-    rows,
-    stopRule,
-}: {
-    activePolicy: DayPolicy | null;
-    cap: null | number;
-    caption: string;
-    onApply: (policy: DayPolicy | null) => void;
-    pointValue: null | number;
-    rows: readonly LadderScore[];
-    stopRule: DayStopRule;
-}) {
-    return (
-        <div className="overflow-x-auto">
-            <h4 className="mb-2 text-xs font-semibold">{caption}</h4>
-            <table className="w-full text-xs">
-                <thead className="text-muted-foreground">
-                    <tr>
-                        <th className="py-1 text-left font-medium">Ladder</th>
-                        <th className="py-1 text-right font-medium">Pass</th>
-                        <th className="py-1 text-right font-medium">Days</th>
-                        <th className="py-1 text-right font-medium">$/acct</th>
-                        <th className="py-1 text-right font-medium">
-                            Min stop
-                        </th>
-                        <th className="py-1" />
-                    </tr>
-                </thead>
-                <tbody>
-                    {rows.map((row) => (
-                        <LadderRow
-                            activePolicy={activePolicy}
-                            cap={cap}
-                            key={row.ladder.join(',')}
-                            onApply={onApply}
-                            pointValue={pointValue}
-                            row={row}
-                            stopRule={stopRule}
-                        />
-                    ))}
-                </tbody>
-            </table>
-        </div>
     );
 }

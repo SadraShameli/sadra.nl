@@ -237,6 +237,7 @@ function useDebouncedKey(
         copy: inputs.copyAccounts ?? 1,
         dayStop: inputs.dayStop ?? null,
         eval: inputs.discounts?.evalPercent ?? 0,
+        evalDayPolicy: inputs.evalDayPolicy ?? null,
         funded: inputs.fundedHorizonDays,
         max: inputs.maxEvalDays,
         risk: inputs.riskPerTrade,
