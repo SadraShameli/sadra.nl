@@ -179,6 +179,7 @@ function buildFlexPlan(size: MffuFlexSize): PlanInit {
         payoutTiers: [
             { thresholdProfit: dollars(0), traderShare: fraction(0.8) },
         ],
+        payoutTriggersLock: true,
         profitTarget: size.profitTarget,
     };
 }

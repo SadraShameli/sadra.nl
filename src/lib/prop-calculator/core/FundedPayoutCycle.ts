@@ -102,8 +102,11 @@ export class FundedCycleTracker {
 
         state.balance -= debited;
         if (plan.payoutResetsLossLimit) {
-            state.threshold = state.balance;
+            state.threshold = 0;
             state.thresholdLocked = true;
+        }
+        if (plan.payoutTriggersLock) {
+            plan.drawdown.forceLock(state);
         }
         this.lastPayoutBalance = state.balance;
         this.qualifyingDaysAtLastPayout = state.qualifyingDays;

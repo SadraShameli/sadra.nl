@@ -40,15 +40,21 @@ export abstract class DrawdownStrategy {
 
     abstract onTrade(state: AccountState, tradePnL: number): void;
 
-    protected maybeLock(state: AccountState): void {
+    forceLock(state: AccountState): void {
         if (state.thresholdLocked) return;
+        const lock = this.init.lock;
+        if (!lock) return;
+        const lockedTo = lock.lockedThreshold(state.startingBalance);
+        if (lockedTo > state.threshold) state.threshold = lockedTo;
+        state.thresholdLocked = true;
+    }
+
+    protected maybeLock(state: AccountState): void {
         const lock = this.init.lock;
         if (!lock) return;
         const profit = state.balance - state.startingBalance;
         if (profit < lock.atProfit) return;
-        const lockedTo = lock.lockedThreshold(state.startingBalance);
-        if (lockedTo > state.threshold) state.threshold = lockedTo;
-        state.thresholdLocked = true;
+        this.forceLock(state);
     }
 
     protected ratchet(state: AccountState, target: number): void {

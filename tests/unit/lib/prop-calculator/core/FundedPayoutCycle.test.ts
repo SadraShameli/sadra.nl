@@ -298,6 +298,67 @@ describe('payout profit-share cap', () => {
     });
 });
 
+describe('payout-triggered early lock (help.myfundedfutures.com Flex plan)', () => {
+    it('forces the Flex MLL to lock at starting+$100 on an early payout, before the natural threshold', () => {
+        const flex = mffu.findPlan({
+            accountSize: 50_000,
+            firm: FirmId.Mffu,
+            variant: MffuVariant.Flex,
+        });
+        if (!flex) throw new Error('flex missing');
+        expect(flex.payoutTriggersLock).toBe(true);
+
+        const state = flex.initialState();
+        state.balance = state.startingBalance + 1000;
+        state.threshold = state.balance - 2000;
+        state.thresholdLocked = false;
+        state.qualifyingDays = 99;
+        const tracker = newFundedCycleTracker(state);
+        tracker.lastPayoutBalance = state.startingBalance;
+        tracker.qualifyingDaysAtLastPayout = 0;
+
+        const payout = tryFundedPayout({
+            maxPayouts: Infinity,
+            minRetainedCushion: 0,
+            payoutRequestSize: undefined,
+            plan: flex,
+            state,
+            tracker,
+        });
+
+        expect(payout).not.toBeNull();
+        expect(state.thresholdLocked).toBe(true);
+        expect(state.threshold).toBe(state.startingBalance + 100);
+    });
+
+    it('Rapid EOD (no payoutTriggersLock) leaves the floor trailing normally through an early payout', () => {
+        const rapidEod = plan(MffuVariant.RapidEod);
+        expect(rapidEod.payoutTriggersLock).toBe(false);
+
+        const state = rapidEod.initialState();
+        state.balance = state.startingBalance + 2200;
+        state.threshold = state.balance - 2000;
+        state.thresholdLocked = false;
+        state.qualifyingDays = 99;
+        const tracker = newFundedCycleTracker(state);
+        tracker.lastPayoutBalance = state.startingBalance;
+        tracker.qualifyingDaysAtLastPayout = 0;
+        const thresholdBeforePayout = state.threshold;
+
+        const payout = tryFundedPayout({
+            maxPayouts: Infinity,
+            minRetainedCushion: 0,
+            payoutRequestSize: undefined,
+            plan: rapidEod,
+            state,
+            tracker,
+        });
+
+        expect(payout).not.toBeNull();
+        expect(state.threshold).toBe(thresholdBeforePayout);
+    });
+});
+
 describe('Topstep 50K parameters (help.topstep.com)', () => {
     const topstep = new TopStep();
 
@@ -470,7 +531,7 @@ describe('Topstep 50K parameters (help.topstep.com)', () => {
         expect(payout?.debited).toBeLessThan(target.payoutRequestCap ?? 0);
     });
 
-    it('relocates the loss floor to the post-payout balance on every payout', () => {
+    it('locks the loss floor at literal zero after the first payout, not the post-payout balance', () => {
         const target = plan(TopStepVariant.StandardStandard);
         const state = target.initialState();
         state.balance = state.startingBalance + 1800;
@@ -492,11 +553,13 @@ describe('Topstep 50K parameters (help.topstep.com)', () => {
 
         expect(firstPayout?.debited).toBe(500);
         expect(state.balance).toBe(state.startingBalance + 1300);
-        expect(state.threshold).toBe(state.balance);
+        expect(state.threshold).toBe(0);
         expect(state.thresholdLocked).toBe(true);
 
-        const thresholdAfterFirstPayout = state.threshold;
-        state.balance += 300;
+        state.balance -= 1000;
+        expect(target.drawdown.isBreached(state)).toBe(false);
+
+        state.balance += 1500;
         tracker.qualifyingDaysAtLastPayout = 0;
         state.qualifyingDays += 999;
 
@@ -510,7 +573,6 @@ describe('Topstep 50K parameters (help.topstep.com)', () => {
         });
 
         expect(secondPayout?.debited).toBe(150);
-        expect(state.threshold).toBe(state.balance);
-        expect(state.threshold).not.toBe(thresholdAfterFirstPayout);
+        expect(state.threshold).toBe(0);
     });
 });

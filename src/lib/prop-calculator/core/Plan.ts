@@ -47,6 +47,7 @@ export interface PlanInit {
     payoutRequestCap?: Dollars;
     payoutResetsLossLimit?: boolean;
     payoutTiers: readonly PayoutTier[];
+    payoutTriggersLock?: boolean;
     profitTarget: Dollars;
 }
 
@@ -95,6 +96,8 @@ export abstract class Plan {
 
     readonly payoutTiers: readonly PayoutTier[];
 
+    readonly payoutTriggersLock: boolean;
+
     readonly profitTarget: Dollars;
 
     constructor(protected readonly init: PlanInit) {
@@ -122,6 +125,7 @@ export abstract class Plan {
         this.payoutRequestCap = init.payoutRequestCap ?? null;
         this.payoutResetsLossLimit = init.payoutResetsLossLimit ?? false;
         this.payoutTiers = init.payoutTiers;
+        this.payoutTriggersLock = init.payoutTriggersLock ?? false;
         this.profitTarget = init.profitTarget;
     }
 
