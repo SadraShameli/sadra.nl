@@ -1,0 +1,118 @@
+import {
+    type DayPolicy,
+    type DayStopRule,
+    type RungSizing,
+} from '../core/DayPolicy';
+import { type CouponDiscounts } from '../core/FeeSchedule';
+import { type Plan } from '../core/Plan';
+import { type Dollars, type Fraction0to1 } from '../core/units';
+import { type Rng } from '../rng';
+
+export const DEFAULT_DAY_BUDGET = 252;
+export const DEFAULT_MAX_PAYOUTS_PER_CARD = 6;
+
+export interface AccountTimelineInputs {
+    commissionPerRoundTrip?: number;
+    dayBudget?: number;
+    dayStop?: DayStopRule;
+    discounts?: CouponDiscounts;
+    evalDayPolicy?: DayPolicy;
+    fundedDayPolicy?: DayPolicy;
+    maxEvalDays: number;
+    maxPayoutsPerCard?: number;
+    minRetainedCushion?: number;
+    payoutRequestSize?: number;
+    plan: Plan;
+    riskPerTrade: number;
+    rng: Rng;
+    rrRatio: number;
+    rungSizing?: RungSizing;
+    tradesPerDay: number;
+    winrate: number;
+}
+
+export interface AccountTimelineResult {
+    cardsRun: number;
+    cumulativeNet: Float64Array;
+    cumulativePayout: Float64Array;
+    cumulativeSpend: Float64Array;
+}
+
+export type CardOutcome =
+    | 'bust-eval'
+    | 'bust-funded'
+    | 'card-closed'
+    | 'ladder-exhausted'
+    | 'timeout-eval';
+
+export interface CardResult {
+    attemptsUsed: number;
+    outcome: CardOutcome;
+    payouts: readonly PayoutEvent[];
+    totalCost: number;
+    totalDays: number;
+}
+
+export interface EvalToFundedCycleOptions {
+    commission: Dollars;
+    discounts: CouponDiscounts | undefined;
+    evalDayPolicy: DayPolicy;
+    fundedDayPolicy: DayPolicy;
+    maxEvalDays: number;
+    maxFundedDays: number;
+    maxPayoutsPerCard?: number;
+    minRetainedCushion: Dollars;
+    payoutRequestSize: Dollars | undefined;
+    plan: Plan;
+    rng: Rng;
+    rrRatio: number;
+    rungSizing: RungSizing;
+    winrate: Fraction0to1;
+}
+
+export interface PayoutEvent {
+    amount: number;
+    /**
+    1-based number of calendar days elapsed since this card started.
+    */
+    dayOffset: number;
+}
+
+export interface PortfolioTimelineInputs {
+    accounts: number;
+    commissionPerRoundTrip?: number;
+    dayBudget?: number;
+    dayStop?: DayStopRule;
+    discounts?: CouponDiscounts;
+    evalDayPolicy?: DayPolicy;
+    fundedDayPolicy?: DayPolicy;
+    maxEvalDays: number;
+    maxPayoutsPerCard?: number;
+    minRetainedCushion?: number;
+    payoutRequestSize?: number;
+    plan: Plan;
+    riskPerTrade: number;
+    rrRatio: number;
+    rungSizing?: RungSizing;
+    seed: number;
+    tradesPerDay: number;
+    trials: number;
+    winrate: number;
+}
+
+export interface PortfolioTimelineResult {
+    /** Break-even month (day / 21) for each trial that ever went cash-flow
+     * positive within the day-budget; trials that never do are omitted. */
+    breakEvenMonthValues: number[];
+    days: number[];
+    netP10: number[];
+    netP50: number[];
+    netP90: number[];
+    payoutP10: number[];
+    payoutP50: number[];
+    payoutP90: number[];
+    pEverCashflowPositive: number;
+    spendP10: number[];
+    spendP50: number[];
+    spendP90: number[];
+}
