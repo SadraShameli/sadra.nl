@@ -6,7 +6,6 @@ import {
     EodTrailingDrawdown,
     FirmId,
     fraction,
-    Plan,
     type PlanInit,
     TradeifyVariant,
     TradingFirm,
@@ -16,8 +15,6 @@ import { lockThresholdAt, planLabel } from '../shared';
 
 const PROFIT_TARGET_RATIO = 0.06;
 const LOCK_OFFSET = 100;
-
-class TradeifyPlan extends Plan {}
 
 const GROWTH_SIZES = [
     {
@@ -54,9 +51,9 @@ export class Tradeify extends TradingFirm {
     readonly displayName = 'Tradeify';
     readonly id = FirmId.Tradeify;
     readonly plans = [
-        ...GROWTH_SIZES.map((s) => new TradeifyPlan(buildGrowthPlan(s))),
-        ...SELECT_SIZES.map((s) => new TradeifyPlan(buildSelectPlan(s))),
-        ...LIGHTNING_SIZES.map((s) => new TradeifyPlan(buildLightningPlan(s))),
+        ...GROWTH_SIZES.map((s) => this.buildPlan(buildGrowthPlan(s))),
+        ...SELECT_SIZES.map((s) => this.buildPlan(buildSelectPlan(s))),
+        ...LIGHTNING_SIZES.map((s) => this.buildPlan(buildLightningPlan(s))),
     ];
     readonly website = 'https://tradeify.co';
 }

@@ -10,7 +10,6 @@ import {
     FirmId,
     fraction,
     IntradayTrailingDrawdown,
-    Plan,
     type PlanInit,
     TradingFirm,
 } from '~/lib/prop-calculator/core';
@@ -18,8 +17,6 @@ import {
 import { lockThresholdAt, planLabel } from '../shared';
 
 const LOCK_OFFSET = 100;
-
-class ApexPlan extends Plan {}
 
 const SIZES = [
     {
@@ -77,18 +74,14 @@ type ApexSize = (typeof SIZES)[number];
 export class ApexTraderFunding extends TradingFirm {
     readonly displayName = 'Apex Trader Funding';
     readonly id = FirmId.Apex;
-    readonly plans = buildAllPlans();
+    readonly plans = SIZES.flatMap((s) => [
+        this.buildPlan(buildEodPlan(s)),
+        this.buildPlan(buildIntradayPlan(s)),
+    ]);
     readonly website = 'https://apextraderfunding.com';
 }
 
 const MAX_FUNDED_ACCOUNTS = 20;
-
-function buildAllPlans(): Plan[] {
-    return SIZES.flatMap((s) => [
-        new ApexPlan(buildEodPlan(s)),
-        new ApexPlan(buildIntradayPlan(s)),
-    ]);
-}
 
 function buildEodPlan(size: ApexSize): PlanInit {
     const pricing = size.eod;

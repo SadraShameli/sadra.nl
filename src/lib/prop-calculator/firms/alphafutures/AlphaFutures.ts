@@ -7,7 +7,6 @@ import {
     EodTrailingDrawdown,
     FirmId,
     fraction,
-    Plan,
     type PlanInit,
     TradingFirm,
 } from '~/lib/prop-calculator/core';
@@ -15,8 +14,6 @@ import {
 import { lockThresholdAt, planLabel } from '../shared';
 
 const RESET_FEE_DISCOUNT = 0.9;
-
-class AlphaFuturesPlan extends Plan {}
 
 const ZERO_SIZES = [
     {
@@ -64,12 +61,10 @@ export class AlphaFutures extends TradingFirm {
     readonly displayName = 'Alpha Futures';
     readonly id = FirmId.AlphaFutures;
     readonly plans = [
-        ...ZERO_SIZES.map((s) => new AlphaFuturesPlan(buildZeroPlan(s))),
-        ...PREMIUM_SIZES.map((s) => new AlphaFuturesPlan(buildPremiumPlan(s))),
-        ...EXPRESS_SIZES.map((s) => new AlphaFuturesPlan(buildExpressPlan(s))),
-        ...ADVANCED_SIZES.map(
-            (s) => new AlphaFuturesPlan(buildAdvancedPlan(s)),
-        ),
+        ...ZERO_SIZES.map((s) => this.buildPlan(buildZeroPlan(s))),
+        ...PREMIUM_SIZES.map((s) => this.buildPlan(buildPremiumPlan(s))),
+        ...EXPRESS_SIZES.map((s) => this.buildPlan(buildExpressPlan(s))),
+        ...ADVANCED_SIZES.map((s) => this.buildPlan(buildAdvancedPlan(s))),
     ];
     readonly website = 'https://alpha-futures.com';
 }

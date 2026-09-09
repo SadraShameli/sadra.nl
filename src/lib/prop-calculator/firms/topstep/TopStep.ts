@@ -7,15 +7,12 @@ import {
     EodTrailingDrawdown,
     FirmId,
     fraction,
-    Plan,
     type PlanInit,
     TopStepVariant,
     TradingFirm,
 } from '~/lib/prop-calculator/core';
 
 import { lockThresholdAt, planLabel } from '../shared';
-
-class TopStepPlan extends Plan {}
 
 const ACCOUNT_SIZE = 50_000;
 const MAX_LOSS_LIMIT = dollars(2000);
@@ -83,19 +80,15 @@ const TOPSTEP_VARIANTS: Record<TopStepVariantKey, TopStepVariant> = {
 export class TopStep extends TradingFirm {
     readonly displayName = 'TopStep';
     readonly id = FirmId.TopStep;
-    readonly plans = buildAllPlans();
+    readonly plans = PRICING_PATHS.flatMap((pricing) =>
+        PAYOUT_PATHS.map((payout) =>
+            this.buildPlan(buildPlan(pricing, payout)),
+        ),
+    );
     readonly website = 'https://topstep.com';
 }
 
 const MAX_FUNDED_ACCOUNTS = 5;
-
-function buildAllPlans(): Plan[] {
-    return PRICING_PATHS.flatMap((pricing) =>
-        PAYOUT_PATHS.map(
-            (payout) => new TopStepPlan(buildPlan(pricing, payout)),
-        ),
-    );
-}
 
 function buildPlan(pricing: PricingPath, payout: PayoutPath): PlanInit {
     return {

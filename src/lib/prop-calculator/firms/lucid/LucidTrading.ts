@@ -8,7 +8,6 @@ import {
     FirmId,
     fraction,
     LucidVariant,
-    Plan,
     type PlanInit,
     TradingFirm,
 } from '~/lib/prop-calculator/core';
@@ -16,8 +15,6 @@ import {
 import { lockThresholdAt, planLabel } from '../shared';
 
 const PROFIT_TARGET_RATIO = 0.06;
-
-class LucidPlan extends Plan {}
 
 const FLEX_SIZES = [
     {
@@ -50,9 +47,9 @@ export class LucidTrading extends TradingFirm {
     readonly displayName = 'Lucid Trading';
     readonly id = FirmId.Lucid;
     readonly plans = [
-        ...FLEX_SIZES.map((s) => new LucidPlan(buildFlexPlan(s))),
-        ...PRO_SIZES.map((s) => new LucidPlan(buildProPlan(s))),
-        ...DIRECT_SIZES.map((s) => new LucidPlan(buildDirectPlan(s))),
+        ...FLEX_SIZES.map((s) => this.buildPlan(buildFlexPlan(s))),
+        ...PRO_SIZES.map((s) => this.buildPlan(buildProPlan(s))),
+        ...DIRECT_SIZES.map((s) => this.buildPlan(buildDirectPlan(s))),
     ];
     readonly website = 'https://lucidtrading.com';
 }

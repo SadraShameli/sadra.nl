@@ -6,14 +6,11 @@ import {
     EodTrailingDrawdown,
     FirmId,
     fraction,
-    Plan,
     type PlanInit,
     TradingFirm,
 } from '~/lib/prop-calculator/core';
 
 import { lockThresholdAt, planLabel } from '../shared';
-
-class TptPlan extends Plan {}
 
 const SIZES = [
     {
@@ -29,15 +26,11 @@ type TptSize = (typeof SIZES)[number];
 export class TakeProfitTrader extends TradingFirm {
     readonly displayName = 'Take Profit Trader';
     readonly id = FirmId.Tpt;
-    readonly plans = buildAllPlans();
+    readonly plans = SIZES.map((s) => this.buildPlan(buildPlan(s)));
     readonly website = 'https://takeprofittrader.com';
 }
 
 const MAX_FUNDED_ACCOUNTS = 5;
-
-function buildAllPlans(): Plan[] {
-    return SIZES.map((s) => new TptPlan(buildPlan(s)));
-}
 
 function buildPlan(size: TptSize): PlanInit {
     return {

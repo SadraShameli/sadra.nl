@@ -7,7 +7,6 @@ import {
     FirmId,
     fraction,
     FundedNextVariant,
-    Plan,
     type PlanInit,
     TradingFirm,
 } from '~/lib/prop-calculator/core';
@@ -15,8 +14,6 @@ import {
 import { lockThresholdAt, planLabel } from '../shared';
 
 const RESET_FEE_DISCOUNT = 0.9;
-
-class FundedNextPlan extends Plan {}
 
 const LEGACY_SIZES = [
     {
@@ -56,9 +53,9 @@ export class FundedNext extends TradingFirm {
     readonly displayName = 'FundedNext';
     readonly id = FirmId.FundedNext;
     readonly plans = [
-        ...LEGACY_SIZES.map((s) => new FundedNextPlan(buildLegacyPlan(s))),
-        ...RAPID_SIZES.map((s) => new FundedNextPlan(buildRapidPlan(s))),
-        ...BOLT_SIZES.map((s) => new FundedNextPlan(buildBoltPlan(s))),
+        ...LEGACY_SIZES.map((s) => this.buildPlan(buildLegacyPlan(s))),
+        ...RAPID_SIZES.map((s) => this.buildPlan(buildRapidPlan(s))),
+        ...BOLT_SIZES.map((s) => this.buildPlan(buildBoltPlan(s))),
     ];
     readonly website = 'https://fundednext.com';
 }

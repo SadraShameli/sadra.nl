@@ -9,14 +9,11 @@ import {
     fraction,
     IntradayTrailingDrawdown,
     MffuVariant,
-    Plan,
     type PlanInit,
     TradingFirm,
 } from '~/lib/prop-calculator/core';
 
 import { lockThresholdAt, planLabel } from '../shared';
-
-class MffuPlan extends Plan {}
 
 const LOCK_OFFSET = 100;
 
@@ -78,11 +75,11 @@ export class MyFundedFutures extends TradingFirm {
     readonly displayName = 'My Funded Futures';
     readonly id = FirmId.Mffu;
     readonly plans = [
-        ...RAPID_SIZES.map((s) => new MffuPlan(buildRapidPlan(s))),
-        new MffuPlan(buildRapidEodPlan()),
-        ...FLEX_SIZES.map((s) => new MffuPlan(buildFlexPlan(s))),
-        ...PRO_SIZES.map((s) => new MffuPlan(buildProPlan(s))),
-        new MffuPlan(buildBuilderPlan()),
+        ...RAPID_SIZES.map((s) => this.buildPlan(buildRapidPlan(s))),
+        this.buildPlan(buildRapidEodPlan()),
+        ...FLEX_SIZES.map((s) => this.buildPlan(buildFlexPlan(s))),
+        ...PRO_SIZES.map((s) => this.buildPlan(buildProPlan(s))),
+        this.buildPlan(buildBuilderPlan()),
     ];
     readonly website = 'https://myfundedfutures.com';
 }
