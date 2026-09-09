@@ -2,7 +2,7 @@ export interface ContractLimits {
     readonly evalMicros: null | number;
     readonly evalMinis: number;
     readonly fundedMicros: null | number;
-    readonly fundedMinis: number;
+    readonly fundedMinis: null | number;
 }
 
 export function isRungPlaceable(options: {

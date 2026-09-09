@@ -33,6 +33,7 @@ export interface PlanInit {
     drawdown: DrawdownStrategy;
     evalDailyLossLimit: DailyLossLimitConfig;
     fees: FeeSchedule;
+    fundedConsistency?: ConsistencyRule | null;
     fundedDailyLossLimit?: DailyLossLimitConfig;
     id: PlanId;
     label: string;
@@ -43,6 +44,7 @@ export interface PlanInit {
     minTradingDays: number;
     payoutLadder?: null | PayoutLadder;
     payoutProfitShare?: number;
+    payoutRequestCap?: number;
     payoutSchedule: PayoutSchedule;
     payoutTiers: readonly PayoutTier[];
     profitTarget: number;
@@ -81,6 +83,8 @@ export abstract class Plan {
 
     readonly payoutProfitShare: null | number;
 
+    readonly payoutRequestCap: null | number;
+
     readonly payoutSchedule: PayoutSchedule;
 
     readonly payoutTiers: readonly PayoutTier[];
@@ -106,6 +110,7 @@ export abstract class Plan {
         this.minTradingDays = init.minTradingDays;
         this.payoutLadder = init.payoutLadder ?? null;
         this.payoutProfitShare = init.payoutProfitShare ?? null;
+        this.payoutRequestCap = init.payoutRequestCap ?? null;
         this.payoutSchedule = init.payoutSchedule;
         this.payoutTiers = init.payoutTiers;
         this.profitTarget = init.profitTarget;
@@ -139,15 +144,25 @@ export abstract class Plan {
         return limit !== null && state.todayPnL <= -limit;
     }
 
+    evalConsistencyRule(): ConsistencyRule | null {
+        const rule = this.init.consistency;
+        return rule?.appliesToEval() ? rule : null;
+    }
+
+    fundedConsistencyRule(): ConsistencyRule | null {
+        if (this.init.fundedConsistency !== undefined) {
+            return this.init.fundedConsistency;
+        }
+        const rule = this.init.consistency;
+        return rule?.appliesToFunded() ? rule : null;
+    }
+
     isPassed(state: AccountState): boolean {
         const profit = state.balance - state.startingBalance;
         if (profit < this.init.profitTarget) return false;
         if (state.tradingDays < this.init.minTradingDays) return false;
-        const consistency = this.init.consistency;
-        return !(
-            consistency?.appliesToEval() &&
-            consistency.isViolated(state.bestDayProfit, profit)
-        );
+        const consistency = this.evalConsistencyRule();
+        return !consistency?.isViolated(state.bestDayProfit, profit);
     }
 
     payoutFromProfit(fundedProfit: number): number {

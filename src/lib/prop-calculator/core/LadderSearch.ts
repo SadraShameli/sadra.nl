@@ -219,9 +219,7 @@ export function scoreLadder(
     const lockedFloor = lock ? lock.lockedThreshold(start) : -Infinity;
     const target = plan.profitTarget;
     const minDays = plan.minTradingDays;
-    const consistency = plan.consistency?.appliesToEval()
-        ? plan.consistency.maxBestDayShare
-        : null;
+    const consistency = plan.evalConsistencyRule()?.maxBestDayShare ?? null;
 
     let passes = 0;
     let daysOnPassSum = 0;

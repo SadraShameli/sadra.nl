@@ -1039,15 +1039,11 @@ function simulateTrial(options: TrialOptions): TrialResult {
                 firstPayoutDay = Math.max(earliest, passDay + 1);
             }
 
-            let isConsistencyViolated = false;
             const evalProfit = passBalance - attempt.state.startingBalance;
-            if (
-                plan.consistency &&
-                plan.consistency.appliesToEval() &&
-                plan.consistency.isViolated(attempt.bestDayProfit, evalProfit)
-            ) {
-                isConsistencyViolated = true;
-            }
+            const isConsistencyViolated =
+                plan
+                    .evalConsistencyRule()
+                    ?.isViolated(attempt.bestDayProfit, evalProfit) ?? false;
 
             let outcome: TrialOutcome;
             if (isBustedFunded) outcome = 'bust-funded';

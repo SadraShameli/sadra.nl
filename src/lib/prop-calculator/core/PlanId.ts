@@ -49,7 +49,11 @@ type LucidVariant = 'direct' | 'flex' | 'pro';
 type MffuAccountSize = 50_000;
 type MffuVariant = 'builder' | 'flex' | 'pro' | 'rapid' | 'rapid-eod';
 type TopStepAccountSize = 50_000;
-type TopStepVariant = 'express' | 'standard';
+type TopStepVariant =
+    | 'no-fee-consistency'
+    | 'no-fee-standard'
+    | 'standard-consistency'
+    | 'standard-standard';
 type TptAccountSize = 50_000;
 type TradeifyAccountSize = 50_000;
 

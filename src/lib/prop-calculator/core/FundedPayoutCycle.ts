@@ -53,17 +53,22 @@ export function tryFundedPayout(
     const hasQualifyingDays =
         state.qualifyingDays - tracker.qualifyingDaysAtLastPayout >=
         plan.minDaysAfterPassForPayout;
-    const isConsistent =
-        !plan.consistency ||
-        !plan.consistency.appliesToFunded() ||
-        !plan.consistency.isViolated(tracker.cycleBestDayProfit, cycleProfit);
+    const fundedConsistency = plan.fundedConsistencyRule();
+    const isConsistent = !fundedConsistency?.isViolated(
+        tracker.cycleBestDayProfit,
+        cycleProfit,
+    );
 
     if (!hasQualifyingDays || !isConsistent || cycleProfit < requiredProfit) {
         return null;
     }
 
-    const withdrawable =
+    const cushionRoom =
         state.balance - state.threshold - Math.max(0, minRetainedCushion);
+    const withdrawable =
+        plan.payoutRequestCap === null
+            ? cushionRoom
+            : Math.min(cushionRoom, plan.payoutRequestCap);
     if (withdrawable <= 0) return null;
 
     const debited = resolveWithdrawal({

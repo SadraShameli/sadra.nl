@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
 import { FirmId } from '~/lib/prop-calculator/core';
+
+type TopStepVariant = Extract<PlanId, { firm: FirmId.TopStep }>['variant'];
+import { type PlanId } from '~/lib/prop-calculator/core';
 import {
     newFundedCycleTracker,
     tryFundedPayout,
 } from '~/lib/prop-calculator/core/FundedPayoutCycle';
 import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFunding';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
+import { TopStep } from '~/lib/prop-calculator/firms/topstep/TopStep';
 
 const mffu = new MyFundedFutures();
 const apex = new ApexTraderFunding();
@@ -287,5 +291,144 @@ describe('payout profit-share cap', () => {
 
         expect(payout?.debited).toBe(2000);
         expect(payout?.traderReceives).toBeCloseTo(1600, 6);
+    });
+});
+
+describe('Topstep 50K parameters (help.topstep.com)', () => {
+    const topstep = new TopStep();
+
+    function plan(variant: TopStepVariant) {
+        const found = topstep.findPlan({
+            accountSize: 50_000,
+            firm: FirmId.TopStep,
+            variant,
+        });
+        if (!found) throw new Error(`${variant} missing`);
+        return found;
+    }
+
+    const ALL: TopStepVariant[] = [
+        'standard-standard',
+        'standard-consistency',
+        'no-fee-standard',
+        'no-fee-consistency',
+    ];
+
+    it('offers the full pricing-path by payout-path matrix', () => {
+        expect(topstep.plans).toHaveLength(4);
+        for (const variant of ALL) {
+            expect(plan(variant).accountSize).toBe(50_000);
+        }
+    });
+
+    it('shares the Trading Combine parameters across all four plans', () => {
+        for (const variant of ALL) {
+            const target = plan(variant);
+            expect(target.profitTarget).toBe(3000);
+            expect(target.drawdown.amount).toBe(2000);
+            expect(target.drawdown.kind).toBe('eod-trailing');
+            expect(target.minTradingDays).toBe(2);
+            expect(target.evalDailyLossLimit.kind).toBe('none');
+            expect(target.contractLimits?.evalMinis).toBe(5);
+            expect(target.contractLimits?.evalMicros).toBe(50);
+            expect(target.contractLimits?.fundedMinis).toBeNull();
+            expect(target.payoutTiers[0]?.traderShare).toBe(0.9);
+            expect(target.minPayoutProfit).toBe(125);
+            expect(target.minPayoutRequest).toBe(125);
+            expect(target.evalConsistencyRule()?.maxBestDayShare).toBe(0.5);
+        }
+    });
+
+    it('locks the max loss limit at the starting balance once profit reaches it', () => {
+        const target = plan('standard-standard');
+        const state = target.initialState();
+        expect(state.threshold).toBe(48_000);
+
+        state.balance = 50_500;
+        target.drawdown.onDayClose(state);
+        expect(state.threshold).toBe(48_500);
+
+        state.balance = 50_000;
+        target.drawdown.onDayClose(state);
+        expect(state.threshold).toBe(48_500);
+
+        state.balance = 52_000;
+        target.drawdown.onDayClose(state);
+        expect(state.threshold).toBe(50_000);
+        expect(state.thresholdLocked).toBe(true);
+
+        state.balance = 60_000;
+        target.drawdown.onDayClose(state);
+        expect(state.threshold).toBe(50_000);
+    });
+
+    it('varies only fees along the pricing axis', () => {
+        for (const payout of ['standard', 'consistency'] as const) {
+            const paid = plan(`standard-${payout}`);
+            const free = plan(`no-fee-${payout}`);
+
+            expect(paid.fees.activation).toBe(149);
+            expect(paid.fees.monthlySubscription).toBe(49);
+            expect(paid.fees.reset).toBe(49);
+
+            expect(free.fees.activation).toBe(0);
+            expect(free.fees.monthlySubscription).toBe(95);
+            expect(free.fees.reset).toBe(95);
+
+            expect(paid.minDaysAfterPassForPayout).toBe(
+                free.minDaysAfterPassForPayout,
+            );
+            expect(paid.payoutRequestCap).toBe(free.payoutRequestCap);
+        }
+    });
+
+    it('varies only payout rules along the payout axis', () => {
+        for (const pricing of ['standard', 'no-fee'] as const) {
+            const standard = plan(`${pricing}-standard`);
+            const consistency = plan(`${pricing}-consistency`);
+
+            expect(standard.minDaysAfterPassForPayout).toBe(5);
+            expect(standard.minQualifyingDayProfit).toBe(150);
+            expect(standard.payoutRequestCap).toBe(2000);
+            expect(standard.fundedConsistencyRule()).toBeNull();
+
+            expect(consistency.minDaysAfterPassForPayout).toBe(3);
+            expect(consistency.minQualifyingDayProfit).toBeNull();
+            expect(consistency.payoutRequestCap).toBe(3000);
+            expect(consistency.fundedConsistencyRule()?.maxBestDayShare).toBe(
+                0.4,
+            );
+
+            expect(standard.fees.activation).toBe(consistency.fees.activation);
+        }
+    });
+
+    it('caps a single payout request at the path cap', () => {
+        for (const [variant, cap] of [
+            ['standard-standard', 2000],
+            ['standard-consistency', 3000],
+        ] as const) {
+            const target = plan(variant);
+            const state = target.initialState();
+            state.balance = state.startingBalance + 40_000;
+            state.threshold = state.startingBalance;
+            state.thresholdLocked = true;
+            state.qualifyingDays = 999;
+            const tracker = newFundedCycleTracker(state);
+            tracker.lastPayoutBalance = state.startingBalance;
+            tracker.qualifyingDaysAtLastPayout = 0;
+
+            const payout = tryFundedPayout({
+                maxPayouts: Infinity,
+                minRetainedCushion: 0,
+                payoutRequestSize: undefined,
+                plan: target,
+                state,
+                tracker,
+            });
+
+            expect(payout?.debited).toBe(cap);
+            expect(payout?.traderReceives).toBeCloseTo(cap * 0.9, 6);
+        }
     });
 });
