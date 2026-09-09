@@ -52,7 +52,9 @@ export class FundedCycleTracker {
         const requiredProfit =
             this.payoutsIssued === 0
                 ? plan.minPayoutProfit
-                : (ladder?.minRequestAmount ?? plan.minPayoutRequest);
+                : (ladder?.minRequestAmount ??
+                  plan.minPayoutProfitPerCycle ??
+                  plan.minPayoutRequest);
         const hasQualifyingDays =
             state.qualifyingDays - this.qualifyingDaysAtLastPayout >=
             plan.minDaysAfterPassForPayout;
@@ -72,10 +74,17 @@ export class FundedCycleTracker {
 
         const cushionRoom =
             state.balance - state.threshold - Math.max(0, minRetainedCushion);
-        const withdrawable =
+        const dollarCappedWithdrawable =
             plan.payoutRequestCap === null
                 ? cushionRoom
                 : Math.min(cushionRoom, plan.payoutRequestCap);
+        const withdrawable =
+            plan.payoutBalanceShareCap === null
+                ? dollarCappedWithdrawable
+                : Math.min(
+                      dollarCappedWithdrawable,
+                      plan.payoutBalanceShareCap * state.balance,
+                  );
         if (withdrawable <= 0) return null;
 
         const debited = resolveWithdrawal({
@@ -92,6 +101,10 @@ export class FundedCycleTracker {
         if (debited === null) return null;
 
         state.balance -= debited;
+        if (plan.payoutResetsLossLimit) {
+            state.threshold = state.balance;
+            state.thresholdLocked = true;
+        }
         this.lastPayoutBalance = state.balance;
         this.qualifyingDaysAtLastPayout = state.qualifyingDays;
         this.cycleBestDayProfit = 0;

@@ -19,6 +19,8 @@ const MAX_LOSS_LIMIT = dollars(2000);
 const PROFIT_TARGET = dollars(3000);
 const MIN_TRADING_DAYS = 2;
 const MIN_PAYOUT = dollars(125);
+const MIN_PAYOUT_PROFIT_PER_CYCLE = dollars(0.01);
+const PAYOUT_BALANCE_SHARE_CAP = fraction(0.5);
 const TRADER_SHARE = 0.9;
 
 const COMBINE_CONSISTENCY = fraction(0.5);
@@ -130,11 +132,14 @@ function buildPlan(pricing: PricingPath, payout: PayoutPath): PlanInit {
         label: planLabel(ACCOUNT_SIZE, `${pricing.label} · ${payout.label}`),
         maxFundedAccounts: MAX_FUNDED_ACCOUNTS,
         minDaysAfterPassForPayout: payout.winningDays,
-        minPayoutProfit: MIN_PAYOUT,
+        minPayoutProfit: dollars(0),
+        minPayoutProfitPerCycle: MIN_PAYOUT_PROFIT_PER_CYCLE,
         minPayoutRequest: MIN_PAYOUT,
         minQualifyingDayProfit: payout.minQualifyingDayProfit,
         minTradingDays: MIN_TRADING_DAYS,
+        payoutBalanceShareCap: PAYOUT_BALANCE_SHARE_CAP,
         payoutRequestCap: payout.payoutRequestCap,
+        payoutResetsLossLimit: true,
         payoutTiers: [
             {
                 thresholdProfit: dollars(0),

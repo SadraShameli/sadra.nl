@@ -73,17 +73,10 @@ export function simulateTrial(options: TrialOptions): TrialResult {
 
         cumulative.rollUp(attempt.stats);
 
-        const fundedProfit = Math.max(0, attempt.state.balance - passBalance);
-        let firstPayoutDay: null | number = null;
-        if (plan.payoutLadder) {
-            firstPayoutDay =
-                fundedHorizon.firstPayoutDay === null
-                    ? null
-                    : passDay + fundedHorizon.firstPayoutDay;
-        } else if (fundedProfit >= plan.minPayoutProfit) {
-            const earliest = passDay + plan.minDaysAfterPassForPayout;
-            firstPayoutDay = Math.max(earliest, passDay + 1);
-        }
+        const firstPayoutDay =
+            fundedHorizon.firstPayoutDay === null
+                ? null
+                : passDay + fundedHorizon.firstPayoutDay;
 
         const evalProfit = passBalance - attempt.state.startingBalance;
         const isConsistencyViolated =
@@ -106,11 +99,10 @@ export function simulateTrial(options: TrialOptions): TrialResult {
             evalTradesAtPass,
             finalBalance: attempt.state.balance,
             firstPayoutDay,
-            fundedProfit,
-            ladderPayout: fundedHorizon.totalPayout,
             outcome,
             plan,
             resetFeesPaid,
+            totalPayout: fundedHorizon.totalPayout,
         });
     }
 
@@ -126,11 +118,10 @@ export function simulateTrial(options: TrialOptions): TrialResult {
         evalTradesAtPass: 0,
         finalBalance: attempt.state.balance,
         firstPayoutDay: null,
-        fundedProfit: 0,
-        ladderPayout: 0,
         outcome: finalOutcome,
         plan,
         resetFeesPaid,
+        totalPayout: 0,
     });
 }
 
@@ -145,18 +136,12 @@ function finishTrial(arguments_: FinishTrialArguments): TrialResult {
         evalTradesAtPass,
         finalBalance,
         firstPayoutDay,
-        fundedProfit,
-        ladderPayout,
         outcome,
         plan,
         resetFeesPaid,
+        totalPayout,
     } = arguments_;
-    const isPassed = isPassingOutcome(outcome);
-    const grossPayout = isPassed
-        ? plan.payoutLadder
-            ? ladderPayout
-            : plan.payoutFromProfit(fundedProfit)
-        : 0;
+    const grossPayout = totalPayout;
     const baseCost = plan.totalCostThroughDay(cumulativeDays, discounts);
     const totalCost = baseCost + resetFeesPaid;
     const net = grossPayout - totalCost;
@@ -168,7 +153,6 @@ function finishTrial(arguments_: FinishTrialArguments): TrialResult {
         evalTradesAtPass,
         finalBalance,
         firstPayoutDay,
-        fundedProfit,
         grossLosses: cumulative.grossLosses,
         grossPayout,
         grossWins: cumulative.grossWins,

@@ -341,8 +341,11 @@ describe('Topstep 50K parameters (help.topstep.com)', () => {
             expect(target.contractLimits?.evalMicros).toBe(50);
             expect(target.contractLimits?.fundedMinis).toBeNull();
             expect(target.payoutTiers[0]?.traderShare).toBe(0.9);
-            expect(target.minPayoutProfit).toBe(125);
+            expect(target.minPayoutProfit).toBe(0);
+            expect(target.minPayoutProfitPerCycle).toBe(0.01);
             expect(target.minPayoutRequest).toBe(125);
+            expect(target.payoutBalanceShareCap).toBe(0.5);
+            expect(target.payoutResetsLossLimit).toBe(true);
             expect(target.evalConsistencyRule()?.maxBestDayShare).toBe(0.5);
         }
     });
@@ -440,5 +443,74 @@ describe('Topstep 50K parameters (help.topstep.com)', () => {
             expect(payout?.debited).toBe(cap);
             expect(payout?.traderReceives).toBeCloseTo(cap * 0.9, 6);
         }
+    });
+
+    it('caps a payout at 50% of balance when that is tighter than the dollar cap', () => {
+        const target = plan(TopStepVariant.StandardStandard);
+        const state = target.initialState();
+        state.balance = state.startingBalance - 47_000;
+        state.threshold = state.startingBalance - 49_900;
+        state.thresholdLocked = true;
+        state.qualifyingDays = 999;
+        const tracker = newFundedCycleTracker(state);
+        tracker.lastPayoutBalance = state.startingBalance - 50_000;
+        tracker.qualifyingDaysAtLastPayout = 0;
+        const balanceBeforePayout = state.balance;
+
+        const payout = tryFundedPayout({
+            maxPayouts: Infinity,
+            minRetainedCushion: 0,
+            payoutRequestSize: undefined,
+            plan: target,
+            state,
+            tracker,
+        });
+
+        expect(payout?.debited).toBeCloseTo(0.5 * balanceBeforePayout, 6);
+        expect(payout?.debited).toBeLessThan(target.payoutRequestCap ?? 0);
+    });
+
+    it('relocates the loss floor to the post-payout balance on every payout', () => {
+        const target = plan(TopStepVariant.StandardStandard);
+        const state = target.initialState();
+        state.balance = state.startingBalance + 1800;
+        state.threshold = state.startingBalance;
+        state.thresholdLocked = true;
+        state.qualifyingDays = 999;
+        const tracker = newFundedCycleTracker(state);
+        tracker.lastPayoutBalance = state.startingBalance;
+        tracker.qualifyingDaysAtLastPayout = 0;
+
+        const firstPayout = tryFundedPayout({
+            maxPayouts: Infinity,
+            minRetainedCushion: 0,
+            payoutRequestSize: 500,
+            plan: target,
+            state,
+            tracker,
+        });
+
+        expect(firstPayout?.debited).toBe(500);
+        expect(state.balance).toBe(state.startingBalance + 1300);
+        expect(state.threshold).toBe(state.balance);
+        expect(state.thresholdLocked).toBe(true);
+
+        const thresholdAfterFirstPayout = state.threshold;
+        state.balance += 300;
+        tracker.qualifyingDaysAtLastPayout = 0;
+        state.qualifyingDays += 999;
+
+        const secondPayout = tryFundedPayout({
+            maxPayouts: Infinity,
+            minRetainedCushion: 0,
+            payoutRequestSize: 150,
+            plan: target,
+            state,
+            tracker,
+        });
+
+        expect(secondPayout?.debited).toBe(150);
+        expect(state.threshold).toBe(state.balance);
+        expect(state.threshold).not.toBe(thresholdAfterFirstPayout);
     });
 });

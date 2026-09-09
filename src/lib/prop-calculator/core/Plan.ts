@@ -37,12 +37,15 @@ export interface PlanInit {
     maxFundedAccounts: number;
     minDaysAfterPassForPayout?: number;
     minPayoutProfit?: Dollars;
+    minPayoutProfitPerCycle?: Dollars;
     minPayoutRequest?: Dollars;
     minQualifyingDayProfit?: Dollars | null;
     minTradingDays: number;
+    payoutBalanceShareCap?: Fraction0to1;
     payoutLadder?: null | PayoutLadder;
     payoutProfitShare?: Fraction0to1;
     payoutRequestCap?: Dollars;
+    payoutResetsLossLimit?: boolean;
     payoutTiers: readonly PayoutTier[];
     profitTarget: Dollars;
 }
@@ -72,17 +75,23 @@ export abstract class Plan {
 
     readonly minPayoutProfit: Dollars;
 
+    readonly minPayoutProfitPerCycle: Dollars | null;
+
     readonly minPayoutRequest: Dollars;
 
     readonly minQualifyingDayProfit: Dollars | null;
 
     readonly minTradingDays: number;
 
+    readonly payoutBalanceShareCap: Fraction0to1 | null;
+
     readonly payoutLadder: null | PayoutLadder;
 
     readonly payoutProfitShare: Fraction0to1 | null;
 
     readonly payoutRequestCap: Dollars | null;
+
+    readonly payoutResetsLossLimit: boolean;
 
     readonly payoutTiers: readonly PayoutTier[];
 
@@ -102,13 +111,16 @@ export abstract class Plan {
         this.maxFundedAccounts = init.maxFundedAccounts;
         this.minDaysAfterPassForPayout = init.minDaysAfterPassForPayout ?? 0;
         this.minPayoutProfit = init.minPayoutProfit ?? dollars(0);
+        this.minPayoutProfitPerCycle = init.minPayoutProfitPerCycle ?? null;
         this.minPayoutRequest =
             init.minPayoutRequest ?? init.minPayoutProfit ?? dollars(0);
         this.minQualifyingDayProfit = init.minQualifyingDayProfit ?? null;
         this.minTradingDays = init.minTradingDays;
+        this.payoutBalanceShareCap = init.payoutBalanceShareCap ?? null;
         this.payoutLadder = init.payoutLadder ?? null;
         this.payoutProfitShare = init.payoutProfitShare ?? null;
         this.payoutRequestCap = init.payoutRequestCap ?? null;
+        this.payoutResetsLossLimit = init.payoutResetsLossLimit ?? false;
         this.payoutTiers = init.payoutTiers;
         this.profitTarget = init.profitTarget;
     }

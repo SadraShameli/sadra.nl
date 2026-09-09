@@ -86,11 +86,10 @@ export interface FinishTrialArguments {
     evalTradesAtPass: number;
     finalBalance: number;
     firstPayoutDay: null | number;
-    fundedProfit: number;
-    ladderPayout: number;
     outcome: TrialOutcome;
     plan: Plan;
     resetFeesPaid: number;
+    totalPayout: number;
 }
 
 export interface FundedDayStepOptions {
@@ -253,7 +252,6 @@ export interface TrialResult {
     evalTradesAtPass: number;
     finalBalance: number;
     firstPayoutDay: null | number;
-    fundedProfit: number;
     grossLosses: number;
     grossPayout: number;
     grossWins: number;

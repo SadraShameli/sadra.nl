@@ -87,6 +87,8 @@ export function runDay(options: DayRunOptions): {
         }
     }
     plan.drawdown.onDayClose(state);
-    if (plan.isBust(state, phase)) return { busted: true, traded: isTraded };
+    if (isTraded && plan.isBust(state, phase)) {
+        return { busted: true, traded: isTraded };
+    }
     return { busted: false, traded: isTraded };
 }
