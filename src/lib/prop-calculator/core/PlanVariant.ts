@@ -15,12 +15,12 @@ export function withPlanOverrides(
         fundedDailyLossLimit: plan.fundedDailyLossLimit,
         id: plan.id,
         label: plan.label,
+        maxFundedAccounts: plan.maxFundedAccounts,
         minDaysAfterPassForPayout: plan.minDaysAfterPassForPayout,
         minPayoutProfit: plan.minPayoutProfit,
         minQualifyingDayProfit: plan.minQualifyingDayProfit,
         minTradingDays: plan.minTradingDays,
         payoutLadder: plan.payoutLadder,
-        payoutSchedule: plan.payoutSchedule,
         payoutTiers: plan.payoutTiers,
         profitTarget: plan.profitTarget,
     };

@@ -3,7 +3,7 @@ export {
     createInitialState,
     resetForNewDay,
 } from './AccountState';
-export { ConsistencyRule, type ConsistencyScope } from './ConsistencyRule';
+export { ConsistencyRule, ConsistencyScope } from './ConsistencyRule';
 export { TRADING_DAYS_PER_MONTH } from './constants';
 export {
     type ContractLimits,
@@ -12,6 +12,7 @@ export {
 } from './ContractLimits';
 export {
     type DailyLossLimitConfig,
+    DailyLossLimitKind,
     type DllTier,
     resolveDailyLossLimit,
 } from './DailyLossLimit';
@@ -19,16 +20,17 @@ export {
     canonicaliseLadder,
     type DayPolicy,
     type DayStopRule,
+    DayStopRuleKind,
     DEFAULT_RUNG_SIZING,
     flatDayPolicy,
     isFlatLadder,
     ladderSum,
     resolveTradeRisk,
-    type RungSizing,
+    RungSizing,
     shouldStopDay,
 } from './DayPolicy';
 export {
-    type DrawdownKind,
+    DrawdownKind,
     type DrawdownLockConfig,
     DrawdownStrategy,
     EodTrailingDrawdown,
@@ -41,7 +43,7 @@ export {
     feesUntilPass,
     totalFees,
 } from './FeeSchedule';
-export { FirmId } from './FirmId';
+export { FirmId, parseFirmId } from './FirmId';
 export {
     type FundedCycleTracker,
     newFundedCycleTracker,
@@ -74,8 +76,19 @@ export {
     type PayoutTier,
     walkPayoutTiers,
 } from './PayoutTiers';
-export { type PayoutSchedule, Plan, type PlanInit } from './Plan';
-export { arePlanIdsEqual, type PlanId, serializePlanId } from './PlanId';
+export { Plan, type PlanInit } from './Plan';
+export {
+    AlphaFuturesVariant,
+    ApexVariant,
+    arePlanIdsEqual,
+    FundedNextVariant,
+    LucidVariant,
+    MffuVariant,
+    type PlanId,
+    serializePlanId,
+    TopStepVariant,
+    TradeifyVariant,
+} from './PlanId';
 export { withPlanOverrides } from './PlanVariant';
 export { replacementEconomics, type ReplacementEconomics } from './Replacement';
 export {
@@ -86,3 +99,20 @@ export {
     totalRoiOnCost,
 } from './Roi';
 export { TradingFirm } from './TradingFirm';
+export {
+    type ContractCount,
+    contractCountSchema,
+    contracts,
+    type Dollars,
+    dollars,
+    dollarsSchema,
+    fraction,
+    type Fraction0to1,
+    fractionSchema,
+    percent,
+    type Percent0to100,
+    percentSchema,
+    type Points,
+    points,
+    pointsSchema,
+} from './units';

@@ -1,19 +1,24 @@
 import { type AccountState } from './AccountState';
+import { type Dollars } from './units';
 
-export type DrawdownKind = 'eod-trailing' | 'intraday-trailing' | 'static';
+export enum DrawdownKind {
+    EodTrailing = 'eod-trailing',
+    IntradayTrailing = 'intraday-trailing',
+    Static = 'static',
+}
 
 export interface DrawdownLockConfig {
-    atProfit: number;
+    atProfit: Dollars;
     lockedThreshold: (startingBalance: number) => number;
 }
 
 export interface DrawdownStrategyInit {
-    amount: number;
+    amount: Dollars;
     lock?: DrawdownLockConfig;
 }
 
 export abstract class DrawdownStrategy {
-    readonly amount: number;
+    readonly amount: Dollars;
 
     abstract readonly kind: DrawdownKind;
 
@@ -52,7 +57,7 @@ export abstract class DrawdownStrategy {
 }
 
 export class EodTrailingDrawdown extends DrawdownStrategy {
-    readonly kind = 'eod-trailing' as const;
+    readonly kind = DrawdownKind.EodTrailing;
 
     onDayClose(state: AccountState): void {
         if (state.thresholdLocked) {
@@ -69,7 +74,7 @@ export class EodTrailingDrawdown extends DrawdownStrategy {
 }
 
 export class IntradayTrailingDrawdown extends DrawdownStrategy {
-    readonly kind = 'intraday-trailing' as const;
+    readonly kind = DrawdownKind.IntradayTrailing;
 
     onDayClose(_state: AccountState): void {
         return;
@@ -86,7 +91,7 @@ export class IntradayTrailingDrawdown extends DrawdownStrategy {
 }
 
 export class StaticDrawdown extends DrawdownStrategy {
-    readonly kind = 'static' as const;
+    readonly kind = DrawdownKind.Static;
 
     onDayClose(_state: AccountState): void {
         return;

@@ -2,43 +2,104 @@ import { describe, expect, it } from 'vitest';
 
 import {
     type DailyLossLimitConfig,
+    DailyLossLimitKind,
     type DllTier,
     resolveDailyLossLimit,
 } from '~/lib/prop-calculator/core/DailyLossLimit';
+import { contracts, dollars } from '~/lib/prop-calculator/core/units';
 
 const FUNDED_TIERS_25K: readonly DllTier[] = [
-    { dailyLossLimit: 500, maxContracts: 4, minProfit: 0 },
-    { dailyLossLimit: 500, maxContracts: 4, minProfit: 1000 },
-    { dailyLossLimit: 1250, maxContracts: 4, minProfit: 2000 },
+    { dailyLossLimit: dollars(500), maxContracts: contracts(4), minProfit: 0 },
+    {
+        dailyLossLimit: dollars(500),
+        maxContracts: contracts(4),
+        minProfit: 1000,
+    },
+    {
+        dailyLossLimit: dollars(1250),
+        maxContracts: contracts(4),
+        minProfit: 2000,
+    },
 ];
 
 const FUNDED_TIERS_50K: readonly DllTier[] = [
-    { dailyLossLimit: 1000, maxContracts: 6, minProfit: 0 },
-    { dailyLossLimit: 1000, maxContracts: 6, minProfit: 1500 },
-    { dailyLossLimit: 2000, maxContracts: 6, minProfit: 3000 },
-    { dailyLossLimit: 3000, maxContracts: 6, minProfit: 6000 },
+    { dailyLossLimit: dollars(1000), maxContracts: contracts(6), minProfit: 0 },
+    {
+        dailyLossLimit: dollars(1000),
+        maxContracts: contracts(6),
+        minProfit: 1500,
+    },
+    {
+        dailyLossLimit: dollars(2000),
+        maxContracts: contracts(6),
+        minProfit: 3000,
+    },
+    {
+        dailyLossLimit: dollars(3000),
+        maxContracts: contracts(6),
+        minProfit: 6000,
+    },
 ];
 
 const FUNDED_TIERS_100K: readonly DllTier[] = [
-    { dailyLossLimit: 1750, maxContracts: 8, minProfit: 0 },
-    { dailyLossLimit: 1750, maxContracts: 8, minProfit: 2000 },
-    { dailyLossLimit: 1750, maxContracts: 8, minProfit: 3000 },
-    { dailyLossLimit: 2500, maxContracts: 8, minProfit: 5000 },
-    { dailyLossLimit: 3500, maxContracts: 8, minProfit: 10_000 },
+    { dailyLossLimit: dollars(1750), maxContracts: contracts(8), minProfit: 0 },
+    {
+        dailyLossLimit: dollars(1750),
+        maxContracts: contracts(8),
+        minProfit: 2000,
+    },
+    {
+        dailyLossLimit: dollars(1750),
+        maxContracts: contracts(8),
+        minProfit: 3000,
+    },
+    {
+        dailyLossLimit: dollars(2500),
+        maxContracts: contracts(8),
+        minProfit: 5000,
+    },
+    {
+        dailyLossLimit: dollars(3500),
+        maxContracts: contracts(8),
+        minProfit: 10_000,
+    },
 ];
 
 const FUNDED_TIERS_150K: readonly DllTier[] = [
-    { dailyLossLimit: 2500, maxContracts: 12, minProfit: 0 },
-    { dailyLossLimit: 2500, maxContracts: 12, minProfit: 2000 },
-    { dailyLossLimit: 2500, maxContracts: 12, minProfit: 3000 },
-    { dailyLossLimit: 3000, maxContracts: 12, minProfit: 5000 },
-    { dailyLossLimit: 4000, maxContracts: 12, minProfit: 10_000 },
+    {
+        dailyLossLimit: dollars(2500),
+        maxContracts: contracts(12),
+        minProfit: 0,
+    },
+    {
+        dailyLossLimit: dollars(2500),
+        maxContracts: contracts(12),
+        minProfit: 2000,
+    },
+    {
+        dailyLossLimit: dollars(2500),
+        maxContracts: contracts(12),
+        minProfit: 3000,
+    },
+    {
+        dailyLossLimit: dollars(3000),
+        maxContracts: contracts(12),
+        minProfit: 5000,
+    },
+    {
+        dailyLossLimit: dollars(4000),
+        maxContracts: contracts(12),
+        minProfit: 10_000,
+    },
 ];
 
 describe('resolveDailyLossLimit', () => {
     describe('kind: flat', () => {
         it('returns the flat amount regardless of profit-in-cycle', () => {
-            const config = { amount: 500, kind: 'flat' } as const;
+            const config = {
+                amount: dollars(500),
+                kind: DailyLossLimitKind.Flat,
+            } as const;
             expect(resolveDailyLossLimit(config, -10_000)).toBe(500);
             expect(resolveDailyLossLimit(config, 0)).toBe(500);
             expect(resolveDailyLossLimit(config, 10_000)).toBe(500);
@@ -47,7 +108,7 @@ describe('resolveDailyLossLimit', () => {
 
     describe('kind: none', () => {
         it('always returns null', () => {
-            const config = { kind: 'none' } as const;
+            const config = { kind: DailyLossLimitKind.None } as const;
             expect(resolveDailyLossLimit(config, -10_000)).toBeNull();
             expect(resolveDailyLossLimit(config, 0)).toBeNull();
             expect(resolveDailyLossLimit(config, 10_000)).toBeNull();
@@ -57,13 +118,19 @@ describe('resolveDailyLossLimit', () => {
     describe('kind: tiered — no tiers', () => {
         it('returns null when the tier list is empty', () => {
             expect(
-                resolveDailyLossLimit({ kind: 'tiered', tiers: [] }, 5000),
+                resolveDailyLossLimit(
+                    { kind: DailyLossLimitKind.Tiered, tiers: [] },
+                    5000,
+                ),
             ).toBeNull();
         });
     });
 
     describe('kind: tiered — 25K funded DLL table', () => {
-        const config = { kind: 'tiered', tiers: FUNDED_TIERS_25K } as const;
+        const config = {
+            kind: DailyLossLimitKind.Tiered,
+            tiers: FUNDED_TIERS_25K,
+        } as const;
 
         it('floors at the lowest tier for profit below every threshold', () => {
             expect(resolveDailyLossLimit(config, -50_000)).toBe(500);
@@ -86,7 +153,10 @@ describe('resolveDailyLossLimit', () => {
     });
 
     describe('kind: tiered — 50K funded DLL table', () => {
-        const config = { kind: 'tiered', tiers: FUNDED_TIERS_50K } as const;
+        const config = {
+            kind: DailyLossLimitKind.Tiered,
+            tiers: FUNDED_TIERS_50K,
+        } as const;
 
         it('stays at $1,000 across the first two (equal) tiers', () => {
             expect(resolveDailyLossLimit(config, 0)).toBe(1000);
@@ -106,7 +176,10 @@ describe('resolveDailyLossLimit', () => {
     });
 
     describe('kind: tiered — 100K funded DLL table', () => {
-        const config = { kind: 'tiered', tiers: FUNDED_TIERS_100K } as const;
+        const config = {
+            kind: DailyLossLimitKind.Tiered,
+            tiers: FUNDED_TIERS_100K,
+        } as const;
 
         it('stays at $1,750 across the first three (equal) tiers', () => {
             expect(resolveDailyLossLimit(config, 0)).toBe(1750);
@@ -126,7 +199,10 @@ describe('resolveDailyLossLimit', () => {
     });
 
     describe('kind: tiered — 150K funded DLL table', () => {
-        const config = { kind: 'tiered', tiers: FUNDED_TIERS_150K } as const;
+        const config = {
+            kind: DailyLossLimitKind.Tiered,
+            tiers: FUNDED_TIERS_150K,
+        } as const;
 
         it('stays at $2,500 across the first three (equal) tiers', () => {
             expect(resolveDailyLossLimit(config, 0)).toBe(2500);
@@ -149,19 +225,43 @@ describe('resolveDailyLossLimit', () => {
 describe('unsorted tiered configs', () => {
     it('picks the highest applicable tier regardless of array order', () => {
         const ascending: DailyLossLimitConfig = {
-            kind: 'tiered',
+            kind: DailyLossLimitKind.Tiered,
             tiers: [
-                { dailyLossLimit: 1000, maxContracts: 6, minProfit: 0 },
-                { dailyLossLimit: 2000, maxContracts: 6, minProfit: 3000 },
-                { dailyLossLimit: 3000, maxContracts: 6, minProfit: 6000 },
+                {
+                    dailyLossLimit: dollars(1000),
+                    maxContracts: contracts(6),
+                    minProfit: 0,
+                },
+                {
+                    dailyLossLimit: dollars(2000),
+                    maxContracts: contracts(6),
+                    minProfit: 3000,
+                },
+                {
+                    dailyLossLimit: dollars(3000),
+                    maxContracts: contracts(6),
+                    minProfit: 6000,
+                },
             ],
         };
         const shuffled: DailyLossLimitConfig = {
-            kind: 'tiered',
+            kind: DailyLossLimitKind.Tiered,
             tiers: [
-                { dailyLossLimit: 3000, maxContracts: 6, minProfit: 6000 },
-                { dailyLossLimit: 1000, maxContracts: 6, minProfit: 0 },
-                { dailyLossLimit: 2000, maxContracts: 6, minProfit: 3000 },
+                {
+                    dailyLossLimit: dollars(3000),
+                    maxContracts: contracts(6),
+                    minProfit: 6000,
+                },
+                {
+                    dailyLossLimit: dollars(1000),
+                    maxContracts: contracts(6),
+                    minProfit: 0,
+                },
+                {
+                    dailyLossLimit: dollars(2000),
+                    maxContracts: contracts(6),
+                    minProfit: 3000,
+                },
             ],
         };
         for (const profit of [-500, 0, 2999, 3000, 5999, 6000, 99_999]) {
@@ -175,10 +275,18 @@ describe('unsorted tiered configs', () => {
 
     it('falls back to the lowest-threshold tier when no tier qualifies', () => {
         const config: DailyLossLimitConfig = {
-            kind: 'tiered',
+            kind: DailyLossLimitKind.Tiered,
             tiers: [
-                { dailyLossLimit: 2000, maxContracts: 6, minProfit: 5000 },
-                { dailyLossLimit: 1000, maxContracts: 6, minProfit: 1000 },
+                {
+                    dailyLossLimit: dollars(2000),
+                    maxContracts: contracts(6),
+                    minProfit: 5000,
+                },
+                {
+                    dailyLossLimit: dollars(1000),
+                    maxContracts: contracts(6),
+                    minProfit: 1000,
+                },
             ],
         };
         expect(resolveDailyLossLimit(config, -1)).toBe(1000);

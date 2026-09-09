@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
-import { FirmId, flatDayPolicy } from '~/lib/prop-calculator/core';
+import {
+    DailyLossLimitKind,
+    DayStopRuleKind,
+    dollars,
+    DrawdownKind,
+    FirmId,
+    flatDayPolicy,
+    fraction,
+    MffuVariant,
+    RungSizing,
+} from '~/lib/prop-calculator/core';
 import {
     buildLadderGrid,
     canonicaliseGrid,
@@ -26,10 +36,10 @@ function config(): LadderScoreConfig {
         maxDays: 150,
         plan: rapidEod(),
         rrRatio: 2,
-        rungSizing: 'capToCushion',
+        rungSizing: RungSizing.CapToCushion,
         seedOffset: 0,
         sims: 20_000,
-        stopRule: { kind: 'day-green' },
+        stopRule: { kind: DayStopRuleKind.DayGreen },
         winrate: 0.4,
     };
 }
@@ -38,7 +48,7 @@ function rapidEod() {
     const plan = firm.findPlan({
         accountSize: 50_000,
         firm: FirmId.Mffu,
-        variant: 'rapid-eod',
+        variant: MffuVariant.RapidEod,
     });
     if (!plan) throw new Error('Rapid EOD 50K plan missing');
     return plan;
@@ -49,12 +59,12 @@ describe('MFF Rapid EOD 50K plan parameters', () => {
         const plan = rapidEod();
         expect(plan.profitTarget).toBe(3000);
         expect(plan.drawdown.amount).toBe(2000);
-        expect(plan.drawdown.kind).toBe('eod-trailing');
+        expect(plan.drawdown.kind).toBe(DrawdownKind.EodTrailing);
         expect(plan.minTradingDays).toBe(4);
         expect(plan.consistency?.maxBestDayShare).toBe(0.3);
         expect(plan.consistency?.appliesToEval()).toBe(true);
         expect(plan.consistency?.appliesToFunded()).toBe(false);
-        expect(plan.evalDailyLossLimit.kind).toBe('none');
+        expect(plan.evalDailyLossLimit.kind).toBe(DailyLossLimitKind.None);
     });
 });
 
@@ -65,10 +75,10 @@ describe('enumerateDay', () => {
             dayPolicy: {
                 ladder: [400, 600, 800, 200],
                 maxLossesPerDay: null,
-                stopRule: { kind: 'day-green' },
+                stopRule: { kind: DayStopRuleKind.DayGreen },
             },
             rrRatio: 2,
-            rungSizing: 'capToCushion',
+            rungSizing: RungSizing.CapToCushion,
             winrate: 0.4,
         });
         const total = distribution.outcomes.reduce(
@@ -91,10 +101,10 @@ describe('enumerateDay', () => {
                 dayPolicy: {
                     ladder,
                     maxLossesPerDay: null,
-                    stopRule: { kind: 'day-green' },
+                    stopRule: { kind: DayStopRuleKind.DayGreen },
                 },
                 rrRatio: 2,
-                rungSizing: 'capToCushion',
+                rungSizing: RungSizing.CapToCushion,
                 winrate: 0.4,
             });
             const blown = distribution.outcomes
@@ -110,10 +120,10 @@ describe('enumerateDay', () => {
             dayPolicy: {
                 ladder: [400, 600, 900, 1400],
                 maxLossesPerDay: null,
-                stopRule: { kind: 'day-green' },
+                stopRule: { kind: DayStopRuleKind.DayGreen },
             },
             rrRatio: 2,
-            rungSizing: 'capToCushion',
+            rungSizing: RungSizing.CapToCushion,
             winrate: 0.4,
         });
         for (const outcome of distribution.outcomes) {
@@ -127,10 +137,10 @@ describe('enumerateDay', () => {
             dayPolicy: {
                 ladder: [400, 900],
                 maxLossesPerDay: null,
-                stopRule: { kind: 'none' },
+                stopRule: { kind: DayStopRuleKind.None },
             },
             rrRatio: 2,
-            rungSizing: 'capToCushion',
+            rungSizing: RungSizing.CapToCushion,
             winrate: 0.4,
         });
         const skipped = enumerateDay({
@@ -138,10 +148,10 @@ describe('enumerateDay', () => {
             dayPolicy: {
                 ladder: [400, 900],
                 maxLossesPerDay: null,
-                stopRule: { kind: 'none' },
+                stopRule: { kind: DayStopRuleKind.None },
             },
             rrRatio: 2,
-            rungSizing: 'skipIfUnaffordable',
+            rungSizing: RungSizing.SkipIfUnaffordable,
             winrate: 0.4,
         });
         expect(Math.min(...capped.outcomes.map((o) => o.worstPnL))).toBe(-1000);
@@ -221,7 +231,7 @@ describe('consistency rule is a pass gate, not a failure', () => {
         const builder = firm.findPlan({
             accountSize: 50_000,
             firm: FirmId.Mffu,
-            variant: 'builder',
+            variant: MffuVariant.Builder,
         });
         if (!builder) throw new Error('Builder plan missing');
         expect(builder.consistency?.appliesToEval()).toBe(false);
@@ -243,20 +253,20 @@ describe('cushion cap invariant', () => {
             const stats = newPathStats(state.startingBalance);
             const floorBefore = state.threshold;
             runDay({
-                commission: 0,
+                commission: dollars(0),
                 dayPolicy: {
                     ladder: [400, 600, 900, 1400],
                     maxLossesPerDay: null,
-                    stopRule: { kind: 'day-green' },
+                    stopRule: { kind: DayStopRuleKind.DayGreen },
                 },
                 phase: 'eval',
                 plan,
                 rng,
                 rrRatio: 2,
-                rungSizing: 'capToCushion',
+                rungSizing: RungSizing.CapToCushion,
                 state,
                 stats,
-                winrate: 0.4,
+                winrate: fraction(0.4),
             });
             expect(state.balance).toBeGreaterThanOrEqual(floorBefore);
         }
@@ -267,16 +277,18 @@ describe('cushion cap invariant', () => {
         const state = plan.initialState();
         const stats = newPathStats(state.startingBalance);
         runDay({
-            commission: 0,
-            dayPolicy: flatDayPolicy(999_999, 1, { kind: 'none' }),
+            commission: dollars(0),
+            dayPolicy: flatDayPolicy(999_999, 1, {
+                kind: DayStopRuleKind.None,
+            }),
             phase: 'eval',
             plan,
             rng: () => 0.99,
             rrRatio: 2,
-            rungSizing: 'capToCushion',
+            rungSizing: RungSizing.CapToCushion,
             state,
             stats,
-            winrate: 0.4,
+            winrate: fraction(0.4),
         });
         expect(state.balance).toBe(state.startingBalance - 2000);
     });
@@ -370,7 +382,7 @@ describe('runLadderSearch', () => {
 const aggressiveLadder = {
     ladder: [400, 600, 800, 200],
     maxLossesPerDay: null,
-    stopRule: { kind: 'day-green' as const },
+    stopRule: { kind: DayStopRuleKind.DayGreen as const },
 };
 
 function runPhaseSim(overrides: Partial<Parameters<typeof simulate>[0]>) {
@@ -380,7 +392,7 @@ function runPhaseSim(overrides: Partial<Parameters<typeof simulate>[0]>) {
         plan: rapidEod(),
         riskPerTrade: 250,
         rrRatio: 2,
-        rungSizing: 'capToCushion',
+        rungSizing: RungSizing.CapToCushion,
         seed: 42,
         tradesPerDay: 2,
         trials: 4000,

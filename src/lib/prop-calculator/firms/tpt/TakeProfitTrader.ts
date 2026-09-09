@@ -1,20 +1,26 @@
 import {
     ConsistencyRule,
+    ConsistencyScope,
+    DailyLossLimitKind,
+    dollars,
     EodTrailingDrawdown,
     FirmId,
+    fraction,
     Plan,
     type PlanInit,
     TradingFirm,
 } from '~/lib/prop-calculator/core';
 
+import { lockThresholdAt, planLabel } from '../shared';
+
 class TptPlan extends Plan {}
 
 const SIZES = [
     {
-        accountSize: 50_000,
-        maxDrawdown: 2000,
+        accountSize: dollars(50_000),
+        maxDrawdown: dollars(2000),
         monthlySubscription: 170,
-        profitTarget: 3000,
+        profitTarget: dollars(3000),
     },
 ] as const;
 
@@ -23,41 +29,43 @@ type TptSize = (typeof SIZES)[number];
 export class TakeProfitTrader extends TradingFirm {
     readonly displayName = 'Take Profit Trader';
     readonly id = FirmId.Tpt;
-    readonly plans = SIZES.map(
-        (s) => new TptPlan(buildPlan(s)),
-    ) as readonly Plan[];
+    readonly plans = buildAllPlans();
     readonly website = 'https://takeprofittrader.com';
+}
 
-    maxFundedAccounts(): number {
-        return 5;
-    }
+const MAX_FUNDED_ACCOUNTS = 5;
+
+function buildAllPlans(): Plan[] {
+    return SIZES.map((s) => new TptPlan(buildPlan(s)));
 }
 
 function buildPlan(size: TptSize): PlanInit {
     return {
         accountSize: size.accountSize,
-        consistency: new ConsistencyRule('eval', 0.5),
+        consistency: new ConsistencyRule(ConsistencyScope.Eval, fraction(0.5)),
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
                 atProfit: size.maxDrawdown,
-                lockedThreshold: (start) => start,
+                lockedThreshold: lockThresholdAt(0),
             },
         }),
-        evalDailyLossLimit: { kind: 'none' },
+        evalDailyLossLimit: { kind: DailyLossLimitKind.None },
         fees: {
-            activation: 130,
-            monthlySubscription: size.monthlySubscription,
-            oneTimeEval: 0,
-            reset: 0,
+            activation: dollars(130),
+            monthlySubscription: dollars(size.monthlySubscription),
+            oneTimeEval: dollars(0),
+            reset: dollars(0),
         },
-        id: { accountSize: size.accountSize, firm: FirmId.Tpt },
-        label: `$${(size.accountSize / 1000).toFixed(0)}K — Test → PRO`,
+        id: { accountSize: 50_000, firm: FirmId.Tpt },
+        label: planLabel(size.accountSize, 'Test → PRO'),
+        maxFundedAccounts: MAX_FUNDED_ACCOUNTS,
         minDaysAfterPassForPayout: 0,
         minPayoutProfit: size.maxDrawdown,
         minTradingDays: 5,
-        payoutSchedule: { kind: 'biweekly' },
-        payoutTiers: [{ thresholdProfit: 0, traderShare: 0.8 }],
+        payoutTiers: [
+            { thresholdProfit: dollars(0), traderShare: fraction(0.8) },
+        ],
         profitTarget: size.profitTarget,
     };
 }

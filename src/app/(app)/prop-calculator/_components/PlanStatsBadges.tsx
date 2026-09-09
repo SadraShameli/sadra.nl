@@ -2,6 +2,8 @@
 
 import {
     type DailyLossLimitConfig,
+    DailyLossLimitKind,
+    DrawdownKind,
     type Plan,
     resolveDailyLossLimit,
 } from '~/lib/prop-calculator';
@@ -70,7 +72,7 @@ function dailyLossLimitLabel(config: DailyLossLimitConfig): null | string {
     const baseline = resolveDailyLossLimit(config, 0);
     if (baseline === null) return null;
 
-    if (config.kind !== 'tiered') {
+    if (config.kind !== DailyLossLimitKind.Tiered) {
         return `$${baseline.toLocaleString()}`;
     }
 
@@ -80,9 +82,9 @@ function dailyLossLimitLabel(config: DailyLossLimitConfig): null | string {
     return `$${baseline.toLocaleString()}–$${max.toLocaleString()} (scales)`;
 }
 
-function drawdownLabel(kind: string): string {
-    if (kind === 'eod-trailing') return 'EOD trailing';
-    if (kind === 'intraday-trailing') return 'Intraday trailing';
+function drawdownLabel(kind: DrawdownKind): string {
+    if (kind === DrawdownKind.EodTrailing) return 'EOD trailing';
+    if (kind === DrawdownKind.IntradayTrailing) return 'Intraday trailing';
     return 'Static';
 }
 

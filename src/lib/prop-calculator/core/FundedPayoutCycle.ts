@@ -1,12 +1,6 @@
 import { type AccountState } from './AccountState';
+import { type PayoutLadder } from './PayoutTiers';
 import { type Plan } from './Plan';
-
-export interface FundedCycleTracker {
-    cycleBestDayProfit: number;
-    lastPayoutBalance: number;
-    payoutsIssued: number;
-    qualifyingDaysAtLastPayout: number;
-}
 
 export interface FundedPayoutOptions {
     maxPayouts: number;
@@ -22,82 +16,116 @@ export interface FundedPayoutResult {
     traderReceives: number;
 }
 
+type LadderStepLookup =
+    | { amount: number; kind: 'step' }
+    | { kind: 'exhausted' }
+    | { kind: 'no-ladder' };
+
+export class FundedCycleTracker {
+    cycleBestDayProfit = 0;
+
+    lastPayoutBalance: number;
+
+    payoutsIssued = 0;
+
+    qualifyingDaysAtLastPayout: number;
+
+    constructor(state: AccountState) {
+        this.lastPayoutBalance = state.balance;
+        this.qualifyingDaysAtLastPayout = state.qualifyingDays;
+    }
+
+    tryPayout(
+        options: Omit<FundedPayoutOptions, 'tracker'>,
+    ): FundedPayoutResult | null {
+        const {
+            maxPayouts,
+            minRetainedCushion,
+            payoutRequestSize,
+            plan,
+            state,
+        } = options;
+        if (maxPayouts <= 0) return null;
+
+        const ladder = plan.payoutLadder;
+        const cycleProfit = state.balance - this.lastPayoutBalance;
+        const requiredProfit =
+            this.payoutsIssued === 0
+                ? plan.minPayoutProfit
+                : (ladder?.minRequestAmount ?? plan.minPayoutRequest);
+        const hasQualifyingDays =
+            state.qualifyingDays - this.qualifyingDaysAtLastPayout >=
+            plan.minDaysAfterPassForPayout;
+        const fundedConsistency = plan.fundedConsistencyRule();
+        const isConsistent = !fundedConsistency?.isViolated(
+            this.cycleBestDayProfit,
+            cycleProfit,
+        );
+
+        if (
+            !hasQualifyingDays ||
+            !isConsistent ||
+            cycleProfit < requiredProfit
+        ) {
+            return null;
+        }
+
+        const cushionRoom =
+            state.balance - state.threshold - Math.max(0, minRetainedCushion);
+        const withdrawable =
+            plan.payoutRequestCap === null
+                ? cushionRoom
+                : Math.min(cushionRoom, plan.payoutRequestCap);
+        if (withdrawable <= 0) return null;
+
+        const debited = resolveWithdrawal({
+            cycleProfit,
+            ladderStep: ladderStepLookup(ladder, this.payoutsIssued),
+            minRequest: ladder?.minRequestAmount ?? plan.minPayoutRequest,
+            payoutRequestSize,
+            profitShareCap:
+                plan.payoutProfitShare === null
+                    ? undefined
+                    : plan.payoutProfitShare * cycleProfit,
+            withdrawable,
+        });
+        if (debited === null) return null;
+
+        state.balance -= debited;
+        this.lastPayoutBalance = state.balance;
+        this.qualifyingDaysAtLastPayout = state.qualifyingDays;
+        this.cycleBestDayProfit = 0;
+        this.payoutsIssued += 1;
+
+        return { debited, traderReceives: plan.payoutFromProfit(debited) };
+    }
+}
+
 export function newFundedCycleTracker(state: AccountState): FundedCycleTracker {
-    return {
-        cycleBestDayProfit: 0,
-        lastPayoutBalance: state.balance,
-        payoutsIssued: 0,
-        qualifyingDaysAtLastPayout: state.qualifyingDays,
-    };
+    return new FundedCycleTracker(state);
 }
 
 export function tryFundedPayout(
     options: FundedPayoutOptions,
 ): FundedPayoutResult | null {
-    const {
-        maxPayouts,
-        minRetainedCushion,
-        payoutRequestSize,
-        plan,
-        state,
-        tracker,
-    } = options;
-    if (maxPayouts <= 0) return null;
+    const { tracker, ...rest } = options;
+    return tracker.tryPayout(rest);
+}
 
-    const ladder = plan.payoutLadder;
-    const cycleProfit = state.balance - tracker.lastPayoutBalance;
-    const requiredProfit =
-        tracker.payoutsIssued === 0
-            ? plan.minPayoutProfit
-            : (ladder?.minRequestAmount ?? plan.minPayoutRequest);
-    const hasQualifyingDays =
-        state.qualifyingDays - tracker.qualifyingDaysAtLastPayout >=
-        plan.minDaysAfterPassForPayout;
-    const fundedConsistency = plan.fundedConsistencyRule();
-    const isConsistent = !fundedConsistency?.isViolated(
-        tracker.cycleBestDayProfit,
-        cycleProfit,
-    );
-
-    if (!hasQualifyingDays || !isConsistent || cycleProfit < requiredProfit) {
-        return null;
-    }
-
-    const cushionRoom =
-        state.balance - state.threshold - Math.max(0, minRetainedCushion);
-    const withdrawable =
-        plan.payoutRequestCap === null
-            ? cushionRoom
-            : Math.min(cushionRoom, plan.payoutRequestCap);
-    if (withdrawable <= 0) return null;
-
-    const debited = resolveWithdrawal({
-        cycleProfit,
-        ladderStep: ladder
-            ? (ladder.steps[tracker.payoutsIssued] ?? null)
-            : undefined,
-        minRequest: ladder?.minRequestAmount ?? plan.minPayoutRequest,
-        payoutRequestSize,
-        profitShareCap:
-            plan.payoutProfitShare === null
-                ? undefined
-                : plan.payoutProfitShare * cycleProfit,
-        withdrawable,
-    });
-    if (debited === null) return null;
-
-    state.balance -= debited;
-    tracker.lastPayoutBalance = state.balance;
-    tracker.qualifyingDaysAtLastPayout = state.qualifyingDays;
-    tracker.cycleBestDayProfit = 0;
-    tracker.payoutsIssued += 1;
-
-    return { debited, traderReceives: plan.payoutFromProfit(debited) };
+function ladderStepLookup(
+    ladder: null | PayoutLadder,
+    index: number,
+): LadderStepLookup {
+    if (!ladder) return { kind: 'no-ladder' };
+    const step = ladder.steps[index];
+    return step === undefined
+        ? { kind: 'exhausted' }
+        : { amount: step, kind: 'step' };
 }
 
 function resolveWithdrawal(options: {
     cycleProfit: number;
-    ladderStep: null | number | undefined;
+    ladderStep: LadderStepLookup;
     minRequest: number;
     payoutRequestSize: number | undefined;
     profitShareCap: number | undefined;
@@ -116,16 +144,21 @@ function resolveWithdrawal(options: {
             ? withdrawable
             : Math.min(withdrawable, profitShareCap);
 
-    if (ladderStep !== undefined) {
-        if (ladderStep === null) return null;
-        const debited = Math.min(ladderStep, ceiling);
-        return debited < minRequest ? null : debited;
+    switch (ladderStep.kind) {
+        case 'exhausted': {
+            return null;
+        }
+        case 'no-ladder': {
+            const available = Math.min(cycleProfit, ceiling);
+            const debited =
+                payoutRequestSize === undefined
+                    ? available
+                    : Math.min(payoutRequestSize, available);
+            return debited < minRequest ? null : debited;
+        }
+        case 'step': {
+            const debited = Math.min(ladderStep.amount, ceiling);
+            return debited < minRequest ? null : debited;
+        }
     }
-
-    const available = Math.min(cycleProfit, ceiling);
-    const debited =
-        payoutRequestSize === undefined
-            ? available
-            : Math.min(payoutRequestSize, available);
-    return debited < minRequest ? null : debited;
 }

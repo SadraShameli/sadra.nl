@@ -1,48 +1,57 @@
 import {
+    AlphaFuturesVariant,
     ConsistencyRule,
+    ConsistencyScope,
+    DailyLossLimitKind,
+    dollars,
     EodTrailingDrawdown,
     FirmId,
+    fraction,
     Plan,
     type PlanInit,
     TradingFirm,
 } from '~/lib/prop-calculator/core';
 
+import { lockThresholdAt, planLabel } from '../shared';
+
+const RESET_FEE_DISCOUNT = 0.9;
+
 class AlphaFuturesPlan extends Plan {}
 
 const ZERO_SIZES = [
     {
-        accountSize: 50_000,
-        dailyLossLimit: 1000,
-        maxDrawdown: 2000,
+        accountSize: dollars(50_000),
+        dailyLossLimit: dollars(1000),
+        maxDrawdown: dollars(2000),
         monthlyFee: 119,
-        profitTarget: 3000,
+        profitTarget: dollars(3000),
     },
 ] as const;
 
 const ADVANCED_SIZES = [
     {
-        accountSize: 50_000,
-        maxDrawdown: 1750,
+        accountSize: dollars(50_000),
+        maxDrawdown: dollars(1750),
         monthlyFee: 139,
-        profitTarget: 4000,
+        profitTarget: dollars(4000),
     },
 ] as const;
 
 const PREMIUM_SIZES = [
     {
-        accountSize: 50_000,
-        maxDrawdown: 2000,
+        accountSize: dollars(50_000),
+        maxDrawdown: dollars(2000),
         monthlyFee: 79,
-        profitTarget: 3000,
+        profitTarget: dollars(3000),
     },
 ] as const;
 
 const EXPRESS_SIZES = [
     {
-        accountSize: 50_000,
-        maxDrawdown: 2000,
+        accountSize: dollars(50_000),
+        maxDrawdown: dollars(2000),
         monthlyFee: 159,
-        profitTarget: 3000,
+        profitTarget: dollars(3000),
     },
 ] as const;
 
@@ -61,46 +70,44 @@ export class AlphaFutures extends TradingFirm {
         ...ADVANCED_SIZES.map(
             (s) => new AlphaFuturesPlan(buildAdvancedPlan(s)),
         ),
-    ] as readonly Plan[];
+    ];
     readonly website = 'https://alpha-futures.com';
-
-    maxFundedAccounts(plan: Plan): number {
-        const allocationCap = 450_000;
-        const hardCap = 5;
-        const byAllocation = Math.floor(allocationCap / plan.accountSize);
-        return Math.max(1, Math.min(hardCap, byAllocation));
-    }
 }
+
+const ALLOCATION_CAP = 450_000;
+const MAX_FUNDED_ACCOUNTS_HARD_CAP = 5;
 
 function buildAdvancedPlan(size: AfAdvancedSize): PlanInit {
     return {
         accountSize: size.accountSize,
-        consistency: new ConsistencyRule('eval', 0.5),
+        consistency: new ConsistencyRule(ConsistencyScope.Eval, fraction(0.5)),
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
                 atProfit: size.maxDrawdown,
-                lockedThreshold: (start) => start,
+                lockedThreshold: lockThresholdAt(0),
             },
         }),
-        evalDailyLossLimit: { kind: 'none' },
+        evalDailyLossLimit: { kind: DailyLossLimitKind.None },
         fees: {
-            activation: 149,
-            monthlySubscription: size.monthlyFee,
-            oneTimeEval: 0,
-            reset: Math.round(size.monthlyFee * 0.9),
+            activation: dollars(149),
+            monthlySubscription: dollars(size.monthlyFee),
+            oneTimeEval: dollars(0),
+            reset: dollars(Math.round(size.monthlyFee * RESET_FEE_DISCOUNT)),
         },
         id: {
-            accountSize: size.accountSize,
+            accountSize: 50_000,
             firm: FirmId.AlphaFutures,
-            variant: 'advanced',
+            variant: AlphaFuturesVariant.Advanced,
         },
-        label: `$${(size.accountSize / 1000).toFixed(0)}K — Advanced`,
+        label: planLabel(size.accountSize, 'Advanced'),
+        maxFundedAccounts: maxFundedAccountsByAllocation(size.accountSize),
         minDaysAfterPassForPayout: 5,
-        minPayoutProfit: 1000,
+        minPayoutProfit: dollars(1000),
         minTradingDays: 2,
-        payoutSchedule: { kind: 'every-n-win-days', n: 5 },
-        payoutTiers: [{ thresholdProfit: 0, traderShare: 0.9 }],
+        payoutTiers: [
+            { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
+        ],
         profitTarget: size.profitTarget,
     };
 }
@@ -108,32 +115,34 @@ function buildAdvancedPlan(size: AfAdvancedSize): PlanInit {
 function buildExpressPlan(size: AfExpressSize): PlanInit {
     return {
         accountSize: size.accountSize,
-        consistency: new ConsistencyRule('eval', 0.5),
+        consistency: new ConsistencyRule(ConsistencyScope.Eval, fraction(0.5)),
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
                 atProfit: size.maxDrawdown,
-                lockedThreshold: (start) => start,
+                lockedThreshold: lockThresholdAt(0),
             },
         }),
-        evalDailyLossLimit: { kind: 'none' },
+        evalDailyLossLimit: { kind: DailyLossLimitKind.None },
         fees: {
-            activation: 0,
-            monthlySubscription: size.monthlyFee,
-            oneTimeEval: 0,
-            reset: Math.round(size.monthlyFee * 0.9),
+            activation: dollars(0),
+            monthlySubscription: dollars(size.monthlyFee),
+            oneTimeEval: dollars(0),
+            reset: dollars(Math.round(size.monthlyFee * RESET_FEE_DISCOUNT)),
         },
         id: {
-            accountSize: size.accountSize,
+            accountSize: 50_000,
             firm: FirmId.AlphaFutures,
-            variant: 'express',
+            variant: AlphaFuturesVariant.Express,
         },
-        label: `$${(size.accountSize / 1000).toFixed(0)}K — Premium Express`,
+        label: planLabel(size.accountSize, 'Premium Express'),
+        maxFundedAccounts: maxFundedAccountsByAllocation(size.accountSize),
         minDaysAfterPassForPayout: 5,
-        minPayoutProfit: 500,
+        minPayoutProfit: dollars(500),
         minTradingDays: 2,
-        payoutSchedule: { kind: 'every-n-win-days', n: 5 },
-        payoutTiers: [{ thresholdProfit: 0, traderShare: 0.9 }],
+        payoutTiers: [
+            { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
+        ],
         profitTarget: size.profitTarget,
     };
 }
@@ -141,32 +150,34 @@ function buildExpressPlan(size: AfExpressSize): PlanInit {
 function buildPremiumPlan(size: AfPremiumSize): PlanInit {
     return {
         accountSize: size.accountSize,
-        consistency: new ConsistencyRule('eval', 0.5),
+        consistency: new ConsistencyRule(ConsistencyScope.Eval, fraction(0.5)),
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
                 atProfit: size.maxDrawdown,
-                lockedThreshold: (start) => start,
+                lockedThreshold: lockThresholdAt(0),
             },
         }),
-        evalDailyLossLimit: { kind: 'none' },
+        evalDailyLossLimit: { kind: DailyLossLimitKind.None },
         fees: {
-            activation: 149,
-            monthlySubscription: size.monthlyFee,
-            oneTimeEval: 0,
-            reset: Math.round(size.monthlyFee * 0.9),
+            activation: dollars(149),
+            monthlySubscription: dollars(size.monthlyFee),
+            oneTimeEval: dollars(0),
+            reset: dollars(Math.round(size.monthlyFee * RESET_FEE_DISCOUNT)),
         },
         id: {
-            accountSize: size.accountSize,
+            accountSize: 50_000,
             firm: FirmId.AlphaFutures,
-            variant: 'premium',
+            variant: AlphaFuturesVariant.Premium,
         },
-        label: `$${(size.accountSize / 1000).toFixed(0)}K — Premium`,
+        label: planLabel(size.accountSize, 'Premium'),
+        maxFundedAccounts: maxFundedAccountsByAllocation(size.accountSize),
         minDaysAfterPassForPayout: 5,
-        minPayoutProfit: 500,
+        minPayoutProfit: dollars(500),
         minTradingDays: 2,
-        payoutSchedule: { kind: 'every-n-win-days', n: 5 },
-        payoutTiers: [{ thresholdProfit: 0, traderShare: 0.9 }],
+        payoutTiers: [
+            { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
+        ],
         profitTarget: size.profitTarget,
     };
 }
@@ -174,32 +185,45 @@ function buildPremiumPlan(size: AfPremiumSize): PlanInit {
 function buildZeroPlan(size: AfZeroSize): PlanInit {
     return {
         accountSize: size.accountSize,
-        consistency: new ConsistencyRule('funded', 0.4),
+        consistency: new ConsistencyRule(
+            ConsistencyScope.Funded,
+            fraction(0.4),
+        ),
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
                 atProfit: size.maxDrawdown,
-                lockedThreshold: (start) => start,
+                lockedThreshold: lockThresholdAt(0),
             },
         }),
-        evalDailyLossLimit: { amount: size.dailyLossLimit, kind: 'flat' },
+        evalDailyLossLimit: {
+            amount: size.dailyLossLimit,
+            kind: DailyLossLimitKind.Flat,
+        },
         fees: {
-            activation: 0,
-            monthlySubscription: size.monthlyFee,
-            oneTimeEval: 0,
-            reset: Math.round(size.monthlyFee * 0.9),
+            activation: dollars(0),
+            monthlySubscription: dollars(size.monthlyFee),
+            oneTimeEval: dollars(0),
+            reset: dollars(Math.round(size.monthlyFee * RESET_FEE_DISCOUNT)),
         },
         id: {
-            accountSize: size.accountSize,
+            accountSize: 50_000,
             firm: FirmId.AlphaFutures,
-            variant: 'zero',
+            variant: AlphaFuturesVariant.Zero,
         },
-        label: `$${(size.accountSize / 1000).toFixed(0)}K — Zero`,
+        label: planLabel(size.accountSize, 'Zero'),
+        maxFundedAccounts: maxFundedAccountsByAllocation(size.accountSize),
         minDaysAfterPassForPayout: 5,
-        minPayoutProfit: 200,
+        minPayoutProfit: dollars(200),
         minTradingDays: 1,
-        payoutSchedule: { kind: 'every-n-win-days', n: 5 },
-        payoutTiers: [{ thresholdProfit: 0, traderShare: 0.9 }],
+        payoutTiers: [
+            { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
+        ],
         profitTarget: size.profitTarget,
     };
+}
+
+function maxFundedAccountsByAllocation(accountSize: number): number {
+    const byAllocation = Math.floor(ALLOCATION_CAP / accountSize);
+    return Math.max(1, Math.min(MAX_FUNDED_ACCOUNTS_HARD_CAP, byAllocation));
 }

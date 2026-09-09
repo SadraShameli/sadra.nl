@@ -3,6 +3,8 @@ import { z } from 'zod';
 import {
     type DayPolicy,
     type DayStopRule,
+    DayStopRuleKind,
+    parseFirmId,
     serializePlanId,
     type TradingFirm,
 } from '~/lib/prop-calculator';
@@ -62,8 +64,9 @@ export function decodeState(
 ): CalculatorState {
     const firmId = parameters.get('firm');
     const planSerial = parameters.get('plan');
-    const firm = firmId
-        ? firms.find((f) => (f.id as string) === firmId)
+    const parsedFirmId = firmId ? parseFirmId(firmId) : undefined;
+    const firm = parsedFirmId
+        ? firms.find((f) => f.id === parsedFirmId)
         : undefined;
     const plan =
         firm && planSerial
@@ -127,9 +130,8 @@ export function decodeState(
             if (ok.success) {
                 portfolio = ok.data
                     .map((wire): null | PortfolioEntry => {
-                        const firm = firms.find(
-                            (f) => (f.id as string) === wire.firmId,
-                        );
+                        const wireFirmId = parseFirmId(wire.firmId);
+                        const firm = firms.find((f) => f.id === wireFirmId);
                         const plan = firm?.plans.find(
                             (p) => serializePlanId(p.id) === wire.planId,
                         );
@@ -204,7 +206,7 @@ export function encodeState(state: CalculatorState): URLSearchParams {
     p.set('copy', String(state.copyAccounts));
     p.set('maxDays', String(state.maxEvalDays));
     p.set('fundedDays', String(state.fundedHorizonDays));
-    if (state.dayStop.kind !== 'none') {
+    if (state.dayStop.kind !== DayStopRuleKind.None) {
         const ds = base64UrlEncode(JSON.stringify(state.dayStop));
         if (ds) p.set('ds', ds);
     }

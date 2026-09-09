@@ -1,35 +1,45 @@
 import {
     ConsistencyRule,
+    ConsistencyScope,
+    DailyLossLimitKind,
+    type Dollars,
+    dollars,
     EodTrailingDrawdown,
     FirmId,
+    fraction,
+    LucidVariant,
     Plan,
     type PlanInit,
     TradingFirm,
 } from '~/lib/prop-calculator/core';
 
+import { lockThresholdAt, planLabel } from '../shared';
+
+const PROFIT_TARGET_RATIO = 0.06;
+
 class LucidPlan extends Plan {}
 
 const FLEX_SIZES = [
     {
-        accountSize: 50_000,
+        accountSize: dollars(50_000),
         evalCost: 140,
-        maxDrawdown: 2000,
+        maxDrawdown: dollars(2000),
         resetFee: 95,
     },
 ] as const;
 
 const PRO_SIZES = [
     {
-        accountSize: 50_000,
-        dailyLossLimit: 1200 as null | number,
+        accountSize: dollars(50_000),
+        dailyLossLimit: dollars(1200) as Dollars | null,
         evalCost: 185,
-        maxDrawdown: 2000,
+        maxDrawdown: dollars(2000),
         resetFee: 120,
     },
 ] as const;
 
 const DIRECT_SIZES = [
-    { accountSize: 50_000, evalCost: 520, maxDrawdown: 2000 },
+    { accountSize: dollars(50_000), evalCost: 520, maxDrawdown: dollars(2000) },
 ] as const;
 
 type LucidDirectSize = (typeof DIRECT_SIZES)[number];
@@ -43,114 +53,127 @@ export class LucidTrading extends TradingFirm {
         ...FLEX_SIZES.map((s) => new LucidPlan(buildFlexPlan(s))),
         ...PRO_SIZES.map((s) => new LucidPlan(buildProPlan(s))),
         ...DIRECT_SIZES.map((s) => new LucidPlan(buildDirectPlan(s))),
-    ] as readonly Plan[];
+    ];
     readonly website = 'https://lucidtrading.com';
-
-    maxFundedAccounts(): number {
-        return 5;
-    }
 }
+
+const MAX_FUNDED_ACCOUNTS = 5;
 
 function buildDirectPlan(size: LucidDirectSize): PlanInit {
     return {
         accountSize: size.accountSize,
-        consistency: new ConsistencyRule('funded', 0.2),
+        consistency: new ConsistencyRule(
+            ConsistencyScope.Funded,
+            fraction(0.2),
+        ),
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
                 atProfit: size.maxDrawdown,
-                lockedThreshold: (start) => start,
+                lockedThreshold: lockThresholdAt(0),
             },
         }),
-        evalDailyLossLimit: { kind: 'none' },
+        evalDailyLossLimit: { kind: DailyLossLimitKind.None },
         fees: {
-            activation: 0,
-            monthlySubscription: 0,
-            oneTimeEval: size.evalCost,
-            reset: size.evalCost,
+            activation: dollars(0),
+            monthlySubscription: dollars(0),
+            oneTimeEval: dollars(size.evalCost),
+            reset: dollars(size.evalCost),
         },
         id: {
-            accountSize: size.accountSize,
+            accountSize: 50_000,
             firm: FirmId.Lucid,
-            variant: 'direct',
+            variant: LucidVariant.Direct,
         },
-        label: `$${(size.accountSize / 1000).toFixed(0)}K — LucidDirect`,
+        label: planLabel(size.accountSize, 'LucidDirect'),
+        maxFundedAccounts: MAX_FUNDED_ACCOUNTS,
         minDaysAfterPassForPayout: 5,
-        minPayoutProfit: 500,
+        minPayoutProfit: dollars(500),
         minTradingDays: 0,
-        payoutSchedule: { kind: 'every-n-win-days', n: 5 },
-        payoutTiers: [{ thresholdProfit: 0, traderShare: 0.9 }],
-        profitTarget: 0,
+        payoutTiers: [
+            { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
+        ],
+        profitTarget: dollars(0),
     };
 }
 
 function buildFlexPlan(size: LucidFlexSize): PlanInit {
-    const profitTarget = size.accountSize * 0.06;
+    const profitTarget = dollars(size.accountSize * PROFIT_TARGET_RATIO);
     return {
         accountSize: size.accountSize,
-        consistency: new ConsistencyRule('eval', 0.5),
+        consistency: new ConsistencyRule(ConsistencyScope.Eval, fraction(0.5)),
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
                 atProfit: size.maxDrawdown,
-                lockedThreshold: (start) => start,
+                lockedThreshold: lockThresholdAt(0),
             },
         }),
-        evalDailyLossLimit: { kind: 'none' },
+        evalDailyLossLimit: { kind: DailyLossLimitKind.None },
         fees: {
-            activation: 0,
-            monthlySubscription: 0,
-            oneTimeEval: size.evalCost,
-            reset: size.resetFee,
+            activation: dollars(0),
+            monthlySubscription: dollars(0),
+            oneTimeEval: dollars(size.evalCost),
+            reset: dollars(size.resetFee),
         },
         id: {
-            accountSize: size.accountSize,
+            accountSize: 50_000,
             firm: FirmId.Lucid,
-            variant: 'flex',
+            variant: LucidVariant.Flex,
         },
-        label: `$${(size.accountSize / 1000).toFixed(0)}K — LucidFlex`,
+        label: planLabel(size.accountSize, 'LucidFlex'),
+        maxFundedAccounts: MAX_FUNDED_ACCOUNTS,
         minDaysAfterPassForPayout: 5,
-        minPayoutProfit: 500,
+        minPayoutProfit: dollars(500),
         minTradingDays: 2,
-        payoutSchedule: { kind: 'every-n-win-days', n: 5 },
-        payoutTiers: [{ thresholdProfit: 0, traderShare: 0.9 }],
+        payoutTiers: [
+            { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
+        ],
         profitTarget,
     };
 }
 
 function buildProPlan(size: LucidProSize): PlanInit {
-    const profitTarget = size.accountSize * 0.06;
+    const profitTarget = dollars(size.accountSize * PROFIT_TARGET_RATIO);
     return {
         accountSize: size.accountSize,
-        consistency: new ConsistencyRule('funded', 0.4),
+        consistency: new ConsistencyRule(
+            ConsistencyScope.Funded,
+            fraction(0.4),
+        ),
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
                 atProfit: size.maxDrawdown,
-                lockedThreshold: (start) => start,
+                lockedThreshold: lockThresholdAt(0),
             },
         }),
         evalDailyLossLimit:
             size.dailyLossLimit === null
-                ? { kind: 'none' }
-                : { amount: size.dailyLossLimit, kind: 'flat' },
+                ? { kind: DailyLossLimitKind.None }
+                : {
+                      amount: size.dailyLossLimit,
+                      kind: DailyLossLimitKind.Flat,
+                  },
         fees: {
-            activation: 0,
-            monthlySubscription: 0,
-            oneTimeEval: size.evalCost,
-            reset: size.resetFee,
+            activation: dollars(0),
+            monthlySubscription: dollars(0),
+            oneTimeEval: dollars(size.evalCost),
+            reset: dollars(size.resetFee),
         },
         id: {
-            accountSize: size.accountSize,
+            accountSize: 50_000,
             firm: FirmId.Lucid,
-            variant: 'pro',
+            variant: LucidVariant.Pro,
         },
-        label: `$${(size.accountSize / 1000).toFixed(0)}K — LucidPro`,
+        label: planLabel(size.accountSize, 'LucidPro'),
+        maxFundedAccounts: MAX_FUNDED_ACCOUNTS,
         minDaysAfterPassForPayout: 3,
-        minPayoutProfit: 500,
+        minPayoutProfit: dollars(500),
         minTradingDays: 1,
-        payoutSchedule: { days: 3, kind: 'per-cycle' },
-        payoutTiers: [{ thresholdProfit: 0, traderShare: 0.9 }],
+        payoutTiers: [
+            { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
+        ],
         profitTarget,
     };
 }

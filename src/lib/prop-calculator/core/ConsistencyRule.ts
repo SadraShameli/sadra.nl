@@ -1,17 +1,30 @@
-export type ConsistencyScope = 'both' | 'eval' | 'funded' | 'none';
+import { type Fraction0to1 } from './units';
+
+export enum ConsistencyScope {
+    Both = 'both',
+    Eval = 'eval',
+    Funded = 'funded',
+    None = 'none',
+}
 
 export class ConsistencyRule {
     constructor(
         readonly scope: ConsistencyScope,
-        readonly maxBestDayShare: number,
+        readonly maxBestDayShare: Fraction0to1,
     ) {}
 
     appliesToEval(): boolean {
-        return this.scope === 'eval' || this.scope === 'both';
+        return (
+            this.scope === ConsistencyScope.Eval ||
+            this.scope === ConsistencyScope.Both
+        );
     }
 
     appliesToFunded(): boolean {
-        return this.scope === 'funded' || this.scope === 'both';
+        return (
+            this.scope === ConsistencyScope.Funded ||
+            this.scope === ConsistencyScope.Both
+        );
     }
 
     isViolated(bestDayProfit: number, totalProfit: number): boolean {

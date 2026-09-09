@@ -1,40 +1,49 @@
 import {
     ConsistencyRule,
+    ConsistencyScope,
+    DailyLossLimitKind,
+    dollars,
     EodTrailingDrawdown,
     FirmId,
+    fraction,
+    FundedNextVariant,
     Plan,
     type PlanInit,
     TradingFirm,
 } from '~/lib/prop-calculator/core';
 
+import { lockThresholdAt, planLabel } from '../shared';
+
+const RESET_FEE_DISCOUNT = 0.9;
+
 class FundedNextPlan extends Plan {}
 
 const LEGACY_SIZES = [
     {
-        accountSize: 50_000,
+        accountSize: dollars(50_000),
         evalCost: 150,
-        maxDrawdown: 2000,
-        profitTarget: 3000,
+        maxDrawdown: dollars(2000),
+        profitTarget: dollars(3000),
     },
 ] as const;
 
 const RAPID_SIZES = [
     {
-        accountSize: 50_000,
+        accountSize: dollars(50_000),
         evalCost: 200,
-        maxDrawdown: 2000,
-        minPayoutProfit: 250,
-        profitTarget: 3000,
+        maxDrawdown: dollars(2000),
+        minPayoutProfit: dollars(250),
+        profitTarget: dollars(3000),
     },
 ] as const;
 
 const BOLT_SIZES = [
     {
-        accountSize: 50_000,
-        dailyLossLimit: 1000,
+        accountSize: dollars(50_000),
+        dailyLossLimit: dollars(1000),
         evalCost: 100,
-        maxDrawdown: 2000,
-        profitTarget: 3000,
+        maxDrawdown: dollars(2000),
+        profitTarget: dollars(3000),
         resetCost: 92,
     },
 ] as const;
@@ -50,43 +59,46 @@ export class FundedNext extends TradingFirm {
         ...LEGACY_SIZES.map((s) => new FundedNextPlan(buildLegacyPlan(s))),
         ...RAPID_SIZES.map((s) => new FundedNextPlan(buildRapidPlan(s))),
         ...BOLT_SIZES.map((s) => new FundedNextPlan(buildBoltPlan(s))),
-    ] as readonly Plan[];
+    ];
     readonly website = 'https://fundednext.com';
-
-    maxFundedAccounts(): number {
-        return 5;
-    }
 }
+
+const MAX_FUNDED_ACCOUNTS = 5;
 
 function buildBoltPlan(size: FunctionBoltSize): PlanInit {
     return {
         accountSize: size.accountSize,
-        consistency: new ConsistencyRule('eval', 0.4),
+        consistency: new ConsistencyRule(ConsistencyScope.Eval, fraction(0.4)),
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
                 atProfit: size.maxDrawdown,
-                lockedThreshold: (start) => start,
+                lockedThreshold: lockThresholdAt(0),
             },
         }),
-        evalDailyLossLimit: { amount: size.dailyLossLimit, kind: 'flat' },
+        evalDailyLossLimit: {
+            amount: size.dailyLossLimit,
+            kind: DailyLossLimitKind.Flat,
+        },
         fees: {
-            activation: 0,
-            monthlySubscription: 0,
-            oneTimeEval: size.evalCost,
-            reset: size.resetCost,
+            activation: dollars(0),
+            monthlySubscription: dollars(0),
+            oneTimeEval: dollars(size.evalCost),
+            reset: dollars(size.resetCost),
         },
         id: {
-            accountSize: size.accountSize,
+            accountSize: 50_000,
             firm: FirmId.FundedNext,
-            variant: 'bolt',
+            variant: FundedNextVariant.Bolt,
         },
-        label: `$${(size.accountSize / 1000).toFixed(0)}K — Bolt`,
+        label: planLabel(size.accountSize, 'Bolt'),
+        maxFundedAccounts: MAX_FUNDED_ACCOUNTS,
         minDaysAfterPassForPayout: 0,
-        minPayoutProfit: 250,
+        minPayoutProfit: dollars(250),
         minTradingDays: 0,
-        payoutSchedule: { kind: 'daily' },
-        payoutTiers: [{ thresholdProfit: 0, traderShare: 0.8 }],
+        payoutTiers: [
+            { thresholdProfit: dollars(0), traderShare: fraction(0.8) },
+        ],
         profitTarget: size.profitTarget,
     };
 }
@@ -94,32 +106,34 @@ function buildBoltPlan(size: FunctionBoltSize): PlanInit {
 function buildLegacyPlan(size: FunctionLegacySize): PlanInit {
     return {
         accountSize: size.accountSize,
-        consistency: new ConsistencyRule('eval', 0.4),
+        consistency: new ConsistencyRule(ConsistencyScope.Eval, fraction(0.4)),
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
                 atProfit: size.maxDrawdown,
-                lockedThreshold: (start) => start,
+                lockedThreshold: lockThresholdAt(0),
             },
         }),
-        evalDailyLossLimit: { kind: 'none' },
+        evalDailyLossLimit: { kind: DailyLossLimitKind.None },
         fees: {
-            activation: 0,
-            monthlySubscription: 0,
-            oneTimeEval: size.evalCost,
-            reset: Math.round(size.evalCost * 0.9),
+            activation: dollars(0),
+            monthlySubscription: dollars(0),
+            oneTimeEval: dollars(size.evalCost),
+            reset: dollars(Math.round(size.evalCost * RESET_FEE_DISCOUNT)),
         },
         id: {
-            accountSize: size.accountSize,
+            accountSize: 50_000,
             firm: FirmId.FundedNext,
-            variant: 'legacy',
+            variant: FundedNextVariant.Legacy,
         },
-        label: `$${(size.accountSize / 1000).toFixed(0)}K — Legacy`,
+        label: planLabel(size.accountSize, 'Legacy'),
+        maxFundedAccounts: MAX_FUNDED_ACCOUNTS,
         minDaysAfterPassForPayout: 5,
-        minPayoutProfit: 250,
+        minPayoutProfit: dollars(250),
         minTradingDays: 3,
-        payoutSchedule: { kind: 'biweekly' },
-        payoutTiers: [{ thresholdProfit: 0, traderShare: 0.8 }],
+        payoutTiers: [
+            { thresholdProfit: dollars(0), traderShare: fraction(0.8) },
+        ],
         profitTarget: size.profitTarget,
     };
 }
@@ -127,32 +141,37 @@ function buildLegacyPlan(size: FunctionLegacySize): PlanInit {
 function buildRapidPlan(size: FunctionRapidSize): PlanInit {
     return {
         accountSize: size.accountSize,
-        consistency: new ConsistencyRule('funded', 0.4),
+        consistency: new ConsistencyRule(
+            ConsistencyScope.Funded,
+            fraction(0.4),
+        ),
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
                 atProfit: size.maxDrawdown,
-                lockedThreshold: (start) => start,
+                lockedThreshold: lockThresholdAt(0),
             },
         }),
-        evalDailyLossLimit: { kind: 'none' },
+        evalDailyLossLimit: { kind: DailyLossLimitKind.None },
         fees: {
-            activation: 0,
-            monthlySubscription: 0,
-            oneTimeEval: size.evalCost,
-            reset: Math.round(size.evalCost * 0.9),
+            activation: dollars(0),
+            monthlySubscription: dollars(0),
+            oneTimeEval: dollars(size.evalCost),
+            reset: dollars(Math.round(size.evalCost * RESET_FEE_DISCOUNT)),
         },
         id: {
-            accountSize: size.accountSize,
+            accountSize: 50_000,
             firm: FirmId.FundedNext,
-            variant: 'rapid',
+            variant: FundedNextVariant.Rapid,
         },
-        label: `$${(size.accountSize / 1000).toFixed(0)}K — Rapid`,
+        label: planLabel(size.accountSize, 'Rapid'),
+        maxFundedAccounts: MAX_FUNDED_ACCOUNTS,
         minDaysAfterPassForPayout: 5,
         minPayoutProfit: size.minPayoutProfit,
         minTradingDays: 0,
-        payoutSchedule: { days: 3, kind: 'per-cycle' },
-        payoutTiers: [{ thresholdProfit: 0, traderShare: 0.8 }],
+        payoutTiers: [
+            { thresholdProfit: dollars(0), traderShare: fraction(0.8) },
+        ],
         profitTarget: size.profitTarget,
     };
 }

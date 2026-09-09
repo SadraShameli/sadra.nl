@@ -9,7 +9,7 @@ import {
 } from '~/components/ui/Select';
 import { formatCompactCurrency } from '~/lib/format';
 import {
-    type FirmId,
+    parseFirmId,
     type Plan,
     serializePlanId,
     type TradingFirm,
@@ -47,7 +47,8 @@ export default function FirmPlanPicker({
                 </label>
                 <Select
                     onValueChange={(v) => {
-                        const next = firms.find((f) => f.id === (v as FirmId));
+                        const firmId = parseFirmId(v);
+                        const next = firms.find((f) => f.id === firmId);
                         if (next) onFirmChange(next);
                     }}
                     value={firm.id}

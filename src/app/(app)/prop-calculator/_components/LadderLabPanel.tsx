@@ -13,13 +13,14 @@ import {
     ALL_INSTRUMENTS,
     type DayPolicy,
     type DayStopRule,
+    DayStopRuleKind,
     INSTRUMENTS,
     InstrumentSymbol,
     type LadderScore,
     ladderSum,
     minStopPoints,
     type Plan,
-    type RungSizing,
+    RungSizing,
 } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
@@ -56,9 +57,11 @@ export default function LadderLabPanel({
         InstrumentSymbol.NQ,
     );
     const [stopRule, setStopRule] = useState<DayStopRule>({
-        kind: 'day-green',
+        kind: DayStopRuleKind.DayGreen,
     });
-    const [rungSizing, setSizingMode] = useState<RungSizing>('capToCushion');
+    const [rungSizing, setSizingMode] = useState<RungSizing>(
+        RungSizing.CapToCushion,
+    );
     const { cancel, run, state } = useLadderSearch();
 
     const aliasingFrom = Math.round(cushion * 0.4);

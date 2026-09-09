@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    ApexVariant,
+    DailyLossLimitKind,
+    dollars,
     FirmId,
+    fraction,
     type Plan,
     withPlanOverrides,
 } from '~/lib/prop-calculator/core';
@@ -9,7 +13,7 @@ import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFu
 
 const firm = new ApexTraderFunding();
 
-function findPlan(accountSize: 50_000, variant: 'eod') {
+function findPlan(accountSize: 50_000, variant: ApexVariant.Eod) {
     const plan = firm.findPlan({ accountSize, firm: FirmId.Apex, variant });
     if (!plan) {
         throw new Error(`Apex plan not found: ${accountSize} ${variant}`);
@@ -32,14 +36,13 @@ function snapshotOf(plan: Plan) {
         minQualifyingDayProfit: plan.minQualifyingDayProfit,
         minTradingDays: plan.minTradingDays,
         payoutLadder: plan.payoutLadder,
-        payoutSchedule: plan.payoutSchedule,
         payoutTiers: plan.payoutTiers,
         profitTarget: plan.profitTarget,
     };
 }
 
 describe('withPlanOverrides', () => {
-    const basePlan = findPlan(50_000, 'eod');
+    const basePlan = findPlan(50_000, ApexVariant.Eod);
 
     it('flows an overridden profitTarget through isPassed', () => {
         const state = basePlan.initialState();
@@ -49,7 +52,7 @@ describe('withPlanOverrides', () => {
         expect(basePlan.isPassed(state)).toBe(false);
 
         const loweredTarget = withPlanOverrides(basePlan, {
-            profitTarget: 500,
+            profitTarget: dollars(500),
         });
 
         expect(loweredTarget.isPassed(state)).toBe(true);
@@ -64,7 +67,10 @@ describe('withPlanOverrides', () => {
         expect(basePlan.isBust(lossState, 'eval')).toBe(false);
 
         const stricterDll = withPlanOverrides(basePlan, {
-            evalDailyLossLimit: { amount: 200, kind: 'flat' },
+            evalDailyLossLimit: {
+                amount: dollars(200),
+                kind: DailyLossLimitKind.Flat,
+            },
         });
 
         expect(stricterDll.isBust(lossState, 'eval')).toBe(true);
@@ -75,7 +81,9 @@ describe('withPlanOverrides', () => {
         expect(basePlan.payoutFromProfit(1000)).toBe(1000);
 
         const halfShare = withPlanOverrides(basePlan, {
-            payoutTiers: [{ thresholdProfit: 0, traderShare: 0.5 }],
+            payoutTiers: [
+                { thresholdProfit: dollars(0), traderShare: fraction(0.5) },
+            ],
         });
 
         expect(halfShare.payoutFromProfit(1000)).toBe(500);
@@ -86,7 +94,7 @@ describe('withPlanOverrides', () => {
         const baseCost = basePlan.totalCostThroughDay(21);
 
         const cheaperEval = withPlanOverrides(basePlan, {
-            fees: { ...basePlan.fees, oneTimeEval: 1 },
+            fees: { ...basePlan.fees, oneTimeEval: dollars(1) },
         });
 
         expect(cheaperEval.totalCostThroughDay(21)).toBeLessThan(baseCost);
@@ -101,17 +109,22 @@ describe('withPlanOverrides', () => {
         const drawdownReference = basePlan.drawdown;
 
         withPlanOverrides(basePlan, {
-            evalDailyLossLimit: { amount: 1, kind: 'flat' },
+            evalDailyLossLimit: {
+                amount: dollars(1),
+                kind: DailyLossLimitKind.Flat,
+            },
             fees: {
-                activation: 0,
-                monthlySubscription: 0,
-                oneTimeEval: 0,
-                reset: 0,
+                activation: dollars(0),
+                monthlySubscription: dollars(0),
+                oneTimeEval: dollars(0),
+                reset: dollars(0),
             },
             label: 'stressed variant',
-            minPayoutProfit: 999_999,
-            payoutTiers: [{ thresholdProfit: 0, traderShare: 0 }],
-            profitTarget: 1,
+            minPayoutProfit: dollars(999_999),
+            payoutTiers: [
+                { thresholdProfit: dollars(0), traderShare: fraction(0) },
+            ],
+            profitTarget: dollars(1),
         });
 
         expect(snapshotOf(basePlan)).toEqual(before);
@@ -121,7 +134,9 @@ describe('withPlanOverrides', () => {
     });
 
     it('returns a distinct Plan instance from the original', () => {
-        const variant = withPlanOverrides(basePlan, { profitTarget: 1 });
+        const variant = withPlanOverrides(basePlan, {
+            profitTarget: dollars(1),
+        });
         expect(variant).not.toBe(basePlan);
         expect(variant.profitTarget).toBe(1);
         expect(basePlan.profitTarget).toBe(3000);

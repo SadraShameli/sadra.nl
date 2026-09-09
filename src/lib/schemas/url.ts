@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+import { CorrelationMode } from '~/lib/prop-calculator';
+import { DayStopRuleKind } from '~/lib/prop-calculator/core';
+
 export const PROFILE_TAB_VALUES = [
     'account',
     'lifting',
@@ -53,11 +56,17 @@ export const tradingPlanSearchSchema = z.object({
 });
 
 export const dayStopRuleSchema = z.discriminatedUnion('kind', [
-    z.object({ kind: z.literal('none') }),
-    z.object({ kind: z.literal('first-win') }),
-    z.object({ kind: z.literal('day-green') }),
-    z.object({ k: z.number(), kind: z.literal('after-k-losses') }),
-    z.object({ dollars: z.number(), kind: z.literal('after-target') }),
+    z.object({ kind: z.literal(DayStopRuleKind.None) }),
+    z.object({ kind: z.literal(DayStopRuleKind.FirstWin) }),
+    z.object({ kind: z.literal(DayStopRuleKind.DayGreen) }),
+    z.object({
+        k: z.number(),
+        kind: z.literal(DayStopRuleKind.AfterKLosses),
+    }),
+    z.object({
+        dollars: z.number(),
+        kind: z.literal(DayStopRuleKind.AfterTarget),
+    }),
 ]);
 
 export const dayPolicySchema = z.object({
@@ -68,7 +77,7 @@ export const dayPolicySchema = z.object({
 
 export const labScenarioSchema = z.object({
     accounts: z.number(),
-    correlation: z.enum(['copy', 'grouped', 'independent']),
+    correlation: z.enum(CorrelationMode),
     dayStop: dayStopRuleSchema,
     groups: z.number(),
     id: z.string(),

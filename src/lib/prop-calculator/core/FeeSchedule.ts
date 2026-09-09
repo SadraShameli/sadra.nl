@@ -1,15 +1,16 @@
 import { TRADING_DAYS_PER_MONTH } from './constants';
+import { type Dollars, type Percent0to100 } from './units';
 
 export interface CouponDiscounts {
-    activationPercent: number;
-    evalPercent: number;
+    activationPercent: Percent0to100;
+    evalPercent: Percent0to100;
 }
 
 export interface FeeSchedule {
-    activation: number;
-    monthlySubscription: number;
-    oneTimeEval: number;
-    reset: number;
+    activation: Dollars;
+    monthlySubscription: Dollars;
+    oneTimeEval: Dollars;
+    reset: Dollars;
 }
 
 export function feesUntilPass(

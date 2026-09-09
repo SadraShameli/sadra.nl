@@ -10,6 +10,9 @@ import InfoPopover from '~/components/ui/InfoPopover';
 import { formatCurrency, formatPercent } from '~/lib/format';
 import {
     type DailyLossLimitConfig,
+    DailyLossLimitKind,
+    dollars,
+    fraction,
     type Plan,
     type SimInputs,
     type SimOutputs,
@@ -221,8 +224,8 @@ export default function RuleStressTestPanel({
 
 function buildDllHalvedScenario(basePlan: Plan): StressScenario {
     const isNoOp =
-        basePlan.evalDailyLossLimit.kind === 'none' &&
-        basePlan.fundedDailyLossLimit.kind === 'none';
+        basePlan.evalDailyLossLimit.kind === DailyLossLimitKind.None &&
+        basePlan.fundedDailyLossLimit.kind === DailyLossLimitKind.None;
     return {
         isNoOp,
         label: 'DLL ×0.5',
@@ -257,7 +260,7 @@ function buildLadderCutScenario(basePlan: Plan): StressScenario {
         plan: withPlanOverrides(basePlan, {
             payoutTiers: basePlan.payoutTiers.map((tier) => ({
                 ...tier,
-                traderShare: tier.traderShare * 0.8,
+                traderShare: fraction(tier.traderShare * 0.8),
             })),
         }),
     };
@@ -269,7 +272,9 @@ function buildQualifyingBarScenario(basePlan: Plan): StressScenario {
             isNoOp: false,
             label: 'Qualifying bar +40%',
             plan: withPlanOverrides(basePlan, {
-                minQualifyingDayProfit: basePlan.minQualifyingDayProfit * 1.4,
+                minQualifyingDayProfit: dollars(
+                    basePlan.minQualifyingDayProfit * 1.4,
+                ),
             }),
         };
     }
@@ -277,7 +282,7 @@ function buildQualifyingBarScenario(basePlan: Plan): StressScenario {
         isNoOp: false,
         label: 'Profit target +40% (proxy)',
         plan: withPlanOverrides(basePlan, {
-            profitTarget: basePlan.profitTarget * 1.4,
+            profitTarget: dollars(basePlan.profitTarget * 1.4),
         }),
     };
 }
@@ -287,7 +292,7 @@ function buildSafetyNetScenario(basePlan: Plan): StressScenario {
         isNoOp: false,
         label: 'Safety net ×1.5',
         plan: withPlanOverrides(basePlan, {
-            minPayoutProfit: basePlan.minPayoutProfit * 1.5,
+            minPayoutProfit: dollars(basePlan.minPayoutProfit * 1.5),
         }),
     };
 }
@@ -321,18 +326,21 @@ function halveDailyLossLimit(
     config: DailyLossLimitConfig,
 ): DailyLossLimitConfig {
     switch (config.kind) {
-        case 'flat': {
-            return { amount: config.amount / 2, kind: 'flat' };
+        case DailyLossLimitKind.Flat: {
+            return {
+                amount: dollars(config.amount / 2),
+                kind: DailyLossLimitKind.Flat,
+            };
         }
-        case 'none': {
+        case DailyLossLimitKind.None: {
             return config;
         }
-        case 'tiered': {
+        case DailyLossLimitKind.Tiered: {
             return {
-                kind: 'tiered',
+                kind: DailyLossLimitKind.Tiered,
                 tiers: config.tiers.map((tier) => ({
                     ...tier,
-                    dailyLossLimit: tier.dailyLossLimit / 2,
+                    dailyLossLimit: dollars(tier.dailyLossLimit / 2),
                 })),
             };
         }

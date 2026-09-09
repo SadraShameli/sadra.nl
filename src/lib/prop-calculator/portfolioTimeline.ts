@@ -2,6 +2,7 @@ import { TRADING_DAYS_PER_MONTH } from './core/constants';
 import {
     type DayPolicy,
     type DayStopRule,
+    DayStopRuleKind,
     DEFAULT_RUNG_SIZING,
     flatDayPolicy,
     type RungSizing,
@@ -12,8 +13,14 @@ import {
     tryFundedPayout,
 } from './core/FundedPayoutCycle';
 import { type Plan } from './core/Plan';
+import {
+    type Dollars,
+    dollars,
+    fraction,
+    type Fraction0to1,
+} from './core/units';
 import { deriveSubSeed, mulberry32, type Rng } from './rng';
-import { type EvalAttemptResult, runDay, runEvalAttempt } from './simulator';
+import { runEvalWithRetries, stepFundedDay } from './simulator';
 import { percentile } from './stats';
 
 const MAX_EVAL_ATTEMPTS_PER_CARD = 25;
@@ -67,20 +74,20 @@ export interface CardResult {
 }
 
 export interface EvalToFundedCycleOptions {
-    commission: number;
+    commission: Dollars;
     discounts: CouponDiscounts | undefined;
     evalDayPolicy: DayPolicy;
     fundedDayPolicy: DayPolicy;
     maxEvalDays: number;
     maxFundedDays: number;
     maxPayoutsPerCard?: number;
-    minRetainedCushion: number;
-    payoutRequestSize: number | undefined;
+    minRetainedCushion: Dollars;
+    payoutRequestSize: Dollars | undefined;
     plan: Plan;
     rng: Rng;
     rrRatio: number;
     rungSizing: RungSizing;
-    winrate: number;
+    winrate: Fraction0to1;
 }
 
 export interface PayoutEvent {
@@ -153,12 +160,19 @@ export function runAccountTimeline(
         rng,
         rrRatio,
         rungSizing = DEFAULT_RUNG_SIZING,
-        winrate,
+        winrate: winrateInput,
     } = inputs;
+    const commission = dollars(commissionPerRoundTrip);
+    const cushion = dollars(minRetainedCushion);
+    const requestSize =
+        payoutRequestSize === undefined
+            ? undefined
+            : dollars(payoutRequestSize);
+    const winrate = fraction(winrateInput);
     const flatPolicy = flatDayPolicy(
         inputs.riskPerTrade,
         inputs.tradesPerDay,
-        inputs.dayStop ?? { kind: 'none' },
+        inputs.dayStop ?? { kind: DayStopRuleKind.None },
     );
     const evalDayPolicy = inputs.evalDayPolicy ?? flatPolicy;
     const fundedDayPolicy = inputs.fundedDayPolicy ?? flatPolicy;
@@ -181,15 +195,15 @@ export function runAccountTimeline(
         const remainingDays = safeDayBudget - cardStart;
 
         const card = runEvalToFundedCycle({
-            commission: commissionPerRoundTrip,
+            commission,
             discounts,
             evalDayPolicy,
             fundedDayPolicy,
             maxEvalDays: safeMaxEvalDays,
             maxFundedDays: remainingDays,
             maxPayoutsPerCard,
-            minRetainedCushion,
-            payoutRequestSize,
+            minRetainedCushion: cushion,
+            payoutRequestSize: requestSize,
             plan,
             rng,
             rrRatio,
@@ -253,41 +267,26 @@ export function runEvalToFundedCycle(
     const safeMaxFundedDays = Math.max(0, Math.floor(maxFundedDays));
     const payoutCap = Math.max(0, Math.floor(maxPayoutsPerCard));
 
-    let totalDays = 0;
-    let resetFeesPaid = 0;
-    let attemptsUsed = 0;
-    let passedAttempt: EvalAttemptResult;
+    const retryResult = runEvalWithRetries({
+        commission,
+        dayPolicy: evalDayPolicy,
+        maxAttempts: MAX_EVAL_ATTEMPTS_PER_CARD,
+        maxEvalDays: safeMaxEvalDays,
+        plan,
+        rng,
+        rrRatio,
+        rungSizing,
+        shouldCaptureEquity: false,
+        winrate,
+    });
+    const { attemptsUsed, resetFeesPaid } = retryResult;
+    let totalDays = retryResult.daysElapsed;
 
-    for (;;) {
-        attemptsUsed += 1;
-        const attempt = runEvalAttempt({
-            commission,
-            dayPolicy: evalDayPolicy,
-            maxEvalDays: safeMaxEvalDays,
-            plan,
-            rng,
-            rrRatio,
-            rungSizing,
-            shouldCaptureEquity: false,
-            winrate,
-        });
-        totalDays += attempt.days;
-
-        if (attempt.outcome === 'passed') {
-            passedAttempt = attempt;
-            break;
-        }
-
-        if (
-            attempt.outcome === 'busted' &&
-            attemptsUsed < MAX_EVAL_ATTEMPTS_PER_CARD
-        ) {
-            resetFeesPaid += plan.fees.reset;
-            continue;
-        }
-
+    if (retryResult.terminalOutcome !== null) {
         const outcome: CardOutcome =
-            attempt.outcome === 'busted' ? 'bust-eval' : 'timeout-eval';
+            retryResult.terminalOutcome === 'busted'
+                ? 'bust-eval'
+                : 'timeout-eval';
         return {
             attemptsUsed,
             outcome,
@@ -298,7 +297,7 @@ export function runEvalToFundedCycle(
         };
     }
 
-    const { state } = passedAttempt;
+    const { state } = retryResult.attempt;
     state.fundingBaseline = state.balance;
 
     const ladder = plan.payoutLadder;
@@ -309,22 +308,19 @@ export function runEvalToFundedCycle(
     let isLadderExhausted = false;
 
     for (let day = 0; day < safeMaxFundedDays; day++) {
-        const { busted } = runDay({
+        const { busted } = stepFundedDay({
             commission,
             dayPolicy: fundedDayPolicy,
-            phase: 'funded',
             plan,
             rng,
             rrRatio,
             rungSizing,
             state,
-            stats: passedAttempt.stats,
+            stats: retryResult.attempt.stats,
+            tracker,
             winrate,
         });
         fundedDays += 1;
-        if (state.todayPnL > tracker.cycleBestDayProfit) {
-            tracker.cycleBestDayProfit = state.todayPnL;
-        }
 
         if (busted) {
             isBustedFunded = true;

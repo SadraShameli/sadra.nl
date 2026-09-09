@@ -8,7 +8,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '~/components/ui/Select';
-import { type DayStopRule } from '~/lib/prop-calculator';
+import { type DayStopRule, DayStopRuleKind } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
 interface DayStopRulePickerProperties {
@@ -34,36 +34,36 @@ export default function DayStopRulePicker({
 }: DayStopRulePickerProperties) {
     const handleKind = (kind: Kind) => {
         switch (kind) {
-            case 'after-k-losses': {
+            case DayStopRuleKind.AfterKLosses: {
                 onChange({
                     k:
-                        value.kind === 'after-k-losses'
+                        value.kind === DayStopRuleKind.AfterKLosses
                             ? Math.max(1, value.k)
                             : 2,
-                    kind: 'after-k-losses',
+                    kind: DayStopRuleKind.AfterKLosses,
                 });
                 return;
             }
-            case 'after-target': {
+            case DayStopRuleKind.AfterTarget: {
                 onChange({
                     dollars:
-                        value.kind === 'after-target'
+                        value.kind === DayStopRuleKind.AfterTarget
                             ? Math.max(1, value.dollars)
                             : 500,
-                    kind: 'after-target',
+                    kind: DayStopRuleKind.AfterTarget,
                 });
                 return;
             }
-            case 'day-green': {
-                onChange({ kind: 'day-green' });
+            case DayStopRuleKind.DayGreen: {
+                onChange({ kind: DayStopRuleKind.DayGreen });
                 return;
             }
-            case 'first-win': {
-                onChange({ kind: 'first-win' });
+            case DayStopRuleKind.FirstWin: {
+                onChange({ kind: DayStopRuleKind.FirstWin });
                 return;
             }
-            case 'none': {
-                onChange({ kind: 'none' });
+            case DayStopRuleKind.None: {
+                onChange({ kind: DayStopRuleKind.None });
                 return;
             }
         }
@@ -94,7 +94,7 @@ export default function DayStopRulePicker({
                     ))}
                 </SelectContent>
             </Select>
-            {value.kind === 'after-k-losses' && (
+            {value.kind === DayStopRuleKind.AfterKLosses && (
                 <Input
                     aria-label="K losses"
                     className={compact ? 'h-7 text-xs' : undefined}
@@ -104,14 +104,17 @@ export default function DayStopRulePicker({
                         const parsed = Math.floor(Number(event.target.value));
                         const n = Math.max(1, Math.min(20, parsed));
                         if (Number.isFinite(n))
-                            onChange({ k: n, kind: 'after-k-losses' });
+                            onChange({
+                                k: n,
+                                kind: DayStopRuleKind.AfterKLosses,
+                            });
                     }}
                     step={1}
                     type="number"
                     value={value.k}
                 />
             )}
-            {value.kind === 'after-target' && (
+            {value.kind === DayStopRuleKind.AfterTarget && (
                 <Input
                     aria-label="Target dollars"
                     className={compact ? 'h-7 text-xs' : undefined}
@@ -119,7 +122,10 @@ export default function DayStopRulePicker({
                     onChange={(event) => {
                         const n = Math.max(1, Number(event.target.value));
                         if (Number.isFinite(n))
-                            onChange({ dollars: n, kind: 'after-target' });
+                            onChange({
+                                dollars: n,
+                                kind: DayStopRuleKind.AfterTarget,
+                            });
                     }}
                     step={50}
                     type="number"

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { FirmId } from '~/lib/prop-calculator/core';
+import { ApexVariant, FirmId } from '~/lib/prop-calculator/core';
 import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFunding';
 import {
     type PortfolioTimelineInputs,
@@ -10,7 +10,7 @@ import {
 
 const firm = new ApexTraderFunding();
 
-function findPlan(accountSize: 50_000, variant: 'eod' | 'intraday') {
+function findPlan(accountSize: 50_000, variant: ApexVariant) {
     const plan = firm.findPlan({ accountSize, firm: FirmId.Apex, variant });
     if (!plan) {
         throw new Error(`Apex plan not found: ${accountSize} ${variant}`);
@@ -18,7 +18,7 @@ function findPlan(accountSize: 50_000, variant: 'eod' | 'intraday') {
     return plan;
 }
 
-const plan50kEod = findPlan(50_000, 'eod');
+const plan50kEod = findPlan(50_000, ApexVariant.Eod);
 
 function assertWellFormed(out: PortfolioTimelineResult): void {
     expect(out.days.length).toBeGreaterThan(0);

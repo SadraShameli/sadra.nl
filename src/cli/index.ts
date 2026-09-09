@@ -11,6 +11,10 @@ const main = defineCommand({
             const commandModule = await import('./commands/accounting/group');
             return commandModule.default;
         },
+        prop: async () => {
+            const commandModule = await import('./commands/prop/group');
+            return commandModule.default;
+        },
         seed: async () => {
             const commandModule = await import('./commands/seed/group');
             return commandModule.default;

@@ -4,10 +4,14 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
     ALL_FIRMS,
+    ApexVariant,
+    CorrelationMode,
     type DayPolicy,
     type DayStopRule,
+    DayStopRuleKind,
     findFirm,
     FirmId,
+    percent,
     type Plan,
     type SimInputs,
     type SimOutputs,
@@ -102,8 +106,8 @@ export function buildDefaultLabScenarios(): LabScenario[] {
     return [
         {
             accounts: 10,
-            correlation: 'copy',
-            dayStop: { kind: 'none' },
+            correlation: CorrelationMode.Copy,
+            dayStop: { kind: DayStopRuleKind.None },
             groups: 1,
             id: freshId(),
             label: 'Risk-scale',
@@ -114,8 +118,8 @@ export function buildDefaultLabScenarios(): LabScenario[] {
         },
         {
             accounts: 10,
-            correlation: 'copy',
-            dayStop: { kind: 'none' },
+            correlation: CorrelationMode.Copy,
+            dayStop: { kind: DayStopRuleKind.None },
             groups: 1,
             id: freshId(),
             label: 'Frequency-scale',
@@ -126,8 +130,8 @@ export function buildDefaultLabScenarios(): LabScenario[] {
         },
         {
             accounts: 10,
-            correlation: 'grouped',
-            dayStop: { kind: 'none' },
+            correlation: CorrelationMode.Grouped,
+            dayStop: { kind: DayStopRuleKind.None },
             groups: 2,
             id: freshId(),
             label: 'Group-split',
@@ -196,8 +200,8 @@ export function useCalculator(): UseCalculatorReturn {
             copyAccounts: state.copyAccounts,
             dayStop: state.dayStop,
             discounts: {
-                activationPercent: effectiveActivationDiscount,
-                evalPercent: state.evalDiscountPercent,
+                activationPercent: percent(effectiveActivationDiscount),
+                evalPercent: percent(state.evalDiscountPercent),
             },
             evalDayPolicy: state.evalDayPolicy ?? undefined,
             fundedHorizonDays: state.fundedHorizonDays,
@@ -293,8 +297,8 @@ export function useCalculator(): UseCalculatorReturn {
                     ? { ...last, id: freshId(), label: `${last.label} copy` }
                     : {
                           accounts: 10,
-                          correlation: 'copy',
-                          dayStop: { kind: 'none' },
+                          correlation: CorrelationMode.Copy,
+                          dayStop: { kind: DayStopRuleKind.None },
                           groups: 1,
                           id: freshId(),
                           label: 'New scenario',
@@ -455,7 +459,7 @@ function defaultState(): CalculatorState {
         activationDiscountPercent: 0,
         commissionPerRoundTrip: 0,
         copyAccounts: 1,
-        dayStop: { kind: 'none' },
+        dayStop: { kind: DayStopRuleKind.None },
         evalDayPolicy: null,
         evalDiscountPercent: 0,
         firm: DEFAULT_FIRM,
@@ -478,7 +482,7 @@ function defaultState(): CalculatorState {
                 planId: {
                     accountSize: 50_000,
                     firm: FirmId.Apex,
-                    variant: 'eod' as const,
+                    variant: ApexVariant.Eod,
                 },
             },
         ],

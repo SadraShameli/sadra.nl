@@ -18,40 +18,37 @@ import {
     walkPayoutTiers,
 } from './PayoutTiers';
 import { type PlanId } from './PlanId';
+import { type Dollars, dollars, type Fraction0to1 } from './units';
 
-export type PayoutSchedule =
-    | { days: number; kind: 'per-cycle' }
-    | { kind: 'biweekly' }
-    | { kind: 'daily' }
-    | { kind: 'event-driven' }
-    | { kind: 'every-n-win-days'; n: number };
+export type ConsistencyOverride =
+    { kind: 'inherit' } | { kind: 'set'; rule: ConsistencyRule | null };
 
 export interface PlanInit {
-    accountSize: number;
+    accountSize: Dollars;
     consistency: ConsistencyRule | null;
     contractLimits?: ContractLimits;
     drawdown: DrawdownStrategy;
     evalDailyLossLimit: DailyLossLimitConfig;
     fees: FeeSchedule;
-    fundedConsistency?: ConsistencyRule | null;
+    fundedConsistency?: ConsistencyOverride;
     fundedDailyLossLimit?: DailyLossLimitConfig;
     id: PlanId;
     label: string;
+    maxFundedAccounts: number;
     minDaysAfterPassForPayout?: number;
-    minPayoutProfit?: number;
-    minPayoutRequest?: number;
-    minQualifyingDayProfit?: null | number;
+    minPayoutProfit?: Dollars;
+    minPayoutRequest?: Dollars;
+    minQualifyingDayProfit?: Dollars | null;
     minTradingDays: number;
     payoutLadder?: null | PayoutLadder;
-    payoutProfitShare?: number;
-    payoutRequestCap?: number;
-    payoutSchedule: PayoutSchedule;
+    payoutProfitShare?: Fraction0to1;
+    payoutRequestCap?: Dollars;
     payoutTiers: readonly PayoutTier[];
-    profitTarget: number;
+    profitTarget: Dollars;
 }
 
 export abstract class Plan {
-    readonly accountSize: number;
+    readonly accountSize: Dollars;
 
     readonly consistency: ConsistencyRule | null;
 
@@ -69,27 +66,27 @@ export abstract class Plan {
 
     readonly label: string;
 
+    readonly maxFundedAccounts: number;
+
     readonly minDaysAfterPassForPayout: number;
 
-    readonly minPayoutProfit: number;
+    readonly minPayoutProfit: Dollars;
 
-    readonly minPayoutRequest: number;
+    readonly minPayoutRequest: Dollars;
 
-    readonly minQualifyingDayProfit: null | number;
+    readonly minQualifyingDayProfit: Dollars | null;
 
     readonly minTradingDays: number;
 
     readonly payoutLadder: null | PayoutLadder;
 
-    readonly payoutProfitShare: null | number;
+    readonly payoutProfitShare: Fraction0to1 | null;
 
-    readonly payoutRequestCap: null | number;
-
-    readonly payoutSchedule: PayoutSchedule;
+    readonly payoutRequestCap: Dollars | null;
 
     readonly payoutTiers: readonly PayoutTier[];
 
-    readonly profitTarget: number;
+    readonly profitTarget: Dollars;
 
     constructor(protected readonly init: PlanInit) {
         this.accountSize = init.accountSize;
@@ -102,16 +99,16 @@ export abstract class Plan {
             init.fundedDailyLossLimit ?? init.evalDailyLossLimit;
         this.id = init.id;
         this.label = init.label;
+        this.maxFundedAccounts = init.maxFundedAccounts;
         this.minDaysAfterPassForPayout = init.minDaysAfterPassForPayout ?? 0;
-        this.minPayoutProfit = init.minPayoutProfit ?? 0;
+        this.minPayoutProfit = init.minPayoutProfit ?? dollars(0);
         this.minPayoutRequest =
-            init.minPayoutRequest ?? init.minPayoutProfit ?? 0;
+            init.minPayoutRequest ?? init.minPayoutProfit ?? dollars(0);
         this.minQualifyingDayProfit = init.minQualifyingDayProfit ?? null;
         this.minTradingDays = init.minTradingDays;
         this.payoutLadder = init.payoutLadder ?? null;
         this.payoutProfitShare = init.payoutProfitShare ?? null;
         this.payoutRequestCap = init.payoutRequestCap ?? null;
-        this.payoutSchedule = init.payoutSchedule;
         this.payoutTiers = init.payoutTiers;
         this.profitTarget = init.profitTarget;
     }
@@ -150,8 +147,9 @@ export abstract class Plan {
     }
 
     fundedConsistencyRule(): ConsistencyRule | null {
-        if (this.init.fundedConsistency !== undefined) {
-            return this.init.fundedConsistency;
+        const override = this.init.fundedConsistency;
+        if (override?.kind === 'set') {
+            return override.rule;
         }
         const rule = this.init.consistency;
         return rule?.appliesToFunded() ? rule : null;

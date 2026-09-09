@@ -1,8 +1,10 @@
+import { type ContractCount } from './units';
+
 export interface ContractLimits {
-    readonly evalMicros: null | number;
-    readonly evalMinis: number;
-    readonly fundedMicros: null | number;
-    readonly fundedMinis: null | number;
+    readonly evalMicros: ContractCount | null;
+    readonly evalMinis: ContractCount;
+    readonly fundedMicros: ContractCount | null;
+    readonly fundedMinis: ContractCount | null;
 }
 
 export function isRungPlaceable(options: {

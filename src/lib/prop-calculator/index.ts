@@ -1,7 +1,7 @@
 export * from './core';
 export { ALL_FIRMS, findFirm } from './firms';
 export {
-    type CorrelationMode,
+    CorrelationMode,
     type CostBreakdown,
     type MultiAccountResult,
     type PortfolioSimInputs,

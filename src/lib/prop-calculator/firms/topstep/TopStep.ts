@@ -1,30 +1,37 @@
 import {
     ConsistencyRule,
+    ConsistencyScope,
+    contracts,
+    DailyLossLimitKind,
+    dollars,
     EodTrailingDrawdown,
     FirmId,
+    fraction,
     Plan,
-    type PlanId,
     type PlanInit,
+    TopStepVariant,
     TradingFirm,
 } from '~/lib/prop-calculator/core';
+
+import { lockThresholdAt, planLabel } from '../shared';
 
 class TopStepPlan extends Plan {}
 
 const ACCOUNT_SIZE = 50_000;
-const MAX_LOSS_LIMIT = 2000;
-const PROFIT_TARGET = 3000;
+const MAX_LOSS_LIMIT = dollars(2000);
+const PROFIT_TARGET = dollars(3000);
 const MIN_TRADING_DAYS = 2;
-const MIN_PAYOUT = 125;
+const MIN_PAYOUT = dollars(125);
 const TRADER_SHARE = 0.9;
 
-const COMBINE_CONSISTENCY = 0.5;
+const COMBINE_CONSISTENCY = fraction(0.5);
 
 const CONTRACT_LIMITS = {
-    evalMicros: 50,
-    evalMinis: 5,
+    evalMicros: contracts(50),
+    evalMinis: contracts(5),
     fundedMicros: null,
     fundedMinis: null,
-} as const;
+};
 
 const PRICING_PATHS = [
     {
@@ -48,8 +55,8 @@ const PAYOUT_PATHS = [
         fundedConsistency: null,
         key: 'standard',
         label: 'Standard XFA',
-        minQualifyingDayProfit: 150,
-        payoutRequestCap: 2000,
+        minQualifyingDayProfit: dollars(150),
+        payoutRequestCap: dollars(2000),
         winningDays: 5,
     },
     {
@@ -57,67 +64,90 @@ const PAYOUT_PATHS = [
         key: 'consistency',
         label: 'Consistency XFA',
         minQualifyingDayProfit: null,
-        payoutRequestCap: 3000,
+        payoutRequestCap: dollars(3000),
         winningDays: 3,
     },
 ] as const;
 
 type PayoutPath = (typeof PAYOUT_PATHS)[number];
 type PricingPath = (typeof PRICING_PATHS)[number];
-type TopStepPlanId = Extract<PlanId, { firm: FirmId.TopStep }>;
+type TopStepVariantKey = `${PricingPath['key']}-${PayoutPath['key']}`;
+
+const TOPSTEP_VARIANTS: Record<TopStepVariantKey, TopStepVariant> = {
+    'no-fee-consistency': TopStepVariant.NoFeeConsistency,
+    'no-fee-standard': TopStepVariant.NoFeeStandard,
+    'standard-consistency': TopStepVariant.StandardConsistency,
+    'standard-standard': TopStepVariant.StandardStandard,
+};
 
 export class TopStep extends TradingFirm {
     readonly displayName = 'TopStep';
     readonly id = FirmId.TopStep;
-    readonly plans = PRICING_PATHS.flatMap((pricing) =>
+    readonly plans = buildAllPlans();
+    readonly website = 'https://topstep.com';
+}
+
+const MAX_FUNDED_ACCOUNTS = 5;
+
+function buildAllPlans(): Plan[] {
+    return PRICING_PATHS.flatMap((pricing) =>
         PAYOUT_PATHS.map(
             (payout) => new TopStepPlan(buildPlan(pricing, payout)),
         ),
-    ) as readonly Plan[];
-    readonly website = 'https://topstep.com';
-
-    maxFundedAccounts(): number {
-        return 5;
-    }
+    );
 }
 
 function buildPlan(pricing: PricingPath, payout: PayoutPath): PlanInit {
     return {
-        accountSize: ACCOUNT_SIZE,
-        consistency: new ConsistencyRule('eval', COMBINE_CONSISTENCY),
+        accountSize: dollars(ACCOUNT_SIZE),
+        consistency: new ConsistencyRule(
+            ConsistencyScope.Eval,
+            COMBINE_CONSISTENCY,
+        ),
         contractLimits: CONTRACT_LIMITS,
         drawdown: new EodTrailingDrawdown({
             amount: MAX_LOSS_LIMIT,
             lock: {
                 atProfit: MAX_LOSS_LIMIT,
-                lockedThreshold: (start) => start,
+                lockedThreshold: lockThresholdAt(0),
             },
         }),
-        evalDailyLossLimit: { kind: 'none' },
+        evalDailyLossLimit: { kind: DailyLossLimitKind.None },
         fees: {
-            activation: pricing.activation,
-            monthlySubscription: pricing.monthlySubscription,
-            oneTimeEval: 0,
-            reset: pricing.reset,
+            activation: dollars(pricing.activation),
+            monthlySubscription: dollars(pricing.monthlySubscription),
+            oneTimeEval: dollars(0),
+            reset: dollars(pricing.reset),
         },
-        fundedConsistency:
-            payout.fundedConsistency === null
-                ? null
-                : new ConsistencyRule('funded', payout.fundedConsistency),
+        fundedConsistency: {
+            kind: 'set',
+            rule:
+                payout.fundedConsistency === null
+                    ? null
+                    : new ConsistencyRule(
+                          ConsistencyScope.Funded,
+                          fraction(payout.fundedConsistency),
+                      ),
+        },
         id: {
             accountSize: ACCOUNT_SIZE,
             firm: FirmId.TopStep,
-            variant: `${pricing.key}-${payout.key}` as TopStepPlanId['variant'],
+            variant: TOPSTEP_VARIANTS[`${pricing.key}-${payout.key}`],
         },
-        label: `$${(ACCOUNT_SIZE / 1000).toFixed(0)}K — ${pricing.label} · ${payout.label}`,
+        label: planLabel(ACCOUNT_SIZE, `${pricing.label} · ${payout.label}`),
+        maxFundedAccounts: MAX_FUNDED_ACCOUNTS,
         minDaysAfterPassForPayout: payout.winningDays,
         minPayoutProfit: MIN_PAYOUT,
         minPayoutRequest: MIN_PAYOUT,
         minQualifyingDayProfit: payout.minQualifyingDayProfit,
         minTradingDays: MIN_TRADING_DAYS,
         payoutRequestCap: payout.payoutRequestCap,
-        payoutSchedule: { kind: 'every-n-win-days', n: payout.winningDays },
-        payoutTiers: [{ thresholdProfit: 0, traderShare: TRADER_SHARE }],
+        payoutTiers: [
+            {
+                thresholdProfit: dollars(0),
+                traderShare: fraction(TRADER_SHARE),
+            },
+        ],
         profitTarget: PROFIT_TARGET,
     };
 }

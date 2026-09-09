@@ -22,8 +22,9 @@ import {
     formatPercent,
 } from '~/lib/format';
 import {
-    type CorrelationMode,
+    CorrelationMode,
     type DayStopRule,
+    DayStopRuleKind,
     type Plan,
 } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
@@ -278,19 +279,19 @@ export default function StrategyLabPanel({
 
 function describeDayStop(rule: DayStopRule): string {
     switch (rule.kind) {
-        case 'after-k-losses': {
+        case DayStopRuleKind.AfterKLosses: {
             return `Stop ${rule.k}L`;
         }
-        case 'after-target': {
+        case DayStopRuleKind.AfterTarget: {
             return `Stop $${rule.dollars}`;
         }
-        case 'day-green': {
+        case DayStopRuleKind.DayGreen: {
             return 'Stop when green';
         }
-        case 'first-win': {
+        case DayStopRuleKind.FirstWin: {
             return 'Stop on win';
         }
-        case 'none': {
+        case DayStopRuleKind.None: {
             return 'Take all';
         }
     }
@@ -485,7 +486,9 @@ function StrategyLabTable({
                     return (
                         <Input
                             className="h-7 w-14 text-xs"
-                            disabled={sc.correlation !== 'grouped'}
+                            disabled={
+                                sc.correlation !== CorrelationMode.Grouped
+                            }
                             max={sc.accounts}
                             min={1}
                             onChange={(event) => {

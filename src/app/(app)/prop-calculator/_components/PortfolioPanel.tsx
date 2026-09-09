@@ -31,7 +31,8 @@ import {
 } from '~/lib/format';
 import {
     annualisedRoiOnCost,
-    type FirmId,
+    parseFirmId,
+    percent,
     type Plan,
     type Roi,
     serializePlanId,
@@ -128,10 +129,12 @@ export default function PortfolioPanel({
                     ...baseInputs,
                     copyAccounts: 1,
                     discounts: {
-                        activationPercent: entry.linkActivationDiscount
-                            ? entry.evalDiscountPercent
-                            : entry.activationDiscountPercent,
-                        evalPercent: entry.evalDiscountPercent,
+                        activationPercent: percent(
+                            entry.linkActivationDiscount
+                                ? entry.evalDiscountPercent
+                                : entry.activationDiscountPercent,
+                        ),
+                        evalPercent: percent(entry.evalDiscountPercent),
                     },
                     plan,
                     trials,
@@ -558,16 +561,17 @@ function FirmCell({
     onUpdate: (id: string, patch: Partial<Omit<PortfolioEntry, 'id'>>) => void;
     row: PortfolioTableRow;
 }) {
-    function handleFirmChange(firmId: string) {
-        const newFirm = firms.find((f) => f.id === (firmId as FirmId));
+    function handleFirmChange(rawFirmId: string) {
+        const firmId = parseFirmId(rawFirmId);
+        const newFirm = firms.find((f) => f.id === firmId);
         const firstPlan = newFirm?.plans[0];
-        if (!newFirm || !firstPlan) return;
+        if (!newFirm || !firmId || !firstPlan) return;
         onUpdate(row.entry.id, {
             count: Math.min(
                 row.entry.count,
                 newFirm.maxFundedAccounts(firstPlan),
             ),
-            firmId: firmId as FirmId,
+            firmId,
             planId: firstPlan.id,
         });
     }

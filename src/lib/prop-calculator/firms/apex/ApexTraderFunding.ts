@@ -1,46 +1,72 @@
 import {
+    ApexVariant,
     ConsistencyRule,
+    ConsistencyScope,
+    contracts,
     type DailyLossLimitConfig,
+    DailyLossLimitKind,
+    dollars,
     EodTrailingDrawdown,
     FirmId,
+    fraction,
     IntradayTrailingDrawdown,
     Plan,
     type PlanInit,
     TradingFirm,
 } from '~/lib/prop-calculator/core';
 
+import { lockThresholdAt, planLabel } from '../shared';
+
+const LOCK_OFFSET = 100;
+
 class ApexPlan extends Plan {}
 
 const SIZES = [
     {
-        accountSize: 50_000,
+        accountSize: dollars(50_000),
         contractLimits: {
-            evalMicros: 60,
-            evalMinis: 6,
-            fundedMicros: 60,
-            fundedMinis: 6,
+            evalMicros: contracts(60),
+            evalMinis: contracts(6),
+            fundedMicros: contracts(60),
+            fundedMinis: contracts(6),
         },
         eod: {
             activation: 129,
             evalCost: 490,
-            minQualifyingDayProfit: 250,
+            minQualifyingDayProfit: dollars(250),
             payoutLadderSteps: [1500, 1500, 2000, 2500, 2500, 3000],
         },
-        evalDailyLossLimit: 1000,
+        evalDailyLossLimit: dollars(1000),
         fundedDllTiers: [
-            { dailyLossLimit: 1000, maxContracts: 6, minProfit: 0 },
-            { dailyLossLimit: 1000, maxContracts: 6, minProfit: 1500 },
-            { dailyLossLimit: 2000, maxContracts: 6, minProfit: 3000 },
-            { dailyLossLimit: 3000, maxContracts: 6, minProfit: 6000 },
+            {
+                dailyLossLimit: dollars(1000),
+                maxContracts: contracts(6),
+                minProfit: 0,
+            },
+            {
+                dailyLossLimit: dollars(1000),
+                maxContracts: contracts(6),
+                minProfit: 1500,
+            },
+            {
+                dailyLossLimit: dollars(2000),
+                maxContracts: contracts(6),
+                minProfit: 3000,
+            },
+            {
+                dailyLossLimit: dollars(3000),
+                maxContracts: contracts(6),
+                minProfit: 6000,
+            },
         ],
         intraday: {
             activation: 79,
             evalCost: 249,
-            minQualifyingDayProfit: 200,
+            minQualifyingDayProfit: dollars(200),
             payoutLadderSteps: [1500, 2000, 2500, 2500, 3000, 3000],
         },
-        maxDrawdown: 2000,
-        profitTarget: 3000,
+        maxDrawdown: dollars(2000),
+        profitTarget: dollars(3000),
     },
 ] as const;
 
@@ -48,71 +74,118 @@ const MIN_REQUEST_AMOUNT = 500;
 
 type ApexSize = (typeof SIZES)[number];
 
-interface ApexVariantPricing {
-    activation: number;
-    evalCost: number;
-    minQualifyingDayProfit: number;
-    payoutLadderSteps: readonly number[];
-}
-
 export class ApexTraderFunding extends TradingFirm {
     readonly displayName = 'Apex Trader Funding';
     readonly id = FirmId.Apex;
-    readonly plans = SIZES.flatMap((s) => [
-        new ApexPlan(buildPlan(s, 'eod')),
-        new ApexPlan(buildPlan(s, 'intraday')),
-    ]) as readonly Plan[];
+    readonly plans = buildAllPlans();
     readonly website = 'https://apextraderfunding.com';
-
-    maxFundedAccounts(): number {
-        return 20;
-    }
 }
 
-function buildPlan(size: ApexSize, variant: 'eod' | 'intraday'): PlanInit {
-    const isEod = variant === 'eod';
-    const pricing: ApexVariantPricing = isEod ? size.eod : size.intraday;
-    const lock = {
-        atProfit: size.maxDrawdown + 100,
-        lockedThreshold: (start: number) => start + 100,
-    };
-    const drawdown = isEod
-        ? new EodTrailingDrawdown({ amount: size.maxDrawdown, lock })
-        : new IntradayTrailingDrawdown({ amount: size.maxDrawdown, lock });
+const MAX_FUNDED_ACCOUNTS = 20;
 
-    const evalDailyLossLimit: DailyLossLimitConfig = isEod
-        ? { amount: size.evalDailyLossLimit, kind: 'flat' }
-        : { kind: 'none' };
-    const fundedDailyLossLimit: DailyLossLimitConfig = {
-        kind: 'tiered',
-        tiers: size.fundedDllTiers,
-    };
+function buildAllPlans(): Plan[] {
+    return SIZES.flatMap((s) => [
+        new ApexPlan(buildEodPlan(s)),
+        new ApexPlan(buildIntradayPlan(s)),
+    ]);
+}
 
+function buildEodPlan(size: ApexSize): PlanInit {
+    const pricing = size.eod;
     return {
         accountSize: size.accountSize,
-        consistency: new ConsistencyRule('funded', 0.5),
+        consistency: new ConsistencyRule(
+            ConsistencyScope.Funded,
+            fraction(0.5),
+        ),
         contractLimits: size.contractLimits,
-        drawdown,
-        evalDailyLossLimit,
-        fees: {
-            activation: pricing.activation,
-            monthlySubscription: 0,
-            oneTimeEval: pricing.evalCost,
-            reset: pricing.evalCost,
+        drawdown: new EodTrailingDrawdown({
+            amount: size.maxDrawdown,
+            lock: lockOf(size),
+        }),
+        evalDailyLossLimit: {
+            amount: size.evalDailyLossLimit,
+            kind: DailyLossLimitKind.Flat,
         },
-        fundedDailyLossLimit,
-        id: { accountSize: size.accountSize, firm: FirmId.Apex, variant },
-        label: `$${(size.accountSize / 1000).toFixed(0)}K — ${isEod ? 'EOD trailing' : 'Intraday trailing'}`,
+        fees: {
+            activation: dollars(pricing.activation),
+            monthlySubscription: dollars(0),
+            oneTimeEval: dollars(pricing.evalCost),
+            reset: dollars(pricing.evalCost),
+        },
+        fundedDailyLossLimit: fundedDailyLossLimitOf(size),
+        id: {
+            accountSize: 50_000,
+            firm: FirmId.Apex,
+            variant: ApexVariant.Eod,
+        },
+        label: planLabel(size.accountSize, 'EOD trailing'),
+        maxFundedAccounts: MAX_FUNDED_ACCOUNTS,
         minDaysAfterPassForPayout: 5,
-        minPayoutProfit: size.maxDrawdown + 600,
+        minPayoutProfit: dollars(size.maxDrawdown + 600),
         minQualifyingDayProfit: pricing.minQualifyingDayProfit,
         minTradingDays: 0,
         payoutLadder: {
             minRequestAmount: MIN_REQUEST_AMOUNT,
             steps: pricing.payoutLadderSteps,
         },
-        payoutSchedule: { kind: 'event-driven' },
-        payoutTiers: [{ thresholdProfit: 0, traderShare: 1 }],
+        payoutTiers: [
+            { thresholdProfit: dollars(0), traderShare: fraction(1) },
+        ],
         profitTarget: size.profitTarget,
+    };
+}
+
+function buildIntradayPlan(size: ApexSize): PlanInit {
+    const pricing = size.intraday;
+    return {
+        accountSize: size.accountSize,
+        consistency: new ConsistencyRule(
+            ConsistencyScope.Funded,
+            fraction(0.5),
+        ),
+        contractLimits: size.contractLimits,
+        drawdown: new IntradayTrailingDrawdown({
+            amount: size.maxDrawdown,
+            lock: lockOf(size),
+        }),
+        evalDailyLossLimit: { kind: DailyLossLimitKind.None },
+        fees: {
+            activation: dollars(pricing.activation),
+            monthlySubscription: dollars(0),
+            oneTimeEval: dollars(pricing.evalCost),
+            reset: dollars(pricing.evalCost),
+        },
+        fundedDailyLossLimit: fundedDailyLossLimitOf(size),
+        id: {
+            accountSize: 50_000,
+            firm: FirmId.Apex,
+            variant: ApexVariant.Intraday,
+        },
+        label: planLabel(size.accountSize, 'Intraday trailing'),
+        maxFundedAccounts: MAX_FUNDED_ACCOUNTS,
+        minDaysAfterPassForPayout: 5,
+        minPayoutProfit: dollars(size.maxDrawdown + 600),
+        minQualifyingDayProfit: pricing.minQualifyingDayProfit,
+        minTradingDays: 0,
+        payoutLadder: {
+            minRequestAmount: MIN_REQUEST_AMOUNT,
+            steps: pricing.payoutLadderSteps,
+        },
+        payoutTiers: [
+            { thresholdProfit: dollars(0), traderShare: fraction(1) },
+        ],
+        profitTarget: size.profitTarget,
+    };
+}
+
+function fundedDailyLossLimitOf(size: ApexSize): DailyLossLimitConfig {
+    return { kind: DailyLossLimitKind.Tiered, tiers: size.fundedDllTiers };
+}
+
+function lockOf(size: ApexSize) {
+    return {
+        atProfit: dollars(size.maxDrawdown + LOCK_OFFSET),
+        lockedThreshold: lockThresholdAt(LOCK_OFFSET),
     };
 }

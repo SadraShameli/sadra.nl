@@ -1,65 +1,72 @@
 import {
     ConsistencyRule,
+    ConsistencyScope,
+    contracts,
+    DailyLossLimitKind,
+    dollars,
     EodTrailingDrawdown,
     FirmId,
+    fraction,
     IntradayTrailingDrawdown,
+    MffuVariant,
     Plan,
-    type PlanId,
     type PlanInit,
     TradingFirm,
 } from '~/lib/prop-calculator/core';
 
+import { lockThresholdAt, planLabel } from '../shared';
+
 class MffuPlan extends Plan {}
 
-const LOCK = (start: number) => start + 100;
+const LOCK_OFFSET = 100;
 
 const RAPID_SIZES = [
     {
-        accountSize: 50_000,
+        accountSize: dollars(50_000),
         contractLimits: {
-            evalMicros: 50,
-            evalMinis: 5,
-            fundedMicros: 50,
-            fundedMinis: 5,
+            evalMicros: contracts(50),
+            evalMinis: contracts(5),
+            fundedMicros: contracts(50),
+            fundedMinis: contracts(5),
         },
         evalCost: 157,
-        maxDrawdown: 2000,
-        minPayoutProfit: 2100,
-        profitTarget: 3000,
+        maxDrawdown: dollars(2000),
+        minPayoutProfit: dollars(2100),
+        profitTarget: dollars(3000),
     },
 ] as const;
 
 const FLEX_SIZES = [
     {
-        accountSize: 50_000,
+        accountSize: dollars(50_000),
         contractLimits: {
-            evalMicros: 30,
-            evalMinis: 3,
-            fundedMicros: 30,
-            fundedMinis: 3,
+            evalMicros: contracts(30),
+            evalMinis: contracts(3),
+            fundedMicros: contracts(30),
+            fundedMinis: contracts(3),
         },
         evalCost: 127,
-        maxDrawdown: 2000,
-        minPayoutProfit: 500,
-        minQualifyingDayProfit: 150,
-        payoutCap: 2000,
-        profitTarget: 3000,
+        maxDrawdown: dollars(2000),
+        minPayoutProfit: dollars(500),
+        minQualifyingDayProfit: dollars(150),
+        payoutCap: dollars(2000),
+        profitTarget: dollars(3000),
     },
 ] as const;
 
 const PRO_SIZES = [
     {
-        accountSize: 50_000,
+        accountSize: dollars(50_000),
         contractLimits: {
-            evalMicros: 30,
-            evalMinis: 3,
+            evalMicros: contracts(30),
+            evalMinis: contracts(3),
             fundedMicros: null,
-            fundedMinis: 5,
+            fundedMinis: contracts(5),
         },
         evalCost: 227,
-        maxDrawdown: 2000,
-        minPayoutProfit: 2100,
-        profitTarget: 3000,
+        maxDrawdown: dollars(2000),
+        minPayoutProfit: dollars(2100),
+        profitTarget: dollars(3000),
     },
 ] as const;
 
@@ -76,75 +83,87 @@ export class MyFundedFutures extends TradingFirm {
         ...FLEX_SIZES.map((s) => new MffuPlan(buildFlexPlan(s))),
         ...PRO_SIZES.map((s) => new MffuPlan(buildProPlan(s))),
         new MffuPlan(buildBuilderPlan()),
-    ] as readonly Plan[];
+    ];
     readonly website = 'https://myfundedfutures.com';
-
-    maxFundedAccounts(plan: Plan): number {
-        const id = plan.id as Extract<PlanId, { firm: FirmId.Mffu }>;
-        if (id.variant === 'builder') return 1;
-        if (id.variant === 'flex') return 3;
-        return 5;
-    }
 }
 
 function buildBuilderPlan(): PlanInit {
     return {
-        accountSize: 50_000,
-        consistency: new ConsistencyRule('funded', 0.5),
+        accountSize: dollars(50_000),
+        consistency: new ConsistencyRule(
+            ConsistencyScope.Funded,
+            fraction(0.5),
+        ),
         contractLimits: {
-            evalMicros: 40,
-            evalMinis: 4,
-            fundedMicros: 40,
-            fundedMinis: 4,
+            evalMicros: contracts(40),
+            evalMinis: contracts(4),
+            fundedMicros: contracts(40),
+            fundedMinis: contracts(4),
         },
         drawdown: new EodTrailingDrawdown({
-            amount: 2000,
-            lock: { atProfit: 2100, lockedThreshold: LOCK },
+            amount: dollars(2000),
+            lock: {
+                atProfit: dollars(2100),
+                lockedThreshold: lockThresholdAt(LOCK_OFFSET),
+            },
         }),
-        evalDailyLossLimit: { amount: 1000, kind: 'flat' },
-        fees: {
-            activation: 0,
-            monthlySubscription: 0,
-            oneTimeEval: 153,
-            reset: 0,
+        evalDailyLossLimit: {
+            amount: dollars(1000),
+            kind: DailyLossLimitKind.Flat,
         },
-        id: { accountSize: 50_000, firm: FirmId.Mffu, variant: 'builder' },
-        label: '$50K — Builder',
+        fees: {
+            activation: dollars(0),
+            monthlySubscription: dollars(0),
+            oneTimeEval: dollars(153),
+            reset: dollars(0),
+        },
+        id: {
+            accountSize: 50_000,
+            firm: FirmId.Mffu,
+            variant: MffuVariant.Builder,
+        },
+        label: planLabel(50_000, 'Builder'),
+        maxFundedAccounts: 1,
         minDaysAfterPassForPayout: 2,
-        minPayoutProfit: 2600,
+        minPayoutProfit: dollars(2600),
         minTradingDays: 1,
         payoutLadder: {
             minRequestAmount: 500,
             steps: [2000, 2000, 2000, 2000, 2000],
         },
-        payoutSchedule: { days: 2, kind: 'per-cycle' },
-        payoutTiers: [{ thresholdProfit: 0, traderShare: 0.8 }],
-        profitTarget: 3000,
+        payoutTiers: [
+            { thresholdProfit: dollars(0), traderShare: fraction(0.8) },
+        ],
+        profitTarget: dollars(3000),
     };
 }
 
 function buildFlexPlan(size: MffuFlexSize): PlanInit {
     return {
         accountSize: size.accountSize,
-        consistency: new ConsistencyRule('eval', 0.5),
+        consistency: new ConsistencyRule(ConsistencyScope.Eval, fraction(0.5)),
         contractLimits: size.contractLimits,
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
-            lock: { atProfit: size.maxDrawdown + 100, lockedThreshold: LOCK },
+            lock: {
+                atProfit: dollars(size.maxDrawdown + LOCK_OFFSET),
+                lockedThreshold: lockThresholdAt(LOCK_OFFSET),
+            },
         }),
-        evalDailyLossLimit: { kind: 'none' },
+        evalDailyLossLimit: { kind: DailyLossLimitKind.None },
         fees: {
-            activation: 0,
-            monthlySubscription: 0,
-            oneTimeEval: size.evalCost,
-            reset: size.evalCost,
+            activation: dollars(0),
+            monthlySubscription: dollars(0),
+            oneTimeEval: dollars(size.evalCost),
+            reset: dollars(size.evalCost),
         },
         id: {
-            accountSize: size.accountSize,
+            accountSize: 50_000,
             firm: FirmId.Mffu,
-            variant: 'flex',
+            variant: MffuVariant.Flex,
         },
-        label: `$${(size.accountSize / 1000).toFixed(0)}K — Flex`,
+        label: planLabel(size.accountSize, 'Flex'),
+        maxFundedAccounts: 3,
         minDaysAfterPassForPayout: 5,
         minPayoutProfit: size.minPayoutProfit,
         minQualifyingDayProfit: size.minQualifyingDayProfit,
@@ -159,9 +178,10 @@ function buildFlexPlan(size: MffuFlexSize): PlanInit {
                 size.payoutCap,
             ],
         },
-        payoutProfitShare: 0.5,
-        payoutSchedule: { kind: 'every-n-win-days', n: 5 },
-        payoutTiers: [{ thresholdProfit: 0, traderShare: 0.8 }],
+        payoutProfitShare: fraction(0.5),
+        payoutTiers: [
+            { thresholdProfit: dollars(0), traderShare: fraction(0.8) },
+        ],
         profitTarget: size.profitTarget,
     };
 }
@@ -169,97 +189,116 @@ function buildFlexPlan(size: MffuFlexSize): PlanInit {
 function buildProPlan(size: MffuProSize): PlanInit {
     return {
         accountSize: size.accountSize,
-        consistency: new ConsistencyRule('eval', 0.5),
+        consistency: new ConsistencyRule(ConsistencyScope.Eval, fraction(0.5)),
         contractLimits: size.contractLimits,
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
-            lock: { atProfit: size.maxDrawdown + 100, lockedThreshold: LOCK },
+            lock: {
+                atProfit: dollars(size.maxDrawdown + LOCK_OFFSET),
+                lockedThreshold: lockThresholdAt(LOCK_OFFSET),
+            },
         }),
-        evalDailyLossLimit: { kind: 'none' },
+        evalDailyLossLimit: { kind: DailyLossLimitKind.None },
         fees: {
-            activation: 0,
-            monthlySubscription: 0,
-            oneTimeEval: size.evalCost,
-            reset: size.evalCost,
+            activation: dollars(0),
+            monthlySubscription: dollars(0),
+            oneTimeEval: dollars(size.evalCost),
+            reset: dollars(size.evalCost),
         },
         id: {
-            accountSize: size.accountSize,
+            accountSize: 50_000,
             firm: FirmId.Mffu,
-            variant: 'pro',
+            variant: MffuVariant.Pro,
         },
-        label: `$${(size.accountSize / 1000).toFixed(0)}K — Pro`,
+        label: planLabel(size.accountSize, 'Pro'),
+        maxFundedAccounts: 5,
         minDaysAfterPassForPayout: 10,
         minPayoutProfit: size.minPayoutProfit,
-        minPayoutRequest: 1000,
+        minPayoutRequest: dollars(1000),
         minTradingDays: 2,
-        payoutSchedule: { kind: 'biweekly' },
-        payoutTiers: [{ thresholdProfit: 0, traderShare: 0.8 }],
+        payoutTiers: [
+            { thresholdProfit: dollars(0), traderShare: fraction(0.8) },
+        ],
         profitTarget: size.profitTarget,
     };
 }
 
 function buildRapidEodPlan(): PlanInit {
-    const maxDrawdown = 2000;
+    const maxDrawdown = dollars(2000);
     return {
-        accountSize: 50_000,
-        consistency: new ConsistencyRule('eval', 0.3),
+        accountSize: dollars(50_000),
+        consistency: new ConsistencyRule(ConsistencyScope.Eval, fraction(0.3)),
         contractLimits: {
-            evalMicros: 30,
-            evalMinis: 3,
-            fundedMicros: 30,
-            fundedMinis: 3,
+            evalMicros: contracts(30),
+            evalMinis: contracts(3),
+            fundedMicros: contracts(30),
+            fundedMinis: contracts(3),
         },
         drawdown: new EodTrailingDrawdown({
             amount: maxDrawdown,
-            lock: { atProfit: maxDrawdown + 100, lockedThreshold: LOCK },
+            lock: {
+                atProfit: dollars(maxDrawdown + LOCK_OFFSET),
+                lockedThreshold: lockThresholdAt(LOCK_OFFSET),
+            },
         }),
-        evalDailyLossLimit: { kind: 'none' },
+        evalDailyLossLimit: { kind: DailyLossLimitKind.None },
         fees: {
-            activation: 0,
-            monthlySubscription: 0,
-            oneTimeEval: 157,
-            reset: 157,
+            activation: dollars(0),
+            monthlySubscription: dollars(0),
+            oneTimeEval: dollars(157),
+            reset: dollars(157),
         },
-        id: { accountSize: 50_000, firm: FirmId.Mffu, variant: 'rapid-eod' },
-        label: '$50K — Rapid EOD',
+        id: {
+            accountSize: 50_000,
+            firm: FirmId.Mffu,
+            variant: MffuVariant.RapidEod,
+        },
+        label: planLabel(50_000, 'Rapid EOD'),
+        maxFundedAccounts: 5,
         minDaysAfterPassForPayout: 3,
-        minPayoutProfit: maxDrawdown + 100,
-        minPayoutRequest: 500,
+        minPayoutProfit: dollars(maxDrawdown + 100),
+        minPayoutRequest: dollars(500),
         minTradingDays: 4,
-        payoutSchedule: { kind: 'daily' },
-        payoutTiers: [{ thresholdProfit: 0, traderShare: 0.9 }],
-        profitTarget: 3000,
+        payoutTiers: [
+            { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
+        ],
+        profitTarget: dollars(3000),
     };
 }
 
 function buildRapidPlan(size: MffuRapidSize): PlanInit {
     return {
         accountSize: size.accountSize,
-        consistency: new ConsistencyRule('eval', 0.5),
+        consistency: new ConsistencyRule(ConsistencyScope.Eval, fraction(0.5)),
         contractLimits: size.contractLimits,
         drawdown: new IntradayTrailingDrawdown({
             amount: size.maxDrawdown,
-            lock: { atProfit: size.maxDrawdown + 100, lockedThreshold: LOCK },
+            lock: {
+                atProfit: dollars(size.maxDrawdown + LOCK_OFFSET),
+                lockedThreshold: lockThresholdAt(LOCK_OFFSET),
+            },
         }),
-        evalDailyLossLimit: { kind: 'none' },
+        evalDailyLossLimit: { kind: DailyLossLimitKind.None },
         fees: {
-            activation: 0,
-            monthlySubscription: 0,
-            oneTimeEval: size.evalCost,
-            reset: size.evalCost,
+            activation: dollars(0),
+            monthlySubscription: dollars(0),
+            oneTimeEval: dollars(size.evalCost),
+            reset: dollars(size.evalCost),
         },
         id: {
-            accountSize: size.accountSize,
+            accountSize: 50_000,
             firm: FirmId.Mffu,
-            variant: 'rapid',
+            variant: MffuVariant.Rapid,
         },
-        label: `$${(size.accountSize / 1000).toFixed(0)}K — Rapid`,
+        label: planLabel(size.accountSize, 'Rapid'),
+        maxFundedAccounts: 5,
         minDaysAfterPassForPayout: 3,
         minPayoutProfit: size.minPayoutProfit,
-        minPayoutRequest: 500,
+        minPayoutRequest: dollars(500),
         minTradingDays: 2,
-        payoutSchedule: { kind: 'daily' },
-        payoutTiers: [{ thresholdProfit: 0, traderShare: 0.9 }],
+        payoutTiers: [
+            { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
+        ],
         profitTarget: size.profitTarget,
     };
 }

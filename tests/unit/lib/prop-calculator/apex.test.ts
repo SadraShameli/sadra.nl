@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    ApexVariant,
+    DailyLossLimitKind,
+    DayStopRuleKind,
+    dollars,
     FirmId,
     flatDayPolicy,
+    fraction,
     resolveDailyLossLimit,
+    RungSizing,
 } from '~/lib/prop-calculator/core';
 import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFunding';
 import { mulberry32 } from '~/lib/prop-calculator/rng';
@@ -15,7 +21,7 @@ import {
 
 const firm = new ApexTraderFunding();
 
-function findPlan(accountSize: 50_000, variant: 'eod' | 'intraday') {
+function findPlan(accountSize: 50_000, variant: ApexVariant) {
     const plan = firm.findPlan({ accountSize, firm: FirmId.Apex, variant });
     if (!plan) {
         throw new Error(`Apex plan not found: ${accountSize} ${variant}`);
@@ -24,7 +30,7 @@ function findPlan(accountSize: 50_000, variant: 'eod' | 'intraday') {
 }
 
 describe('Apex payout ladder', () => {
-    const plan50kEod = findPlan(50_000, 'eod');
+    const plan50kEod = findPlan(50_000, ApexVariant.Eod);
 
     it('caps total payout at the lifetime cap and closes the account after payout 6', () => {
         const LIFETIME_CAP = 13_000;
@@ -56,7 +62,7 @@ describe('Apex payout ladder', () => {
 });
 
 describe('Apex qualifying-day threshold', () => {
-    const plan50kEodQualifying = findPlan(50_000, 'eod');
+    const plan50kEodQualifying = findPlan(50_000, ApexVariant.Eod);
 
     it('does not advance qualifyingDays on a day below the minimum daily profit', () => {
         const state = plan50kEodQualifying.initialState();
@@ -64,31 +70,31 @@ describe('Apex qualifying-day threshold', () => {
         const rng = mulberry32(1);
 
         runDay({
-            commission: 0,
-            dayPolicy: flatDayPolicy(200, 1, { kind: 'none' }),
+            commission: dollars(0),
+            dayPolicy: flatDayPolicy(200, 1, { kind: DayStopRuleKind.None }),
             phase: 'eval',
             plan: plan50kEodQualifying,
             rng: rng,
             rrRatio: 1,
-            rungSizing: 'capToCushion',
+            rungSizing: RungSizing.CapToCushion,
             state: state,
             stats: stats,
-            winrate: 1,
+            winrate: fraction(1),
         });
         expect(state.tradingDays).toBe(1);
         expect(state.qualifyingDays).toBe(0);
 
         runDay({
-            commission: 0,
-            dayPolicy: flatDayPolicy(300, 1, { kind: 'none' }),
+            commission: dollars(0),
+            dayPolicy: flatDayPolicy(300, 1, { kind: DayStopRuleKind.None }),
             phase: 'eval',
             plan: plan50kEodQualifying,
             rng: rng,
             rrRatio: 1,
-            rungSizing: 'capToCushion',
+            rungSizing: RungSizing.CapToCushion,
             state: state,
             stats: stats,
-            winrate: 1,
+            winrate: fraction(1),
         });
         expect(state.tradingDays).toBe(2);
         expect(state.qualifyingDays).toBe(1);
@@ -114,7 +120,7 @@ describe('Apex qualifying-day threshold', () => {
 });
 
 describe('Apex Intraday daily-loss-limit: bust behavior differs by phase', () => {
-    const plan50kIntraday = findPlan(50_000, 'intraday');
+    const plan50kIntraday = findPlan(50_000, ApexVariant.Intraday);
 
     it('does not bust in eval but does bust once funded, for an identical loss (direct isBust check)', () => {
         const lossState = plan50kIntraday.initialState();
@@ -129,16 +135,16 @@ describe('Apex Intraday daily-loss-limit: bust behavior differs by phase', () =>
         const evalState = plan50kIntraday.initialState();
         const evalStats = newPathStats(evalState.startingBalance);
         const evalResult = runDay({
-            commission: 0,
-            dayPolicy: flatDayPolicy(1500, 1, { kind: 'none' }),
+            commission: dollars(0),
+            dayPolicy: flatDayPolicy(1500, 1, { kind: DayStopRuleKind.None }),
             phase: 'eval',
             plan: plan50kIntraday,
             rng: mulberry32(2),
             rrRatio: 1,
-            rungSizing: 'capToCushion',
+            rungSizing: RungSizing.CapToCushion,
             state: evalState,
             stats: evalStats,
-            winrate: 0,
+            winrate: fraction(0),
         });
         expect(evalResult.busted).toBe(false);
 
@@ -146,31 +152,31 @@ describe('Apex Intraday daily-loss-limit: bust behavior differs by phase', () =>
         fundedState.fundingBaseline = fundedState.balance;
         const fundedStats = newPathStats(fundedState.startingBalance);
         const fundedResult = runDay({
-            commission: 0,
-            dayPolicy: flatDayPolicy(1500, 1, { kind: 'none' }),
+            commission: dollars(0),
+            dayPolicy: flatDayPolicy(1500, 1, { kind: DayStopRuleKind.None }),
             phase: 'funded',
             plan: plan50kIntraday,
             rng: mulberry32(3),
             rrRatio: 1,
-            rungSizing: 'capToCushion',
+            rungSizing: RungSizing.CapToCushion,
             state: fundedState,
             stats: fundedStats,
-            winrate: 0,
+            winrate: fraction(0),
         });
         expect(fundedResult.busted).toBe(true);
     });
 });
 
 describe('Apex EOD daily-loss-limit: flat in eval, tiered once funded', () => {
-    const plan = findPlan(50_000, 'eod');
+    const plan = findPlan(50_000, ApexVariant.Eod);
 
     it('has a flat eval DLL and a tiered funded DLL', () => {
         expect(plan.evalDailyLossLimit).toEqual({
             amount: 1000,
-            kind: 'flat',
+            kind: DailyLossLimitKind.Flat,
         });
-        expect(plan.fundedDailyLossLimit.kind).toBe('tiered');
-        if (plan.fundedDailyLossLimit.kind === 'tiered') {
+        expect(plan.fundedDailyLossLimit.kind).toBe(DailyLossLimitKind.Tiered);
+        if (plan.fundedDailyLossLimit.kind === DailyLossLimitKind.Tiered) {
             expect(plan.fundedDailyLossLimit.tiers[0]?.dailyLossLimit).toBe(
                 1000,
             );
@@ -217,15 +223,15 @@ describe('Apex eval reset fee', () => {
     });
 
     it('charges the variant-specific eval price on reset, not the other variant’s price', () => {
-        const eod = findPlan(50_000, 'eod');
-        const intraday = findPlan(50_000, 'intraday');
+        const eod = findPlan(50_000, ApexVariant.Eod);
+        const intraday = findPlan(50_000, ApexVariant.Intraday);
         expect(eod.fees.reset).toBe(490);
         expect(intraday.fees.reset).toBe(249);
         expect(intraday.fees.reset).not.toBe(eod.fees.reset);
     });
 
     it('accrues one full eval-price reset fee per failed attempt in a multi-attempt trial', () => {
-        const intraday = findPlan(50_000, 'intraday');
+        const intraday = findPlan(50_000, ApexVariant.Intraday);
         const out = simulate({
             fundedHorizonDays: 10,
             maxAttempts: 3,

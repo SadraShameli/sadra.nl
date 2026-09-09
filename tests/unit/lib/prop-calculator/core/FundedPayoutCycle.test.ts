@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { FirmId } from '~/lib/prop-calculator/core';
-
-type TopStepVariant = Extract<PlanId, { firm: FirmId.TopStep }>['variant'];
-import { type PlanId } from '~/lib/prop-calculator/core';
+import {
+    ApexVariant,
+    DailyLossLimitKind,
+    DrawdownKind,
+    FirmId,
+    MffuVariant,
+    TopStepVariant,
+} from '~/lib/prop-calculator/core';
 import {
     newFundedCycleTracker,
     tryFundedPayout,
@@ -16,7 +20,7 @@ const mffu = new MyFundedFutures();
 const apex = new ApexTraderFunding();
 
 function fundedState(profit: number, threshold: number) {
-    const target = plan('rapid-eod');
+    const target = plan(MffuVariant.RapidEod);
     const state = target.initialState();
     state.balance = state.startingBalance + profit;
     state.threshold = threshold;
@@ -26,7 +30,7 @@ function fundedState(profit: number, threshold: number) {
     return state;
 }
 
-function plan(variant: 'builder' | 'rapid-eod') {
+function plan(variant: MffuVariant.Builder | MffuVariant.RapidEod) {
     const found = mffu.findPlan({
         accountSize: 50_000,
         firm: FirmId.Mffu,
@@ -38,7 +42,7 @@ function plan(variant: 'builder' | 'rapid-eod') {
 
 describe('non-ladder payouts', () => {
     it('pays out for a plan with no payout ladder', () => {
-        const target = plan('rapid-eod');
+        const target = plan(MffuVariant.RapidEod);
         expect(target.payoutLadder).toBeNull();
 
         const state = fundedState(3000, 50_100);
@@ -62,7 +66,7 @@ describe('non-ladder payouts', () => {
     });
 
     it('withholds a payout until the first-cycle profit gate is cleared', () => {
-        const target = plan('rapid-eod');
+        const target = plan(MffuVariant.RapidEod);
         expect(target.minPayoutProfit).toBe(2100);
 
         const state = fundedState(2099, 50_100);
@@ -83,7 +87,7 @@ describe('non-ladder payouts', () => {
     });
 
     it('caps the debit at the requested size without re-applying the profit gate', () => {
-        const target = plan('rapid-eod');
+        const target = plan(MffuVariant.RapidEod);
         expect(target.minPayoutRequest).toBe(500);
 
         const state = fundedState(3000, 50_100);
@@ -105,7 +109,7 @@ describe('non-ladder payouts', () => {
     });
 
     it('refuses a request below the plan minimum', () => {
-        const target = plan('rapid-eod');
+        const target = plan(MffuVariant.RapidEod);
         const state = fundedState(3000, 50_100);
         const tracker = newFundedCycleTracker(state);
         tracker.lastPayoutBalance = state.startingBalance;
@@ -126,7 +130,7 @@ describe('non-ladder payouts', () => {
 
 describe('minimum retained cushion', () => {
     it('never withdraws below the retained cushion', () => {
-        const target = plan('rapid-eod');
+        const target = plan(MffuVariant.RapidEod);
         const state = fundedState(3000, 50_100);
         const tracker = newFundedCycleTracker(state);
         tracker.lastPayoutBalance = state.startingBalance;
@@ -146,7 +150,7 @@ describe('minimum retained cushion', () => {
     });
 
     it('blocks the payout entirely when the cushion is already at the retained floor', () => {
-        const target = plan('rapid-eod');
+        const target = plan(MffuVariant.RapidEod);
         const state = fundedState(3000, 51_000);
         const tracker = newFundedCycleTracker(state);
         tracker.lastPayoutBalance = state.startingBalance;
@@ -167,7 +171,7 @@ describe('minimum retained cushion', () => {
 
 describe('ladder payouts', () => {
     it('pays the ladder step and stops once the steps run out', () => {
-        const builder = plan('builder');
+        const builder = plan(MffuVariant.Builder);
         const ladder = builder.payoutLadder;
         if (!ladder) throw new Error('builder ladder missing');
 
@@ -204,7 +208,7 @@ describe('ladder payouts', () => {
         const apexPlan = apex.findPlan({
             accountSize: 50_000,
             firm: FirmId.Apex,
-            variant: 'eod',
+            variant: ApexVariant.Eod,
         });
         if (!apexPlan) throw new Error('apex plan missing');
 
@@ -236,7 +240,7 @@ describe('payout profit-share cap', () => {
         const flex = mffu.findPlan({
             accountSize: 50_000,
             firm: FirmId.Mffu,
-            variant: 'flex',
+            variant: MffuVariant.Flex,
         });
         if (!flex) throw new Error('flex missing');
         expect(flex.payoutProfitShare).toBe(0.5);
@@ -267,7 +271,7 @@ describe('payout profit-share cap', () => {
         const flex = mffu.findPlan({
             accountSize: 50_000,
             firm: FirmId.Mffu,
-            variant: 'flex',
+            variant: MffuVariant.Flex,
         });
         if (!flex) throw new Error('flex missing');
 
@@ -307,12 +311,14 @@ describe('Topstep 50K parameters (help.topstep.com)', () => {
         return found;
     }
 
-    const ALL: TopStepVariant[] = [
-        'standard-standard',
-        'standard-consistency',
-        'no-fee-standard',
-        'no-fee-consistency',
-    ];
+    const TOPSTEP_VARIANTS = {
+        'no-fee-consistency': TopStepVariant.NoFeeConsistency,
+        'no-fee-standard': TopStepVariant.NoFeeStandard,
+        'standard-consistency': TopStepVariant.StandardConsistency,
+        'standard-standard': TopStepVariant.StandardStandard,
+    } as const satisfies Record<string, TopStepVariant>;
+
+    const ALL: TopStepVariant[] = Object.values(TOPSTEP_VARIANTS);
 
     it('offers the full pricing-path by payout-path matrix', () => {
         expect(topstep.plans).toHaveLength(4);
@@ -326,9 +332,11 @@ describe('Topstep 50K parameters (help.topstep.com)', () => {
             const target = plan(variant);
             expect(target.profitTarget).toBe(3000);
             expect(target.drawdown.amount).toBe(2000);
-            expect(target.drawdown.kind).toBe('eod-trailing');
+            expect(target.drawdown.kind).toBe(DrawdownKind.EodTrailing);
             expect(target.minTradingDays).toBe(2);
-            expect(target.evalDailyLossLimit.kind).toBe('none');
+            expect(target.evalDailyLossLimit.kind).toBe(
+                DailyLossLimitKind.None,
+            );
             expect(target.contractLimits?.evalMinis).toBe(5);
             expect(target.contractLimits?.evalMicros).toBe(50);
             expect(target.contractLimits?.fundedMinis).toBeNull();
@@ -340,7 +348,7 @@ describe('Topstep 50K parameters (help.topstep.com)', () => {
     });
 
     it('locks the max loss limit at the starting balance once profit reaches it', () => {
-        const target = plan('standard-standard');
+        const target = plan(TopStepVariant.StandardStandard);
         const state = target.initialState();
         expect(state.threshold).toBe(48_000);
 
@@ -364,8 +372,8 @@ describe('Topstep 50K parameters (help.topstep.com)', () => {
 
     it('varies only fees along the pricing axis', () => {
         for (const payout of ['standard', 'consistency'] as const) {
-            const paid = plan(`standard-${payout}`);
-            const free = plan(`no-fee-${payout}`);
+            const paid = plan(TOPSTEP_VARIANTS[`standard-${payout}`]);
+            const free = plan(TOPSTEP_VARIANTS[`no-fee-${payout}`]);
 
             expect(paid.fees.activation).toBe(149);
             expect(paid.fees.monthlySubscription).toBe(49);
@@ -384,8 +392,10 @@ describe('Topstep 50K parameters (help.topstep.com)', () => {
 
     it('varies only payout rules along the payout axis', () => {
         for (const pricing of ['standard', 'no-fee'] as const) {
-            const standard = plan(`${pricing}-standard`);
-            const consistency = plan(`${pricing}-consistency`);
+            const standard = plan(TOPSTEP_VARIANTS[`${pricing}-standard`]);
+            const consistency = plan(
+                TOPSTEP_VARIANTS[`${pricing}-consistency`],
+            );
 
             expect(standard.minDaysAfterPassForPayout).toBe(5);
             expect(standard.minQualifyingDayProfit).toBe(150);
@@ -405,8 +415,8 @@ describe('Topstep 50K parameters (help.topstep.com)', () => {
 
     it('caps a single payout request at the path cap', () => {
         for (const [variant, cap] of [
-            ['standard-standard', 2000],
-            ['standard-consistency', 3000],
+            [TopStepVariant.StandardStandard, 2000],
+            [TopStepVariant.StandardConsistency, 3000],
         ] as const) {
             const target = plan(variant);
             const state = target.initialState();

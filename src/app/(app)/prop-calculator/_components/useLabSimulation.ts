@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
+    CorrelationMode,
     type MultiAccountResult,
+    percent,
     type Plan,
     simulatePortfolio,
 } from '~/lib/prop-calculator';
@@ -144,7 +146,7 @@ export function useLabSimulation(arguments_: Arguments): {
             const target = plan.profitTarget;
             for (const sc of scenarios) {
                 const trials =
-                    sc.correlation === 'independent'
+                    sc.correlation === CorrelationMode.Independent
                         ? TRIALS_INDEPENDENT
                         : TRIALS_BASE;
                 const r = simulatePortfolio({
@@ -153,10 +155,12 @@ export function useLabSimulation(arguments_: Arguments): {
                     correlation: sc.correlation,
                     dayStop: sc.dayStop,
                     discounts: {
-                        activationPercent: linkActivationDiscount
-                            ? discountPercent
-                            : activationDiscountPercent,
-                        evalPercent: discountPercent,
+                        activationPercent: percent(
+                            linkActivationDiscount
+                                ? discountPercent
+                                : activationDiscountPercent,
+                        ),
+                        evalPercent: percent(discountPercent),
                     },
                     fundedHorizonDays,
                     groups: sc.groups,

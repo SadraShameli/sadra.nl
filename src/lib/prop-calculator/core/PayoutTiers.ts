@@ -1,11 +1,13 @@
+import { type Dollars, type Fraction0to1 } from './units';
+
 export interface PayoutLadder {
     minRequestAmount: number;
     steps: readonly number[];
 }
 
 export interface PayoutTier {
-    thresholdProfit: number;
-    traderShare: number;
+    thresholdProfit: Dollars;
+    traderShare: Fraction0to1;
 }
 
 export function walkPayoutTiers(

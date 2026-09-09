@@ -1,3 +1,16 @@
+export enum DayStopRuleKind {
+    AfterKLosses = 'after-k-losses',
+    AfterTarget = 'after-target',
+    DayGreen = 'day-green',
+    FirstWin = 'first-win',
+    None = 'none',
+}
+
+export enum RungSizing {
+    CapToCushion = 'capToCushion',
+    SkipIfUnaffordable = 'skipIfUnaffordable',
+}
+
 export interface DayPolicy {
     readonly ladder: readonly number[];
     readonly maxLossesPerDay: null | number;
@@ -5,15 +18,13 @@ export interface DayPolicy {
 }
 
 export type DayStopRule =
-    | { dollars: number; kind: 'after-target' }
-    | { k: number; kind: 'after-k-losses' }
-    | { kind: 'day-green' }
-    | { kind: 'first-win' }
-    | { kind: 'none' };
+    | { dollars: number; kind: DayStopRuleKind.AfterTarget }
+    | { k: number; kind: DayStopRuleKind.AfterKLosses }
+    | { kind: DayStopRuleKind.DayGreen }
+    | { kind: DayStopRuleKind.FirstWin }
+    | { kind: DayStopRuleKind.None };
 
-export type RungSizing = 'capToCushion' | 'skipIfUnaffordable';
-
-export const DEFAULT_RUNG_SIZING: RungSizing = 'capToCushion';
+export const DEFAULT_RUNG_SIZING: RungSizing = RungSizing.CapToCushion;
 
 export function canonicaliseLadder(
     ladder: readonly number[],
@@ -39,7 +50,7 @@ export function flatDayPolicy(
     return {
         ladder: Array.from({ length: slots }, () => riskPerTrade),
         maxLossesPerDay: null,
-        stopRule: stopRule ?? { kind: 'none' },
+        stopRule: stopRule ?? { kind: DayStopRuleKind.None },
     };
 }
 
@@ -64,7 +75,7 @@ export function resolveTradeRisk(
     rungSizing: RungSizing,
 ): number {
     if (cushion <= 0 || intendedRisk <= 0) return 0;
-    if (rungSizing === 'skipIfUnaffordable') {
+    if (rungSizing === RungSizing.SkipIfUnaffordable) {
         return cushion < intendedRisk ? 0 : intendedRisk;
     }
     return Math.min(intendedRisk, cushion);
@@ -77,19 +88,19 @@ export function shouldStopDay(
     pnlToday: number,
 ): boolean {
     switch (rule.kind) {
-        case 'after-k-losses': {
+        case DayStopRuleKind.AfterKLosses: {
             return lossesToday >= rule.k;
         }
-        case 'after-target': {
+        case DayStopRuleKind.AfterTarget: {
             return pnlToday >= rule.dollars;
         }
-        case 'day-green': {
+        case DayStopRuleKind.DayGreen: {
             return pnlToday > 0;
         }
-        case 'first-win': {
+        case DayStopRuleKind.FirstWin: {
             return hasWon;
         }
-        case 'none': {
+        case DayStopRuleKind.None: {
             return false;
         }
     }

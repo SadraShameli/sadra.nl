@@ -12,7 +12,9 @@ export abstract class TradingFirm {
         return this.plans.find((p) => arePlanIdsEqual(p.id, planId));
     }
 
-    abstract maxFundedAccounts(plan: Plan): number;
+    maxFundedAccounts(plan: Plan): number {
+        return plan.maxFundedAccounts;
+    }
 }
 
 export { FirmId } from './FirmId';
