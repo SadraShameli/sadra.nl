@@ -1,0 +1,67 @@
+import { describe, expect, it } from 'vitest';
+
+import {
+    type FeeSchedule,
+    feesUntilPass,
+    totalFees,
+} from '~/lib/prop-calculator/core/FeeSchedule';
+import { dollars, percent } from '~/lib/prop-calculator/core/units';
+
+const fees: FeeSchedule = {
+    activation: dollars(149),
+    monthlySubscription: dollars(49),
+    oneTimeEval: dollars(0),
+    reset: dollars(49),
+};
+
+describe('totalFees', () => {
+    it('charges a minimum of one month even for a same-day pass', () => {
+        expect(totalFees(fees, 0)).toBe(149 + 49);
+        expect(totalFees(fees, 1)).toBe(149 + 49);
+    });
+
+    it('does not roll into a second month until day 22', () => {
+        expect(totalFees(fees, 21)).toBe(149 + 49 * 1);
+        expect(totalFees(fees, 22)).toBe(149 + 49 * 2);
+    });
+
+    it('scales the monthly subscription linearly with elapsed months', () => {
+        expect(totalFees(fees, 42)).toBe(149 + 49 * 2);
+        expect(totalFees(fees, 43)).toBe(149 + 49 * 3);
+        expect(totalFees(fees, 252)).toBe(149 + 49 * 12);
+    });
+
+    it('is invariant to how those days are attributed, only their count', () => {
+        expect(totalFees(fees, 6)).toBe(totalFees(fees, 6));
+        expect(totalFees(fees, 6)).not.toBe(totalFees(fees, 252));
+    });
+
+    it('never charges the monthly subscription for a firm that has none', () => {
+        const noSubscription: FeeSchedule = {
+            ...fees,
+            monthlySubscription: dollars(0),
+        };
+        expect(totalFees(noSubscription, 21)).toBe(149);
+        expect(totalFees(noSubscription, 252)).toBe(149);
+        expect(totalFees(noSubscription, 5000)).toBe(149);
+    });
+
+    it('applies activation/eval discounts but never discounts the monthly subscription', () => {
+        const discounted = totalFees(fees, 21, {
+            activationPercent: percent(50),
+            evalPercent: percent(100),
+        });
+        expect(discounted).toBe(149 * 0.5 + 0 + 49);
+    });
+});
+
+describe('feesUntilPass', () => {
+    it('excludes the activation fee, unlike totalFees', () => {
+        expect(feesUntilPass(fees, 21)).toBe(49);
+        expect(totalFees(fees, 21)).toBe(feesUntilPass(fees, 21) + 149);
+    });
+
+    it('matches totalFees month-rounding behavior', () => {
+        expect(feesUntilPass(fees, 22)).toBe(49 * 2);
+    });
+});

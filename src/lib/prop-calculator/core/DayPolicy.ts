@@ -74,7 +74,8 @@ export function resolveTradeRisk(
     cushion: number,
     rungSizing: RungSizing,
 ): number {
-    if (cushion <= 0 || intendedRisk <= 0) return 0;
+    if (intendedRisk <= 0) return 0;
+    if (cushion <= 0) return intendedRisk;
     if (rungSizing === RungSizing.SkipIfUnaffordable) {
         return cushion < intendedRisk ? 0 : intendedRisk;
     }
