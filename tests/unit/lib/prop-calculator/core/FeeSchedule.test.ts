@@ -46,12 +46,30 @@ describe('totalFees', () => {
         expect(totalFees(noSubscription, 5000)).toBe(149);
     });
 
-    it('applies activation/eval discounts but never discounts the monthly subscription', () => {
+    it('applies activation/eval discounts and leaves the monthly subscription untouched when no monthly discount is given', () => {
         const discounted = totalFees(fees, 21, {
             activationPercent: percent(50),
             evalPercent: percent(100),
         });
         expect(discounted).toBe(149 * 0.5 + 0 + 49);
+    });
+
+    it('applies a monthly-subscription discount when one is given, on top of activation/eval discounts', () => {
+        const discounted = totalFees(fees, 42, {
+            activationPercent: percent(50),
+            evalPercent: percent(0),
+            monthlySubscriptionPercent: percent(40),
+        });
+        expect(discounted).toBe(149 * 0.5 + 0 + 49 * 0.6 * 2);
+    });
+
+    it('a monthly discount alone, with no activation/eval discount, only reduces the subscription line', () => {
+        const discounted = totalFees(fees, 21, {
+            activationPercent: percent(0),
+            evalPercent: percent(0),
+            monthlySubscriptionPercent: percent(40),
+        });
+        expect(discounted).toBe(149 + 0 + 49 * 0.6);
     });
 });
 

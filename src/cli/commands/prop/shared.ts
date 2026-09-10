@@ -19,6 +19,7 @@ import {
     INSTRUMENTS,
     type InstrumentSpec,
     InstrumentSymbol,
+    percent,
     type Plan,
     RungSizing,
     type SimInputs,
@@ -38,6 +39,7 @@ export interface TradingArguments extends PlanSelectorArguments {
     instrument: InstrumentSymbol;
     ladder?: string;
     'max-attempts': string;
+    'monthly-discount': string;
     'request-size'?: string;
     'retain-cushion': string;
     risk: string;
@@ -60,6 +62,7 @@ export interface TradingInputsInit {
     maxAttempts: number;
     maxEvalDays: number;
     minRetainedCushion: number;
+    monthlySubscriptionDiscountPercent: number;
     payoutRequestSize: number | undefined;
     riskPerTrade: number;
     rrRatio: number;
@@ -163,6 +166,10 @@ export class TradingInputs {
                 arguments_['retain-cushion'],
                 'retain-cushion',
             ),
+            monthlySubscriptionDiscountPercent: readNumber(
+                arguments_['monthly-discount'],
+                'monthly-discount',
+            ),
             payoutRequestSize:
                 requestSize === undefined
                     ? undefined
@@ -189,6 +196,7 @@ export class TradingInputs {
     readonly maxAttempts: number;
     readonly maxEvalDays: number;
     readonly minRetainedCushion: number;
+    readonly monthlySubscriptionDiscountPercent: number;
     readonly payoutRequestSize: number | undefined;
     readonly riskPerTrade: number;
     readonly rrRatio: number;
@@ -208,6 +216,8 @@ export class TradingInputs {
         this.maxAttempts = init.maxAttempts;
         this.maxEvalDays = init.maxEvalDays;
         this.minRetainedCushion = init.minRetainedCushion;
+        this.monthlySubscriptionDiscountPercent =
+            init.monthlySubscriptionDiscountPercent;
         this.payoutRequestSize = init.payoutRequestSize;
         this.riskPerTrade = init.riskPerTrade;
         this.rrRatio = init.rrRatio;
@@ -231,6 +241,16 @@ export class TradingInputs {
     toSimInputs(plan: Plan): SimInputs {
         return {
             dayStop: this.dayStop,
+            discounts:
+                this.monthlySubscriptionDiscountPercent > 0
+                    ? {
+                          activationPercent: percent(0),
+                          evalPercent: percent(0),
+                          monthlySubscriptionPercent: percent(
+                              this.monthlySubscriptionDiscountPercent,
+                          ),
+                      }
+                    : undefined,
             evalDayPolicy: this.toDayPolicy(),
             fundedHorizonDays: this.fundedHorizonDays,
             idleDayProbability: this.idleDayProbability,
@@ -285,6 +305,12 @@ export const tradingArguments = {
     'max-attempts': {
         default: '1',
         description: 'Evaluation attempts per trial',
+        type: 'string',
+    },
+    'monthly-discount': {
+        default: '0',
+        description:
+            'Coupon discount percent [0,100] off the monthly subscription fee (e.g. a recurring firm promo)',
         type: 'string',
     },
     'request-size': {

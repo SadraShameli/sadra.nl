@@ -4,6 +4,7 @@ import { type Dollars, type Percent0to100 } from './units';
 export interface CouponDiscounts {
     activationPercent: Percent0to100;
     evalPercent: Percent0to100;
+    monthlySubscriptionPercent?: Percent0to100;
 }
 
 export interface FeeSchedule {
@@ -21,7 +22,7 @@ export function feesUntilPass(
     const months = Math.max(1, Math.ceil(daysToPass / TRADING_DAYS_PER_MONTH));
     return (
         fees.oneTimeEval * evalFactor(discounts) +
-        fees.monthlySubscription * months
+        fees.monthlySubscription * monthlySubscriptionFactor(discounts) * months
     );
 }
 
@@ -34,7 +35,7 @@ export function totalFees(
     return (
         fees.oneTimeEval * evalFactor(discounts) +
         fees.activation * activationFactor(discounts) +
-        fees.monthlySubscription * months
+        fees.monthlySubscription * monthlySubscriptionFactor(discounts) * months
     );
 }
 
@@ -44,4 +45,10 @@ function activationFactor(discounts: CouponDiscounts | undefined): number {
 
 function evalFactor(discounts: CouponDiscounts | undefined): number {
     return 1 - (discounts?.evalPercent ?? 0) / 100;
+}
+
+function monthlySubscriptionFactor(
+    discounts: CouponDiscounts | undefined,
+): number {
+    return 1 - (discounts?.monthlySubscriptionPercent ?? 0) / 100;
 }
