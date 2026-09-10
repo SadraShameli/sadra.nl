@@ -10,6 +10,7 @@ import {
     PayoutBuffer,
     PayoutFloorEffect,
     type PlanInit,
+    QualifyingDaysMilestonePayoutCap,
     TradingFirm,
 } from '~/lib/prop-calculator/core';
 
@@ -23,9 +24,13 @@ const RAPID_MAX_REQUEST = 1200;
 const RAPID_DAILY_REWARD_SHARE = 0.9;
 const RAPID_MAX_WITHDRAWALS = 5;
 
+const LEGACY_BENCHMARK_DAY_MILESTONE = 30;
+const LEGACY_BEFORE_MILESTONE_SHARE_CAP = fraction(0.5);
+
 const LEGACY_SIZES = [
     {
         accountSize: dollars(50_000),
+        beforeMilestoneRequestCap: dollars(6000),
         evalCost: 199.99,
         maxDrawdown: dollars(2000),
         profitTarget: dollars(3000),
@@ -101,6 +106,14 @@ function buildLegacyPlan(size: FunctionLegacySize): PlanInit {
         minPayoutRequest: dollars(250),
         minQualifyingDayProfit: dollars(200),
         minTradingDays: 3,
+        payoutCapOverride: new QualifyingDaysMilestonePayoutCap({
+            afterMilestone: { balanceShareCap: null, requestCap: null },
+            beforeMilestone: {
+                balanceShareCap: LEGACY_BEFORE_MILESTONE_SHARE_CAP,
+                requestCap: size.beforeMilestoneRequestCap,
+            },
+            milestoneQualifyingDays: LEGACY_BENCHMARK_DAY_MILESTONE,
+        }),
         payoutTiers: [
             { thresholdProfit: dollars(0), traderShare: fraction(0.8) },
         ],

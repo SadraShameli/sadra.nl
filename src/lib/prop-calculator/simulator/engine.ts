@@ -30,7 +30,7 @@ export function simulate(inputs: SimInputs): SimOutputs {
         fundedHorizonDays,
         maxAttempts = 1,
         maxEvalDays,
-        minRetainedCushion = 0,
+        minRetainedCushion,
         payoutRequestSize,
         plan,
         riskPerTrade,
@@ -40,7 +40,9 @@ export function simulate(inputs: SimInputs): SimOutputs {
         trials,
     } = inputs;
     const commission = dollars(commissionPerRoundTrip);
-    const cushion = dollars(minRetainedCushion);
+    const cushion = dollars(
+        minRetainedCushion ?? plan.defaultRetainedCushion(),
+    );
     const requestSize =
         payoutRequestSize === undefined
             ? undefined
@@ -255,7 +257,7 @@ export function simulatePortfolio(
         groups,
         maxAttempts = 1,
         maxEvalDays,
-        minRetainedCushion = 0,
+        minRetainedCushion,
         payoutRequestSize,
         plan,
         rrRatio,
@@ -265,7 +267,9 @@ export function simulatePortfolio(
         winrate: winrateInput,
     } = inputs;
     const commission = dollars(commissionPerRoundTrip);
-    const cushion = dollars(minRetainedCushion);
+    const cushion = dollars(
+        minRetainedCushion ?? plan.defaultRetainedCushion(),
+    );
     const requestSize =
         payoutRequestSize === undefined
             ? undefined

@@ -135,7 +135,7 @@ describe('rng draw counts', () => {
             [400, 600, 800, 200],
             {
                 cushion: 2000,
-                evalPrice: 157,
+                evalPrice: 209,
                 maxDays: 60,
                 plan: rapidEod,
                 rrRatio: 2,

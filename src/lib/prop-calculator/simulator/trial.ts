@@ -46,8 +46,8 @@ export function simulateTrial(options: TrialOptions): TrialResult {
         winrate,
     });
     const { attempt, attemptsUsed, resetFeesPaid } = retryResult;
-    const evalDays = retryResult.daysElapsed;
-    let cumulativeDays = evalDays;
+    let cumulativeDays = retryResult.daysElapsed;
+    const billableEvalDays = attempt.days;
     const lastEquityCurve = attempt.equityCurve;
 
     if (retryResult.terminalOutcome === null) {
@@ -85,7 +85,7 @@ export function simulateTrial(options: TrialOptions): TrialResult {
             daysToPass: passDay,
             discounts,
             equityCurve: lastEquityCurve,
-            evalDays,
+            evalDays: billableEvalDays,
             evalTradesAtPass,
             finalBalance: attempt.state.balance,
             firstPayoutDay,
@@ -105,7 +105,7 @@ export function simulateTrial(options: TrialOptions): TrialResult {
         daysToPass: null,
         discounts,
         equityCurve: lastEquityCurve,
-        evalDays,
+        evalDays: billableEvalDays,
         evalTradesAtPass: 0,
         finalBalance: attempt.state.balance,
         firstPayoutDay: null,

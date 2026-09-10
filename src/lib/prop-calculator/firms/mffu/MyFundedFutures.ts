@@ -1,6 +1,7 @@
 import {
     ConsistencyRule,
     ConsistencyScope,
+    ContractLimitKind,
     contracts,
     DailyLossLimitKind,
     dollars,
@@ -24,8 +25,14 @@ const RAPID_SIZES = [
         contractLimits: {
             evalMicros: contracts(50),
             evalMinis: contracts(5),
-            fundedMicros: contracts(50),
-            fundedMinis: contracts(5),
+            fundedMicros: {
+                kind: ContractLimitKind.Flat,
+                maxContracts: contracts(50),
+            },
+            fundedMinis: {
+                kind: ContractLimitKind.Flat,
+                maxContracts: contracts(5),
+            },
         },
         evalCost: 209,
         maxDrawdown: dollars(2000),
@@ -40,8 +47,14 @@ const FLEX_SIZES = [
         contractLimits: {
             evalMicros: contracts(30),
             evalMinis: contracts(3),
-            fundedMicros: contracts(30),
-            fundedMinis: contracts(3),
+            fundedMicros: {
+                kind: ContractLimitKind.Flat,
+                maxContracts: contracts(30),
+            },
+            fundedMinis: {
+                kind: ContractLimitKind.Flat,
+                maxContracts: contracts(3),
+            },
         },
         evalCost: 127,
         maxDrawdown: dollars(2000),
@@ -58,8 +71,14 @@ const PRO_SIZES = [
         contractLimits: {
             evalMicros: contracts(30),
             evalMinis: contracts(3),
-            fundedMicros: contracts(5),
-            fundedMinis: contracts(5),
+            fundedMicros: {
+                kind: ContractLimitKind.Flat,
+                maxContracts: contracts(5),
+            },
+            fundedMinis: {
+                kind: ContractLimitKind.Flat,
+                maxContracts: contracts(5),
+            },
         },
         evalCost: 265,
         maxDrawdown: dollars(2000),
@@ -95,8 +114,14 @@ function buildBuilderPlan(): PlanInit {
         contractLimits: {
             evalMicros: contracts(40),
             evalMinis: contracts(4),
-            fundedMicros: contracts(40),
-            fundedMinis: contracts(4),
+            fundedMicros: {
+                kind: ContractLimitKind.Flat,
+                maxContracts: contracts(40),
+            },
+            fundedMinis: {
+                kind: ContractLimitKind.Flat,
+                maxContracts: contracts(4),
+            },
         },
         drawdown: new EodTrailingDrawdown({
             amount: dollars(2000),
@@ -232,8 +257,14 @@ function buildRapidEodPlan(): PlanInit {
         contractLimits: {
             evalMicros: contracts(30),
             evalMinis: contracts(3),
-            fundedMicros: contracts(30),
-            fundedMinis: contracts(3),
+            fundedMicros: {
+                kind: ContractLimitKind.Flat,
+                maxContracts: contracts(30),
+            },
+            fundedMinis: {
+                kind: ContractLimitKind.Flat,
+                maxContracts: contracts(3),
+            },
         },
         drawdown: new EodTrailingDrawdown({
             amount: maxDrawdown,
@@ -246,8 +277,8 @@ function buildRapidEodPlan(): PlanInit {
         fees: {
             activation: dollars(0),
             monthlySubscription: dollars(0),
-            oneTimeEval: dollars(157),
-            reset: dollars(157),
+            oneTimeEval: dollars(209),
+            reset: dollars(209),
         },
         id: {
             accountSize: 50_000,

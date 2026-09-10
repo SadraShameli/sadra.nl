@@ -1,6 +1,7 @@
 import {
     ConsistencyRule,
     ConsistencyScope,
+    ContractLimitKind,
     contracts,
     type DailyLossLimitConfig,
     DailyLossLimitKind,
@@ -24,9 +25,15 @@ const SELECT_RESET_FEE = 109;
 const CONTRACT_LIMITS = {
     evalMicros: contracts(40),
     evalMinis: contracts(4),
-    fundedMicros: contracts(40),
-    fundedMinis: contracts(4),
-};
+    fundedMicros: {
+        kind: ContractLimitKind.Flat,
+        maxContracts: contracts(40),
+    },
+    fundedMinis: {
+        kind: ContractLimitKind.Flat,
+        maxContracts: contracts(4),
+    },
+} as const;
 
 const SCALING_FUNDED_DLL: DailyLossLimitConfig = {
     kind: DailyLossLimitKind.Tiered,
@@ -151,7 +158,7 @@ function buildLightningPlan(size: TradeifyLightningSize): PlanInit {
         consistency: null,
         contractLimits: CONTRACT_LIMITS,
         drawdown: new EodTrailingDrawdown({ amount: size.maxDrawdown }),
-        evalDailyLossLimit: { kind: DailyLossLimitKind.None },
+        evalDailyLossLimit: SCALING_FUNDED_DLL,
         fees: {
             activation: dollars(0),
             monthlySubscription: dollars(0),

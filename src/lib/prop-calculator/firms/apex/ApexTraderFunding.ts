@@ -2,6 +2,7 @@ import {
     ApexVariant,
     ConsistencyRule,
     ConsistencyScope,
+    ContractLimitKind,
     contracts,
     type DailyLossLimitConfig,
     DailyLossLimitKind,
@@ -12,7 +13,6 @@ import {
     IntradayTrailingDrawdown,
     PayoutBuffer,
     type PlanInit,
-    TRADING_DAYS_PER_MONTH,
     TradingFirm,
 } from '~/lib/prop-calculator/core';
 
@@ -26,8 +26,14 @@ const SIZES = [
         contractLimits: {
             evalMicros: contracts(60),
             evalMinis: contracts(6),
-            fundedMicros: contracts(40),
-            fundedMinis: contracts(4),
+            fundedMicros: {
+                kind: ContractLimitKind.Flat,
+                maxContracts: contracts(40),
+            },
+            fundedMinis: {
+                kind: ContractLimitKind.Flat,
+                maxContracts: contracts(4),
+            },
         },
         eod: {
             activation: 139,
@@ -71,7 +77,11 @@ const SIZES = [
 
 const MIN_REQUEST_AMOUNT = 500;
 const MAX_LIFETIME_PAYOUTS = 6;
-const MAX_EVAL_TRADING_DAYS = TRADING_DAYS_PER_MONTH;
+const EVAL_ACCESS_CALENDAR_DAYS = 30;
+const TRADING_DAYS_PER_CALENDAR_WEEK = 5;
+const MAX_EVAL_TRADING_DAYS = Math.round(
+    (EVAL_ACCESS_CALENDAR_DAYS * TRADING_DAYS_PER_CALENDAR_WEEK) / 7,
+);
 
 type ApexSize = (typeof SIZES)[number];
 

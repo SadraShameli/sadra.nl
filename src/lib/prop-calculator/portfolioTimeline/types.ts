@@ -64,9 +64,6 @@ export interface EvalToFundedCycleOptions {
 
 export interface PayoutEvent {
     amount: number;
-    /**
-    1-based number of calendar days elapsed since this card started.
-    */
     dayOffset: number;
 }
 
@@ -93,8 +90,6 @@ export interface PortfolioTimelineInputs {
 }
 
 export interface PortfolioTimelineResult {
-    /** Break-even month (day / 21) for each trial that ever went cash-flow
-     * positive within the day-budget; trials that never do are omitted. */
     breakEvenMonthValues: number[];
     days: number[];
     netP10: number[];

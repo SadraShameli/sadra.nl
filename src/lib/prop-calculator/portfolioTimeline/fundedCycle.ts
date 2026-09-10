@@ -60,15 +60,16 @@ export function runEvalToFundedCycle(
         winrate,
     });
     const { attemptsUsed, resetFeesPaid } = retryResult;
-    const evalDays = retryResult.daysElapsed;
-    let totalDays = evalDays;
+    let totalDays = retryResult.daysElapsed;
+    const billableEvalDays = retryResult.attempt.days;
 
     if (retryResult.terminalOutcome !== null) {
         return {
             attemptsUsed,
             payouts: [],
             totalCost:
-                plan.totalCostThroughDay(evalDays, discounts) + resetFeesPaid,
+                plan.totalCostThroughDay(billableEvalDays, discounts) +
+                resetFeesPaid,
             totalDays,
         };
     }
@@ -107,7 +108,8 @@ export function runEvalToFundedCycle(
         attemptsUsed,
         payouts: sink.events,
         totalCost:
-            plan.totalCostThroughDay(evalDays, discounts) + resetFeesPaid,
+            plan.totalCostThroughDay(billableEvalDays, discounts) +
+            resetFeesPaid,
         totalDays,
     };
 }

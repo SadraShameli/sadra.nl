@@ -1,16 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
 import {
     ALL_FIRMS,
-    ApexVariant,
-    CorrelationMode,
     type DayPolicy,
     type DayStopRule,
-    DayStopRuleKind,
-    findFirm,
-    FirmId,
     percent,
     type Plan,
     type SimInputs,
@@ -19,7 +14,12 @@ import {
     type TradingFirm,
 } from '~/lib/prop-calculator';
 
-import { clampInt, clampNumber } from './clamp';
+import {
+    type CalculatorAction,
+    CalculatorActionType,
+    calculatorReducer,
+    defaultCalculatorState,
+} from './calculatorReducer';
 import { riskPercentToDollars } from './riskConversion';
 import {
     type CalculatorState,
@@ -31,20 +31,6 @@ import { decodeState, encodeState } from './urlState';
 import { useDebouncedValue } from './useDebouncedSimulation';
 
 const SIM_DEBOUNCE_MS = 180;
-
-function required<T>(value: T | undefined, message: string): T {
-    if (value === undefined) throw new Error(message);
-    return value;
-}
-
-const DEFAULT_FIRM: TradingFirm = required(
-    findFirm(FirmId.Apex),
-    'Prop calculator: Apex firm missing from registry',
-);
-const DEFAULT_PLAN: Plan = required(
-    DEFAULT_FIRM.plans.find((p) => p.accountSize === 50_000),
-    'Prop calculator: default $50K plan missing from Apex',
-);
 
 export interface PinnedScenario {
     result: SimOutputs;
@@ -91,49 +77,12 @@ export interface UseCalculatorReturn {
     updateLabScenario: (id: string, patch: Partial<LabScenario>) => void;
 }
 
-export function buildDefaultLabScenarios(): LabScenario[] {
-    return [
-        {
-            accounts: 10,
-            correlation: CorrelationMode.Copy,
-            dayStop: { kind: DayStopRuleKind.None },
-            groups: 1,
-            id: freshId(),
-            label: 'Risk-scale',
-            riskPerTrade: 500,
-            rrRatio: 2,
-            tradesPerDay: 1,
-            winrate: 0.4,
-        },
-        {
-            accounts: 10,
-            correlation: CorrelationMode.Copy,
-            dayStop: { kind: DayStopRuleKind.None },
-            groups: 1,
-            id: freshId(),
-            label: 'Frequency-scale',
-            riskPerTrade: 250,
-            rrRatio: 2,
-            tradesPerDay: 4,
-            winrate: 0.35,
-        },
-        {
-            accounts: 10,
-            correlation: CorrelationMode.Grouped,
-            dayStop: { kind: DayStopRuleKind.None },
-            groups: 2,
-            id: freshId(),
-            label: 'Group-split',
-            riskPerTrade: 250,
-            rrRatio: 2,
-            tradesPerDay: 1,
-            winrate: 0.4,
-        },
-    ];
-}
-
 export function useCalculator(): UseCalculatorReturn {
-    const [state, setState] = useState<CalculatorState>(defaultState);
+    const [state, dispatch] = useReducer(
+        calculatorReducer,
+        undefined,
+        defaultCalculatorState,
+    );
     const [pinned, setPinned] = useState<null | PinnedScenario>(null);
     const hydratedReference = useRef(false);
     const skipNextWriteReference = useRef(true);
@@ -145,9 +94,13 @@ export function useCalculator(): UseCalculatorReturn {
         const parameters = new URLSearchParams(window.location.search);
         if (!parameters.has('firm')) return;
         try {
-            const next = decodeState(parameters, ALL_FIRMS, defaultState());
+            const next = decodeState(
+                parameters,
+                ALL_FIRMS,
+                defaultCalculatorState(),
+            );
             skipNextWriteReference.current = true;
-            setState(next);
+            dispatch({ state: next, type: CalculatorActionType.ApplyState });
         } catch {
             return;
         }
@@ -231,274 +184,84 @@ export function useCalculator(): UseCalculatorReturn {
     const result = useMemo(() => simulate(debouncedInputs), [debouncedInputs]);
     const isPending = simInputs !== debouncedInputs;
 
-    const setFirm = (firm: TradingFirm) => {
-        const firstPlan = firm.plans[0];
-        if (!firstPlan) return;
-        setState((s) => {
-            const memoryWithCurrent = {
-                ...s.firmMemory,
-                [s.firm.id]: {
-                    copyAccounts: s.copyAccounts,
-                    planId: s.plan.id,
-                },
-            };
-            const remembered = memoryWithCurrent[firm.id];
-            const plan = remembered
-                ? (firm.findPlan(remembered.planId) ?? firstPlan)
-                : firstPlan;
-            const copyAccounts = remembered
-                ? Math.max(
-                      1,
-                      Math.min(
-                          remembered.copyAccounts,
-                          firm.maxFundedAccounts(plan),
-                      ),
-                  )
-                : 1;
-            return {
-                ...s,
-                copyAccounts,
-                firm,
-                firmMemory: memoryWithCurrent,
-                plan,
-            };
-        });
-    };
-
-    const setPlan = (plan: Plan) => {
-        setState((s) => {
-            const cap = s.firm.maxFundedAccounts(plan);
-            const copyAccounts = Math.min(s.copyAccounts, cap);
-            return {
-                ...s,
-                copyAccounts,
-                firmMemory: {
-                    ...s.firmMemory,
-                    [s.firm.id]: { copyAccounts, planId: plan.id },
-                },
-                plan,
-            };
-        });
-    };
+    const act = (action: CalculatorAction) => dispatch(action);
 
     return {
         addLabScenario: () =>
-            setState((s) => {
-                const last = s.labScenarios.at(-1);
-                const base: LabScenario = last
-                    ? { ...last, id: freshId(), label: `${last.label} copy` }
-                    : {
-                          accounts: 10,
-                          correlation: CorrelationMode.Copy,
-                          dayStop: { kind: DayStopRuleKind.None },
-                          groups: 1,
-                          id: freshId(),
-                          label: 'New scenario',
-                          riskPerTrade: 250,
-                          rrRatio: 2,
-                          tradesPerDay: 1,
-                          winrate: 0.4,
-                      };
-                return { ...s, labScenarios: [...s.labScenarios, base] };
-            }),
-        applyState: (next) => setState(next),
+            act({ type: CalculatorActionType.AddLabScenario }),
+        applyState: (next) =>
+            act({ state: next, type: CalculatorActionType.ApplyState }),
         firms: ALL_FIRMS,
         isPending,
         pinned,
         pinScenario: () => setPinned({ result, state }),
         removeLabScenario: (id) =>
-            setState((s) => ({
-                ...s,
-                labScenarios: s.labScenarios.filter((sc) => sc.id !== id),
-            })),
-        reset: () => setState(defaultState()),
-        resetCoupon: () =>
-            setState((s) => ({
-                ...s,
-                activationDiscountPercent: 0,
-                evalDiscountPercent: 0,
-                linkActivationDiscount: false,
-            })),
+            act({ id, type: CalculatorActionType.RemoveLabScenario }),
+        reset: () => act({ type: CalculatorActionType.Reset }),
+        resetCoupon: () => act({ type: CalculatorActionType.ResetCoupon }),
         resetLabScenarios: () =>
-            setState((s) => ({
-                ...s,
-                labScenarios: buildDefaultLabScenarios(),
-            })),
+            act({ type: CalculatorActionType.ResetLabScenarios }),
         result,
         setActivationDiscountPercent: (n) =>
-            setState((s) => ({
-                ...s,
-                activationDiscountPercent: clampNumber(
-                    n,
-                    0,
-                    100,
-                    s.activationDiscountPercent,
-                ),
-            })),
-        setCommissionPerRoundTrip: (n) =>
-            setState((s) => ({
-                ...s,
-                commissionPerRoundTrip: clampNumber(
-                    n,
-                    0,
-                    50,
-                    s.commissionPerRoundTrip,
-                ),
-            })),
-        setCopyAccounts: (n) =>
-            setState((s) => {
-                const cap = s.firm.maxFundedAccounts(s.plan);
-                const clamped = clampInt(n, 1, cap, s.copyAccounts);
-                return {
-                    ...s,
-                    copyAccounts: clamped,
-                    firmMemory: {
-                        ...s.firmMemory,
-                        [s.firm.id]: {
-                            copyAccounts: clamped,
-                            planId: s.plan.id,
-                        },
-                    },
-                };
+            act({
+                type: CalculatorActionType.SetActivationDiscountPercent,
+                value: n,
             }),
-        setDayStop: (rule) => setState((s) => ({ ...s, dayStop: rule })),
-        setEvalDayPolicy: (policy: DayPolicy | null) =>
-            setState((s) => ({ ...s, evalDayPolicy: policy })),
+        setCommissionPerRoundTrip: (n) =>
+            act({
+                type: CalculatorActionType.SetCommissionPerRoundTrip,
+                value: n,
+            }),
+        setCopyAccounts: (n) =>
+            act({ type: CalculatorActionType.SetCopyAccounts, value: n }),
+        setDayStop: (rule) =>
+            act({ rule, type: CalculatorActionType.SetDayStop }),
+        setEvalDayPolicy: (policy) =>
+            act({ policy, type: CalculatorActionType.SetEvalDayPolicy }),
         setEvalDiscountPercent: (n) =>
-            setState((s) => ({
-                ...s,
-                evalDiscountPercent: clampNumber(
-                    n,
-                    0,
-                    100,
-                    s.evalDiscountPercent,
-                ),
-            })),
-        setFirm,
+            act({
+                type: CalculatorActionType.SetEvalDiscountPercent,
+                value: n,
+            }),
+        setFirm: (firm) => act({ firm, type: CalculatorActionType.SetFirm }),
         setFundedHorizonDays: (n) =>
-            setState((s) => ({
-                ...s,
-                fundedHorizonDays: clampInt(n, 1, 3650, s.fundedHorizonDays),
-            })),
+            act({
+                type: CalculatorActionType.SetFundedHorizonDays,
+                value: n,
+            }),
         setLabScenarios: (entries) =>
-            setState((s) => ({ ...s, labScenarios: entries })),
-        setLinkActivationDiscount: (linked) =>
-            setState((s) => ({ ...s, linkActivationDiscount: linked })),
+            act({ entries, type: CalculatorActionType.SetLabScenarios }),
+        setLinkActivationDiscount: (isLinked) =>
+            act({
+                isLinked,
+                type: CalculatorActionType.SetLinkActivationDiscount,
+            }),
         setMaxAttempts: (n) =>
-            setState((s) => ({
-                ...s,
-                maxAttempts: clampInt(n, 1, 10, s.maxAttempts),
-            })),
+            act({ type: CalculatorActionType.SetMaxAttempts, value: n }),
         setMaxEvalDays: (n) =>
-            setState((s) => ({
-                ...s,
-                maxEvalDays: clampInt(n, 10, 365, s.maxEvalDays),
-            })),
-        setPlan,
+            act({ type: CalculatorActionType.SetMaxEvalDays, value: n }),
+        setPlan: (plan) => act({ plan, type: CalculatorActionType.SetPlan }),
         setPortfolio: (entries) =>
-            setState((s) => ({ ...s, portfolio: entries })),
+            act({ entries, type: CalculatorActionType.SetPortfolio }),
         setRiskDollars: (n) =>
-            setState((s) => ({
-                ...s,
-                riskDollars: clampNumber(
-                    n,
-                    1,
-                    s.plan.accountSize,
-                    s.riskDollars,
-                ),
-            })),
+            act({ type: CalculatorActionType.SetRiskDollars, value: n }),
         setRiskPercent: (n) =>
-            setState((s) => ({
-                ...s,
-                riskPercent: clampNumber(n, 0.05, 100, s.riskPercent),
-            })),
+            act({ type: CalculatorActionType.SetRiskPercent, value: n }),
         setRrRatio: (n) =>
-            setState((s) => ({
-                ...s,
-                rrRatio: clampNumber(n, 0.5, 10, s.rrRatio),
-            })),
-        setSeed: (n) =>
-            setState((s) => ({
-                ...s,
-                seed: Number.isFinite(n) ? Math.floor(n) : s.seed,
-            })),
-        setSizingMode: (m) => setState((s) => ({ ...s, sizingMode: m })),
+            act({ type: CalculatorActionType.SetRrRatio, value: n }),
+        setSeed: (n) => act({ type: CalculatorActionType.SetSeed, value: n }),
+        setSizingMode: (mode) =>
+            act({ mode, type: CalculatorActionType.SetSizingMode }),
         setTradesPerDay: (n) =>
-            setState((s) => ({
-                ...s,
-                tradesPerDay: clampInt(n, 1, 50, s.tradesPerDay),
-            })),
+            act({ type: CalculatorActionType.SetTradesPerDay, value: n }),
         setTrials: (n) =>
-            setState((s) => ({
-                ...s,
-                trials: clampInt(n, 100, 5000, s.trials),
-            })),
+            act({ type: CalculatorActionType.SetTrials, value: n }),
         setWinrate: (n) =>
-            setState((s) => ({
-                ...s,
-                winrate: clampNumber(n, 0.05, 0.95, s.winrate),
-            })),
+            act({ type: CalculatorActionType.SetWinrate, value: n }),
         simInputs,
         state,
         unpinScenario: () => setPinned(null),
         updateLabScenario: (id, patch) =>
-            setState((s) => ({
-                ...s,
-                labScenarios: s.labScenarios.map((sc) =>
-                    sc.id === id ? { ...sc, ...patch } : sc,
-                ),
-            })),
+            act({ id, patch, type: CalculatorActionType.UpdateLabScenario }),
     };
-}
-
-function defaultState(): CalculatorState {
-    return {
-        activationDiscountPercent: 0,
-        commissionPerRoundTrip: 0,
-        copyAccounts: 1,
-        dayStop: { kind: DayStopRuleKind.None },
-        evalDayPolicy: null,
-        evalDiscountPercent: 0,
-        firm: DEFAULT_FIRM,
-        firmMemory: {},
-        fundedHorizonDays: 60,
-        labScenarios: buildDefaultLabScenarios(),
-        linkActivationDiscount: false,
-        maxAttempts: 1,
-        maxEvalDays: 60,
-        plan: DEFAULT_PLAN,
-        portfolio: [
-            {
-                activationDiscountPercent: 0,
-                count: 20,
-                evalDiscountPercent: 0,
-                firmId: FirmId.Apex,
-                id: 'default-apex-50k-eod',
-                linkActivationDiscount: false,
-                planId: {
-                    accountSize: 50_000,
-                    firm: FirmId.Apex,
-                    variant: ApexVariant.Eod,
-                },
-            },
-        ],
-        riskDollars: 250,
-        riskPercent: 0.5,
-        rrRatio: 2,
-        seed: 42,
-        sizingMode: SizingMode.Dollar,
-        tradesPerDay: 1,
-        trials: 2000,
-        winrate: 0.4,
-    };
-}
-
-function freshId(): string {
-    if (
-        typeof crypto !== 'undefined' &&
-        typeof crypto.randomUUID === 'function'
-    ) {
-        return crypto.randomUUID();
-    }
-    return `lab-${Math.random().toString(36).slice(2, 11)}`;
 }

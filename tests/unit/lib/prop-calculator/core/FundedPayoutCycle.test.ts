@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
     ApexVariant,
+    ContractLimitKind,
     DailyLossLimitKind,
     DrawdownKind,
     FirmId,
@@ -550,7 +551,14 @@ describe('Topstep 50K parameters (help.topstep.com)', () => {
             );
             expect(target.contractLimits?.evalMinis).toBe(5);
             expect(target.contractLimits?.evalMicros).toBe(50);
-            expect(target.contractLimits?.fundedMinis).toBeNull();
+            expect(target.contractLimits?.fundedMinis).toStrictEqual({
+                kind: ContractLimitKind.Tiered,
+                tiers: [
+                    { maxContracts: 2, minBalance: 0 },
+                    { maxContracts: 3, minBalance: 1500 },
+                    { maxContracts: 5, minBalance: 2000 },
+                ],
+            });
             expect(target.payoutTiers[0]?.traderShare).toBe(0.9);
             expect(target.minPayoutProfit).toBe(0);
             expect(target.minPayoutProfitPerCycle).toBe(0.01);

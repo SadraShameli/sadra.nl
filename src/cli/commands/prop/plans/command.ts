@@ -2,6 +2,7 @@ import { defineCommand } from 'citty';
 
 import {
     describeDll,
+    describeFundedMinis,
     describeShare,
     planArguments,
     planResolver,
@@ -72,7 +73,7 @@ export default defineCommand({
                 ui.muted(
                     [
                         `    contracts ${limits ? `${limits.evalMinis} mini / ${limits.evalMicros ?? '?'} micro` : 'not recorded'}`,
-                        `funded ${limits?.fundedMinis == null ? 'unpublished' : `${limits.fundedMinis} mini`}`,
+                        `funded ${describeFundedMinis(limits?.fundedMinis ?? null)}`,
                     ].join(' | '),
                 );
                 ui.muted(

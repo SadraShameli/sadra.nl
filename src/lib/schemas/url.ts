@@ -106,27 +106,60 @@ export const savedScenarioRecordSchema = z.object({
 
 export type SavedScenarioRecord = z.infer<typeof savedScenarioRecordSchema>;
 
-const intFromQueryParameter = (fallback: number, min: number, max: number) =>
-    z.coerce.number().min(min).max(max).transform(Math.floor).catch(fallback);
+interface ScalarBound {
+    fallback: number;
+    isInteger: boolean;
+    max: number;
+    min: number;
+}
 
-const numberFromQueryParameter = (fallback: number, min: number, max: number) =>
-    z.coerce.number().min(min).max(max).catch(fallback);
+function bound(
+    fallback: number,
+    min: number,
+    max: number,
+    isInteger: boolean,
+): ScalarBound {
+    return { fallback, isInteger, max, min };
+}
+
+export const CALCULATOR_SCALAR_BOUNDS = {
+    act: bound(0, 0, 100, false),
+    attempts: bound(1, 1, 10, true),
+    comm: bound(0, 0, 50, false),
+    eval: bound(0, 0, 100, false),
+    fundedDays: bound(60, 1, 3650, true),
+    maxDays: bound(60, 10, 365, true),
+    rp: bound(0.5, 0.05, 100, false),
+    rr: bound(2, 0.5, 10, false),
+    seed: bound(42, 0, Number.MAX_SAFE_INTEGER, true),
+    tpd: bound(1, 1, 50, true),
+    trials: bound(2000, 100, 5000, true),
+    wr: bound(0.4, 0.05, 0.95, false),
+} as const satisfies Record<string, ScalarBound>;
+
+const COPY_ACCOUNTS_URL_CEILING = bound(1, 1, 20, true);
+const RISK_DOLLARS_URL_CEILING = bound(250, 1, 1_000_000, false);
+
+function schemaFromBound({ fallback, isInteger, max, min }: ScalarBound) {
+    const base = z.coerce.number().min(min).max(max);
+    return (isInteger ? base.transform(Math.floor) : base).catch(fallback);
+}
 
 export const calculatorScalarFieldsSchema = z.object({
-    act: numberFromQueryParameter(0, 0, 100),
-    attempts: intFromQueryParameter(1, 1, 10),
-    comm: numberFromQueryParameter(0, 0, 50),
-    copy: intFromQueryParameter(1, 1, 20),
-    eval: numberFromQueryParameter(0, 0, 100),
-    fundedDays: intFromQueryParameter(60, 1, 3650),
-    maxDays: intFromQueryParameter(60, 10, 365),
-    rd: numberFromQueryParameter(250, 1, 1_000_000),
-    rp: numberFromQueryParameter(0.5, 0.05, 100),
-    rr: numberFromQueryParameter(2, 0.5, 10),
-    seed: intFromQueryParameter(42, 0, Number.MAX_SAFE_INTEGER),
-    tpd: intFromQueryParameter(1, 1, 50),
-    trials: intFromQueryParameter(2000, 100, 5000),
-    wr: numberFromQueryParameter(0.4, 0.05, 0.95),
+    act: schemaFromBound(CALCULATOR_SCALAR_BOUNDS.act),
+    attempts: schemaFromBound(CALCULATOR_SCALAR_BOUNDS.attempts),
+    comm: schemaFromBound(CALCULATOR_SCALAR_BOUNDS.comm),
+    copy: schemaFromBound(COPY_ACCOUNTS_URL_CEILING),
+    eval: schemaFromBound(CALCULATOR_SCALAR_BOUNDS.eval),
+    fundedDays: schemaFromBound(CALCULATOR_SCALAR_BOUNDS.fundedDays),
+    maxDays: schemaFromBound(CALCULATOR_SCALAR_BOUNDS.maxDays),
+    rd: schemaFromBound(RISK_DOLLARS_URL_CEILING),
+    rp: schemaFromBound(CALCULATOR_SCALAR_BOUNDS.rp),
+    rr: schemaFromBound(CALCULATOR_SCALAR_BOUNDS.rr),
+    seed: schemaFromBound(CALCULATOR_SCALAR_BOUNDS.seed),
+    tpd: schemaFromBound(CALCULATOR_SCALAR_BOUNDS.tpd),
+    trials: schemaFromBound(CALCULATOR_SCALAR_BOUNDS.trials),
+    wr: schemaFromBound(CALCULATOR_SCALAR_BOUNDS.wr),
 });
 
 export type CalculatorScalarFields = z.infer<

@@ -14,14 +14,6 @@ import {
 
 const MAX_CARDS_PER_TIMELINE = 2000;
 
-/**
- * Repeats "one card" (buy eval → retry → fund → cycle payouts) until a
- * calendar day-budget is exhausted, producing day-indexed cumulative
- * spend/payout/net arrays (index `d` = cumulative value through day `d`,
- * `d` from 0 to `dayBudget` inclusive). Eval spend for a card is booked as
- * a lump the day trading for that card starts; funded payouts are booked on
- * the exact day earned, straight out of the day-loop.
- */
 export function runAccountTimeline(
     inputs: AccountTimelineInputs,
 ): AccountTimelineResult {
@@ -31,7 +23,7 @@ export function runAccountTimeline(
         discounts,
         maxEvalDays,
         maxPayoutsPerCard = DEFAULT_MAX_PAYOUTS_PER_CARD,
-        minRetainedCushion = 0,
+        minRetainedCushion,
         payoutRequestSize,
         plan,
         rng,
@@ -40,7 +32,9 @@ export function runAccountTimeline(
         winrate: winrateInput,
     } = inputs;
     const commission = dollars(commissionPerRoundTrip);
-    const cushion = dollars(minRetainedCushion);
+    const cushion = dollars(
+        minRetainedCushion ?? plan.defaultRetainedCushion(),
+    );
     const requestSize =
         payoutRequestSize === undefined
             ? undefined

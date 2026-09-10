@@ -18,6 +18,10 @@ import {
     totalFees,
 } from './FeeSchedule';
 import { type PayoutBuffer } from './PayoutBuffer';
+import {
+    type PayoutCapRegime,
+    type QualifyingDaysMilestonePayoutCap,
+} from './PayoutCap';
 import { PayoutFloorEffect } from './PayoutFloorEffect';
 import {
     type PayoutLadder,
@@ -59,6 +63,7 @@ export interface PlanInit {
     minTradingDays: number;
     payoutBalanceShareCap?: Fraction0to1;
     payoutBuffer?: PayoutBuffer;
+    payoutCapOverride?: QualifyingDaysMilestonePayoutCap;
     payoutFloorEffect?: PayoutFloorEffect;
     payoutLadder?: null | PayoutLadder;
     payoutMethodFee?: Dollars;
@@ -111,6 +116,8 @@ export abstract class Plan {
 
     readonly payoutBuffer: null | PayoutBuffer;
 
+    readonly payoutCapOverride: null | QualifyingDaysMilestonePayoutCap;
+
     readonly payoutFloorEffect: PayoutFloorEffect;
 
     readonly payoutLadder: null | PayoutLadder;
@@ -149,6 +156,7 @@ export abstract class Plan {
         this.minTradingDays = init.minTradingDays;
         this.payoutBalanceShareCap = init.payoutBalanceShareCap ?? null;
         this.payoutBuffer = init.payoutBuffer ?? null;
+        this.payoutCapOverride = init.payoutCapOverride ?? null;
         this.payoutFloorEffect =
             init.payoutFloorEffect ?? PayoutFloorEffect.None;
         if (
@@ -277,6 +285,10 @@ export abstract class Plan {
         return !consistency?.isViolated(state.bestDayProfit, profit);
     }
 
+    defaultRetainedCushion(): number {
+        return this.fundedDrawdown.amount * 0.1;
+    }
+
     payoutBalanceFloor(
         state: AccountState,
         minRetainedCushion: number,
@@ -295,6 +307,18 @@ export abstract class Plan {
     payoutFromProfit(fundedProfit: number): number {
         const gross = walkPayoutTiers(this.init.payoutTiers, fundedProfit);
         return Math.max(0, gross - this.payoutMethodFee);
+    }
+
+    resolvedPayoutCap(state: AccountState): PayoutCapRegime {
+        if (this.payoutCapOverride === null) {
+            return {
+                balanceShareCap: this.payoutBalanceShareCap,
+                requestCap: this.payoutRequestCap,
+            };
+        }
+        return this.payoutCapOverride.resolve({
+            cumulativeQualifyingDays: state.qualifyingDays,
+        });
     }
 
     evalDayCap(requestedDays: number): number {

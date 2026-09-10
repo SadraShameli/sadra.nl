@@ -285,3 +285,12 @@ describe('Apex eval reset fee', () => {
         expect(out.costBreakdown.resetFeesTotal).toBe(2 * 249);
     });
 });
+
+describe('Apex evaluation time limit', () => {
+    it("caps the eval at ~21 trading days as a weekday approximation of Apex's 30-calendar-day (not trading-day) account expiry, per Apex's live help center", () => {
+        const eod = findPlan(50_000, ApexVariant.Eod);
+        const intraday = findPlan(50_000, ApexVariant.Intraday);
+        expect(eod.evalDayCap(9999)).toBe(21);
+        expect(intraday.evalDayCap(9999)).toBe(21);
+    });
+});

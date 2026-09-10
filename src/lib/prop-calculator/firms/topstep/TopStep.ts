@@ -1,6 +1,7 @@
 import {
     ConsistencyRule,
     ConsistencyScope,
+    ContractLimitKind,
     contracts,
     DailyLossLimitKind,
     dollars,
@@ -30,9 +31,23 @@ const COMBINE_CONSISTENCY = fraction(0.5);
 const CONTRACT_LIMITS = {
     evalMicros: contracts(50),
     evalMinis: contracts(5),
-    fundedMicros: null,
-    fundedMinis: null,
-};
+    fundedMicros: {
+        kind: ContractLimitKind.Tiered,
+        tiers: [
+            { maxContracts: contracts(20), minBalance: dollars(0) },
+            { maxContracts: contracts(30), minBalance: dollars(1500) },
+            { maxContracts: contracts(50), minBalance: dollars(2000) },
+        ],
+    },
+    fundedMinis: {
+        kind: ContractLimitKind.Tiered,
+        tiers: [
+            { maxContracts: contracts(2), minBalance: dollars(0) },
+            { maxContracts: contracts(3), minBalance: dollars(1500) },
+            { maxContracts: contracts(5), minBalance: dollars(2000) },
+        ],
+    },
+} as const;
 
 const PRICING_PATHS = [
     {

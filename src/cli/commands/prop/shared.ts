@@ -5,6 +5,8 @@ import { z } from 'zod';
 import { ui } from '~/cli/ui';
 import {
     ALL_FIRMS,
+    type ContractLimitConfig,
+    ContractLimitKind,
     type DailyLossLimitConfig,
     type DailyLossLimitDescriptor,
     DailyLossLimitShape,
@@ -310,6 +312,17 @@ export const planArguments = {
 
 export function describeDll(config: DailyLossLimitConfig): string {
     return describeDllShape(describeDailyLossLimit(config));
+}
+
+export function describeFundedMinis(
+    config: ContractLimitConfig | null,
+): string {
+    if (config === null) return 'unpublished';
+    if (config.kind === ContractLimitKind.Flat) {
+        return `${config.maxContracts} mini`;
+    }
+    const topTier = config.tiers.at(-1);
+    return `up to ${topTier?.maxContracts ?? '?'} mini (tiered)`;
 }
 
 export function describeShare(maxBestDayShare: number | undefined): string {

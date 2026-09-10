@@ -11,12 +11,6 @@ import {
 
 const STEP = 5;
 
-/**
- * Loops trials × accounts, summing the N accounts' day-indexed curves per
- * trial FIRST, then taking P10/P50/P90 percentiles across the combined
- * per-trial curves — never percentile-then-sum, which would understate
- * portfolio-level variance (percentiles don't distribute over addition).
- */
 export function simulatePortfolioTimeline(
     inputs: PortfolioTimelineInputs,
 ): PortfolioTimelineResult {
@@ -30,7 +24,7 @@ export function simulatePortfolioTimeline(
         fundedDayPolicy,
         maxEvalDays,
         maxPayoutsPerCard = DEFAULT_MAX_PAYOUTS_PER_CARD,
-        minRetainedCushion = 0,
+        minRetainedCushion,
         payoutRequestSize,
         plan,
         riskPerTrade,
