@@ -17,7 +17,8 @@ export function capRiskToContractLimit(
     positionSizing: PositionSizingConfig,
     maxContracts: ContractCount | null,
 ): number {
-    if (maxContracts === null || maxContracts <= 0) return intendedRisk;
+    if (maxContracts === null) return intendedRisk;
+    if (maxContracts <= 0) return 0;
     const riskPerContract =
         positionSizing.instrument.pointValue * positionSizing.stopPoints;
     if (riskPerContract <= 0) return intendedRisk;

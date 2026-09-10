@@ -259,6 +259,23 @@ describe('runDay: opt-in idle-day closure', () => {
             expect(second.closedForInactivity).toBe(true);
         },
     );
+
+    it('rejects maxConsecutiveIdleDays: 0 at construction, since it would falsely close an account on a day it actually traded', () => {
+        expect(() =>
+            mffuRapidEod().withOverrides({ maxConsecutiveIdleDays: 0 }),
+        ).toThrow(/maxConsecutiveIdleDays/);
+    });
+
+    it('accepts a positive maxConsecutiveIdleDays and still leaves omitted (null) untouched', () => {
+        expect(
+            mffuRapidEod().withOverrides({ maxConsecutiveIdleDays: 1 })
+                .maxConsecutiveIdleDays,
+        ).toBe(1);
+        expect(
+            mffuRapidEod().withOverrides({ maxConsecutiveIdleDays: undefined })
+                .maxConsecutiveIdleDays,
+        ).toBeNull();
+    });
 });
 
 describe('simulate(): inactivity closure is visible as its own SimOutputs stat', () => {

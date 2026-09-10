@@ -51,7 +51,7 @@ export function simulateTrial(options: TrialOptions): TrialResult {
     });
     const { attempt, attemptsUsed, resetFeesPaid } = retryResult;
     let cumulativeDays = retryResult.daysElapsed;
-    const billableEvalDays = attempt.days;
+    const billableEvalDays = retryResult.daysElapsed;
     const lastEquityCurve = attempt.equityCurve;
 
     if (retryResult.terminalOutcome === null) {

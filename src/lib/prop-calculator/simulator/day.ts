@@ -133,7 +133,7 @@ export function runDay(options: DayRunOptions): {
     }
     drawdown.onDayClose(state);
     plan.recordDayClosePeak(state);
-    if (isTraded && plan.isBust(state, phase)) {
+    if (plan.isBust(state, phase)) {
         return { busted: true, closedForInactivity: false, traded: isTraded };
     }
     if (

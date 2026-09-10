@@ -91,6 +91,14 @@ describe('capRiskToContractLimit', () => {
             1000,
         );
     });
+
+    it('caps risk to $0 when the contract limit is exactly zero, unlike an unconfigured (null) limit', () => {
+        expect(capRiskToContractLimit(500, NQ, contracts(0))).toBe(0);
+    });
+
+    it('caps risk to $0 when the contract limit is negative', () => {
+        expect(capRiskToContractLimit(500, NQ, contracts(-1))).toBe(0);
+    });
 });
 
 describe('resolveContractLimit', () => {

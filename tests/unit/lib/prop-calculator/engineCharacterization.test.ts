@@ -40,7 +40,7 @@ const CASES: readonly Characterization[] = [
         expected: {
             bustProbability: 0.225,
             daysToPassP50: 11,
-            expectancyDollars: 131.2752857572097,
+            expectancyDollars: 197.35506278386322,
             expectedDaysToPass: 11.535483870967742,
             expectedFirstPayoutDay: 0,
             expectedGrossPayout: 9007.2,
@@ -65,7 +65,7 @@ const CASES: readonly Characterization[] = [
         expected: {
             bustProbability: 0.225,
             daysToPassP50: 6,
-            expectancyDollars: 130.00185237858716,
+            expectancyDollars: 197.99183779231717,
             expectedDaysToPass: 6.838709677419355,
             expectedFirstPayoutDay: 16.30275229357798,
             expectedGrossPayout: 7115,
@@ -90,7 +90,7 @@ const CASES: readonly Characterization[] = [
         expected: {
             bustProbability: 0.165,
             daysToPassP50: 6,
-            expectancyDollars: 120.91995115984656,
+            expectancyDollars: 197.20226613405427,
             expectedDaysToPass: 6.766467065868263,
             expectedFirstPayoutDay: 13.508064516129032,
             expectedGrossPayout: 33_058.8,
@@ -115,7 +115,7 @@ const CASES: readonly Characterization[] = [
         expected: {
             bustProbability: 0.195,
             daysToPassP50: 6,
-            expectancyDollars: 121.02839427229,
+            expectancyDollars: 196.37325273894976,
             expectedDaysToPass: 7.012422360248447,
             expectedFirstPayoutDay: 22,
             expectedGrossPayout: 14_411.2,

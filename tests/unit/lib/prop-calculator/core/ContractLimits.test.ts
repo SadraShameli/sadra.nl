@@ -38,6 +38,20 @@ describe('maxContractsAt', () => {
         expect(maxContractsAt(config, 2000)).toBe(5);
         expect(maxContractsAt(config, 50_000)).toBe(5);
     });
+
+    it('falls back to the true lowest-minBalance tier below every threshold, regardless of declaration order', () => {
+        const outOfOrder = {
+            kind: ContractLimitKind.Tiered,
+            tiers: [
+                { maxContracts: contracts(5), minBalance: dollars(2000) },
+                { maxContracts: contracts(2), minBalance: dollars(0) },
+                { maxContracts: contracts(3), minBalance: dollars(1500) },
+            ],
+        } as const;
+        expect(maxContractsAt(outOfOrder, -500)).toBe(2);
+        expect(maxContractsAt(outOfOrder, 1500)).toBe(3);
+        expect(maxContractsAt(outOfOrder, 2000)).toBe(5);
+    });
 });
 
 describe('TopStep funded contract tiers (live-verified)', () => {

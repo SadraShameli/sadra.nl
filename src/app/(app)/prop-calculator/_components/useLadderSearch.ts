@@ -113,10 +113,7 @@ export function useLadderSearch() {
             const runId = runIdReference.current;
 
             const cushion = inputs.plan.drawdown.amount;
-            const ladders = canonicaliseGrid(
-                buildLadderGrid(inputs.grid),
-                cushion,
-            );
+            const ladders = canonicaliseGrid(buildLadderGrid(inputs.grid));
             const gridSize = buildLadderGrid(inputs.grid).length;
             const total = ladders.length;
 

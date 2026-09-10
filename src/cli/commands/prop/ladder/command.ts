@@ -15,8 +15,9 @@ import { formatCurrency, formatPercent } from '~/lib/format';
 import {
     type LadderScore,
     minStopPoints,
-    type Plan,
+    resolveContractLimit,
     runLadderSearch,
+    TradingPhase,
 } from '~/lib/prop-calculator';
 
 export default defineCommand({
@@ -114,22 +115,28 @@ export default defineCommand({
                 `  ${result.gridSize} raw -> ${result.laddersScored} distinct (${result.droppedAliasCount} aliases removed) in ${elapsed.toFixed(1)}s\n`,
             );
 
+            const contractLimit = resolveContractLimit(
+                plan.contractLimits,
+                TradingPhase.Eval,
+                instrument.isMicro,
+                0,
+            );
             printTable(
                 'FASTEST TO FUNDED',
                 result.bySpeed,
-                plan,
+                contractLimit,
                 instrument.pointValue,
             );
             printTable(
                 'CHEAPEST PER FUNDED ACCOUNT',
                 result.byCost,
-                plan,
+                contractLimit,
                 instrument.pointValue,
             );
             printTable(
                 'HIGHEST PASS RATE',
                 result.byPassRate,
-                plan,
+                contractLimit,
                 instrument.pointValue,
             );
 
@@ -152,7 +159,7 @@ export default defineCommand({
 function printTable(
     title: string,
     rows: readonly LadderScore[],
-    plan: Plan,
+    contractLimit: null | number,
     pointValue: number,
 ): void {
     ui.heading(title);
@@ -165,11 +172,14 @@ function printTable(
     ]);
     table.printHeader();
     for (const score of rows) {
-        const cap = plan.contractLimits?.evalMinis ?? null;
         const stop =
-            cap === null
+            contractLimit === null
                 ? null
-                : minStopPoints(Math.max(...score.ladder), cap, pointValue);
+                : minStopPoints(
+                      Math.max(...score.ladder),
+                      contractLimit,
+                      pointValue,
+                  );
         table.printRow([
             score.ladder.join(' / '),
             formatPercent(score.passRate),

@@ -49,8 +49,8 @@ const EVAL_DRAWS = [
     ...Array.from({ length: WINNING_DAYS_TO_PASS }, () => 0.1),
 ];
 
-describe("reset-fee cost accounting does not double-count a busted attempt's days against the monthly-subscription bracket", () => {
-    it("constructs a real bust-then-pass scenario where cumulative days and the surviving attempt's own days land in different billing months", () => {
+describe('eval-retry cost accounting is monotonic: more elapsed days plus a real reset-fee purchase can never make totalCost go down', () => {
+    it("bills the monthly-subscription bracket off the true cumulative days across every attempt, not just the surviving attempt's own days", () => {
         const plan = standardStandardPlan();
         const totals = new TradeTotals();
 
@@ -77,24 +77,46 @@ describe("reset-fee cost accounting does not double-count a busted attempt's day
         );
         expect(retryResult.resetFeesPaid).toBe(plan.fees.reset);
 
-        const costWithFix = plan.totalCostThroughDay(
-            retryResult.attempt.days,
-            undefined,
-        );
-        const costIfStillDoubleCounted = plan.totalCostThroughDay(
+        const costBilledOffCumulativeDays = plan.totalCostThroughDay(
             retryResult.daysElapsed,
             undefined,
         );
-        expect(costWithFix).toBeLessThan(costIfStillDoubleCounted);
-        expect(costIfStillDoubleCounted - costWithFix).toBe(
-            plan.fees.monthlySubscription,
+        const costBilledOffSurvivingAttemptOnly = plan.totalCostThroughDay(
+            retryResult.attempt.days,
+            undefined,
+        );
+        expect(costBilledOffCumulativeDays).toBeGreaterThan(
+            costBilledOffSurvivingAttemptOnly,
         );
     });
 
-    it("simulateTrial bills against the surviving attempt's own days, not the cumulative day count", () => {
+    it('never lets a busted-attempt-plus-reset-plus-pass trial cost less than a shorter trial that only busted once and never reset', () => {
         const plan = standardStandardPlan();
 
-        const result = simulateTrial({
+        const bustOnly = simulateTrial({
+            commission: dollars(0),
+            discounts: undefined,
+            evalDayPolicy: BUST_THEN_PASS_POLICY,
+            fundedDayPolicy: BUST_THEN_PASS_POLICY,
+            fundedHorizonDays: 1,
+            maxAttempts: 1,
+            maxEvalDays: 30,
+            minRetainedCushion: dollars(0),
+            payoutRequestSize: undefined,
+            plan,
+            positionSizing: null,
+            rng: scriptedRng(
+                Array.from({ length: LOSING_DAYS_TO_BUST }, () => 0.9),
+            ),
+            rrRatio: 2,
+            rungSizing: RungSizing.CapToCushion,
+            shouldCaptureEquity: false,
+            winrate: fraction(0.5),
+        });
+        expect(bustOnly.outcome).toBe('bust-eval');
+        expect(bustOnly.resetFeesPaid).toBe(0);
+
+        const bustThenResetThenPass = simulateTrial({
             commission: dollars(0),
             discounts: undefined,
             evalDayPolicy: BUST_THEN_PASS_POLICY,
@@ -112,21 +134,13 @@ describe("reset-fee cost accounting does not double-count a busted attempt's day
             shouldCaptureEquity: false,
             winrate: fraction(0.5),
         });
+        expect(bustThenResetThenPass.resetFeesPaid).toBe(plan.fees.reset);
+        expect(bustThenResetThenPass.daysElapsed).toBeGreaterThan(
+            bustOnly.daysElapsed,
+        );
 
-        expect(
-            result.outcome === 'bust-funded' || result.outcome === 'pass-clean',
-        ).toBe(true);
-
-        const expectedEvalCost =
-            plan.totalCostThroughDay(WINNING_DAYS_TO_PASS, undefined) +
-            plan.fees.reset;
-        const buggyEvalCost =
-            plan.totalCostThroughDay(
-                LOSING_DAYS_TO_BUST + WINNING_DAYS_TO_PASS,
-                undefined,
-            ) + plan.fees.reset;
-
-        expect(expectedEvalCost).toBeLessThan(buggyEvalCost);
-        expect(result.totalCost).toBe(expectedEvalCost);
+        expect(bustThenResetThenPass.totalCost).toBeGreaterThanOrEqual(
+            bustOnly.totalCost,
+        );
     });
 });

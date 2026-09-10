@@ -23,7 +23,6 @@ export function walkPayoutTiers(
     );
 
     let payout = 0;
-    let remaining = fundedProfit;
 
     for (let index = 0; index < sorted.length; index++) {
         const tier = sorted[index];
@@ -33,12 +32,10 @@ export function walkPayoutTiers(
         const tierStart = tier.thresholdProfit;
         if (fundedProfit <= tierStart) break;
 
-        const tierWidth = Math.min(remaining, tierCap - tierStart);
+        const tierWidth = Math.min(fundedProfit, tierCap) - tierStart;
         if (tierWidth <= 0) continue;
 
         payout += tierWidth * tier.traderShare;
-        remaining -= tierWidth;
-        if (remaining <= 0) break;
     }
 
     return payout;

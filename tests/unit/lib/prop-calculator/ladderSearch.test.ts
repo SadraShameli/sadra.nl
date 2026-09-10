@@ -8,6 +8,7 @@ import {
     FirmId,
     flatDayPolicy,
     fraction,
+    ladderFrontier,
     MffuVariant,
     RungSizing,
     TradingPhase,
@@ -16,6 +17,7 @@ import {
     buildLadderGrid,
     canonicaliseGrid,
     enumerateDay,
+    type LadderScore,
     type LadderScoreConfig,
     runLadderSearch,
     scoreLadder,
@@ -319,15 +321,56 @@ describe('grid search bounding', () => {
         expect(keys).not.toContain('0,100');
     });
 
-    it('de-duplicates ladders that alias to the same effective strategy', () => {
-        const aliases = [
+    it('de-duplicates ladders only when a rung is genuinely unreachable (a literal <=0 rung), not by a cushion-based worst-case guess', () => {
+        const trailingZeroAliases = [
+            [400, 600, 0, 900],
+            [400, 600, 0, 500],
+        ];
+        const canonical = canonicaliseGrid(trailingZeroAliases);
+        expect(canonical).toHaveLength(1);
+        expect(canonical[0]).toEqual([400, 600]);
+    });
+
+    it('does not alias ladders whose later rungs merely exceed a cushion-based worst-case running total, since actual per-day cushion grows after a win and those rungs can genuinely fire', () => {
+        const distinct = [
             [400, 600, 1800, 100],
             [400, 600, 1400, 0],
             [400, 600, 2000, 900],
         ];
-        const canonical = canonicaliseGrid(aliases, 2000);
-        expect(canonical).toHaveLength(1);
-        expect(canonical[0]).toEqual([400, 600, 1000]);
+        const canonical = canonicaliseGrid(distinct);
+        expect(canonical).toHaveLength(3);
+        expect(canonical).toContainEqual([400, 600, 1800, 100]);
+        expect(canonical).toContainEqual([400, 600, 1400]);
+        expect(canonical).toContainEqual([400, 600, 2000, 900]);
+    });
+});
+
+function score(overrides: Partial<LadderScore>): LadderScore {
+    return {
+        costPerFunded: 0,
+        expectedDaysToFunded: 0,
+        ladder: [],
+        meanDaysOnFail: 0,
+        meanDaysOnPass: 0,
+        passRate: 1,
+        ...overrides,
+    };
+}
+
+describe('ladderFrontier', () => {
+    it('excludes a dominated ladder (same days, higher cost) even when it ties on expectedDaysToFunded and appears earlier in the input', () => {
+        const dominated = score({
+            costPerFunded: 500,
+            expectedDaysToFunded: 10,
+            ladder: [100],
+        });
+        const dominant = score({
+            costPerFunded: 400,
+            expectedDaysToFunded: 10,
+            ladder: [200],
+        });
+        expect(ladderFrontier([dominated, dominant])).toEqual([dominant]);
+        expect(ladderFrontier([dominant, dominated])).toEqual([dominant]);
     });
 });
 
@@ -340,24 +383,22 @@ describe('runLadderSearch', () => {
             topN: 5,
         });
 
-        expect(result.bySpeed[0]?.ladder).toEqual([400, 600, 800, 200]);
+        expect(result.bySpeed[0]?.ladder).toEqual([400, 600, 800, 800]);
         expect(result.byCost[0]?.ladder).toEqual([100, 100, 100, 100]);
 
         const winner = result.bySpeed[0];
         if (!winner) throw new Error('no speed winner');
-        expect(winner.ladder.reduce((a, b) => a + b, 0)).toBe(2000);
+        expect(winner.ladder.reduce((a, b) => a + b, 0)).toBe(2600);
     });
 
-    it('drops aliased ladders and reports how many', () => {
+    it('reports zero dropped aliases for a grid-search grid, since buildLadderGrid never emits a raw ladder with a literal <=0 rung (aliasing only ever collapses that exact case)', () => {
         const result = runLadderSearch({
             grid: { lo: 100, max: 800, slots: 4, step: 100 },
             score: { ...config(), sims: 200 },
             seed: 90_210,
         });
-        expect(result.gridSize).toBeGreaterThan(result.laddersScored);
-        expect(result.droppedAliasCount).toBe(
-            result.gridSize - result.laddersScored,
-        );
+        expect(result.gridSize).toBe(result.laddersScored);
+        expect(result.droppedAliasCount).toBe(0);
     });
 
     it('returns a frontier that is strictly improving on both axes', () => {

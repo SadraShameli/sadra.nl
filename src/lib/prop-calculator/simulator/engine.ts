@@ -102,8 +102,7 @@ export function simulate(inputs: SimInputs): SimOutputs {
     let grossLossesSum = 0;
     let passingTradesSum = 0;
     let passingTrialsCount = 0;
-    let perTradePnLSum = 0;
-    let perTradePnLCount = 0;
+    let tradesTakenSum = 0;
     let had5LossCount = 0;
     let had10LossCount = 0;
     let inactivityClosureCount = 0;
@@ -137,10 +136,7 @@ export function simulate(inputs: SimInputs): SimOutputs {
         maxLosingStreaks.push(r.maxLosingStreak);
         grossWinsSum += r.grossWins;
         grossLossesSum += r.grossLosses;
-        if (r.tradesTaken > 0) {
-            perTradePnLSum += (r.grossWins - r.grossLosses) / r.tradesTaken;
-            perTradePnLCount += 1;
-        }
+        tradesTakenSum += r.tradesTaken;
         if (isPassingOutcome(r.outcome)) {
             passingTradesSum += r.evalTradesAtPass;
             passingTrialsCount += 1;
@@ -164,7 +160,9 @@ export function simulate(inputs: SimInputs): SimOutputs {
         (expectedNet * TRADING_DAYS_PER_MONTH) / expectedDaysPerTrial;
 
     const expectancyDollars =
-        perTradePnLCount > 0 ? perTradePnLSum / perTradePnLCount : 0;
+        tradesTakenSum > 0
+            ? (grossWinsSum - grossLossesSum) / tradesTakenSum
+            : 0;
     const expectancyR = riskPerTrade > 0 ? expectancyDollars / riskPerTrade : 0;
     const profitFactor =
         grossLossesSum > 0

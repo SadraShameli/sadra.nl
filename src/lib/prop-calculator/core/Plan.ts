@@ -152,6 +152,14 @@ export abstract class Plan {
         this.isInstantFunded = init.isInstantFunded ?? false;
         this.label = init.label;
         this.maxConsecutiveIdleDays = init.maxConsecutiveIdleDays ?? null;
+        if (
+            this.maxConsecutiveIdleDays !== null &&
+            this.maxConsecutiveIdleDays <= 0
+        ) {
+            throw new Error(
+                `${this.label}: maxConsecutiveIdleDays must be a positive integer or omitted, got ${this.maxConsecutiveIdleDays}`,
+            );
+        }
         this.maxFundedAccounts = init.maxFundedAccounts;
         this.maxEvalTradingDays = init.maxEvalTradingDays ?? null;
         this.maxLifetimePayouts = init.maxLifetimePayouts ?? null;

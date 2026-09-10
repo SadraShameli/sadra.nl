@@ -26,17 +26,11 @@ export type DayStopRule =
 
 export const DEFAULT_RUNG_SIZING: RungSizing = RungSizing.CapToCushion;
 
-export function canonicaliseLadder(
-    ladder: readonly number[],
-    cushion: number,
-): number[] {
+export function canonicaliseLadder(ladder: readonly number[]): number[] {
     const out: number[] = [];
-    let remaining = cushion;
     for (const rung of ladder) {
-        if (rung <= 0 || remaining <= 0) break;
-        const clamped = Math.min(rung, remaining);
-        out.push(clamped);
-        remaining -= clamped;
+        if (rung <= 0) break;
+        out.push(rung);
     }
     return out;
 }

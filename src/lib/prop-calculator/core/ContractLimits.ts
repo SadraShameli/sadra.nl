@@ -48,8 +48,12 @@ export function maxContractsAt(
 ): ContractCount | null {
     if (config === null) return null;
     if (config.kind === ContractLimitKind.Flat) return config.maxContracts;
+    let lowest: ContractLimitTier | undefined;
     let best: ContractLimitTier | undefined;
     for (const tier of config.tiers) {
+        if (!lowest || tier.minBalance < lowest.minBalance) {
+            lowest = tier;
+        }
         if (
             balance >= tier.minBalance &&
             (!best || tier.minBalance > best.minBalance)
@@ -57,7 +61,7 @@ export function maxContractsAt(
             best = tier;
         }
     }
-    return best?.maxContracts ?? config.tiers[0]?.maxContracts ?? null;
+    return (best ?? lowest)?.maxContracts ?? null;
 }
 
 export function minStopPoints(

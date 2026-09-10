@@ -65,7 +65,7 @@ export function runEvalToFundedCycle(
     });
     const { attemptsUsed, resetFeesPaid } = retryResult;
     let totalDays = retryResult.daysElapsed;
-    const billableEvalDays = retryResult.attempt.days;
+    const billableEvalDays = retryResult.daysElapsed;
 
     if (retryResult.terminalOutcome !== null) {
         return {

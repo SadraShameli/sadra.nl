@@ -101,14 +101,11 @@ export function buildLadderGrid(config: LadderGridConfig): number[][] {
     return grid;
 }
 
-export function canonicaliseGrid(
-    grid: readonly number[][],
-    cushion: number,
-): number[][] {
+export function canonicaliseGrid(grid: readonly number[][]): number[][] {
     const seen = new Set<string>();
     const out: number[][] = [];
     for (const ladder of grid) {
-        const canonical = canonicaliseLadder(ladder, cushion);
+        const canonical = canonicaliseLadder(ladder);
         if (canonical.length === 0) continue;
         const key = canonical.join(',');
         if (seen.has(key)) continue;
@@ -355,7 +352,9 @@ export function ladderFrontier(scores: readonly LadderScore[]): LadderScore[] {
             Number.isFinite(score.costPerFunded),
     );
     const sorted = scorable.toSorted(
-        (a, b) => a.expectedDaysToFunded - b.expectedDaysToFunded,
+        (a, b) =>
+            a.expectedDaysToFunded - b.expectedDaysToFunded ||
+            a.costPerFunded - b.costPerFunded,
     );
     const frontier: LadderScore[] = [];
     let bestCost = Infinity;
@@ -383,7 +382,7 @@ export function runLadderSearch(
     } = options;
 
     const raw = buildLadderGrid(grid);
-    const ladders = canonicaliseGrid(raw, score.cushion);
+    const ladders = canonicaliseGrid(raw);
     const total = ladders.length;
     const scores: LadderScore[] = [];
 
