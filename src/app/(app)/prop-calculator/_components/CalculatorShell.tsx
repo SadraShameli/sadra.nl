@@ -87,6 +87,7 @@ export default function CalculatorShell() {
                             dayStop={c.state.dayStop}
                             evalDiscountPercent={c.state.evalDiscountPercent}
                             firmDisplayName={c.state.firm.displayName}
+                            instrument={c.state.instrument}
                             linkActivationDiscount={
                                 c.state.linkActivationDiscount
                             }
@@ -106,26 +107,31 @@ export default function CalculatorShell() {
                             onEvalDiscountPercentChange={
                                 c.setEvalDiscountPercent
                             }
+                            onInstrumentChange={c.setInstrument}
                             onLinkActivationDiscountChange={
                                 c.setLinkActivationDiscount
                             }
                             onMaxAttemptsChange={c.setMaxAttempts}
                             onMaxEvalDaysChange={c.setMaxEvalDays}
                             onResetCoupon={c.resetCoupon}
+                            onRetainedCushionChange={c.setRetainedCushion}
                             onRiskDollarsChange={c.setRiskDollars}
                             onRiskPercentChange={c.setRiskPercent}
                             onRrRatioChange={c.setRrRatio}
                             onSeedChange={c.setSeed}
                             onSizingModeChange={c.setSizingMode}
+                            onStopPointsChange={c.setStopPoints}
                             onTradesPerDayChange={c.setTradesPerDay}
                             onTrialsChange={c.setTrials}
                             onWinrateChange={c.setWinrate}
                             plan={c.state.plan}
+                            retainedCushion={c.state.retainedCushion}
                             riskDollars={c.state.riskDollars}
                             riskPercent={c.state.riskPercent}
                             rrRatio={c.state.rrRatio}
                             seed={c.state.seed}
                             sizingMode={c.state.sizingMode}
+                            stopPoints={c.state.stopPoints}
                             tradesPerDay={c.state.tradesPerDay}
                             trials={c.state.trials}
                             winrate={c.state.winrate}

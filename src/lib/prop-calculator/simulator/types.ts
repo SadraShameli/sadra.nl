@@ -6,7 +6,9 @@ import {
 } from '../core/DayPolicy';
 import { type CouponDiscounts } from '../core/FeeSchedule';
 import { type FundedCycleTracker } from '../core/FundedPayoutCycle';
+import { type InstrumentSymbol } from '../core/Instruments';
 import { type Plan } from '../core/Plan';
+import { type PositionSizingConfig } from '../core/PositionSizing';
 import { type Roi } from '../core/Roi';
 import { type TradingPhase } from '../core/TradingPhase';
 import { type Dollars, type Fraction0to1 } from '../core/units';
@@ -39,6 +41,7 @@ export interface DayRunOptions {
     dayPolicy: DayPolicy;
     phase: TradingPhase;
     plan: Plan;
+    positionSizing: null | PositionSizingConfig;
     rng: Rng;
     rrRatio: number;
     rungSizing: RungSizing;
@@ -52,6 +55,7 @@ export interface EvalAttemptOptions {
     dayPolicy: DayPolicy;
     maxEvalDays: number;
     plan: Plan;
+    positionSizing: null | PositionSizingConfig;
     rng: Rng;
     rrRatio: number;
     rungSizing: RungSizing;
@@ -103,6 +107,7 @@ export interface FundedDayStepOptions {
     commission: Dollars;
     dayPolicy: DayPolicy;
     plan: Plan;
+    positionSizing: null | PositionSizingConfig;
     rng: Rng;
     rrRatio: number;
     rungSizing: RungSizing;
@@ -121,6 +126,7 @@ export interface FundedHorizonOptions {
     minRetainedCushion: Dollars;
     payoutRequestSize: Dollars | undefined;
     plan: Plan;
+    positionSizing: null | PositionSizingConfig;
     rng: Rng;
     rrRatio: number;
     rungSizing: RungSizing;
@@ -162,6 +168,7 @@ export interface SimInputs {
     evalDayPolicy?: DayPolicy;
     fundedDayPolicy?: DayPolicy;
     fundedHorizonDays: number;
+    instrument?: InstrumentSymbol;
     maxAttempts?: number;
     maxEvalDays: number;
     minRetainedCushion?: number;
@@ -171,6 +178,7 @@ export interface SimInputs {
     rrRatio: number;
     rungSizing?: RungSizing;
     seed: number;
+    stopPoints?: number;
     tradesPerDay: number;
     trials: number;
     winrate: number;
@@ -234,6 +242,7 @@ export interface TrialOptions {
     minRetainedCushion: Dollars;
     payoutRequestSize: Dollars | undefined;
     plan: Plan;
+    positionSizing: null | PositionSizingConfig;
     rng: Rng;
     rrRatio: number;
     rungSizing: RungSizing;

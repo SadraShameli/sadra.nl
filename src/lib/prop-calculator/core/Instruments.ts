@@ -5,6 +5,7 @@ export enum InstrumentSymbol {
 }
 
 export interface InstrumentSpec {
+    readonly isMicro: boolean;
     readonly label: string;
     readonly pointValue: number;
     readonly symbol: InstrumentSymbol;
@@ -14,6 +15,7 @@ export interface InstrumentSpec {
 
 export const INSTRUMENTS: Readonly<Record<InstrumentSymbol, InstrumentSpec>> = {
     [InstrumentSymbol.ES]: {
+        isMicro: false,
         label: 'E-mini S&P 500',
         pointValue: 50,
         symbol: InstrumentSymbol.ES,
@@ -21,6 +23,7 @@ export const INSTRUMENTS: Readonly<Record<InstrumentSymbol, InstrumentSpec>> = {
         tickValue: 12.5,
     },
     [InstrumentSymbol.MNQ]: {
+        isMicro: true,
         label: 'Micro E-mini Nasdaq-100',
         pointValue: 2,
         symbol: InstrumentSymbol.MNQ,
@@ -28,6 +31,7 @@ export const INSTRUMENTS: Readonly<Record<InstrumentSymbol, InstrumentSpec>> = {
         tickValue: 0.5,
     },
     [InstrumentSymbol.NQ]: {
+        isMicro: false,
         label: 'E-mini Nasdaq-100',
         pointValue: 20,
         symbol: InstrumentSymbol.NQ,

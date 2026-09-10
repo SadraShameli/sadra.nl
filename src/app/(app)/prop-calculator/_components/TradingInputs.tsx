@@ -18,7 +18,17 @@ import {
     formatCurrency,
     formatPercent,
 } from '~/lib/format';
-import { type DayStopRule, type Plan } from '~/lib/prop-calculator';
+import {
+    ALL_INSTRUMENTS,
+    capRiskToContractLimit,
+    type DayStopRule,
+    INSTRUMENTS,
+    type InstrumentSymbol,
+    type Plan,
+    points,
+    resolveContractLimit,
+    TradingPhase,
+} from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
 import DayStopRulePicker from './DayStopRulePicker';
@@ -32,6 +42,7 @@ interface TradingInputsProperties {
     dayStop: DayStopRule;
     evalDiscountPercent: number;
     firmDisplayName: string;
+    instrument: InstrumentSymbol | null;
     linkActivationDiscount: boolean;
     maxAttempts: number;
     maxCopyAccounts: number;
@@ -41,24 +52,29 @@ interface TradingInputsProperties {
     onCopyAccountsChange: (n: number) => void;
     onDayStopChange: (rule: DayStopRule) => void;
     onEvalDiscountPercentChange: (n: number) => void;
+    onInstrumentChange: (instrument: InstrumentSymbol | null) => void;
     onLinkActivationDiscountChange: (isLinked: boolean) => void;
     onMaxAttemptsChange: (n: number) => void;
     onMaxEvalDaysChange: (n: number) => void;
     onResetCoupon: () => void;
+    onRetainedCushionChange: (n: null | number) => void;
     onRiskDollarsChange: (n: number) => void;
     onRiskPercentChange: (n: number) => void;
     onRrRatioChange: (n: number) => void;
     onSeedChange: (n: number) => void;
     onSizingModeChange: (m: SizingMode) => void;
+    onStopPointsChange: (n: number) => void;
     onTradesPerDayChange: (n: number) => void;
     onTrialsChange: (n: number) => void;
     onWinrateChange: (n: number) => void;
     plan: Plan;
+    retainedCushion: null | number;
     riskDollars: number;
     riskPercent: number;
     rrRatio: number;
     seed: number;
     sizingMode: SizingMode;
+    stopPoints: null | number;
     tradesPerDay: number;
     trials: number;
     winrate: number;
@@ -71,6 +87,7 @@ export default function TradingInputs({
     dayStop,
     evalDiscountPercent,
     firmDisplayName,
+    instrument,
     linkActivationDiscount,
     maxAttempts,
     maxCopyAccounts,
@@ -80,24 +97,29 @@ export default function TradingInputs({
     onCopyAccountsChange,
     onDayStopChange,
     onEvalDiscountPercentChange,
+    onInstrumentChange,
     onLinkActivationDiscountChange,
     onMaxAttemptsChange,
     onMaxEvalDaysChange,
     onResetCoupon,
+    onRetainedCushionChange,
     onRiskDollarsChange,
     onRiskPercentChange,
     onRrRatioChange,
     onSeedChange,
     onSizingModeChange,
+    onStopPointsChange,
     onTradesPerDayChange,
     onTrialsChange,
     onWinrateChange,
     plan,
+    retainedCushion,
     riskDollars,
     riskPercent,
     rrRatio,
     seed,
     sizingMode,
+    stopPoints,
     tradesPerDay,
     trials,
     winrate,
@@ -111,6 +133,28 @@ export default function TradingInputs({
         sizingMode === SizingMode.Dollar
             ? `≈ ${formatPercent(riskDollarsToPercent(riskDollars, accountSize) / 100, 2)} of account`
             : `≈ ${formatCurrency(computedRisk)} on $${(accountSize / 1000).toFixed(0)}K`;
+
+    const positionSizingSpec =
+        instrument === null ? null : INSTRUMENTS[instrument];
+    const evalContractLimit = resolveContractLimit(
+        plan.contractLimits,
+        TradingPhase.Eval,
+        positionSizingSpec?.isMicro ?? false,
+        0,
+    );
+    const feasibleRisk =
+        positionSizingSpec === null || stopPoints === null
+            ? null
+            : capRiskToContractLimit(
+                  computedRisk,
+                  {
+                      instrument: positionSizingSpec,
+                      stopPoints: points(stopPoints),
+                  },
+                  evalContractLimit,
+              );
+    const isRiskCappedByContracts =
+        feasibleRisk !== null && feasibleRisk < computedRisk;
 
     return (
         <div
@@ -202,6 +246,39 @@ export default function TradingInputs({
                                 <p className="mt-1 text-xs text-muted-foreground">
                                     Cap intraday trading: stop after first win,
                                     K losses, or a $ target.
+                                </p>
+                            </div>
+                            <div>
+                                <label
+                                    className="mb-1 block text-xs font-medium text-muted-foreground"
+                                    htmlFor="retained-cushion"
+                                >
+                                    Retained cushion on payout ($)
+                                </label>
+                                <Input
+                                    id="retained-cushion"
+                                    min={0}
+                                    onChange={(event) => {
+                                        const raw = event.target.value;
+                                        onRetainedCushionChange(
+                                            raw === '' ? null : Number(raw),
+                                        );
+                                    }}
+                                    placeholder={plan
+                                        .defaultRetainedCushion()
+                                        .toFixed(0)}
+                                    step={100}
+                                    type="number"
+                                    value={retainedCushion ?? ''}
+                                />
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    How far above the drawdown floor a simulated
+                                    payout stops short. Defaults to 10% of the
+                                    funded drawdown (
+                                    {formatCurrency(
+                                        plan.defaultRetainedCushion(),
+                                    )}
+                                    ).
                                 </p>
                             </div>
                         </div>
@@ -426,6 +503,66 @@ export default function TradingInputs({
                         );
                     })}
                 </div>
+                <div className="mt-3 flex flex-wrap items-end gap-3">
+                    <div className="flex flex-col gap-1">
+                        <label
+                            className="text-xs font-medium text-muted-foreground"
+                            htmlFor="position-sizing-instrument"
+                        >
+                            Instrument (contract-limit enforcement)
+                        </label>
+                        <select
+                            className="h-8 rounded-md border bg-transparent px-2 text-xs"
+                            id="position-sizing-instrument"
+                            onChange={(event) =>
+                                onInstrumentChange(
+                                    event.target.value === ''
+                                        ? null
+                                        : (event.target
+                                              .value as InstrumentSymbol),
+                                )
+                            }
+                            value={instrument ?? ''}
+                        >
+                            <option value="">Not enforced</option>
+                            {ALL_INSTRUMENTS.map((spec) => (
+                                <option key={spec.symbol} value={spec.symbol}>
+                                    {spec.symbol} (${spec.pointValue}/pt)
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    {instrument === null ? null : (
+                        <div className="flex flex-col gap-1">
+                            <label
+                                className="text-xs font-medium text-muted-foreground"
+                                htmlFor="position-sizing-stop"
+                            >
+                                Stop distance (points)
+                            </label>
+                            <Input
+                                className="w-28"
+                                id="position-sizing-stop"
+                                min={0.25}
+                                onChange={(event) =>
+                                    onStopPointsChange(
+                                        Number(event.target.value),
+                                    )
+                                }
+                                step={0.25}
+                                type="number"
+                                value={stopPoints ?? ''}
+                            />
+                        </div>
+                    )}
+                </div>
+                {instrument !== null && stopPoints !== null ? (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                        {isRiskCappedByContracts
+                            ? `Capped to ${formatCurrency(feasibleRisk)}/trade in eval - ${evalContractLimit ?? '?'} ${positionSizingSpec?.isMicro ? 'micro' : 'mini'} contract limit at a ${stopPoints}pt stop`
+                            : `Fits within the eval contract limit at a ${stopPoints}pt stop`}
+                    </p>
+                ) : null}
             </div>
 
             <div className="border-t border-border/50 pt-4">

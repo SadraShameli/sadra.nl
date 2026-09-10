@@ -4,11 +4,13 @@ import {
     type DayPolicy,
     type DayStopRule,
     DayStopRuleKind,
+    InstrumentSymbol,
     parseFirmId,
     serializePlanId,
     type TradingFirm,
 } from '~/lib/prop-calculator';
 import {
+    CALCULATOR_SCALAR_BOUNDS,
     calculatorScalarFieldsSchema,
     dayPolicySchema,
     dayStopRuleSchema,
@@ -20,8 +22,11 @@ import {
 
 import type { CalculatorState, LabScenario, PortfolioEntry } from './types';
 
-import { clampStateToPlan } from './clamp';
+import { clampNumber, clampStateToPlan } from './clamp';
 import { SizingMode } from './types';
+
+const INSTRUMENT_SYMBOLS: readonly InstrumentSymbol[] =
+    Object.values(InstrumentSymbol);
 
 function base64UrlDecode(s: string): string {
     if (typeof window === 'undefined') return '';
@@ -55,6 +60,10 @@ function base64UrlEncode(s: string): string {
     }
 }
 
+function parseInstrumentSymbol(raw: null | string): InstrumentSymbol | null {
+    return INSTRUMENT_SYMBOLS.find((symbol) => symbol === raw) ?? null;
+}
+
 const labScenarioArraySchema = z.array(labScenarioSchema);
 const portfolioEntryArraySchema = z.array(portfolioEntrySchema);
 const savedScenarioArraySchema = z.array(savedScenarioRecordSchema);
@@ -82,6 +91,24 @@ export function decodeState(
         parameters.get('mode') === SizingMode.Percent
             ? SizingMode.Percent
             : SizingMode.Dollar;
+    const instrument = parseInstrumentSymbol(parameters.get('instr'));
+    const stopPoints =
+        instrument === null
+            ? null
+            : clampNumber(
+                  Number(parameters.get('sp')),
+                  CALCULATOR_SCALAR_BOUNDS.sp.min,
+                  CALCULATOR_SCALAR_BOUNDS.sp.max,
+                  CALCULATOR_SCALAR_BOUNDS.sp.fallback,
+              );
+    const retainedCushion = parameters.has('rc')
+        ? clampNumber(
+              Number(parameters.get('rc')),
+              CALCULATOR_SCALAR_BOUNDS.rc.min,
+              CALCULATOR_SCALAR_BOUNDS.rc.max,
+              CALCULATOR_SCALAR_BOUNDS.rc.fallback,
+          )
+        : null;
 
     const resolvedFirm = firm ?? fallback.firm;
     const resolvedPlan = plan ?? (firm ? firm.plans[0] : null) ?? fallback.plan;
@@ -159,17 +186,20 @@ export function decodeState(
         firm: resolvedFirm,
         firmMemory: fallback.firmMemory,
         fundedHorizonDays: scalarFields.fundedDays,
+        instrument,
         labScenarios,
         linkActivationDiscount: parameters.get('linkAct') === '1',
         maxAttempts: scalarFields.attempts,
         maxEvalDays: scalarFields.maxDays,
         plan: resolvedPlan,
         portfolio,
+        retainedCushion,
         riskDollars: scalarFields.rd,
         riskPercent: scalarFields.rp,
         rrRatio: scalarFields.rr,
         seed: scalarFields.seed,
         sizingMode,
+        stopPoints,
         tradesPerDay: scalarFields.tpd,
         trials: scalarFields.trials,
         winrate: scalarFields.wr,
@@ -196,6 +226,13 @@ export function encodeState(state: CalculatorState): URLSearchParams {
     p.set('copy', String(state.copyAccounts));
     p.set('maxDays', String(state.maxEvalDays));
     p.set('fundedDays', String(state.fundedHorizonDays));
+    if (state.instrument !== null && state.stopPoints !== null) {
+        p.set('instr', state.instrument);
+        p.set('sp', String(state.stopPoints));
+    }
+    if (state.retainedCushion !== null) {
+        p.set('rc', String(state.retainedCushion));
+    }
     if (state.dayStop.kind !== DayStopRuleKind.None) {
         const ds = base64UrlEncode(JSON.stringify(state.dayStop));
         if (ds) p.set('ds', ds);

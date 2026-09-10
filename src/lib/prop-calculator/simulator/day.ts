@@ -6,6 +6,10 @@ import {
     resolveTradeRisk,
     shouldStopDay,
 } from '../core/DayPolicy';
+import {
+    capRiskToContractLimit,
+    resolveContractLimit,
+} from '../core/PositionSizing';
 import { TradingPhase } from '../core/TradingPhase';
 import { type DayRunOptions, type SimInputs } from './types';
 
@@ -36,6 +40,7 @@ export function runDay(options: DayRunOptions): {
         dayPolicy,
         phase,
         plan,
+        positionSizing,
         rng,
         rrRatio,
         rungSizing,
@@ -50,7 +55,24 @@ export function runDay(options: DayRunOptions): {
 
     for (const intendedRisk of dayPolicy.ladder) {
         const cushion = state.balance - state.threshold;
-        const risk = resolveTradeRisk(intendedRisk, cushion, rungSizing);
+        const cushionCappedRisk = resolveTradeRisk(
+            intendedRisk,
+            cushion,
+            rungSizing,
+        );
+        const risk =
+            positionSizing === null
+                ? cushionCappedRisk
+                : capRiskToContractLimit(
+                      cushionCappedRisk,
+                      positionSizing,
+                      resolveContractLimit(
+                          plan.contractLimits,
+                          phase,
+                          positionSizing.instrument.isMicro,
+                          plan.accountProfit(state),
+                      ),
+                  );
         if (risk <= 0) break;
 
         const isWon = rng() < winrate;

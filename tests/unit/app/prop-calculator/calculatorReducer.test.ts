@@ -13,6 +13,7 @@ import {
     ApexVariant,
     DayStopRuleKind,
     FirmId,
+    InstrumentSymbol,
     MffuVariant,
 } from '~/lib/prop-calculator';
 import { ALL_FIRMS } from '~/lib/prop-calculator/firms';
@@ -289,5 +290,79 @@ describe('calculatorReducer day stop rule', () => {
             k: 3,
             kind: DayStopRuleKind.AfterKLosses,
         });
+    });
+});
+
+describe('calculatorReducer position sizing (contract-limit enforcement)', () => {
+    it('SET_INSTRUMENT sets and clears the instrument independently of stopPoints', () => {
+        const state = defaultCalculatorState();
+        expect(state.instrument).toBeNull();
+
+        const withInstrument = reduce(state, {
+            instrument: InstrumentSymbol.NQ,
+            type: CalculatorActionType.SetInstrument,
+        });
+        expect(withInstrument.instrument).toBe(InstrumentSymbol.NQ);
+
+        const cleared = reduce(withInstrument, {
+            instrument: null,
+            type: CalculatorActionType.SetInstrument,
+        });
+        expect(cleared.instrument).toBeNull();
+    });
+
+    it('SET_STOP_POINTS clamps to the shared schema bounds and falls back to the current value on invalid input', () => {
+        const state = {
+            ...defaultCalculatorState(),
+            stopPoints: 15,
+        };
+        const tooLow = reduce(state, {
+            type: CalculatorActionType.SetStopPoints,
+            value: 0,
+        });
+        expect(tooLow.stopPoints).toBe(0.25);
+
+        const invalid = reduce(state, {
+            type: CalculatorActionType.SetStopPoints,
+            value: NaN,
+        });
+        expect(invalid.stopPoints).toBe(15);
+    });
+});
+
+describe('calculatorReducer retained cushion (E14 revisit)', () => {
+    it('SET_RETAINED_CUSHION sets and clears independently, defaulting to null (plan default)', () => {
+        const state = defaultCalculatorState();
+        expect(state.retainedCushion).toBeNull();
+
+        const withValue = reduce(state, {
+            type: CalculatorActionType.SetRetainedCushion,
+            value: 2500,
+        });
+        expect(withValue.retainedCushion).toBe(2500);
+
+        const cleared = reduce(withValue, {
+            type: CalculatorActionType.SetRetainedCushion,
+            value: null,
+        });
+        expect(cleared.retainedCushion).toBeNull();
+    });
+
+    it('SET_RETAINED_CUSHION clamps to the shared schema bounds and falls back to the current value on invalid input', () => {
+        const state = {
+            ...defaultCalculatorState(),
+            retainedCushion: 5000,
+        };
+        const tooHigh = reduce(state, {
+            type: CalculatorActionType.SetRetainedCushion,
+            value: 999_999_999,
+        });
+        expect(tooHigh.retainedCushion).toBe(100_000);
+
+        const invalid = reduce(state, {
+            type: CalculatorActionType.SetRetainedCushion,
+            value: NaN,
+        });
+        expect(invalid.retainedCushion).toBe(5000);
     });
 });

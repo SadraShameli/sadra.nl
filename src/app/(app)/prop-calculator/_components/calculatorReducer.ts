@@ -6,6 +6,7 @@ import {
     DayStopRuleKind,
     findFirm,
     FirmId,
+    type InstrumentSymbol,
     type Plan,
     type TradingFirm,
 } from '~/lib/prop-calculator';
@@ -48,17 +49,20 @@ export enum CalculatorActionType {
     SetEvalDiscountPercent = 'set-eval-discount-percent',
     SetFirm = 'set-firm',
     SetFundedHorizonDays = 'set-funded-horizon-days',
+    SetInstrument = 'set-instrument',
     SetLabScenarios = 'set-lab-scenarios',
     SetLinkActivationDiscount = 'set-link-activation-discount',
     SetMaxAttempts = 'set-max-attempts',
     SetMaxEvalDays = 'set-max-eval-days',
     SetPlan = 'set-plan',
     SetPortfolio = 'set-portfolio',
+    SetRetainedCushion = 'set-retained-cushion',
     SetRiskDollars = 'set-risk-dollars',
     SetRiskPercent = 'set-risk-percent',
     SetRrRatio = 'set-rr-ratio',
     SetSeed = 'set-seed',
     SetSizingMode = 'set-sizing-mode',
+    SetStopPoints = 'set-stop-points',
     SetTradesPerDay = 'set-trades-per-day',
     SetTrials = 'set-trials',
     SetWinrate = 'set-winrate',
@@ -82,6 +86,10 @@ export type CalculatorAction =
       }
     | { id: string; type: CalculatorActionType.RemoveLabScenario }
     | {
+          instrument: InstrumentSymbol | null;
+          type: CalculatorActionType.SetInstrument;
+      }
+    | {
           isLinked: boolean;
           type: CalculatorActionType.SetLinkActivationDiscount;
       }
@@ -92,7 +100,10 @@ export type CalculatorAction =
           type: CalculatorActionType.SetEvalDayPolicy;
       }
     | { rule: DayStopRule; type: CalculatorActionType.SetDayStop }
-    | { state: CalculatorState; type: CalculatorActionType.ApplyState }
+    | {
+          state: CalculatorState;
+          type: CalculatorActionType.ApplyState;
+      }
     | { type: CalculatorActionType.AddLabScenario }
     | { type: CalculatorActionType.ResetCoupon }
     | { type: CalculatorActionType.ResetLabScenarios }
@@ -107,10 +118,15 @@ export type CalculatorAction =
     | { type: CalculatorActionType.SetFundedHorizonDays; value: number }
     | { type: CalculatorActionType.SetMaxAttempts; value: number }
     | { type: CalculatorActionType.SetMaxEvalDays; value: number }
+    | {
+          type: CalculatorActionType.SetRetainedCushion;
+          value: null | number;
+      }
     | { type: CalculatorActionType.SetRiskDollars; value: number }
     | { type: CalculatorActionType.SetRiskPercent; value: number }
     | { type: CalculatorActionType.SetRrRatio; value: number }
     | { type: CalculatorActionType.SetSeed; value: number }
+    | { type: CalculatorActionType.SetStopPoints; value: number }
     | { type: CalculatorActionType.SetTradesPerDay; value: number }
     | { type: CalculatorActionType.SetTrials; value: number }
     | { type: CalculatorActionType.SetWinrate; value: number };
@@ -289,6 +305,9 @@ export function calculatorReducer(
                 ),
             };
         }
+        case CalculatorActionType.SetInstrument: {
+            return { ...state, instrument: action.instrument };
+        }
         case CalculatorActionType.SetLabScenarios: {
             return { ...state, labScenarios: action.entries };
         }
@@ -333,6 +352,21 @@ export function calculatorReducer(
         }
         case CalculatorActionType.SetPortfolio: {
             return { ...state, portfolio: action.entries };
+        }
+        case CalculatorActionType.SetRetainedCushion: {
+            return {
+                ...state,
+                retainedCushion:
+                    action.value === null
+                        ? null
+                        : clampNumber(
+                              action.value,
+                              CALCULATOR_SCALAR_BOUNDS.rc.min,
+                              CALCULATOR_SCALAR_BOUNDS.rc.max,
+                              state.retainedCushion ??
+                                  CALCULATOR_SCALAR_BOUNDS.rc.fallback,
+                          ),
+            };
         }
         case CalculatorActionType.SetRiskDollars: {
             return {
@@ -380,6 +414,17 @@ export function calculatorReducer(
         }
         case CalculatorActionType.SetSizingMode: {
             return { ...state, sizingMode: action.mode };
+        }
+        case CalculatorActionType.SetStopPoints: {
+            return {
+                ...state,
+                stopPoints: clampNumber(
+                    action.value,
+                    CALCULATOR_SCALAR_BOUNDS.sp.min,
+                    CALCULATOR_SCALAR_BOUNDS.sp.max,
+                    state.stopPoints ?? CALCULATOR_SCALAR_BOUNDS.sp.fallback,
+                ),
+            };
         }
         case CalculatorActionType.SetTradesPerDay: {
             return {
@@ -436,6 +481,7 @@ export function defaultCalculatorState(): CalculatorState {
         firm: DEFAULT_FIRM,
         firmMemory: {},
         fundedHorizonDays: 60,
+        instrument: null,
         labScenarios: buildDefaultLabScenarios(),
         linkActivationDiscount: false,
         maxAttempts: 1,
@@ -456,11 +502,13 @@ export function defaultCalculatorState(): CalculatorState {
                 },
             },
         ],
+        retainedCushion: null,
         riskDollars: 250,
         riskPercent: 0.5,
         rrRatio: 2,
         seed: 42,
         sizingMode: SizingMode.Dollar,
+        stopPoints: null,
         tradesPerDay: 1,
         trials: 2000,
         winrate: 0.4,

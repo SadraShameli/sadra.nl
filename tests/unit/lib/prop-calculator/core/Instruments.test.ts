@@ -12,14 +12,17 @@ describe('CME contract specifications', () => {
         expect(INSTRUMENTS[InstrumentSymbol.NQ].pointValue).toBe(20);
         expect(INSTRUMENTS[InstrumentSymbol.NQ].tickSize).toBe(0.25);
         expect(INSTRUMENTS[InstrumentSymbol.NQ].tickValue).toBe(5);
+        expect(INSTRUMENTS[InstrumentSymbol.NQ].isMicro).toBe(false);
 
         expect(INSTRUMENTS[InstrumentSymbol.ES].pointValue).toBe(50);
         expect(INSTRUMENTS[InstrumentSymbol.ES].tickSize).toBe(0.25);
         expect(INSTRUMENTS[InstrumentSymbol.ES].tickValue).toBe(12.5);
+        expect(INSTRUMENTS[InstrumentSymbol.ES].isMicro).toBe(false);
 
         expect(INSTRUMENTS[InstrumentSymbol.MNQ].pointValue).toBe(2);
         expect(INSTRUMENTS[InstrumentSymbol.MNQ].tickSize).toBe(0.25);
         expect(INSTRUMENTS[InstrumentSymbol.MNQ].tickValue).toBe(0.5);
+        expect(INSTRUMENTS[InstrumentSymbol.MNQ].isMicro).toBe(true);
     });
 
     it('keeps tickValue consistent with tickSize times pointValue', () => {

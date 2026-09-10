@@ -3,6 +3,7 @@ import {
     DEFAULT_RUNG_SIZING,
     flatDayPolicy,
 } from '../core/DayPolicy';
+import { resolvePositionSizing } from '../core/PositionSizing';
 import { dollars, fraction } from '../core/units';
 import { runEvalToFundedCycle } from './fundedCycle';
 import {
@@ -21,6 +22,7 @@ export function runAccountTimeline(
         commissionPerRoundTrip = 0,
         dayBudget = DEFAULT_DAY_BUDGET,
         discounts,
+        instrument,
         maxEvalDays,
         maxPayoutsPerCard = DEFAULT_MAX_PAYOUTS_PER_CARD,
         minRetainedCushion,
@@ -29,12 +31,14 @@ export function runAccountTimeline(
         rng,
         rrRatio,
         rungSizing = DEFAULT_RUNG_SIZING,
+        stopPoints,
         winrate: winrateInput,
     } = inputs;
     const commission = dollars(commissionPerRoundTrip);
     const cushion = dollars(
         minRetainedCushion ?? plan.defaultRetainedCushion(),
     );
+    const positionSizing = resolvePositionSizing(instrument, stopPoints);
     const requestSize =
         payoutRequestSize === undefined
             ? undefined
@@ -76,6 +80,7 @@ export function runAccountTimeline(
             minRetainedCushion: cushion,
             payoutRequestSize: requestSize,
             plan,
+            positionSizing,
             rng,
             rrRatio,
             rungSizing,

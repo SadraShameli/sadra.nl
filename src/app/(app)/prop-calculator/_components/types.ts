@@ -3,6 +3,7 @@ import {
     type DayPolicy,
     type DayStopRule,
     type FirmId,
+    type InstrumentSymbol,
     type Plan,
     type PlanId,
     type TradingFirm,
@@ -31,17 +32,20 @@ export interface CalculatorState {
     firm: TradingFirm;
     firmMemory: FirmMemory;
     fundedHorizonDays: number;
+    instrument: InstrumentSymbol | null;
     labScenarios: LabScenario[];
     linkActivationDiscount: boolean;
     maxAttempts: number;
     maxEvalDays: number;
     plan: Plan;
     portfolio: PortfolioEntry[];
+    retainedCushion: null | number;
     riskDollars: number;
     riskPercent: number;
     rrRatio: number;
     seed: number;
     sizingMode: SizingMode;
+    stopPoints: null | number;
     tradesPerDay: number;
     trials: number;
     winrate: number;

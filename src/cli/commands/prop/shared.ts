@@ -43,6 +43,7 @@ export interface TradingArguments extends PlanSelectorArguments {
     rr: string;
     seed: string;
     stop: string;
+    'stop-points'?: string;
     tpd: string;
     trials: string;
     unaffordable: RungSizing;
@@ -52,6 +53,7 @@ export interface TradingArguments extends PlanSelectorArguments {
 export interface TradingInputsInit {
     dayStop: DayStopRule;
     fundedHorizonDays: number;
+    instrument: InstrumentSymbol | undefined;
     ladder: null | number[];
     maxAttempts: number;
     maxEvalDays: number;
@@ -61,6 +63,7 @@ export interface TradingInputsInit {
     rrRatio: number;
     rungSizing: RungSizing;
     seed: number;
+    stopPoints: number | undefined;
     tradesPerDay: number;
     trials: number;
     winrate: number;
@@ -139,12 +142,14 @@ export class TablePrinter {
 export class TradingInputs {
     static parse(arguments_: TradingArguments): TradingInputs {
         const requestSize = arguments_['request-size'];
+        const stopPoints = arguments_['stop-points'];
         return new TradingInputs({
             dayStop: readStopRule(arguments_.stop),
             fundedHorizonDays: readNumber(
                 arguments_['funded-days'],
                 'funded-days',
             ),
+            instrument: arguments_.instrument,
             ladder: readLadder(arguments_.ladder),
             maxAttempts: readNumber(arguments_['max-attempts'], 'max-attempts'),
             maxEvalDays: readNumber(arguments_['eval-days'], 'eval-days'),
@@ -160,6 +165,10 @@ export class TradingInputs {
             rrRatio: readNumber(arguments_.rr, 'rr'),
             rungSizing: arguments_.unaffordable,
             seed: readNumber(arguments_.seed, 'seed'),
+            stopPoints:
+                stopPoints === undefined
+                    ? undefined
+                    : readNumber(stopPoints, 'stop-points'),
             tradesPerDay: readNumber(arguments_.tpd, 'tpd'),
             trials: readNumber(arguments_.trials, 'trials'),
             winrate: readNumber(arguments_.winrate, 'winrate'),
@@ -168,6 +177,7 @@ export class TradingInputs {
 
     readonly dayStop: DayStopRule;
     readonly fundedHorizonDays: number;
+    readonly instrument: InstrumentSymbol | undefined;
     readonly ladder: null | number[];
     readonly maxAttempts: number;
     readonly maxEvalDays: number;
@@ -177,6 +187,7 @@ export class TradingInputs {
     readonly rrRatio: number;
     readonly rungSizing: RungSizing;
     readonly seed: number;
+    readonly stopPoints: number | undefined;
     readonly tradesPerDay: number;
     readonly trials: number;
     readonly winrate: number;
@@ -184,6 +195,7 @@ export class TradingInputs {
     constructor(init: TradingInputsInit) {
         this.dayStop = init.dayStop;
         this.fundedHorizonDays = init.fundedHorizonDays;
+        this.instrument = init.instrument;
         this.ladder = init.ladder;
         this.maxAttempts = init.maxAttempts;
         this.maxEvalDays = init.maxEvalDays;
@@ -193,6 +205,7 @@ export class TradingInputs {
         this.rrRatio = init.rrRatio;
         this.rungSizing = init.rungSizing;
         this.seed = init.seed;
+        this.stopPoints = init.stopPoints;
         this.tradesPerDay = init.tradesPerDay;
         this.trials = init.trials;
         this.winrate = init.winrate;
@@ -212,6 +225,7 @@ export class TradingInputs {
             dayStop: this.dayStop,
             evalDayPolicy: this.toDayPolicy(),
             fundedHorizonDays: this.fundedHorizonDays,
+            instrument: this.instrument,
             maxAttempts: this.maxAttempts,
             maxEvalDays: this.maxEvalDays,
             minRetainedCushion: this.minRetainedCushion,
@@ -221,6 +235,7 @@ export class TradingInputs {
             rrRatio: this.rrRatio,
             rungSizing: this.rungSizing,
             seed: this.seed,
+            stopPoints: this.stopPoints,
             tradesPerDay: this.tradesPerDay,
             trials: this.trials,
             winrate: this.winrate,
@@ -243,7 +258,7 @@ export const tradingArguments = {
     },
     instrument: {
         default: InstrumentSymbol.NQ,
-        description: `Instrument for stop-distance maths (${Object.keys(INSTRUMENTS).join(', ')})`,
+        description: `Instrument for contract-limit sizing, used with --stop-points (${Object.keys(INSTRUMENTS).join(', ')})`,
         options: Object.values(InstrumentSymbol),
         type: 'enum',
     },
@@ -277,6 +292,11 @@ export const tradingArguments = {
         default: 'day-green',
         description:
             'Day stop rule: none, day-green, first-win, after-target:<$>, after-k-losses:<k>',
+        type: 'string',
+    },
+    'stop-points': {
+        description:
+            'Stop distance in points - enables contract-limit enforcement (caps risk to what --instrument allows), omit to leave risk uncapped',
         type: 'string',
     },
     tpd: {

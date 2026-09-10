@@ -5,6 +5,7 @@ import {
     FirmId,
     fraction,
     FundedNextVariant,
+    percent,
 } from '~/lib/prop-calculator/core';
 import {
     newFundedCycleTracker,
@@ -12,6 +13,7 @@ import {
 } from '~/lib/prop-calculator/core/FundedPayoutCycle';
 import { QualifyingDaysMilestonePayoutCap } from '~/lib/prop-calculator/core/PayoutCap';
 import { FundedNext } from '~/lib/prop-calculator/firms/fundednext/FundedNext';
+import { type SimInputs, simulate } from '~/lib/prop-calculator/simulator';
 
 describe('QualifyingDaysMilestonePayoutCap.resolve', () => {
     const cap = new QualifyingDaysMilestonePayoutCap({
@@ -108,4 +110,43 @@ describe('FundedNext Legacy: two-regime payout cap (live-verified: 50% / $6,000 
         expect(payout?.debited).toBeGreaterThan(6000);
         expect(payout?.debited).toBe(20_000);
     });
+
+    it(
+        'removing the cap collapses funded survival across a whole Monte Carlo run ' +
+            '(E10 revisit: confirms the magnitude reported for the cap fix is a real, ' +
+            'correctly-directional withdrawal-aggressiveness effect against the trailing-' +
+            'drawdown floor, not shared-RNG-stream noise or a sampling artifact)',
+        () => {
+            const cappedPlan = legacyPlan();
+            const uncappedPlan = cappedPlan.withOverrides({
+                payoutCapOverride: undefined,
+            });
+
+            function inputsFor(plan: typeof cappedPlan): SimInputs {
+                return {
+                    discounts: {
+                        activationPercent: percent(0),
+                        evalPercent: percent(0),
+                    },
+                    fundedHorizonDays: 252,
+                    maxEvalDays: 150,
+                    plan,
+                    riskPerTrade: 200,
+                    rrRatio: 2,
+                    seed: 42,
+                    tradesPerDay: 1,
+                    trials: 2000,
+                    winrate: 0.55,
+                };
+            }
+
+            const capped = simulate(inputsFor(cappedPlan));
+            const uncapped = simulate(inputsFor(uncappedPlan));
+
+            expect(capped.fundedBustProbability).toBeLessThan(0.5);
+            expect(uncapped.fundedBustProbability).toBeGreaterThan(0.95);
+            expect(capped.passProbability).toBeGreaterThan(0.5);
+            expect(uncapped.passProbability).toBe(0);
+        },
+    );
 });

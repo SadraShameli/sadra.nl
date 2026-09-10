@@ -2,6 +2,7 @@ import { TRADING_DAYS_PER_MONTH } from '../core/constants';
 import { DEFAULT_RUNG_SIZING } from '../core/DayPolicy';
 import { type CouponDiscounts } from '../core/FeeSchedule';
 import { type Plan } from '../core/Plan';
+import { resolvePositionSizing } from '../core/PositionSizing';
 import { totalRoiOnCost } from '../core/Roi';
 import { TradingPhase } from '../core/TradingPhase';
 import { dollars, fraction } from '../core/units';
@@ -28,6 +29,7 @@ export function simulate(inputs: SimInputs): SimOutputs {
         copyAccounts = 1,
         discounts,
         fundedHorizonDays,
+        instrument,
         maxAttempts = 1,
         maxEvalDays,
         minRetainedCushion,
@@ -37,6 +39,7 @@ export function simulate(inputs: SimInputs): SimOutputs {
         rrRatio,
         rungSizing = DEFAULT_RUNG_SIZING,
         seed,
+        stopPoints,
         trials,
     } = inputs;
     const commission = dollars(commissionPerRoundTrip);
@@ -51,6 +54,7 @@ export function simulate(inputs: SimInputs): SimOutputs {
     const evalDayPolicy = resolveDayPolicy(inputs, TradingPhase.Eval);
     const fundedDayPolicy = resolveDayPolicy(inputs, TradingPhase.Funded);
     const accountMultiplier = Math.max(1, Math.floor(copyAccounts));
+    const positionSizing = resolvePositionSizing(instrument, stopPoints);
     const rng = mulberry32(seed);
 
     const trialResults: TrialResult[] = [];
@@ -69,6 +73,7 @@ export function simulate(inputs: SimInputs): SimOutputs {
                 minRetainedCushion: cushion,
                 payoutRequestSize: requestSize,
                 plan,
+                positionSizing,
                 rng,
                 rrRatio,
                 rungSizing,
@@ -255,6 +260,7 @@ export function simulatePortfolio(
         discounts,
         fundedHorizonDays,
         groups,
+        instrument,
         maxAttempts = 1,
         maxEvalDays,
         minRetainedCushion,
@@ -263,6 +269,7 @@ export function simulatePortfolio(
         rrRatio,
         rungSizing = DEFAULT_RUNG_SIZING,
         seed,
+        stopPoints,
         trials,
         winrate: winrateInput,
     } = inputs;
@@ -277,6 +284,7 @@ export function simulatePortfolio(
     const winrate = fraction(winrateInput);
     const evalDayPolicy = resolveDayPolicy(inputs, TradingPhase.Eval);
     const fundedDayPolicy = resolveDayPolicy(inputs, TradingPhase.Funded);
+    const positionSizing = resolvePositionSizing(instrument, stopPoints);
 
     const N = Math.max(1, Math.floor(accounts));
     const groupSizes =
@@ -322,6 +330,7 @@ export function simulatePortfolio(
                 minRetainedCushion: cushion,
                 payoutRequestSize: requestSize,
                 plan,
+                positionSizing,
                 rng: groupRng,
                 rrRatio,
                 rungSizing,

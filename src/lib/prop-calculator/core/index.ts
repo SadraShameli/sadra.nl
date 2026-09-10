@@ -106,6 +106,12 @@ export {
     TopStepVariant,
     TradeifyVariant,
 } from './PlanId';
+export {
+    capRiskToContractLimit,
+    type PositionSizingConfig,
+    resolveContractLimit,
+    resolvePositionSizing,
+} from './PositionSizing';
 export { replacementEconomics, type ReplacementEconomics } from './Replacement';
 export {
     annualisedRoiOnCost,

@@ -6,6 +6,7 @@ import {
     ALL_FIRMS,
     type DayPolicy,
     type DayStopRule,
+    type InstrumentSymbol,
     percent,
     type Plan,
     type SimInputs,
@@ -57,17 +58,20 @@ export interface UseCalculatorReturn {
     setEvalDiscountPercent: (n: number) => void;
     setFirm: (firm: TradingFirm) => void;
     setFundedHorizonDays: (n: number) => void;
+    setInstrument: (instrument: InstrumentSymbol | null) => void;
     setLabScenarios: (entries: LabScenario[]) => void;
     setLinkActivationDiscount: (isLinked: boolean) => void;
     setMaxAttempts: (n: number) => void;
     setMaxEvalDays: (n: number) => void;
     setPlan: (plan: Plan) => void;
     setPortfolio: (entries: PortfolioEntry[]) => void;
+    setRetainedCushion: (n: null | number) => void;
     setRiskDollars: (n: number) => void;
     setRiskPercent: (n: number) => void;
     setRrRatio: (n: number) => void;
     setSeed: (n: number) => void;
     setSizingMode: (m: SizingMode) => void;
+    setStopPoints: (n: number) => void;
     setTradesPerDay: (n: number) => void;
     setTrials: (n: number) => void;
     setWinrate: (n: number) => void;
@@ -150,12 +154,15 @@ export function useCalculator(): UseCalculatorReturn {
             },
             evalDayPolicy: state.evalDayPolicy ?? undefined,
             fundedHorizonDays: state.fundedHorizonDays,
+            instrument: state.instrument ?? undefined,
             maxAttempts: state.maxAttempts,
             maxEvalDays: state.maxEvalDays,
+            minRetainedCushion: state.retainedCushion ?? undefined,
             plan: state.plan,
             riskPerTrade,
             rrRatio: state.rrRatio,
             seed: state.seed,
+            stopPoints: state.stopPoints ?? undefined,
             tradesPerDay: state.tradesPerDay,
             trials: state.trials,
             winrate: state.winrate,
@@ -177,6 +184,9 @@ export function useCalculator(): UseCalculatorReturn {
             state.copyAccounts,
             state.dayStop,
             state.evalDayPolicy,
+            state.instrument,
+            state.stopPoints,
+            state.retainedCushion,
         ],
     );
 
@@ -229,6 +239,8 @@ export function useCalculator(): UseCalculatorReturn {
                 type: CalculatorActionType.SetFundedHorizonDays,
                 value: n,
             }),
+        setInstrument: (instrument) =>
+            act({ instrument, type: CalculatorActionType.SetInstrument }),
         setLabScenarios: (entries) =>
             act({ entries, type: CalculatorActionType.SetLabScenarios }),
         setLinkActivationDiscount: (isLinked) =>
@@ -243,6 +255,8 @@ export function useCalculator(): UseCalculatorReturn {
         setPlan: (plan) => act({ plan, type: CalculatorActionType.SetPlan }),
         setPortfolio: (entries) =>
             act({ entries, type: CalculatorActionType.SetPortfolio }),
+        setRetainedCushion: (n) =>
+            act({ type: CalculatorActionType.SetRetainedCushion, value: n }),
         setRiskDollars: (n) =>
             act({ type: CalculatorActionType.SetRiskDollars, value: n }),
         setRiskPercent: (n) =>
@@ -252,6 +266,8 @@ export function useCalculator(): UseCalculatorReturn {
         setSeed: (n) => act({ type: CalculatorActionType.SetSeed, value: n }),
         setSizingMode: (mode) =>
             act({ mode, type: CalculatorActionType.SetSizingMode }),
+        setStopPoints: (n) =>
+            act({ type: CalculatorActionType.SetStopPoints, value: n }),
         setTradesPerDay: (n) =>
             act({ type: CalculatorActionType.SetTradesPerDay, value: n }),
         setTrials: (n) =>

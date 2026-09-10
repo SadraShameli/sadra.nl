@@ -4,7 +4,9 @@ import {
     type RungSizing,
 } from '../core/DayPolicy';
 import { type CouponDiscounts } from '../core/FeeSchedule';
+import { type InstrumentSymbol } from '../core/Instruments';
 import { type Plan } from '../core/Plan';
+import { type PositionSizingConfig } from '../core/PositionSizing';
 import { type Dollars, type Fraction0to1 } from '../core/units';
 import { type Rng } from '../rng';
 
@@ -18,6 +20,7 @@ export interface AccountTimelineInputs {
     discounts?: CouponDiscounts;
     evalDayPolicy?: DayPolicy;
     fundedDayPolicy?: DayPolicy;
+    instrument?: InstrumentSymbol;
     maxEvalDays: number;
     maxPayoutsPerCard?: number;
     minRetainedCushion?: number;
@@ -27,6 +30,7 @@ export interface AccountTimelineInputs {
     rng: Rng;
     rrRatio: number;
     rungSizing?: RungSizing;
+    stopPoints?: number;
     tradesPerDay: number;
     winrate: number;
 }
@@ -56,6 +60,7 @@ export interface EvalToFundedCycleOptions {
     minRetainedCushion: Dollars;
     payoutRequestSize: Dollars | undefined;
     plan: Plan;
+    positionSizing: null | PositionSizingConfig;
     rng: Rng;
     rrRatio: number;
     rungSizing: RungSizing;
@@ -75,6 +80,7 @@ export interface PortfolioTimelineInputs {
     discounts?: CouponDiscounts;
     evalDayPolicy?: DayPolicy;
     fundedDayPolicy?: DayPolicy;
+    instrument?: InstrumentSymbol;
     maxEvalDays: number;
     maxPayoutsPerCard?: number;
     minRetainedCushion?: number;
@@ -84,6 +90,7 @@ export interface PortfolioTimelineInputs {
     rrRatio: number;
     rungSizing?: RungSizing;
     seed: number;
+    stopPoints?: number;
     tradesPerDay: number;
     trials: number;
     winrate: number;
