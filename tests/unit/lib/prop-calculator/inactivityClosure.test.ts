@@ -266,6 +266,17 @@ describe('runDay: opt-in idle-day closure', () => {
         ).toThrow(/maxConsecutiveIdleDays/);
     });
 
+    it('rejects NaN and fractional maxConsecutiveIdleDays values too, matching the error message\'s own "positive integer" promise', () => {
+        expect(() =>
+            mffuRapidEod().withOverrides({
+                maxConsecutiveIdleDays: NaN,
+            }),
+        ).toThrow(/maxConsecutiveIdleDays/);
+        expect(() =>
+            mffuRapidEod().withOverrides({ maxConsecutiveIdleDays: 2.5 }),
+        ).toThrow(/maxConsecutiveIdleDays/);
+    });
+
     it('accepts a positive maxConsecutiveIdleDays and still leaves omitted (null) untouched', () => {
         expect(
             mffuRapidEod().withOverrides({ maxConsecutiveIdleDays: 1 })

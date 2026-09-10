@@ -45,6 +45,7 @@ export interface AccountTimelineResult {
 
 export interface CardResult {
     attemptsUsed: number;
+    evalDays: number;
     payouts: readonly PayoutEvent[];
     totalCost: number;
     totalDays: number;

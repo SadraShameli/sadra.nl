@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { dollars, fraction, walkPayoutTiers } from '~/lib/prop-calculator/core';
+import {
+    dollars,
+    FirmId,
+    fraction,
+    MffuVariant,
+    walkPayoutTiers,
+} from '~/lib/prop-calculator/core';
+import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 
 describe('walkPayoutTiers', () => {
     it('returns 0 for zero or negative profit', () => {
@@ -49,5 +56,43 @@ describe('walkPayoutTiers', () => {
         ];
         expect(walkPayoutTiers(tiers, 1000)).toBe(0);
         expect(walkPayoutTiers(tiers, 999)).toBe(0);
+    });
+});
+
+function rapidEod() {
+    const firm = new MyFundedFutures();
+    const plan = firm.findPlan({
+        accountSize: 50_000,
+        firm: FirmId.Mffu,
+        variant: MffuVariant.RapidEod,
+    });
+    if (!plan) throw new Error('MFFU Rapid EOD plan not found');
+    return plan;
+}
+
+describe('Plan construction rejects duplicate payoutTiers thresholds', () => {
+    it('throws when two payoutTiers entries share the same thresholdProfit, since the payout would otherwise silently depend on array order', () => {
+        expect(() =>
+            rapidEod().withOverrides({
+                payoutTiers: [
+                    { thresholdProfit: dollars(0), traderShare: fraction(0.5) },
+                    { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
+                ],
+            }),
+        ).toThrow(/payoutTiers/);
+    });
+
+    it('accepts distinct thresholds without throwing', () => {
+        expect(() =>
+            rapidEod().withOverrides({
+                payoutTiers: [
+                    { thresholdProfit: dollars(0), traderShare: fraction(0.5) },
+                    {
+                        thresholdProfit: dollars(1000),
+                        traderShare: fraction(0.9),
+                    },
+                ],
+            }),
+        ).not.toThrow();
     });
 });

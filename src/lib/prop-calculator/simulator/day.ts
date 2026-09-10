@@ -64,16 +64,11 @@ export function runDay(options: DayRunOptions): {
     if (!isIdleToday) {
         for (const intendedRisk of dayPolicy.ladder) {
             const cushion = state.balance - state.threshold;
-            const cushionCappedRisk = resolveTradeRisk(
-                intendedRisk,
-                cushion,
-                rungSizing,
-            );
-            const risk =
+            const contractCappedRisk =
                 positionSizing === null
-                    ? cushionCappedRisk
+                    ? intendedRisk
                     : capRiskToContractLimit(
-                          cushionCappedRisk,
+                          intendedRisk,
                           positionSizing,
                           resolveContractLimit(
                               plan.contractLimits,
@@ -82,6 +77,11 @@ export function runDay(options: DayRunOptions): {
                               plan.accountProfit(state),
                           ),
                       );
+            const risk = resolveTradeRisk(
+                contractCappedRisk,
+                cushion,
+                rungSizing,
+            );
             if (risk <= 0) break;
 
             const isWon = rng() < winrate;

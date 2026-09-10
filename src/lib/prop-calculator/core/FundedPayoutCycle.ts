@@ -191,9 +191,18 @@ function resolveWithdrawal(options: {
         }
         case 'step': {
             if (deniesIfUnaffordable) {
-                return ladderStep.amount > ceiling ? null : ladderStep.amount;
+                if (ladderStep.amount > ceiling) return null;
+                const debited =
+                    payoutRequestSize === undefined
+                        ? ladderStep.amount
+                        : Math.min(payoutRequestSize, ladderStep.amount);
+                return debited < minRequest ? null : debited;
             }
-            const debited = Math.min(ladderStep.amount, ceiling);
+            const cappedByCeiling = Math.min(ladderStep.amount, ceiling);
+            const debited =
+                payoutRequestSize === undefined
+                    ? cappedByCeiling
+                    : Math.min(payoutRequestSize, cappedByCeiling);
             return debited < minRequest ? null : debited;
         }
     }

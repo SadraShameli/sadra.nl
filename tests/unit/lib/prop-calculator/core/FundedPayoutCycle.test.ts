@@ -288,6 +288,59 @@ describe('ladder payouts', () => {
 
         expect(payout).toBeNull();
     });
+
+    it('honors a smaller payoutRequestSize instead of always paying the full ladder step (deniesIfUnaffordable Apex)', () => {
+        const apexPlan = apex.findPlan({
+            accountSize: 50_000,
+            firm: FirmId.Apex,
+            variant: ApexVariant.Eod,
+        });
+        if (!apexPlan) throw new Error('apex plan missing');
+
+        const state = apexPlan.initialState();
+        state.balance = state.startingBalance + 10_000;
+        state.threshold = state.startingBalance + 100;
+        state.thresholdLocked = true;
+        state.qualifyingDays = 999;
+        const tracker = newFundedCycleTracker(state);
+        tracker.lastPayoutBalance = state.startingBalance;
+        tracker.qualifyingDaysAtLastPayout = 0;
+
+        const payout = tryFundedPayout({
+            maxPayouts: Infinity,
+            minRetainedCushion: 0,
+            payoutRequestSize: 600,
+            plan: apexPlan,
+            state,
+            tracker,
+        });
+
+        expect(payout?.debited).toBe(600);
+    });
+
+    it('honors a smaller payoutRequestSize on a non-denying ladder plan too (MFFU Builder)', () => {
+        const builder = plan(MffuVariant.Builder);
+
+        const state = builder.initialState();
+        state.balance = state.startingBalance + 40_000;
+        state.threshold = state.startingBalance + 100;
+        state.thresholdLocked = true;
+        state.qualifyingDays = 999;
+        const tracker = newFundedCycleTracker(state);
+        tracker.lastPayoutBalance = state.startingBalance;
+        tracker.qualifyingDaysAtLastPayout = 0;
+
+        const payout = tryFundedPayout({
+            maxPayouts: Infinity,
+            minRetainedCushion: 0,
+            payoutRequestSize: 600,
+            plan: builder,
+            state,
+            tracker,
+        });
+
+        expect(payout?.debited).toBe(600);
+    });
 });
 
 describe(

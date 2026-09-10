@@ -154,7 +154,8 @@ export abstract class Plan {
         this.maxConsecutiveIdleDays = init.maxConsecutiveIdleDays ?? null;
         if (
             this.maxConsecutiveIdleDays !== null &&
-            this.maxConsecutiveIdleDays <= 0
+            (!Number.isSafeInteger(this.maxConsecutiveIdleDays) ||
+                this.maxConsecutiveIdleDays <= 0)
         ) {
             throw new Error(
                 `${this.label}: maxConsecutiveIdleDays must be a positive integer or omitted, got ${this.maxConsecutiveIdleDays}`,
@@ -188,6 +189,15 @@ export abstract class Plan {
         this.payoutProfitShare = init.payoutProfitShare ?? null;
         this.payoutRequestCap = init.payoutRequestCap ?? null;
         this.payoutTiers = init.payoutTiers;
+        const seenThresholds = new Set<number>();
+        for (const tier of this.payoutTiers) {
+            if (seenThresholds.has(tier.thresholdProfit)) {
+                throw new Error(
+                    `${this.label}: payoutTiers has more than one tier at thresholdProfit ${tier.thresholdProfit}`,
+                );
+            }
+            seenThresholds.add(tier.thresholdProfit);
+        }
         this.profitTarget = init.profitTarget;
     }
 

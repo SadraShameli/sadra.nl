@@ -89,7 +89,7 @@ export function runAccountTimeline(
             winrate,
         });
 
-        spendSoFar += card.totalCost;
+        const spendBeforeCard = spendSoFar;
         let payoutIndex = 0;
 
         for (
@@ -97,6 +97,12 @@ export function runAccountTimeline(
             d <= card.totalDays && cardStart + d <= safeDayBudget;
             d++
         ) {
+            spendSoFar =
+                spendBeforeCard +
+                (card.evalDays > 0
+                    ? (card.totalCost * Math.min(d, card.evalDays)) /
+                      card.evalDays
+                    : card.totalCost);
             while (
                 payoutIndex < card.payouts.length &&
                 card.payouts[payoutIndex]?.dayOffset === d

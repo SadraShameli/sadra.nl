@@ -172,4 +172,35 @@ describe('runDay: position sizing actually caps a trade in the simulated day loo
 
         expect(state.balance).toBe(state.startingBalance + 800);
     });
+
+    it('RungSizing.SkipIfUnaffordable checks affordability against the contract-limited risk, not the raw ladder rung, so a trade that is genuinely affordable at its real size is not skipped', () => {
+        const topstep = new TopStep();
+        const plan = topstep.plans[0];
+        if (!plan) throw new Error('No TopStep plan registered');
+
+        const state = plan.initialState();
+        plan.beginFundedPhase(state);
+        state.threshold = state.balance - 500;
+        const stats = freshStats(state.startingBalance);
+
+        runDay({
+            commission: dollars(0),
+            dayPolicy: {
+                ladder: [1000],
+                maxLossesPerDay: null,
+                stopRule: { kind: DayStopRuleKind.None },
+            },
+            phase: TradingPhase.Funded,
+            plan,
+            positionSizing: NQ,
+            rng: scriptedRng([0.01]),
+            rrRatio: 2,
+            rungSizing: RungSizing.SkipIfUnaffordable,
+            state,
+            stats,
+            winrate: fraction(1),
+        });
+
+        expect(state.balance).toBe(state.startingBalance + 800);
+    });
 });

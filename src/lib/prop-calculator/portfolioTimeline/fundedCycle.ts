@@ -70,6 +70,7 @@ export function runEvalToFundedCycle(
     if (retryResult.terminalOutcome !== null) {
         return {
             attemptsUsed,
+            evalDays: billableEvalDays,
             payouts: [],
             totalCost:
                 plan.totalCostThroughDay(billableEvalDays, discounts) +
@@ -112,6 +113,7 @@ export function runEvalToFundedCycle(
 
     return {
         attemptsUsed,
+        evalDays: billableEvalDays,
         payouts: sink.events,
         totalCost:
             plan.totalCostThroughDay(billableEvalDays, discounts) +
