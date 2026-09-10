@@ -286,7 +286,7 @@ function buildRapidEodPlan(): PlanInit {
             variant: MffuVariant.RapidEod,
         },
         label: planLabel(50_000, 'Rapid EOD'),
-        maxFundedAccounts: 5,
+        maxFundedAccounts: 3,
         minDaysAfterPassForPayout: 1,
         minPayoutProfit: dollars(maxDrawdown + 100),
         minPayoutProfitPerCycle: dollars(500),
