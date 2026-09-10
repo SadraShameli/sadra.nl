@@ -33,8 +33,13 @@ export interface TableColumn {
 }
 
 export interface TradingArguments extends PlanSelectorArguments {
+    'activation-discount': string;
     'eval-days': string;
+    'eval-discount': string;
     'funded-days': string;
+    'funded-risk'?: string;
+    'funded-rr'?: string;
+    'funded-tpd'?: string;
     'idle-day-probability': string;
     instrument: InstrumentSymbol;
     ladder?: string;
@@ -54,8 +59,13 @@ export interface TradingArguments extends PlanSelectorArguments {
 }
 
 export interface TradingInputsInit {
+    activationDiscountPercent: number;
     dayStop: DayStopRule;
+    evalDiscountPercent: number;
     fundedHorizonDays: number;
+    fundedRiskPerTrade: number | undefined;
+    fundedRrRatio: number | undefined;
+    fundedTradesPerDay: number | undefined;
     idleDayProbability: number;
     instrument: InstrumentSymbol | undefined;
     ladder: null | number[];
@@ -148,12 +158,35 @@ export class TradingInputs {
     static parse(arguments_: TradingArguments): TradingInputs {
         const requestSize = arguments_['request-size'];
         const stopPoints = arguments_['stop-points'];
+        const fundedRisk = arguments_['funded-risk'];
+        const fundedRr = arguments_['funded-rr'];
+        const fundedTpd = arguments_['funded-tpd'];
         return new TradingInputs({
+            activationDiscountPercent: readNumber(
+                arguments_['activation-discount'],
+                'activation-discount',
+            ),
             dayStop: readStopRule(arguments_.stop),
+            evalDiscountPercent: readNumber(
+                arguments_['eval-discount'],
+                'eval-discount',
+            ),
             fundedHorizonDays: readNumber(
                 arguments_['funded-days'],
                 'funded-days',
             ),
+            fundedRiskPerTrade:
+                fundedRisk === undefined
+                    ? undefined
+                    : readNumber(fundedRisk, 'funded-risk'),
+            fundedRrRatio:
+                fundedRr === undefined
+                    ? undefined
+                    : readNumber(fundedRr, 'funded-rr'),
+            fundedTradesPerDay:
+                fundedTpd === undefined
+                    ? undefined
+                    : readNumber(fundedTpd, 'funded-tpd'),
             idleDayProbability: readNumber(
                 arguments_['idle-day-probability'],
                 'idle-day-probability',
@@ -188,8 +221,13 @@ export class TradingInputs {
         });
     }
 
+    readonly activationDiscountPercent: number;
     readonly dayStop: DayStopRule;
+    readonly evalDiscountPercent: number;
     readonly fundedHorizonDays: number;
+    readonly fundedRiskPerTrade: number | undefined;
+    readonly fundedRrRatio: number | undefined;
+    readonly fundedTradesPerDay: number | undefined;
     readonly idleDayProbability: number;
     readonly instrument: InstrumentSymbol | undefined;
     readonly ladder: null | number[];
@@ -208,8 +246,13 @@ export class TradingInputs {
     readonly winrate: number;
 
     constructor(init: TradingInputsInit) {
+        this.activationDiscountPercent = init.activationDiscountPercent;
         this.dayStop = init.dayStop;
+        this.evalDiscountPercent = init.evalDiscountPercent;
         this.fundedHorizonDays = init.fundedHorizonDays;
+        this.fundedRiskPerTrade = init.fundedRiskPerTrade;
+        this.fundedRrRatio = init.fundedRrRatio;
+        this.fundedTradesPerDay = init.fundedTradesPerDay;
         this.idleDayProbability = init.idleDayProbability;
         this.instrument = init.instrument;
         this.ladder = init.ladder;
@@ -242,10 +285,14 @@ export class TradingInputs {
         return {
             dayStop: this.dayStop,
             discounts:
+                this.activationDiscountPercent > 0 ||
+                this.evalDiscountPercent > 0 ||
                 this.monthlySubscriptionDiscountPercent > 0
                     ? {
-                          activationPercent: percent(0),
-                          evalPercent: percent(0),
+                          activationPercent: percent(
+                              this.activationDiscountPercent,
+                          ),
+                          evalPercent: percent(this.evalDiscountPercent),
                           monthlySubscriptionPercent: percent(
                               this.monthlySubscriptionDiscountPercent,
                           ),
@@ -253,6 +300,9 @@ export class TradingInputs {
                     : undefined,
             evalDayPolicy: this.toDayPolicy(),
             fundedHorizonDays: this.fundedHorizonDays,
+            fundedRiskPerTrade: this.fundedRiskPerTrade,
+            fundedRrRatio: this.fundedRrRatio,
+            fundedTradesPerDay: this.fundedTradesPerDay,
             idleDayProbability: this.idleDayProbability,
             instrument: this.instrument,
             maxAttempts: this.maxAttempts,
@@ -275,14 +325,41 @@ export class TradingInputs {
 export const planResolver = new PlanResolver();
 
 export const tradingArguments = {
+    'activation-discount': {
+        default: '0',
+        description:
+            'Coupon discount percent [0,100] off the one-time activation fee',
+        type: 'string',
+    },
     'eval-days': {
         default: '150',
         description: 'Maximum evaluation days before timeout',
         type: 'string',
     },
+    'eval-discount': {
+        default: '0',
+        description:
+            'Coupon discount percent [0,100] off the one-time evaluation fee',
+        type: 'string',
+    },
     'funded-days': {
         default: '252',
         description: 'Funded-phase horizon in trading days',
+        type: 'string',
+    },
+    'funded-risk': {
+        description:
+            'Flat risk per trade in the funded phase (default: mirrors --risk)',
+        type: 'string',
+    },
+    'funded-rr': {
+        description:
+            'Reward to risk ratio in the funded phase (default: mirrors --rr)',
+        type: 'string',
+    },
+    'funded-tpd': {
+        description:
+            'Trades per day in the funded phase (default: mirrors --tpd)',
         type: 'string',
     },
     'idle-day-probability': {

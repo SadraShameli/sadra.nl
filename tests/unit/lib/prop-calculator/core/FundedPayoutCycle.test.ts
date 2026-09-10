@@ -11,6 +11,7 @@ import {
     LucidVariant,
     MffuVariant,
     PayoutFloorEffect,
+    profitShareMultiplier,
     TopStepVariant,
     TradeifyVariant,
     TradingPhase,
@@ -35,10 +36,10 @@ function flexLikePlan() {
         minPayoutProfit: dollars(500),
         payoutFloorEffect: PayoutFloorEffect.LockAtPlanFloor,
         payoutLadder: {
-            minRequestAmount: 500,
+            minRequestAmount: dollars(500),
             steps: [2000, 2000, 2000, 2000, 2000],
         },
-        payoutProfitShare: fraction(0.5),
+        payoutProfitShare: profitShareMultiplier(0.5),
         payoutTiers: [
             { thresholdProfit: dollars(0), traderShare: fraction(0.8) },
         ],
@@ -574,6 +575,112 @@ describe('funded consistency ladder (help.tradeify.co Lightning Funded)', () => 
             tracker,
         });
         expect(secondAttempt?.debited).toBe(2000);
+    });
+});
+
+function selectDaily() {
+    const found = tradeify.findPlan({
+        accountSize: 50_000,
+        firm: FirmId.Tradeify,
+        variant: TradeifyVariant.SelectDaily,
+    });
+    if (!found) throw new Error('select daily missing');
+    return found;
+}
+
+function selectDailyState(cycleProfit: number, priorProfit: number) {
+    const plan = selectDaily();
+    const state = plan.initialState();
+    state.balance = state.startingBalance + priorProfit + cycleProfit;
+    state.threshold = state.startingBalance + 100;
+    state.thresholdLocked = true;
+    state.qualifyingDays = 999;
+    const tracker = newFundedCycleTracker(state);
+    tracker.lastPayoutBalance = state.startingBalance + priorProfit;
+    tracker.qualifyingDaysAtLastPayout = 0;
+    return { plan, state, tracker };
+}
+
+describe('Tradeify Select Daily: 2x-fresh-profit payout mechanism (help.tradeify.co, corroborated via secondary sources)', () => {
+    it('withdraws 2x cycle profit when that binds tighter than the hard cap', () => {
+        const plan = selectDaily();
+        expect(plan.payoutProfitShare).toBe(2);
+
+        const { state, tracker } = selectDailyState(300, 5000);
+        const payout = tryFundedPayout({
+            maxPayouts: Infinity,
+            minRetainedCushion: 0,
+            payoutRequestSize: undefined,
+            plan,
+            state,
+            tracker,
+        });
+
+        expect(payout?.debited).toBe(600);
+    });
+
+    it('falls back to the hard dollar cap once 2x cycle profit exceeds it', () => {
+        const { plan, state, tracker } = selectDailyState(700, 5000);
+
+        const payout = tryFundedPayout({
+            maxPayouts: Infinity,
+            minRetainedCushion: 0,
+            payoutRequestSize: undefined,
+            plan,
+            state,
+            tracker,
+        });
+
+        expect(payout?.debited).toBe(plan.payoutRequestCap);
+        expect(payout?.debited).toBe(1250);
+    });
+
+    it('never allows a payout below the required starting-balance buffer', () => {
+        const { plan, state, tracker } = selectDailyState(300, 0);
+        expect(plan.payoutRequestCap).toBe(1250);
+
+        const payout = tryFundedPayout({
+            maxPayouts: Infinity,
+            minRetainedCushion: 0,
+            payoutRequestSize: undefined,
+            plan,
+            state,
+            tracker,
+        });
+
+        expect(payout).toBeNull();
+    });
+});
+
+describe('Tradeify Select Flex: payout profit-share cap is unaffected by the Select Daily fix', () => {
+    it('still limits a payout to 50% of cycle profit against the real, registered plan', () => {
+        const flex = tradeify.findPlan({
+            accountSize: 50_000,
+            firm: FirmId.Tradeify,
+            variant: TradeifyVariant.SelectFlex,
+        });
+        if (!flex) throw new Error('select flex missing');
+        expect(flex.payoutProfitShare).toBe(0.5);
+
+        const state = flex.initialState();
+        state.balance = state.startingBalance + 5600;
+        state.threshold = state.startingBalance + 100;
+        state.thresholdLocked = true;
+        state.qualifyingDays = 999;
+        const tracker = newFundedCycleTracker(state);
+        tracker.lastPayoutBalance = state.startingBalance + 5000;
+        tracker.qualifyingDaysAtLastPayout = 0;
+
+        const payout = tryFundedPayout({
+            maxPayouts: Infinity,
+            minRetainedCushion: 0,
+            payoutRequestSize: undefined,
+            plan: flex,
+            state,
+            tracker,
+        });
+
+        expect(payout?.debited).toBe(300);
     });
 });
 

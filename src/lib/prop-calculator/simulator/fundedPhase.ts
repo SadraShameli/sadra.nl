@@ -42,11 +42,14 @@ export interface PayoutSink {
 }
 
 export class PayoutTotals implements PayoutSink {
+    count = 0;
+
     firstPayoutDay: null | number = null;
 
     total = 0;
 
     record(dayOffset: number, traderReceives: number): void {
+        this.count += 1;
         this.total += traderReceives;
         this.firstPayoutDay ??= dayOffset;
     }
@@ -193,6 +196,7 @@ export function runFundedHorizon(
         daysElapsed,
         firstPayoutDay: sink.firstPayoutDay,
         isBustedFunded: stage === FundedStage.Busted,
+        payoutCount: sink.count,
         totalPayout: sink.total,
     };
 }

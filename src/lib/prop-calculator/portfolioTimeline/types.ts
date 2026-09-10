@@ -37,7 +37,6 @@ export interface AccountTimelineInputs {
 }
 
 export interface AccountTimelineResult {
-    cardsRun: number;
     cumulativeNet: Float64Array;
     cumulativePayout: Float64Array;
     cumulativeSpend: Float64Array;

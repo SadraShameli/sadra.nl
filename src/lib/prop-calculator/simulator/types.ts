@@ -78,7 +78,6 @@ export interface EvalAttemptResult {
 
 export interface EvalWithRetriesOptions extends EvalAttemptOptions {
     maxAttempts: number;
-    onFailedAttempt?: (attempt: EvalAttemptResult) => void;
 }
 
 export interface EvalWithRetriesResult {
@@ -101,6 +100,7 @@ export interface FinishTrialArguments {
     finalBalance: number;
     firstPayoutDay: null | number;
     outcome: TrialOutcome;
+    payoutCount: number;
     plan: Plan;
     resetFeesPaid: number;
     totalPayout: number;
@@ -144,6 +144,7 @@ export interface FundedHorizonResult {
     daysElapsed: number;
     firstPayoutDay: null | number;
     isBustedFunded: boolean;
+    payoutCount: number;
     totalPayout: number;
 }
 
@@ -175,6 +176,9 @@ export interface SimInputs {
     evalDayPolicy?: DayPolicy;
     fundedDayPolicy?: DayPolicy;
     fundedHorizonDays: number;
+    fundedRiskPerTrade?: number;
+    fundedRrRatio?: number;
+    fundedTradesPerDay?: number;
     idleDayProbability?: number;
     instrument?: InstrumentSymbol;
     maxAttempts?: number;
@@ -197,6 +201,8 @@ export interface SimOutputs {
     breakEvenFundedProfit: number;
     bustProbability: number;
     costBreakdown: CostBreakdown;
+    costPerDrawdownDollar: number;
+    costPerFundedAccount: number;
     daysToPassP5: number;
     daysToPassP25: number;
     daysToPassP50: number;
@@ -214,6 +220,8 @@ export interface SimOutputs {
     expectedGrossSpend: number;
     expectedMonthlyNet: number;
     expectedNet: number;
+    expectedPayoutCount: number;
+    expectedPayoutPerFundedAccount: number;
     expectedSpendP90: number;
     expectedTotalCost: number;
     finalBalanceP5: number;
@@ -246,6 +254,7 @@ export interface TrialOptions {
     evalDayPolicy: DayPolicy;
     fundedDayPolicy: DayPolicy;
     fundedHorizonDays: number;
+    fundedRrRatio?: number;
     idleDayProbability?: number;
     maxAttempts: number;
     maxEvalDays: number;
@@ -281,6 +290,7 @@ export interface TrialResult {
     maxLosingStreak: number;
     net: number;
     outcome: TrialOutcome;
+    payoutCount: number;
     resetFeesPaid: number;
     totalCost: number;
     tradesTaken: number;

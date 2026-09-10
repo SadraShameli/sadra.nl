@@ -182,7 +182,10 @@ function resolveWithdrawal(options: {
             return null;
         }
         case 'no-ladder': {
-            const available = Math.min(cycleProfit, ceiling);
+            const available =
+                profitShareCap === undefined
+                    ? Math.min(cycleProfit, ceiling)
+                    : ceiling;
             const debited =
                 payoutRequestSize === undefined
                     ? available

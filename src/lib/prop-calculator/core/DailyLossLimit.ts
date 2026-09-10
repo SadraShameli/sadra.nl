@@ -24,14 +24,20 @@ export enum DailyLossLimitShape {
 
 export type DailyLossLimitConfig =
     | {
-          afterLock: DailyLossLimitConfig;
-          beforeLock: DailyLossLimitConfig;
-          kind: DailyLossLimitKind.AfterThresholdLock;
+          readonly afterLock: DailyLossLimitConfig;
+          readonly beforeLock: DailyLossLimitConfig;
+          readonly kind: DailyLossLimitKind.AfterThresholdLock;
       }
-    | { amount: Dollars; kind: DailyLossLimitKind.Flat }
-    | { kind: DailyLossLimitKind.None }
-    | { kind: DailyLossLimitKind.PeakProfitShare; share: Fraction0to1 }
-    | { kind: DailyLossLimitKind.Tiered; tiers: readonly DllTier[] };
+    | { readonly amount: Dollars; readonly kind: DailyLossLimitKind.Flat }
+    | { readonly kind: DailyLossLimitKind.None }
+    | {
+          readonly kind: DailyLossLimitKind.PeakProfitShare;
+          readonly share: Fraction0to1;
+      }
+    | {
+          readonly kind: DailyLossLimitKind.Tiered;
+          readonly tiers: readonly DllTier[];
+      };
 
 export interface DailyLossLimitContext {
     isThresholdLocked: boolean;
@@ -147,16 +153,12 @@ class TieredDailyLossLimit extends DailyLossLimit {
     }
 
     describe(): DailyLossLimitDescriptor {
-        const floor = this.selectTier(0);
-        if (!floor) return { kind: DailyLossLimitShape.None };
-        const max = Math.max(
-            floor.dailyLossLimit,
-            ...this.tiers.map((tier) => tier.dailyLossLimit),
-        );
+        if (this.tiers.length === 0) return { kind: DailyLossLimitShape.None };
+        const amounts = this.tiers.map((tier) => tier.dailyLossLimit);
         return {
             kind: DailyLossLimitShape.Range,
-            max: dollars(max),
-            min: floor.dailyLossLimit,
+            max: dollars(Math.max(...amounts)),
+            min: dollars(Math.min(...amounts)),
         };
     }
 

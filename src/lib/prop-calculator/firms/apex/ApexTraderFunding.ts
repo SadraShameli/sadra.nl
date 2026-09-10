@@ -46,22 +46,22 @@ const SIZES = [
             {
                 dailyLossLimit: dollars(1000),
                 maxContracts: contracts(2),
-                minProfit: 0,
+                minProfit: dollars(0),
             },
             {
                 dailyLossLimit: dollars(1000),
                 maxContracts: contracts(3),
-                minProfit: 1500,
+                minProfit: dollars(1500),
             },
             {
                 dailyLossLimit: dollars(2000),
                 maxContracts: contracts(4),
-                minProfit: 3000,
+                minProfit: dollars(3000),
             },
             {
                 dailyLossLimit: dollars(3000),
                 maxContracts: contracts(4),
-                minProfit: 6000,
+                minProfit: dollars(6000),
             },
         ],
         intraday: {
@@ -138,7 +138,7 @@ function buildEodPlan(size: ApexSize): PlanInit {
         payoutBuffer: new PayoutBuffer(dollars(LOCK_OFFSET)),
         payoutLadder: {
             deniesIfUnaffordable: true,
-            minRequestAmount: MIN_REQUEST_AMOUNT,
+            minRequestAmount: dollars(MIN_REQUEST_AMOUNT),
             steps: pricing.payoutLadderSteps,
         },
         payoutTiers: [
@@ -186,7 +186,7 @@ function buildIntradayPlan(size: ApexSize): PlanInit {
         payoutBuffer: new PayoutBuffer(dollars(LOCK_OFFSET)),
         payoutLadder: {
             deniesIfUnaffordable: true,
-            minRequestAmount: MIN_REQUEST_AMOUNT,
+            minRequestAmount: dollars(MIN_REQUEST_AMOUNT),
             steps: pricing.payoutLadderSteps,
         },
         payoutTiers: [

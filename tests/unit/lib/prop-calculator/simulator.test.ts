@@ -49,8 +49,19 @@ describe('simulate', () => {
 
     it('outputs never contain NaN or Infinity for valid inputs', () => {
         const out = simulate(baseInputs());
+        const infiniteWhenNobodyEverPasses = new Set([
+            'costPerDrawdownDollar',
+            'costPerFundedAccount',
+        ]);
         for (const [key, value] of Object.entries(out)) {
             if (typeof value !== 'number') continue;
+            if (
+                out.passProbability === 0 &&
+                infiniteWhenNobodyEverPasses.has(key)
+            ) {
+                expect(value, `${key} was ${value}`).toBe(Infinity);
+                continue;
+            }
             expect(Number.isFinite(value), `${key} was ${value}`).toBe(true);
         }
     });

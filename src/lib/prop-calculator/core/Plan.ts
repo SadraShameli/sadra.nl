@@ -30,7 +30,12 @@ import {
 } from './PayoutTiers';
 import { type PlanId } from './PlanId';
 import { TradingPhase } from './TradingPhase';
-import { type Dollars, dollars, type Fraction0to1 } from './units';
+import {
+    type Dollars,
+    dollars,
+    type Fraction0to1,
+    type ProfitShareMultiplier,
+} from './units';
 
 export interface ConsistencyLadder {
     steps: readonly Fraction0to1[];
@@ -69,7 +74,7 @@ export interface PlanInit {
     payoutFloorEffect?: PayoutFloorEffect;
     payoutLadder?: null | PayoutLadder;
     payoutMethodFee?: Dollars;
-    payoutProfitShare?: Fraction0to1;
+    payoutProfitShare?: ProfitShareMultiplier;
     payoutRequestCap?: Dollars;
     payoutTiers: readonly PayoutTier[];
     profitTarget: Dollars;
@@ -130,7 +135,7 @@ export abstract class Plan {
 
     readonly payoutMethodFee: Dollars;
 
-    readonly payoutProfitShare: Fraction0to1 | null;
+    readonly payoutProfitShare: null | ProfitShareMultiplier;
 
     readonly payoutRequestCap: Dollars | null;
 
@@ -174,6 +179,23 @@ export abstract class Plan {
         this.payoutBalanceShareCap = init.payoutBalanceShareCap ?? null;
         this.payoutBuffer = init.payoutBuffer ?? null;
         this.payoutCapOverride = init.payoutCapOverride ?? null;
+        if (
+            this.payoutCapOverride !== null &&
+            (this.payoutBalanceShareCap !== null ||
+                init.payoutRequestCap !== undefined)
+        ) {
+            throw new Error(
+                `${this.label}: payoutCapOverride makes payoutBalanceShareCap/payoutRequestCap dead; set only one`,
+            );
+        }
+        if (
+            init.fundedConsistencyLadder !== undefined &&
+            init.fundedConsistency?.kind === 'set'
+        ) {
+            throw new Error(
+                `${this.label}: fundedConsistencyLadder makes fundedConsistency dead; set only one`,
+            );
+        }
         this.payoutFloorEffect =
             init.payoutFloorEffect ?? PayoutFloorEffect.None;
         if (
@@ -185,10 +207,29 @@ export abstract class Plan {
             );
         }
         this.payoutLadder = init.payoutLadder ?? null;
+        if (
+            this.payoutLadder !== null &&
+            this.payoutLadder.steps.length === 0
+        ) {
+            throw new Error(
+                `${this.label}: payoutLadder.steps must not be empty`,
+            );
+        }
         this.payoutMethodFee = init.payoutMethodFee ?? dollars(0);
         this.payoutProfitShare = init.payoutProfitShare ?? null;
         this.payoutRequestCap = init.payoutRequestCap ?? null;
+        if (
+            this.payoutRequestCap !== null &&
+            this.minPayoutRequest > this.payoutRequestCap
+        ) {
+            throw new Error(
+                `${this.label}: minPayoutRequest (${this.minPayoutRequest}) exceeds payoutRequestCap (${this.payoutRequestCap})`,
+            );
+        }
         this.payoutTiers = init.payoutTiers;
+        if (this.payoutTiers.length === 0) {
+            throw new Error(`${this.label}: payoutTiers must not be empty`);
+        }
         const seenThresholds = new Set<number>();
         for (const tier of this.payoutTiers) {
             if (seenThresholds.has(tier.thresholdProfit)) {

@@ -7,6 +7,7 @@ import {
     fraction,
     MffuVariant,
     PayoutFloorEffect,
+    profitShareMultiplier,
     type SimInputs,
     simulate,
 } from '~/lib/prop-calculator';
@@ -46,10 +47,10 @@ function flexLikePlan(firm: MyFundedFutures) {
         minPayoutProfit: dollars(500),
         payoutFloorEffect: PayoutFloorEffect.LockAtPlanFloor,
         payoutLadder: {
-            minRequestAmount: 500,
+            minRequestAmount: dollars(500),
             steps: [2000, 2000, 2000, 2000, 2000],
         },
-        payoutProfitShare: fraction(0.5),
+        payoutProfitShare: profitShareMultiplier(0.5),
         payoutTiers: [
             { thresholdProfit: dollars(0), traderShare: fraction(0.8) },
         ],

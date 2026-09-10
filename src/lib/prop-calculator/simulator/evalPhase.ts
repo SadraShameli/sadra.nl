@@ -101,7 +101,6 @@ export function runEvalWithRetries(
         idleDayProbability,
         maxAttempts,
         maxEvalDays,
-        onFailedAttempt,
         plan,
         positionSizing,
         rng,
@@ -142,8 +141,6 @@ export function runEvalWithRetries(
                 terminalOutcome: null,
             };
         }
-
-        onFailedAttempt?.(attempt);
 
         if (attempt.outcome === 'busted' && attemptsUsed < maxAttempts) {
             resetFeesPaid += plan.fees.reset;

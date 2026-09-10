@@ -30,12 +30,16 @@ export default defineCommand({
             const out = simulate(inputs.toSimInputs(plan));
             spinner.succeed(`${plan.label} · ${inputs.trials} trials`);
 
+            const fundedRisk = inputs.fundedRiskPerTrade ?? inputs.riskPerTrade;
+            const fundedRr = inputs.fundedRrRatio ?? inputs.rrRatio;
+            const fundedTpd = inputs.fundedTradesPerDay ?? inputs.tradesPerDay;
+
             ui.heading(plan.label);
             ui.muted(
-                `  eval risk ${inputs.ladder ? `ladder [${inputs.ladder.join(', ')}] stop ${inputs.dayStop.kind}` : `flat $${inputs.riskPerTrade} x${inputs.tradesPerDay}/day`} | funded flat $${inputs.riskPerTrade}`,
+                `  eval risk ${inputs.ladder ? `ladder [${inputs.ladder.join(', ')}] stop ${inputs.dayStop.kind}` : `flat $${inputs.riskPerTrade} x${inputs.tradesPerDay}/day`} | funded flat $${fundedRisk} x${fundedTpd}/day 1:${fundedRr}`,
             );
             ui.muted(
-                `  ${(inputs.winrate * 100).toFixed(0)}% WR | 1:${inputs.rrRatio} | seed ${inputs.seed} | ${inputs.fundedHorizonDays} funded days\n`,
+                `  ${(inputs.winrate * 100).toFixed(0)}% WR | eval 1:${inputs.rrRatio} | seed ${inputs.seed} | ${inputs.fundedHorizonDays} funded days\n`,
             );
 
             const table = new TablePrinter([
@@ -73,8 +77,24 @@ export default defineCommand({
                 formatCurrency(out.expectedTotalCost),
             ]);
             table.printRow([
+                'cost / funded acct',
+                formatCurrency(out.costPerFundedAccount),
+            ]);
+            table.printRow([
+                'cost / drawdown $',
+                out.costPerDrawdownDollar.toFixed(4),
+            ]);
+            table.printRow([
                 'gross payout',
                 formatCurrency(out.expectedGrossPayout),
+            ]);
+            table.printRow([
+                'payouts / account',
+                out.expectedPayoutCount.toFixed(2),
+            ]);
+            table.printRow([
+                'payout / funded acct',
+                formatCurrency(out.expectedPayoutPerFundedAccount),
             ]);
             table.printRow(['net', formatCurrency(out.expectedNet)]);
             table.printRow([

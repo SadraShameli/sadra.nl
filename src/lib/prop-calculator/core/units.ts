@@ -5,6 +5,9 @@ export type Dollars = number & { readonly __brand: 'Dollars' };
 export type Fraction0to1 = number & { readonly __brand: 'Fraction0to1' };
 export type Percent0to100 = number & { readonly __brand: 'Percent0to100' };
 export type Points = number & { readonly __brand: 'Points' };
+export type ProfitShareMultiplier = number & {
+    readonly __brand: 'ProfitShareMultiplier';
+};
 
 export function contracts(value: number): ContractCount {
     return value as ContractCount;
@@ -24,6 +27,10 @@ export function percent(value: number): Percent0to100 {
 
 export function points(value: number): Points {
     return value as Points;
+}
+
+export function profitShareMultiplier(value: number): ProfitShareMultiplier {
+    return value as ProfitShareMultiplier;
 }
 
 export const contractCountSchema = z

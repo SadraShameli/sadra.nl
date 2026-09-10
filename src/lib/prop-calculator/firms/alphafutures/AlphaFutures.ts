@@ -8,6 +8,7 @@ import {
     FirmId,
     fraction,
     type PlanInit,
+    profitShareMultiplier,
     TradingFirm,
 } from '~/lib/prop-calculator/core';
 
@@ -91,7 +92,7 @@ function buildAdvancedPlan(size: AfAdvancedSize): PlanInit {
         minPayoutProfit: dollars(1000),
         minQualifyingDayProfit: dollars(200),
         minTradingDays: 3,
-        payoutProfitShare: fraction(0.5),
+        payoutProfitShare: profitShareMultiplier(0.5),
         payoutRequestCap: size.payoutRequestCap,
         payoutTiers: [
             { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
@@ -137,7 +138,7 @@ function buildStandardPlan(size: AfStandardSize): PlanInit {
         minPayoutProfit: dollars(500),
         minQualifyingDayProfit: dollars(200),
         minTradingDays: 2,
-        payoutProfitShare: fraction(0.5),
+        payoutProfitShare: profitShareMultiplier(0.5),
         payoutRequestCap: size.payoutRequestCap,
         payoutTiers: [
             { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
@@ -181,7 +182,7 @@ function buildZeroPlan(size: AfZeroSize): PlanInit {
         minPayoutProfit: dollars(200),
         minQualifyingDayProfit: dollars(200),
         minTradingDays: 1,
-        payoutProfitShare: fraction(0.5),
+        payoutProfitShare: profitShareMultiplier(0.5),
         payoutRequestCap: size.payoutRequestCap,
         payoutTiers: [
             { thresholdProfit: dollars(0), traderShare: fraction(0.9) },

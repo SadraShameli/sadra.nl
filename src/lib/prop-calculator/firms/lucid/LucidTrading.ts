@@ -12,6 +12,7 @@ import {
     PayoutBuffer,
     PayoutFloorEffect,
     type PlanInit,
+    profitShareMultiplier,
     TradingFirm,
 } from '~/lib/prop-calculator/core';
 
@@ -114,7 +115,7 @@ function buildDirectPlan(size: LucidDirectSize): PlanInit {
         minPayoutRequest: dollars(500),
         minTradingDays: 0,
         payoutLadder: {
-            minRequestAmount: 500,
+            minRequestAmount: dollars(500),
             steps: [2000, 2000, 2000, 2500, 2500],
         },
         payoutTiers: [
@@ -157,7 +158,7 @@ function buildFlexPlan(size: LucidFlexSize): PlanInit {
         minQualifyingDayProfit: dollars(150),
         minTradingDays: 2,
         payoutFloorEffect: PayoutFloorEffect.LockAtPlanFloor,
-        payoutProfitShare: fraction(0.5),
+        payoutProfitShare: profitShareMultiplier(0.5),
         payoutRequestCap: dollars(2000),
         payoutTiers: [
             { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
@@ -211,7 +212,7 @@ function buildProPlan(size: LucidProSize): PlanInit {
         payoutBuffer: new PayoutBuffer(dollars(LOCK_OFFSET)),
         payoutLadder: {
             capsAtLastStep: true,
-            minRequestAmount: 500,
+            minRequestAmount: dollars(500),
             steps: [2000, 2500],
         },
         payoutTiers: [

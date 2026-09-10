@@ -34,13 +34,17 @@ export function resolveContractLimit(
     accountProfit: number,
 ): ContractCount | null {
     if (limits === null) return null;
-    if (phase !== TradingPhase.Funded) {
-        return isMicro ? limits.evalMicros : limits.evalMinis;
+    switch (phase) {
+        case TradingPhase.Eval: {
+            return isMicro ? limits.evalMicros : limits.evalMinis;
+        }
+        case TradingPhase.Funded: {
+            return maxContractsAt(
+                isMicro ? limits.fundedMicros : limits.fundedMinis,
+                accountProfit,
+            );
+        }
     }
-    return maxContractsAt(
-        isMicro ? limits.fundedMicros : limits.fundedMinis,
-        accountProfit,
-    );
 }
 
 export function resolvePositionSizing(

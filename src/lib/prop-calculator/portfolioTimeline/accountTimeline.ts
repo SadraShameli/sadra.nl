@@ -125,5 +125,5 @@ export function runAccountTimeline(
         cumulativeNet[d] = payoutSoFar - spendSoFar;
     }
 
-    return { cardsRun, cumulativeNet, cumulativePayout, cumulativeSpend };
+    return { cumulativeNet, cumulativePayout, cumulativeSpend };
 }

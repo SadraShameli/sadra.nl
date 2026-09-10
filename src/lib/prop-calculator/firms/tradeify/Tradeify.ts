@@ -12,6 +12,7 @@ import {
     PayoutBuffer,
     PayoutFloorEffect,
     type PlanInit,
+    profitShareMultiplier,
     TradeifyVariant,
     TradingFirm,
 } from '~/lib/prop-calculator/core';
@@ -41,12 +42,12 @@ const SCALING_FUNDED_DLL: DailyLossLimitConfig = {
         {
             dailyLossLimit: dollars(1250),
             maxContracts: contracts(4),
-            minProfit: 0,
+            minProfit: dollars(0),
         },
         {
             dailyLossLimit: dollars(2000),
             maxContracts: contracts(4),
-            minProfit: 3000,
+            minProfit: dollars(3000),
         },
     ],
 };
@@ -87,6 +88,10 @@ type TradeifySelectSize = (typeof SELECT_SIZES)[number];
 export class Tradeify extends TradingFirm {
     readonly displayName = 'Tradeify';
     readonly id = FirmId.Tradeify;
+    readonly notes = [
+        'Select Daily funded payouts can be requested up to 2x the fresh profit earned since the prior payout, not a flat percentage of profit like Select Flex. That multiplier is payoutProfitShare; the hard per-account dollar ceiling is payoutRequestCap; the required balance buffer above starting balance is payoutBuffer.',
+        "Select Daily's payoutRequestCap ($1,250) and payoutBuffer offset are this codebase's existing values; secondary sources (help.tradeify.co was unreachable this session) suggest the hard cap may actually be $1,000 for a 50K account. Flagged, not changed, pending primary-source access.",
+    ];
     readonly plans = [
         ...GROWTH_SIZES.map((s) => this.buildPlan(buildGrowthPlan(s))),
         ...SELECT_SIZES.map((s) => this.buildPlan(buildSelectFlexPlan(s))),
@@ -142,7 +147,7 @@ function buildGrowthPlan(size: TradeifyGrowthSize): PlanInit {
         payoutFloorEffect: PayoutFloorEffect.LockAtPlanFloor,
         payoutLadder: {
             capsAtLastStep: true,
-            minRequestAmount: 500,
+            minRequestAmount: dollars(500),
             steps: [1500, 2000, 2500, 3000],
         },
         payoutTiers: [
@@ -191,7 +196,7 @@ function buildLightningPlan(size: TradeifyLightningSize): PlanInit {
         payoutFloorEffect: PayoutFloorEffect.LockAtPlanFloor,
         payoutLadder: {
             capsAtLastStep: true,
-            minRequestAmount: 1000,
+            minRequestAmount: dollars(1000),
             steps: [2000, 2000, 2000, 2500],
         },
         payoutTiers: [
@@ -240,7 +245,7 @@ function buildSelectDailyPlan(size: TradeifySelectSize): PlanInit {
         minTradingDays: 3,
         payoutBuffer: new PayoutBuffer(dollars(LOCK_OFFSET)),
         payoutFloorEffect: PayoutFloorEffect.LockAtPlanFloor,
-        payoutProfitShare: fraction(2),
+        payoutProfitShare: profitShareMultiplier(2),
         payoutRequestCap: dollars(1250),
         payoutTiers: [
             { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
@@ -284,7 +289,7 @@ function buildSelectFlexPlan(size: TradeifySelectSize): PlanInit {
         minQualifyingDayProfit: dollars(150),
         minTradingDays: 3,
         payoutFloorEffect: PayoutFloorEffect.LockAtPlanFloor,
-        payoutProfitShare: fraction(0.5),
+        payoutProfitShare: profitShareMultiplier(0.5),
         payoutRequestCap: dollars(2500),
         payoutTiers: [
             { thresholdProfit: dollars(0), traderShare: fraction(0.9) },

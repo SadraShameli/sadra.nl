@@ -3,7 +3,7 @@ import { type Dollars, type Fraction0to1 } from './units';
 export interface PayoutLadder {
     capsAtLastStep?: boolean;
     deniesIfUnaffordable?: boolean;
-    minRequestAmount: number;
+    minRequestAmount: Dollars;
     steps: readonly number[];
 }
 

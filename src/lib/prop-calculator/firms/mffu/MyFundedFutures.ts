@@ -131,7 +131,7 @@ function buildBuilderPlan(): PlanInit {
         minPayoutProfitPerCycle: dollars(500),
         minTradingDays: 1,
         payoutLadder: {
-            minRequestAmount: 500,
+            minRequestAmount: dollars(500),
             steps: [2000, 2000, 2000, 2000, 2000],
         },
         payoutTiers: [

@@ -3,6 +3,7 @@ import { DEFAULT_RUNG_SIZING } from '../core/DayPolicy';
 import { type CouponDiscounts } from '../core/FeeSchedule';
 import { type Plan } from '../core/Plan';
 import { resolvePositionSizing } from '../core/PositionSizing';
+import { replacementEconomics } from '../core/Replacement';
 import { totalRoiOnCost } from '../core/Roi';
 import { TradingPhase } from '../core/TradingPhase';
 import { dollars, fraction } from '../core/units';
@@ -69,6 +70,7 @@ export function simulate(inputs: SimInputs): SimOutputs {
                 evalDayPolicy,
                 fundedDayPolicy,
                 fundedHorizonDays,
+                fundedRrRatio: inputs.fundedRrRatio,
                 idleDayProbability,
                 maxAttempts: Math.max(1, maxAttempts),
                 maxEvalDays,
@@ -94,6 +96,9 @@ export function simulate(inputs: SimInputs): SimOutputs {
     let netSum = 0;
     let costSum = 0;
     let payoutSum = 0;
+    let payoutCountSum = 0;
+    let failDaysSum = 0;
+    let failDaysCount = 0;
     let dayElapsedSum = 0;
     let daysToPassSum = 0;
     let firstPayoutSum = 0;
@@ -121,7 +126,12 @@ export function simulate(inputs: SimInputs): SimOutputs {
         netSum += r.net;
         costSum += r.totalCost;
         payoutSum += r.grossPayout;
+        payoutCountSum += r.payoutCount;
         dayElapsedSum += r.daysElapsed;
+        if (r.outcome === 'bust-eval' || r.outcome === 'timeout-eval') {
+            failDaysSum += r.daysElapsed;
+            failDaysCount += 1;
+        }
         if (r.daysToPass !== null) {
             daysToPassSum += r.daysToPass;
             daysToPassArray.push(r.daysToPass);
@@ -152,10 +162,15 @@ export function simulate(inputs: SimInputs): SimOutputs {
 
     const passes = counts['pass-clean'];
     const totalTrials = trials || 1;
+    const passProbability = passes / totalTrials;
+    const reachedFundedCount = counts['pass-clean'] + counts['bust-funded'];
     const expectedDaysPerTrial = dayElapsedSum / totalTrials || 1;
     const expectedNet = netSum / totalTrials;
     const expectedTotalCost = costSum / totalTrials;
     const expectedGrossPayout = payoutSum / totalTrials;
+    const expectedPayoutCount = payoutCountSum / totalTrials;
+    const expectedPayoutPerFundedAccount =
+        reachedFundedCount > 0 ? payoutSum / reachedFundedCount : 0;
     const expectedMonthlyNet =
         (expectedNet * TRADING_DAYS_PER_MONTH) / expectedDaysPerTrial;
 
@@ -186,6 +201,19 @@ export function simulate(inputs: SimInputs): SimOutputs {
         avgResetFees,
     );
 
+    const meanDaysOnFail = failDaysCount > 0 ? failDaysSum / failDaysCount : 0;
+    const replacement = replacementEconomics({
+        evalPrice:
+            costBreakdown.perAccountActivationFee +
+            costBreakdown.perAccountEvalFee,
+        meanDaysOnFail,
+        meanDaysOnPass: avgDaysForCost,
+        passRate: passProbability,
+    });
+    const costPerFundedAccount = replacement.costPerFundedAccount;
+    const costPerDrawdownDollar =
+        costPerFundedAccount / plan.fundedDrawdown.amount;
+
     const expectedAttempts = attemptsSum / totalTrials;
     const expectedAttemptsP90 = percentile(attemptsArray, 90);
     const expectedGrossSpend = expectedTotalCost;
@@ -205,6 +233,8 @@ export function simulate(inputs: SimInputs): SimOutputs {
             perAccountEvalFee: costBreakdown.perAccountEvalFee,
             resetFeesTotal: costBreakdown.resetFeesTotal * m,
         },
+        costPerDrawdownDollar,
+        costPerFundedAccount,
         daysToPassP5: percentile(daysToPassArray, 5),
         daysToPassP25: percentile(daysToPassArray, 25),
         daysToPassP50: percentile(daysToPassArray, 50),
@@ -226,6 +256,8 @@ export function simulate(inputs: SimInputs): SimOutputs {
         expectedGrossSpend: expectedGrossSpend * m,
         expectedMonthlyNet: expectedMonthlyNet * m,
         expectedNet: expectedNet * m,
+        expectedPayoutCount,
+        expectedPayoutPerFundedAccount,
         expectedSpendP90: expectedSpendP90 * m,
         expectedTotalCost: expectedTotalCost * m,
         finalBalanceP5: percentile(finalBalances, 5),
@@ -241,7 +273,7 @@ export function simulate(inputs: SimInputs): SimOutputs {
         maxDrawdownP95: percentile(maxDrawdowns, 95),
         maxLosingStreakP50: percentile(maxLosingStreaks, 50),
         maxLosingStreakP95: percentile(maxLosingStreaks, 95),
-        passProbability: passes / totalTrials,
+        passProbability,
         profitFactor,
         profitTarget: plan.profitTarget,
         risk5LossesPercent: had5LossCount / totalTrials,
@@ -329,6 +361,7 @@ export function simulatePortfolio(
                 evalDayPolicy,
                 fundedDayPolicy,
                 fundedHorizonDays,
+                fundedRrRatio: inputs.fundedRrRatio,
                 idleDayProbability,
                 maxAttempts: Math.max(1, maxAttempts),
                 maxEvalDays,

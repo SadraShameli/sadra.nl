@@ -21,13 +21,18 @@ export function resolveDayPolicy(
         phase === TradingPhase.Eval
             ? inputs.evalDayPolicy
             : inputs.fundedDayPolicy;
-    return (
-        declared ??
-        flatDayPolicy(
-            inputs.riskPerTrade,
-            inputs.tradesPerDay,
-            inputs.dayStop ?? { kind: DayStopRuleKind.None },
-        )
+    if (declared) return declared;
+    const isFunded = phase === TradingPhase.Funded;
+    const riskPerTrade = isFunded
+        ? (inputs.fundedRiskPerTrade ?? inputs.riskPerTrade)
+        : inputs.riskPerTrade;
+    const tradesPerDay = isFunded
+        ? (inputs.fundedTradesPerDay ?? inputs.tradesPerDay)
+        : inputs.tradesPerDay;
+    return flatDayPolicy(
+        riskPerTrade,
+        tradesPerDay,
+        inputs.dayStop ?? { kind: DayStopRuleKind.None },
     );
 }
 
@@ -123,7 +128,9 @@ export function runDay(options: DayRunOptions): {
     }
 
     if (isTraded) {
-        state.tradingDays += 1;
+        if (phase === TradingPhase.Eval) {
+            state.tradingDays += 1;
+        }
         state.consecutiveIdleDays = 0;
         if (state.todayPnL >= (plan.minQualifyingDayProfit ?? -Infinity)) {
             state.qualifyingDays += 1;
