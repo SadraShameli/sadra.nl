@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import type { CalculatorState } from '~/app/(app)/prop-calculator/_components/types';
+import type {
+    CalculatorState,
+    LabScenario,
+    PortfolioEntry,
+} from '~/app/(app)/prop-calculator/_components/types';
 
 import { SizingMode } from '~/app/(app)/prop-calculator/_components/types';
 import {
@@ -9,6 +13,7 @@ import {
 } from '~/app/(app)/prop-calculator/_components/urlState';
 import {
     ApexVariant,
+    CorrelationMode,
     DayStopRuleKind,
     FirmId,
     InstrumentSymbol,
@@ -217,5 +222,94 @@ describe('retainedCushion round-trip through the URL (E14 revisit)', () => {
         const state = decodeState(parameters, ALL_FIRMS, fallbackState());
 
         expect(state.retainedCushion).toBe(100_000);
+    });
+});
+
+describe('per-surface contract-limit enforcement round-trips through the "lab"/"pf" blobs', () => {
+    it('round-trips a Lab Scenario carrying its own instrument + stopPoints', () => {
+        const { firm, plan } = apexEod();
+        const scenario: LabScenario = {
+            accounts: 5,
+            correlation: CorrelationMode.Copy,
+            dayStop: { kind: DayStopRuleKind.None },
+            groups: 1,
+            id: 'sc-1',
+            instrument: InstrumentSymbol.MNQ,
+            label: 'Test',
+            riskPerTrade: 300,
+            rrRatio: 2,
+            stopPoints: 8,
+            tradesPerDay: 2,
+            winrate: 0.5,
+        };
+        const state: CalculatorState = {
+            ...fallbackState(),
+            firm,
+            labScenarios: [scenario],
+            plan,
+        };
+        const parameters = encodeState(state);
+        expect(parameters.has('lab')).toBe(true);
+
+        const decoded = decodeState(parameters, ALL_FIRMS, fallbackState());
+
+        expect(decoded.labScenarios).toHaveLength(1);
+        expect(decoded.labScenarios[0]?.instrument).toBe(InstrumentSymbol.MNQ);
+        expect(decoded.labScenarios[0]?.stopPoints).toBe(8);
+    });
+
+    it('round-trips a Portfolio entry carrying its own instrument + stopPoints override', () => {
+        const { firm, plan } = apexEod();
+        const entry: PortfolioEntry = {
+            activationDiscountPercent: 0,
+            count: 1,
+            evalDiscountPercent: 0,
+            firmId: firm.id,
+            id: 'entry-1',
+            instrument: InstrumentSymbol.NQ,
+            linkActivationDiscount: false,
+            planId: plan.id,
+            stopPoints: 10,
+        };
+        const state: CalculatorState = {
+            ...fallbackState(),
+            firm,
+            plan,
+            portfolio: [entry],
+        };
+        const parameters = encodeState(state);
+        expect(parameters.has('pf')).toBe(true);
+
+        const decoded = decodeState(parameters, ALL_FIRMS, fallbackState());
+
+        expect(decoded.portfolio).toHaveLength(1);
+        expect(decoded.portfolio[0]?.instrument).toBe(InstrumentSymbol.NQ);
+        expect(decoded.portfolio[0]?.stopPoints).toBe(10);
+    });
+
+    it('leaves a Portfolio entry without an override as null (inherits the global setting)', () => {
+        const { firm, plan } = apexEod();
+        const entry: PortfolioEntry = {
+            activationDiscountPercent: 0,
+            count: 1,
+            evalDiscountPercent: 0,
+            firmId: firm.id,
+            id: 'entry-1',
+            instrument: null,
+            linkActivationDiscount: false,
+            planId: plan.id,
+            stopPoints: null,
+        };
+        const state: CalculatorState = {
+            ...fallbackState(),
+            firm,
+            plan,
+            portfolio: [entry],
+        };
+        const parameters = encodeState(state);
+        const decoded = decodeState(parameters, ALL_FIRMS, fallbackState());
+
+        expect(decoded.portfolio[0]?.instrument).toBeNull();
+        expect(decoded.portfolio[0]?.stopPoints).toBeNull();
     });
 });

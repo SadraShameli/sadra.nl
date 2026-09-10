@@ -29,12 +29,11 @@ const INSTRUMENT_SYMBOLS: readonly InstrumentSymbol[] =
     Object.values(InstrumentSymbol);
 
 function base64UrlDecode(s: string): string {
-    if (typeof window === 'undefined') return '';
     try {
         const padded =
             s.replaceAll('-', '+').replaceAll('_', '/') +
             '==='.slice((s.length + 3) % 4);
-        const binary = window.atob(padded);
+        const binary = atob(padded);
         const bytes = new Uint8Array(binary.length);
         for (let index = 0; index < binary.length; index++)
             bytes[index] = binary.codePointAt(index) ?? 0;
@@ -45,13 +44,11 @@ function base64UrlDecode(s: string): string {
 }
 
 function base64UrlEncode(s: string): string {
-    if (typeof window === 'undefined') return '';
     try {
         const bytes = new TextEncoder().encode(s);
         let binary = '';
         for (const b of bytes) binary += String.fromCodePoint(b);
-        return window
-            .btoa(binary)
+        return btoa(binary)
             .replaceAll('+', '-')
             .replaceAll('/', '_')
             .replace(/=+$/, '');
