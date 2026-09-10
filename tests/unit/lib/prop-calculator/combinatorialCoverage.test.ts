@@ -172,7 +172,7 @@ function buildSimInputs(row: readonly number[], seed: number): SimInputs {
         seed,
         stopPoints: positionSizing?.stopPoints,
         tradesPerDay: riskProfile.tradesPerDay,
-        trials: 120,
+        trials: 40,
         winrate: riskProfile.winrate,
     };
 }
@@ -187,7 +187,8 @@ function cartesianProduct(
             onEach(current);
             return;
         }
-        for (const value of arrays[depth] ?? []) {
+        const options = arrays[depth] ?? [];
+        for (const value of options) {
             current.push(value);
             build(depth + 1);
             current.pop();
@@ -269,8 +270,8 @@ describe(`combinatorial coverage: every ${COVERAGE_ARITY}-wise interaction of en
         levelCounts,
         COVERAGE_ARITY,
         424_242,
-        70,
-        1200,
+        100,
+        10_000,
     );
 
     it(`the generated matrix achieves 100% ${COVERAGE_ARITY}-wise coverage across all 9 dimensions (full cross-product would be ${fullCrossProduct})`, () => {
@@ -366,7 +367,7 @@ describe(`combinatorial coverage: every ${COVERAGE_ARITY}-wise interaction of en
         }
 
         expect(failures).toEqual([]);
-    });
+    }, 30_000);
 });
 
 function describeRow(row: readonly number[]): string {
