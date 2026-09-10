@@ -181,6 +181,7 @@ function buildLightningPlan(size: TradeifyLightningSize): PlanInit {
             firm: FirmId.Tradeify,
             variant: TradeifyVariant.Lightning,
         },
+        isInstantFunded: true,
         label: planLabel(size.accountSize, 'Lightning Funded'),
         maxFundedAccounts: MAX_FUNDED_ACCOUNTS,
         minDaysAfterPassForPayout: 0,

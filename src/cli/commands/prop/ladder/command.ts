@@ -57,6 +57,15 @@ export default defineCommand({
         let spinner: ReturnType<typeof ui.spinner> | undefined;
         try {
             const plan = planResolver.resolveOne(context.args);
+            if (plan.isInstantFunded) {
+                ui.warn(
+                    `${plan.label} has no real evaluation phase — it funds instantly (profit target $0), so there's no eval to grid-search a ladder against.`,
+                );
+                ui.muted(
+                    '  Use `cli prop sim` instead: it applies flat funded sizing from day one for this plan.',
+                );
+                return;
+            }
             const inputs = TradingInputs.parse(context.args);
             const instrument = readInstrument(context.args.instrument);
             const cushion = plan.drawdown.amount;

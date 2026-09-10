@@ -104,6 +104,7 @@ function buildDirectPlan(size: LucidDirectSize): PlanInit {
             firm: FirmId.Lucid,
             variant: LucidVariant.Direct,
         },
+        isInstantFunded: true,
         label: planLabel(size.accountSize, 'LucidDirect'),
         maxFundedAccounts: MAX_FUNDED_ACCOUNTS,
         maxLifetimePayouts: MAX_LIFETIME_PAYOUTS,

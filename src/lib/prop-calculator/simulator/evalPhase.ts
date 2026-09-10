@@ -29,6 +29,18 @@ export function runEvalAttempt(options: EvalAttemptOptions): EvalAttemptResult {
     const equityCurve: null | number[] = shouldCaptureEquity
         ? [state.balance]
         : null;
+
+    if (plan.isInstantFunded) {
+        return {
+            days: 0,
+            equityCurve,
+            outcome: 'passed',
+            state,
+            stats,
+            streak,
+        };
+    }
+
     let days = 0;
     let outcome: AttemptOutcome = 'timed-out';
 

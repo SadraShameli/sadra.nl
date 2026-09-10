@@ -51,6 +51,7 @@ export interface PlanInit {
     fundedDailyLossLimit?: DailyLossLimitConfig;
     fundedDrawdown?: DrawdownStrategy;
     id: PlanId;
+    isInstantFunded?: boolean;
     label: string;
     maxEvalTradingDays?: number;
     maxFundedAccounts: number;
@@ -91,6 +92,8 @@ export abstract class Plan {
     readonly fundedDrawdown: DrawdownStrategy;
 
     readonly id: PlanId;
+
+    readonly isInstantFunded: boolean;
 
     readonly label: string;
 
@@ -143,6 +146,7 @@ export abstract class Plan {
             init.fundedDailyLossLimit ?? init.evalDailyLossLimit;
         this.fundedDrawdown = init.fundedDrawdown ?? init.drawdown;
         this.id = init.id;
+        this.isInstantFunded = init.isInstantFunded ?? false;
         this.label = init.label;
         this.maxFundedAccounts = init.maxFundedAccounts;
         this.maxEvalTradingDays = init.maxEvalTradingDays ?? null;
