@@ -19,6 +19,7 @@ import {
     type TradingFirm,
 } from '~/lib/prop-calculator';
 
+import { clampInt, clampNumber } from './clamp';
 import { riskPercentToDollars } from './riskConversion';
 import {
     type CalculatorState,
@@ -30,21 +31,6 @@ import { decodeState, encodeState } from './urlState';
 import { useDebouncedValue } from './useDebouncedSimulation';
 
 const SIM_DEBOUNCE_MS = 180;
-
-function clampInt(n: number, lo: number, hi: number, fallback: number): number {
-    if (!Number.isFinite(n)) return fallback;
-    return Math.min(hi, Math.max(lo, Math.floor(n)));
-}
-
-function clampNumber(
-    n: number,
-    lo: number,
-    hi: number,
-    fallback: number,
-): number {
-    if (!Number.isFinite(n)) return fallback;
-    return Math.min(hi, Math.max(lo, n));
-}
 
 function required<T>(value: T | undefined, message: string): T {
     if (value === undefined) throw new Error(message);
@@ -84,6 +70,7 @@ export interface UseCalculatorReturn {
     setEvalDayPolicy: (policy: DayPolicy | null) => void;
     setEvalDiscountPercent: (n: number) => void;
     setFirm: (firm: TradingFirm) => void;
+    setFundedHorizonDays: (n: number) => void;
     setLabScenarios: (entries: LabScenario[]) => void;
     setLinkActivationDiscount: (isLinked: boolean) => void;
     setMaxAttempts: (n: number) => void;
@@ -388,6 +375,11 @@ export function useCalculator(): UseCalculatorReturn {
                 ),
             })),
         setFirm,
+        setFundedHorizonDays: (n) =>
+            setState((s) => ({
+                ...s,
+                fundedHorizonDays: clampInt(n, 1, 3650, s.fundedHorizonDays),
+            })),
         setLabScenarios: (entries) =>
             setState((s) => ({ ...s, labScenarios: entries })),
         setLinkActivationDiscount: (linked) =>

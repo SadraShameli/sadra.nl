@@ -218,7 +218,9 @@ export function scaleDailyLossLimit(
     }
 }
 
-function dailyLossLimitFor(config: DailyLossLimitConfig): DailyLossLimit {
+const resolverCache = new WeakMap<DailyLossLimitConfig, DailyLossLimit>();
+
+function buildDailyLossLimit(config: DailyLossLimitConfig): DailyLossLimit {
     switch (config.kind) {
         case DailyLossLimitKind.AfterThresholdLock: {
             return new AfterThresholdLockDailyLossLimit(
@@ -239,4 +241,12 @@ function dailyLossLimitFor(config: DailyLossLimitConfig): DailyLossLimit {
             return new TieredDailyLossLimit(config.tiers);
         }
     }
+}
+
+function dailyLossLimitFor(config: DailyLossLimitConfig): DailyLossLimit {
+    const cached = resolverCache.get(config);
+    if (cached) return cached;
+    const resolver = buildDailyLossLimit(config);
+    resolverCache.set(config, resolver);
+    return resolver;
 }

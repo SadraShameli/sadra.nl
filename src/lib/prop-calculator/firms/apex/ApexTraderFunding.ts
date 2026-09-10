@@ -10,7 +10,9 @@ import {
     FirmId,
     fraction,
     IntradayTrailingDrawdown,
+    PayoutBuffer,
     type PlanInit,
+    TRADING_DAYS_PER_MONTH,
     TradingFirm,
 } from '~/lib/prop-calculator/core';
 
@@ -24,12 +26,12 @@ const SIZES = [
         contractLimits: {
             evalMicros: contracts(60),
             evalMinis: contracts(6),
-            fundedMicros: contracts(60),
-            fundedMinis: contracts(6),
+            fundedMicros: contracts(40),
+            fundedMinis: contracts(4),
         },
         eod: {
-            activation: 129,
-            evalCost: 490,
+            activation: 139,
+            evalCost: 550,
             minQualifyingDayProfit: dollars(250),
             payoutLadderSteps: [1500, 1500, 2000, 2500, 2500, 3000],
         },
@@ -37,27 +39,27 @@ const SIZES = [
         fundedDllTiers: [
             {
                 dailyLossLimit: dollars(1000),
-                maxContracts: contracts(6),
+                maxContracts: contracts(2),
                 minProfit: 0,
             },
             {
                 dailyLossLimit: dollars(1000),
-                maxContracts: contracts(6),
+                maxContracts: contracts(3),
                 minProfit: 1500,
             },
             {
                 dailyLossLimit: dollars(2000),
-                maxContracts: contracts(6),
+                maxContracts: contracts(4),
                 minProfit: 3000,
             },
             {
                 dailyLossLimit: dollars(3000),
-                maxContracts: contracts(6),
+                maxContracts: contracts(4),
                 minProfit: 6000,
             },
         ],
         intraday: {
-            activation: 79,
+            activation: 59,
             evalCost: 249,
             minQualifyingDayProfit: dollars(200),
             payoutLadderSteps: [1500, 2000, 2500, 2500, 3000, 3000],
@@ -68,6 +70,8 @@ const SIZES = [
 ] as const;
 
 const MIN_REQUEST_AMOUNT = 500;
+const MAX_LIFETIME_PAYOUTS = 6;
+const MAX_EVAL_TRADING_DAYS = TRADING_DAYS_PER_MONTH;
 
 type ApexSize = (typeof SIZES)[number];
 
@@ -114,11 +118,14 @@ function buildEodPlan(size: ApexSize): PlanInit {
             variant: ApexVariant.Eod,
         },
         label: planLabel(size.accountSize, 'EOD trailing'),
+        maxEvalTradingDays: MAX_EVAL_TRADING_DAYS,
         maxFundedAccounts: MAX_FUNDED_ACCOUNTS,
+        maxLifetimePayouts: MAX_LIFETIME_PAYOUTS,
         minDaysAfterPassForPayout: 5,
         minPayoutProfit: dollars(size.maxDrawdown + 600),
         minQualifyingDayProfit: pricing.minQualifyingDayProfit,
         minTradingDays: 0,
+        payoutBuffer: new PayoutBuffer(dollars(LOCK_OFFSET)),
         payoutLadder: {
             deniesIfUnaffordable: true,
             minRequestAmount: MIN_REQUEST_AMOUNT,
@@ -159,11 +166,14 @@ function buildIntradayPlan(size: ApexSize): PlanInit {
             variant: ApexVariant.Intraday,
         },
         label: planLabel(size.accountSize, 'Intraday trailing'),
+        maxEvalTradingDays: MAX_EVAL_TRADING_DAYS,
         maxFundedAccounts: MAX_FUNDED_ACCOUNTS,
+        maxLifetimePayouts: MAX_LIFETIME_PAYOUTS,
         minDaysAfterPassForPayout: 5,
         minPayoutProfit: dollars(size.maxDrawdown + 600),
         minQualifyingDayProfit: pricing.minQualifyingDayProfit,
         minTradingDays: 0,
+        payoutBuffer: new PayoutBuffer(dollars(LOCK_OFFSET)),
         payoutLadder: {
             deniesIfUnaffordable: true,
             minRequestAmount: MIN_REQUEST_AMOUNT,

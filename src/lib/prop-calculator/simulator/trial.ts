@@ -1,6 +1,6 @@
 import { runEvalWithRetries } from './evalPhase';
 import { runFundedHorizon } from './fundedPhase';
-import { newPathStats } from './PathStats';
+import { TradeTotals } from './PhaseStats';
 import {
     type FinishTrialArguments,
     type TrialOptions,
@@ -9,7 +9,7 @@ import {
 } from './types';
 
 export function isPassingOutcome(o: TrialOutcome): boolean {
-    return o === 'pass-clean' || o === 'pass-violation';
+    return o === 'pass-clean';
 }
 
 export function simulateTrial(options: TrialOptions): TrialResult {
@@ -30,20 +30,19 @@ export function simulateTrial(options: TrialOptions): TrialResult {
         shouldCaptureEquity,
         winrate,
     } = options;
-    const cumulative = newPathStats(plan.accountSize);
+    const totals = new TradeTotals();
 
     const retryResult = runEvalWithRetries({
         commission,
         dayPolicy: evalDayPolicy,
         maxAttempts,
         maxEvalDays,
-        onFailedAttempt: (failedAttempt) =>
-            cumulative.rollUp(failedAttempt.stats),
         plan,
         rng,
         rrRatio,
         rungSizing,
         shouldCaptureEquity,
+        totals,
         winrate,
     });
     const { attempt, attemptsUsed, resetFeesPaid } = retryResult;
@@ -53,7 +52,6 @@ export function simulateTrial(options: TrialOptions): TrialResult {
 
     if (retryResult.terminalOutcome === null) {
         const passDay = attempt.days;
-        const passBalance = attempt.state.balance;
         const evalTradesAtPass = attempt.stats.tradesTaken;
 
         const fundedHorizon = runFundedHorizon({
@@ -72,27 +70,17 @@ export function simulateTrial(options: TrialOptions): TrialResult {
         cumulativeDays += fundedHorizon.daysElapsed;
         const isBustedFunded = fundedHorizon.isBustedFunded;
 
-        cumulative.rollUp(attempt.stats);
-
         const firstPayoutDay =
             fundedHorizon.firstPayoutDay === null
                 ? null
                 : passDay + fundedHorizon.firstPayoutDay;
 
-        const evalProfit = passBalance - attempt.state.startingBalance;
-        const isConsistencyViolated =
-            plan
-                .evalConsistencyRule()
-                ?.isViolated(attempt.bestDayProfit, evalProfit) ?? false;
-
-        let outcome: TrialOutcome;
-        if (isBustedFunded) outcome = 'bust-funded';
-        else if (isConsistencyViolated) outcome = 'pass-violation';
-        else outcome = 'pass-clean';
+        const outcome: TrialOutcome = isBustedFunded
+            ? 'bust-funded'
+            : 'pass-clean';
 
         return finishTrial({
             attemptsUsed,
-            cumulative,
             cumulativeDays,
             daysToPass: passDay,
             discounts,
@@ -105,6 +93,7 @@ export function simulateTrial(options: TrialOptions): TrialResult {
             plan,
             resetFeesPaid,
             totalPayout: fundedHorizon.totalPayout,
+            totals,
         });
     }
 
@@ -112,7 +101,6 @@ export function simulateTrial(options: TrialOptions): TrialResult {
         retryResult.terminalOutcome === 'busted' ? 'bust-eval' : 'timeout-eval';
     return finishTrial({
         attemptsUsed,
-        cumulative,
         cumulativeDays,
         daysToPass: null,
         discounts,
@@ -125,13 +113,13 @@ export function simulateTrial(options: TrialOptions): TrialResult {
         plan,
         resetFeesPaid,
         totalPayout: 0,
+        totals,
     });
 }
 
 function finishTrial(arguments_: FinishTrialArguments): TrialResult {
     const {
         attemptsUsed,
-        cumulative,
         cumulativeDays,
         daysToPass,
         discounts,
@@ -144,6 +132,7 @@ function finishTrial(arguments_: FinishTrialArguments): TrialResult {
         plan,
         resetFeesPaid,
         totalPayout,
+        totals,
     } = arguments_;
     const grossPayout = totalPayout;
     const baseCost = plan.totalCostThroughDay(evalDays, discounts);
@@ -157,17 +146,17 @@ function finishTrial(arguments_: FinishTrialArguments): TrialResult {
         evalTradesAtPass,
         finalBalance,
         firstPayoutDay,
-        grossLosses: cumulative.grossLosses,
+        grossLosses: totals.grossLosses,
         grossPayout,
-        grossWins: cumulative.grossWins,
-        had5LossStreak: cumulative.maxLosingStreak >= 5,
-        had10LossStreak: cumulative.maxLosingStreak >= 10,
-        maxDrawdown: cumulative.maxDrawdown,
-        maxLosingStreak: cumulative.maxLosingStreak,
+        grossWins: totals.grossWins,
+        had5LossStreak: totals.maxLosingStreak >= 5,
+        had10LossStreak: totals.maxLosingStreak >= 10,
+        maxDrawdown: totals.maxDrawdown,
+        maxLosingStreak: totals.maxLosingStreak,
         net,
         outcome,
         resetFeesPaid,
         totalCost,
-        tradesTaken: cumulative.tradesTaken,
+        tradesTaken: totals.tradesTaken,
     };
 }

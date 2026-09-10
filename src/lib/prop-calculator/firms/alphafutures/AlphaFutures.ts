@@ -13,15 +13,15 @@ import {
 
 import { lockThresholdAt, planLabel } from '../shared';
 
-const RESET_FEE_DISCOUNT = 0.9;
-
 const ZERO_SIZES = [
     {
         accountSize: dollars(50_000),
         dailyLossLimit: dollars(1000),
         maxDrawdown: dollars(2000),
-        monthlyFee: 119,
+        monthlyFee: 139,
+        payoutRequestCap: dollars(1500),
         profitTarget: dollars(3000),
+        resetFee: 119,
     },
 ] as const;
 
@@ -29,8 +29,10 @@ const ADVANCED_SIZES = [
     {
         accountSize: dollars(50_000),
         maxDrawdown: dollars(1750),
-        monthlyFee: 139,
+        monthlyFee: 209,
+        payoutRequestCap: dollars(15_000),
         profitTarget: dollars(4000),
+        resetFee: 189,
     },
 ] as const;
 
@@ -39,7 +41,9 @@ const STANDARD_SIZES = [
         accountSize: dollars(50_000),
         maxDrawdown: dollars(2000),
         monthlyFee: 129,
+        payoutRequestCap: dollars(3000),
         profitTarget: dollars(3000),
+        resetFee: 109,
     },
 ] as const;
 
@@ -58,9 +62,6 @@ export class AlphaFutures extends TradingFirm {
     readonly website = 'https://alpha-futures.com';
 }
 
-const ALLOCATION_CAP = 450_000;
-const MAX_FUNDED_ACCOUNTS_HARD_CAP = 5;
-
 function buildAdvancedPlan(size: AfAdvancedSize): PlanInit {
     return {
         accountSize: size.accountSize,
@@ -77,7 +78,7 @@ function buildAdvancedPlan(size: AfAdvancedSize): PlanInit {
             activation: dollars(0),
             monthlySubscription: dollars(size.monthlyFee),
             oneTimeEval: dollars(0),
-            reset: dollars(Math.round(size.monthlyFee * RESET_FEE_DISCOUNT)),
+            reset: dollars(size.resetFee),
         },
         id: {
             accountSize: 50_000,
@@ -85,10 +86,13 @@ function buildAdvancedPlan(size: AfAdvancedSize): PlanInit {
             variant: AlphaFuturesVariant.Advanced,
         },
         label: planLabel(size.accountSize, 'Advanced'),
-        maxFundedAccounts: maxFundedAccountsByAllocation(size.accountSize),
+        maxFundedAccounts: 3,
         minDaysAfterPassForPayout: 5,
         minPayoutProfit: dollars(1000),
-        minTradingDays: 2,
+        minQualifyingDayProfit: dollars(200),
+        minTradingDays: 3,
+        payoutProfitShare: fraction(0.5),
+        payoutRequestCap: size.payoutRequestCap,
         payoutTiers: [
             { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
         ],
@@ -112,11 +116,15 @@ function buildStandardPlan(size: AfStandardSize): PlanInit {
             activation: dollars(0),
             monthlySubscription: dollars(size.monthlyFee),
             oneTimeEval: dollars(0),
-            reset: dollars(Math.round(size.monthlyFee * RESET_FEE_DISCOUNT)),
+            reset: dollars(size.resetFee),
         },
         fundedConsistency: {
             kind: 'set',
             rule: new ConsistencyRule(ConsistencyScope.Funded, fraction(0.4)),
+        },
+        fundedDailyLossLimit: {
+            amount: dollars(1000),
+            kind: DailyLossLimitKind.Flat,
         },
         id: {
             accountSize: 50_000,
@@ -124,10 +132,13 @@ function buildStandardPlan(size: AfStandardSize): PlanInit {
             variant: AlphaFuturesVariant.Standard,
         },
         label: planLabel(size.accountSize, 'Standard'),
-        maxFundedAccounts: maxFundedAccountsByAllocation(size.accountSize),
+        maxFundedAccounts: 5,
         minDaysAfterPassForPayout: 5,
         minPayoutProfit: dollars(500),
+        minQualifyingDayProfit: dollars(200),
         minTradingDays: 2,
+        payoutProfitShare: fraction(0.5),
+        payoutRequestCap: size.payoutRequestCap,
         payoutTiers: [
             { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
         ],
@@ -157,7 +168,7 @@ function buildZeroPlan(size: AfZeroSize): PlanInit {
             activation: dollars(0),
             monthlySubscription: dollars(size.monthlyFee),
             oneTimeEval: dollars(0),
-            reset: dollars(Math.round(size.monthlyFee * RESET_FEE_DISCOUNT)),
+            reset: dollars(size.resetFee),
         },
         id: {
             accountSize: 50_000,
@@ -165,18 +176,16 @@ function buildZeroPlan(size: AfZeroSize): PlanInit {
             variant: AlphaFuturesVariant.Zero,
         },
         label: planLabel(size.accountSize, 'Zero'),
-        maxFundedAccounts: maxFundedAccountsByAllocation(size.accountSize),
+        maxFundedAccounts: 5,
         minDaysAfterPassForPayout: 5,
         minPayoutProfit: dollars(200),
+        minQualifyingDayProfit: dollars(200),
         minTradingDays: 1,
+        payoutProfitShare: fraction(0.5),
+        payoutRequestCap: size.payoutRequestCap,
         payoutTiers: [
             { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
         ],
         profitTarget: size.profitTarget,
     };
-}
-
-function maxFundedAccountsByAllocation(accountSize: number): number {
-    const byAllocation = Math.floor(ALLOCATION_CAP / accountSize);
-    return Math.max(1, Math.min(MAX_FUNDED_ACCOUNTS_HARD_CAP, byAllocation));
 }

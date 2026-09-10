@@ -80,7 +80,6 @@ export function simulate(inputs: SimInputs): SimOutputs {
         'bust-eval': 0,
         'bust-funded': 0,
         'pass-clean': 0,
-        'pass-violation': 0,
         'timeout-eval': 0,
     };
     let netSum = 0;
@@ -144,7 +143,7 @@ export function simulate(inputs: SimInputs): SimOutputs {
         grossSpendArray.push(r.totalCost);
     }
 
-    const passes = counts['pass-clean'] + counts['pass-violation'];
+    const passes = counts['pass-clean'];
     const totalTrials = trials || 1;
     const expectedDaysPerTrial = dayElapsedSum / totalTrials || 1;
     const expectedNet = netSum / totalTrials;
@@ -167,7 +166,9 @@ export function simulate(inputs: SimInputs): SimOutputs {
     const roiOnCost = totalRoiOnCost(expectedNet, expectedTotalCost);
 
     const avgDaysForCost =
-        passes > 0 ? daysToPassSum / passes : expectedDaysPerTrial;
+        daysToPassArray.length > 0
+            ? daysToPassSum / daysToPassArray.length
+            : expectedDaysPerTrial;
     const avgResetFees = resetFeesSum / totalTrials;
     const costBreakdown = buildCostBreakdown(
         plan,
@@ -187,7 +188,6 @@ export function simulate(inputs: SimInputs): SimOutputs {
         accountSize: plan.accountSize,
         breakEvenFundedProfit: breakEvenFundedProfit * m,
         bustProbability: counts['bust-eval'] / totalTrials,
-        cleanPassProbability: counts['pass-clean'] / totalTrials,
         costBreakdown: {
             activationFee: costBreakdown.activationFee * m,
             evalFee: costBreakdown.evalFee * m,

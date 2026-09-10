@@ -3,8 +3,6 @@ export const kpiDescriptions = {
         "Mean trading days needed to reach the target across passing trials. Doesn't include eval failures.",
     breakEven:
         "Funded-account profit needed to recoup all eval/activation/reset spending. Below this you're net negative.",
-    cleanPass:
-        "Trials that passed AND respected the firm's consistency rule (single-day profit cap). Fixed-RR strategies that hit the target in one big day mechanically violate this.",
     daysToPass:
         'Distribution of trading days needed to hit the profit target across passing trials. Tighter = consistent timing, wider = some trials grind for many days.',
     expectancy:
@@ -27,6 +25,8 @@ export const kpiDescriptions = {
         'Share of simulated trials where you reached the profit target without busting the drawdown, daily-loss limit, or running out of allowed eval days.',
     profitFactor:
         'Total winnings divided by total losses across all trades. > 1.5 is healthy, < 1.0 is losing money.',
+    reachedFunded:
+        "Share of trials that passed the evaluation, whether or not the funded account later busted its drawdown or daily-loss limit. Equals pass probability plus the funded-bust rate — the two don't move together for firms whose funded rules are stricter than their eval rules.",
     risk5Losses:
         'Share of trials where your strategy produced at least one streak of 5 losing trades in a row. High % means streaks will happen — make sure your account size can survive them.',
     riskOfRuin:

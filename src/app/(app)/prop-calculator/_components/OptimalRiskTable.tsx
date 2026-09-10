@@ -23,6 +23,7 @@ import { cn } from '~/lib/utilities';
 
 import { panelDescriptions } from './kpiDescriptions';
 import { bestExpectedMonthlyNet } from './scoring';
+import { simInputsCacheKey, SimInputsKeyField } from './simInputsCacheKey';
 import { useDebouncedComputation } from './useDebouncedSimulation';
 
 const RISK_LEVELS = [0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 4, 5] as const;
@@ -188,21 +189,8 @@ export default function OptimalRiskTable({
 }
 
 function buildCacheKey(inputs: Omit<SimInputs, 'riskPerTrade'>): string {
-    return JSON.stringify({
-        act: inputs.discounts?.activationPercent ?? 0,
-        attempts: inputs.maxAttempts ?? 1,
-        commission: inputs.commissionPerRoundTrip ?? 0,
-        copy: inputs.copyAccounts ?? 1,
-        dayStop: inputs.dayStop ?? null,
-        eval: inputs.discounts?.evalPercent ?? 0,
-        firmId: inputs.plan.id,
-        funded: inputs.fundedHorizonDays,
-        max: inputs.maxEvalDays,
-        rr: inputs.rrRatio,
-        seed: inputs.seed,
-        tpd: inputs.tradesPerDay,
-        trials: inputs.trials,
-        winrate: inputs.winrate,
+    return simInputsCacheKey(inputs, {
+        omit: [SimInputsKeyField.EvalDayPolicy, SimInputsKeyField.RiskPerTrade],
     });
 }
 

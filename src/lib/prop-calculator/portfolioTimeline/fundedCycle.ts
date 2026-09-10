@@ -1,10 +1,11 @@
 import {
-    newFundedCycleTracker,
-    tryFundedPayout,
-} from '../core/FundedPayoutCycle';
-import { runEvalWithRetries, stepFundedDay } from '../simulator';
+    newPhaseStats,
+    type PayoutSink,
+    runEvalWithRetries,
+    runFundedDays,
+    TradeTotals,
+} from '../simulator';
 import {
-    type CardOutcome,
     type CardResult,
     DEFAULT_MAX_PAYOUTS_PER_CARD,
     type EvalToFundedCycleOptions,
@@ -12,6 +13,14 @@ import {
 } from './types';
 
 const MAX_EVAL_ATTEMPTS_PER_CARD = 25;
+
+class PayoutLog implements PayoutSink {
+    readonly events: PayoutEvent[] = [];
+
+    record(dayOffset: number, traderReceives: number): void {
+        this.events.push({ amount: traderReceives, dayOffset });
+    }
+}
 
 export function runEvalToFundedCycle(
     options: EvalToFundedCycleOptions,
@@ -36,6 +45,7 @@ export function runEvalToFundedCycle(
     const safeMaxFundedDays = Math.max(0, Math.floor(maxFundedDays));
     const payoutCap = Math.max(0, Math.floor(maxPayoutsPerCard));
 
+    const totals = new TradeTotals();
     const retryResult = runEvalWithRetries({
         commission,
         dayPolicy: evalDayPolicy,
@@ -46,6 +56,7 @@ export function runEvalToFundedCycle(
         rrRatio,
         rungSizing,
         shouldCaptureEquity: false,
+        totals,
         winrate,
     });
     const { attemptsUsed, resetFeesPaid } = retryResult;
@@ -53,13 +64,8 @@ export function runEvalToFundedCycle(
     let totalDays = evalDays;
 
     if (retryResult.terminalOutcome !== null) {
-        const outcome: CardOutcome =
-            retryResult.terminalOutcome === 'busted'
-                ? 'bust-eval'
-                : 'timeout-eval';
         return {
             attemptsUsed,
-            outcome,
             payouts: [],
             totalCost:
                 plan.totalCostThroughDay(evalDays, discounts) + resetFeesPaid,
@@ -69,69 +75,37 @@ export function runEvalToFundedCycle(
 
     const { state } = retryResult.attempt;
     plan.beginFundedPhase(state);
-    retryResult.attempt.stats.rebasePeak(state.balance);
+    const stats = newPhaseStats(
+        state.balance,
+        totals,
+        retryResult.attempt.streak,
+    );
+    const sink = new PayoutLog();
 
-    const payouts: PayoutEvent[] = [];
-    const tracker = newFundedCycleTracker(state);
-    let fundedDays = 0;
-    let isBustedFunded = false;
-    let isLadderExhausted = false;
-
-    for (let day = 0; day < safeMaxFundedDays; day++) {
-        const { busted } = stepFundedDay({
-            commission,
-            dayPolicy: fundedDayPolicy,
-            plan,
-            rng,
-            rrRatio,
-            rungSizing,
-            state,
-            stats: retryResult.attempt.stats,
-            tracker,
-            winrate,
-        });
-        fundedDays += 1;
-
-        if (busted) {
-            isBustedFunded = true;
-            break;
-        }
-
-        const payout = tryFundedPayout({
-            maxPayouts: payoutCap,
-            minRetainedCushion,
-            payoutRequestSize,
-            plan,
-            state,
-            tracker,
-        });
-        if (payout === null) continue;
-
-        payouts.push({
-            amount: payout.traderReceives,
-            dayOffset: totalDays + fundedDays,
-        });
-
-        if (
-            tracker.payoutsIssued >= payoutCap ||
-            plan.isAccountConcluded(tracker.payoutsIssued)
-        ) {
-            isLadderExhausted = true;
-            break;
-        }
-    }
+    const { daysElapsed: fundedDays } = runFundedDays({
+        commission,
+        dayOffsetBase: totalDays,
+        dayPolicy: fundedDayPolicy,
+        equityCurve: null,
+        maxDays: safeMaxFundedDays,
+        maxPayouts: payoutCap,
+        minRetainedCushion,
+        payoutRequestSize,
+        plan,
+        rng,
+        rrRatio,
+        rungSizing,
+        sink,
+        state,
+        stats,
+        winrate,
+    });
 
     totalDays += fundedDays;
-    const outcome: CardOutcome = isBustedFunded
-        ? 'bust-funded'
-        : isLadderExhausted
-          ? 'ladder-exhausted'
-          : 'card-closed';
 
     return {
         attemptsUsed,
-        outcome,
-        payouts,
+        payouts: sink.events,
         totalCost:
             plan.totalCostThroughDay(evalDays, discounts) + resetFeesPaid,
         totalDays,

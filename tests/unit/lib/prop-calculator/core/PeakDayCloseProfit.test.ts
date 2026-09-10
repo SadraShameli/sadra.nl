@@ -13,7 +13,17 @@ import {
 } from '~/lib/prop-calculator/core';
 import { LucidTrading } from '~/lib/prop-calculator/firms/lucid/LucidTrading';
 import { type Rng } from '~/lib/prop-calculator/rng';
-import { newPathStats, runDay } from '~/lib/prop-calculator/simulator';
+import {
+    LossStreak,
+    newPhaseStats,
+    runDay,
+    TradeTotals,
+} from '~/lib/prop-calculator/simulator';
+
+function freshStats(startingBalance: number) {
+    const totals = new TradeTotals();
+    return newPhaseStats(startingBalance, totals, new LossStreak(totals));
+}
 
 const firm = new LucidTrading();
 
@@ -49,7 +59,7 @@ describe('peak day-close profit', () => {
     it('ratchets up on a winning day and holds through a losing day', () => {
         const plan = proPlan();
         const state = plan.initialState();
-        const stats = newPathStats(state.startingBalance);
+        const stats = freshStats(state.startingBalance);
         const base = {
             commission: dollars(0),
             phase: TradingPhase.Eval,
@@ -82,7 +92,7 @@ describe('peak day-close profit', () => {
     it('ignores an intraday high that retraces before the close', () => {
         const plan = proPlan();
         const state = plan.initialState();
-        const stats = newPathStats(state.startingBalance);
+        const stats = freshStats(state.startingBalance);
 
         runDay({
             commission: dollars(0),
@@ -97,15 +107,14 @@ describe('peak day-close profit', () => {
             winrate: fraction(0.5),
         });
 
-        expect(state.todayHigh).toBe(50_100);
         expect(state.balance).toBe(49_600);
         expect(state.peakDayCloseProfit).toBe(0);
     });
 
-    it('is measured from the account starting balance, not the funding baseline', () => {
+    it('is measured from the account starting balance', () => {
         const plan = proPlan();
         const state = plan.initialState();
-        const stats = newPathStats(state.startingBalance);
+        const stats = freshStats(state.startingBalance);
         const base = {
             commission: dollars(0),
             phase: TradingPhase.Eval,
@@ -135,8 +144,7 @@ describe('peak day-close profit', () => {
         expect(state.thresholdLocked).toBe(true);
         expect(state.peakDayCloseProfit).toBe(2200);
 
-        state.fundingBaseline = state.balance;
-        expect(plan.profitFor(state, TradingPhase.Funded)).toBe(0);
+        expect(plan.profitFor(state)).toBe(2200);
         expect(state.peakDayCloseProfit).toBe(2200);
     });
 

@@ -59,12 +59,14 @@ export function runDay(options: DayRunOptions): {
         state.balance += pnl;
         state.todayPnL += pnl;
         isTraded = true;
-        if (state.balance > state.todayHigh) state.todayHigh = state.balance;
         stats.recordTrade(isWon, pnl, state.balance);
         if (!isWon) lossesToday += 1;
         drawdown.onTrade(state, pnl);
         if (plan.isBust(state, phase)) {
             return { busted: true, traded: isTraded };
+        }
+        if (plan.isDayLockedOut(state, phase)) {
+            break;
         }
         if (
             dayPolicy.maxLossesPerDay !== null &&

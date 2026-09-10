@@ -1,4 +1,5 @@
 import { type AccountState } from './AccountState';
+import { PayoutFloorEffect } from './PayoutFloorEffect';
 import { type PayoutLadder } from './PayoutTiers';
 import { type Plan } from './Plan';
 
@@ -45,15 +46,15 @@ export class FundedCycleTracker {
             plan,
             state,
         } = options;
-        if (maxPayouts <= 0) return null;
+        if (this.payoutsIssued >= maxPayouts) return null;
 
         const ladder = plan.payoutLadder;
         const cycleProfit = state.balance - this.lastPayoutBalance;
         const requiredProfit =
             this.payoutsIssued === 0
                 ? plan.minPayoutProfit
-                : (ladder?.minRequestAmount ??
-                  plan.minPayoutProfitPerCycle ??
+                : (plan.minPayoutProfitPerCycle ??
+                  ladder?.minRequestAmount ??
                   plan.minPayoutRequest);
         const hasQualifyingDays =
             state.qualifyingDays - this.qualifyingDaysAtLastPayout >=
@@ -85,7 +86,8 @@ export class FundedCycleTracker {
                 ? dollarCappedWithdrawable
                 : Math.min(
                       dollarCappedWithdrawable,
-                      plan.payoutBalanceShareCap * state.balance,
+                      plan.payoutBalanceShareCap *
+                          Math.max(0, plan.accountProfit(state)),
                   );
         if (withdrawable <= 0) return null;
 
@@ -104,12 +106,18 @@ export class FundedCycleTracker {
         if (debited === null) return null;
 
         state.balance -= debited;
-        if (plan.payoutResetsLossLimit) {
-            state.threshold = 0;
-            state.thresholdLocked = true;
-        }
-        if (plan.payoutTriggersLock) {
-            plan.fundedDrawdown.forceLock(state);
+        switch (plan.payoutFloorEffect) {
+            case PayoutFloorEffect.LockAtPlanFloor: {
+                plan.fundedDrawdown.forceLock(state);
+                break;
+            }
+            case PayoutFloorEffect.None: {
+                break;
+            }
+            case PayoutFloorEffect.ReleaseFloor: {
+                plan.fundedDrawdown.release(state, plan.accountSize);
+                break;
+            }
         }
         this.lastPayoutBalance = state.balance;
         this.qualifyingDaysAtLastPayout = state.qualifyingDays;

@@ -7,6 +7,7 @@ import {
     EodTrailingDrawdown,
     FirmId,
     fraction,
+    PayoutFloorEffect,
     type PlanInit,
     TopStepVariant,
     TradingFirm,
@@ -18,6 +19,7 @@ const ACCOUNT_SIZE = 50_000;
 const MAX_LOSS_LIMIT = dollars(2000);
 const PROFIT_TARGET = dollars(3000);
 const MIN_TRADING_DAYS = 2;
+const WIRE_PAYOUT_FEE = dollars(30);
 const MIN_PAYOUT = dollars(125);
 const MIN_PAYOUT_PROFIT_PER_CYCLE = dollars(0.01);
 const PAYOUT_BALANCE_SHARE_CAP = fraction(0.5);
@@ -138,8 +140,9 @@ function buildPlan(pricing: PricingPath, payout: PayoutPath): PlanInit {
         minQualifyingDayProfit: payout.minQualifyingDayProfit,
         minTradingDays: MIN_TRADING_DAYS,
         payoutBalanceShareCap: PAYOUT_BALANCE_SHARE_CAP,
+        payoutFloorEffect: PayoutFloorEffect.ReleaseFloor,
+        payoutMethodFee: WIRE_PAYOUT_FEE,
         payoutRequestCap: payout.payoutRequestCap,
-        payoutResetsLossLimit: true,
         payoutTiers: [
             {
                 thresholdProfit: dollars(0),

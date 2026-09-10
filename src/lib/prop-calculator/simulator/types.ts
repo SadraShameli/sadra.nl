@@ -11,7 +11,11 @@ import { type Roi } from '../core/Roi';
 import { type TradingPhase } from '../core/TradingPhase';
 import { type Dollars, type Fraction0to1 } from '../core/units';
 import { type Rng } from '../rng';
-import { type PathStats } from './PathStats';
+import {
+    type LossStreak,
+    type PhaseStats,
+    type TradeTotals,
+} from './PhaseStats';
 
 export enum CorrelationMode {
     Copy = 'copy',
@@ -39,7 +43,7 @@ export interface DayRunOptions {
     rrRatio: number;
     rungSizing: RungSizing;
     state: AccountState;
-    stats: PathStats;
+    stats: PhaseStats;
     winrate: Fraction0to1;
 }
 
@@ -52,16 +56,17 @@ export interface EvalAttemptOptions {
     rrRatio: number;
     rungSizing: RungSizing;
     shouldCaptureEquity: boolean;
+    totals: TradeTotals;
     winrate: Fraction0to1;
 }
 
 export interface EvalAttemptResult {
-    bestDayProfit: number;
     days: number;
     equityCurve: null | number[];
     outcome: AttemptOutcome;
     state: AccountState;
-    stats: PathStats;
+    stats: PhaseStats;
+    streak: LossStreak;
 }
 
 export interface EvalWithRetriesOptions extends EvalAttemptOptions {
@@ -79,7 +84,6 @@ export interface EvalWithRetriesResult {
 
 export interface FinishTrialArguments {
     attemptsUsed: number;
-    cumulative: PathStats;
     cumulativeDays: number;
     daysToPass: null | number;
     discounts: CouponDiscounts | undefined;
@@ -92,6 +96,7 @@ export interface FinishTrialArguments {
     plan: Plan;
     resetFeesPaid: number;
     totalPayout: number;
+    totals: TradeTotals;
 }
 
 export interface FundedDayStepOptions {
@@ -102,7 +107,7 @@ export interface FundedDayStepOptions {
     rrRatio: number;
     rungSizing: RungSizing;
     state: AccountState;
-    stats: PathStats;
+    stats: PhaseStats;
     tracker: FundedCycleTracker;
     winrate: Fraction0to1;
 }
@@ -126,8 +131,6 @@ export interface FundedHorizonResult {
     daysElapsed: number;
     firstPayoutDay: null | number;
     isBustedFunded: boolean;
-    isClosed: boolean;
-    payoutsIssued: number;
     totalPayout: number;
 }
 
@@ -177,7 +180,6 @@ export interface SimOutputs {
     accountSize: number;
     breakEvenFundedProfit: number;
     bustProbability: number;
-    cleanPassProbability: number;
     costBreakdown: CostBreakdown;
     daysToPassP5: number;
     daysToPassP25: number;
@@ -240,11 +242,7 @@ export interface TrialOptions {
 }
 
 export type TrialOutcome =
-    | 'bust-eval'
-    | 'bust-funded'
-    | 'pass-clean'
-    | 'pass-violation'
-    | 'timeout-eval';
+    'bust-eval' | 'bust-funded' | 'pass-clean' | 'timeout-eval';
 
 export interface TrialResult {
     attemptsUsed: number;

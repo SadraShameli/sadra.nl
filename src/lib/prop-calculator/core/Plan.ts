@@ -18,6 +18,7 @@ import {
     totalFees,
 } from './FeeSchedule';
 import { type PayoutBuffer } from './PayoutBuffer';
+import { PayoutFloorEffect } from './PayoutFloorEffect';
 import {
     type PayoutLadder,
     type PayoutTier,
@@ -47,6 +48,7 @@ export interface PlanInit {
     fundedDrawdown?: DrawdownStrategy;
     id: PlanId;
     label: string;
+    maxEvalTradingDays?: number;
     maxFundedAccounts: number;
     maxLifetimePayouts?: number;
     minDaysAfterPassForPayout?: number;
@@ -57,12 +59,12 @@ export interface PlanInit {
     minTradingDays: number;
     payoutBalanceShareCap?: Fraction0to1;
     payoutBuffer?: PayoutBuffer;
+    payoutFloorEffect?: PayoutFloorEffect;
     payoutLadder?: null | PayoutLadder;
+    payoutMethodFee?: Dollars;
     payoutProfitShare?: Fraction0to1;
     payoutRequestCap?: Dollars;
-    payoutResetsLossLimit?: boolean;
     payoutTiers: readonly PayoutTier[];
-    payoutTriggersLock?: boolean;
     profitTarget: Dollars;
 }
 
@@ -89,6 +91,8 @@ export abstract class Plan {
 
     readonly maxFundedAccounts: number;
 
+    readonly maxEvalTradingDays: null | number;
+
     readonly maxLifetimePayouts: null | number;
 
     readonly minDaysAfterPassForPayout: number;
@@ -107,17 +111,17 @@ export abstract class Plan {
 
     readonly payoutBuffer: null | PayoutBuffer;
 
+    readonly payoutFloorEffect: PayoutFloorEffect;
+
     readonly payoutLadder: null | PayoutLadder;
+
+    readonly payoutMethodFee: Dollars;
 
     readonly payoutProfitShare: Fraction0to1 | null;
 
     readonly payoutRequestCap: Dollars | null;
 
-    readonly payoutResetsLossLimit: boolean;
-
     readonly payoutTiers: readonly PayoutTier[];
-
-    readonly payoutTriggersLock: boolean;
 
     readonly profitTarget: Dollars;
 
@@ -134,6 +138,7 @@ export abstract class Plan {
         this.id = init.id;
         this.label = init.label;
         this.maxFundedAccounts = init.maxFundedAccounts;
+        this.maxEvalTradingDays = init.maxEvalTradingDays ?? null;
         this.maxLifetimePayouts = init.maxLifetimePayouts ?? null;
         this.minDaysAfterPassForPayout = init.minDaysAfterPassForPayout ?? 0;
         this.minPayoutProfit = init.minPayoutProfit ?? dollars(0);
@@ -144,12 +149,21 @@ export abstract class Plan {
         this.minTradingDays = init.minTradingDays;
         this.payoutBalanceShareCap = init.payoutBalanceShareCap ?? null;
         this.payoutBuffer = init.payoutBuffer ?? null;
+        this.payoutFloorEffect =
+            init.payoutFloorEffect ?? PayoutFloorEffect.None;
+        if (
+            this.payoutFloorEffect === PayoutFloorEffect.LockAtPlanFloor &&
+            this.fundedDrawdown.lock === undefined
+        ) {
+            throw new Error(
+                `${this.label}: payoutFloorEffect is LockAtPlanFloor but fundedDrawdown has no lock config`,
+            );
+        }
         this.payoutLadder = init.payoutLadder ?? null;
+        this.payoutMethodFee = init.payoutMethodFee ?? dollars(0);
         this.payoutProfitShare = init.payoutProfitShare ?? null;
         this.payoutRequestCap = init.payoutRequestCap ?? null;
-        this.payoutResetsLossLimit = init.payoutResetsLossLimit ?? false;
         this.payoutTiers = init.payoutTiers;
-        this.payoutTriggersLock = init.payoutTriggersLock ?? false;
         this.profitTarget = init.profitTarget;
     }
 
@@ -160,7 +174,6 @@ export abstract class Plan {
     beginFundedPhase(state: AccountState): void {
         state.balance = this.accountSize;
         state.bestDayProfit = 0;
-        state.fundingBaseline = this.accountSize;
         state.peakDayCloseProfit = 0;
         state.qualifyingDays = 0;
         state.threshold = this.fundedDrawdown.initialThreshold(
@@ -183,10 +196,8 @@ export abstract class Plan {
             : this.drawdown;
     }
 
-    profitFor(state: AccountState, phase: TradingPhase): number {
-        return phase === TradingPhase.Funded
-            ? state.balance - state.fundingBaseline
-            : this.accountProfit(state);
+    profitFor(state: AccountState): number {
+        return this.accountProfit(state);
     }
 
     recordDayClosePeak(state: AccountState): void {
@@ -207,14 +218,11 @@ export abstract class Plan {
         );
     }
 
-    dailyLossLimitContext(
-        state: AccountState,
-        phase: TradingPhase,
-    ): DailyLossLimitContext {
+    dailyLossLimitContext(state: AccountState): DailyLossLimitContext {
         return {
             isThresholdLocked: state.thresholdLocked,
             peakDayCloseProfit: state.peakDayCloseProfit,
-            profit: this.profitFor(state, phase),
+            profit: this.profitFor(state),
         };
     }
 
@@ -228,11 +236,13 @@ export abstract class Plan {
     }
 
     isBust(state: AccountState, phase: TradingPhase): boolean {
-        if (this.drawdownFor(phase).isBreached(state)) return true;
+        return this.drawdownFor(phase).isBreached(state);
+    }
 
+    isDayLockedOut(state: AccountState, phase: TradingPhase): boolean {
         const limit = resolveDailyLossLimit(
             this.dailyLossLimitFor(phase),
-            this.dailyLossLimitContext(state, phase),
+            this.dailyLossLimitContext(state),
         );
         return limit !== null && state.todayPnL <= -limit;
     }
@@ -283,7 +293,18 @@ export abstract class Plan {
     }
 
     payoutFromProfit(fundedProfit: number): number {
-        return walkPayoutTiers(this.init.payoutTiers, fundedProfit);
+        const gross = walkPayoutTiers(this.init.payoutTiers, fundedProfit);
+        return Math.max(0, gross - this.payoutMethodFee);
+    }
+
+    evalDayCap(requestedDays: number): number {
+        return this.maxEvalTradingDays === null
+            ? requestedDays
+            : Math.min(requestedDays, this.maxEvalTradingDays);
+    }
+
+    withOverrides(overrides: Partial<PlanInit>): Plan {
+        return new VariantPlan({ ...this.init, ...overrides });
     }
 
     totalCostThroughDay(
@@ -293,3 +314,5 @@ export abstract class Plan {
         return totalFees(this.init.fees, totalDays, discounts);
     }
 }
+
+class VariantPlan extends Plan {}

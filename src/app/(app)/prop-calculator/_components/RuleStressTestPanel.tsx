@@ -17,11 +17,11 @@ import {
     type SimInputs,
     type SimOutputs,
     simulate,
-    withPlanOverrides,
 } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
 import RuleStressBarChartView from './charts/RuleStressBarChartView';
+import { simInputsCacheKey } from './simInputsCacheKey';
 import { useDebouncedComputation } from './useDebouncedSimulation';
 
 interface RuleStressTestPanelProperties {
@@ -207,25 +207,8 @@ export default function RuleStressTestPanel({
     );
 }
 
-function buildCacheKey(inputs: SimInputs): string {
-    return JSON.stringify({
-        act: inputs.discounts?.activationPercent ?? 0,
-        attempts: inputs.maxAttempts ?? 1,
-        commission: inputs.commissionPerRoundTrip ?? 0,
-        copy: inputs.copyAccounts ?? 1,
-        dayStop: inputs.dayStop ?? null,
-        eval: inputs.discounts?.evalPercent ?? 0,
-        evalDayPolicy: inputs.evalDayPolicy ?? null,
-        funded: inputs.fundedHorizonDays,
-        max: inputs.maxEvalDays,
-        planId: inputs.plan.id,
-        risk: inputs.riskPerTrade,
-        rr: inputs.rrRatio,
-        seed: inputs.seed,
-        tpd: inputs.tradesPerDay,
-        trials: inputs.trials,
-        winrate: inputs.winrate,
-    });
+function buildCacheKey(inputs: Omit<SimInputs, 'riskPerTrade'>): string {
+    return simInputsCacheKey(inputs);
 }
 
 function buildDllHalvedScenario(basePlan: Plan): StressScenario {
@@ -235,7 +218,7 @@ function buildDllHalvedScenario(basePlan: Plan): StressScenario {
     return {
         isNoOp,
         label: 'DLL ×0.5',
-        plan: withPlanOverrides(basePlan, {
+        plan: basePlan.withOverrides({
             evalDailyLossLimit: scaleDailyLossLimit(
                 basePlan.evalDailyLossLimit,
                 fraction(0.5),
@@ -254,9 +237,9 @@ function buildLadderCutScenario(basePlan: Plan): StressScenario {
         return {
             isNoOp: false,
             label: 'Payout ladder −20%',
-            plan: withPlanOverrides(basePlan, {
+            plan: basePlan.withOverrides({
                 payoutLadder: {
-                    minRequestAmount: ladder.minRequestAmount,
+                    ...ladder,
                     steps: ladder.steps.map((step) => step * 0.8),
                 },
             }),
@@ -265,7 +248,7 @@ function buildLadderCutScenario(basePlan: Plan): StressScenario {
     return {
         isNoOp: false,
         label: 'Payout share −20%',
-        plan: withPlanOverrides(basePlan, {
+        plan: basePlan.withOverrides({
             payoutTiers: basePlan.payoutTiers.map((tier) => ({
                 ...tier,
                 traderShare: fraction(tier.traderShare * 0.8),
@@ -279,7 +262,7 @@ function buildQualifyingBarScenario(basePlan: Plan): StressScenario {
         return {
             isNoOp: false,
             label: 'Qualifying bar +40%',
-            plan: withPlanOverrides(basePlan, {
+            plan: basePlan.withOverrides({
                 minQualifyingDayProfit: dollars(
                     basePlan.minQualifyingDayProfit * 1.4,
                 ),
@@ -289,7 +272,7 @@ function buildQualifyingBarScenario(basePlan: Plan): StressScenario {
     return {
         isNoOp: false,
         label: 'Profit target +40% (proxy)',
-        plan: withPlanOverrides(basePlan, {
+        plan: basePlan.withOverrides({
             profitTarget: dollars(basePlan.profitTarget * 1.4),
         }),
     };
@@ -299,7 +282,7 @@ function buildSafetyNetScenario(basePlan: Plan): StressScenario {
     return {
         isNoOp: false,
         label: 'Safety net ×1.5',
-        plan: withPlanOverrides(basePlan, {
+        plan: basePlan.withOverrides({
             minPayoutProfit: dollars(basePlan.minPayoutProfit * 1.5),
         }),
     };

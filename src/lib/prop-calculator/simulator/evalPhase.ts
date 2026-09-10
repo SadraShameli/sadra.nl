@@ -1,6 +1,6 @@
 import { TradingPhase } from '../core/TradingPhase';
 import { runDay } from './day';
-import { newPathStats } from './PathStats';
+import { LossStreak, newPhaseStats } from './PhaseStats';
 import {
     type AttemptOutcome,
     type EvalAttemptOptions,
@@ -19,33 +19,34 @@ export function runEvalAttempt(options: EvalAttemptOptions): EvalAttemptResult {
         rrRatio,
         rungSizing,
         shouldCaptureEquity,
+        totals,
         winrate,
     } = options;
     const state = plan.initialState();
-    const stats = newPathStats(state.startingBalance);
+    const streak = new LossStreak(totals);
+    const stats = newPhaseStats(state.startingBalance, totals, streak);
     const equityCurve: null | number[] = shouldCaptureEquity
         ? [state.balance]
         : null;
-    let bestDayProfit = 0;
     let days = 0;
     let outcome: AttemptOutcome = 'timed-out';
 
-    for (let day = 0; day < maxEvalDays; day++) {
-        const { busted } = runDay({
-            commission,
-            dayPolicy,
-            phase: TradingPhase.Eval,
-            plan,
-            rng,
-            rrRatio,
-            rungSizing,
-            state,
-            stats,
-            winrate,
-        });
+    const dayCap = plan.evalDayCap(maxEvalDays);
+    const dayOptions = {
+        commission,
+        dayPolicy,
+        phase: TradingPhase.Eval,
+        plan,
+        rng,
+        rrRatio,
+        rungSizing,
+        state,
+        stats,
+        winrate,
+    };
+    for (let day = 0; day < dayCap; day++) {
+        const { busted } = runDay(dayOptions);
         days += 1;
-        state.daysElapsed = days;
-        if (state.todayPnL > bestDayProfit) bestDayProfit = state.todayPnL;
         if (state.todayPnL > state.bestDayProfit) {
             state.bestDayProfit = state.todayPnL;
         }
@@ -61,7 +62,7 @@ export function runEvalAttempt(options: EvalAttemptOptions): EvalAttemptResult {
         }
     }
 
-    return { bestDayProfit, days, equityCurve, outcome, state, stats };
+    return { days, equityCurve, outcome, state, stats, streak };
 }
 
 export function runEvalWithRetries(
@@ -78,6 +79,7 @@ export function runEvalWithRetries(
         rrRatio,
         rungSizing,
         shouldCaptureEquity,
+        totals,
         winrate,
     } = options;
     let daysElapsed = 0;
@@ -95,6 +97,7 @@ export function runEvalWithRetries(
             rrRatio,
             rungSizing,
             shouldCaptureEquity,
+            totals,
             winrate,
         });
         daysElapsed += attempt.days;

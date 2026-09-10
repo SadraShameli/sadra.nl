@@ -23,7 +23,6 @@ function atBalance(balance: number) {
     state.balance = balance;
     state.threshold = 50_100;
     state.thresholdLocked = true;
-    state.fundingBaseline = state.startingBalance;
     state.qualifyingDays = 99;
     return state;
 }

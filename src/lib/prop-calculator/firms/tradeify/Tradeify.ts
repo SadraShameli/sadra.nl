@@ -1,11 +1,15 @@
 import {
     ConsistencyRule,
     ConsistencyScope,
+    contracts,
+    type DailyLossLimitConfig,
     DailyLossLimitKind,
     dollars,
     EodTrailingDrawdown,
     FirmId,
     fraction,
+    PayoutBuffer,
+    PayoutFloorEffect,
     type PlanInit,
     TradeifyVariant,
     TradingFirm,
@@ -15,6 +19,30 @@ import { lockThresholdAt, planLabel } from '../shared';
 
 const PROFIT_TARGET_RATIO = 0.06;
 const LOCK_OFFSET = 100;
+const SELECT_RESET_FEE = 109;
+
+const CONTRACT_LIMITS = {
+    evalMicros: contracts(40),
+    evalMinis: contracts(4),
+    fundedMicros: contracts(40),
+    fundedMinis: contracts(4),
+};
+
+const SCALING_FUNDED_DLL: DailyLossLimitConfig = {
+    kind: DailyLossLimitKind.Tiered,
+    tiers: [
+        {
+            dailyLossLimit: dollars(1250),
+            maxContracts: contracts(4),
+            minProfit: 0,
+        },
+        {
+            dailyLossLimit: dollars(2000),
+            maxContracts: contracts(4),
+            minProfit: 3000,
+        },
+    ],
+};
 
 const GROWTH_SIZES = [
     {
@@ -22,6 +50,7 @@ const GROWTH_SIZES = [
         evalCost: 145,
         maxDrawdown: dollars(2000),
         minPayoutProfit: dollars(3000),
+        resetFee: 95,
     },
 ] as const;
 
@@ -30,6 +59,7 @@ const SELECT_SIZES = [
         accountSize: dollars(50_000),
         evalCost: 165,
         maxDrawdown: dollars(2000),
+        resetFee: SELECT_RESET_FEE,
     },
 ] as const;
 
@@ -39,6 +69,7 @@ const LIGHTNING_SIZES = [
         evalCost: 492,
         maxDrawdown: dollars(2000),
         minPayoutProfit: dollars(3000),
+        resetFee: 492,
     },
 ] as const;
 
@@ -68,20 +99,26 @@ function buildGrowthPlan(size: TradeifyGrowthSize): PlanInit {
             ConsistencyScope.Funded,
             fraction(0.35),
         ),
-        drawdown: new EodTrailingDrawdown({
+        contractLimits: CONTRACT_LIMITS,
+        drawdown: new EodTrailingDrawdown({ amount: size.maxDrawdown }),
+        evalDailyLossLimit: {
+            amount: dollars(1250),
+            kind: DailyLossLimitKind.Flat,
+        },
+        fees: {
+            activation: dollars(0),
+            monthlySubscription: dollars(0),
+            oneTimeEval: dollars(size.evalCost),
+            reset: dollars(size.resetFee),
+        },
+        fundedDailyLossLimit: SCALING_FUNDED_DLL,
+        fundedDrawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
                 atProfit: dollars(size.maxDrawdown + LOCK_OFFSET),
                 lockedThreshold: lockThresholdAt(LOCK_OFFSET),
             },
         }),
-        evalDailyLossLimit: { kind: DailyLossLimitKind.None },
-        fees: {
-            activation: dollars(0),
-            monthlySubscription: dollars(0),
-            oneTimeEval: dollars(size.evalCost),
-            reset: dollars(50),
-        },
         id: {
             accountSize: 50_000,
             firm: FirmId.Tradeify,
@@ -95,6 +132,7 @@ function buildGrowthPlan(size: TradeifyGrowthSize): PlanInit {
         minPayoutRequest: dollars(500),
         minQualifyingDayProfit: dollars(150),
         minTradingDays: 1,
+        payoutFloorEffect: PayoutFloorEffect.LockAtPlanFloor,
         payoutLadder: {
             capsAtLastStep: true,
             minRequestAmount: 500,
@@ -111,13 +149,8 @@ function buildLightningPlan(size: TradeifyLightningSize): PlanInit {
     return {
         accountSize: size.accountSize,
         consistency: null,
-        drawdown: new EodTrailingDrawdown({
-            amount: size.maxDrawdown,
-            lock: {
-                atProfit: dollars(size.maxDrawdown + LOCK_OFFSET),
-                lockedThreshold: lockThresholdAt(LOCK_OFFSET),
-            },
-        }),
+        contractLimits: CONTRACT_LIMITS,
+        drawdown: new EodTrailingDrawdown({ amount: size.maxDrawdown }),
         evalDailyLossLimit: { kind: DailyLossLimitKind.None },
         fees: {
             activation: dollars(0),
@@ -128,6 +161,14 @@ function buildLightningPlan(size: TradeifyLightningSize): PlanInit {
         fundedConsistencyLadder: {
             steps: [fraction(0.2), fraction(0.25), fraction(0.3)],
         },
+        fundedDailyLossLimit: SCALING_FUNDED_DLL,
+        fundedDrawdown: new EodTrailingDrawdown({
+            amount: size.maxDrawdown,
+            lock: {
+                atProfit: dollars(size.maxDrawdown + LOCK_OFFSET),
+                lockedThreshold: lockThresholdAt(LOCK_OFFSET),
+            },
+        }),
         id: {
             accountSize: 50_000,
             firm: FirmId.Tradeify,
@@ -135,13 +176,14 @@ function buildLightningPlan(size: TradeifyLightningSize): PlanInit {
         },
         label: planLabel(size.accountSize, 'Lightning Funded'),
         maxFundedAccounts: MAX_FUNDED_ACCOUNTS,
-        minDaysAfterPassForPayout: 5,
+        minDaysAfterPassForPayout: 0,
         minPayoutProfit: size.minPayoutProfit,
         minPayoutProfitPerCycle: dollars(2000),
         minTradingDays: 0,
+        payoutFloorEffect: PayoutFloorEffect.LockAtPlanFloor,
         payoutLadder: {
             capsAtLastStep: true,
-            minRequestAmount: 500,
+            minRequestAmount: 1000,
             steps: [2000, 2000, 2000, 2500],
         },
         payoutTiers: [
@@ -156,24 +198,26 @@ function buildSelectDailyPlan(size: TradeifySelectSize): PlanInit {
     return {
         accountSize: size.accountSize,
         consistency: new ConsistencyRule(ConsistencyScope.Eval, fraction(0.4)),
-        drawdown: new EodTrailingDrawdown({
+        contractLimits: CONTRACT_LIMITS,
+        drawdown: new EodTrailingDrawdown({ amount: size.maxDrawdown }),
+        evalDailyLossLimit: { kind: DailyLossLimitKind.None },
+        fees: {
+            activation: dollars(0),
+            monthlySubscription: dollars(0),
+            oneTimeEval: dollars(size.evalCost),
+            reset: dollars(size.resetFee),
+        },
+        fundedDailyLossLimit: {
+            amount: dollars(1000),
+            kind: DailyLossLimitKind.Flat,
+        },
+        fundedDrawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
                 atProfit: dollars(size.maxDrawdown + LOCK_OFFSET),
                 lockedThreshold: lockThresholdAt(LOCK_OFFSET),
             },
         }),
-        evalDailyLossLimit: { kind: DailyLossLimitKind.None },
-        fees: {
-            activation: dollars(0),
-            monthlySubscription: dollars(0),
-            oneTimeEval: dollars(size.evalCost),
-            reset: dollars(50),
-        },
-        fundedDailyLossLimit: {
-            amount: dollars(500),
-            kind: DailyLossLimitKind.Flat,
-        },
         id: {
             accountSize: 50_000,
             firm: FirmId.Tradeify,
@@ -182,10 +226,12 @@ function buildSelectDailyPlan(size: TradeifySelectSize): PlanInit {
         label: planLabel(size.accountSize, 'Select Daily'),
         maxFundedAccounts: MAX_FUNDED_ACCOUNTS,
         minDaysAfterPassForPayout: 0,
-        minPayoutProfit: dollars(0),
+        minPayoutProfit: dollars(0.01),
         minPayoutProfitPerCycle: dollars(0.01),
-        minPayoutRequest: dollars(500),
+        minPayoutRequest: dollars(250),
         minTradingDays: 3,
+        payoutBuffer: new PayoutBuffer(dollars(LOCK_OFFSET)),
+        payoutFloorEffect: PayoutFloorEffect.LockAtPlanFloor,
         payoutProfitShare: fraction(2),
         payoutRequestCap: dollars(1250),
         payoutTiers: [
@@ -200,20 +246,22 @@ function buildSelectFlexPlan(size: TradeifySelectSize): PlanInit {
     return {
         accountSize: size.accountSize,
         consistency: new ConsistencyRule(ConsistencyScope.Eval, fraction(0.4)),
-        drawdown: new EodTrailingDrawdown({
+        contractLimits: CONTRACT_LIMITS,
+        drawdown: new EodTrailingDrawdown({ amount: size.maxDrawdown }),
+        evalDailyLossLimit: { kind: DailyLossLimitKind.None },
+        fees: {
+            activation: dollars(0),
+            monthlySubscription: dollars(0),
+            oneTimeEval: dollars(size.evalCost),
+            reset: dollars(size.resetFee),
+        },
+        fundedDrawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
                 atProfit: dollars(size.maxDrawdown + LOCK_OFFSET),
                 lockedThreshold: lockThresholdAt(LOCK_OFFSET),
             },
         }),
-        evalDailyLossLimit: { kind: DailyLossLimitKind.None },
-        fees: {
-            activation: dollars(0),
-            monthlySubscription: dollars(0),
-            oneTimeEval: dollars(size.evalCost),
-            reset: dollars(50),
-        },
         id: {
             accountSize: 50_000,
             firm: FirmId.Tradeify,
@@ -222,17 +270,17 @@ function buildSelectFlexPlan(size: TradeifySelectSize): PlanInit {
         label: planLabel(size.accountSize, 'Select Flex'),
         maxFundedAccounts: MAX_FUNDED_ACCOUNTS,
         minDaysAfterPassForPayout: 5,
-        minPayoutProfit: dollars(0),
+        minPayoutProfit: dollars(0.01),
         minPayoutProfitPerCycle: dollars(0.01),
-        minPayoutRequest: dollars(500),
+        minPayoutRequest: dollars(250),
         minQualifyingDayProfit: dollars(150),
         minTradingDays: 3,
+        payoutFloorEffect: PayoutFloorEffect.LockAtPlanFloor,
         payoutProfitShare: fraction(0.5),
         payoutRequestCap: dollars(2500),
         payoutTiers: [
             { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
         ],
-        payoutTriggersLock: true,
         profitTarget,
     };
 }

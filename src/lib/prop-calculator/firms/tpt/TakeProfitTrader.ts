@@ -63,7 +63,7 @@ function buildPlan(size: TptSize): PlanInit {
         maxFundedAccounts: MAX_FUNDED_ACCOUNTS,
         minDaysAfterPassForPayout: 0,
         minPayoutProfit: size.maxDrawdown,
-        minTradingDays: 5,
+        minTradingDays: 3,
         payoutTiers: [
             { thresholdProfit: dollars(0), traderShare: fraction(0.8) },
         ],

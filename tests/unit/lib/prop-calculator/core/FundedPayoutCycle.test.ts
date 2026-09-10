@@ -7,6 +7,7 @@ import {
     FirmId,
     LucidVariant,
     MffuVariant,
+    PayoutFloorEffect,
     TopStepVariant,
     TradeifyVariant,
     TradingPhase,
@@ -32,7 +33,6 @@ function fundedState(profit: number, threshold: number) {
     state.balance = state.startingBalance + profit;
     state.threshold = threshold;
     state.thresholdLocked = true;
-    state.fundingBaseline = state.startingBalance;
     state.qualifyingDays = 99;
     return state;
 }
@@ -343,7 +343,7 @@ describe('payout-triggered early lock (help.myfundedfutures.com Flex plan)', () 
             variant: MffuVariant.Flex,
         });
         if (!flex) throw new Error('flex missing');
-        expect(flex.payoutTriggersLock).toBe(true);
+        expect(flex.payoutFloorEffect).toBe(PayoutFloorEffect.LockAtPlanFloor);
 
         const state = flex.initialState();
         state.balance = state.startingBalance + 1000;
@@ -368,9 +368,9 @@ describe('payout-triggered early lock (help.myfundedfutures.com Flex plan)', () 
         expect(state.threshold).toBe(state.startingBalance + 100);
     });
 
-    it('Rapid EOD (no payoutTriggersLock) leaves the floor trailing normally through an early payout', () => {
+    it('Rapid EOD (no payout floor effect) leaves the floor trailing normally through an early payout', () => {
         const rapidEod = plan(MffuVariant.RapidEod);
-        expect(rapidEod.payoutTriggersLock).toBe(false);
+        expect(rapidEod.payoutFloorEffect).toBe(PayoutFloorEffect.None);
 
         const state = rapidEod.initialState();
         state.balance = state.startingBalance + 2200;
@@ -556,7 +556,9 @@ describe('Topstep 50K parameters (help.topstep.com)', () => {
             expect(target.minPayoutProfitPerCycle).toBe(0.01);
             expect(target.minPayoutRequest).toBe(125);
             expect(target.payoutBalanceShareCap).toBe(0.5);
-            expect(target.payoutResetsLossLimit).toBe(true);
+            expect(target.payoutFloorEffect).toBe(
+                PayoutFloorEffect.ReleaseFloor,
+            );
             expect(target.evalConsistencyRule()?.maxBestDayShare).toBe(0.5);
         }
     });
@@ -652,21 +654,23 @@ describe('Topstep 50K parameters (help.topstep.com)', () => {
             });
 
             expect(payout?.debited).toBe(cap);
-            expect(payout?.traderReceives).toBeCloseTo(cap * 0.9, 6);
+            expect(payout?.traderReceives).toBeCloseTo(
+                cap * 0.9 - target.payoutMethodFee,
+                6,
+            );
         }
     });
 
-    it('caps a payout at 50% of balance when that is tighter than the dollar cap', () => {
+    it('caps a payout at 50% of funded equity when that is tighter than the dollar cap', () => {
         const target = plan(TopStepVariant.StandardStandard);
         const state = target.initialState();
-        state.balance = state.startingBalance - 47_000;
-        state.threshold = state.startingBalance - 49_900;
+        state.balance = state.startingBalance + 3000;
+        state.threshold = state.startingBalance;
         state.thresholdLocked = true;
         state.qualifyingDays = 999;
         const tracker = newFundedCycleTracker(state);
-        tracker.lastPayoutBalance = state.startingBalance - 50_000;
+        tracker.lastPayoutBalance = state.startingBalance;
         tracker.qualifyingDaysAtLastPayout = 0;
-        const balanceBeforePayout = state.balance;
 
         const payout = tryFundedPayout({
             maxPayouts: Infinity,
@@ -677,11 +681,34 @@ describe('Topstep 50K parameters (help.topstep.com)', () => {
             tracker,
         });
 
-        expect(payout?.debited).toBeCloseTo(0.5 * balanceBeforePayout, 6);
+        expect(payout?.debited).toBeCloseTo(1500, 6);
         expect(payout?.debited).toBeLessThan(target.payoutRequestCap ?? 0);
     });
 
-    it('locks the loss floor at literal zero after the first payout, not the post-payout balance', () => {
+    it('stops binding the share cap once funded equity clears twice the dollar cap', () => {
+        const target = plan(TopStepVariant.StandardStandard);
+        const state = target.initialState();
+        state.balance = state.startingBalance + 4000;
+        state.threshold = state.startingBalance;
+        state.thresholdLocked = true;
+        state.qualifyingDays = 999;
+        const tracker = newFundedCycleTracker(state);
+        tracker.lastPayoutBalance = state.startingBalance;
+        tracker.qualifyingDaysAtLastPayout = 0;
+
+        const payout = tryFundedPayout({
+            maxPayouts: Infinity,
+            minRetainedCushion: 0,
+            payoutRequestSize: undefined,
+            plan: target,
+            state,
+            tracker,
+        });
+
+        expect(payout?.debited).toBeCloseTo(target.payoutRequestCap ?? 0, 6);
+    });
+
+    it('relocates the loss floor to the funded starting balance after the first payout, not the post-payout balance', () => {
         const target = plan(TopStepVariant.StandardStandard);
         const state = target.initialState();
         state.balance = state.startingBalance + 1800;
@@ -703,7 +730,7 @@ describe('Topstep 50K parameters (help.topstep.com)', () => {
 
         expect(firstPayout?.debited).toBe(500);
         expect(state.balance).toBe(state.startingBalance + 1300);
-        expect(state.threshold).toBe(0);
+        expect(state.threshold).toBe(state.startingBalance);
         expect(state.thresholdLocked).toBe(true);
 
         state.balance -= 1000;
@@ -723,6 +750,6 @@ describe('Topstep 50K parameters (help.topstep.com)', () => {
         });
 
         expect(secondPayout?.debited).toBe(150);
-        expect(state.threshold).toBe(0);
+        expect(state.threshold).toBe(state.startingBalance);
     });
 });

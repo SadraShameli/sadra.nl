@@ -4,7 +4,6 @@ export { simulatePortfolioTimeline } from './portfolio';
 export {
     type AccountTimelineInputs,
     type AccountTimelineResult,
-    type CardOutcome,
     type CardResult,
     DEFAULT_DAY_BUDGET,
     DEFAULT_MAX_PAYOUTS_PER_CARD,

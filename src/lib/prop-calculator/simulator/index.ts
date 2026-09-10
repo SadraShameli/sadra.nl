@@ -1,8 +1,21 @@
 export { resolveDayPolicy, runDay } from './day';
 export { simulate, simulatePortfolio } from './engine';
 export { runEvalAttempt, runEvalWithRetries } from './evalPhase';
-export { stepFundedDay } from './fundedPhase';
-export { newPathStats, PathStats } from './PathStats';
+export {
+    FundedStage,
+    type PayoutSink,
+    PayoutTotals,
+    runFundedDays,
+    runFundedHorizon,
+    stepFundedDay,
+} from './fundedPhase';
+export {
+    DrawdownTracker,
+    LossStreak,
+    newPhaseStats,
+    PhaseStats,
+    TradeTotals,
+} from './PhaseStats';
 export { isPassingOutcome } from './trial';
 export {
     type AttemptOutcome,

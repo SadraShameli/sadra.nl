@@ -20,6 +20,7 @@ import {
 
 import type { CalculatorState, LabScenario, PortfolioEntry } from './types';
 
+import { clampInt, clampNumber } from './clamp';
 import { SizingMode } from './types';
 
 function base64UrlDecode(s: string): string {
@@ -151,7 +152,12 @@ export function decodeState(
     return {
         activationDiscountPercent: scalarFields.act,
         commissionPerRoundTrip: scalarFields.comm,
-        copyAccounts: scalarFields.copy,
+        copyAccounts: clampInt(
+            scalarFields.copy,
+            1,
+            resolvedFirm.maxFundedAccounts(resolvedPlan),
+            1,
+        ),
         dayStop,
         evalDayPolicy,
         evalDiscountPercent: scalarFields.eval,
@@ -164,7 +170,12 @@ export function decodeState(
         maxEvalDays: scalarFields.maxDays,
         plan: resolvedPlan,
         portfolio,
-        riskDollars: scalarFields.rd,
+        riskDollars: clampNumber(
+            scalarFields.rd,
+            1,
+            resolvedPlan.accountSize,
+            250,
+        ),
         riskPercent: scalarFields.rp,
         rrRatio: scalarFields.rr,
         seed: scalarFields.seed,

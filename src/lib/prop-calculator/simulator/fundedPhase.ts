@@ -4,11 +4,118 @@ import {
 } from '../core/FundedPayoutCycle';
 import { TradingPhase } from '../core/TradingPhase';
 import { runDay } from './day';
+import { newPhaseStats } from './PhaseStats';
 import {
     type FundedDayStepOptions,
     type FundedHorizonOptions,
     type FundedHorizonResult,
 } from './types';
+
+export enum FundedStage {
+    Busted = 'busted',
+    Concluded = 'concluded',
+    HorizonReached = 'horizon-reached',
+    PayoutBudgetSpent = 'payout-budget-spent',
+}
+
+export interface FundedDaysOptions extends Omit<
+    FundedDayStepOptions,
+    'tracker'
+> {
+    dayOffsetBase: number;
+    equityCurve: null | number[];
+    maxDays: number;
+    maxPayouts: number;
+    minRetainedCushion: number;
+    payoutRequestSize: number | undefined;
+    sink: PayoutSink;
+}
+
+export interface FundedDaysResult {
+    daysElapsed: number;
+    stage: FundedStage;
+}
+
+export interface PayoutSink {
+    record(dayOffset: number, traderReceives: number): void;
+}
+
+export class PayoutTotals implements PayoutSink {
+    firstPayoutDay: null | number = null;
+
+    total = 0;
+
+    record(dayOffset: number, traderReceives: number): void {
+        this.total += traderReceives;
+        this.firstPayoutDay ??= dayOffset;
+    }
+}
+
+export function runFundedDays(options: FundedDaysOptions): FundedDaysResult {
+    const {
+        commission,
+        dayOffsetBase,
+        dayPolicy,
+        equityCurve,
+        maxDays,
+        maxPayouts,
+        minRetainedCushion,
+        payoutRequestSize,
+        plan,
+        rng,
+        rrRatio,
+        rungSizing,
+        sink,
+        state,
+        stats,
+        winrate,
+    } = options;
+    const tracker = newFundedCycleTracker(state);
+    let daysElapsed = 0;
+    const dayOptions = {
+        commission,
+        dayPolicy,
+        plan,
+        rng,
+        rrRatio,
+        rungSizing,
+        state,
+        stats,
+        tracker,
+        winrate,
+    };
+
+    for (let day = 0; day < maxDays; day++) {
+        const { busted } = stepFundedDay(dayOptions);
+        daysElapsed += 1;
+        if (equityCurve) {
+            equityCurve.push(state.balance);
+        }
+
+        if (busted) return { daysElapsed, stage: FundedStage.Busted };
+
+        const payout = tryFundedPayout({
+            maxPayouts,
+            minRetainedCushion,
+            payoutRequestSize,
+            plan,
+            state,
+            tracker,
+        });
+        if (payout === null) continue;
+
+        sink.record(dayOffsetBase + daysElapsed, payout.traderReceives);
+
+        if (tracker.payoutsIssued >= maxPayouts) {
+            return { daysElapsed, stage: FundedStage.PayoutBudgetSpent };
+        }
+        if (plan.isAccountConcluded(tracker.payoutsIssued)) {
+            return { daysElapsed, stage: FundedStage.Concluded };
+        }
+    }
+
+    return { daysElapsed, stage: FundedStage.HorizonReached };
+}
 
 export function runFundedHorizon(
     options: FundedHorizonOptions,
@@ -28,65 +135,37 @@ export function runFundedHorizon(
     } = options;
     const { state } = attempt;
     plan.beginFundedPhase(state);
-    attempt.stats.rebasePeak(state.balance);
+    const stats = newPhaseStats(
+        state.balance,
+        attempt.stats.totals,
+        attempt.streak,
+    );
+    const sink = new PayoutTotals();
 
-    let daysElapsed = 0;
-    let isBustedFunded = false;
-    let isClosed = false;
-    let totalPayout = 0;
-    let firstPayoutDay: null | number = null;
-    const tracker = newFundedCycleTracker(state);
-
-    for (let day = 0; day < fundedHorizonDays; day++) {
-        const { busted } = stepFundedDay({
-            commission,
-            dayPolicy,
-            plan,
-            rng,
-            rrRatio,
-            rungSizing,
-            state,
-            stats: attempt.stats,
-            tracker,
-            winrate,
-        });
-        daysElapsed += 1;
-        state.daysElapsed += 1;
-        if (attempt.equityCurve) {
-            attempt.equityCurve.push(state.balance);
-        }
-
-        if (busted) {
-            isBustedFunded = true;
-            break;
-        }
-
-        const payout = tryFundedPayout({
-            maxPayouts: Infinity,
-            minRetainedCushion,
-            payoutRequestSize,
-            plan,
-            state,
-            tracker,
-        });
-        if (payout === null) continue;
-
-        totalPayout += payout.traderReceives;
-        firstPayoutDay ??= daysElapsed;
-
-        if (plan.isAccountConcluded(tracker.payoutsIssued)) {
-            isClosed = true;
-            break;
-        }
-    }
+    const { daysElapsed, stage } = runFundedDays({
+        commission,
+        dayOffsetBase: 0,
+        dayPolicy,
+        equityCurve: attempt.equityCurve,
+        maxDays: fundedHorizonDays,
+        maxPayouts: Infinity,
+        minRetainedCushion,
+        payoutRequestSize,
+        plan,
+        rng,
+        rrRatio,
+        rungSizing,
+        sink,
+        state,
+        stats,
+        winrate,
+    });
 
     return {
         daysElapsed,
-        firstPayoutDay,
-        isBustedFunded,
-        isClosed,
-        payoutsIssued: tracker.payoutsIssued,
-        totalPayout,
+        firstPayoutDay: sink.firstPayoutDay,
+        isBustedFunded: stage === FundedStage.Busted,
+        totalPayout: sink.total,
     };
 }
 

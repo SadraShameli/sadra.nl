@@ -46,8 +46,10 @@ describe('MFFU Rapid versus Rapid EOD', () => {
     const rapidEod = mffuPlan(MffuVariant.RapidEod);
 
     it('are structurally distinct plans', () => {
-        expect(rapid.drawdown.kind).toBe(DrawdownKind.IntradayTrailing);
+        expect(rapid.drawdown.kind).toBe(DrawdownKind.EodTrailing);
+        expect(rapid.fundedDrawdown.kind).toBe(DrawdownKind.IntradayTrailing);
         expect(rapidEod.drawdown.kind).toBe(DrawdownKind.EodTrailing);
+        expect(rapidEod.fundedDrawdown.kind).toBe(DrawdownKind.EodTrailing);
         expect(rapid.evalConsistencyRule()?.maxBestDayShare).toBe(0.5);
         expect(rapidEod.evalConsistencyRule()?.maxBestDayShare).toBe(0.3);
         expect(rapid.minTradingDays).toBe(2);

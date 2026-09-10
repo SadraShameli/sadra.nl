@@ -16,10 +16,17 @@ import {
 import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFunding';
 import { mulberry32 } from '~/lib/prop-calculator/rng';
 import {
-    newPathStats,
+    LossStreak,
+    newPhaseStats,
     runDay,
     simulate,
+    TradeTotals,
 } from '~/lib/prop-calculator/simulator';
+
+function freshStats(startingBalance: number) {
+    const totals = new TradeTotals();
+    return newPhaseStats(startingBalance, totals, new LossStreak(totals));
+}
 
 const firm = new ApexTraderFunding();
 
@@ -72,7 +79,7 @@ describe('Apex qualifying-day threshold', () => {
 
     it('does not advance qualifyingDays on a day below the minimum daily profit', () => {
         const state = plan50kEodQualifying.initialState();
-        const stats = newPathStats(state.startingBalance);
+        const stats = freshStats(state.startingBalance);
         const rng = mulberry32(1);
 
         runDay({
@@ -111,7 +118,7 @@ describe('Apex qualifying-day threshold', () => {
             fundedHorizonDays: 100,
             maxEvalDays: 200,
             plan: plan50kEodQualifying,
-            riskPerTrade: 20,
+            riskPerTrade: 150,
             rrRatio: 1,
             seed: 7,
             tradesPerDay: 1,
@@ -125,10 +132,23 @@ describe('Apex qualifying-day threshold', () => {
     });
 });
 
-describe('Apex Intraday daily-loss-limit: bust behavior differs by phase', () => {
+describe('Apex Intraday daily-loss-limit: lockout behavior differs by phase', () => {
     const plan50kIntraday = findPlan(50_000, ApexVariant.Intraday);
 
-    it('does not bust in eval but does bust once funded, for an identical loss (direct isBust check)', () => {
+    it('locks out the funded day but not the eval day, for an identical loss', () => {
+        const lossState = plan50kIntraday.initialState();
+        lossState.balance -= 1500;
+        lossState.todayPnL = -1500;
+
+        expect(
+            plan50kIntraday.isDayLockedOut(lossState, TradingPhase.Eval),
+        ).toBe(false);
+        expect(
+            plan50kIntraday.isDayLockedOut(lossState, TradingPhase.Funded),
+        ).toBe(true);
+    });
+
+    it('never kills the account on a daily-loss-limit hit alone', () => {
         const lossState = plan50kIntraday.initialState();
         lossState.balance -= 1500;
         lossState.todayPnL = -1500;
@@ -137,13 +157,13 @@ describe('Apex Intraday daily-loss-limit: bust behavior differs by phase', () =>
             false,
         );
         expect(plan50kIntraday.isBust(lossState, TradingPhase.Funded)).toBe(
-            true,
+            false,
         );
     });
 
-    it('does not bust in eval but does bust once funded, for an identical loss (via runDay)', () => {
+    it('stops the funded day without busting, and leaves the eval day running (via runDay)', () => {
         const evalState = plan50kIntraday.initialState();
-        const evalStats = newPathStats(evalState.startingBalance);
+        const evalStats = freshStats(evalState.startingBalance);
         const evalResult = runDay({
             commission: dollars(0),
             dayPolicy: flatDayPolicy(1500, 1, { kind: DayStopRuleKind.None }),
@@ -159,8 +179,7 @@ describe('Apex Intraday daily-loss-limit: bust behavior differs by phase', () =>
         expect(evalResult.busted).toBe(false);
 
         const fundedState = plan50kIntraday.initialState();
-        fundedState.fundingBaseline = fundedState.balance;
-        const fundedStats = newPathStats(fundedState.startingBalance);
+        const fundedStats = freshStats(fundedState.startingBalance);
         const fundedResult = runDay({
             commission: dollars(0),
             dayPolicy: flatDayPolicy(1500, 1, { kind: DayStopRuleKind.None }),
@@ -173,7 +192,9 @@ describe('Apex Intraday daily-loss-limit: bust behavior differs by phase', () =>
             stats: fundedStats,
             winrate: fraction(0),
         });
-        expect(fundedResult.busted).toBe(true);
+        expect(fundedResult.busted).toBe(false);
+        expect(fundedState.todayPnL).toBe(-1500);
+        expect(fundedState.tradingDays).toBe(1);
     });
 });
 
@@ -216,17 +237,16 @@ describe('Apex EOD daily-loss-limit: flat in eval, tiered once funded', () => {
         ).toBe(3000);
     });
 
-    it('busts on a $1,500 day at funding start but tolerates it once the tier has escalated', () => {
+    it('locks out a $1,500 day at funding start but allows it once the tier has escalated', () => {
         const atStart = plan.initialState();
-        atStart.fundingBaseline = atStart.balance;
         atStart.todayPnL = -1500;
-        expect(plan.isBust(atStart, TradingPhase.Funded)).toBe(true);
+        expect(plan.isDayLockedOut(atStart, TradingPhase.Funded)).toBe(true);
+        expect(plan.isBust(atStart, TradingPhase.Funded)).toBe(false);
 
         const escalated = plan.initialState();
-        escalated.fundingBaseline = escalated.balance;
-        escalated.balance = escalated.fundingBaseline + 3000;
+        escalated.balance = escalated.startingBalance + 3000;
         escalated.todayPnL = -1500;
-        expect(plan.isBust(escalated, TradingPhase.Funded)).toBe(false);
+        expect(plan.isDayLockedOut(escalated, TradingPhase.Funded)).toBe(false);
     });
 });
 
@@ -240,7 +260,7 @@ describe('Apex eval reset fee', () => {
     it('charges the variant-specific eval price on reset, not the other variant’s price', () => {
         const eod = findPlan(50_000, ApexVariant.Eod);
         const intraday = findPlan(50_000, ApexVariant.Intraday);
-        expect(eod.fees.reset).toBe(490);
+        expect(eod.fees.reset).toBe(550);
         expect(intraday.fees.reset).toBe(249);
         expect(intraday.fees.reset).not.toBe(eod.fees.reset);
     });

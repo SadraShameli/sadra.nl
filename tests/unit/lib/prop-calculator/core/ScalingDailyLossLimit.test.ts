@@ -38,7 +38,6 @@ function lockedFundedState(peak: number, todayPnL: number) {
     state.balance = 50_000 + peak;
     state.threshold = LOCKED_THRESHOLD;
     state.thresholdLocked = true;
-    state.fundingBaseline = 50_000;
     state.peakDayCloseProfit = peak;
     state.todayPnL = todayPnL;
     return { plan, state };
@@ -104,38 +103,39 @@ describe.each(SCALING_VARIANTS)('Lucid %s scaling DLL', (variant) => {
         expect(
             resolveDailyLossLimit(
                 plan.dailyLossLimitFor(TradingPhase.Eval),
-                plan.dailyLossLimitContext(state, TradingPhase.Eval),
+                plan.dailyLossLimitContext(state),
             ),
         ).toBe(FIXED_DLL);
     });
 });
 
-describe('Lucid scaling DLL through isBust', () => {
-    it('busts on a day that loses the full 60% of peak', () => {
+describe('Lucid scaling DLL through the day lockout', () => {
+    it('locks out a day that loses the full 60% of peak', () => {
         const { plan, state } = lockedFundedState(4000, -2400);
-        expect(plan.isBust(state, TradingPhase.Funded)).toBe(true);
+        expect(plan.isDayLockedOut(state, TradingPhase.Funded)).toBe(true);
+        expect(plan.isBust(state, TradingPhase.Funded)).toBe(false);
     });
 
-    it('survives a day one dollar inside the scaled limit', () => {
+    it('allows a day one dollar inside the scaled limit', () => {
         const { plan, state } = lockedFundedState(4000, -2399);
-        expect(plan.isBust(state, TradingPhase.Funded)).toBe(false);
+        expect(plan.isDayLockedOut(state, TradingPhase.Funded)).toBe(false);
     });
 
-    it('would have busted on the same day under the pre-lock fixed limit', () => {
+    it('would have locked out the same day under the pre-lock fixed limit', () => {
         const { plan, state } = lockedFundedState(4000, -1200);
-        expect(plan.isBust(state, TradingPhase.Funded)).toBe(false);
+        expect(plan.isDayLockedOut(state, TradingPhase.Funded)).toBe(false);
 
         state.thresholdLocked = false;
-        expect(plan.isBust(state, TradingPhase.Funded)).toBe(true);
+        expect(plan.isDayLockedOut(state, TradingPhase.Funded)).toBe(true);
     });
 
     it('does not tighten the limit after a withdrawal reduces the balance', () => {
         const { plan, state } = lockedFundedState(4000, 0);
-        const before = plan.dailyLossLimitContext(state, TradingPhase.Funded);
+        const before = plan.dailyLossLimitContext(state);
 
         state.balance -= 2000;
         plan.recordDayClosePeak(state);
-        const after = plan.dailyLossLimitContext(state, TradingPhase.Funded);
+        const after = plan.dailyLossLimitContext(state);
 
         expect(after.peakDayCloseProfit).toBe(before.peakDayCloseProfit);
         expect(resolveDailyLossLimit(plan.fundedDailyLossLimit, after)).toBe(

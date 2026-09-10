@@ -77,6 +77,7 @@ export {
     scoreLadder,
 } from './LadderSearch';
 export { PayoutBuffer } from './PayoutBuffer';
+export { PayoutFloorEffect } from './PayoutFloorEffect';
 export {
     type PayoutLadder,
     type PayoutTier,
@@ -95,7 +96,6 @@ export {
     TopStepVariant,
     TradeifyVariant,
 } from './PlanId';
-export { withPlanOverrides } from './PlanVariant';
 export { replacementEconomics, type ReplacementEconomics } from './Replacement';
 export {
     annualisedRoiOnCost,

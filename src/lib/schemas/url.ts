@@ -106,24 +106,27 @@ export const savedScenarioRecordSchema = z.object({
 
 export type SavedScenarioRecord = z.infer<typeof savedScenarioRecordSchema>;
 
-const intFromQueryParameter = (fallback: number) =>
-    z.coerce.number().transform(Math.floor).catch(fallback);
+const intFromQueryParameter = (fallback: number, min: number, max: number) =>
+    z.coerce.number().min(min).max(max).transform(Math.floor).catch(fallback);
+
+const numberFromQueryParameter = (fallback: number, min: number, max: number) =>
+    z.coerce.number().min(min).max(max).catch(fallback);
 
 export const calculatorScalarFieldsSchema = z.object({
-    act: z.coerce.number().catch(0),
-    attempts: intFromQueryParameter(1),
-    comm: z.coerce.number().catch(0),
-    copy: intFromQueryParameter(1),
-    eval: z.coerce.number().catch(0),
-    fundedDays: intFromQueryParameter(60),
-    maxDays: intFromQueryParameter(60),
-    rd: z.coerce.number().catch(250),
-    rp: z.coerce.number().catch(0.5),
-    rr: z.coerce.number().catch(2),
-    seed: intFromQueryParameter(42),
-    tpd: intFromQueryParameter(1),
-    trials: intFromQueryParameter(2000),
-    wr: z.coerce.number().catch(0.4),
+    act: numberFromQueryParameter(0, 0, 100),
+    attempts: intFromQueryParameter(1, 1, 10),
+    comm: numberFromQueryParameter(0, 0, 50),
+    copy: intFromQueryParameter(1, 1, 20),
+    eval: numberFromQueryParameter(0, 0, 100),
+    fundedDays: intFromQueryParameter(60, 1, 3650),
+    maxDays: intFromQueryParameter(60, 10, 365),
+    rd: numberFromQueryParameter(250, 1, 1_000_000),
+    rp: numberFromQueryParameter(0.5, 0.05, 100),
+    rr: numberFromQueryParameter(2, 0.5, 10),
+    seed: intFromQueryParameter(42, 0, Number.MAX_SAFE_INTEGER),
+    tpd: intFromQueryParameter(1, 1, 50),
+    trials: intFromQueryParameter(2000, 100, 5000),
+    wr: numberFromQueryParameter(0.4, 0.05, 0.95),
 });
 
 export type CalculatorScalarFields = z.infer<

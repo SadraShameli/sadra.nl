@@ -73,7 +73,7 @@ describe('account conclusion', () => {
         expect(plan.isAccountConcluded(rungs)).toBe(true);
     });
 
-    it('never closes a ladder that caps at its last rung', () => {
+    it('never closes on rung count alone when the ladder caps at its last rung', () => {
         for (const plan of [
             lucidPlan(LucidVariant.Pro),
             tradeifyPlan(TradeifyVariant.Growth),
@@ -82,7 +82,23 @@ describe('account conclusion', () => {
             expect(plan.payoutLadder?.capsAtLastStep).toBe(true);
             const rungs = plan.payoutLadder?.steps.length ?? 0;
             expect(plan.isAccountConcluded(rungs)).toBe(false);
-            expect(plan.isAccountConcluded(rungs + 50)).toBe(false);
+        }
+    });
+
+    it('closes a capped-ladder plan on its lifetime payout cap instead', () => {
+        const lucidPro = lucidPlan(LucidVariant.Pro);
+        expect(lucidPro.maxLifetimePayouts).toBe(5);
+        expect(lucidPro.isAccountConcluded(4)).toBe(false);
+        expect(lucidPro.isAccountConcluded(5)).toBe(true);
+    });
+
+    it('never closes a capped-ladder plan with no lifetime cap', () => {
+        for (const plan of [
+            tradeifyPlan(TradeifyVariant.Growth),
+            tradeifyPlan(TradeifyVariant.Lightning),
+        ]) {
+            expect(plan.maxLifetimePayouts).toBeNull();
+            expect(plan.isAccountConcluded(500)).toBe(false);
         }
     });
 
@@ -94,8 +110,16 @@ describe('account conclusion', () => {
         expect(plan.isAccountConcluded(5)).toBe(true);
     });
 
-    it('never closes a ladderless plan with no lifetime cap', () => {
+    it('closes FundedNext Rapid Pro after its fifth withdrawal', () => {
         const plan = fundedNextPlan(FundedNextVariant.RapidPro);
+        expect(plan.payoutLadder).toBeNull();
+        expect(plan.maxLifetimePayouts).toBe(5);
+        expect(plan.isAccountConcluded(4)).toBe(false);
+        expect(plan.isAccountConcluded(5)).toBe(true);
+    });
+
+    it('never closes a ladderless plan with no lifetime cap', () => {
+        const plan = fundedNextPlan(FundedNextVariant.Legacy);
         expect(plan.payoutLadder).toBeNull();
         expect(plan.maxLifetimePayouts).toBeNull();
         expect(plan.isAccountConcluded(0)).toBe(false);

@@ -20,6 +20,7 @@ import { cn } from '~/lib/utilities';
 
 import { panelDescriptions } from './kpiDescriptions';
 import { bestExpectedMonthlyNet, scoreByExpectedMonthlyNet } from './scoring';
+import { simInputsCacheKey, SimInputsKeyField } from './simInputsCacheKey';
 import { useDebouncedComputation } from './useDebouncedSimulation';
 
 const DEBOUNCE_MS = 700;
@@ -185,23 +186,9 @@ function buildCacheKey(
     inputs: Omit<SimInputs, 'plan'>,
     accountSize: number,
 ): string {
-    return JSON.stringify({
-        accountSize,
-        act: inputs.discounts?.activationPercent ?? 0,
-        attempts: inputs.maxAttempts ?? 1,
-        commission: inputs.commissionPerRoundTrip ?? 0,
-        copy: inputs.copyAccounts ?? 1,
-        dayStop: inputs.dayStop ?? null,
-        eval: inputs.discounts?.evalPercent ?? 0,
-        evalDayPolicy: inputs.evalDayPolicy ?? null,
-        funded: inputs.fundedHorizonDays,
-        max: inputs.maxEvalDays,
-        risk: inputs.riskPerTrade,
-        rr: inputs.rrRatio,
-        seed: inputs.seed,
-        tpd: inputs.tradesPerDay,
-        trials: inputs.trials,
-        winrate: inputs.winrate,
+    return simInputsCacheKey(inputs, {
+        extra: { accountSize },
+        omit: [SimInputsKeyField.PlanId],
     });
 }
 

@@ -10,6 +10,7 @@ import { type SimInputs, simulate } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
 import { panelDescriptions } from './kpiDescriptions';
+import { simInputsCacheKey, SimInputsKeyField } from './simInputsCacheKey';
 import { useDebouncedComputation } from './useDebouncedSimulation';
 
 enum SensitivityMetric {
@@ -121,22 +122,9 @@ export default function SensitivityHeatmap({
     );
 }
 
-function buildCacheKey(inputs: SimInputs): string {
-    return JSON.stringify({
-        act: inputs.discounts?.activationPercent ?? 0,
-        attempts: inputs.maxAttempts ?? 1,
-        commission: inputs.commissionPerRoundTrip ?? 0,
-        copy: inputs.copyAccounts ?? 1,
-        dayStop: inputs.dayStop ?? null,
-        eval: inputs.discounts?.evalPercent ?? 0,
-        evalDayPolicy: inputs.evalDayPolicy ?? null,
-        firmId: inputs.plan.id,
-        funded: inputs.fundedHorizonDays,
-        max: inputs.maxEvalDays,
-        risk: inputs.riskPerTrade,
-        seed: inputs.seed,
-        tpd: inputs.tradesPerDay,
-        trials: inputs.trials,
+function buildCacheKey(inputs: Omit<SimInputs, 'riskPerTrade'>): string {
+    return simInputsCacheKey(inputs, {
+        omit: [SimInputsKeyField.RrRatio, SimInputsKeyField.Winrate],
     });
 }
 

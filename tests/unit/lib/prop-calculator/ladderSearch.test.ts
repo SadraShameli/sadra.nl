@@ -24,10 +24,17 @@ import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFuture
 import { mulberry32 } from '~/lib/prop-calculator/rng';
 import { type SimOutputs } from '~/lib/prop-calculator/simulator';
 import {
-    newPathStats,
+    LossStreak,
+    newPhaseStats,
     runDay,
     simulate,
+    TradeTotals,
 } from '~/lib/prop-calculator/simulator';
+
+function freshStats(startingBalance: number) {
+    const totals = new TradeTotals();
+    return newPhaseStats(startingBalance, totals, new LossStreak(totals));
+}
 
 const firm = new MyFundedFutures();
 
@@ -252,7 +259,7 @@ describe('cushion cap invariant', () => {
         const rng = mulberry32(4242);
         for (let trial = 0; trial < 2000; trial++) {
             const state = plan.initialState();
-            const stats = newPathStats(state.startingBalance);
+            const stats = freshStats(state.startingBalance);
             const floorBefore = state.threshold;
             runDay({
                 commission: dollars(0),
@@ -277,7 +284,7 @@ describe('cushion cap invariant', () => {
     it('caps an oversized rung to the cushion instead of over-risking', () => {
         const plan = rapidEod();
         const state = plan.initialState();
-        const stats = newPathStats(state.startingBalance);
+        const stats = freshStats(state.startingBalance);
         runDay({
             commission: dollars(0),
             dayPolicy: flatDayPolicy(999_999, 1, {

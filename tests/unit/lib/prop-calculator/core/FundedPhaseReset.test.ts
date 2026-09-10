@@ -23,12 +23,10 @@ function passedEvalState(plan: ReturnType<typeof rapidEod>) {
     const state = plan.initialState();
     state.balance = 53_400;
     state.bestDayProfit = 1800;
-    state.daysElapsed = 12;
     state.peakDayCloseProfit = 3400;
     state.qualifyingDays = 7;
     state.threshold = 51_400;
     state.thresholdLocked = true;
-    state.todayHigh = 53_400;
     state.todayPnL = 600;
     state.tradingDays = 12;
     return state;
@@ -52,8 +50,7 @@ describe('funded phase starts a fresh account', () => {
         plan.beginFundedPhase(state);
 
         expect(state.balance).toBe(plan.accountSize);
-        expect(state.fundingBaseline).toBe(plan.accountSize);
-        expect(plan.profitFor(state, TradingPhase.Funded)).toBe(0);
+        expect(plan.profitFor(state)).toBe(0);
     });
 
     it('does not carry the eval drawdown threshold or its lock', () => {
@@ -82,16 +79,6 @@ describe('funded phase starts a fresh account', () => {
         expect(state.qualifyingDays).toBe(0);
         expect(state.tradingDays).toBe(0);
         expect(state.todayPnL).toBe(0);
-        expect(state.todayHigh).toBe(plan.accountSize);
-    });
-
-    it('keeps the cumulative day counter, which drives fees', () => {
-        const plan = rapidEod();
-        const state = passedEvalState(plan);
-
-        plan.beginFundedPhase(state);
-
-        expect(state.daysElapsed).toBe(12);
     });
 
     it('opens Lucid Pro funded on the fixed DLL, not the scaling one', () => {
@@ -100,7 +87,7 @@ describe('funded phase starts a fresh account', () => {
 
         plan.beginFundedPhase(state);
 
-        const context = plan.dailyLossLimitContext(state, TradingPhase.Funded);
+        const context = plan.dailyLossLimitContext(state);
         expect(context.isThresholdLocked).toBe(false);
         expect(context.peakDayCloseProfit).toBe(0);
     });

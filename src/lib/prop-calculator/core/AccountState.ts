@@ -1,14 +1,11 @@
 export interface AccountState {
     balance: number;
     bestDayProfit: number;
-    daysElapsed: number;
-    fundingBaseline: number;
     peakDayCloseProfit: number;
     qualifyingDays: number;
     startingBalance: number;
     threshold: number;
     thresholdLocked: boolean;
-    todayHigh: number;
     todayPnL: number;
     tradingDays: number;
 }
@@ -20,20 +17,16 @@ export function createInitialState(
     return {
         balance: startingBalance,
         bestDayProfit: 0,
-        daysElapsed: 0,
-        fundingBaseline: startingBalance,
         peakDayCloseProfit: 0,
         qualifyingDays: 0,
         startingBalance,
         threshold: initialThreshold,
         thresholdLocked: false,
-        todayHigh: startingBalance,
         todayPnL: 0,
         tradingDays: 0,
     };
 }
 
 export function resetForNewDay(state: AccountState): void {
-    state.todayHigh = state.balance;
     state.todayPnL = 0;
 }

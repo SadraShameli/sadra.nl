@@ -9,6 +9,7 @@ import {
     fraction,
     IntradayTrailingDrawdown,
     MffuVariant,
+    PayoutFloorEffect,
     type PlanInit,
     TradingFirm,
 } from '~/lib/prop-calculator/core';
@@ -26,7 +27,7 @@ const RAPID_SIZES = [
             fundedMicros: contracts(50),
             fundedMinis: contracts(5),
         },
-        evalCost: 157,
+        evalCost: 209,
         maxDrawdown: dollars(2000),
         minPayoutProfit: dollars(2100),
         profitTarget: dollars(3000),
@@ -57,10 +58,10 @@ const PRO_SIZES = [
         contractLimits: {
             evalMicros: contracts(30),
             evalMinis: contracts(3),
-            fundedMicros: null,
+            fundedMicros: contracts(5),
             fundedMinis: contracts(5),
         },
-        evalCost: 227,
+        evalCost: 265,
         maxDrawdown: dollars(2000),
         minPayoutProfit: dollars(2100),
         profitTarget: dollars(3000),
@@ -123,6 +124,7 @@ function buildBuilderPlan(): PlanInit {
         maxFundedAccounts: 1,
         minDaysAfterPassForPayout: 2,
         minPayoutProfit: dollars(2600),
+        minPayoutProfitPerCycle: dollars(500),
         minTradingDays: 1,
         payoutLadder: {
             minRequestAmount: 500,
@@ -163,8 +165,10 @@ function buildFlexPlan(size: MffuFlexSize): PlanInit {
         maxFundedAccounts: 3,
         minDaysAfterPassForPayout: 5,
         minPayoutProfit: size.minPayoutProfit,
+        minPayoutProfitPerCycle: dollars(500),
         minQualifyingDayProfit: size.minQualifyingDayProfit,
         minTradingDays: 2,
+        payoutFloorEffect: PayoutFloorEffect.LockAtPlanFloor,
         payoutLadder: {
             minRequestAmount: size.minPayoutProfit,
             steps: [
@@ -179,7 +183,6 @@ function buildFlexPlan(size: MffuFlexSize): PlanInit {
         payoutTiers: [
             { thresholdProfit: dollars(0), traderShare: fraction(0.8) },
         ],
-        payoutTriggersLock: true,
         profitTarget: size.profitTarget,
     };
 }
@@ -253,8 +256,9 @@ function buildRapidEodPlan(): PlanInit {
         },
         label: planLabel(50_000, 'Rapid EOD'),
         maxFundedAccounts: 5,
-        minDaysAfterPassForPayout: 3,
+        minDaysAfterPassForPayout: 1,
         minPayoutProfit: dollars(maxDrawdown + 100),
+        minPayoutProfitPerCycle: dollars(500),
         minPayoutRequest: dollars(500),
         minTradingDays: 4,
         payoutTiers: [
@@ -269,7 +273,7 @@ function buildRapidPlan(size: MffuRapidSize): PlanInit {
         accountSize: size.accountSize,
         consistency: new ConsistencyRule(ConsistencyScope.Eval, fraction(0.5)),
         contractLimits: size.contractLimits,
-        drawdown: new IntradayTrailingDrawdown({
+        drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
                 atProfit: dollars(size.maxDrawdown + LOCK_OFFSET),
@@ -283,6 +287,13 @@ function buildRapidPlan(size: MffuRapidSize): PlanInit {
             oneTimeEval: dollars(size.evalCost),
             reset: dollars(size.evalCost),
         },
+        fundedDrawdown: new IntradayTrailingDrawdown({
+            amount: size.maxDrawdown,
+            lock: {
+                atProfit: dollars(size.maxDrawdown + LOCK_OFFSET),
+                lockedThreshold: lockThresholdAt(LOCK_OFFSET),
+            },
+        }),
         id: {
             accountSize: 50_000,
             firm: FirmId.Mffu,
@@ -290,7 +301,7 @@ function buildRapidPlan(size: MffuRapidSize): PlanInit {
         },
         label: planLabel(size.accountSize, 'Rapid'),
         maxFundedAccounts: 5,
-        minDaysAfterPassForPayout: 3,
+        minDaysAfterPassForPayout: 1,
         minPayoutProfit: size.minPayoutProfit,
         minPayoutRequest: dollars(500),
         minTradingDays: 2,

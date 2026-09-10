@@ -165,17 +165,14 @@ export default function ResultsPanel({
                                 <>
                                     <p>{kpiDescriptions.passProbability}</p>
                                     <p className="mt-2 font-mono text-xs">
+                                        {formatPercent(result.passProbability)}{' '}
+                                        passed ·{' '}
                                         {formatPercent(
-                                            result.cleanPassProbability,
+                                            result.fundedBustProbability,
                                         )}{' '}
-                                        clean ·{' '}
-                                        {formatPercent(
-                                            result.passProbability -
-                                                result.cleanPassProbability,
-                                        )}{' '}
-                                        with violation ·{' '}
+                                        busted funded ·{' '}
                                         {formatPercent(result.bustProbability)}{' '}
-                                        bust ·{' '}
+                                        bust eval ·{' '}
                                         {formatPercent(
                                             result.timeoutProbability,
                                         )}{' '}
@@ -193,28 +190,25 @@ export default function ResultsPanel({
                         info={{
                             body: (
                                 <>
-                                    <p>{kpiDescriptions.cleanPass}</p>
-                                    {plan.consistency && (
-                                        <p className="mt-2 font-mono text-xs">
-                                            Rule: best day ≤{' '}
-                                            {formatPercent(
-                                                plan.consistency
-                                                    .maxBestDayShare,
-                                            )}{' '}
-                                            of total profit
-                                        </p>
-                                    )}
+                                    <p>{kpiDescriptions.reachedFunded}</p>
+                                    <p className="mt-2 font-mono text-xs">
+                                        {formatPercent(result.passProbability)}{' '}
+                                        survived ·{' '}
+                                        {formatPercent(
+                                            result.fundedBustProbability,
+                                        )}{' '}
+                                        busted after funding
+                                    </p>
                                 </>
                             ),
-                            title: 'Clean pass',
+                            title: 'Reached funded',
                         }}
-                        label="Clean pass"
-                        sub={
-                            plan.consistency
-                                ? `${formatPercent(plan.consistency.maxBestDayShare)} single-day cap`
-                                : 'no consistency rule'
-                        }
-                        value={formatPercent(result.cleanPassProbability)}
+                        label="Reached funded"
+                        sub={`${formatPercent(result.fundedBustProbability)} busted after funding`}
+                        value={formatPercent(
+                            result.passProbability +
+                                result.fundedBustProbability,
+                        )}
                     />
                     <Kpi
                         delta={dDaysInverted}

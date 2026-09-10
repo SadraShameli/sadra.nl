@@ -8,7 +8,6 @@ import {
     fraction,
     type Plan,
     TradingPhase,
-    withPlanOverrides,
 } from '~/lib/prop-calculator/core';
 import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFunding';
 
@@ -42,7 +41,7 @@ function snapshotOf(plan: Plan) {
     };
 }
 
-describe('withPlanOverrides', () => {
+describe('Plan.withOverrides', () => {
     const basePlan = findPlan(50_000, ApexVariant.Eod);
 
     it('flows an overridden profitTarget through isPassed', () => {
@@ -52,7 +51,7 @@ describe('withPlanOverrides', () => {
 
         expect(basePlan.isPassed(state)).toBe(false);
 
-        const loweredTarget = withPlanOverrides(basePlan, {
+        const loweredTarget = basePlan.withOverrides({
             profitTarget: dollars(500),
         });
 
@@ -61,27 +60,33 @@ describe('withPlanOverrides', () => {
         expect(basePlan.isPassed(state)).toBe(false);
     });
 
-    it('flows an overridden evalDailyLossLimit through isBust', () => {
+    it('flows an overridden evalDailyLossLimit through the day lockout', () => {
         const lossState = basePlan.initialState();
         lossState.todayPnL = -300;
 
-        expect(basePlan.isBust(lossState, TradingPhase.Eval)).toBe(false);
+        expect(basePlan.isDayLockedOut(lossState, TradingPhase.Eval)).toBe(
+            false,
+        );
 
-        const stricterDll = withPlanOverrides(basePlan, {
+        const stricterDll = basePlan.withOverrides({
             evalDailyLossLimit: {
                 amount: dollars(200),
                 kind: DailyLossLimitKind.Flat,
             },
         });
 
-        expect(stricterDll.isBust(lossState, TradingPhase.Eval)).toBe(true);
-        expect(basePlan.isBust(lossState, TradingPhase.Eval)).toBe(false);
+        expect(stricterDll.isDayLockedOut(lossState, TradingPhase.Eval)).toBe(
+            true,
+        );
+        expect(basePlan.isDayLockedOut(lossState, TradingPhase.Eval)).toBe(
+            false,
+        );
     });
 
     it('flows overridden payoutTiers through payoutFromProfit', () => {
         expect(basePlan.payoutFromProfit(1000)).toBe(1000);
 
-        const halfShare = withPlanOverrides(basePlan, {
+        const halfShare = basePlan.withOverrides({
             payoutTiers: [
                 { thresholdProfit: dollars(0), traderShare: fraction(0.5) },
             ],
@@ -94,7 +99,7 @@ describe('withPlanOverrides', () => {
     it('flows overridden fees through totalCostThroughDay', () => {
         const baseCost = basePlan.totalCostThroughDay(21);
 
-        const cheaperEval = withPlanOverrides(basePlan, {
+        const cheaperEval = basePlan.withOverrides({
             fees: { ...basePlan.fees, oneTimeEval: dollars(1) },
         });
 
@@ -109,7 +114,7 @@ describe('withPlanOverrides', () => {
         const payoutTiersReference = basePlan.payoutTiers;
         const drawdownReference = basePlan.drawdown;
 
-        withPlanOverrides(basePlan, {
+        basePlan.withOverrides({
             evalDailyLossLimit: {
                 amount: dollars(1),
                 kind: DailyLossLimitKind.Flat,
@@ -135,7 +140,7 @@ describe('withPlanOverrides', () => {
     });
 
     it('returns a distinct Plan instance from the original', () => {
-        const variant = withPlanOverrides(basePlan, {
+        const variant = basePlan.withOverrides({
             profitTarget: dollars(1),
         });
         expect(variant).not.toBe(basePlan);

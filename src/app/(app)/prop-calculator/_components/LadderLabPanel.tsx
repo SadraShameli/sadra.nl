@@ -26,7 +26,7 @@ import { cn } from '~/lib/utilities';
 
 import LadderFrontierChartView from './charts/LadderFrontierChartView';
 import DayStopRulePicker from './DayStopRulePicker';
-import { useLadderSearch } from './useLadderSearch';
+import { LadderRunPhase, useLadderSearch } from './useLadderSearch';
 
 interface LadderLabPanelProperties {
     activePolicy: DayPolicy | null;
@@ -63,8 +63,9 @@ export default function LadderLabPanel({
         instrument === '' ? null : INSTRUMENTS[instrument].pointValue;
     const contractCap = plan.contractLimits?.evalMinis ?? null;
 
+    const succeeded = state.phase === LadderRunPhase.Succeeded ? state : null;
     const rows = useMemo(() => {
-        const result = state.result;
+        const result = succeeded?.result;
         if (!result) return [];
         const seen = new Set<string>();
         const merged: LadderScore[] = [];
@@ -79,7 +80,7 @@ export default function LadderLabPanel({
             merged.push(score);
         }
         return merged;
-    }, [state.result]);
+    }, [succeeded?.result]);
 
     const columns = useMemo<DataTableColumn<LadderScore>[]>(
         () => [
@@ -199,14 +200,16 @@ export default function LadderLabPanel({
                     </InfoPopover>
                 </div>
                 <div className="flex items-center gap-2">
-                    {state.isRunning ? (
+                    {state.phase === LadderRunPhase.Running ? (
                         <>
                             <span className="text-xs text-muted-foreground">
-                                {state.completed}/{state.total} ·{' '}
-                                {(state.elapsedMs / 1000).toFixed(0)}s elapsed
-                                {state.etaMs === null
+                                {state.progress.completed}/
+                                {state.progress.total} ·{' '}
+                                {(state.progress.elapsedMs / 1000).toFixed(0)}s
+                                elapsed
+                                {state.progress.etaMs === null
                                     ? ''
-                                    : ` · ~${(state.etaMs / 1000).toFixed(0)}s left`}
+                                    : ` · ~${(state.progress.etaMs / 1000).toFixed(0)}s left`}
                             </span>
                             <Button
                                 className="h-7 px-2.5 text-xs"
@@ -319,17 +322,17 @@ export default function LadderLabPanel({
                 </p>
             )}
 
-            {state.error !== null && (
-                <p className="mt-3 text-xs text-rose-400">{state.error}</p>
+            {state.phase === LadderRunPhase.Failed && (
+                <p className="mt-3 text-xs text-rose-400">{state.reason}</p>
             )}
 
-            {state.result && (
+            {succeeded && (
                 <div className="mt-4 flex flex-col gap-5">
                     <p className="text-xs text-muted-foreground">
-                        Scored {state.result.laddersScored} distinct ladders
-                        from a {state.result.gridSize}-ladder grid (
-                        {state.result.droppedAliasCount} aliases removed) in{' '}
-                        {(state.elapsedMs / 1000).toFixed(1)}s.
+                        Scored {succeeded.result.laddersScored} distinct ladders
+                        from a {succeeded.result.gridSize}-ladder grid (
+                        {succeeded.result.droppedAliasCount} aliases removed) in{' '}
+                        {(succeeded.progress.elapsedMs / 1000).toFixed(1)}s.
                     </p>
 
                     <div>
@@ -337,7 +340,7 @@ export default function LadderLabPanel({
                             Efficient frontier
                         </h4>
                         <LadderFrontierChartView
-                            frontier={state.result.frontier}
+                            frontier={succeeded.result.frontier}
                         />
                     </div>
 

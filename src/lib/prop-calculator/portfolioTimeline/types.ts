@@ -38,16 +38,8 @@ export interface AccountTimelineResult {
     cumulativeSpend: Float64Array;
 }
 
-export type CardOutcome =
-    | 'bust-eval'
-    | 'bust-funded'
-    | 'card-closed'
-    | 'ladder-exhausted'
-    | 'timeout-eval';
-
 export interface CardResult {
     attemptsUsed: number;
-    outcome: CardOutcome;
     payouts: readonly PayoutEvent[];
     totalCost: number;
     totalDays: number;

@@ -49,6 +49,11 @@ export abstract class DrawdownStrategy {
         state.thresholdLocked = true;
     }
 
+    release(state: AccountState, floorTo: number): void {
+        state.threshold = floorTo;
+        state.thresholdLocked = true;
+    }
+
     protected maybeLock(state: AccountState): void {
         const lock = this.init.lock;
         if (!lock) return;

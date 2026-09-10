@@ -13,14 +13,31 @@ import {
     type RungSizing,
 } from '~/lib/prop-calculator';
 
-import type {
-    LadderWorkerRequest,
-    LadderWorkerResponse,
+import {
+    type LadderWorkerRequest,
+    LadderWorkerRequestKind,
+    type LadderWorkerResponse,
+    LadderWorkerResponseKind,
 } from '../_workers/ladderWorkerMessages';
 
 const BLOCK_SIZE = 20;
 const MAX_WORKERS = 16;
 const TOP_N = 25;
+
+export enum LadderRunPhase {
+    Cancelled = 'cancelled',
+    Failed = 'failed',
+    Idle = 'idle',
+    Running = 'running',
+    Succeeded = 'succeeded',
+}
+
+export interface LadderProgress {
+    completed: number;
+    elapsedMs: number;
+    etaMs: null | number;
+    total: number;
+}
 
 export interface LadderSearchInputs {
     grid: LadderGridConfig;
@@ -44,30 +61,24 @@ export interface LadderSearchRun {
     laddersScored: number;
 }
 
-export interface LadderSearchState {
-    completed: number;
-    elapsedMs: number;
-    error: null | string;
-    etaMs: null | number;
-    isRunning: boolean;
-    result: LadderSearchRun | null;
-    total: number;
-}
+export type LadderSearchState =
+    | { phase: LadderRunPhase.Cancelled; progress: LadderProgress }
+    | { phase: LadderRunPhase.Failed; reason: string }
+    | { phase: LadderRunPhase.Idle }
+    | { phase: LadderRunPhase.Running; progress: LadderProgress }
+    | {
+          phase: LadderRunPhase.Succeeded;
+          progress: LadderProgress;
+          result: LadderSearchRun;
+      };
 
-const IDLE: LadderSearchState = {
-    completed: 0,
-    elapsedMs: 0,
-    error: null,
-    etaMs: null,
-    isRunning: false,
-    result: null,
-    total: 0,
-};
+const IDLE: LadderSearchState = { phase: LadderRunPhase.Idle };
 
 export function useLadderSearch() {
     const [state, setState] = useState<LadderSearchState>(IDLE);
     const workersReference = useRef<Worker[]>([]);
     const cancelReference = useRef(false);
+    const runIdReference = useRef(0);
 
     const teardown = useCallback(() => {
         for (const worker of workersReference.current) worker.terminate();
@@ -84,13 +95,22 @@ export function useLadderSearch() {
     const cancel = useCallback(() => {
         cancelReference.current = true;
         teardown();
-        setState((previous) => ({ ...previous, isRunning: false }));
+        setState((previous) =>
+            previous.phase === LadderRunPhase.Running
+                ? {
+                      phase: LadderRunPhase.Cancelled,
+                      progress: previous.progress,
+                  }
+                : previous,
+        );
     }, [teardown]);
 
     const run = useCallback(
         (inputs: LadderSearchInputs) => {
             cancelReference.current = false;
             teardown();
+            runIdReference.current += 1;
+            const runId = runIdReference.current;
 
             const cushion = inputs.plan.drawdown.amount;
             const ladders = canonicaliseGrid(
@@ -102,21 +122,16 @@ export function useLadderSearch() {
 
             if (total === 0) {
                 setState({
-                    ...IDLE,
-                    error: 'The grid is empty. Widen the risk range or step.',
+                    phase: LadderRunPhase.Failed,
+                    reason: 'The grid is empty. Widen the risk range or step.',
                 });
                 return;
             }
 
             const startedAt = performance.now();
             setState({
-                completed: 0,
-                elapsedMs: 0,
-                error: null,
-                etaMs: null,
-                isRunning: true,
-                result: null,
-                total,
+                phase: LadderRunPhase.Running,
+                progress: { completed: 0, elapsedMs: 0, etaMs: null, total },
             });
 
             const blocks: { firstIndex: number; ladders: number[][] }[] = [];
@@ -146,11 +161,13 @@ export function useLadderSearch() {
                     Number.isFinite(score.expectedDaysToFunded),
                 );
                 setState({
-                    completed: total,
-                    elapsedMs: performance.now() - startedAt,
-                    error: null,
-                    etaMs: 0,
-                    isRunning: false,
+                    phase: LadderRunPhase.Succeeded,
+                    progress: {
+                        completed: total,
+                        elapsedMs: performance.now() - startedAt,
+                        etaMs: 0,
+                        total,
+                    },
                     result: {
                         byCost: scorable
                             .toSorted(
@@ -172,7 +189,6 @@ export function useLadderSearch() {
                         gridSize,
                         laddersScored: total,
                     },
-                    total,
                 });
                 teardown();
             };
@@ -188,18 +204,25 @@ export function useLadderSearch() {
                         inputs.plan.fees.oneTimeEval +
                         inputs.plan.fees.activation,
                     firstIndex: block.firstIndex,
+                    kind: LadderWorkerRequestKind.ScoreLadders,
                     ladders: block.ladders,
                     maxDays: inputs.maxDays,
                     planId: inputs.plan.id,
-                    requestId: block.firstIndex,
                     rrRatio: inputs.rrRatio,
                     rungSizing: inputs.rungSizing,
+                    runId,
                     seed: inputs.seed,
                     sims: inputs.sims,
                     stopRule: inputs.stopRule,
                     winrate: inputs.winrate,
                 };
                 worker.postMessage(request);
+            };
+
+            const fail = (reason: string) => {
+                cancelReference.current = true;
+                teardown();
+                setState({ phase: LadderRunPhase.Failed, reason });
             };
 
             for (let index = 0; index < workerCount; index++) {
@@ -211,20 +234,32 @@ export function useLadderSearch() {
                     'message',
                     (event: MessageEvent<LadderWorkerResponse>) => {
                         if (cancelReference.current) return;
+                        if (event.data.runId !== runId) return;
+
+                        if (
+                            event.data.kind === LadderWorkerResponseKind.Failed
+                        ) {
+                            fail(event.data.reason);
+                            return;
+                        }
+
                         scores.push(...event.data.scores);
                         completed += event.data.scores.length;
                         settled += 1;
                         const elapsedMs = performance.now() - startedAt;
-                        setState((previous) => ({
-                            ...previous,
-                            completed,
-                            elapsedMs,
-                            etaMs:
-                                completed > 0
-                                    ? (elapsedMs / completed) *
-                                      (total - completed)
-                                    : null,
-                        }));
+                        setState({
+                            phase: LadderRunPhase.Running,
+                            progress: {
+                                completed,
+                                elapsedMs,
+                                etaMs:
+                                    completed > 0
+                                        ? (elapsedMs / completed) *
+                                          (total - completed)
+                                        : null,
+                                total,
+                            },
+                        });
                         if (settled >= blocks.length) {
                             finish();
                             return;
@@ -234,13 +269,7 @@ export function useLadderSearch() {
                 );
                 worker.addEventListener('error', () => {
                     if (cancelReference.current) return;
-                    cancelReference.current = true;
-                    teardown();
-                    setState((previous) => ({
-                        ...previous,
-                        error: 'The ladder search worker failed.',
-                        isRunning: false,
-                    }));
+                    fail('The ladder search worker failed.');
                 });
                 workersReference.current.push(worker);
                 dispatch(worker);

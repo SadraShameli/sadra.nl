@@ -9,6 +9,8 @@ import {
     FirmId,
     fraction,
     LucidVariant,
+    PayoutBuffer,
+    PayoutFloorEffect,
     type PlanInit,
     TradingFirm,
 } from '~/lib/prop-calculator/core';
@@ -34,7 +36,7 @@ function scalingDllAfterTrail(fixedDll: Dollars): DailyLossLimitConfig {
 const FLEX_SIZES = [
     {
         accountSize: dollars(50_000),
-        evalCost: 140,
+        evalCost: 136,
         maxDrawdown: dollars(2000),
         resetFee: 95,
     },
@@ -44,14 +46,14 @@ const PRO_SIZES = [
     {
         accountSize: dollars(50_000),
         dailyLossLimit: dollars(1200) as Dollars | null,
-        evalCost: 185,
+        evalCost: 172,
         maxDrawdown: dollars(2000),
         resetFee: 120,
     },
 ] as const;
 
 const DIRECT_SIZES = [
-    { accountSize: dollars(50_000), evalCost: 520, maxDrawdown: dollars(2000) },
+    { accountSize: dollars(50_000), evalCost: 515, maxDrawdown: dollars(2000) },
 ] as const;
 
 type LucidDirectSize = (typeof DIRECT_SIZES)[number];
@@ -70,6 +72,7 @@ export class LucidTrading extends TradingFirm {
 }
 
 const MAX_FUNDED_ACCOUNTS = 5;
+const MAX_LIFETIME_PAYOUTS = 5;
 
 function buildDirectPlan(size: LucidDirectSize): PlanInit {
     return {
@@ -103,6 +106,7 @@ function buildDirectPlan(size: LucidDirectSize): PlanInit {
         },
         label: planLabel(size.accountSize, 'LucidDirect'),
         maxFundedAccounts: MAX_FUNDED_ACCOUNTS,
+        maxLifetimePayouts: MAX_LIFETIME_PAYOUTS,
         minDaysAfterPassForPayout: 0,
         minPayoutProfit: dollars(3000),
         minPayoutProfitPerCycle: dollars(2500),
@@ -145,16 +149,18 @@ function buildFlexPlan(size: LucidFlexSize): PlanInit {
         },
         label: planLabel(size.accountSize, 'LucidFlex'),
         maxFundedAccounts: MAX_FUNDED_ACCOUNTS,
+        maxLifetimePayouts: MAX_LIFETIME_PAYOUTS,
         minDaysAfterPassForPayout: 5,
-        minPayoutProfit: dollars(500),
+        minPayoutProfit: dollars(0),
+        minPayoutRequest: dollars(500),
         minQualifyingDayProfit: dollars(150),
         minTradingDays: 2,
+        payoutFloorEffect: PayoutFloorEffect.LockAtPlanFloor,
         payoutProfitShare: fraction(0.5),
         payoutRequestCap: dollars(2000),
         payoutTiers: [
             { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
         ],
-        payoutTriggersLock: true,
         profitTarget,
     };
 }
@@ -197,9 +203,11 @@ function buildProPlan(size: LucidProSize): PlanInit {
         },
         label: planLabel(size.accountSize, 'LucidPro'),
         maxFundedAccounts: MAX_FUNDED_ACCOUNTS,
+        maxLifetimePayouts: MAX_LIFETIME_PAYOUTS,
         minDaysAfterPassForPayout: 0,
         minPayoutProfit: dollars(500),
         minTradingDays: 1,
+        payoutBuffer: new PayoutBuffer(dollars(LOCK_OFFSET)),
         payoutLadder: {
             capsAtLastStep: true,
             minRequestAmount: 500,
