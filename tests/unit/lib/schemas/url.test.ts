@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
+import { InstrumentSymbol } from '~/lib/prop-calculator';
 import {
     authErrorSearchSchema,
     dayStopRuleSchema,
     forgotPasswordSearchSchema,
+    labScenarioSchema,
     loginSearchSchema,
+    portfolioEntrySchema,
     profileSearchSchema,
     profileTabSchema,
     resetPasswordSearchSchema,
@@ -140,5 +143,77 @@ describe('dayStopRuleSchema', () => {
         expect(
             dayStopRuleSchema.safeParse({ kind: 'after-k-losses' }).success,
         ).toBe(false);
+    });
+});
+
+const LEGACY_LAB_SCENARIO = {
+    accounts: 5,
+    correlation: 'copy',
+    dayStop: { kind: 'none' },
+    groups: 1,
+    id: 'sc-1',
+    label: 'Test',
+    riskPerTrade: 300,
+    rrRatio: 2,
+    tradesPerDay: 2,
+    winrate: 0.5,
+};
+
+describe('labScenarioSchema instrument/stopPoints (E15 extension to Strategy Lab)', () => {
+    it('accepts a scenario carrying its own instrument + stopPoints', () => {
+        const r = labScenarioSchema.safeParse({
+            ...LEGACY_LAB_SCENARIO,
+            instrument: InstrumentSymbol.MNQ,
+            stopPoints: 8,
+        });
+        expect(r.success).toBe(true);
+        expect(r.data?.instrument).toBe(InstrumentSymbol.MNQ);
+        expect(r.data?.stopPoints).toBe(8);
+    });
+
+    it('defaults instrument and stopPoints to null when absent from a pre-E15 saved scenario', () => {
+        const r = labScenarioSchema.safeParse(LEGACY_LAB_SCENARIO);
+        expect(r.success).toBe(true);
+        expect(r.data?.instrument).toBeNull();
+        expect(r.data?.stopPoints).toBeNull();
+    });
+
+    it('falls back an unrecognized instrument symbol to null rather than rejecting the whole scenario', () => {
+        const r = labScenarioSchema.safeParse({
+            ...LEGACY_LAB_SCENARIO,
+            instrument: 'NOT-A-REAL-SYMBOL',
+        });
+        expect(r.success).toBe(true);
+        expect(r.data?.instrument).toBeNull();
+    });
+});
+
+const LEGACY_PORTFOLIO_ENTRY = {
+    activationDiscountPercent: 0,
+    count: 1,
+    evalDiscountPercent: 0,
+    firmId: 'apex',
+    id: 'entry-1',
+    linkActivationDiscount: false,
+    planId: 'apex-50000-eod',
+};
+
+describe('portfolioEntrySchema instrument/stopPoints (E15 extension to Portfolio Panel)', () => {
+    it('accepts an entry carrying its own instrument + stopPoints override', () => {
+        const r = portfolioEntrySchema.safeParse({
+            ...LEGACY_PORTFOLIO_ENTRY,
+            instrument: InstrumentSymbol.NQ,
+            stopPoints: 10,
+        });
+        expect(r.success).toBe(true);
+        expect(r.data?.instrument).toBe(InstrumentSymbol.NQ);
+        expect(r.data?.stopPoints).toBe(10);
+    });
+
+    it('defaults instrument and stopPoints to null when absent from a pre-E15 saved entry', () => {
+        const r = portfolioEntrySchema.safeParse(LEGACY_PORTFOLIO_ENTRY);
+        expect(r.success).toBe(true);
+        expect(r.data?.instrument).toBeNull();
+        expect(r.data?.stopPoints).toBeNull();
     });
 });

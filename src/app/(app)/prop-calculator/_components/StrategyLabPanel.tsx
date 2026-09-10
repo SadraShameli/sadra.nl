@@ -22,9 +22,11 @@ import {
     formatPercent,
 } from '~/lib/format';
 import {
+    ALL_INSTRUMENTS,
     CorrelationMode,
     type DayStopRule,
     DayStopRuleKind,
+    type InstrumentSymbol,
     type Plan,
 } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
@@ -423,6 +425,65 @@ function StrategyLabTable({
                 ),
                 header: 'Tr/day',
                 id: 'tpd',
+            },
+            {
+                cell: ({ row }) => {
+                    const sc = row.original.scenario;
+                    return (
+                        <Select
+                            onValueChange={(v) =>
+                                onUpdate(sc.id, {
+                                    instrument:
+                                        v === 'none'
+                                            ? null
+                                            : (v as InstrumentSymbol),
+                                })
+                            }
+                            value={sc.instrument ?? 'none'}
+                        >
+                            <SelectTrigger className="h-7 w-24 text-xs">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="none">
+                                    Not enforced
+                                </SelectItem>
+                                {ALL_INSTRUMENTS.map((spec) => (
+                                    <SelectItem
+                                        key={spec.symbol}
+                                        value={spec.symbol}
+                                    >
+                                        {spec.symbol}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    );
+                },
+                header: 'Instrument',
+                id: 'instrument',
+            },
+            {
+                cell: ({ row }) => {
+                    const sc = row.original.scenario;
+                    return (
+                        <Input
+                            className="h-7 w-16 text-xs"
+                            disabled={sc.instrument === null}
+                            min={0.25}
+                            onChange={(event) => {
+                                const n = Number(event.target.value);
+                                if (Number.isFinite(n) && n > 0)
+                                    onUpdate(sc.id, { stopPoints: n });
+                            }}
+                            step={0.25}
+                            type="number"
+                            value={sc.stopPoints ?? ''}
+                        />
+                    );
+                },
+                header: 'Stop pts',
+                id: 'stop-points',
             },
             {
                 cell: ({ row }) => {

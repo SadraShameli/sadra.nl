@@ -64,9 +64,11 @@ export interface LabScenario {
     dayStop: DayStopRule;
     groups: number;
     id: string;
+    instrument: InstrumentSymbol | null;
     label: string;
     riskPerTrade: number;
     rrRatio: number;
+    stopPoints: null | number;
     tradesPerDay: number;
     winrate: number;
 }
@@ -77,8 +79,10 @@ export interface PortfolioEntry {
     evalDiscountPercent: number;
     firmId: FirmId;
     id: string;
+    instrument: InstrumentSymbol | null;
     linkActivationDiscount: boolean;
     planId: PlanId;
+    stopPoints: null | number;
 }
 
 export {

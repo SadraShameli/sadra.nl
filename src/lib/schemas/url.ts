@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { CorrelationMode } from '~/lib/prop-calculator';
+import { CorrelationMode, InstrumentSymbol } from '~/lib/prop-calculator';
 import { DayStopRuleKind } from '~/lib/prop-calculator/core';
 
 export const PROFILE_TAB_VALUES = [
@@ -81,9 +81,11 @@ export const labScenarioSchema = z.object({
     dayStop: dayStopRuleSchema,
     groups: z.number(),
     id: z.string(),
+    instrument: z.enum(InstrumentSymbol).nullable().catch(null),
     label: z.string(),
     riskPerTrade: z.number(),
     rrRatio: z.number(),
+    stopPoints: z.number().nullable().catch(null),
     tradesPerDay: z.number(),
     winrate: z.number(),
 });
@@ -94,8 +96,10 @@ export const portfolioEntrySchema = z.object({
     evalDiscountPercent: z.number(),
     firmId: z.string(),
     id: z.string(),
+    instrument: z.enum(InstrumentSymbol).nullable().catch(null),
     linkActivationDiscount: z.boolean(),
     planId: z.string(),
+    stopPoints: z.number().nullable().catch(null),
 });
 
 export const savedScenarioRecordSchema = z.object({

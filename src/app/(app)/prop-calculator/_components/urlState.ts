@@ -167,8 +167,10 @@ export function decodeState(
                             evalDiscountPercent: wire.evalDiscountPercent,
                             firmId: firm.id,
                             id: wire.id,
+                            instrument: wire.instrument,
                             linkActivationDiscount: wire.linkActivationDiscount,
                             planId: plan.id,
+                            stopPoints: wire.stopPoints,
                         };
                     })
                     .filter((entry): entry is PortfolioEntry => entry !== null);
@@ -252,8 +254,10 @@ export function encodeState(state: CalculatorState): URLSearchParams {
             evalDiscountPercent: entry.evalDiscountPercent,
             firmId: entry.firmId,
             id: entry.id,
+            instrument: entry.instrument,
             linkActivationDiscount: entry.linkActivationDiscount,
             planId: serializePlanId(entry.planId),
+            stopPoints: entry.stopPoints,
         }));
         const pf = base64UrlEncode(JSON.stringify(wire));
         if (pf) p.set('pf', pf);

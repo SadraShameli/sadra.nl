@@ -30,7 +30,9 @@ import {
     formatPercent,
 } from '~/lib/format';
 import {
+    ALL_INSTRUMENTS,
     annualisedRoiOnCost,
+    type InstrumentSymbol,
     parseFirmId,
     percent,
     type Plan,
@@ -102,7 +104,9 @@ export default function PortfolioPanel({
                         ),
                         evalPercent: percent(entry.evalDiscountPercent),
                     },
+                    instrument: entry.instrument ?? baseInputs.instrument,
                     plan,
+                    stopPoints: entry.stopPoints ?? baseInputs.stopPoints,
                     trials,
                 });
                 results.push({ entry, out });
@@ -145,8 +149,10 @@ export default function PortfolioPanel({
                 evalDiscountPercent: 0,
                 firmId: currentFirm.id,
                 id: crypto.randomUUID(),
+                instrument: null,
                 linkActivationDiscount: false,
                 planId: currentPlan.id,
+                stopPoints: null,
             },
         ]);
     }
@@ -263,6 +269,8 @@ export default function PortfolioPanel({
                     )}
                     <PortfolioTable
                         firms={firms}
+                        globalInstrument={baseInputs.instrument ?? null}
+                        globalStopPoints={baseInputs.stopPoints ?? null}
                         onRemove={removeEntry}
                         onUpdate={updateEntry}
                         pending={isPending}
@@ -341,18 +349,22 @@ function buildCacheKey(
         dayStop: baseInputs.dayStop,
         evalDayPolicy: baseInputs.evalDayPolicy ?? null,
         fundedHorizonDays: baseInputs.fundedHorizonDays,
+        instrument: baseInputs.instrument ?? null,
         maxEvalDays: baseInputs.maxEvalDays,
         portfolio: portfolio.map((entry) => ({
             actDiscount: entry.activationDiscountPercent,
             count: entry.count,
             evalDiscount: entry.evalDiscountPercent,
             firmId: entry.firmId,
+            instrument: entry.instrument,
             linkAct: entry.linkActivationDiscount,
             planId: entry.planId,
+            stopPoints: entry.stopPoints,
         })),
         risk: baseInputs.riskPerTrade,
         rr: baseInputs.rrRatio,
         seed: baseInputs.seed,
+        stopPoints: baseInputs.stopPoints ?? null,
         tpd: baseInputs.tradesPerDay,
         trials: baseInputs.trials,
         winrate: baseInputs.winrate,
@@ -625,6 +637,8 @@ function PlanCell({
 
 function PortfolioTable({
     firms,
+    globalInstrument,
+    globalStopPoints,
     onRemove,
     onUpdate,
     pending,
@@ -633,6 +647,8 @@ function PortfolioTable({
     totals,
 }: {
     firms: readonly TradingFirm[];
+    globalInstrument: InstrumentSymbol | null;
+    globalStopPoints: null | number;
     onRemove: (id: string) => void;
     onUpdate: (id: string, patch: Partial<Omit<PortfolioEntry, 'id'>>) => void;
     pending: boolean;
@@ -701,6 +717,18 @@ function PortfolioTable({
                 ),
                 header: 'Coupon',
                 id: 'coupon',
+            },
+            {
+                cell: ({ row }) => (
+                    <PositionSizingCell
+                        globalInstrument={globalInstrument}
+                        globalStopPoints={globalStopPoints}
+                        onUpdate={onUpdate}
+                        row={row.original}
+                    />
+                ),
+                header: 'Sizing',
+                id: 'sizing',
             },
             {
                 accessorFn: (r) => r.sim?.out.passProbability ?? -1,
@@ -795,7 +823,14 @@ function PortfolioTable({
                 id: 'remove',
             },
         ],
-        [firms, onRemove, onUpdate, pending],
+        [
+            firms,
+            globalInstrument,
+            globalStopPoints,
+            onRemove,
+            onUpdate,
+            pending,
+        ],
     );
 
     return (
@@ -807,7 +842,7 @@ function PortfolioTable({
                     <TableRow className="font-semibold text-foreground">
                         <TableCell
                             className="text-muted-foreground"
-                            colSpan={7}
+                            colSpan={8}
                         >
                             Total ({totals.totalAccounts} accounts)
                         </TableCell>
@@ -829,6 +864,128 @@ function PortfolioTable({
                 'text-xs tabular-nums',
             )}
         />
+    );
+}
+
+function PositionSizingCell({
+    globalInstrument,
+    globalStopPoints,
+    onUpdate,
+    row,
+}: {
+    globalInstrument: InstrumentSymbol | null;
+    globalStopPoints: null | number;
+    onUpdate: (id: string, patch: Partial<Omit<PortfolioEntry, 'id'>>) => void;
+    row: PortfolioTableRow;
+}) {
+    const { entry } = row;
+    const hasOverride = entry.instrument !== null;
+    const effectiveInstrument = entry.instrument ?? globalInstrument;
+    const effectiveStopPoints = entry.stopPoints ?? globalStopPoints;
+    return (
+        <Popover>
+            <PopoverTrigger asChild>
+                <Button
+                    className="h-6 gap-1 px-2 text-[11px]"
+                    size="sm"
+                    variant={hasOverride ? 'secondary' : 'outline'}
+                >
+                    {effectiveInstrument === null
+                        ? 'Not enforced'
+                        : `${effectiveInstrument}${
+                              effectiveStopPoints === null
+                                  ? ''
+                                  : ` @ ${effectiveStopPoints}pt`
+                          }${hasOverride ? '' : ' (global)'}`}
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-64">
+                <div className="flex flex-col gap-3">
+                    <p className="text-xs font-semibold">
+                        Contract-limit sizing
+                    </p>
+                    <div>
+                        <label
+                            className="mb-1 block text-xs text-muted-foreground"
+                            htmlFor={`sizing-instrument-${entry.id}`}
+                        >
+                            Instrument
+                        </label>
+                        <Select
+                            onValueChange={(v) =>
+                                onUpdate(entry.id, {
+                                    instrument:
+                                        v === 'global'
+                                            ? null
+                                            : (v as InstrumentSymbol),
+                                })
+                            }
+                            value={entry.instrument ?? 'global'}
+                        >
+                            <SelectTrigger
+                                className="h-7 w-full text-xs"
+                                id={`sizing-instrument-${entry.id}`}
+                            >
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="global">
+                                    Use global setting
+                                </SelectItem>
+                                {ALL_INSTRUMENTS.map((spec) => (
+                                    <SelectItem
+                                        key={spec.symbol}
+                                        value={spec.symbol}
+                                    >
+                                        {spec.symbol}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    {hasOverride && (
+                        <div>
+                            <label
+                                className="mb-1 block text-xs text-muted-foreground"
+                                htmlFor={`sizing-stop-${entry.id}`}
+                            >
+                                Stop distance (points)
+                            </label>
+                            <Input
+                                id={`sizing-stop-${entry.id}`}
+                                min={0.25}
+                                onChange={(event) => {
+                                    const n = Number(event.target.value);
+                                    if (Number.isFinite(n) && n > 0)
+                                        onUpdate(entry.id, {
+                                            stopPoints: n,
+                                        });
+                                }}
+                                step={0.25}
+                                type="number"
+                                value={entry.stopPoints ?? ''}
+                            />
+                        </div>
+                    )}
+                    {hasOverride && (
+                        <Button
+                            className="h-auto justify-start p-0 text-[11px] text-muted-foreground hover:text-foreground"
+                            onClick={() =>
+                                onUpdate(entry.id, {
+                                    instrument: null,
+                                    stopPoints: null,
+                                })
+                            }
+                            size="sm"
+                            type="button"
+                            variant="ghost"
+                        >
+                            Use global setting
+                        </Button>
+                    )}
+                </div>
+            </PopoverContent>
+        </Popover>
     );
 }
 
