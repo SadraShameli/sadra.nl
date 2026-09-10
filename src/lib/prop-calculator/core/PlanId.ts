@@ -25,7 +25,6 @@ export enum LucidVariant {
 
 export enum MffuVariant {
     Builder = 'builder',
-    Flex = 'flex',
     Pro = 'pro',
     Rapid = 'rapid',
     RapidEod = 'rapid-eod',

@@ -4,8 +4,10 @@ import {
     ApexVariant,
     ContractLimitKind,
     DailyLossLimitKind,
+    dollars,
     DrawdownKind,
     FirmId,
+    fraction,
     LucidVariant,
     MffuVariant,
     PayoutFloorEffect,
@@ -27,6 +29,21 @@ const mffu = new MyFundedFutures();
 const apex = new ApexTraderFunding();
 const lucid = new LucidTrading();
 const tradeify = new Tradeify();
+
+function flexLikePlan() {
+    return plan(MffuVariant.RapidEod).withOverrides({
+        minPayoutProfit: dollars(500),
+        payoutFloorEffect: PayoutFloorEffect.LockAtPlanFloor,
+        payoutLadder: {
+            minRequestAmount: 500,
+            steps: [2000, 2000, 2000, 2000, 2000],
+        },
+        payoutProfitShare: fraction(0.5),
+        payoutTiers: [
+            { thresholdProfit: dollars(0), traderShare: fraction(0.8) },
+        ],
+    });
+}
 
 function fundedState(profit: number, threshold: number) {
     const target = plan(MffuVariant.RapidEod);
@@ -273,129 +290,126 @@ describe('ladder payouts', () => {
     });
 });
 
-describe('payout profit-share cap', () => {
-    it('limits a Flex payout to 50% of cycle profit when that binds', () => {
-        const flex = mffu.findPlan({
-            accountSize: 50_000,
-            firm: FirmId.Mffu,
-            variant: MffuVariant.Flex,
-        });
-        if (!flex) throw new Error('flex missing');
-        expect(flex.payoutProfitShare).toBe(0.5);
+describe(
+    'payout profit-share cap (synthetic — reconstructs the discontinued MFFU Flex ' +
+        "plan's exact payout mechanics via withOverrides on Rapid EOD, since this " +
+        'specific ladder + 50%-profit-share-cap combination is no longer exercised ' +
+        'by any currently-sold MFFU plan)',
+    () => {
+        it('limits a payout to 50% of cycle profit when that binds', () => {
+            const flex = flexLikePlan();
+            expect(flex.payoutProfitShare).toBe(0.5);
 
-        const state = flex.initialState();
-        state.balance = state.startingBalance + 3000;
-        state.threshold = state.startingBalance + 100;
-        state.thresholdLocked = true;
-        state.qualifyingDays = 99;
-        const tracker = newFundedCycleTracker(state);
-        tracker.lastPayoutBalance = state.startingBalance;
-        tracker.qualifyingDaysAtLastPayout = 0;
+            const state = flex.initialState();
+            state.balance = state.startingBalance + 3000;
+            state.threshold = state.startingBalance + 100;
+            state.thresholdLocked = true;
+            state.qualifyingDays = 99;
+            const tracker = newFundedCycleTracker(state);
+            tracker.lastPayoutBalance = state.startingBalance;
+            tracker.qualifyingDaysAtLastPayout = 0;
 
-        const payout = tryFundedPayout({
-            maxPayouts: Infinity,
-            minRetainedCushion: 0,
-            payoutRequestSize: undefined,
-            plan: flex,
-            state,
-            tracker,
-        });
+            const payout = tryFundedPayout({
+                maxPayouts: Infinity,
+                minRetainedCushion: 0,
+                payoutRequestSize: undefined,
+                plan: flex,
+                state,
+                tracker,
+            });
 
-        expect(payout?.debited).toBe(1500);
-        expect(payout?.traderReceives).toBeCloseTo(1200, 6);
-    });
-
-    it('falls back to the dollar cap once 50% of profit exceeds it', () => {
-        const flex = mffu.findPlan({
-            accountSize: 50_000,
-            firm: FirmId.Mffu,
-            variant: MffuVariant.Flex,
-        });
-        if (!flex) throw new Error('flex missing');
-
-        const state = flex.initialState();
-        state.balance = state.startingBalance + 20_000;
-        state.threshold = state.startingBalance + 100;
-        state.thresholdLocked = true;
-        state.qualifyingDays = 99;
-        const tracker = newFundedCycleTracker(state);
-        tracker.lastPayoutBalance = state.startingBalance;
-        tracker.qualifyingDaysAtLastPayout = 0;
-
-        const payout = tryFundedPayout({
-            maxPayouts: Infinity,
-            minRetainedCushion: 0,
-            payoutRequestSize: undefined,
-            plan: flex,
-            state,
-            tracker,
+            expect(payout?.debited).toBe(1500);
+            expect(payout?.traderReceives).toBeCloseTo(1200, 6);
         });
 
-        expect(payout?.debited).toBe(2000);
-        expect(payout?.traderReceives).toBeCloseTo(1600, 6);
-    });
-});
+        it('falls back to the dollar cap once 50% of profit exceeds it', () => {
+            const flex = flexLikePlan();
 
-describe('payout-triggered early lock (help.myfundedfutures.com Flex plan)', () => {
-    it('forces the Flex MLL to lock at starting+$100 on an early payout, before the natural threshold', () => {
-        const flex = mffu.findPlan({
-            accountSize: 50_000,
-            firm: FirmId.Mffu,
-            variant: MffuVariant.Flex,
+            const state = flex.initialState();
+            state.balance = state.startingBalance + 20_000;
+            state.threshold = state.startingBalance + 100;
+            state.thresholdLocked = true;
+            state.qualifyingDays = 99;
+            const tracker = newFundedCycleTracker(state);
+            tracker.lastPayoutBalance = state.startingBalance;
+            tracker.qualifyingDaysAtLastPayout = 0;
+
+            const payout = tryFundedPayout({
+                maxPayouts: Infinity,
+                minRetainedCushion: 0,
+                payoutRequestSize: undefined,
+                plan: flex,
+                state,
+                tracker,
+            });
+
+            expect(payout?.debited).toBe(2000);
+            expect(payout?.traderReceives).toBeCloseTo(1600, 6);
         });
-        if (!flex) throw new Error('flex missing');
-        expect(flex.payoutFloorEffect).toBe(PayoutFloorEffect.LockAtPlanFloor);
+    },
+);
 
-        const state = flex.initialState();
-        state.balance = state.startingBalance + 1000;
-        state.threshold = state.balance - 2000;
-        state.thresholdLocked = false;
-        state.qualifyingDays = 99;
-        const tracker = newFundedCycleTracker(state);
-        tracker.lastPayoutBalance = state.startingBalance;
-        tracker.qualifyingDaysAtLastPayout = 0;
+describe(
+    'payout-triggered early lock (synthetic — reconstructs the discontinued ' +
+        "MFFU Flex plan's LockAtPlanFloor mechanics via withOverrides on Rapid EOD)",
+    () => {
+        it('forces the MLL to lock at starting+$100 on an early payout, before the natural threshold', () => {
+            const flex = flexLikePlan();
+            expect(flex.payoutFloorEffect).toBe(
+                PayoutFloorEffect.LockAtPlanFloor,
+            );
 
-        const payout = tryFundedPayout({
-            maxPayouts: Infinity,
-            minRetainedCushion: 0,
-            payoutRequestSize: undefined,
-            plan: flex,
-            state,
-            tracker,
+            const state = flex.initialState();
+            state.balance = state.startingBalance + 1000;
+            state.threshold = state.balance - 2000;
+            state.thresholdLocked = false;
+            state.qualifyingDays = 99;
+            const tracker = newFundedCycleTracker(state);
+            tracker.lastPayoutBalance = state.startingBalance;
+            tracker.qualifyingDaysAtLastPayout = 0;
+
+            const payout = tryFundedPayout({
+                maxPayouts: Infinity,
+                minRetainedCushion: 0,
+                payoutRequestSize: undefined,
+                plan: flex,
+                state,
+                tracker,
+            });
+
+            expect(payout).not.toBeNull();
+            expect(state.thresholdLocked).toBe(true);
+            expect(state.threshold).toBe(state.startingBalance + 100);
         });
 
-        expect(payout).not.toBeNull();
-        expect(state.thresholdLocked).toBe(true);
-        expect(state.threshold).toBe(state.startingBalance + 100);
-    });
+        it('Rapid EOD (no payout floor effect) leaves the floor trailing normally through an early payout', () => {
+            const rapidEod = plan(MffuVariant.RapidEod);
+            expect(rapidEod.payoutFloorEffect).toBe(PayoutFloorEffect.None);
 
-    it('Rapid EOD (no payout floor effect) leaves the floor trailing normally through an early payout', () => {
-        const rapidEod = plan(MffuVariant.RapidEod);
-        expect(rapidEod.payoutFloorEffect).toBe(PayoutFloorEffect.None);
+            const state = rapidEod.initialState();
+            state.balance = state.startingBalance + 2200;
+            state.threshold = state.balance - 2000;
+            state.thresholdLocked = false;
+            state.qualifyingDays = 99;
+            const tracker = newFundedCycleTracker(state);
+            tracker.lastPayoutBalance = state.startingBalance;
+            tracker.qualifyingDaysAtLastPayout = 0;
+            const thresholdBeforePayout = state.threshold;
 
-        const state = rapidEod.initialState();
-        state.balance = state.startingBalance + 2200;
-        state.threshold = state.balance - 2000;
-        state.thresholdLocked = false;
-        state.qualifyingDays = 99;
-        const tracker = newFundedCycleTracker(state);
-        tracker.lastPayoutBalance = state.startingBalance;
-        tracker.qualifyingDaysAtLastPayout = 0;
-        const thresholdBeforePayout = state.threshold;
+            const payout = tryFundedPayout({
+                maxPayouts: Infinity,
+                minRetainedCushion: 0,
+                payoutRequestSize: undefined,
+                plan: rapidEod,
+                state,
+                tracker,
+            });
 
-        const payout = tryFundedPayout({
-            maxPayouts: Infinity,
-            minRetainedCushion: 0,
-            payoutRequestSize: undefined,
-            plan: rapidEod,
-            state,
-            tracker,
+            expect(payout).not.toBeNull();
+            expect(state.threshold).toBe(thresholdBeforePayout);
         });
-
-        expect(payout).not.toBeNull();
-        expect(state.threshold).toBe(thresholdBeforePayout);
-    });
-});
+    },
+);
 
 describe('payout ladder capped-at-last-step (help.myfundedfutures.com / support.lucidtrading.com)', () => {
     it('LucidPro caps every payout from #2 onward at the last ladder step instead of exhausting', () => {

@@ -127,7 +127,7 @@ describe('account conclusion', () => {
     });
 
     it('closes a plain finite ladder that sets no cap flag', () => {
-        const plan = mffuPlan(MffuVariant.Flex);
+        const plan = mffuPlan(MffuVariant.Builder);
         const rungs = plan.payoutLadder?.steps.length ?? 0;
         expect(rungs).toBe(5);
         expect(plan.payoutLadder?.capsAtLastStep).toBeUndefined();

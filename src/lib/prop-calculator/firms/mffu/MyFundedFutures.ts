@@ -10,7 +10,6 @@ import {
     fraction,
     IntradayTrailingDrawdown,
     MffuVariant,
-    PayoutFloorEffect,
     type PlanInit,
     TradingFirm,
 } from '~/lib/prop-calculator/core';
@@ -41,30 +40,6 @@ const RAPID_SIZES = [
     },
 ] as const;
 
-const FLEX_SIZES = [
-    {
-        accountSize: dollars(50_000),
-        contractLimits: {
-            evalMicros: contracts(30),
-            evalMinis: contracts(3),
-            fundedMicros: {
-                kind: ContractLimitKind.Flat,
-                maxContracts: contracts(30),
-            },
-            fundedMinis: {
-                kind: ContractLimitKind.Flat,
-                maxContracts: contracts(3),
-            },
-        },
-        evalCost: 127,
-        maxDrawdown: dollars(2000),
-        minPayoutProfit: dollars(500),
-        minQualifyingDayProfit: dollars(150),
-        payoutCap: dollars(2000),
-        profitTarget: dollars(3000),
-    },
-] as const;
-
 const PRO_SIZES = [
     {
         accountSize: dollars(50_000),
@@ -87,7 +62,6 @@ const PRO_SIZES = [
     },
 ] as const;
 
-type MffuFlexSize = (typeof FLEX_SIZES)[number];
 type MffuProSize = (typeof PRO_SIZES)[number];
 type MffuRapidSize = (typeof RAPID_SIZES)[number];
 
@@ -96,12 +70,11 @@ export class MyFundedFutures extends TradingFirm {
     readonly id = FirmId.Mffu;
     readonly notes = [
         'Supports NinjaTrader, Tradovate, TradingView, Quantower, Volumetrica, DeepChart/DeepDom, and ATAS across all plans.',
-        'Rapid EOD evaluation and funded accounts close after 7 consecutive calendar days without a single trade. This simulator models that closure when you set an idle-day probability above 0.',
+        'Rapid EOD and Builder evaluation and funded accounts close after 7 consecutive calendar days without a single trade. Plain Rapid has no such rule; Pro is subject to some inactivity rule but the exact day count is unconfirmed. This simulator models the closure when you set an idle-day probability above 0. The Flex plan was discontinued and is no longer modeled.',
     ];
     readonly plans = [
         ...RAPID_SIZES.map((s) => this.buildPlan(buildRapidPlan(s))),
         this.buildPlan(buildRapidEodPlan()),
-        ...FLEX_SIZES.map((s) => this.buildPlan(buildFlexPlan(s))),
         ...PRO_SIZES.map((s) => this.buildPlan(buildProPlan(s))),
         this.buildPlan(buildBuilderPlan()),
     ];
@@ -150,7 +123,9 @@ function buildBuilderPlan(): PlanInit {
             variant: MffuVariant.Builder,
         },
         label: planLabel(50_000, 'Builder'),
+        maxConsecutiveIdleDays: 7,
         maxFundedAccounts: 1,
+        maxLifetimePayouts: 5,
         minDaysAfterPassForPayout: 2,
         minPayoutProfit: dollars(2600),
         minPayoutProfitPerCycle: dollars(500),
@@ -163,56 +138,6 @@ function buildBuilderPlan(): PlanInit {
             { thresholdProfit: dollars(0), traderShare: fraction(0.8) },
         ],
         profitTarget: dollars(3000),
-    };
-}
-
-function buildFlexPlan(size: MffuFlexSize): PlanInit {
-    return {
-        accountSize: size.accountSize,
-        consistency: new ConsistencyRule(ConsistencyScope.Eval, fraction(0.5)),
-        contractLimits: size.contractLimits,
-        drawdown: new EodTrailingDrawdown({
-            amount: size.maxDrawdown,
-            lock: {
-                atProfit: dollars(size.maxDrawdown + LOCK_OFFSET),
-                lockedThreshold: lockThresholdAt(LOCK_OFFSET),
-            },
-        }),
-        evalDailyLossLimit: { kind: DailyLossLimitKind.None },
-        fees: {
-            activation: dollars(0),
-            monthlySubscription: dollars(0),
-            oneTimeEval: dollars(size.evalCost),
-            reset: dollars(size.evalCost),
-        },
-        id: {
-            accountSize: 50_000,
-            firm: FirmId.Mffu,
-            variant: MffuVariant.Flex,
-        },
-        label: planLabel(size.accountSize, 'Flex'),
-        maxFundedAccounts: 3,
-        minDaysAfterPassForPayout: 5,
-        minPayoutProfit: size.minPayoutProfit,
-        minPayoutProfitPerCycle: dollars(500),
-        minQualifyingDayProfit: size.minQualifyingDayProfit,
-        minTradingDays: 2,
-        payoutFloorEffect: PayoutFloorEffect.LockAtPlanFloor,
-        payoutLadder: {
-            minRequestAmount: size.minPayoutProfit,
-            steps: [
-                size.payoutCap,
-                size.payoutCap,
-                size.payoutCap,
-                size.payoutCap,
-                size.payoutCap,
-            ],
-        },
-        payoutProfitShare: fraction(0.5),
-        payoutTiers: [
-            { thresholdProfit: dollars(0), traderShare: fraction(0.8) },
-        ],
-        profitTarget: size.profitTarget,
     };
 }
 

@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import {
     DayStopRuleKind,
+    dollars,
     FirmId,
+    fraction,
     MffuVariant,
+    PayoutFloorEffect,
     type SimInputs,
     simulate,
 } from '~/lib/prop-calculator';
@@ -38,6 +41,21 @@ function findPlan(firm: MyFundedFutures, variant: MffuVariant) {
     return plan;
 }
 
+function flexLikePlan(firm: MyFundedFutures) {
+    return findPlan(firm, MffuVariant.RapidEod).withOverrides({
+        minPayoutProfit: dollars(500),
+        payoutFloorEffect: PayoutFloorEffect.LockAtPlanFloor,
+        payoutLadder: {
+            minRequestAmount: 500,
+            steps: [2000, 2000, 2000, 2000, 2000],
+        },
+        payoutProfitShare: fraction(0.5),
+        payoutTiers: [
+            { thresholdProfit: dollars(0), traderShare: fraction(0.8) },
+        ],
+    });
+}
+
 describe('MFF Rapid (no ladder, intraday-trailing drawdown): payout keeps growing, never spuriously busts', () => {
     const plan = findPlan(mffu, MffuVariant.Rapid);
 
@@ -70,26 +88,35 @@ describe('MFF Rapid (no ladder, intraday-trailing drawdown): payout keeps growin
     });
 });
 
-describe('MFF Flex (ladder + 50% profit-share cap): plateaus once the ladder is exhausted, never busts', () => {
-    const plan = findPlan(mffu, MffuVariant.Flex);
+describe(
+    'ladder + 50% profit-share cap (synthetic — reconstructs the discontinued ' +
+        "MFFU Flex plan's mechanics via withOverrides on Rapid EOD): plateaus " +
+        'once the ladder is exhausted, never busts',
+    () => {
+        const plan = flexLikePlan(mffu);
 
-    it('never busts an always-winning trader, even after the ladder runs out', () => {
-        const out = simulate(alwaysWinInputs({ fundedHorizonDays: 252, plan }));
-        expect(out.passProbability).toBe(1);
-        expect(out.fundedBustProbability).toBe(0);
-    });
+        it('never busts an always-winning trader, even after the ladder runs out', () => {
+            const out = simulate(
+                alwaysWinInputs({ fundedHorizonDays: 252, plan }),
+            );
+            expect(out.passProbability).toBe(1);
+            expect(out.fundedBustProbability).toBe(0);
+        });
 
-    it('payout plateaus once the 5-step ladder is exhausted, rather than freezing or busting', () => {
-        const mid = simulate(alwaysWinInputs({ fundedHorizonDays: 120, plan }));
-        const long = simulate(
-            alwaysWinInputs({ fundedHorizonDays: 252, plan }),
-        );
-        expect(mid.passProbability).toBe(1);
-        expect(long.passProbability).toBe(1);
-        expect(mid.expectedGrossPayout).toBeGreaterThan(0);
-        expect(long.expectedGrossPayout).toBe(mid.expectedGrossPayout);
-    });
-});
+        it('payout plateaus once the 5-step ladder is exhausted, rather than freezing or busting', () => {
+            const mid = simulate(
+                alwaysWinInputs({ fundedHorizonDays: 120, plan }),
+            );
+            const long = simulate(
+                alwaysWinInputs({ fundedHorizonDays: 252, plan }),
+            );
+            expect(mid.passProbability).toBe(1);
+            expect(long.passProbability).toBe(1);
+            expect(mid.expectedGrossPayout).toBeGreaterThan(0);
+            expect(long.expectedGrossPayout).toBe(mid.expectedGrossPayout);
+        });
+    },
+);
 
 describe('MFF Builder (pure ladder): plateaus once the ladder is exhausted, never busts', () => {
     const plan = findPlan(mffu, MffuVariant.Builder);
