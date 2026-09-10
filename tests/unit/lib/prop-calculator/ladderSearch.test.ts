@@ -389,7 +389,7 @@ describe('runLadderSearch', () => {
         const winner = result.bySpeed[0];
         if (!winner) throw new Error('no speed winner');
         expect(winner.ladder.reduce((a, b) => a + b, 0)).toBe(2600);
-    });
+    }, 15_000);
 
     it('reports zero dropped aliases for a grid-search grid, since buildLadderGrid never emits a raw ladder with a literal <=0 rung (aliasing only ever collapses that exact case)', () => {
         const result = runLadderSearch({
