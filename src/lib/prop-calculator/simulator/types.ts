@@ -39,6 +39,7 @@ export interface CostBreakdown {
 export interface DayRunOptions {
     commission: Dollars;
     dayPolicy: DayPolicy;
+    idleDayProbability?: number;
     phase: TradingPhase;
     plan: Plan;
     positionSizing: null | PositionSizingConfig;
@@ -53,6 +54,7 @@ export interface DayRunOptions {
 export interface EvalAttemptOptions {
     commission: Dollars;
     dayPolicy: DayPolicy;
+    idleDayProbability?: number;
     maxEvalDays: number;
     plan: Plan;
     positionSizing: null | PositionSizingConfig;
@@ -65,6 +67,7 @@ export interface EvalAttemptOptions {
 }
 
 export interface EvalAttemptResult {
+    closedForInactivity: boolean;
     days: number;
     equityCurve: null | number[];
     outcome: AttemptOutcome;
@@ -88,6 +91,7 @@ export interface EvalWithRetriesResult {
 
 export interface FinishTrialArguments {
     attemptsUsed: number;
+    closedForInactivity: boolean;
     cumulativeDays: number;
     daysToPass: null | number;
     discounts: CouponDiscounts | undefined;
@@ -106,6 +110,7 @@ export interface FinishTrialArguments {
 export interface FundedDayStepOptions {
     commission: Dollars;
     dayPolicy: DayPolicy;
+    idleDayProbability?: number;
     plan: Plan;
     positionSizing: null | PositionSizingConfig;
     rng: Rng;
@@ -123,6 +128,7 @@ export interface FundedHorizonOptions {
     dayPolicy: DayPolicy;
 
     fundedHorizonDays: number;
+    idleDayProbability?: number;
     minRetainedCushion: Dollars;
     payoutRequestSize: Dollars | undefined;
     plan: Plan;
@@ -134,6 +140,7 @@ export interface FundedHorizonOptions {
 }
 
 export interface FundedHorizonResult {
+    closedForInactivity: boolean;
     daysElapsed: number;
     firstPayoutDay: null | number;
     isBustedFunded: boolean;
@@ -168,6 +175,7 @@ export interface SimInputs {
     evalDayPolicy?: DayPolicy;
     fundedDayPolicy?: DayPolicy;
     fundedHorizonDays: number;
+    idleDayProbability?: number;
     instrument?: InstrumentSymbol;
     maxAttempts?: number;
     maxEvalDays: number;
@@ -215,6 +223,7 @@ export interface SimOutputs {
     finalBalanceP95: number;
     finalBalances: number[];
     fundedBustProbability: number;
+    inactivityClosureProbability: number;
     initialThreshold: number;
     maxDrawdownP50: number;
     maxDrawdownP95: number;
@@ -237,6 +246,7 @@ export interface TrialOptions {
     evalDayPolicy: DayPolicy;
     fundedDayPolicy: DayPolicy;
     fundedHorizonDays: number;
+    idleDayProbability?: number;
     maxAttempts: number;
     maxEvalDays: number;
     minRetainedCushion: Dollars;
@@ -255,6 +265,7 @@ export type TrialOutcome =
 
 export interface TrialResult {
     attemptsUsed: number;
+    closedForInactivity: boolean;
     daysElapsed: number;
     daysToPass: null | number;
     equityCurve: null | number[];

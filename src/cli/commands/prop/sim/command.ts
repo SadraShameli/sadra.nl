@@ -51,6 +51,10 @@ export default defineCommand({
                 'bust when funded',
                 formatPercent(out.fundedBustProbability),
             ]);
+            table.printRow([
+                'inactivity closure',
+                formatPercent(out.inactivityClosureProbability),
+            ]);
             table.printRow(['timeout', formatPercent(out.timeoutProbability)]);
             table.printRow([
                 'days to pass (p50)',

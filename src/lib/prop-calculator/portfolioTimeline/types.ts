@@ -20,6 +20,7 @@ export interface AccountTimelineInputs {
     discounts?: CouponDiscounts;
     evalDayPolicy?: DayPolicy;
     fundedDayPolicy?: DayPolicy;
+    idleDayProbability?: number;
     instrument?: InstrumentSymbol;
     maxEvalDays: number;
     maxPayoutsPerCard?: number;
@@ -54,6 +55,7 @@ export interface EvalToFundedCycleOptions {
     discounts: CouponDiscounts | undefined;
     evalDayPolicy: DayPolicy;
     fundedDayPolicy: DayPolicy;
+    idleDayProbability?: number;
     maxEvalDays: number;
     maxFundedDays: number;
     maxPayoutsPerCard?: number;
@@ -80,6 +82,7 @@ export interface PortfolioTimelineInputs {
     discounts?: CouponDiscounts;
     evalDayPolicy?: DayPolicy;
     fundedDayPolicy?: DayPolicy;
+    idleDayProbability?: number;
     instrument?: InstrumentSymbol;
     maxEvalDays: number;
     maxPayoutsPerCard?: number;

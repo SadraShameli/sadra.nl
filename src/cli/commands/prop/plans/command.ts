@@ -10,7 +10,7 @@ import {
 } from '~/cli/commands/prop/shared';
 import { ui } from '~/cli/ui';
 import { formatCurrency, formatPercent } from '~/lib/format';
-import { type FirmId } from '~/lib/prop-calculator';
+import { findFirm, type FirmId } from '~/lib/prop-calculator';
 
 export default defineCommand({
     args: {
@@ -44,6 +44,10 @@ export default defineCommand({
                 if (firm !== plan.id.firm) {
                     firm = plan.id.firm;
                     ui.heading(firm);
+                    const firmNotes = findFirm(firm)?.notes ?? [];
+                    for (const note of firmNotes) {
+                        ui.warn(note);
+                    }
                 }
                 const consistencyEval = plan.evalConsistencyRule();
                 const consistencyFunded = plan.fundedConsistencyRule();

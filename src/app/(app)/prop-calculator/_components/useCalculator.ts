@@ -58,6 +58,7 @@ export interface UseCalculatorReturn {
     setEvalDiscountPercent: (n: number) => void;
     setFirm: (firm: TradingFirm) => void;
     setFundedHorizonDays: (n: number) => void;
+    setIdleDayProbability: (n: number) => void;
     setInstrument: (instrument: InstrumentSymbol | null) => void;
     setLabScenarios: (entries: LabScenario[]) => void;
     setLinkActivationDiscount: (isLinked: boolean) => void;
@@ -154,6 +155,7 @@ export function useCalculator(): UseCalculatorReturn {
             },
             evalDayPolicy: state.evalDayPolicy ?? undefined,
             fundedHorizonDays: state.fundedHorizonDays,
+            idleDayProbability: state.idleDayProbability,
             instrument: state.instrument ?? undefined,
             maxAttempts: state.maxAttempts,
             maxEvalDays: state.maxEvalDays,
@@ -187,6 +189,7 @@ export function useCalculator(): UseCalculatorReturn {
             state.instrument,
             state.stopPoints,
             state.retainedCushion,
+            state.idleDayProbability,
         ],
     );
 
@@ -239,6 +242,8 @@ export function useCalculator(): UseCalculatorReturn {
                 type: CalculatorActionType.SetFundedHorizonDays,
                 value: n,
             }),
+        setIdleDayProbability: (n) =>
+            act({ type: CalculatorActionType.SetIdleDayProbability, value: n }),
         setInstrument: (instrument) =>
             act({ instrument, type: CalculatorActionType.SetInstrument }),
         setLabScenarios: (entries) =>

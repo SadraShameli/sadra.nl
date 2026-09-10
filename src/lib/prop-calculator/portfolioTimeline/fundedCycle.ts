@@ -30,6 +30,7 @@ export function runEvalToFundedCycle(
         discounts,
         evalDayPolicy,
         fundedDayPolicy,
+        idleDayProbability,
         maxEvalDays,
         maxFundedDays,
         maxPayoutsPerCard = DEFAULT_MAX_PAYOUTS_PER_CARD,
@@ -50,6 +51,7 @@ export function runEvalToFundedCycle(
     const retryResult = runEvalWithRetries({
         commission,
         dayPolicy: evalDayPolicy,
+        idleDayProbability,
         maxAttempts: MAX_EVAL_ATTEMPTS_PER_CARD,
         maxEvalDays: safeMaxEvalDays,
         plan,
@@ -90,6 +92,7 @@ export function runEvalToFundedCycle(
         dayOffsetBase: totalDays,
         dayPolicy: fundedDayPolicy,
         equityCurve: null,
+        idleDayProbability,
         maxDays: safeMaxFundedDays,
         maxPayouts: payoutCap,
         minRetainedCushion,

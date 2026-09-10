@@ -42,6 +42,7 @@ interface TradingInputsProperties {
     dayStop: DayStopRule;
     evalDiscountPercent: number;
     firmDisplayName: string;
+    idleDayProbability: number;
     instrument: InstrumentSymbol | null;
     linkActivationDiscount: boolean;
     maxAttempts: number;
@@ -52,6 +53,7 @@ interface TradingInputsProperties {
     onCopyAccountsChange: (n: number) => void;
     onDayStopChange: (rule: DayStopRule) => void;
     onEvalDiscountPercentChange: (n: number) => void;
+    onIdleDayProbabilityChange: (n: number) => void;
     onInstrumentChange: (instrument: InstrumentSymbol | null) => void;
     onLinkActivationDiscountChange: (isLinked: boolean) => void;
     onMaxAttemptsChange: (n: number) => void;
@@ -87,6 +89,7 @@ export default function TradingInputs({
     dayStop,
     evalDiscountPercent,
     firmDisplayName,
+    idleDayProbability,
     instrument,
     linkActivationDiscount,
     maxAttempts,
@@ -97,6 +100,7 @@ export default function TradingInputs({
     onCopyAccountsChange,
     onDayStopChange,
     onEvalDiscountPercentChange,
+    onIdleDayProbabilityChange,
     onInstrumentChange,
     onLinkActivationDiscountChange,
     onMaxAttemptsChange,
@@ -279,6 +283,33 @@ export default function TradingInputs({
                                         plan.defaultRetainedCushion(),
                                     )}
                                     ).
+                                </p>
+                            </div>
+                            <div>
+                                <label
+                                    className="mb-1 block text-xs font-medium text-muted-foreground"
+                                    htmlFor="idle-day-probability"
+                                >
+                                    Idle-day probability
+                                </label>
+                                <Input
+                                    id="idle-day-probability"
+                                    max={1}
+                                    min={0}
+                                    onChange={(event) =>
+                                        onIdleDayProbabilityChange(
+                                            Number(event.target.value),
+                                        )
+                                    }
+                                    step={0.01}
+                                    type="number"
+                                    value={idleDayProbability}
+                                />
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    Chance any given day has zero trades. Only
+                                    matters for plans with a modeled
+                                    inactivity-closure rule (e.g. MFFU Rapid
+                                    EOD).
                                 </p>
                             </div>
                         </div>

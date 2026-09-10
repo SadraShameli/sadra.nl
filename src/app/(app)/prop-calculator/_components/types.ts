@@ -32,6 +32,7 @@ export interface CalculatorState {
     firm: TradingFirm;
     firmMemory: FirmMemory;
     fundedHorizonDays: number;
+    idleDayProbability: number;
     instrument: InstrumentSymbol | null;
     labScenarios: LabScenario[];
     linkActivationDiscount: boolean;

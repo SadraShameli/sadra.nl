@@ -13,6 +13,7 @@ export function runEvalAttempt(options: EvalAttemptOptions): EvalAttemptResult {
     const {
         commission,
         dayPolicy,
+        idleDayProbability,
         maxEvalDays,
         plan,
         positionSizing,
@@ -32,6 +33,7 @@ export function runEvalAttempt(options: EvalAttemptOptions): EvalAttemptResult {
 
     if (plan.isInstantFunded) {
         return {
+            closedForInactivity: false,
             days: 0,
             equityCurve,
             outcome: 'passed',
@@ -41,6 +43,7 @@ export function runEvalAttempt(options: EvalAttemptOptions): EvalAttemptResult {
         };
     }
 
+    let isClosedForInactivity = false;
     let days = 0;
     let outcome: AttemptOutcome = 'timed-out';
 
@@ -48,6 +51,7 @@ export function runEvalAttempt(options: EvalAttemptOptions): EvalAttemptResult {
     const dayOptions = {
         commission,
         dayPolicy,
+        idleDayProbability,
         phase: TradingPhase.Eval,
         plan,
         positionSizing,
@@ -59,7 +63,7 @@ export function runEvalAttempt(options: EvalAttemptOptions): EvalAttemptResult {
         winrate,
     };
     for (let day = 0; day < dayCap; day++) {
-        const { busted } = runDay(dayOptions);
+        const { busted, closedForInactivity: idleClosure } = runDay(dayOptions);
         days += 1;
         if (state.todayPnL > state.bestDayProfit) {
             state.bestDayProfit = state.todayPnL;
@@ -67,6 +71,7 @@ export function runEvalAttempt(options: EvalAttemptOptions): EvalAttemptResult {
         if (equityCurve) equityCurve.push(state.balance);
 
         if (busted) {
+            isClosedForInactivity = idleClosure;
             outcome = 'busted';
             break;
         }
@@ -76,7 +81,15 @@ export function runEvalAttempt(options: EvalAttemptOptions): EvalAttemptResult {
         }
     }
 
-    return { days, equityCurve, outcome, state, stats, streak };
+    return {
+        closedForInactivity: isClosedForInactivity,
+        days,
+        equityCurve,
+        outcome,
+        state,
+        stats,
+        streak,
+    };
 }
 
 export function runEvalWithRetries(
@@ -85,6 +98,7 @@ export function runEvalWithRetries(
     const {
         commission,
         dayPolicy,
+        idleDayProbability,
         maxAttempts,
         maxEvalDays,
         onFailedAttempt,
@@ -106,6 +120,7 @@ export function runEvalWithRetries(
         const attempt = runEvalAttempt({
             commission,
             dayPolicy,
+            idleDayProbability,
             maxEvalDays,
             plan,
             positionSizing,

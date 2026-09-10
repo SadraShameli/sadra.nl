@@ -87,6 +87,7 @@ export default function CalculatorShell() {
                             dayStop={c.state.dayStop}
                             evalDiscountPercent={c.state.evalDiscountPercent}
                             firmDisplayName={c.state.firm.displayName}
+                            idleDayProbability={c.state.idleDayProbability}
                             instrument={c.state.instrument}
                             linkActivationDiscount={
                                 c.state.linkActivationDiscount
@@ -107,6 +108,7 @@ export default function CalculatorShell() {
                             onEvalDiscountPercentChange={
                                 c.setEvalDiscountPercent
                             }
+                            onIdleDayProbabilityChange={c.setIdleDayProbability}
                             onInstrumentChange={c.setInstrument}
                             onLinkActivationDiscountChange={
                                 c.setLinkActivationDiscount

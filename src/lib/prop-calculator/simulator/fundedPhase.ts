@@ -32,6 +32,7 @@ export interface FundedDaysOptions extends Omit<
 }
 
 export interface FundedDaysResult {
+    closedForInactivity: boolean;
     daysElapsed: number;
     stage: FundedStage;
 }
@@ -57,6 +58,7 @@ export function runFundedDays(options: FundedDaysOptions): FundedDaysResult {
         dayOffsetBase,
         dayPolicy,
         equityCurve,
+        idleDayProbability,
         maxDays,
         maxPayouts,
         minRetainedCushion,
@@ -76,6 +78,7 @@ export function runFundedDays(options: FundedDaysOptions): FundedDaysResult {
     const dayOptions = {
         commission,
         dayPolicy,
+        idleDayProbability,
         plan,
         positionSizing,
         rng,
@@ -88,13 +91,19 @@ export function runFundedDays(options: FundedDaysOptions): FundedDaysResult {
     };
 
     for (let day = 0; day < maxDays; day++) {
-        const { busted } = stepFundedDay(dayOptions);
+        const { busted, closedForInactivity } = stepFundedDay(dayOptions);
         daysElapsed += 1;
         if (equityCurve) {
             equityCurve.push(state.balance);
         }
 
-        if (busted) return { daysElapsed, stage: FundedStage.Busted };
+        if (busted) {
+            return {
+                closedForInactivity,
+                daysElapsed,
+                stage: FundedStage.Busted,
+            };
+        }
 
         const payout = tryFundedPayout({
             maxPayouts,
@@ -109,14 +118,26 @@ export function runFundedDays(options: FundedDaysOptions): FundedDaysResult {
         sink.record(dayOffsetBase + daysElapsed, payout.traderReceives);
 
         if (tracker.payoutsIssued >= maxPayouts) {
-            return { daysElapsed, stage: FundedStage.PayoutBudgetSpent };
+            return {
+                closedForInactivity: false,
+                daysElapsed,
+                stage: FundedStage.PayoutBudgetSpent,
+            };
         }
         if (plan.isAccountConcluded(tracker.payoutsIssued)) {
-            return { daysElapsed, stage: FundedStage.Concluded };
+            return {
+                closedForInactivity: false,
+                daysElapsed,
+                stage: FundedStage.Concluded,
+            };
         }
     }
 
-    return { daysElapsed, stage: FundedStage.HorizonReached };
+    return {
+        closedForInactivity: false,
+        daysElapsed,
+        stage: FundedStage.HorizonReached,
+    };
 }
 
 export function runFundedHorizon(
@@ -127,6 +148,7 @@ export function runFundedHorizon(
         commission,
         dayPolicy,
         fundedHorizonDays,
+        idleDayProbability,
         minRetainedCushion,
         payoutRequestSize,
         plan,
@@ -145,11 +167,12 @@ export function runFundedHorizon(
     );
     const sink = new PayoutTotals();
 
-    const { daysElapsed, stage } = runFundedDays({
+    const { closedForInactivity, daysElapsed, stage } = runFundedDays({
         commission,
         dayOffsetBase: 0,
         dayPolicy,
         equityCurve: attempt.equityCurve,
+        idleDayProbability,
         maxDays: fundedHorizonDays,
         maxPayouts: Infinity,
         minRetainedCushion,
@@ -166,6 +189,7 @@ export function runFundedHorizon(
     });
 
     return {
+        closedForInactivity,
         daysElapsed,
         firstPayoutDay: sink.firstPayoutDay,
         isBustedFunded: stage === FundedStage.Busted,
@@ -175,10 +199,12 @@ export function runFundedHorizon(
 
 export function stepFundedDay(options: FundedDayStepOptions): {
     busted: boolean;
+    closedForInactivity: boolean;
 } {
     const {
         commission,
         dayPolicy,
+        idleDayProbability,
         plan,
         positionSizing,
         rng,
@@ -189,9 +215,10 @@ export function stepFundedDay(options: FundedDayStepOptions): {
         tracker,
         winrate,
     } = options;
-    const { busted } = runDay({
+    const { busted, closedForInactivity } = runDay({
         commission,
         dayPolicy,
+        idleDayProbability,
         phase: TradingPhase.Funded,
         plan,
         positionSizing,
@@ -205,5 +232,5 @@ export function stepFundedDay(options: FundedDayStepOptions): {
     if (state.todayPnL > tracker.cycleBestDayProfit) {
         tracker.cycleBestDayProfit = state.todayPnL;
     }
-    return { busted };
+    return { busted, closedForInactivity };
 }

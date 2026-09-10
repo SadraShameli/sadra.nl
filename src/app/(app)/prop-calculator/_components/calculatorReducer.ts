@@ -49,6 +49,7 @@ export enum CalculatorActionType {
     SetEvalDiscountPercent = 'set-eval-discount-percent',
     SetFirm = 'set-firm',
     SetFundedHorizonDays = 'set-funded-horizon-days',
+    SetIdleDayProbability = 'set-idle-day-probability',
     SetInstrument = 'set-instrument',
     SetLabScenarios = 'set-lab-scenarios',
     SetLinkActivationDiscount = 'set-link-activation-discount',
@@ -116,6 +117,7 @@ export type CalculatorAction =
     | { type: CalculatorActionType.SetCopyAccounts; value: number }
     | { type: CalculatorActionType.SetEvalDiscountPercent; value: number }
     | { type: CalculatorActionType.SetFundedHorizonDays; value: number }
+    | { type: CalculatorActionType.SetIdleDayProbability; value: number }
     | { type: CalculatorActionType.SetMaxAttempts; value: number }
     | { type: CalculatorActionType.SetMaxEvalDays; value: number }
     | {
@@ -311,6 +313,17 @@ export function calculatorReducer(
                 ),
             };
         }
+        case CalculatorActionType.SetIdleDayProbability: {
+            return {
+                ...state,
+                idleDayProbability: clampNumber(
+                    action.value,
+                    CALCULATOR_SCALAR_BOUNDS.idle.min,
+                    CALCULATOR_SCALAR_BOUNDS.idle.max,
+                    state.idleDayProbability,
+                ),
+            };
+        }
         case CalculatorActionType.SetInstrument: {
             return { ...state, instrument: action.instrument };
         }
@@ -487,6 +500,7 @@ export function defaultCalculatorState(): CalculatorState {
         firm: DEFAULT_FIRM,
         firmMemory: {},
         fundedHorizonDays: 60,
+        idleDayProbability: 0,
         instrument: null,
         labScenarios: buildDefaultLabScenarios(),
         linkActivationDiscount: false,

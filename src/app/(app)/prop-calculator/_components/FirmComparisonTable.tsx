@@ -75,7 +75,21 @@ export default function FirmComparisonTable({
         () => [
             {
                 accessorFn: (r) => r.firm.displayName,
-                cell: ({ row }) => row.original.firm.displayName,
+                cell: ({ row }) => {
+                    const { firm } = row.original;
+                    return (
+                        <span className="flex items-center gap-1.5">
+                            {firm.displayName}
+                            {firm.notes.length > 0 && (
+                                <InfoPopover title={firm.displayName}>
+                                    {firm.notes.map((note) => (
+                                        <p key={note}>{note}</p>
+                                    ))}
+                                </InfoPopover>
+                            )}
+                        </span>
+                    );
+                },
                 header: 'Firm',
                 id: 'firm',
             },

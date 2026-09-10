@@ -29,6 +29,7 @@ export function simulate(inputs: SimInputs): SimOutputs {
         copyAccounts = 1,
         discounts,
         fundedHorizonDays,
+        idleDayProbability,
         instrument,
         maxAttempts = 1,
         maxEvalDays,
@@ -68,6 +69,7 @@ export function simulate(inputs: SimInputs): SimOutputs {
                 evalDayPolicy,
                 fundedDayPolicy,
                 fundedHorizonDays,
+                idleDayProbability,
                 maxAttempts: Math.max(1, maxAttempts),
                 maxEvalDays,
                 minRetainedCushion: cushion,
@@ -104,6 +106,7 @@ export function simulate(inputs: SimInputs): SimOutputs {
     let perTradePnLCount = 0;
     let had5LossCount = 0;
     let had10LossCount = 0;
+    let inactivityClosureCount = 0;
     let attemptsSum = 0;
     let resetFeesSum = 0;
     const sampleEquityCurves: number[][] = [];
@@ -144,6 +147,7 @@ export function simulate(inputs: SimInputs): SimOutputs {
         }
         if (r.had5LossStreak) had5LossCount += 1;
         if (r.had10LossStreak) had10LossCount += 1;
+        if (r.closedForInactivity) inactivityClosureCount += 1;
         attemptsSum += r.attemptsUsed;
         attemptsArray.push(r.attemptsUsed);
         resetFeesSum += r.resetFeesPaid;
@@ -233,6 +237,7 @@ export function simulate(inputs: SimInputs): SimOutputs {
         finalBalanceP95: percentile(finalBalances, 95),
         finalBalances,
         fundedBustProbability: counts['bust-funded'] / totalTrials,
+        inactivityClosureProbability: inactivityClosureCount / totalTrials,
         initialThreshold: plan.drawdown.initialThreshold(plan.accountSize),
         maxDrawdownP50: percentile(maxDrawdowns, 50),
         maxDrawdownP95: percentile(maxDrawdowns, 95),
@@ -260,6 +265,7 @@ export function simulatePortfolio(
         discounts,
         fundedHorizonDays,
         groups,
+        idleDayProbability,
         instrument,
         maxAttempts = 1,
         maxEvalDays,
@@ -325,6 +331,7 @@ export function simulatePortfolio(
                 evalDayPolicy,
                 fundedDayPolicy,
                 fundedHorizonDays,
+                idleDayProbability,
                 maxAttempts: Math.max(1, maxAttempts),
                 maxEvalDays,
                 minRetainedCushion: cushion,

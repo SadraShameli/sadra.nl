@@ -34,6 +34,7 @@ export interface TableColumn {
 export interface TradingArguments extends PlanSelectorArguments {
     'eval-days': string;
     'funded-days': string;
+    'idle-day-probability': string;
     instrument: InstrumentSymbol;
     ladder?: string;
     'max-attempts': string;
@@ -53,6 +54,7 @@ export interface TradingArguments extends PlanSelectorArguments {
 export interface TradingInputsInit {
     dayStop: DayStopRule;
     fundedHorizonDays: number;
+    idleDayProbability: number;
     instrument: InstrumentSymbol | undefined;
     ladder: null | number[];
     maxAttempts: number;
@@ -149,6 +151,10 @@ export class TradingInputs {
                 arguments_['funded-days'],
                 'funded-days',
             ),
+            idleDayProbability: readNumber(
+                arguments_['idle-day-probability'],
+                'idle-day-probability',
+            ),
             instrument: arguments_.instrument,
             ladder: readLadder(arguments_.ladder),
             maxAttempts: readNumber(arguments_['max-attempts'], 'max-attempts'),
@@ -177,6 +183,7 @@ export class TradingInputs {
 
     readonly dayStop: DayStopRule;
     readonly fundedHorizonDays: number;
+    readonly idleDayProbability: number;
     readonly instrument: InstrumentSymbol | undefined;
     readonly ladder: null | number[];
     readonly maxAttempts: number;
@@ -195,6 +202,7 @@ export class TradingInputs {
     constructor(init: TradingInputsInit) {
         this.dayStop = init.dayStop;
         this.fundedHorizonDays = init.fundedHorizonDays;
+        this.idleDayProbability = init.idleDayProbability;
         this.instrument = init.instrument;
         this.ladder = init.ladder;
         this.maxAttempts = init.maxAttempts;
@@ -225,6 +233,7 @@ export class TradingInputs {
             dayStop: this.dayStop,
             evalDayPolicy: this.toDayPolicy(),
             fundedHorizonDays: this.fundedHorizonDays,
+            idleDayProbability: this.idleDayProbability,
             instrument: this.instrument,
             maxAttempts: this.maxAttempts,
             maxEvalDays: this.maxEvalDays,
@@ -254,6 +263,12 @@ export const tradingArguments = {
     'funded-days': {
         default: '252',
         description: 'Funded-phase horizon in trading days',
+        type: 'string',
+    },
+    'idle-day-probability': {
+        default: '0',
+        description:
+            "Probability [0,1] a day has zero trades (models e.g. MFFU Rapid EOD's 7-consecutive-idle-day account closure)",
         type: 'string',
     },
     instrument: {

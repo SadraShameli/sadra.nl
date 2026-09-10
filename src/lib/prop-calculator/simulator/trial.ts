@@ -19,6 +19,7 @@ export function simulateTrial(options: TrialOptions): TrialResult {
         evalDayPolicy,
         fundedDayPolicy,
         fundedHorizonDays,
+        idleDayProbability,
         maxAttempts,
         maxEvalDays,
         minRetainedCushion,
@@ -36,6 +37,7 @@ export function simulateTrial(options: TrialOptions): TrialResult {
     const retryResult = runEvalWithRetries({
         commission,
         dayPolicy: evalDayPolicy,
+        idleDayProbability,
         maxAttempts,
         maxEvalDays,
         plan,
@@ -61,6 +63,7 @@ export function simulateTrial(options: TrialOptions): TrialResult {
             commission,
             dayPolicy: fundedDayPolicy,
             fundedHorizonDays,
+            idleDayProbability,
             minRetainedCushion,
             payoutRequestSize,
             plan,
@@ -84,6 +87,7 @@ export function simulateTrial(options: TrialOptions): TrialResult {
 
         return finishTrial({
             attemptsUsed,
+            closedForInactivity: fundedHorizon.closedForInactivity,
             cumulativeDays,
             daysToPass: passDay,
             discounts,
@@ -104,6 +108,7 @@ export function simulateTrial(options: TrialOptions): TrialResult {
         retryResult.terminalOutcome === 'busted' ? 'bust-eval' : 'timeout-eval';
     return finishTrial({
         attemptsUsed,
+        closedForInactivity: attempt.closedForInactivity,
         cumulativeDays,
         daysToPass: null,
         discounts,
@@ -123,6 +128,7 @@ export function simulateTrial(options: TrialOptions): TrialResult {
 function finishTrial(arguments_: FinishTrialArguments): TrialResult {
     const {
         attemptsUsed,
+        closedForInactivity,
         cumulativeDays,
         daysToPass,
         discounts,
@@ -143,6 +149,7 @@ function finishTrial(arguments_: FinishTrialArguments): TrialResult {
     const net = grossPayout - totalCost;
     return {
         attemptsUsed,
+        closedForInactivity,
         daysElapsed: cumulativeDays,
         daysToPass,
         equityCurve,

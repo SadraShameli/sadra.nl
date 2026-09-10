@@ -23,5 +23,6 @@ export default defineConfig({
         environment: 'node',
         exclude: ['**/node_modules/**', '**/.next/**', 'tests/e2e/**'],
         include: ['tests/unit/**/*.test.ts'],
+        isolate: false,
     },
 });

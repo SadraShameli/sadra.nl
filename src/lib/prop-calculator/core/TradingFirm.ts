@@ -9,6 +9,7 @@ export abstract class TradingFirm {
     abstract readonly id: FirmId;
     abstract readonly plans: readonly Plan[];
     abstract readonly website: string;
+    readonly notes: readonly string[] = [];
 
     protected buildPlan(init: PlanInit): Plan {
         return new ConcretePlan(init);

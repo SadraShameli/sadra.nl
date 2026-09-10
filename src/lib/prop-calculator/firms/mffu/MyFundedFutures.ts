@@ -94,6 +94,10 @@ type MffuRapidSize = (typeof RAPID_SIZES)[number];
 export class MyFundedFutures extends TradingFirm {
     readonly displayName = 'My Funded Futures';
     readonly id = FirmId.Mffu;
+    readonly notes = [
+        'Supports NinjaTrader, Tradovate, TradingView, Quantower, Volumetrica, DeepChart/DeepDom, and ATAS across all plans.',
+        'Rapid EOD evaluation and funded accounts close after 7 consecutive calendar days without a single trade. This simulator models that closure when you set an idle-day probability above 0.',
+    ];
     readonly plans = [
         ...RAPID_SIZES.map((s) => this.buildPlan(buildRapidPlan(s))),
         this.buildPlan(buildRapidEodPlan()),
@@ -286,6 +290,7 @@ function buildRapidEodPlan(): PlanInit {
             variant: MffuVariant.RapidEod,
         },
         label: planLabel(50_000, 'Rapid EOD'),
+        maxConsecutiveIdleDays: 7,
         maxFundedAccounts: 3,
         minDaysAfterPassForPayout: 1,
         minPayoutProfit: dollars(maxDrawdown + 100),

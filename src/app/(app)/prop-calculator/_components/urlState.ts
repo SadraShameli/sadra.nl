@@ -185,6 +185,7 @@ export function decodeState(
         firm: resolvedFirm,
         firmMemory: fallback.firmMemory,
         fundedHorizonDays: scalarFields.fundedDays,
+        idleDayProbability: scalarFields.idle,
         instrument,
         labScenarios,
         linkActivationDiscount: parameters.get('linkAct') === '1',
@@ -225,6 +226,7 @@ export function encodeState(state: CalculatorState): URLSearchParams {
     p.set('copy', String(state.copyAccounts));
     p.set('maxDays', String(state.maxEvalDays));
     p.set('fundedDays', String(state.fundedHorizonDays));
+    p.set('idp', state.idleDayProbability.toFixed(3));
     if (state.instrument !== null && state.stopPoints !== null) {
         p.set('instr', state.instrument);
         p.set('sp', String(state.stopPoints));

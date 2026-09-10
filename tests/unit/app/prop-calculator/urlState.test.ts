@@ -44,6 +44,7 @@ function fallbackState(): CalculatorState {
         firm,
         firmMemory: {},
         fundedHorizonDays: 60,
+        idleDayProbability: 0,
         instrument: null,
         labScenarios: [],
         linkActivationDiscount: false,

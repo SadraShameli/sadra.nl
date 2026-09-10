@@ -83,4 +83,8 @@ describe('MFFU Rapid EOD 50K (live-verified 2026-09-10 against help.myfundedfutu
         expect(plan.minPayoutProfitPerCycle).toBe(500);
         expect(plan.minPayoutRequest).toBe(500);
     });
+
+    it('closes both the evaluation and funded account after 7 consecutive days without a trade', () => {
+        expect(rapidEod().maxConsecutiveIdleDays).toBe(7);
+    });
 });

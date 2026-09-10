@@ -53,6 +53,7 @@ export interface PlanInit {
     id: PlanId;
     isInstantFunded?: boolean;
     label: string;
+    maxConsecutiveIdleDays?: number;
     maxEvalTradingDays?: number;
     maxFundedAccounts: number;
     maxLifetimePayouts?: number;
@@ -96,6 +97,8 @@ export abstract class Plan {
     readonly isInstantFunded: boolean;
 
     readonly label: string;
+
+    readonly maxConsecutiveIdleDays: null | number;
 
     readonly maxFundedAccounts: number;
 
@@ -148,6 +151,7 @@ export abstract class Plan {
         this.id = init.id;
         this.isInstantFunded = init.isInstantFunded ?? false;
         this.label = init.label;
+        this.maxConsecutiveIdleDays = init.maxConsecutiveIdleDays ?? null;
         this.maxFundedAccounts = init.maxFundedAccounts;
         this.maxEvalTradingDays = init.maxEvalTradingDays ?? null;
         this.maxLifetimePayouts = init.maxLifetimePayouts ?? null;
@@ -186,6 +190,7 @@ export abstract class Plan {
     beginFundedPhase(state: AccountState): void {
         state.balance = this.accountSize;
         state.bestDayProfit = 0;
+        state.consecutiveIdleDays = 0;
         state.peakDayCloseProfit = 0;
         state.qualifyingDays = 0;
         state.threshold = this.fundedDrawdown.initialThreshold(
