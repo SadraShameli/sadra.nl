@@ -27,6 +27,10 @@ type TptSize = (typeof SIZES)[number];
 export class TakeProfitTrader extends TradingFirm {
     readonly displayName = 'Take Profit Trader';
     readonly id = FirmId.Tpt;
+    readonly notes = [
+        'No minimum payout request size exists. Any withdrawal amount is allowed; requests of $250 or less carry a flat $50 fee, waived above $250 (help center: "Withdrawal Fees").',
+        'A one-time buffer-zone gate applies before the first payout only: balance must reach starting balance + max drawdown (e.g. $52,000 for a $50K account) before any withdrawal is possible (help center: "PRO Account Profit Split & Withdrawal Rules"). This is minPayoutProfit in this codebase, not a recurring per-request minimum.',
+    ];
     readonly plans = SIZES.map((s) => this.buildPlan(buildPlan(s)));
     readonly website = 'https://takeprofittrader.com';
 }
@@ -63,6 +67,7 @@ function buildPlan(size: TptSize): PlanInit {
         maxFundedAccounts: MAX_FUNDED_ACCOUNTS,
         minDaysAfterPassForPayout: 0,
         minPayoutProfit: size.maxDrawdown,
+        minPayoutRequest: dollars(0.01),
         minTradingDays: 3,
         payoutTiers: [
             { thresholdProfit: dollars(0), traderShare: fraction(0.8) },
