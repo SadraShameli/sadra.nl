@@ -6,12 +6,19 @@ import {
     resolveTradeRisk,
     shouldStopDay,
 } from '../core/DayPolicy';
+import { IntradayTrailingDrawdown } from '../core/DrawdownStrategy';
 import {
     capRiskToContractLimit,
     resolveContractLimit,
 } from '../core/PositionSizing';
+import {
+    calibrateStepProbability,
+    simulateTradePath,
+} from '../core/TradePathSimulation';
 import { TradingPhase } from '../core/TradingPhase';
 import { type DayRunOptions, type SimInputs } from './types';
+
+const MAX_INTRADAY_PATH_STEPS = 100_000;
 
 export function resolveDayPolicy(
     inputs: SimInputs,
@@ -45,6 +52,7 @@ export function runDay(options: DayRunOptions): {
         commission,
         dayPolicy,
         idleDayProbability,
+        intradayPathStepsPerR,
         phase,
         plan,
         positionSizing,
@@ -59,6 +67,18 @@ export function runDay(options: DayRunOptions): {
     let isTraded = false;
     let lossesToday = 0;
     const drawdown = plan.drawdownFor(phase);
+    const pathConfig: undefined | { probability: number; stepsPerR: number } =
+        intradayPathStepsPerR !== undefined &&
+        drawdown instanceof IntradayTrailingDrawdown
+            ? {
+                  probability: calibrateStepProbability(
+                      winrate,
+                      rrRatio,
+                      intradayPathStepsPerR,
+                  ),
+                  stepsPerR: intradayPathStepsPerR,
+              }
+            : undefined;
 
     const idleChance = idleDayProbability ?? 0;
     const isIdleToday =
@@ -89,7 +109,21 @@ export function runDay(options: DayRunOptions): {
             );
             if (risk <= 0) break;
 
-            const isWon = rng() < winrate;
+            let isWon: boolean;
+            let peakPnL: number | undefined;
+            if (pathConfig === undefined) {
+                isWon = rng() < winrate;
+            } else {
+                const path = simulateTradePath(
+                    pathConfig.probability,
+                    pathConfig.stepsPerR,
+                    rrRatio,
+                    rng,
+                    MAX_INTRADAY_PATH_STEPS,
+                );
+                isWon = path.outcome === 'win';
+                peakPnL = path.peakR * risk;
+            }
             const tradeGross = isWon ? rrRatio * risk : -risk;
             const pnl = tradeGross - commission;
             state.balance += pnl;
@@ -97,7 +131,11 @@ export function runDay(options: DayRunOptions): {
             isTraded = true;
             stats.recordTrade(isWon, pnl, state.balance);
             if (!isWon) lossesToday += 1;
-            drawdown.onTrade(state, pnl);
+            if (peakPnL === undefined) {
+                drawdown.onTrade(state, pnl);
+            } else {
+                drawdown.onTrade(state, pnl, peakPnL);
+            }
             if (plan.isBust(state, phase)) {
                 return {
                     busted: true,

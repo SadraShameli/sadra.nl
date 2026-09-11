@@ -45,6 +45,7 @@ export interface TradingArguments extends PlanSelectorArguments {
     ladder?: string;
     'max-attempts': string;
     'monthly-discount': string;
+    'path-granularity'?: string;
     'request-size'?: string;
     'retain-cushion': string;
     risk: string;
@@ -68,6 +69,7 @@ export interface TradingInputsInit {
     fundedTradesPerDay: number | undefined;
     idleDayProbability: number;
     instrument: InstrumentSymbol | undefined;
+    intradayPathStepsPerR: number[] | undefined;
     ladder: null | number[];
     maxAttempts: number;
     maxEvalDays: number;
@@ -192,6 +194,9 @@ export class TradingInputs {
                 'idle-day-probability',
             ),
             instrument: arguments_.instrument,
+            intradayPathStepsPerR: readGranularityList(
+                arguments_['path-granularity'],
+            ),
             ladder: readLadder(arguments_.ladder),
             maxAttempts: readNumber(arguments_['max-attempts'], 'max-attempts'),
             maxEvalDays: readNumber(arguments_['eval-days'], 'eval-days'),
@@ -230,6 +235,7 @@ export class TradingInputs {
     readonly fundedTradesPerDay: number | undefined;
     readonly idleDayProbability: number;
     readonly instrument: InstrumentSymbol | undefined;
+    readonly intradayPathStepsPerR: number[] | undefined;
     readonly ladder: null | number[];
     readonly maxAttempts: number;
     readonly maxEvalDays: number;
@@ -255,6 +261,7 @@ export class TradingInputs {
         this.fundedTradesPerDay = init.fundedTradesPerDay;
         this.idleDayProbability = init.idleDayProbability;
         this.instrument = init.instrument;
+        this.intradayPathStepsPerR = init.intradayPathStepsPerR;
         this.ladder = init.ladder;
         this.maxAttempts = init.maxAttempts;
         this.maxEvalDays = init.maxEvalDays;
@@ -305,6 +312,7 @@ export class TradingInputs {
             fundedTradesPerDay: this.fundedTradesPerDay,
             idleDayProbability: this.idleDayProbability,
             instrument: this.instrument,
+            intradayPathStepsPerR: this.intradayPathStepsPerR?.[0],
             maxAttempts: this.maxAttempts,
             maxEvalDays: this.maxEvalDays,
             minRetainedCushion: this.minRetainedCushion,
@@ -388,6 +396,11 @@ export const tradingArguments = {
         default: '0',
         description:
             'Coupon discount percent [0,100] off the monthly subscription fee (e.g. a recurring firm promo)',
+        type: 'string',
+    },
+    'path-granularity': {
+        description:
+            'Intraday path-walk resolution in steps per R for funded IntradayTrailingDrawdown trades, comma separated for a side-by-side comparison (e.g. 4,10,25); omit to resolve each trade with a single win/loss draw',
         type: 'string',
     },
     'request-size': {
@@ -501,6 +514,26 @@ function describeDllShape(descriptor: DailyLossLimitDescriptor): string {
             return `${describeDllShape(descriptor.before)} -> ${describeDllShape(descriptor.after)}`;
         }
     }
+}
+
+const MAX_PATH_GRANULARITY = 200;
+
+function readGranularityList(raw: string | undefined): number[] | undefined {
+    if (raw === undefined || raw === '') return undefined;
+    const parts = raw.split(',').map((part) => Number(part.trim()));
+    if (
+        parts.some(
+            (part) =>
+                !Number.isSafeInteger(part) ||
+                part <= 0 ||
+                part > MAX_PATH_GRANULARITY,
+        )
+    ) {
+        throw new Error(
+            `Invalid --path-granularity "${raw}": each value must be a positive integer up to ${MAX_PATH_GRANULARITY} (finer granularity makes path resolution time grow quadratically)`,
+        );
+    }
+    return parts;
 }
 
 function readLadder(raw: string | undefined): null | number[] {

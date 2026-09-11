@@ -23,6 +23,7 @@ export default defineCommand({
         try {
             const plan = planResolver.resolveOne(context.args);
             const inputs = TradingInputs.parse(context.args);
+            const granularities = inputs.intradayPathStepsPerR;
             spinner = ui
                 .spinner(`${plan.label} · ${inputs.trials} trials`)
                 .start();
@@ -114,6 +115,30 @@ export default defineCommand({
                 'loss streak (p95)',
                 out.maxLosingStreakP95.toFixed(0),
             ]);
+
+            if (granularities !== undefined && granularities.length > 1) {
+                ui.heading('intraday path-walk granularity comparison');
+                const granularityTable = new TablePrinter([
+                    { label: 'steps/R', width: 8 },
+                    { label: 'bust when funded', width: 18 },
+                    { label: 'monthly net', width: 12 },
+                ]);
+                granularityTable.printHeader();
+                for (const [index, stepsPerR] of granularities.entries()) {
+                    const granularityOut =
+                        index === 0
+                            ? out
+                            : simulate({
+                                  ...inputs.toSimInputs(plan),
+                                  intradayPathStepsPerR: stepsPerR,
+                              });
+                    granularityTable.printRow([
+                        String(stepsPerR),
+                        formatPercent(granularityOut.fundedBustProbability),
+                        formatCurrency(granularityOut.expectedMonthlyNet),
+                    ]);
+                }
+            }
         } catch (error) {
             spinner?.fail();
             ui.fail(error instanceof Error ? error.message : String(error));

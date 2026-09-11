@@ -38,7 +38,11 @@ export abstract class DrawdownStrategy {
     }
     abstract onDayClose(state: AccountState): void;
 
-    abstract onTrade(state: AccountState, tradePnL: number): void;
+    abstract onTrade(
+        state: AccountState,
+        tradePnL: number,
+        peakPnL?: number,
+    ): void;
 
     forceLock(state: AccountState): void {
         if (state.thresholdLocked) return;
@@ -79,7 +83,7 @@ export class EodTrailingDrawdown extends DrawdownStrategy {
         this.maybeLock(state);
     }
 
-    onTrade(_state: AccountState, _tradePnL: number): void {
+    onTrade(_state: AccountState, _tradePnL: number, _peakPnL?: number): void {
         return;
     }
 }
@@ -91,12 +95,19 @@ export class IntradayTrailingDrawdown extends DrawdownStrategy {
         return;
     }
 
-    onTrade(state: AccountState, _tradePnL: number): void {
+    onTrade(
+        state: AccountState,
+        tradePnL: number,
+        peakPnL: number = tradePnL,
+    ): void {
         if (state.thresholdLocked) {
             return;
         }
 
-        this.ratchet(state, state.balance - this.init.amount);
+        this.ratchet(
+            state,
+            state.balance - tradePnL + peakPnL - this.init.amount,
+        );
         this.maybeLock(state);
     }
 }
@@ -107,7 +118,7 @@ export class StaticDrawdown extends DrawdownStrategy {
     onDayClose(_state: AccountState): void {
         return;
     }
-    onTrade(_state: AccountState, _tradePnL: number): void {
+    onTrade(_state: AccountState, _tradePnL: number, _peakPnL?: number): void {
         return;
     }
 }

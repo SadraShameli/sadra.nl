@@ -40,6 +40,7 @@ export interface DayRunOptions {
     commission: Dollars;
     dayPolicy: DayPolicy;
     idleDayProbability?: number;
+    intradayPathStepsPerR?: number;
     phase: TradingPhase;
     plan: Plan;
     positionSizing: null | PositionSizingConfig;
@@ -55,6 +56,7 @@ export interface EvalAttemptOptions {
     commission: Dollars;
     dayPolicy: DayPolicy;
     idleDayProbability?: number;
+    intradayPathStepsPerR?: number;
     maxEvalDays: number;
     plan: Plan;
     positionSizing: null | PositionSizingConfig;
@@ -111,6 +113,7 @@ export interface FundedDayStepOptions {
     commission: Dollars;
     dayPolicy: DayPolicy;
     idleDayProbability?: number;
+    intradayPathStepsPerR?: number;
     plan: Plan;
     positionSizing: null | PositionSizingConfig;
     rng: Rng;
@@ -129,6 +132,7 @@ export interface FundedHorizonOptions {
 
     fundedHorizonDays: number;
     idleDayProbability?: number;
+    intradayPathStepsPerR?: number;
     minRetainedCushion: Dollars;
     payoutRequestSize: Dollars | undefined;
     plan: Plan;
@@ -181,6 +185,7 @@ export interface SimInputs {
     fundedTradesPerDay?: number;
     idleDayProbability?: number;
     instrument?: InstrumentSymbol;
+    intradayPathStepsPerR?: number;
     maxAttempts?: number;
     maxEvalDays: number;
     minRetainedCushion?: number;
@@ -256,6 +261,7 @@ export interface TrialOptions {
     fundedHorizonDays: number;
     fundedRrRatio?: number;
     idleDayProbability?: number;
+    intradayPathStepsPerR?: number;
     maxAttempts: number;
     maxEvalDays: number;
     minRetainedCushion: Dollars;

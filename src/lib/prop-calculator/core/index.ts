@@ -120,6 +120,11 @@ export {
     RoiBasis,
     totalRoiOnCost,
 } from './Roi';
+export {
+    calibrateStepProbability,
+    simulateTradePath,
+    type TradePathResult,
+} from './TradePathSimulation';
 export { TradingFirm } from './TradingFirm';
 export { TradingPhase } from './TradingPhase';
 export {
