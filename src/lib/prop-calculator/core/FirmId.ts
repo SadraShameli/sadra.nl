@@ -1,6 +1,7 @@
 export enum FirmId {
     AlphaFutures = 'alphafutures',
     Apex = 'apex',
+    E8Futures = 'e8futures',
     FundedNext = 'fundednext',
     Lucid = 'lucid',
     Mffu = 'mffu',

@@ -1,6 +1,7 @@
 import { type FirmId, type TradingFirm } from '../core';
 import { AlphaFutures } from './alphafutures/AlphaFutures';
 import { ApexTraderFunding } from './apex/ApexTraderFunding';
+import { E8Futures } from './e8futures/E8Futures';
 import { FundedNext } from './fundednext/FundedNext';
 import { LucidTrading } from './lucid/LucidTrading';
 import { MyFundedFutures } from './mffu/MyFundedFutures';
@@ -17,6 +18,7 @@ export const ALL_FIRMS: readonly TradingFirm[] = [
     new TopStep(),
     new FundedNext(),
     new AlphaFutures(),
+    new E8Futures(),
 ];
 
 export function findFirm(id: FirmId): TradingFirm | undefined {
@@ -25,6 +27,7 @@ export function findFirm(id: FirmId): TradingFirm | undefined {
 
 export { AlphaFutures } from './alphafutures/AlphaFutures';
 export { ApexTraderFunding } from './apex/ApexTraderFunding';
+export { E8Futures } from './e8futures/E8Futures';
 export { FundedNext } from './fundednext/FundedNext';
 export { LucidTrading } from './lucid/LucidTrading';
 export { MyFundedFutures } from './mffu/MyFundedFutures';

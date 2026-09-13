@@ -18,10 +18,7 @@ import {
     totalFees,
 } from './FeeSchedule';
 import { type PayoutBuffer } from './PayoutBuffer';
-import {
-    type PayoutCapRegime,
-    type QualifyingDaysMilestonePayoutCap,
-} from './PayoutCap';
+import { type PayoutCapRegime, type PayoutCapStrategy } from './PayoutCap';
 import { PayoutFloorEffect } from './PayoutFloorEffect';
 import {
     type PayoutLadder,
@@ -70,7 +67,7 @@ export interface PlanInit {
     minTradingDays: number;
     payoutBalanceShareCap?: Fraction0to1;
     payoutBuffer?: PayoutBuffer;
-    payoutCapOverride?: QualifyingDaysMilestonePayoutCap;
+    payoutCapOverride?: PayoutCapStrategy;
     payoutFloorEffect?: PayoutFloorEffect;
     payoutLadder?: null | PayoutLadder;
     payoutMethodFee?: Dollars;
@@ -127,7 +124,7 @@ export abstract class Plan {
 
     readonly payoutBuffer: null | PayoutBuffer;
 
-    readonly payoutCapOverride: null | QualifyingDaysMilestonePayoutCap;
+    readonly payoutCapOverride: null | PayoutCapStrategy;
 
     readonly payoutFloorEffect: PayoutFloorEffect;
 
@@ -377,7 +374,10 @@ export abstract class Plan {
         return Math.max(0, gross - this.payoutMethodFee);
     }
 
-    resolvedPayoutCap(state: AccountState): PayoutCapRegime {
+    resolvedPayoutCap(
+        state: AccountState,
+        payoutsIssued: number,
+    ): PayoutCapRegime {
         if (this.payoutCapOverride === null) {
             return {
                 balanceShareCap: this.payoutBalanceShareCap,
@@ -386,6 +386,7 @@ export abstract class Plan {
         }
         return this.payoutCapOverride.resolve({
             cumulativeQualifyingDays: state.qualifyingDays,
+            payoutsIssued,
         });
     }
 

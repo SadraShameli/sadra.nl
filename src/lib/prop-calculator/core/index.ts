@@ -84,6 +84,9 @@ export { PayoutBuffer } from './PayoutBuffer';
 export {
     type PayoutCapContext,
     type PayoutCapRegime,
+    type PayoutCapStrategy,
+    type PayoutCountCapTier,
+    PayoutCountTieredPayoutCap,
     type QualifyingDaysMilestoneCapConfig,
     QualifyingDaysMilestonePayoutCap,
 } from './PayoutCap';

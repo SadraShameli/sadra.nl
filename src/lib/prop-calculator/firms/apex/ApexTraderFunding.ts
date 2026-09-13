@@ -88,6 +88,9 @@ type ApexSize = (typeof SIZES)[number];
 export class ApexTraderFunding extends TradingFirm {
     readonly displayName = 'Apex Trader Funding';
     readonly id = FirmId.Apex;
+    readonly notes = [
+        "minPayoutRequest is set explicitly to match this plan's own payoutLadder.minRequestAmount ($500). Left unset, it would silently inherit minPayoutProfit's unrelated $2,600 buffer-zone value instead, which the CLI displays as the minimum request even though the ladder already governs the actual withdrawal floor at runtime, the same fallback-chain bug shape confirmed and fixed for Take Profit Trader.",
+    ];
     readonly plans = SIZES.flatMap((s) => [
         this.buildPlan(buildEodPlan(s)),
         this.buildPlan(buildIntradayPlan(s)),
@@ -133,6 +136,7 @@ function buildEodPlan(size: ApexSize): PlanInit {
         maxLifetimePayouts: MAX_LIFETIME_PAYOUTS,
         minDaysAfterPassForPayout: 5,
         minPayoutProfit: dollars(size.maxDrawdown + 600),
+        minPayoutRequest: dollars(MIN_REQUEST_AMOUNT),
         minQualifyingDayProfit: pricing.minQualifyingDayProfit,
         minTradingDays: 0,
         payoutBuffer: new PayoutBuffer(dollars(LOCK_OFFSET)),
@@ -181,6 +185,7 @@ function buildIntradayPlan(size: ApexSize): PlanInit {
         maxLifetimePayouts: MAX_LIFETIME_PAYOUTS,
         minDaysAfterPassForPayout: 5,
         minPayoutProfit: dollars(size.maxDrawdown + 600),
+        minPayoutRequest: dollars(MIN_REQUEST_AMOUNT),
         minQualifyingDayProfit: pricing.minQualifyingDayProfit,
         minTradingDays: 0,
         payoutBuffer: new PayoutBuffer(dollars(LOCK_OFFSET)),

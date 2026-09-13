@@ -77,7 +77,7 @@ export class FundedCycleTracker {
 
         const cushionRoom =
             state.balance - plan.payoutBalanceFloor(state, minRetainedCushion);
-        const cap = plan.resolvedPayoutCap(state);
+        const cap = plan.resolvedPayoutCap(state, this.payoutsIssued);
         const dollarCappedWithdrawable =
             cap.requestCap === null
                 ? cushionRoom

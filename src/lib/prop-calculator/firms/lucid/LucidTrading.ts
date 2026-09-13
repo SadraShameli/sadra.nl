@@ -64,6 +64,9 @@ type LucidProSize = (typeof PRO_SIZES)[number];
 export class LucidTrading extends TradingFirm {
     readonly displayName = 'Lucid Trading';
     readonly id = FirmId.Lucid;
+    readonly notes = [
+        "Pro's minPayoutRequest is set explicitly to match its own payoutLadder.minRequestAmount ($500), rather than left to silently inherit minPayoutProfit's value by coincidence (currently also $500). Closes the same fallback-chain bug shape confirmed and fixed for Take Profit Trader before an unrelated future change to minPayoutProfit could silently desync it.",
+    ];
     readonly plans = [
         ...FLEX_SIZES.map((s) => this.buildPlan(buildFlexPlan(s))),
         ...PRO_SIZES.map((s) => this.buildPlan(buildProPlan(s))),
@@ -208,6 +211,7 @@ function buildProPlan(size: LucidProSize): PlanInit {
         maxLifetimePayouts: MAX_LIFETIME_PAYOUTS,
         minDaysAfterPassForPayout: 0,
         minPayoutProfit: dollars(500),
+        minPayoutRequest: dollars(500),
         minTradingDays: 1,
         payoutBuffer: new PayoutBuffer(dollars(LOCK_OFFSET)),
         payoutLadder: {

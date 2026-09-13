@@ -13,7 +13,25 @@ describe('TradingFirm.notes (live-verified 2026-09-10, MFFU only)', () => {
     });
 
     it('firms with no documented notes correctly inherit an empty array, with zero code changes', () => {
-        expect(findFirm(FirmId.Lucid)?.notes).toStrictEqual([]);
+        expect(findFirm(FirmId.TopStep)?.notes).toStrictEqual([]);
         expect(findFirm(FirmId.FundedNext)?.notes).toStrictEqual([]);
+    });
+
+    it('Apex, Lucid, and Tradeify document their minPayoutRequest fallback-chain fixes', () => {
+        expect(
+            findFirm(FirmId.Apex)?.notes.some((note) =>
+                note.includes('minPayoutRequest'),
+            ),
+        ).toBe(true);
+        expect(
+            findFirm(FirmId.Lucid)?.notes.some((note) =>
+                note.includes('minPayoutRequest'),
+            ),
+        ).toBe(true);
+        expect(
+            findFirm(FirmId.Tradeify)?.notes.some((note) =>
+                note.includes('minPayoutRequest'),
+            ),
+        ).toBe(true);
     });
 });

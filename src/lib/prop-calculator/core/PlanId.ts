@@ -56,6 +56,10 @@ export type PlanId =
           readonly variant: ApexVariant;
       }
     | {
+          readonly accountSize: E8FuturesAccountSize;
+          readonly firm: FirmId.E8Futures;
+      }
+    | {
           readonly accountSize: FundedNextAccountSize;
           readonly firm: FirmId.FundedNext;
           readonly variant: FundedNextVariant;
@@ -83,6 +87,7 @@ export type PlanId =
       };
 type AlphaFuturesAccountSize = 50_000;
 type ApexAccountSize = 50_000;
+type E8FuturesAccountSize = 50_000;
 type FundedNextAccountSize = 50_000;
 type LucidAccountSize = 50_000;
 type MffuAccountSize = 50_000;

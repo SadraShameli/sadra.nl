@@ -12,6 +12,10 @@ import { mulberry32 } from '~/lib/prop-calculator/rng';
 import { type SimInputs, simulate } from '~/lib/prop-calculator/simulator';
 
 const COVERAGE_ARITY = 3;
+const MEANINGFUL_FUNDED_FRACTION = 0.2;
+const PAYOUT_REQUEST_TINY = 50;
+const PAYOUT_REQUEST_SMALL = 300;
+const PAYOUT_REQUEST_LARGE = 5000;
 
 interface Dimension<T> {
     readonly levels: readonly T[];
@@ -48,8 +52,8 @@ const RETAINED_CUSHION_DIM: Dimension<'default' | 'full' | 'half' | 'none'> = {
     name: 'minRetainedCushion',
 };
 
-const PAYOUT_REQUEST_SIZE_DIM: Dimension<'all' | 'large' | 'small'> = {
-    levels: ['all', 'small', 'large'],
+const PAYOUT_REQUEST_SIZE_DIM: Dimension<'all' | 'large' | 'small' | 'tiny'> = {
+    levels: ['all', 'small', 'large', 'tiny'],
     name: 'payoutRequestSize',
 };
 
@@ -83,6 +87,26 @@ const RISK_PROFILE_DIM: Dimension<{
     name: 'riskProfile',
 };
 
+const FUNDED_RISK_PER_TRADE_DIM: Dimension<'triple' | undefined> = {
+    levels: [undefined, 'triple'],
+    name: 'fundedRiskPerTrade',
+};
+
+const FUNDED_RR_RATIO_DIM: Dimension<'plusOne' | undefined> = {
+    levels: [undefined, 'plusOne'],
+    name: 'fundedRrRatio',
+};
+
+const FUNDED_TRADES_PER_DAY_DIM: Dimension<'plusTwo' | undefined> = {
+    levels: [undefined, 'plusTwo'],
+    name: 'fundedTradesPerDay',
+};
+
+const INTRADAY_PATH_STEPS_PER_R_DIM: Dimension<number | undefined> = {
+    levels: [undefined, 4, 25],
+    name: 'intradayPathStepsPerR',
+};
+
 const DIMENSIONS = [
     { levels: PLANS, name: 'plan' },
     RUNG_SIZING_DIM,
@@ -93,6 +117,10 @@ const DIMENSIONS = [
     MAX_ATTEMPTS_DIM,
     DAY_STOP_DIM,
     RISK_PROFILE_DIM,
+    FUNDED_RISK_PER_TRADE_DIM,
+    FUNDED_RR_RATIO_DIM,
+    FUNDED_TRADES_PER_DAY_DIM,
+    INTRADAY_PATH_STEPS_PER_R_DIM,
 ] as const;
 
 function allTupleKeys(
@@ -140,6 +168,14 @@ function buildSimInputs(row: readonly number[], seed: number): SimInputs {
         throw new Error('combinatorial row out of range');
     }
 
+    const fundedRiskPerTradeLevel =
+        FUNDED_RISK_PER_TRADE_DIM.levels[row[9] ?? 0];
+    const fundedRrRatioLevel = FUNDED_RR_RATIO_DIM.levels[row[10] ?? 0];
+    const fundedTradesPerDayLevel =
+        FUNDED_TRADES_PER_DAY_DIM.levels[row[11] ?? 0];
+    const intradayPathStepsPerR =
+        INTRADAY_PATH_STEPS_PER_R_DIM.levels[row[12] ?? 0];
+
     const minRetainedCushion =
         retainedCushionLevel === 'default'
             ? undefined
@@ -153,14 +189,33 @@ function buildSimInputs(row: readonly number[], seed: number): SimInputs {
         payoutRequestSizeLevel === 'all'
             ? undefined
             : payoutRequestSizeLevel === 'small'
-              ? 300
-              : 5000;
+              ? PAYOUT_REQUEST_SMALL
+              : payoutRequestSizeLevel === 'large'
+                ? PAYOUT_REQUEST_LARGE
+                : PAYOUT_REQUEST_TINY;
+
+    const fundedRiskPerTrade =
+        fundedRiskPerTradeLevel === undefined
+            ? undefined
+            : riskProfile.riskPerTrade * 3;
+
+    const fundedRrRatio =
+        fundedRrRatioLevel === undefined ? undefined : riskProfile.rrRatio + 1;
+
+    const fundedTradesPerDay =
+        fundedTradesPerDayLevel === undefined
+            ? undefined
+            : riskProfile.tradesPerDay + 2;
 
     return {
         dayStop,
         fundedHorizonDays: 60,
+        fundedRiskPerTrade,
+        fundedRrRatio,
+        fundedTradesPerDay,
         idleDayProbability,
         instrument: positionSizing?.instrument,
+        intradayPathStepsPerR,
         maxAttempts,
         maxEvalDays: 60,
         minRetainedCushion,
@@ -274,7 +329,7 @@ describe(`combinatorial coverage: every ${COVERAGE_ARITY}-wise interaction of en
         10_000,
     );
 
-    it(`the generated matrix achieves 100% ${COVERAGE_ARITY}-wise coverage across all 9 dimensions (full cross-product would be ${fullCrossProduct})`, () => {
+    it(`the generated matrix achieves 100% ${COVERAGE_ARITY}-wise coverage across all ${DIMENSIONS.length} dimensions (full cross-product would be ${fullCrossProduct})`, () => {
         expect(uncoveredCount).toBe(0);
         expect(rows.length).toBeGreaterThan(0);
         expect(rows.length).toBeLessThan(fullCrossProduct);
@@ -342,6 +397,9 @@ describe(`combinatorial coverage: every ${COVERAGE_ARITY}-wise interaction of en
 
             const nonNegativeFields = Object.entries({
                 expectedGrossPayout: out.expectedGrossPayout,
+                expectedPayoutCount: out.expectedPayoutCount,
+                expectedPayoutPerFundedAccount:
+                    out.expectedPayoutPerFundedAccount,
                 expectedTotalCost: out.expectedTotalCost,
                 maxDrawdownP50: out.maxDrawdownP50,
                 maxDrawdownP95: out.maxDrawdownP95,
@@ -350,6 +408,45 @@ describe(`combinatorial coverage: every ${COVERAGE_ARITY}-wise interaction of en
                 if (!Number.isFinite(value) || value < 0) {
                     failures.push(
                         `row ${index} (${describeRow(row)}): ${key}=${value} is not a finite, non-negative value`,
+                    );
+                }
+            }
+
+            const infinityOnlyWhenNoPassFields = Object.entries({
+                costPerDrawdownDollar: out.costPerDrawdownDollar,
+                costPerFundedAccount: out.costPerFundedAccount,
+            });
+            for (const [key, value] of infinityOnlyWhenNoPassFields) {
+                if (Number.isNaN(value) || value < 0) {
+                    failures.push(
+                        `row ${index} (${describeRow(row)}): ${key}=${value} is NaN or negative`,
+                    );
+                } else if (
+                    !Number.isFinite(value) &&
+                    out.passProbability !== 0
+                ) {
+                    failures.push(
+                        `row ${index} (${describeRow(row)}): ${key}=${value} is infinite despite passProbability=${out.passProbability} (only allowed when passProbability is 0)`,
+                    );
+                }
+            }
+
+            const reachedFundedProbability =
+                out.passProbability + out.fundedBustProbability;
+            if (
+                out.expectedPayoutCount === 0 &&
+                reachedFundedProbability >= MEANINGFUL_FUNDED_FRACTION &&
+                (inputs.payoutRequestSize === PAYOUT_REQUEST_TINY ||
+                    inputs.payoutRequestSize === PAYOUT_REQUEST_SMALL) &&
+                inputs.payoutRequestSize >= inputs.plan.minPayoutRequest
+            ) {
+                const unconstrained = simulate({
+                    ...inputs,
+                    payoutRequestSize: undefined,
+                });
+                if (unconstrained.expectedPayoutCount > 0) {
+                    failures.push(
+                        `row ${index} (${describeRow(row)}): payoutRequestSize=${inputs.payoutRequestSize} is at/above plan.minPayoutRequest=${inputs.plan.minPayoutRequest} and ${(reachedFundedProbability * 100).toFixed(1)}% of trials reached funded, but expectedPayoutCount=0, while an otherwise-identical unconstrained-payout-size run pays out ${unconstrained.expectedPayoutCount.toFixed(2)} times, proving the small request size is the actual blocker, not some other confound`,
                     );
                 }
             }

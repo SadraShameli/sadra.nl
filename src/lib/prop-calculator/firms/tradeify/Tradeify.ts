@@ -91,6 +91,7 @@ export class Tradeify extends TradingFirm {
     readonly notes = [
         'Select Daily funded payouts can be requested up to 2x the fresh profit earned since the prior payout, not a flat percentage of profit like Select Flex. That multiplier is payoutProfitShare; the hard per-account dollar ceiling is payoutRequestCap; the required balance buffer above starting balance is payoutBuffer.',
         "Select Daily's payoutRequestCap ($1,250) and payoutBuffer offset are this codebase's existing values; secondary sources (help.tradeify.co was unreachable this session) suggest the hard cap may actually be $1,000 for a 50K account. Flagged, not changed, pending primary-source access.",
+        "Lightning's minPayoutRequest is set explicitly to match its own payoutLadder.minRequestAmount ($1,000). Left unset, it would silently inherit minPayoutProfit's unrelated value instead, the same fallback-chain bug shape confirmed and fixed for Take Profit Trader.",
     ];
     readonly plans = [
         ...GROWTH_SIZES.map((s) => this.buildPlan(buildGrowthPlan(s))),
@@ -192,6 +193,7 @@ function buildLightningPlan(size: TradeifyLightningSize): PlanInit {
         minDaysAfterPassForPayout: 0,
         minPayoutProfit: size.minPayoutProfit,
         minPayoutProfitPerCycle: dollars(2000),
+        minPayoutRequest: dollars(1000),
         minTradingDays: 0,
         payoutFloorEffect: PayoutFloorEffect.LockAtPlanFloor,
         payoutLadder: {
