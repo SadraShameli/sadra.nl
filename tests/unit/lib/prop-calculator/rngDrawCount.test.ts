@@ -110,7 +110,7 @@ describe('rng draw counts', () => {
             rungSizing: RungSizing.CapToCushion,
             winrate: fraction(0.5),
         });
-        expect(counted.draws()).toBe(118);
+        expect(counted.draws()).toBe(70);
     });
 
     it('pins the account-timeline draw count', () => {

@@ -72,6 +72,7 @@ export class MyFundedFutures extends TradingFirm {
         'Supports NinjaTrader, Tradovate, TradingView, Quantower, Volumetrica, DeepChart/DeepDom, and ATAS across all plans.',
         'Rapid EOD and Builder evaluation and funded accounts close after 7 consecutive calendar days without a single trade. Plain Rapid has no such rule; Pro is subject to some inactivity rule but the exact day count is unconfirmed. This simulator models the closure when you set an idle-day probability above 0. The Flex plan was discontinued and is no longer modeled.',
         "Builder's minPayoutRequest is set explicitly to match its own payoutLadder.minRequestAmount ($500). Left unset, it would silently inherit minPayoutProfit's unrelated $2,600 buffer-zone value instead, the same fallback-chain bug shape confirmed and fixed for Take Profit Trader.",
+        "Pro and Rapid: help.myfundedfutures.com's own plan pages confirm payouts unlock with no recurring per-cycle profit requirement beyond the first-payout buffer gate ($2,100, modeled as minPayoutProfit) and the per-request minimum, so minPayoutProfitPerCycle is left unset for both rather than guessed; it defaults to $0.",
     ];
     readonly plans = [
         ...RAPID_SIZES.map((s) => this.buildPlan(buildRapidPlan(s))),

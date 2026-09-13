@@ -116,13 +116,13 @@ describe('describeDailyLossLimit', () => {
         });
     });
 
-    it('reports an empty tier table as none rather than a zero range', () => {
-        expect(
+    it('throws for an empty tier table instead of silently describing it as none', () => {
+        expect(() =>
             describeDailyLossLimit({
                 kind: DailyLossLimitKind.Tiered,
                 tiers: [],
             }),
-        ).toStrictEqual({ kind: DailyLossLimitShape.None });
+        ).toThrow('tiers must not be empty');
     });
 
     it('nests both regimes of a staged limit', () => {

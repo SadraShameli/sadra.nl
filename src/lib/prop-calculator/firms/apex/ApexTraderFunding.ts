@@ -90,6 +90,7 @@ export class ApexTraderFunding extends TradingFirm {
     readonly id = FirmId.Apex;
     readonly notes = [
         "minPayoutRequest is set explicitly to match this plan's own payoutLadder.minRequestAmount ($500). Left unset, it would silently inherit minPayoutProfit's unrelated $2,600 buffer-zone value instead, which the CLI displays as the minimum request even though the ladder already governs the actual withdrawal floor at runtime, the same fallback-chain bug shape confirmed and fixed for Take Profit Trader.",
+        "No recurring per-cycle profit requirement distinct from the 5-qualifying-day ($250/day EOD, $200/day Intraday) and 50% consistency checks was found in Apex's help center, so minPayoutProfitPerCycle is left unset rather than guessed; it defaults to $0 (both of those other gates are already enforced separately by this engine).",
     ];
     readonly plans = SIZES.flatMap((s) => [
         this.buildPlan(buildEodPlan(s)),

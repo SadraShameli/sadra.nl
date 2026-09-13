@@ -66,6 +66,7 @@ export class LucidTrading extends TradingFirm {
     readonly id = FirmId.Lucid;
     readonly notes = [
         "Pro's minPayoutRequest is set explicitly to match its own payoutLadder.minRequestAmount ($500), rather than left to silently inherit minPayoutProfit's value by coincidence (currently also $500). Closes the same fallback-chain bug shape confirmed and fixed for Take Profit Trader before an unrelated future change to minPayoutProfit could silently desync it.",
+        "Flex's minPayoutProfitPerCycle is set explicitly to $0.01: support.lucidtrading.com's LucidFlex Payouts article requires positive net profit (even $1) during each payout cycle, a real, distinct recurring floor rather than the request-size fallback this simulator used to silently substitute. Pro's help-center pages confirm a recurring per-cycle profit goal exists too, but no exact dollar figure is published, so Pro's minPayoutProfitPerCycle is left unset rather than guessed; it defaults to $0.",
     ];
     readonly plans = [
         ...FLEX_SIZES.map((s) => this.buildPlan(buildFlexPlan(s))),
@@ -157,6 +158,7 @@ function buildFlexPlan(size: LucidFlexSize): PlanInit {
         maxLifetimePayouts: MAX_LIFETIME_PAYOUTS,
         minDaysAfterPassForPayout: 5,
         minPayoutProfit: dollars(0),
+        minPayoutProfitPerCycle: dollars(0.01),
         minPayoutRequest: dollars(500),
         minQualifyingDayProfit: dollars(150),
         minTradingDays: 2,

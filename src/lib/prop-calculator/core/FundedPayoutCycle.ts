@@ -2,6 +2,7 @@ import { type AccountState } from './AccountState';
 import { PayoutFloorEffect } from './PayoutFloorEffect';
 import { type PayoutLadder } from './PayoutTiers';
 import { type Plan } from './Plan';
+import { dollars } from './units';
 
 export interface FundedPayoutOptions {
     maxPayouts: number;
@@ -53,9 +54,7 @@ export class FundedCycleTracker {
         const requiredProfit =
             this.payoutsIssued === 0
                 ? plan.minPayoutProfit
-                : (plan.minPayoutProfitPerCycle ??
-                  ladder?.minRequestAmount ??
-                  plan.minPayoutRequest);
+                : (plan.minPayoutProfitPerCycle ?? dollars(0));
         const hasQualifyingDays =
             state.qualifyingDays - this.qualifyingDaysAtLastPayout >=
             plan.minDaysAfterPassForPayout;

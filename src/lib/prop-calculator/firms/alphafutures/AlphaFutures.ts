@@ -57,6 +57,7 @@ export class AlphaFutures extends TradingFirm {
     readonly id = FirmId.AlphaFutures;
     readonly notes = [
         "No per-request payout minimum was confirmed for any plan, so minPayoutRequest is left unset (resolves to $0, i.e. no additional floor beyond payoutRequestCap/minPayoutProfit) rather than guessed. It previously silently inherited minPayoutProfit's value by an engine-level fallback that has since been removed for representing a different real-world concept (the one-time first-payout profit gate, not a recurring per-request minimum).",
+        'help.alpha-futures.com\'s Payout Policy article confirms Zero, Standard, and Advanced plans have no recurring per-cycle profit requirement (only "Direct Qualified Accounts", a product not modeled here, have a resetting per-cycle profit target), so minPayoutProfitPerCycle is left unset rather than guessed; it defaults to $0.',
     ];
     readonly plans = [
         ...ZERO_SIZES.map((s) => this.buildPlan(buildZeroPlan(s))),

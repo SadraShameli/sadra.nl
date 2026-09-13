@@ -133,6 +133,9 @@ class PeakProfitShareDailyLossLimit extends DailyLossLimit {
 class TieredDailyLossLimit extends DailyLossLimit {
     constructor(private readonly tiers: readonly DllTier[]) {
         super();
+        if (tiers.length === 0) {
+            throw new Error('TieredDailyLossLimit: tiers must not be empty');
+        }
     }
 
     private selectTier(profit: number): DllTier | undefined {
@@ -153,7 +156,6 @@ class TieredDailyLossLimit extends DailyLossLimit {
     }
 
     describe(): DailyLossLimitDescriptor {
-        if (this.tiers.length === 0) return { kind: DailyLossLimitShape.None };
         const amounts = this.tiers.map((tier) => tier.dailyLossLimit);
         return {
             kind: DailyLossLimitShape.Range,

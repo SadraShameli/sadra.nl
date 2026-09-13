@@ -121,13 +121,13 @@ describe('resolveDailyLossLimit', () => {
     });
 
     describe('kind: tiered — no tiers', () => {
-        it('returns null when the tier list is empty', () => {
-            expect(
+        it('throws instead of silently behaving like no daily loss limit', () => {
+            expect(() =>
                 resolveDailyLossLimit(
                     { kind: DailyLossLimitKind.Tiered, tiers: [] },
                     atProfit(5000),
                 ),
-            ).toBeNull();
+            ).toThrow('tiers must not be empty');
         });
     });
 

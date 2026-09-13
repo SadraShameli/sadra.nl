@@ -31,7 +31,7 @@ export class E8Futures extends TradingFirm {
         'Coupon code "E8" is a standing, site-wide 25% discount on the eval fee ($160 -> $120). It is documented here, not baked into the base list-price eval fee this plan models.',
         'A 10% reset discount is confirmed on the general E8 Markets help domain, not the futures-specific one. It is documented here, not baked into the base list-price reset fee this plan models, for the same reason and the same treatment as the eval-fee coupon above.',
         'The real payout cap steps up by payout count: $1,250 for the 1st-2nd payout, $2,250 for the 3rd-4th, $3,250 from the 5th on. Modeled exactly via PayoutCountTieredPayoutCap, keyed on payoutsIssued.',
-        'No recurring per-cycle profit requirement beyond the first-payout $2,000 buffer-zone gate was found in the research, so minPayoutProfitPerCycle is left unset rather than guessed; it falls back to minPayoutRequest ($0.01), effectively no recurring floor.',
+        'No recurring per-cycle profit requirement beyond the first-payout $2,000 buffer-zone gate was found in the research, so minPayoutProfitPerCycle is left unset rather than guessed; it defaults to $0 (no additional recurring floor modeled).',
         'Contract/minis-micros limits are not published anywhere in the live docs for this product and size, so contractLimits is left unset rather than guessed.',
         'E8 Zero, a separate product on this same firm with no funded consistency rule, a 5-payout lifetime cap, and a fixed daily payout schedule instead of on-demand, is not modeled in this pass.',
     ];

@@ -4,7 +4,7 @@ import {
     resetForNewDay,
 } from './AccountState';
 import { ConsistencyRule, ConsistencyScope } from './ConsistencyRule';
-import { type ContractLimits } from './ContractLimits';
+import { ContractLimitKind, type ContractLimits } from './ContractLimits';
 import {
     type DailyLossLimitConfig,
     type DailyLossLimitContext,
@@ -144,6 +144,19 @@ export abstract class Plan {
         this.accountSize = init.accountSize;
         this.consistency = init.consistency;
         this.contractLimits = init.contractLimits ?? null;
+        for (const [key, config] of [
+            ['fundedMicros', this.contractLimits?.fundedMicros],
+            ['fundedMinis', this.contractLimits?.fundedMinis],
+        ] as const) {
+            if (
+                config?.kind === ContractLimitKind.Tiered &&
+                config.tiers.length === 0
+            ) {
+                throw new Error(
+                    `${init.label}: contractLimits.${key}.tiers must not be empty`,
+                );
+            }
+        }
         this.drawdown = init.drawdown;
         this.evalDailyLossLimit = init.evalDailyLossLimit;
         this.fees = init.fees;
@@ -190,6 +203,11 @@ export abstract class Plan {
         ) {
             throw new Error(
                 `${this.label}: fundedConsistencyLadder makes fundedConsistency dead; set only one`,
+            );
+        }
+        if (init.fundedConsistencyLadder?.steps.length === 0) {
+            throw new Error(
+                `${this.label}: fundedConsistencyLadder.steps must not be empty`,
             );
         }
         this.payoutFloorEffect =
