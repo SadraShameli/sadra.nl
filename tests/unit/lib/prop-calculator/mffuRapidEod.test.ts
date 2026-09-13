@@ -87,4 +87,16 @@ describe('MFFU Rapid EOD 50K (live-verified 2026-09-10 against help.myfundedfutu
     it('closes both the evaluation and funded account after 7 consecutive days without a trade', () => {
         expect(rapidEod().maxConsecutiveIdleDays).toBe(7);
     });
+
+    it(
+        'charges $145 for the one-time eval/reset fee, matching the regular ' +
+            '(non-promotional) price on myfundedfutures.com/plans/rapid-eod ' +
+            '(fetched 2026-09-13); the account size is not separately ' +
+            'broken out on that page beyond the fee itself',
+        () => {
+            const plan = rapidEod();
+            expect(plan.fees.oneTimeEval).toBe(145);
+            expect(plan.fees.reset).toBe(145);
+        },
+    );
 });

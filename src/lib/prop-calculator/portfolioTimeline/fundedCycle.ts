@@ -73,8 +73,7 @@ export function runEvalToFundedCycle(
             evalDays: billableEvalDays,
             payouts: [],
             totalCost:
-                plan.totalCostThroughDay(billableEvalDays, discounts) +
-                resetFeesPaid,
+                plan.feesUntilPass(billableEvalDays, discounts) + resetFeesPaid,
             totalDays,
         };
     }

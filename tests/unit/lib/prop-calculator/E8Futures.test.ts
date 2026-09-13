@@ -64,6 +64,10 @@ describe('E8 Futures Signature 50K', () => {
         expect(plan.resolvedPayoutCap(state, 40).requestCap).toBe(3250);
     });
 
+    it('closes both the evaluation and funded account after 7 consecutive days without a trade (live-verified 2026-09-13 against helpfutures.e8markets.com)', () => {
+        expect(plan.maxConsecutiveIdleDays).toBe(7);
+    });
+
     it('the $1,000 daily pause locks the day out once funded, without busting the account, and does not apply during the eval', () => {
         const evalState = plan.initialState();
         evalState.balance -= 1000;

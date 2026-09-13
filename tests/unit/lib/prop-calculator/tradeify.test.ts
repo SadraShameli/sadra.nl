@@ -49,3 +49,46 @@ describe('Tradeify Lightning: eval-phase DLL matches the live product (no separa
         expect(plan.isBust(state, TradingPhase.Eval)).toBe(false);
     });
 });
+
+describe('Tradeify Lightning: payout cadence matches the live-published "Payout Frequency: 5 Days"', () => {
+    it('requires 5 qualifying days between payouts, not 0', () => {
+        expect(lightningPlan().minDaysAfterPassForPayout).toBe(5);
+    });
+});
+
+describe("Tradeify: every plan's fees.reset is wired from its own resetFee field, not reused from evalCost", () => {
+    it('Growth, Select Daily, and Select Flex each charge their own distinct reset fee, not their eval fee', () => {
+        const growth = firm.findPlan({
+            accountSize: 50_000,
+            firm: FirmId.Tradeify,
+            variant: TradeifyVariant.Growth,
+        });
+        const selectDaily = firm.findPlan({
+            accountSize: 50_000,
+            firm: FirmId.Tradeify,
+            variant: TradeifyVariant.SelectDaily,
+        });
+        const selectFlex = firm.findPlan({
+            accountSize: 50_000,
+            firm: FirmId.Tradeify,
+            variant: TradeifyVariant.SelectFlex,
+        });
+        if (!growth || !selectDaily || !selectFlex) {
+            throw new Error('Tradeify 50K plan(s) not found');
+        }
+
+        expect(growth.fees.reset).toBe(95);
+        expect(growth.fees.reset).not.toBe(growth.fees.oneTimeEval);
+
+        expect(selectDaily.fees.reset).toBe(109);
+        expect(selectDaily.fees.reset).not.toBe(selectDaily.fees.oneTimeEval);
+
+        expect(selectFlex.fees.reset).toBe(109);
+        expect(selectFlex.fees.reset).not.toBe(selectFlex.fees.oneTimeEval);
+    });
+
+    it("Lightning's fees.reset reads resetFee (492), matching the pattern used by every other Tradeify plan builder, rather than silently falling back to evalCost as a dead-field trap", () => {
+        const plan = lightningPlan();
+        expect(plan.fees.reset).toBe(492);
+    });
+});

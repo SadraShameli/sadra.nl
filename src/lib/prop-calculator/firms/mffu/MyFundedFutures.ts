@@ -209,8 +209,8 @@ function buildRapidEodPlan(): PlanInit {
         fees: {
             activation: dollars(0),
             monthlySubscription: dollars(0),
-            oneTimeEval: dollars(209),
-            reset: dollars(209),
+            oneTimeEval: dollars(145),
+            reset: dollars(145),
         },
         id: {
             accountSize: 50_000,

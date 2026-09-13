@@ -37,6 +37,16 @@ function trailingWithLock() {
     });
 }
 
+function trailingWithOffsetLock() {
+    return new EodTrailingDrawdown({
+        amount: dollars(2000),
+        lock: {
+            atProfit: dollars(2100),
+            lockedThreshold: (startingBalance) => startingBalance + 100,
+        },
+    });
+}
+
 describe('the drawdown floor only ever moves through a named transition', () => {
     it('ratchets upward and never downward', () => {
         const drawdown = trailingWithLock();
@@ -98,6 +108,16 @@ describe('the drawdown floor only ever moves through a named transition', () => 
         state.balance = 70_000;
         drawdown.onDayClose(state);
         expect(state.threshold).toBe(50_000);
+    });
+
+    it('locks at the documented floor even when the qualifying day overshoots the trigger', () => {
+        const drawdown = trailingWithOffsetLock();
+        const state = stateAt(52_500, 48_000, false);
+
+        drawdown.onDayClose(state);
+
+        expect(state.thresholdLocked).toBe(true);
+        expect(state.threshold).toBe(50_100);
     });
 
     it('releases TopStep to its funded starting balance, not to literal zero', () => {

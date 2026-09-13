@@ -27,6 +27,23 @@ function atBalance(balance: number) {
     return state;
 }
 
+function laterCyclePayout(balance: number) {
+    const plan = rapidDailyPlan();
+    const state = atBalance(balance);
+    const tracker = newFundedCycleTracker(state);
+    tracker.lastPayoutBalance = state.startingBalance;
+    tracker.qualifyingDaysAtLastPayout = 0;
+    tracker.payoutsIssued = 1;
+    return tryFundedPayout({
+        maxPayouts: Infinity,
+        minRetainedCushion: 0,
+        payoutRequestSize: undefined,
+        plan,
+        state,
+        tracker,
+    });
+}
+
 function rapidDailyPlan() {
     const plan = fundedNext.findPlan({
         accountSize: 50_000,
@@ -105,9 +122,16 @@ describe('FundedNext Rapid Daily buffer', () => {
         expect(requestPayout(BUFFER_LEVEL)).toBeNull();
     });
 
-    it('denies a payout when the room above the buffer is under the $250 minimum', () => {
-        expect(requestPayout(52_300)).toBeNull();
-        expect(requestPayout(52_350)?.debited).toBe(250);
+    it("requires $2,600 total cycle profit before the FIRST payout (buffer delta $2,100 + the live-documented '$500 above the buffer' rule), not the pre-fix $500", () => {
+        expect(requestPayout(50_000 + 2599)).toBeNull();
+        const payout = requestPayout(50_000 + 2600);
+        expect(payout?.debited).toBe(500);
+        expect(payout?.traderReceives).toBe(450);
+    });
+
+    it('denies a payout on a later cycle (gated by minPayoutProfitPerCycle) when the room above the buffer is under the $250 minimum', () => {
+        expect(laterCyclePayout(52_300)).toBeNull();
+        expect(laterCyclePayout(52_350)?.debited).toBe(250);
     });
 
     it('caps a large withdrawal at the documented $1,200 per cycle', () => {
@@ -116,12 +140,12 @@ describe('FundedNext Rapid Daily buffer', () => {
         expect(payout?.traderReceives).toBe(1080);
     });
 
-    it('binds on the buffer rather than the drawdown threshold', () => {
+    it('binds on the buffer rather than the drawdown threshold, on a later cycle', () => {
         const plan = rapidDailyPlan();
         const state = atBalance(52_500);
         expect(state.balance - state.threshold).toBe(2400);
         expect(plan.payoutBalanceFloor(state, 0)).toBe(BUFFER_LEVEL);
-        expect(requestPayout(52_500)?.debited).toBe(400);
+        expect(laterCyclePayout(52_500)?.debited).toBe(400);
     });
 
     it('yields to minRetainedCushion when that floor is the higher one', () => {
@@ -152,5 +176,37 @@ describe('plans without a payout buffer', () => {
         expect(plan.payoutBuffer).toBeNull();
         expect(plan.payoutBalanceFloor(state, 0)).toBe(50_100);
         expect(plan.payoutBalanceFloor(state, 500)).toBe(50_600);
+    });
+});
+
+function payoutAfterQualifyingDays(qualifyingDaysSincePayout: number) {
+    const plan = rapidProPlan();
+    const state = plan.initialState();
+    state.balance = state.startingBalance + 1000;
+    state.qualifyingDays = qualifyingDaysSincePayout;
+    const tracker = newFundedCycleTracker(state);
+    tracker.lastPayoutBalance = state.startingBalance;
+    tracker.qualifyingDaysAtLastPayout = 0;
+    return tryFundedPayout({
+        maxPayouts: Infinity,
+        minRetainedCushion: 0,
+        payoutRequestSize: undefined,
+        plan,
+        state,
+        tracker,
+    });
+}
+
+describe("FundedNext Rapid Pro payout cadence (live-verified: 'every 3 days', distinct from Rapid Daily's 0)", () => {
+    it('sets minDaysAfterPassForPayout to 3, not 0', () => {
+        expect(rapidProPlan().minDaysAfterPassForPayout).toBe(3);
+    });
+
+    it('denies a payout with only 2 qualifying days since the last one despite ample cycle profit', () => {
+        expect(payoutAfterQualifyingDays(2)).toBeNull();
+    });
+
+    it('allows the payout once 3 qualifying days have passed', () => {
+        expect(payoutAfterQualifyingDays(3)?.debited).toBe(1000);
     });
 });

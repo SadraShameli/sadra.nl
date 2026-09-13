@@ -151,7 +151,11 @@ function finishTrial(arguments_: FinishTrialArguments): TrialResult {
         totals,
     } = arguments_;
     const grossPayout = totalPayout;
-    const baseCost = plan.totalCostThroughDay(evalDays, discounts);
+    const isNeverReachedFundedAccount =
+        outcome === 'bust-eval' || outcome === 'timeout-eval';
+    const baseCost = isNeverReachedFundedAccount
+        ? plan.feesUntilPass(evalDays, discounts)
+        : plan.totalCostThroughDay(evalDays, discounts);
     const totalCost = baseCost + resetFeesPaid;
     const net = grossPayout - totalCost;
     return {

@@ -169,7 +169,7 @@ function buildLightningPlan(size: TradeifyLightningSize): PlanInit {
             activation: dollars(0),
             monthlySubscription: dollars(0),
             oneTimeEval: dollars(size.evalCost),
-            reset: dollars(size.evalCost),
+            reset: dollars(size.resetFee),
         },
         fundedConsistencyLadder: {
             steps: [fraction(0.2), fraction(0.25), fraction(0.3)],
@@ -190,7 +190,7 @@ function buildLightningPlan(size: TradeifyLightningSize): PlanInit {
         isInstantFunded: true,
         label: planLabel(size.accountSize, 'Lightning Funded'),
         maxFundedAccounts: MAX_FUNDED_ACCOUNTS,
-        minDaysAfterPassForPayout: 0,
+        minDaysAfterPassForPayout: 5,
         minPayoutProfit: size.minPayoutProfit,
         minPayoutProfitPerCycle: dollars(2000),
         minPayoutRequest: dollars(1000),

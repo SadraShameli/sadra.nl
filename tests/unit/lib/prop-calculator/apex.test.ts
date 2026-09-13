@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
     ApexVariant,
+    ContractLimitKind,
     type DailyLossLimitContext,
     DailyLossLimitKind,
     DayStopRuleKind,
@@ -9,6 +10,7 @@ import {
     FirmId,
     flatDayPolicy,
     fraction,
+    maxContractsAt,
     resolveDailyLossLimit,
     RungSizing,
     TradingPhase,
@@ -296,5 +298,110 @@ describe('Apex evaluation time limit', () => {
         const intraday = findPlan(50_000, ApexVariant.Intraday);
         expect(eod.evalDayCap(9999)).toBe(21);
         expect(intraday.evalDayCap(9999)).toBe(21);
+    });
+});
+
+describe('Apex funded inactivity closure', () => {
+    it('sets a 30-day inactivity closure on both variants, per the PA inactivity policy', () => {
+        expect(findPlan(50_000, ApexVariant.Eod).maxConsecutiveIdleDays).toBe(
+            30,
+        );
+        expect(
+            findPlan(50_000, ApexVariant.Intraday).maxConsecutiveIdleDays,
+        ).toBe(30);
+    });
+
+    it('closes the account on exactly the 30th consecutive idle day, not sooner', () => {
+        const plan = findPlan(50_000, ApexVariant.Eod);
+        const state = plan.initialState();
+        const stats = freshStats(state.startingBalance);
+        const dayOptions = {
+            commission: dollars(0),
+            dayPolicy: flatDayPolicy(500, 1, { kind: DayStopRuleKind.None }),
+            idleDayProbability: 1,
+            phase: TradingPhase.Funded,
+            plan,
+            positionSizing: null,
+            rng: () => 0,
+            rrRatio: 2,
+            rungSizing: RungSizing.CapToCushion,
+            state,
+            stats,
+            winrate: fraction(0.4),
+        } as const;
+
+        for (let day = 1; day < 30; day++) {
+            const result = runDay(dayOptions);
+            expect(result.busted).toBe(false);
+        }
+        const thirtieth = runDay(dayOptions);
+        expect(thirtieth.busted).toBe(true);
+        expect(thirtieth.closedForInactivity).toBe(true);
+    });
+});
+
+describe('Apex eval-phase drawdown lock (Rithmic/Wealthcharts model)', () => {
+    it('locks the EOD threshold at the Target Profit Balance once EOD balance reaches Target Profit + Max Drawdown, and freezes it there', () => {
+        const plan = findPlan(50_000, ApexVariant.Eod);
+        const state = plan.initialState();
+
+        state.balance = state.startingBalance + 5000;
+        plan.drawdown.onDayClose(state);
+        expect(state.thresholdLocked).toBe(true);
+        expect(state.threshold).toBe(state.startingBalance + 3000);
+
+        state.balance += 10_000;
+        plan.drawdown.onDayClose(state);
+        expect(state.threshold).toBe(state.startingBalance + 3000);
+    });
+
+    it('locks the Intraday threshold at the Target Profit Balance once the trade balance reaches Target Profit + Max Drawdown, and freezes it there', () => {
+        const plan = findPlan(50_000, ApexVariant.Intraday);
+        const state = plan.initialState();
+
+        state.balance = state.startingBalance + 5000;
+        plan.drawdown.onTrade(state, 5000);
+        expect(state.thresholdLocked).toBe(true);
+        expect(state.threshold).toBe(state.startingBalance + 3000);
+
+        state.balance += 10_000;
+        plan.drawdown.onTrade(state, 10_000);
+        expect(state.threshold).toBe(state.startingBalance + 3000);
+    });
+});
+
+describe('Apex funded contract limits: scaled by profit tier, not flat', () => {
+    it('is Tiered (not Flat) for both minis and micros on both variants', () => {
+        for (const variant of [ApexVariant.Eod, ApexVariant.Intraday]) {
+            const plan = findPlan(50_000, variant);
+            expect(plan.contractLimits?.fundedMinis?.kind).toBe(
+                ContractLimitKind.Tiered,
+            );
+            expect(plan.contractLimits?.fundedMicros?.kind).toBe(
+                ContractLimitKind.Tiered,
+            );
+        }
+    });
+
+    it('starts a funded account at 2 minis / 20 micros, not the old flat 4/40 cap', () => {
+        const plan = findPlan(50_000, ApexVariant.Eod);
+        expect(
+            maxContractsAt(plan.contractLimits?.fundedMinis ?? null, 0),
+        ).toBe(2);
+        expect(
+            maxContractsAt(plan.contractLimits?.fundedMicros ?? null, 0),
+        ).toBe(20);
+    });
+
+    it('scales minis up through 2 -> 3 -> 4 as funded profit crosses $1,500 and $3,000', () => {
+        const minis =
+            findPlan(50_000, ApexVariant.Eod).contractLimits?.fundedMinis ??
+            null;
+        expect(maxContractsAt(minis, 0)).toBe(2);
+        expect(maxContractsAt(minis, 1499)).toBe(2);
+        expect(maxContractsAt(minis, 1500)).toBe(3);
+        expect(maxContractsAt(minis, 2999)).toBe(3);
+        expect(maxContractsAt(minis, 3000)).toBe(4);
+        expect(maxContractsAt(minis, 6000)).toBe(4);
     });
 });

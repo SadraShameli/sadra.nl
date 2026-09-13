@@ -504,8 +504,8 @@ describe('payout ladder capped-at-last-step (help.myfundedfutures.com / support.
     });
 });
 
-describe('Apex eval-phase drawdown never locks under Tradovate (apextraderfunding.com/help-center)', () => {
-    it('eval drawdown keeps trailing indefinitely; funded drawdown still locks at +$100', () => {
+describe('Apex eval-phase drawdown locks at the Rithmic/Wealthcharts Target Profit Balance (apextraderfunding.com/help-center)', () => {
+    it('eval drawdown locks once EOD balance reaches Target Profit + Max Drawdown; funded drawdown still locks separately at +$100', () => {
         const eod = apex.findPlan({
             accountSize: 50_000,
             firm: FirmId.Apex,
@@ -514,12 +514,10 @@ describe('Apex eval-phase drawdown never locks under Tradovate (apextraderfundin
         if (!eod) throw new Error('apex eod missing');
 
         const evalState = eod.initialState();
-        evalState.balance = evalState.startingBalance + 10_000;
+        evalState.balance = evalState.startingBalance + 5000;
         eod.drawdownFor(TradingPhase.Eval).onDayClose(evalState);
-        expect(evalState.thresholdLocked).toBe(false);
-        expect(evalState.threshold).toBe(
-            evalState.balance - eod.drawdown.amount,
-        );
+        expect(evalState.thresholdLocked).toBe(true);
+        expect(evalState.threshold).toBe(evalState.startingBalance + 3000);
 
         const fundedState = eod.initialState();
         fundedState.balance = fundedState.startingBalance + 2100;
@@ -741,7 +739,8 @@ describe('Topstep 50K parameters (help.topstep.com)', () => {
             expect(target.payoutFloorEffect).toBe(
                 PayoutFloorEffect.ReleaseFloor,
             );
-            expect(target.evalConsistencyRule()?.maxBestDayShare).toBe(0.5);
+            expect(target.evalConsistencyRule()?.maxBestDayShare).toBe(0.55);
+            expect(target.maxConsecutiveIdleDays).toBe(30);
         }
     });
 

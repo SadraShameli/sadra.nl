@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-    ApexVariant,
     DayStopRuleKind,
     dollars,
     FirmId,
@@ -24,18 +23,6 @@ import { type DayRunOptions } from '~/lib/prop-calculator/simulator/types';
 interface CountedRng {
     draws: () => number;
     rng: Rng;
-}
-
-function apexEod() {
-    const firm = ALL_FIRMS.find((f) => f.id === FirmId.Apex);
-    if (!firm) throw new Error('Apex firm not registered');
-    const plan = firm.findPlan({
-        accountSize: 50_000,
-        firm: FirmId.Apex,
-        variant: ApexVariant.Eod,
-    });
-    if (!plan) throw new Error('Apex EOD 50K plan not found');
-    return plan;
 }
 
 function constantRng(value: number): Rng {
@@ -70,6 +57,14 @@ function mffuRapidEod() {
         variant: MffuVariant.RapidEod,
     });
     if (!plan) throw new Error('MFFU Rapid EOD 50K plan not found');
+    return plan;
+}
+
+function tptTestToPro() {
+    const firm = ALL_FIRMS.find((f) => f.id === FirmId.Tpt);
+    if (!firm) throw new Error('TPT firm not registered');
+    const plan = firm.findPlan({ accountSize: 50_000, firm: FirmId.Tpt });
+    if (!plan) throw new Error('TPT 50K plan not found');
     return plan;
 }
 
@@ -111,7 +106,7 @@ describe('runDay: opt-in idle-day closure', () => {
         'is a true no-op for a plan without the rule, even with idleDayProbability set — ' +
             'identical draw count and identical result with or without it',
         () => {
-            const plan = apexEod();
+            const plan = tptTestToPro();
             expect(plan.maxConsecutiveIdleDays).toBeNull();
 
             function runOnce(idleDayProbability: number | undefined) {

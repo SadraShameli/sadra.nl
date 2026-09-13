@@ -46,6 +46,39 @@ describe('IntradayTrailingDrawdown.onTrade given a peak excursion', () => {
     });
 });
 
+describe('IntradayTrailingDrawdown.onTrade locks off the same peak basis it ratchets with', () => {
+    it('locks when the intraday peak crosses the trigger even though the trade closes back under it', () => {
+        const drawdown = new IntradayTrailingDrawdown({
+            amount: dollars(2000),
+            lock: {
+                atProfit: dollars(2000),
+                lockedThreshold: (startingBalance) => startingBalance,
+            },
+        });
+
+        const state = stateAt(50_000, 48_000);
+        drawdown.onTrade(state, -100, 2100);
+
+        expect(state.thresholdLocked).toBe(true);
+        expect(state.threshold).toBe(50_000);
+    });
+
+    it('does not lock when neither the peak nor the close reaches the trigger', () => {
+        const drawdown = new IntradayTrailingDrawdown({
+            amount: dollars(2000),
+            lock: {
+                atProfit: dollars(2000),
+                lockedThreshold: (startingBalance) => startingBalance,
+            },
+        });
+
+        const state = stateAt(50_000, 48_000);
+        drawdown.onTrade(state, -100, 1800);
+
+        expect(state.thresholdLocked).toBe(false);
+    });
+});
+
 describe('a trade that runs up then reverses ratchets the floor further than its closed P&L alone', () => {
     it('a scripted path that peaks at 1.5R then reverses to a loss produces a higher floor than the final -1R loss would on its own', () => {
         const rrRatio = 2;

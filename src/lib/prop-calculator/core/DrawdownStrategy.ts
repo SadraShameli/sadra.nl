@@ -58,12 +58,15 @@ export abstract class DrawdownStrategy {
         state.thresholdLocked = true;
     }
 
-    protected maybeLock(state: AccountState): void {
+    protected maybeLock(
+        state: AccountState,
+        profit: number = state.balance - state.startingBalance,
+    ): void {
         const lock = this.init.lock;
         if (!lock) return;
-        const profit = state.balance - state.startingBalance;
         if (profit < lock.atProfit) return;
-        this.forceLock(state);
+        state.threshold = lock.lockedThreshold(state.startingBalance);
+        state.thresholdLocked = true;
     }
 
     protected ratchet(state: AccountState, target: number): void {
@@ -104,11 +107,9 @@ export class IntradayTrailingDrawdown extends DrawdownStrategy {
             return;
         }
 
-        this.ratchet(
-            state,
-            state.balance - tradePnL + peakPnL - this.init.amount,
-        );
-        this.maybeLock(state);
+        const peakBalance = state.balance - tradePnL + peakPnL;
+        this.ratchet(state, peakBalance - this.init.amount);
+        this.maybeLock(state, peakBalance - state.startingBalance);
     }
 }
 
