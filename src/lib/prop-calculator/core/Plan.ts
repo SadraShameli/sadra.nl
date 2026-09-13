@@ -169,8 +169,7 @@ export abstract class Plan {
         this.minDaysAfterPassForPayout = init.minDaysAfterPassForPayout ?? 0;
         this.minPayoutProfit = init.minPayoutProfit ?? dollars(0);
         this.minPayoutProfitPerCycle = init.minPayoutProfitPerCycle ?? null;
-        this.minPayoutRequest =
-            init.minPayoutRequest ?? init.minPayoutProfit ?? dollars(0);
+        this.minPayoutRequest = init.minPayoutRequest ?? dollars(0);
         this.minQualifyingDayProfit = init.minQualifyingDayProfit ?? null;
         this.minTradingDays = init.minTradingDays;
         this.payoutBalanceShareCap = init.payoutBalanceShareCap ?? null;
