@@ -111,7 +111,6 @@ export function runFundedDays(options: FundedDaysOptions): FundedDaysResult {
         }
 
         const payout = tryFundedPayout({
-            daysSinceFunded: daysElapsed,
             maxPayouts,
             minRetainedCushion,
             payoutRequestSize,

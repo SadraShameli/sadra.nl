@@ -5,7 +5,6 @@ import { type Plan } from './Plan';
 import { dollars } from './units';
 
 export interface FundedPayoutOptions {
-    daysSinceFunded?: number;
     maxPayouts: number;
     minRetainedCushion: number;
     payoutRequestSize: number | undefined;
@@ -42,7 +41,6 @@ export class FundedCycleTracker {
         options: Omit<FundedPayoutOptions, 'tracker'>,
     ): FundedPayoutResult | null {
         const {
-            daysSinceFunded,
             maxPayouts,
             minRetainedCushion,
             payoutRequestSize,
@@ -128,10 +126,7 @@ export class FundedCycleTracker {
 
         return {
             debited,
-            traderReceives: plan.payoutFromProfit(
-                debited,
-                daysSinceFunded ?? 0,
-            ),
+            traderReceives: plan.payoutFromProfit(debited),
         };
     }
 }
