@@ -63,6 +63,16 @@ describe('FundedNext Flex 50K (live-verified 2026-09-14 from fundednext.com)', (
         }
         expect(funded.maxContracts).toBe(3);
     });
+
+    it(
+        'requires 5 benchmark days of $200+ profit and caps payouts at 50% of profit (max $1,500), not just a flat request cap ' +
+            "(live-verified 2026-09-14 against helpfutures.fundednext.com's Performance Reward eligibility article)",
+        () => {
+            expect(plan.minQualifyingDayProfit).toBe(200);
+            expect(plan.payoutBalanceShareCap).toBe(0.5);
+            expect(plan.payoutRequestCap).toBe(1500);
+        },
+    );
 });
 
 describe('FundedNext Legacy/Rapid Pro contract limits (live-verified 2026-09-14)', () => {
@@ -90,8 +100,11 @@ describe('FundedNext Legacy/Rapid Pro contract limits (live-verified 2026-09-14)
         expect(funded.maxContracts).toBe(4);
     });
 
-    it('Rapid Daily has no contract limit modeled (unconfirmed, deliberately left unset)', () => {
+    it('Rapid Daily has a confirmed flat 4 mini / 40 micro eval limit, with the funded side deliberately left unconfirmed', () => {
         const plan = planFor(FundedNextVariant.RapidDaily);
-        expect(plan.contractLimits).toBeNull();
+        expect(plan.contractLimits?.evalMinis).toBe(4);
+        expect(plan.contractLimits?.evalMicros).toBe(40);
+        expect(plan.contractLimits?.fundedMinis).toBeNull();
+        expect(plan.contractLimits?.fundedMicros).toBeNull();
     });
 });
