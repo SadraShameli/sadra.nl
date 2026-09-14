@@ -12,6 +12,7 @@ export enum ApexVariant {
 }
 
 export enum FundedNextVariant {
+    Flex = 'flex',
     Legacy = 'legacy',
     RapidDaily = 'rapid-daily',
     RapidPro = 'rapid-pro',

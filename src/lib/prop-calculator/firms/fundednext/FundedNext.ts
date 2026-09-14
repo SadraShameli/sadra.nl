@@ -1,6 +1,8 @@
 import {
     ConsistencyRule,
     ConsistencyScope,
+    ContractLimitKind,
+    contracts,
     DailyLossLimitKind,
     dollars,
     EodTrailingDrawdown,
@@ -29,10 +31,38 @@ const LEGACY_BENCHMARK_DAY_MILESTONE = 30;
 const LEGACY_BEFORE_MILESTONE_SHARE_CAP = fraction(0.5);
 const INACTIVITY_CLOSURE_DAYS = 30;
 
+function contractLimitsOf(evalContracts: number, fundedContracts: number) {
+    return {
+        evalMicros: contracts(evalContracts * 10),
+        evalMinis: contracts(evalContracts),
+        fundedMicros: {
+            kind: ContractLimitKind.Flat as const,
+            maxContracts: contracts(fundedContracts * 10),
+        },
+        fundedMinis: {
+            kind: ContractLimitKind.Flat as const,
+            maxContracts: contracts(fundedContracts),
+        },
+    };
+}
+
+const FLEX_SIZES = [
+    {
+        accountSize: dollars(50_000),
+        contractLimits: contractLimitsOf(3, 3),
+        evalCost: 69.99,
+        maxDrawdown: dollars(1500),
+        payoutRequestCap: dollars(1500),
+        profitTarget: dollars(2500),
+        resetFee: 77.99,
+    },
+] as const;
+
 const LEGACY_SIZES = [
     {
         accountSize: dollars(50_000),
         beforeMilestoneRequestCap: dollars(6000),
+        contractLimits: contractLimitsOf(3, 5),
         evalCost: 199.99,
         maxDrawdown: dollars(2000),
         profitTarget: dollars(3000),
@@ -43,6 +73,7 @@ const LEGACY_SIZES = [
 const RAPID_PRO_SIZES = [
     {
         accountSize: dollars(50_000),
+        contractLimits: contractLimitsOf(4, 4),
         evalCost: 169.99,
         maxDrawdown: dollars(2000),
         profitTarget: dollars(3000),
@@ -60,6 +91,7 @@ const RAPID_DAILY_SIZES = [
     },
 ] as const;
 
+type FunctionFlexSize = (typeof FLEX_SIZES)[number];
 type FunctionLegacySize = (typeof LEGACY_SIZES)[number];
 type FunctionRapidDailySize = (typeof RAPID_DAILY_SIZES)[number];
 type FunctionRapidProSize = (typeof RAPID_PRO_SIZES)[number];
@@ -74,8 +106,11 @@ export class FundedNext extends TradingFirm {
         'The $169.99/$199.99 eval fees and $174.99/$183.99/$189.99 reset fees modeled here are both live-confirmed exact matches to the current pricing table (helpfutures.fundednext.com/en/articles/15053874 and .../14260538). Reset fees for Rapid Pro/Daily are higher than their own eval fee because the reset fee is a discount off the undiscounted list price ($299.98), while the modeled eval fee is the current promotional/offer price ($169.99) -- both are independently correct published figures, not a computed relationship, so no bug there.',
         "Rapid Daily's minPayoutProfit was previously $500 with no live source, and was dead: payoutBuffer already forces the first-payout floor up to accountSize + maxDrawdown + $100 (the live-verified $52,100 level at 50K), so any cycle profit under ~$2,100 was denied by the buffer long before the $500 profit gate could matter. helpfutures.fundednext.com/en/articles/15878210 states the real rule is '$500 profit in the current cycle above the buffer', i.e. buffer delta + $500 = $2,600. minPayoutProfit corrected to size.maxDrawdown + RAPID_DAILY_BUFFER_OFFSET + RAPID_DAILY_CYCLE_MIN_PROFIT so it is the true, binding first-payout number instead of a dead placeholder; minPayoutProfitPerCycle is unchanged since it already binds correctly for cycle 2+ once the floor locks.",
         "Rapid Pro's minDaysAfterPassForPayout was 0, collapsing it onto Rapid Daily's (correctly 0, live-confirmed 'Minimum Trading Days: Not required' at helpfutures.fundednext.com/en/articles/15878210). But helpfutures.fundednext.com/en/articles/15878126 ('Rapid Pro rewards can be withdrawn every 3 days') and the Rapid Pro vs Rapid Daily comparison article 15877643 ('Rewards | Every 3 Days | Daily') both confirm Rapid Pro has its own distinct 3-day payout cadence. Corrected to 3. Whether the firm's '3 days' means calendar days or qualifying/trading days is not stated in either source; mapped onto qualifying days by analogy to every other firm's use of this field (MyFundedFutures Pro=10, RapidEod=1), consistent with the mechanism minDaysAfterPassForPayout already uses.",
+        "Legacy and Rapid Pro contract limits (3 minis/30 micros eval and 5 minis/50 micros funded for Legacy; 4 minis/40 micros both phases for Rapid Pro) are live-confirmed directly from fundednext.com's own pricing/checkout page (the Challenge Rules and Funded & Reward Rules tables, fetched 2026-09-14). Rapid Daily's equivalent contract-limit figures were not visible on the same page pass and are left unset rather than guessed.",
+        "Flex is a fourth FundedNext Futures product (Most Affordable Flex Challenge, 95% reward share, the highest split of any plan modeled in this codebase) that was previously entirely unmodeled. Added from the same live pricing page: $50K account, $2,500 profit target, $1,500 EOD-trailing drawdown, 40% eval consistency, no eval or funded daily loss limit, $69.99 eval fee, $77.99 reset fee, 3 minis/30 micros contract limit both phases, rewards every 5 days, $1,500 maximum withdrawal (modeled as payoutRequestCap), 95% trader share. The page did not state the funded drawdown's lock trigger/offset, so it is modeled with the same $100-offset pattern used by Rapid Pro/Rapid Daily (RAPID_LOCK_OFFSET) rather than Legacy's zero-offset breakeven lock, since Flex's own marketing tagline (unlike Legacy's explicit 'No Buffer Required') does not claim a zero-buffer lock -- an inference, not a confirmed figure. minPayoutProfit, minPayoutProfitPerCycle, and minPayoutRequest were not stated on the pricing page either and are left unset (defaulting to $0, an honest 'not confirmed' rather than a guessed number) pending a dedicated Flex payout-rules article. payoutFloorEffect is set to LockAtPlanFloor by analogy to the same real gap already found and fixed for Legacy and Rapid Pro this session (a first payout reachable before the natural drawdown lock fires) -- not independently re-confirmed for Flex specifically.",
     ];
     readonly plans = [
+        ...FLEX_SIZES.map((s) => this.buildPlan(buildFlexPlan(s))),
         ...LEGACY_SIZES.map((s) => this.buildPlan(buildLegacyPlan(s))),
         ...RAPID_PRO_SIZES.map((s) => this.buildPlan(buildRapidProPlan(s))),
         ...RAPID_DAILY_SIZES.map((s) => this.buildPlan(buildRapidDailyPlan(s))),
@@ -85,10 +120,49 @@ export class FundedNext extends TradingFirm {
 
 const MAX_FUNDED_ACCOUNTS = 5;
 
+function buildFlexPlan(size: FunctionFlexSize): PlanInit {
+    return {
+        accountSize: size.accountSize,
+        consistency: new ConsistencyRule(ConsistencyScope.Eval, fraction(0.4)),
+        contractLimits: size.contractLimits,
+        drawdown: new EodTrailingDrawdown({
+            amount: size.maxDrawdown,
+            lock: {
+                atProfit: dollars(size.maxDrawdown + RAPID_LOCK_OFFSET),
+                lockedThreshold: lockThresholdAt(RAPID_LOCK_OFFSET),
+            },
+        }),
+        evalDailyLossLimit: { kind: DailyLossLimitKind.None },
+        fees: {
+            activation: dollars(0),
+            monthlySubscription: dollars(0),
+            oneTimeEval: dollars(size.evalCost),
+            reset: dollars(size.resetFee),
+        },
+        id: {
+            accountSize: 50_000,
+            firm: FirmId.FundedNext,
+            variant: FundedNextVariant.Flex,
+        },
+        label: planLabel(size.accountSize, 'Flex'),
+        maxConsecutiveIdleDays: INACTIVITY_CLOSURE_DAYS,
+        maxFundedAccounts: MAX_FUNDED_ACCOUNTS,
+        minDaysAfterPassForPayout: 5,
+        minTradingDays: 0,
+        payoutFloorEffect: PayoutFloorEffect.LockAtPlanFloor,
+        payoutRequestCap: size.payoutRequestCap,
+        payoutTiers: [
+            { thresholdProfit: dollars(0), traderShare: fraction(0.95) },
+        ],
+        profitTarget: size.profitTarget,
+    };
+}
+
 function buildLegacyPlan(size: FunctionLegacySize): PlanInit {
     return {
         accountSize: size.accountSize,
         consistency: new ConsistencyRule(ConsistencyScope.Eval, fraction(0.4)),
+        contractLimits: size.contractLimits,
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
@@ -192,6 +266,7 @@ function buildRapidProPlan(size: FunctionRapidProSize): PlanInit {
             ConsistencyScope.Funded,
             fraction(0.4),
         ),
+        contractLimits: size.contractLimits,
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
