@@ -599,7 +599,7 @@ function selectDailyState(cycleProfit: number, priorProfit: number) {
     return { plan, state, tracker };
 }
 
-describe('Tradeify Select Daily: 2x-fresh-profit payout mechanism (help.tradeify.co, corroborated via secondary sources)', () => {
+describe("Tradeify Select Daily: 2x-fresh-profit payout mechanism (hard cap confirmed at $1,000 via a scripted propfirmmatch.com panel extraction cross-checked against Tradeify's own Overview tab, 2026-09-14)", () => {
     it('withdraws 2x cycle profit when that binds tighter than the hard cap', () => {
         const plan = selectDaily();
         expect(plan.payoutProfitShare).toBe(2);
@@ -630,12 +630,12 @@ describe('Tradeify Select Daily: 2x-fresh-profit payout mechanism (help.tradeify
         });
 
         expect(payout?.debited).toBe(plan.payoutRequestCap);
-        expect(payout?.debited).toBe(1250);
+        expect(payout?.debited).toBe(1000);
     });
 
     it('never allows a payout below the required starting-balance buffer', () => {
         const { plan, state, tracker } = selectDailyState(300, 0);
-        expect(plan.payoutRequestCap).toBe(1250);
+        expect(plan.payoutRequestCap).toBe(1000);
 
         const payout = tryFundedPayout({
             maxPayouts: Infinity,

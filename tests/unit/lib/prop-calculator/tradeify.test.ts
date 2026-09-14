@@ -50,9 +50,9 @@ describe('Tradeify Lightning: eval-phase DLL matches the live product (no separa
     });
 });
 
-describe('Tradeify Lightning: payout cadence matches the live-published "Payout Frequency: 5 Days"', () => {
-    it('requires 5 qualifying days between payouts, not 0', () => {
-        expect(lightningPlan().minDaysAfterPassForPayout).toBe(5);
+describe('Tradeify Lightning: payout cadence is goal-based, not day-based (Tradeify\'s own detail panel: "Not Fixed (Payout Profit Goals are the profits required between payout requests.)", "No minimum trading days required")', () => {
+    it('requires 0 qualifying days between payouts, correcting an earlier reading of a live "5 Days" figure that turned out to belong elsewhere', () => {
+        expect(lightningPlan().minDaysAfterPassForPayout).toBe(0);
     });
 });
 

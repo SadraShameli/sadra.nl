@@ -90,8 +90,13 @@ export class Tradeify extends TradingFirm {
     readonly id = FirmId.Tradeify;
     readonly notes = [
         'Select Daily funded payouts can be requested up to 2x the fresh profit earned since the prior payout, not a flat percentage of profit like Select Flex. That multiplier is payoutProfitShare; the hard per-account dollar ceiling is payoutRequestCap; the required balance buffer above starting balance is payoutBuffer.',
-        "Select Daily's payoutRequestCap ($1,250) and payoutBuffer offset are this codebase's existing values; secondary sources (help.tradeify.co was unreachable this session) suggest the hard cap may actually be $1,000 for a 50K account. Flagged, not changed, pending primary-source access.",
+        "Select Daily's payoutRequestCap was $1,250, flagged in an earlier pass as possibly $1,000 pending primary-source access. A scripted, panel-based extraction of propfirmmatch.com (2026-09-14), cross-checked directly against Tradeify's own Overview tab Payout Policy table, confirms $1,000 -- corrected.",
+        "Select Flex's payoutRequestCap was $2,500; the same 2026-09-14 extraction confirms $3,000 ('up to 50% of total profit... capped at $3,000 per payout for a 50K account'), matching Tradeify's own Overview tab exactly. Corrected.",
+        "Lightning's minDaysAfterPassForPayout was 5; Tradeify's own detail panel states payouts are 'Not Fixed (Payout Profit Goals are the profits required between payout requests)' with 'No minimum trading days required' -- corrected to 0.",
         "Lightning's minPayoutRequest is set explicitly to match its own payoutLadder.minRequestAmount ($1,000). Left unset, it would silently inherit minPayoutProfit's unrelated value instead, the same fallback-chain bug shape confirmed and fixed for Take Profit Trader.",
+        "All four plans' funded accounts require at least one trade per calendar week (Monday-Friday), per Tradeify's own Overview tab Firm Rules ('Maximum Account Idle Time (Funded Accounts)'), previously unmodeled (maxConsecutiveIdleDays was unset firm-wide). Set to 7 for all four plans, matching the same mechanism used elsewhere in this codebase; the live rule is framed as funded-stage only, but this field has no eval/funded split and is inert during eval at the default idleDayProbability of 0, the same accepted limitation already documented for Apex.",
+        "Select's evaluation-phase 40% consistency rule can be paid-upgraded to a looser 50% limit (with a 2-day minimum pass period) for an extra fee that scales by account size (+$40 at 50K), confirmed on Tradeify's own Overview tab but not modeled -- a purchasable rule-variant choice, not a price discount, the same judgement call already made for Lucid's DLL toggle and MyFundedFutures' Flex DLL add-on.",
+        "Select Daily and Select Flex may be the same underlying evaluation product previewed under two different post-pass payout tracks rather than two genuinely separate purchasable challenges -- both are priced identically ($165 list) with an identical reset fee ($109), and Tradeify's own Overview tab states 'You do NOT choose your payout policy until after you pass the evaluation.' Modeled here as two independently simulatable plan variants (a trader picks which payout track to assume in advance for simulation purposes), not as two separate purchases a trader would make simultaneously.",
     ];
     readonly plans = [
         ...GROWTH_SIZES.map((s) => this.buildPlan(buildGrowthPlan(s))),
@@ -103,6 +108,7 @@ export class Tradeify extends TradingFirm {
 }
 
 const MAX_FUNDED_ACCOUNTS = 5;
+const INACTIVITY_CLOSURE_DAYS = 7;
 
 function buildGrowthPlan(size: TradeifyGrowthSize): PlanInit {
     const profitTarget = dollars(size.accountSize * PROFIT_TARGET_RATIO);
@@ -138,6 +144,7 @@ function buildGrowthPlan(size: TradeifyGrowthSize): PlanInit {
             variant: TradeifyVariant.Growth,
         },
         label: planLabel(size.accountSize, 'Growth'),
+        maxConsecutiveIdleDays: INACTIVITY_CLOSURE_DAYS,
         maxFundedAccounts: MAX_FUNDED_ACCOUNTS,
         minDaysAfterPassForPayout: 5,
         minPayoutProfit: size.minPayoutProfit,
@@ -189,8 +196,9 @@ function buildLightningPlan(size: TradeifyLightningSize): PlanInit {
         },
         isInstantFunded: true,
         label: planLabel(size.accountSize, 'Lightning Funded'),
+        maxConsecutiveIdleDays: INACTIVITY_CLOSURE_DAYS,
         maxFundedAccounts: MAX_FUNDED_ACCOUNTS,
-        minDaysAfterPassForPayout: 5,
+        minDaysAfterPassForPayout: 0,
         minPayoutProfit: size.minPayoutProfit,
         minPayoutProfitPerCycle: dollars(2000),
         minPayoutRequest: dollars(1000),
@@ -239,6 +247,7 @@ function buildSelectDailyPlan(size: TradeifySelectSize): PlanInit {
             variant: TradeifyVariant.SelectDaily,
         },
         label: planLabel(size.accountSize, 'Select Daily'),
+        maxConsecutiveIdleDays: INACTIVITY_CLOSURE_DAYS,
         maxFundedAccounts: MAX_FUNDED_ACCOUNTS,
         minDaysAfterPassForPayout: 0,
         minPayoutProfit: dollars(0.01),
@@ -248,7 +257,7 @@ function buildSelectDailyPlan(size: TradeifySelectSize): PlanInit {
         payoutBuffer: new PayoutBuffer(dollars(LOCK_OFFSET)),
         payoutFloorEffect: PayoutFloorEffect.LockAtPlanFloor,
         payoutProfitShare: profitShareMultiplier(2),
-        payoutRequestCap: dollars(1250),
+        payoutRequestCap: dollars(1000),
         payoutTiers: [
             { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
         ],
@@ -283,6 +292,7 @@ function buildSelectFlexPlan(size: TradeifySelectSize): PlanInit {
             variant: TradeifyVariant.SelectFlex,
         },
         label: planLabel(size.accountSize, 'Select Flex'),
+        maxConsecutiveIdleDays: INACTIVITY_CLOSURE_DAYS,
         maxFundedAccounts: MAX_FUNDED_ACCOUNTS,
         minDaysAfterPassForPayout: 5,
         minPayoutProfit: dollars(0.01),
@@ -292,7 +302,7 @@ function buildSelectFlexPlan(size: TradeifySelectSize): PlanInit {
         minTradingDays: 3,
         payoutFloorEffect: PayoutFloorEffect.LockAtPlanFloor,
         payoutProfitShare: profitShareMultiplier(0.5),
-        payoutRequestCap: dollars(2500),
+        payoutRequestCap: dollars(3000),
         payoutTiers: [
             { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
         ],
