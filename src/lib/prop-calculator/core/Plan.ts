@@ -60,6 +60,7 @@ export interface PlanInit {
     maxFundedAccounts: number;
     maxLifetimePayouts?: number;
     minDaysAfterPassForPayout?: number;
+    minDaysAfterPassForPayoutPerCycle?: number;
     minPayoutProfit?: Dollars;
     minPayoutProfitPerCycle?: Dollars;
     minPayoutRequest?: Dollars;
@@ -109,6 +110,8 @@ export abstract class Plan {
     readonly maxLifetimePayouts: null | number;
 
     readonly minDaysAfterPassForPayout: number;
+
+    readonly minDaysAfterPassForPayoutPerCycle: null | number;
 
     readonly minPayoutProfit: Dollars;
 
@@ -180,6 +183,8 @@ export abstract class Plan {
         this.maxEvalTradingDays = init.maxEvalTradingDays ?? null;
         this.maxLifetimePayouts = init.maxLifetimePayouts ?? null;
         this.minDaysAfterPassForPayout = init.minDaysAfterPassForPayout ?? 0;
+        this.minDaysAfterPassForPayoutPerCycle =
+            init.minDaysAfterPassForPayoutPerCycle ?? null;
         this.minPayoutProfit = init.minPayoutProfit ?? dollars(0);
         this.minPayoutProfitPerCycle = init.minPayoutProfitPerCycle ?? null;
         this.minPayoutRequest = init.minPayoutRequest ?? dollars(0);

@@ -193,7 +193,7 @@ describe("LucidFlex funded contract limit scales with simulated profit, unlike t
     });
 });
 
-describe('LucidPro/LucidFlex purchasable Daily Loss Limit toggle (live-verified 2026-09-14 via lucidtrading.com checkout/rules pages, and re-confirmed via a real checkout receipt: OFF or ON at $1,200, identically priced otherwise)', () => {
+describe("LucidPro/LucidFlex purchasable Daily Loss Limit toggle (live-verified 2026-09-14 via lucidtrading.com checkout/rules pages: OFF or ON at $1,200; turning DLL OFF costs $20 more on Pro and $10 more on Flex, per lucidtrading.com's own pricing-engine config)", () => {
     const proNoDll = lucidPlan(LucidVariant.ProNoDll);
     const flexDll = lucidPlan(LucidVariant.FlexDll);
 
@@ -227,8 +227,9 @@ describe('LucidPro/LucidFlex purchasable Daily Loss Limit toggle (live-verified 
         ).toBe(2400);
     });
 
-    it('ProNoDll is priced identically to Pro and shares every other rule', () => {
-        expect(proNoDll.fees.oneTimeEval).toBe(pro.fees.oneTimeEval);
+    it('ProNoDll (DLL off) costs $20 more than Pro (DLL on) but shares every other rule', () => {
+        expect(pro.fees.oneTimeEval).toBe(172);
+        expect(proNoDll.fees.oneTimeEval).toBe(192);
         expect(proNoDll.fees.reset).toBe(pro.fees.reset);
         expect(proNoDll.profitTarget).toBe(pro.profitTarget);
         expect(proNoDll.drawdown.amount).toBe(pro.drawdown.amount);
@@ -253,8 +254,9 @@ describe('LucidPro/LucidFlex purchasable Daily Loss Limit toggle (live-verified 
         ).toStrictEqual({ amount: 1200, kind: DailyLossLimitShape.Fixed });
     });
 
-    it('FlexDll is priced identically to Flex and shares every other rule', () => {
-        expect(flexDll.fees.oneTimeEval).toBe(flex.fees.oneTimeEval);
+    it('FlexDll (DLL on) costs $10 less than Flex (DLL off) but shares every other rule', () => {
+        expect(flexDll.fees.oneTimeEval).toBe(136);
+        expect(flex.fees.oneTimeEval).toBe(146);
         expect(flexDll.fees.reset).toBe(flex.fees.reset);
         expect(flexDll.profitTarget).toBe(flex.profitTarget);
         expect(flexDll.drawdown.amount).toBe(flex.drawdown.amount);

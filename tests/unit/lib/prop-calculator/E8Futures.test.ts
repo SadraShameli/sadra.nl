@@ -2,9 +2,14 @@ import { describe, expect, it } from 'vitest';
 
 import {
     ConsistencyScope,
+    ContractLimitKind,
     DrawdownKind,
     FirmId,
 } from '~/lib/prop-calculator/core';
+import {
+    newFundedCycleTracker,
+    tryFundedPayout,
+} from '~/lib/prop-calculator/core/FundedPayoutCycle';
 import { TradingPhase } from '~/lib/prop-calculator/core/TradingPhase';
 import { ALL_FIRMS, findFirm } from '~/lib/prop-calculator/firms';
 import { E8Futures } from '~/lib/prop-calculator/firms/e8futures/E8Futures';
@@ -75,6 +80,80 @@ describe('E8 Futures Signature 50K', () => {
             expect(plan.maxLifetimePayouts).toBe(5);
             expect(plan.isAccountConcluded(4)).toBe(false);
             expect(plan.isAccountConcluded(5)).toBe(true);
+        },
+    );
+
+    it("caps contracts flat at 4, both eval and funded (live-verified 2026-09-14 against helpfutures.e8markets.com's 'Max. available Contract Sizes')", () => {
+        expect(plan.contractLimits?.evalMinis).toBe(4);
+        expect(plan.contractLimits?.evalMicros).toBe(4);
+        const funded = plan.contractLimits?.fundedMinis;
+        if (funded?.kind !== ContractLimitKind.Flat) {
+            throw new Error('expected a flat funded contract limit');
+        }
+        expect(funded.maxContracts).toBe(4);
+    });
+
+    it(
+        'requires 3 profitable days ($150+/0.3%) for the first payout but 5 for every payout after ' +
+            "(live-verified 2026-09-14 against helpfutures.e8markets.com's 'E8 Signature Futures' article)",
+        () => {
+            expect(plan.minDaysAfterPassForPayout).toBe(3);
+            expect(plan.minDaysAfterPassForPayoutPerCycle).toBe(5);
+            expect(plan.minQualifyingDayProfit).toBe(150);
+
+            const state = plan.initialState();
+            state.threshold = state.startingBalance;
+            state.thresholdLocked = true;
+            const tracker = newFundedCycleTracker(state);
+            state.balance = state.startingBalance + 10_000;
+
+            state.qualifyingDays = 2;
+            expect(
+                tryFundedPayout({
+                    maxPayouts: Infinity,
+                    minRetainedCushion: 0,
+                    payoutRequestSize: undefined,
+                    plan,
+                    state,
+                    tracker,
+                }),
+            ).toBeNull();
+
+            state.qualifyingDays = 3;
+            const firstPayout = tryFundedPayout({
+                maxPayouts: Infinity,
+                minRetainedCushion: 0,
+                payoutRequestSize: undefined,
+                plan,
+                state,
+                tracker,
+            });
+            expect(firstPayout).not.toBeNull();
+            expect(tracker.payoutsIssued).toBe(1);
+
+            state.balance += 3000;
+            state.qualifyingDays += 3;
+            expect(
+                tryFundedPayout({
+                    maxPayouts: Infinity,
+                    minRetainedCushion: 0,
+                    payoutRequestSize: undefined,
+                    plan,
+                    state,
+                    tracker,
+                }),
+            ).toBeNull();
+
+            state.qualifyingDays += 2;
+            const secondPayout = tryFundedPayout({
+                maxPayouts: Infinity,
+                minRetainedCushion: 0,
+                payoutRequestSize: undefined,
+                plan,
+                state,
+                tracker,
+            });
+            expect(secondPayout).not.toBeNull();
         },
     );
 

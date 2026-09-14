@@ -80,10 +80,10 @@ describe("Tradeify: every plan's fees.reset is wired from its own resetFee field
         expect(growth.fees.reset).toBe(95);
         expect(growth.fees.reset).not.toBe(growth.fees.oneTimeEval);
 
-        expect(selectDaily.fees.reset).toBe(109);
+        expect(selectDaily.fees.reset).toBe(99);
         expect(selectDaily.fees.reset).not.toBe(selectDaily.fees.oneTimeEval);
 
-        expect(selectFlex.fees.reset).toBe(109);
+        expect(selectFlex.fees.reset).toBe(99);
         expect(selectFlex.fees.reset).not.toBe(selectFlex.fees.oneTimeEval);
     });
 

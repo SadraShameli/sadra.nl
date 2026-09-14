@@ -55,9 +55,14 @@ export class FundedCycleTracker {
             this.payoutsIssued === 0
                 ? plan.minPayoutProfit
                 : (plan.minPayoutProfitPerCycle ?? dollars(0));
+        const requiredQualifyingDays =
+            this.payoutsIssued === 0
+                ? plan.minDaysAfterPassForPayout
+                : (plan.minDaysAfterPassForPayoutPerCycle ??
+                  plan.minDaysAfterPassForPayout);
         const hasQualifyingDays =
             state.qualifyingDays - this.qualifyingDaysAtLastPayout >=
-            plan.minDaysAfterPassForPayout;
+            requiredQualifyingDays;
         const fundedConsistency = plan.fundedConsistencyRule(
             this.payoutsIssued,
         );
