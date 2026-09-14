@@ -92,6 +92,12 @@ export {
 } from './PayoutCap';
 export { PayoutFloorEffect } from './PayoutFloorEffect';
 export {
+    type DaysSinceFundedShareTier,
+    DaysSinceFundedTieredPayoutShare,
+    type PayoutShareContext,
+    type PayoutShareStrategy,
+} from './PayoutShare';
+export {
     type PayoutLadder,
     type PayoutTier,
     walkPayoutTiers,

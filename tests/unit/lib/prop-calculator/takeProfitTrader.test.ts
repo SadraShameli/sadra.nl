@@ -35,13 +35,23 @@ describe('Take Profit Trader 50K', () => {
         expect(plan.fundedConsistencyRule()).toBeNull();
     });
 
-    it('pays 80% with no qualifying-day requirement and no payout cap', () => {
-        expect(plan.payoutTiers[0]?.traderShare).toBe(0.8);
+    it('has no qualifying-day requirement and no payout cap', () => {
         expect(plan.minDaysAfterPassForPayout).toBe(0);
         expect(plan.minQualifyingDayProfit).toBeNull();
         expect(plan.payoutRequestCap).toBeNull();
         expect(plan.payoutBuffer).toBeNull();
     });
+
+    it(
+        'pays a 50%/80% profit share tiered by calendar days since funded, not a flat 80% ' +
+            "(takeprofittrader.com's 'Buffer Zone Profit Share': 50% for the first 60 days, 80% after)",
+        () => {
+            expect(plan.payoutFromProfit(1000, 0)).toBe(500);
+            expect(plan.payoutFromProfit(1000, 60)).toBe(500);
+            expect(plan.payoutFromProfit(1000, 61)).toBe(800);
+            expect(plan.payoutFromProfit(1000, 200)).toBe(800);
+        },
+    );
 
     it('charges the subscription only while the evaluation runs', () => {
         expect(plan.fees.monthlySubscription).toBe(170);

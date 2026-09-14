@@ -20,6 +20,7 @@ import {
 import { type PayoutBuffer } from './PayoutBuffer';
 import { type PayoutCapRegime, type PayoutCapStrategy } from './PayoutCap';
 import { PayoutFloorEffect } from './PayoutFloorEffect';
+import { type PayoutShareStrategy } from './PayoutShare';
 import {
     type PayoutLadder,
     type PayoutTier,
@@ -73,6 +74,7 @@ export interface PlanInit {
     payoutMethodFee?: Dollars;
     payoutProfitShare?: ProfitShareMultiplier;
     payoutRequestCap?: Dollars;
+    payoutShareOverride?: PayoutShareStrategy;
     payoutTiers: readonly PayoutTier[];
     profitTarget: Dollars;
 }
@@ -135,6 +137,8 @@ export abstract class Plan {
     readonly payoutProfitShare: null | ProfitShareMultiplier;
 
     readonly payoutRequestCap: Dollars | null;
+
+    readonly payoutShareOverride: null | PayoutShareStrategy;
 
     readonly payoutTiers: readonly PayoutTier[];
 
@@ -240,6 +244,7 @@ export abstract class Plan {
                 `${this.label}: minPayoutRequest (${this.minPayoutRequest}) exceeds payoutRequestCap (${this.payoutRequestCap})`,
             );
         }
+        this.payoutShareOverride = init.payoutShareOverride ?? null;
         this.payoutTiers = init.payoutTiers;
         if (this.payoutTiers.length === 0) {
             throw new Error(`${this.label}: payoutTiers must not be empty`);
@@ -386,8 +391,12 @@ export abstract class Plan {
         );
     }
 
-    payoutFromProfit(fundedProfit: number): number {
-        const gross = walkPayoutTiers(this.init.payoutTiers, fundedProfit);
+    payoutFromProfit(fundedProfit: number, daysSinceFunded = 0): number {
+        const tiers =
+            this.payoutShareOverride === null
+                ? this.init.payoutTiers
+                : this.payoutShareOverride.resolve({ daysSinceFunded });
+        const gross = walkPayoutTiers(tiers, fundedProfit);
         return Math.max(0, gross - this.payoutMethodFee);
     }
 
