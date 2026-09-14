@@ -19,9 +19,15 @@ export enum FundedNextVariant {
 }
 
 export enum LucidVariant {
+    DailyEod = 'daily-eod',
+    DailyEodDll = 'daily-eod-dll',
+    DailyIntraday = 'daily-intraday',
+    DailyIntradayDll = 'daily-intraday-dll',
     Direct = 'direct',
     Flex = 'flex',
+    FlexDll = 'flex-dll',
     Pro = 'pro',
+    ProNoDll = 'pro-no-dll',
 }
 
 export enum MffuVariant {
@@ -86,6 +92,7 @@ export type PlanId =
           readonly firm: FirmId.Tradeify;
           readonly variant: TradeifyVariant;
       };
+
 type AlphaFuturesAccountSize = 50_000;
 type ApexAccountSize = 50_000;
 type E8FuturesAccountSize = 50_000;
