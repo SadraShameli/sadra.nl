@@ -37,7 +37,8 @@ const CONTRACT_LIMITS: ContractLimits = {
 
 interface LucidDailySize {
     readonly accountSize: Dollars;
-    readonly evalCost: number;
+    readonly evalCostDll: number;
+    readonly evalCostNoDll: number;
     readonly maxDrawdown: Dollars;
     readonly resetFee: number;
 }
@@ -64,7 +65,8 @@ function scalingDllAfterTrail(fixedDll: Dollars | null): DailyLossLimitConfig {
 const DAILY_EOD_SIZES: readonly LucidDailySize[] = [
     {
         accountSize: dollars(50_000),
-        evalCost: 165,
+        evalCostDll: 165,
+        evalCostNoDll: 185,
         maxDrawdown: dollars(2000),
         resetFee: 115,
     },
@@ -73,11 +75,31 @@ const DAILY_EOD_SIZES: readonly LucidDailySize[] = [
 const DAILY_INTRADAY_SIZES: readonly LucidDailySize[] = [
     {
         accountSize: dollars(50_000),
-        evalCost: 136,
+        evalCostDll: 136,
+        evalCostNoDll: 156,
         maxDrawdown: dollars(2000),
         resetFee: 95,
     },
 ];
+
+const FLEX_FUNDED_CONTRACT_LIMITS = {
+    fundedMicros: {
+        kind: ContractLimitKind.Tiered,
+        tiers: [
+            { maxContracts: contracts(20), minBalance: dollars(0) },
+            { maxContracts: contracts(30), minBalance: dollars(1000) },
+            { maxContracts: contracts(40), minBalance: dollars(2000) },
+        ],
+    },
+    fundedMinis: {
+        kind: ContractLimitKind.Tiered,
+        tiers: [
+            { maxContracts: contracts(2), minBalance: dollars(0) },
+            { maxContracts: contracts(3), minBalance: dollars(1000) },
+            { maxContracts: contracts(4), minBalance: dollars(2000) },
+        ],
+    },
+} as const;
 
 const FLEX_SIZES = [
     {
@@ -114,12 +136,13 @@ export class LucidTrading extends TradingFirm {
         "support.lucidtrading.com's Inactivity Policy article states accounts across LucidPro, LucidFlex, and LucidDirect are deemed abandoned and permanently deleted after 30 calendar days with no trade resulting in at least $1 of net profit or loss. This was previously unmodeled for all three Lucid plans (maxConsecutiveIdleDays was left unset); now set to 30 for all three, matching the mechanism already used for E8 Futures/MyFundedFutures/FundedNext/TopStep.",
         "LucidPro's minDaysAfterPassForPayout was 0; live-verified 2026-09-14 via lucidtrading.com's own checkout/rules pages, whose Funded Rules panel lists 'Days to Payout: 3' as its own field, distinct from the $500 Payout Profit Target. Corrected to 3, the same payout-cadence-never-wired bug shape already found and fixed for FundedNext Rapid Pro this session.",
         "Both LucidPro and LucidFlex's eval checkout offer a purchasable Daily Loss Limit toggle, live-verified 2026-09-14 via lucidtrading.com's own checkout/rules pages: OFF (no DLL) or ON at $1,200. Modeled as two independently selectable plan variants per size (LucidVariant.Pro/ProNoDll, LucidVariant.FlexDll/Flex) rather than a note, since both configurations are real, purchasable products, not a cosmetic checkout option. Pro's funded rules page shows the $1,200 pre-lock DLL paired with a 'LucidScale DLL' of 60% of peak EOD balance once the drawdown floor locks, and the OFF variant's funded rules page shows the identical 60%-of-peak row with only the pre-lock DLL itself replaced by NONE -- both LucidVariant.Pro and LucidVariant.ProNoDll therefore share the same scalingDllAfterTrail post-lock mechanism, differing only in the pre-lock flat amount. Flex's funded rules page shows no equivalent post-lock scaling row for either DLL choice, so LucidVariant.FlexDll models a single flat $1,200 DLL for both eval and funded (inherited via the existing fundedDailyLossLimit ?? evalDailyLossLimit fallback), distinct from LucidVariant.Flex's no-DLL default.",
-        "The DLL toggle IS price-neutral at the list-price level, confirmed and re-confirmed: a real checkout receipt for LucidFlex 50K with DLL ON selected shows a subtotal of exactly $136.00 (the plan's base list price, no addon line item of any kind) plus a standing 30%-off coupon (-$40.80) plus a separate 'DLL ON Promo' discount of -$5.00, totaling $90.20 -- a discount for choosing DLL ON, not a surcharge for choosing it OFF. This directly overturned an earlier, wrong reading of a backend addon-fee API table (fields named 'no-dll'/'fee'/'promoDiscount') that had been (incorrectly) interpreted as 'removing the DLL costs an extra $10-20 addon fee,' briefly landing here as base+addon pricing before being reverted once the real checkout receipt contradicted it directly. evalCost/resetFee for every DLL/no-DLL pair (Pro 172/120, Flex 136/95, Daily EOD 165/115, Daily Intraday 136/95) are identical regardless of the DLL toggle, exactly as first modeled.",
+        "The DLL toggle is NOT price-neutral for LucidDaily, correcting an earlier note here that claimed uniform price parity: two independent third-party pricing tables (proptradingvibes.com, fundedprogramfinder.com) agree exactly on undiscounted list prices of $136 (Intraday, DLL on) vs $156 (Intraday, DLL off) and $165 (EOD, DLL on) vs $185 (EOD, DLL off) -- DLL-off costs $20 more at the 50K tier, not the same. Corrected: DailyIntraday/DailyIntradayDll and DailyEod/DailyEodDll now use these DLL-dependent eval prices; resetFee is left unchanged for both DLL states pending a source that actually breaks out a DLL-off reset price (none of the sources checked did). For Pro and Flex, the original checkout-receipt-based price-parity claim (a real LucidFlex DLL-ON receipt showing $136.00 list + a separate -$5 'DLL ON Promo' coupon, not a list-price change) still stands as directly observed evidence for the DLL-ON side, but a re-check found weaker, reverse-engineered signals (not a clean primary-source quote) suggesting Pro/Flex may have a similar DLL-off premium (~$10-20) -- flagged as suspected but not confirmed, so Pro's and Flex's evalCost/resetFee are deliberately left unchanged for both DLL states rather than acted on with only reverse-engineered evidence.",
+        "LucidFlex's funded contract limit is NOT flat 4 mini/40 micro like the other three plan families -- support.lucidtrading.com's dedicated 'LucidFlex Funded Account Scaling Plan' article (fetched directly, HTTP 200) documents a real profit-gated ramp for the 50K tier: 2 minis/20 micros at $0-999 simulated profit, 3/30 at $1,000-1,999, reaching the 4/40 ceiling only at $2,000+ profit. The article explicitly states eval has 'no scaling plan... full max contract size from your first trade,' so evalMinis/evalMicros stay flat at 4/40 as before -- only fundedMinis/fundedMicros changed, from Flat to Tiered (ContractLimitKind.Tiered, keyed on simulated profit via the same accountProfit-not-balance convention already used for TopStep's tiered contract limits). LucidPro/LucidDirect/LucidDaily's funded sides were not re-checked against an equivalent dedicated article in this pass and are left as flat 4/40, which may or may not also need the same correction.",
         "LucidPro's funded consistency rule was briefly changed to 35% based on lucidtrading.com's own backend plan-config API (fundConsistency: 0.35), which contradicted the 40% shown on the rendered LucidPro Funded Rules marketing page. Reverted back to 40% once a third, independent source -- propfirmmatch.com's own challenge-comparison table for LucidPro 50K, which states it verifies data 'from the firms themselves' -- also read 40%, not 35%. With two of three independent readings (the firm's own rendered page, and an independent third-party verifier) agreeing on 40% against a single internal JSON field, 40% is the better-supported value; the backend field likely reflects something other than the customer-facing consistency percentage, or is simply stale. Kept as its own note rather than silently folded into the original figure, since a genuine three-way source conflict and its resolution is exactly the kind of thing worth a future re-checker seeing.",
-        "All four Lucid plan families (Direct, Flex, Pro, Daily) show an identical 'Max Size: 4 Mini OR 40 Micro(s)' contract limit on both their eval and funded-rules pages, live-verified 2026-09-14 directly from lucidtrading.com's rendered plan-card markup. Previously unmodeled firm-wide (contractLimits was left unset on every Lucid plan, displaying as 'contracts not recorded' in this tool). Set identically (4 minis/40 micros, both eval and funded, no scaling by profit) across every plan and every DLL/drawdown variant.",
+        "All four Lucid plan families show an identical 4 mini/40 micro contract limit on the EVAL side, live-verified 2026-09-14 directly from lucidtrading.com's rendered plan-card markup. Previously unmodeled firm-wide (contractLimits was left unset on every Lucid plan). Set identically on the eval side (4 minis/40 micros) across every plan and every DLL/drawdown variant; the funded side is NOT uniform across all four plans -- see LucidFlex's own note above for its confirmed profit-gated scaling, which this plan-card-level reading missed.",
         "LucidDirect's minDaysAfterPassForPayout was 0; the same live plan-card markup that confirmed the contract limit above also lists 'Min Day to Payout: 5' as its own field. Corrected to 5, the same payout-cadence-never-wired bug shape already found and fixed for FundedNext Rapid Pro and LucidPro this session.",
-        "LucidDaily (50K), previously entirely unmodeled, added from live-read plan-card markup 2026-09-14: $3,000 target, $2,000 max loss, 50% eval-only consistency (explicit 'No Consistency in Funded'), a 'Daily Payouts' badge (modeled as minDaysAfterPassForPayout: 0, matching how FundedNext's own Rapid Daily plan is modeled in this codebase). Two independent checkout toggles, confirmed as separate button groups in the page markup: eval drawdown type (EOD or Intraday) and Daily Loss Limit (OFF or $1,200 ON, identical mechanism to Pro/Flex's toggle). Modeled as four independent plan variants (LucidVariant.DailyEod/DailyEodDll/DailyIntraday/DailyIntradayDll) rather than collapsing to one. Funded-side rules (payout split, payout ladder/cap, minPayoutProfit, funded minTradingDays) were not visible on the eval card fetched and are not independently confirmed for Daily; defaulted to this firm's own already-established, firm-wide figures (90% split, $500 min request, no explicit profit-per-cycle floor) by analogy rather than guessed at from nothing, and flagged here rather than presented as confirmed.",
-        "LucidDaily's EOD and Intraday drawdown-type variants are priced differently, not identically as first modeled: live-verified 2026-09-14 directly against lucidtrading.com's own pricing-config JSON (planCode LDE050/LDI050), EOD costs $165 eval / $115 reset, Intraday costs $136 eval / $95 reset -- the DLL toggle within each drawdown type does not change price, mirroring the already-confirmed price-invariant DLL toggle on Pro/Flex. The same pricing-config JSON independently confirmed LucidPro ($172/$120), LucidFlex ($136/$95), and LucidDirect ($515, no separate reset SKU) are all already correct in this file.",
+        "LucidDaily (50K), previously entirely unmodeled, added from live-read plan-card markup 2026-09-14: $3,000 target, $2,000 max loss, 50% eval-only consistency (explicit 'No Consistency in Funded'), a 'Daily Payouts' badge (modeled as minDaysAfterPassForPayout: 0, matching how FundedNext's own Rapid Daily plan is modeled in this codebase). Two independent checkout toggles, confirmed as separate button groups in the page markup: eval drawdown type (EOD or Intraday) and Daily Loss Limit (OFF or $1,200 ON, identical mechanism to Pro/Flex's toggle). Modeled as four independent plan variants (LucidVariant.DailyEod/DailyEodDll/DailyIntraday/DailyIntradayDll) rather than collapsing to one. Funded-side rules were originally defaulted by analogy rather than confirmed; support.lucidtrading.com's dedicated 'LucidDaily Payouts' article has since been read directly and confirms the 90% split, $0 minPayoutRequest floor of $500, no minimum trading-day count, and no per-request payout cap were all correct by analogy -- but the profit-per-cycle floor was not: the article states 'traders must have positive net profit (even just $1) between each payout request,' the same recurring-$0.01-per-cycle rule already modeled for LucidFlex, not the 'no explicit floor' this file originally guessed. Corrected: minPayoutProfit/minPayoutProfitPerCycle both set to $0.01. The same article also documents a buffer requirement previously missed entirely: 'the buffer is equal to: Initial Max Loss Limit + $100' ($52,100 required balance at the 50K tier) -- added as payoutBuffer: new PayoutBuffer(dollars(LOCK_OFFSET)), the same mechanism and offset already used for LucidPro.",
+        "LucidDaily's EOD and Intraday drawdown-type variants are priced differently, not identically as first modeled: live-verified 2026-09-14 directly against lucidtrading.com's own pricing-config JSON (planCode LDE050/LDI050), EOD costs $165 eval / $115 reset, Intraday costs $136 eval / $95 reset for the DLL-ON variants specifically -- see the DLL-toggle note above for the since-corrected DLL-OFF pricing ($185 EOD / $156 Intraday). The same pricing-config JSON independently confirmed LucidPro ($172/$120), LucidFlex ($136/$95), and LucidDirect ($515, no separate reset SKU) are all already correct in this file.",
     ];
     readonly plans = [
         ...DAILY_EOD_SIZES.flatMap((s) => [
@@ -173,7 +196,9 @@ function buildDailyPlan(
         fees: {
             activation: dollars(0),
             monthlySubscription: dollars(0),
-            oneTimeEval: dollars(size.evalCost),
+            oneTimeEval: dollars(
+                dailyLossLimit === null ? size.evalCostNoDll : size.evalCostDll,
+            ),
             reset: dollars(size.resetFee),
         },
         id: { accountSize: 50_000, firm: FirmId.Lucid, variant },
@@ -187,8 +212,11 @@ function buildDailyPlan(
         maxFundedAccounts: MAX_FUNDED_ACCOUNTS,
         maxLifetimePayouts: MAX_LIFETIME_PAYOUTS,
         minDaysAfterPassForPayout: 0,
+        minPayoutProfit: dollars(0.01),
+        minPayoutProfitPerCycle: dollars(0.01),
         minPayoutRequest: dollars(500),
         minTradingDays: 0,
+        payoutBuffer: new PayoutBuffer(dollars(LOCK_OFFSET)),
         payoutTiers: [
             { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
         ],
@@ -256,7 +284,11 @@ function buildFlexPlan(
     return {
         accountSize: size.accountSize,
         consistency: new ConsistencyRule(ConsistencyScope.Eval, fraction(0.5)),
-        contractLimits: CONTRACT_LIMITS,
+        contractLimits: {
+            evalMicros: CONTRACT_LIMITS.evalMicros,
+            evalMinis: CONTRACT_LIMITS.evalMinis,
+            ...FLEX_FUNDED_CONTRACT_LIMITS,
+        },
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {

@@ -8,7 +8,10 @@ import {
     DrawdownKind,
     FirmId,
     LucidVariant,
+    maxContractsAt,
+    resolveContractLimit,
     resolveDailyLossLimit,
+    TradingPhase,
 } from '~/lib/prop-calculator/core';
 import {
     newFundedCycleTracker,
@@ -140,6 +143,56 @@ describe("LucidFlex net-positive profit requirement applies to every cycle, firs
     });
 });
 
+describe("LucidFlex funded contract limit scales with simulated profit, unlike the other three plan families (support.lucidtrading.com 'LucidFlex Funded Account Scaling Plan')", () => {
+    it('stays flat at 4 mini / 40 micro during eval, matching every other Lucid plan', () => {
+        expect(flex.contractLimits?.evalMinis).toBe(4);
+        expect(flex.contractLimits?.evalMicros).toBe(40);
+    });
+
+    it('ramps 2 -> 3 -> 4 minis (and 20 -> 30 -> 40 micros) as funded simulated profit crosses $1,000 and $2,000', () => {
+        const funded = flex.contractLimits?.fundedMinis;
+        if (funded?.kind !== ContractLimitKind.Tiered) {
+            throw new Error(
+                'expected a tiered funded contract limit for LucidFlex',
+            );
+        }
+        expect(maxContractsAt(funded, 0)).toBe(2);
+        expect(maxContractsAt(funded, 999)).toBe(2);
+        expect(maxContractsAt(funded, 1000)).toBe(3);
+        expect(maxContractsAt(funded, 1999)).toBe(3);
+        expect(maxContractsAt(funded, 2000)).toBe(4);
+        expect(maxContractsAt(funded, 10_000)).toBe(4);
+
+        const fundedMicros = flex.contractLimits?.fundedMicros;
+        if (fundedMicros?.kind !== ContractLimitKind.Tiered) {
+            throw new Error(
+                'expected a tiered funded micro contract limit for LucidFlex',
+            );
+        }
+        expect(maxContractsAt(fundedMicros, 0)).toBe(20);
+        expect(maxContractsAt(fundedMicros, 2000)).toBe(40);
+    });
+
+    it('resolves via accountProfit (simulated profit), not raw balance, matching the TopStep tiered-limit convention', () => {
+        expect(
+            resolveContractLimit(
+                flex.contractLimits,
+                TradingPhase.Funded,
+                false,
+                1500,
+            ),
+        ).toBe(3);
+        expect(
+            resolveContractLimit(
+                flex.contractLimits,
+                TradingPhase.Eval,
+                false,
+                1500,
+            ),
+        ).toBe(4);
+    });
+});
+
 describe('LucidPro/LucidFlex purchasable Daily Loss Limit toggle (live-verified 2026-09-14 via lucidtrading.com checkout/rules pages, and re-confirmed via a real checkout receipt: OFF or ON at $1,200, identically priced otherwise)', () => {
     const proNoDll = lucidPlan(LucidVariant.ProNoDll);
     const flexDll = lucidPlan(LucidVariant.FlexDll);
@@ -244,16 +297,35 @@ describe('LucidDaily (live-verified 2026-09-14 from lucidtrading.com plan-card m
         }
     });
 
-    it('EOD and Intraday are separately priced base products, with the DLL toggle price-neutral within each', () => {
+    it('EOD and Intraday are separately priced base products, and the DLL toggle costs $20 more when turned OFF', () => {
         expect(dailyEodDll.fees.oneTimeEval).toBe(165);
         expect(dailyEodDll.fees.reset).toBe(115);
-        expect(dailyEod.fees.oneTimeEval).toBe(165);
+        expect(dailyEod.fees.oneTimeEval).toBe(185);
         expect(dailyEod.fees.reset).toBe(115);
 
         expect(dailyIntradayDll.fees.oneTimeEval).toBe(136);
         expect(dailyIntradayDll.fees.reset).toBe(95);
-        expect(dailyIntraday.fees.oneTimeEval).toBe(136);
+        expect(dailyIntraday.fees.oneTimeEval).toBe(156);
         expect(dailyIntraday.fees.reset).toBe(95);
+    });
+
+    it('has a $0.01 recurring per-cycle profit floor and a $2,100-above-start payout buffer, matching LucidFlex and LucidPro rather than no floor at all', () => {
+        for (const plan of [
+            dailyEod,
+            dailyEodDll,
+            dailyIntraday,
+            dailyIntradayDll,
+        ]) {
+            expect(plan.minPayoutProfit).toBe(0.01);
+            expect(plan.minPayoutProfitPerCycle).toBe(0.01);
+            expect(plan.payoutBuffer).not.toBeNull();
+            expect(
+                plan.payoutBuffer?.requiredBalance(
+                    plan.accountSize,
+                    plan.fundedDrawdown.amount,
+                ),
+            ).toBe(52_100);
+        }
     });
 
     it('the drawdown-type toggle picks a genuinely different DrawdownStrategy', () => {
