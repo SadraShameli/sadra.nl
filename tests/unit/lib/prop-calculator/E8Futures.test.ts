@@ -209,6 +209,22 @@ describe('E8 Zero (MAX/Starter x 80%/100% payout) 50K', () => {
         }
     });
 
+    it('caps funded accounts at 3, lower than Signature\'s 5 (live-verified against help.e8markets.com\'s "How many accounts can I apply for at once?")', () => {
+        expect(
+            findE8ZeroPlan(E8FuturesVariant.ZeroMax80).maxFundedAccounts,
+        ).toBe(3);
+        expect(
+            findE8ZeroPlan(E8FuturesVariant.ZeroMax100).maxFundedAccounts,
+        ).toBe(3);
+        expect(
+            findE8ZeroPlan(E8FuturesVariant.ZeroStarter80).maxFundedAccounts,
+        ).toBe(3);
+        expect(
+            findE8ZeroPlan(E8FuturesVariant.ZeroStarter100).maxFundedAccounts,
+        ).toBe(3);
+        expect(plan.maxFundedAccounts).toBe(5);
+    });
+
     it('applies the 40% consistency rule to the challenge/eval stage only, the reverse of Signature', () => {
         const zero = findE8ZeroPlan(E8FuturesVariant.ZeroMax80);
         const evalRule = zero.evalConsistencyRule();
