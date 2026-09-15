@@ -261,7 +261,7 @@ export default function TradingInputs({
                                 </label>
                                 <Input
                                     id="retained-cushion"
-                                    min={0}
+                                    min={plan.defaultRetainedCushion()}
                                     onChange={(event) => {
                                         const raw = event.target.value;
                                         onRetainedCushionChange(
@@ -277,12 +277,14 @@ export default function TradingInputs({
                                 />
                                 <p className="mt-1 text-xs text-muted-foreground">
                                     How far above the drawdown floor a simulated
-                                    payout stops short. Defaults to 10% of the
-                                    funded drawdown (
+                                    payout stops short. Floored at the
+                                    plan&apos;s full funded drawdown (
                                     {formatCurrency(
                                         plan.defaultRetainedCushion(),
                                     )}
-                                    ).
+                                    ) -- no real trader drains cushion to the
+                                    edge on every withdrawal, so a lower value
+                                    is clamped up to this floor.
                                 </p>
                             </div>
                             <div>

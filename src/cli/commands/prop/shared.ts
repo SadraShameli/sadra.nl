@@ -409,7 +409,8 @@ export const tradingArguments = {
     },
     'retain-cushion': {
         default: '0',
-        description: 'Minimum cushion to leave in the account on payout',
+        description:
+            "Minimum cushion to leave in the account on payout. Floored at the plan's own full funded-drawdown amount (no real trader drains cushion to the edge on every withdrawal) -- a lower value, including the default, is clamped up to that floor; pass a higher value to model even more conservative withdrawal behavior",
         type: 'string',
     },
     risk: {

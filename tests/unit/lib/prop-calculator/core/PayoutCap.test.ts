@@ -320,10 +320,13 @@ describe('FundedNext Legacy: two-regime payout cap (live-verified: 50% / $6,000 
     });
 
     it(
-        'removing the cap collapses funded survival across a whole Monte Carlo run ' +
-            '(E10 revisit: confirms the magnitude reported for the cap fix is a real, ' +
-            'correctly-directional withdrawal-aggressiveness effect against the trailing-' +
-            'drawdown floor, not shared-RNG-stream noise or a sampling artifact)',
+        'the retained-cushion floor (now the full funded drawdown by default, ' +
+            "not the old 10%) already dominates this plan's payout cap at real " +
+            'trading parameters, so removing the cap no longer changes Monte Carlo ' +
+            "survival -- the cap's own marginal effect is still directly verified " +
+            'by the two tryFundedPayout-level tests above (a large early payout ' +
+            'against a locked, non-trailing threshold, where cushionRoom is not ' +
+            'floor-bound)',
         () => {
             const cappedPlan = legacyPlan();
             const uncappedPlan = cappedPlan.withOverrides({
@@ -351,10 +354,16 @@ describe('FundedNext Legacy: two-regime payout cap (live-verified: 50% / $6,000 
             const capped = simulate(inputsFor(cappedPlan));
             const uncapped = simulate(inputsFor(uncappedPlan));
 
+            expect(capped.fundedBustProbability).toBeCloseTo(
+                uncapped.fundedBustProbability,
+                6,
+            );
+            expect(capped.passProbability).toBeCloseTo(
+                uncapped.passProbability,
+                6,
+            );
             expect(capped.fundedBustProbability).toBeLessThan(0.5);
-            expect(uncapped.fundedBustProbability).toBeGreaterThan(0.95);
             expect(capped.passProbability).toBeGreaterThan(0.5);
-            expect(uncapped.passProbability).toBe(0);
         },
     );
 });

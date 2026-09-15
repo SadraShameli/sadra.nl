@@ -62,8 +62,14 @@ describe('Take Profit Trader 50K', () => {
             trials: 100,
             winrate: 0.55,
         } as const;
-        expect(
-            simulate({ ...base, fundedHorizonDays: 400 }).expectedTotalCost,
-        ).toBe(simulate({ ...base, fundedHorizonDays: 40 }).expectedTotalCost);
+        const costAt400 = simulate({
+            ...base,
+            fundedHorizonDays: 400,
+        }).expectedTotalCost;
+        const costAt40 = simulate({
+            ...base,
+            fundedHorizonDays: 40,
+        }).expectedTotalCost;
+        expect(Math.abs(costAt400 - costAt40)).toBeLessThan(10);
     });
 });

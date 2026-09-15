@@ -36,9 +36,7 @@ export function runAccountTimeline(
         winrate: winrateInput,
     } = inputs;
     const commission = dollars(commissionPerRoundTrip);
-    const cushion = dollars(
-        minRetainedCushion ?? plan.defaultRetainedCushion(),
-    );
+    const cushion = plan.resolveRetainedCushion(minRetainedCushion);
     const positionSizing = resolvePositionSizing(instrument, stopPoints);
     const requestSize =
         payoutRequestSize === undefined

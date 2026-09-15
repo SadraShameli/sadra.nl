@@ -373,7 +373,12 @@ export abstract class Plan {
     }
 
     defaultRetainedCushion(): number {
-        return this.fundedDrawdown.amount * 0.1;
+        return this.fundedDrawdown.amount;
+    }
+
+    resolveRetainedCushion(requested: number | undefined): Dollars {
+        const floor = this.defaultRetainedCushion();
+        return dollars(Math.max(requested ?? floor, floor));
     }
 
     payoutBalanceFloor(

@@ -46,9 +46,7 @@ export function simulate(inputs: SimInputs): SimOutputs {
         trials,
     } = inputs;
     const commission = dollars(commissionPerRoundTrip);
-    const cushion = dollars(
-        minRetainedCushion ?? plan.defaultRetainedCushion(),
-    );
+    const cushion = plan.resolveRetainedCushion(minRetainedCushion);
     const requestSize =
         payoutRequestSize === undefined
             ? undefined
@@ -313,9 +311,7 @@ export function simulatePortfolio(
         winrate: winrateInput,
     } = inputs;
     const commission = dollars(commissionPerRoundTrip);
-    const cushion = dollars(
-        minRetainedCushion ?? plan.defaultRetainedCushion(),
-    );
+    const cushion = plan.resolveRetainedCushion(minRetainedCushion);
     const requestSize =
         payoutRequestSize === undefined
             ? undefined
