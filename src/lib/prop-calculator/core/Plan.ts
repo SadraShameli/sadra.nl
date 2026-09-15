@@ -427,6 +427,16 @@ export abstract class Plan {
         return new VariantPlan({ ...this.init, ...overrides });
     }
 
+    withMaxLifetimePayouts(maxLifetimePayouts: null | number): Plan {
+        return this.withOverrides({
+            maxLifetimePayouts: maxLifetimePayouts ?? undefined,
+            payoutLadder:
+                this.payoutLadder === null
+                    ? undefined
+                    : { ...this.payoutLadder, capsAtLastStep: true },
+        });
+    }
+
     totalCostThroughDay(
         totalDays: number,
         discounts?: CouponDiscounts,

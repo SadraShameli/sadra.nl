@@ -44,6 +44,7 @@ export interface TradingArguments extends PlanSelectorArguments {
     instrument: InstrumentSymbol;
     ladder?: string;
     'max-attempts': string;
+    'max-lifetime-payouts'?: string;
     'monthly-discount': string;
     'path-granularity'?: string;
     'request-size'?: string;
@@ -73,6 +74,7 @@ export interface TradingInputsInit {
     ladder: null | number[];
     maxAttempts: number;
     maxEvalDays: number;
+    maxLifetimePayoutsOverride: null | number | undefined;
     minRetainedCushion: number;
     monthlySubscriptionDiscountPercent: number;
     payoutRequestSize: number | undefined;
@@ -200,6 +202,9 @@ export class TradingInputs {
             ladder: readLadder(arguments_.ladder),
             maxAttempts: readNumber(arguments_['max-attempts'], 'max-attempts'),
             maxEvalDays: readNumber(arguments_['eval-days'], 'eval-days'),
+            maxLifetimePayoutsOverride: readMaxLifetimePayouts(
+                arguments_['max-lifetime-payouts'],
+            ),
             minRetainedCushion: readNumber(
                 arguments_['retain-cushion'],
                 'retain-cushion',
@@ -239,6 +244,7 @@ export class TradingInputs {
     readonly ladder: null | number[];
     readonly maxAttempts: number;
     readonly maxEvalDays: number;
+    readonly maxLifetimePayoutsOverride: null | number | undefined;
     readonly minRetainedCushion: number;
     readonly monthlySubscriptionDiscountPercent: number;
     readonly payoutRequestSize: number | undefined;
@@ -265,6 +271,7 @@ export class TradingInputs {
         this.ladder = init.ladder;
         this.maxAttempts = init.maxAttempts;
         this.maxEvalDays = init.maxEvalDays;
+        this.maxLifetimePayoutsOverride = init.maxLifetimePayoutsOverride;
         this.minRetainedCushion = init.minRetainedCushion;
         this.monthlySubscriptionDiscountPercent =
             init.monthlySubscriptionDiscountPercent;
@@ -289,6 +296,10 @@ export class TradingInputs {
     }
 
     toSimInputs(plan: Plan): SimInputs {
+        const resolvedPlan =
+            this.maxLifetimePayoutsOverride === undefined
+                ? plan
+                : plan.withMaxLifetimePayouts(this.maxLifetimePayoutsOverride);
         return {
             dayStop: this.dayStop,
             discounts:
@@ -317,7 +328,7 @@ export class TradingInputs {
             maxEvalDays: this.maxEvalDays,
             minRetainedCushion: this.minRetainedCushion,
             payoutRequestSize: this.payoutRequestSize,
-            plan,
+            plan: resolvedPlan,
             riskPerTrade: this.riskPerTrade,
             rrRatio: this.rrRatio,
             rungSizing: this.rungSizing,
@@ -390,6 +401,11 @@ export const tradingArguments = {
     'max-attempts': {
         default: '1',
         description: 'Evaluation attempts per trial',
+        type: 'string',
+    },
+    'max-lifetime-payouts': {
+        description:
+            "Override the plan's lifetime payout cap for this run -- a number, or 'unlimited'/'none' to remove it entirely (also neutralizes an unflagged payout-ladder exhaustion, a second, independent cap some plans carry alongside maxLifetimePayouts). Omit to use the plan's own real cap.",
         type: 'string',
     },
     'monthly-discount': {
@@ -544,6 +560,16 @@ function readLadder(raw: string | undefined): null | number[] {
         throw new Error(`Invalid --ladder "${raw}"`);
     }
     return parts;
+}
+
+function readMaxLifetimePayouts(
+    raw: string | undefined,
+): null | number | undefined {
+    if (raw === undefined || raw === '') return undefined;
+    if (raw.toLowerCase() === 'unlimited' || raw.toLowerCase() === 'none') {
+        return null;
+    }
+    return readNumber(raw, 'max-lifetime-payouts');
 }
 
 function readStopRule(raw: string): DayStopRule {
