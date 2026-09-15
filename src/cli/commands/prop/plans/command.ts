@@ -52,31 +52,38 @@ export default defineCommand({
                 const consistencyEval = plan.evalConsistencyRule();
                 const consistencyFunded = plan.fundedConsistencyRule();
                 const limits = plan.contractLimits;
+                const displayedDrawdown = plan.isInstantFunded
+                    ? plan.fundedDrawdown
+                    : plan.drawdown;
 
                 ui.note(
                     `${plan.label}  --firm ${plan.id.firm} --variant ${planVariant(plan)}`,
                 );
                 ui.muted(
                     [
-                        `    target ${formatCurrency(plan.profitTarget)}`,
-                        `drawdown ${formatCurrency(plan.drawdown.amount)} ${plan.drawdown.kind}`,
-                        plan.drawdown.lock
-                            ? `locks at +${formatCurrency(plan.drawdown.lock.atProfit)}`
+                        plan.isInstantFunded
+                            ? '    instant-funded, no evaluation phase'
+                            : `    target ${formatCurrency(plan.profitTarget)}`,
+                        `drawdown ${formatCurrency(displayedDrawdown.amount)} ${displayedDrawdown.kind}`,
+                        displayedDrawdown.lock
+                            ? `locks at +${formatCurrency(displayedDrawdown.lock.atProfit)}`
                             : 'no lock',
-                        `min days ${plan.minTradingDays}`,
+                        plan.isInstantFunded
+                            ? `min days ${plan.minTradingDays} (unused)`
+                            : `min days ${plan.minTradingDays}`,
                     ].join(' | '),
                 );
                 ui.muted(
                     [
-                        `    eval DLL ${describeDll(plan.evalDailyLossLimit)}`,
+                        `    eval DLL ${plan.isInstantFunded ? 'n/a' : describeDll(plan.evalDailyLossLimit)}`,
                         `funded DLL ${describeDll(plan.fundedDailyLossLimit)}`,
-                        `consistency eval ${describeShare(consistencyEval?.maxBestDayShare)}`,
+                        `consistency eval ${plan.isInstantFunded ? 'n/a' : describeShare(consistencyEval?.maxBestDayShare)}`,
                         `funded ${describeShare(consistencyFunded?.maxBestDayShare)}`,
                     ].join(' | '),
                 );
                 ui.muted(
                     [
-                        `    contracts ${limits ? `${limits.evalMinis} mini / ${limits.evalMicros ?? '?'} micro` : 'not recorded'}`,
+                        `    contracts ${plan.isInstantFunded ? 'n/a' : limits ? `${limits.evalMinis} mini / ${limits.evalMicros ?? '?'} micro` : 'not recorded'}`,
                         `funded ${describeFundedMinis(limits?.fundedMinis ?? null)}`,
                     ].join(' | '),
                 );
