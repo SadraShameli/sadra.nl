@@ -101,6 +101,7 @@ export {
     AlphaFuturesVariant,
     ApexVariant,
     arePlanIdsEqual,
+    E8FuturesVariant,
     FundedNextVariant,
     LucidVariant,
     MffuVariant,

@@ -11,6 +11,14 @@ export enum ApexVariant {
     Intraday = 'intraday',
 }
 
+export enum E8FuturesVariant {
+    Signature = 'signature',
+    ZeroMax80 = 'zero-max-80',
+    ZeroMax100 = 'zero-max-100',
+    ZeroStarter80 = 'zero-starter-80',
+    ZeroStarter100 = 'zero-starter-100',
+}
+
 export enum FundedNextVariant {
     Flex = 'flex',
     Legacy = 'legacy',
@@ -65,6 +73,7 @@ export type PlanId =
     | {
           readonly accountSize: E8FuturesAccountSize;
           readonly firm: FirmId.E8Futures;
+          readonly variant: E8FuturesVariant;
       }
     | {
           readonly accountSize: FundedNextAccountSize;
