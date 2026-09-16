@@ -242,7 +242,9 @@ export function PushPanel({
 function RowIcon({ status }: { status: PostRowStatus }) {
     if (status === 'posted')
         return <CheckCircle2 className="size-3.5 text-emerald-400" />;
-    if (status === 'failed')
-        return <XCircle className="size-3.5 text-rose-400" />;
-    return <Loader2 className="size-3.5 animate-spin text-muted-foreground" />;
+    return status === 'failed' ? (
+        <XCircle className="size-3.5 text-rose-400" />
+    ) : (
+        <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+    );
 }

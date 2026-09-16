@@ -15,11 +15,10 @@ export function evaluateRateLimit(
             next: { count: 1, resetAt: new Date(now.getTime() + windowMs) },
         };
     }
-    if (existing.count >= max) {
-        return { allowed: false, next: existing };
-    }
-    return {
-        allowed: true,
-        next: { count: existing.count + 1, resetAt: existing.resetAt },
-    };
+    return existing.count >= max
+        ? { allowed: false, next: existing }
+        : {
+              allowed: true,
+              next: { count: existing.count + 1, resetAt: existing.resetAt },
+          };
 }

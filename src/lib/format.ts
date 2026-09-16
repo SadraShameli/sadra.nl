@@ -6,10 +6,9 @@ export function formatCompactCurrency(n: number): string {
     if (abs >= 1_000_000) {
         return `${sign}$${(abs / 1_000_000).toFixed(abs % 1_000_000 === 0 ? 0 : 2)}M`;
     }
-    if (abs >= 1000) {
-        return `${sign}$${(abs / 1000).toFixed(abs % 1000 === 0 ? 0 : 1)}K`;
-    }
-    return formatCurrency(n);
+    return abs >= 1000
+        ? `${sign}$${(abs / 1000).toFixed(abs % 1000 === 0 ? 0 : 1)}K`
+        : formatCurrency(n);
 }
 
 export function formatCurrency(n: number, fractionDigits = 0): string {
@@ -22,8 +21,7 @@ export function formatCurrency(n: number, fractionDigits = 0): string {
 }
 
 export function formatDays(d: number): string {
-    if (!Number.isFinite(d) || d <= 0) return '—';
-    return `${d.toFixed(1)} d`;
+    return !Number.isFinite(d) || d <= 0 ? '—' : `${d.toFixed(1)} d`;
 }
 
 export function formatDelta(
@@ -70,8 +68,7 @@ export function formatR(r: number, digits = 2): string {
 }
 
 export function formatRatio(ratio: number, digits = 2): string {
-    if (!Number.isFinite(ratio)) return '∞';
-    return `${ratio.toFixed(digits)}x`;
+    return Number.isFinite(ratio) ? `${ratio.toFixed(digits)}x` : '∞';
 }
 
 export function formatStreak(streak: number): string {

@@ -28,8 +28,9 @@ export function parseRouteParameters<T extends z.ZodType>(
     | { data: z.infer<T>; response?: never }
     | { data?: never; response: NextResponse } {
     const result = schema.safeParse(input);
-    if (result.success) return { data: result.data };
-    return { response: zodErrorResponse(result.error) };
+    return result.success
+        ? { data: result.data }
+        : { response: zodErrorResponse(result.error) };
 }
 
 export function zodErrorResponse(error: ZodError): NextResponse {

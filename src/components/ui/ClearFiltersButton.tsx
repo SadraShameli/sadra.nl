@@ -12,8 +12,7 @@ interface Properties {
 }
 
 export function ClearFiltersButton({ active, className, onReset }: Properties) {
-    if (!active) return null;
-    return (
+    return active ? (
         <Button
             className={cn('ml-auto h-8 w-fit gap-1.5 text-xs', className)}
             onClick={onReset}
@@ -22,5 +21,5 @@ export function ClearFiltersButton({ active, className, onReset }: Properties) {
         >
             <X className="size-3.5" /> Clear filters
         </Button>
-    );
+    ) : null;
 }

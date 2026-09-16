@@ -287,12 +287,13 @@ export class TradingInputs {
     }
 
     toDayPolicy(): DayPolicy | undefined {
-        if (!this.ladder) return undefined;
-        return {
-            ladder: this.ladder,
-            maxLossesPerDay: null,
-            stopRule: this.dayStop,
-        };
+        return this.ladder
+            ? {
+                  ladder: this.ladder,
+                  maxLossesPerDay: null,
+                  stopRule: this.dayStop,
+              }
+            : undefined;
     }
 
     toSimInputs(plan: Plan): SimInputs {
@@ -343,7 +344,39 @@ export class TradingInputs {
 
 export const planResolver = new PlanResolver();
 
+export const commonSimArguments = {
+    instrument: {
+        default: InstrumentSymbol.NQ,
+        description: `Instrument for contract-limit sizing, used with --stop-points (${Object.keys(INSTRUMENTS).join(', ')})`,
+        options: Object.values(InstrumentSymbol),
+        type: 'enum',
+    },
+    'request-size': {
+        description: 'Withdraw this much per payout request (default: all)',
+        type: 'string',
+    },
+    rr: { default: '2', description: 'Reward to risk ratio', type: 'string' },
+    seed: { default: '42', description: 'RNG seed', type: 'string' },
+    'stop-points': {
+        description:
+            'Stop distance in points - enables contract-limit enforcement (caps risk to what --instrument allows), omit to leave risk uncapped',
+        type: 'string',
+    },
+    tpd: {
+        default: '4',
+        description: 'Trades per day when using flat risk',
+        type: 'string',
+    },
+    trials: {
+        default: '4000',
+        description: 'Monte Carlo trials',
+        type: 'string',
+    },
+    winrate: { default: '0.4', description: 'Win rate (0-1)', type: 'string' },
+} satisfies ArgsDef;
+
 export const tradingArguments = {
+    ...commonSimArguments,
     'activation-discount': {
         default: '0',
         description:
@@ -387,12 +420,6 @@ export const tradingArguments = {
             "Probability [0,1] a day has zero trades (models e.g. MFFU Rapid EOD's 7-consecutive-idle-day account closure)",
         type: 'string',
     },
-    instrument: {
-        default: InstrumentSymbol.NQ,
-        description: `Instrument for contract-limit sizing, used with --stop-points (${Object.keys(INSTRUMENTS).join(', ')})`,
-        options: Object.values(InstrumentSymbol),
-        type: 'enum',
-    },
     ladder: {
         description:
             'Eval risk ladder, comma separated (e.g. 400,600,800,200). Omit for flat risk.',
@@ -419,10 +446,6 @@ export const tradingArguments = {
             'Intraday path-walk resolution in steps per R for funded IntradayTrailingDrawdown trades, comma separated for a side-by-side comparison (e.g. 4,10,25); omit to resolve each trade with a single win/loss draw',
         type: 'string',
     },
-    'request-size': {
-        description: 'Withdraw this much per payout request (default: all)',
-        type: 'string',
-    },
     'retain-cushion': {
         default: '0',
         description:
@@ -434,27 +457,10 @@ export const tradingArguments = {
         description: 'Flat risk per trade in account currency',
         type: 'string',
     },
-    rr: { default: '2', description: 'Reward to risk ratio', type: 'string' },
-    seed: { default: '42', description: 'RNG seed', type: 'string' },
     stop: {
         default: 'day-green',
         description:
             'Day stop rule: none, day-green, first-win, after-target:<$>, after-k-losses:<k>',
-        type: 'string',
-    },
-    'stop-points': {
-        description:
-            'Stop distance in points - enables contract-limit enforcement (caps risk to what --instrument allows), omit to leave risk uncapped',
-        type: 'string',
-    },
-    tpd: {
-        default: '4',
-        description: 'Trades per day when using flat risk',
-        type: 'string',
-    },
-    trials: {
-        default: '4000',
-        description: 'Monte Carlo trials',
         type: 'string',
     },
     unaffordable: {
@@ -463,7 +469,6 @@ export const tradingArguments = {
         options: Object.values(RungSizing),
         type: 'enum',
     },
-    winrate: { default: '0.4', description: 'Win rate (0-1)', type: 'string' },
 } satisfies ArgsDef;
 
 export const planArguments = {
@@ -566,10 +571,9 @@ function readMaxLifetimePayouts(
     raw: string | undefined,
 ): null | number | undefined {
     if (raw === undefined || raw === '') return undefined;
-    if (raw.toLowerCase() === 'unlimited' || raw.toLowerCase() === 'none') {
-        return null;
-    }
-    return readNumber(raw, 'max-lifetime-payouts');
+    return raw.toLowerCase() === 'unlimited' || raw.toLowerCase() === 'none'
+        ? null
+        : readNumber(raw, 'max-lifetime-payouts');
 }
 
 function readStopRule(raw: string): DayStopRule {

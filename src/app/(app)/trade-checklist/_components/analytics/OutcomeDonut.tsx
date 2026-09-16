@@ -44,15 +44,11 @@ export function OutcomeDonut({
         [assessments],
     );
 
-    if (data.length === 0) {
-        return (
-            <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-                No recorded outcomes yet.
-            </div>
-        );
-    }
-
-    return (
+    return data.length === 0 ? (
+        <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
+            No recorded outcomes yet.
+        </div>
+    ) : (
         <div
             className={cn(
                 'app-trade-checklist__outcome-donut',

@@ -9,6 +9,7 @@ export {
     runFundedHorizon,
     stepFundedDay,
 } from './fundedPhase';
+export { runLiveDay, runLiveHorizon, simulateLiveAccount } from './livePhase';
 export {
     DrawdownTracker,
     LossStreak,
@@ -27,6 +28,9 @@ export {
     type EvalWithRetriesOptions,
     type EvalWithRetriesResult,
     type FundedDayStepOptions,
+    type LiveDayRunOptions,
+    type LiveOutputs,
+    type LiveSimInputs,
     type MultiAccountResult,
     type PortfolioSimInputs,
     type SimInputs,

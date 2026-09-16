@@ -456,26 +456,24 @@ function deriveDefaults(
 
 function parseDistance(raw: string, unit: UnitDistance): null | number {
     const n = Number(raw);
-    if (!Number.isFinite(n) || n <= 0) return null;
-    return DistanceUnit.fromDisplay(n, unit);
+    return !Number.isFinite(n) || n <= 0
+        ? null
+        : DistanceUnit.fromDisplay(n, unit);
 }
 
 function parseDuration(raw: string): null | number {
     const n = Number(raw);
-    if (!Number.isFinite(n) || n <= 0) return null;
-    return Math.round(n);
+    return !Number.isFinite(n) || n <= 0 ? null : Math.round(n);
 }
 
 function parseRir(raw: string): null | number {
     const n = Number(raw);
-    if (!Number.isFinite(n) || n < 0 || n > 10) return null;
-    return n;
+    return !Number.isFinite(n) || n < 0 || n > 10 ? null : n;
 }
 
 function parseRpe(raw: string): null | number {
     const n = Number(raw);
-    if (!Number.isFinite(n) || n < 1 || n > 10) return null;
-    return n;
+    return !Number.isFinite(n) || n < 1 || n > 10 ? null : n;
 }
 
 function parseTempo(raw: string): null | string {

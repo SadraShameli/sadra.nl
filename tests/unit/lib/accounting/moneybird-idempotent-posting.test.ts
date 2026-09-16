@@ -79,12 +79,11 @@ describe('MoneybirdSession.postBooking idempotency', () => {
                     )
                 ) {
                     paymentAttempts += 1;
-                    if (paymentAttempts === 1) {
-                        return jsonResponse(500, {
-                            error: 'temporary failure',
-                        });
-                    }
-                    return jsonResponse(201, { id: 'pay-1' });
+                    return paymentAttempts === 1
+                        ? jsonResponse(500, {
+                              error: 'temporary failure',
+                          })
+                        : jsonResponse(201, { id: 'pay-1' });
                 }
                 if (method === 'GET' && path.endsWith('/contacts.json')) {
                     return jsonResponse(200, []);

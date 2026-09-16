@@ -91,9 +91,7 @@ export function ResultsCharts({ result }: { result: ConversionResult }) {
         return config;
     }, [byCounterpart]);
 
-    if (result.bookings.length === 0) return null;
-
-    return (
+    return result.bookings.length === 0 ? null : (
         <div className="grid gap-4 lg:grid-cols-2">
             <Card>
                 <CardHeader>

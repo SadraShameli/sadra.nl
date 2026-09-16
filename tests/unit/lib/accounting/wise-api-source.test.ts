@@ -39,16 +39,15 @@ function wiseFetch(activities: object[]): typeof fetch {
                 : input instanceof Request
                   ? input.url
                   : input;
-        if (url.includes('/v1/transfers')) {
-            return Promise.resolve({
-                json: () => Promise.resolve([]),
-                ok: true,
-            });
-        }
-        return Promise.resolve({
-            json: () => Promise.resolve({ activities, cursor: null }),
-            ok: true,
-        });
+        return url.includes('/v1/transfers')
+            ? Promise.resolve({
+                  json: () => Promise.resolve([]),
+                  ok: true,
+              })
+            : Promise.resolve({
+                  json: () => Promise.resolve({ activities, cursor: null }),
+                  ok: true,
+              });
     });
 }
 

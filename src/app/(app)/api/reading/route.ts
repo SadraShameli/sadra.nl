@@ -20,13 +20,12 @@ export async function POST(request: NextRequest) {
                 ? result.status
                 : 500;
 
-        if (status === 201) {
-            return new NextResponse(null, { status: 201 });
-        }
-
-        return NextResponse.json(result, { status });
+        return status === 201
+            ? new NextResponse(null, { status: 201 })
+            : NextResponse.json(result, { status });
     } catch (error) {
-        if (error instanceof ZodError) return zodErrorResponse(error);
-        return NextResponse.json({ error: String(error) }, { status: 500 });
+        return error instanceof ZodError
+            ? zodErrorResponse(error)
+            : NextResponse.json({ error: String(error) }, { status: 500 });
     }
 }

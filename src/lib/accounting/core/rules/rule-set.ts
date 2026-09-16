@@ -10,12 +10,13 @@ export class RuleSet {
 
     classify(tx: RawTransaction): null | TransactionMatch {
         const rule = this.findMatch(tx);
-        if (!rule) return null;
-        return {
-            display: rule.display,
-            ledgerId: rule.ledger.id,
-            ledgerLabel: rule.ledger.label,
-        };
+        return rule
+            ? {
+                  display: rule.display,
+                  ledgerId: rule.ledger.id,
+                  ledgerLabel: rule.ledger.label,
+              }
+            : null;
     }
 
     findMatch(tx: RawTransaction): null | Rule {

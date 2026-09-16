@@ -32,10 +32,12 @@ export function RouteSubnav({ className, items }: RouteSubnavProperties) {
         }
         const observer = new MutationObserver(() => {
             const found = document.querySelector('#navbar-subnav-slot');
-            if (found) {
-                setSlot(found);
-                observer.disconnect();
+            if (!found) {
+                return;
             }
+
+            setSlot(found);
+            observer.disconnect();
         });
         observer.observe(document.body, { childList: true, subtree: true });
         return () => observer.disconnect();

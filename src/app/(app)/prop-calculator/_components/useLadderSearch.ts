@@ -230,8 +230,11 @@ export function useLadderSearch() {
                 worker.addEventListener(
                     'message',
                     (event: MessageEvent<LadderWorkerResponse>) => {
-                        if (cancelReference.current) return;
-                        if (event.data.runId !== runId) return;
+                        if (
+                            cancelReference.current ||
+                            event.data.runId !== runId
+                        )
+                            return;
 
                         if (
                             event.data.kind === LadderWorkerResponseKind.Failed

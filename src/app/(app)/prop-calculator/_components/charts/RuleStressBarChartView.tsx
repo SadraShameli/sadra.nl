@@ -29,15 +29,11 @@ const chartConfig: ChartConfig = {
 };
 
 export default function RuleStressBarChartView({ rows }: Properties) {
-    if (rows.length === 0) {
-        return (
-            <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-                No simulation data yet.
-            </div>
-        );
-    }
-
-    return (
+    return rows.length === 0 ? (
+        <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
+            No simulation data yet.
+        </div>
+    ) : (
         <ChartContainer
             className={cn(
                 'app-prop-calculator__rule-stress-bar-chart',

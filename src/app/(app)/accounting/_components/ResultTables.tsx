@@ -161,10 +161,10 @@ export function BookingsTable({
     const rows = useMemo(
         () =>
             bookings.filter((b) => {
-                if (direction !== ALL && b.direction !== direction)
-                    return false;
-                if (taxCode !== ALL && b.taxCode !== taxCode) return false;
-                return isIsoInRange(b.date, dateRange);
+                return (direction !== ALL && b.direction !== direction) ||
+                    (taxCode !== ALL && b.taxCode !== taxCode)
+                    ? false
+                    : isIsoInRange(b.date, dateRange);
             }),
         [bookings, direction, taxCode, dateRange],
     );
@@ -283,15 +283,12 @@ export function BookingsTable({
         [labelOf],
     );
 
-    if (bookings.length === 0) {
-        return (
-            <EmptyState
-                description="No bookings produced from this run."
-                title="Nothing to post"
-            />
-        );
-    }
-    return (
+    return bookings.length === 0 ? (
+        <EmptyState
+            description="No bookings produced from this run."
+            title="Nothing to post"
+        />
+    ) : (
         <>
             <DataTable
                 belowFilter={(table) => (
@@ -452,15 +449,12 @@ export function MatchAuditTable({ result }: { result: ConversionResult }) {
         [],
     );
 
-    if (result.matches.length === 0) {
-        return (
-            <EmptyState
-                description="Matched merchants will appear here so you can sanity-check the routing."
-                title="No matches yet"
-            />
-        );
-    }
-    return (
+    return result.matches.length === 0 ? (
+        <EmptyState
+            description="Matched merchants will appear here so you can sanity-check the routing."
+            title="No matches yet"
+        />
+    ) : (
         <DataTable
             belowFilter={(table) => (
                 <ClearFiltersButton
@@ -570,15 +564,12 @@ export function PerCounterpartTable({ result }: { result: ConversionResult }) {
         [],
     );
 
-    if (allRows.length === 0) {
-        return (
-            <EmptyState
-                description="Per-counterpart breakdown will appear once bookings exist."
-                title="No counterparts"
-            />
-        );
-    }
-    return (
+    return allRows.length === 0 ? (
+        <EmptyState
+            description="Per-counterpart breakdown will appear once bookings exist."
+            title="No counterparts"
+        />
+    ) : (
         <DataTable
             belowFilter={
                 <ClearFiltersButton
@@ -704,9 +695,9 @@ export function UnknownsTable({
     const rows = useMemo(
         () =>
             result.unknowns.filter((u) => {
-                if (direction !== ALL && u.direction !== direction)
-                    return false;
-                return isIsoInRange(u.firstSeen, dateRange);
+                return direction !== ALL && u.direction !== direction
+                    ? false
+                    : isIsoInRange(u.firstSeen, dateRange);
             }),
         [result.unknowns, direction, dateRange],
     );
@@ -790,15 +781,12 @@ export function UnknownsTable({
         [canCreateRule],
     );
 
-    if (result.unknowns.length === 0) {
-        return (
-            <EmptyState
-                description="Every counterpart was matched by a rule. Nice."
-                title="Nothing unknown"
-            />
-        );
-    }
-    return (
+    return result.unknowns.length === 0 ? (
+        <EmptyState
+            description="Every counterpart was matched by a rule. Nice."
+            title="Nothing unknown"
+        />
+    ) : (
         <>
             <DataTable
                 belowFilter={

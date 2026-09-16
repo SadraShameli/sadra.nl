@@ -14,9 +14,7 @@ export async function GET(
         location_id: parsed.data.id,
     });
 
-    if (result.data) {
-        return NextResponse.json(result.data, { status: result.status });
-    }
-
-    return NextResponse.json(result, { status: result.status });
+    return result.data
+        ? NextResponse.json(result.data, { status: result.status })
+        : NextResponse.json(result, { status: result.status });
 }

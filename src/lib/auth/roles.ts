@@ -14,8 +14,7 @@ export function resolveRole(
     databaseRole: null | string | undefined,
 ): Role {
     if (databaseRole === ROLE.ROOT) return ROLE.ROOT;
-    if (databaseRole === ROLE.ADMIN) return ROLE.ADMIN;
-    return ROLE.USER;
+    return databaseRole === ROLE.ADMIN ? ROLE.ADMIN : ROLE.USER;
 }
 
 export const isAdminOrAbove = (r: null | string | undefined): boolean =>

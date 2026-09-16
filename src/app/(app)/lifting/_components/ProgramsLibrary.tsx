@@ -126,8 +126,11 @@ export function ProgramsLibrary() {
         const rows = official.data ?? [];
         const q = debouncedSearch.trim().toLowerCase();
         const out = rows.filter((p) => {
-            if (category !== 'all' && p.category !== category) return false;
-            if (days !== 'all' && p.daysPerWeek !== Number(days)) return false;
+            if (
+                (category !== 'all' && p.category !== category) ||
+                (days !== 'all' && p.daysPerWeek !== Number(days))
+            )
+                return false;
             if (q) {
                 const hay = `${p.name} ${p.category} ${
                     p.description ?? ''
@@ -138,8 +141,9 @@ export function ProgramsLibrary() {
         });
         out.sort((a, b) => {
             if (sort === 'days') return a.daysPerWeek - b.daysPerWeek;
-            if (sort === 'length') return a.lengthWeeks - b.lengthWeeks;
-            return a.name.localeCompare(b.name);
+            return sort === 'length'
+                ? a.lengthWeeks - b.lengthWeeks
+                : a.name.localeCompare(b.name);
         });
         return out;
     }, [official.data, debouncedSearch, category, days, sort]);
@@ -595,10 +599,9 @@ function blockLabel(block: ProgramBlock): string {
     if (block.kind === 'pyramid') {
         return `${block.exerciseSlug.replaceAll('-', ' ')} pyramid (${block.setSchemes.length} sets)`;
     }
-    if (block.kind === 'emom') {
-        return `EMOM ${block.minutes}m: ${block.exerciseSlug.replaceAll('-', ' ')}`;
-    }
-    return `Superset (${block.group.length} exercises)`;
+    return block.kind === 'emom'
+        ? `EMOM ${block.minutes}m: ${block.exerciseSlug.replaceAll('-', ' ')}`
+        : `Superset (${block.group.length} exercises)`;
 }
 
 function EnrollmentCard({

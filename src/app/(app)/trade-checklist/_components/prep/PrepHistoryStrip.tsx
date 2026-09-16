@@ -82,7 +82,7 @@ function scoreTone(score: null | number): string {
     if (score >= 86)
         return 'bg-emerald-500/25 border-emerald-500/50 text-emerald-200';
     if (score >= 57) return 'bg-lime-500/25 border-lime-500/50 text-lime-200';
-    if (score >= 29)
-        return 'bg-amber-500/25 border-amber-500/50 text-amber-200';
-    return 'bg-rose-500/25 border-rose-500/50 text-rose-200';
+    return score >= 29
+        ? 'bg-amber-500/25 border-amber-500/50 text-amber-200'
+        : 'bg-rose-500/25 border-rose-500/50 text-rose-200';
 }

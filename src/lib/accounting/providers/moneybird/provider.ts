@@ -64,8 +64,9 @@ export class MoneybirdSession extends ProviderSessionBase {
             this.externalSalesInvoices.list(),
         ]);
         const dates = [...purchases, ...sales].map((invoice) => invoice.date);
-        if (dates.length === 0) return null;
-        return dates.toSorted((a, b) => a.localeCompare(b)).at(-1) ?? null;
+        return dates.length === 0
+            ? null
+            : (dates.toSorted((a, b) => a.localeCompare(b)).at(-1) ?? null);
     }
 
     async listLedgers(
@@ -79,10 +80,9 @@ export class MoneybirdSession extends ProviderSessionBase {
             externalId: ledger.id,
             group: null,
         }));
-        if (options.category) {
-            return adapted.filter((l) => l.category === options.category);
-        }
-        return adapted;
+        return options.category
+            ? adapted.filter((l) => l.category === options.category)
+            : adapted;
     }
 
     async listMutations(
@@ -155,21 +155,22 @@ function adaptInvoice(
     type: MutationSource,
 ): null | ProviderMutation {
     const ledgerId = invoice.details[0]?.ledgerAccountId ?? null;
-    if (!ledgerId) return null;
-    return {
-        date: invoice.date,
-        description: invoice.reference,
-        externalId: invoice.id,
-        ledgerId,
-        paymentReference: invoice.reference,
-        rows: invoice.details.map((detail) => ({
-            amount: detail.price,
-            description: detail.description,
-            ledgerId: detail.ledgerAccountId,
-            vatCode: detail.taxRateId,
-        })),
-        type,
-    };
+    return ledgerId
+        ? {
+              date: invoice.date,
+              description: invoice.reference,
+              externalId: invoice.id,
+              ledgerId,
+              paymentReference: invoice.reference,
+              rows: invoice.details.map((detail) => ({
+                  amount: detail.price,
+                  description: detail.description,
+                  ledgerId: detail.ledgerAccountId,
+                  vatCode: detail.taxRateId,
+              })),
+              type,
+          }
+        : null;
 }
 
 export const moneybirdProvider: AccountingProvider = {

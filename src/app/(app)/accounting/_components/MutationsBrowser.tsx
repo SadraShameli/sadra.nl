@@ -88,8 +88,9 @@ export function MutationsBrowser() {
         [allMutations],
     );
     const rows = useMemo(() => {
-        if (typeFilter === ALL) return allMutations;
-        return allMutations.filter((m) => m.type === typeFilter);
+        return typeFilter === ALL
+            ? allMutations
+            : allMutations.filter((m) => m.type === typeFilter);
     }, [allMutations, typeFilter]);
 
     const hasFilters = typeFilter !== ALL || Boolean(dateRange?.from);

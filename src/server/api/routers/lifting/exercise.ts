@@ -134,9 +134,10 @@ export const liftingExerciseRouter = createTRPCRouter({
             const merged: ExerciseRow[] = [...officialRows, ...customRows];
             const term = input.search?.trim().toLowerCase();
             const filtered = merged.filter((row) => {
-                if (input.muscle && row.primaryMuscle !== input.muscle)
-                    return false;
-                if (input.equipment && row.equipment !== input.equipment)
+                if (
+                    (input.muscle && row.primaryMuscle !== input.muscle) ||
+                    (input.equipment && row.equipment !== input.equipment)
+                )
                     return false;
                 if (term && term.length > 0) {
                     const isNameHit = row.name.toLowerCase().includes(term);

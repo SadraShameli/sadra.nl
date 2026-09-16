@@ -7,13 +7,14 @@ import { cn } from '~/lib/utilities';
 
 export function CredentialBadge({ kind }: { kind: string }) {
     const d = CredentialRegistry.instance.get(kind);
-    if (!d) return <Badge variant="outline">{kind}</Badge>;
-    return (
+    return d ? (
         <Badge
             className={cn('font-medium', toneClass(d.tone))}
             variant="secondary"
         >
             {d.label}
         </Badge>
+    ) : (
+        <Badge variant="outline">{kind}</Badge>
     );
 }

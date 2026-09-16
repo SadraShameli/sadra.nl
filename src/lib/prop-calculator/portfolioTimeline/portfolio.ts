@@ -95,10 +95,12 @@ export function simulatePortfolioTimeline(
         perTrialNet.push(combinedNet);
 
         const breakEvenDay = firstNonNegativeDay(combinedNet);
-        if (breakEvenDay !== null) {
-            everPositiveCount += 1;
-            breakEvenMonthValues.push(breakEvenDay / TRADING_DAYS_PER_MONTH);
+        if (breakEvenDay === null) {
+            continue;
         }
+
+        everPositiveCount += 1;
+        breakEvenMonthValues.push(breakEvenDay / TRADING_DAYS_PER_MONTH);
     }
 
     const sampleIndices: number[] = [];

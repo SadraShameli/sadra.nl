@@ -464,10 +464,9 @@ function MetaSummaryBadges({
         .map((field) => {
             const value = meta[field.key];
             if (field.type === MetaFieldType.Boolean) {
-                if (value === true) {
-                    return { key: field.key, text: field.label.toLowerCase() };
-                }
-                return null;
+                return value === true
+                    ? { key: field.key, text: field.label.toLowerCase() }
+                    : null;
             }
             if (
                 (
@@ -487,8 +486,7 @@ function MetaSummaryBadges({
         })
         .filter((b): b is { key: string; text: string } => b !== null);
 
-    if (badges.length === 0) return null;
-    return (
+    return badges.length === 0 ? null : (
         <>
             {badges.map((b) => (
                 <Badge key={b.key} variant="outline">

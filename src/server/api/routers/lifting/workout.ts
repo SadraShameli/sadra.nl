@@ -140,15 +140,16 @@ export const liftingWorkoutRouter = createTRPCRouter({
             const idByOrder = new Map(insertedWex.map((w) => [w.order, w.id]));
             const duplicatedSetRows = source.exercises.flatMap((ex) => {
                 const wexId = idByOrder.get(ex.order);
-                if (!wexId || ex.sets.length === 0) return [];
-                return ex.sets.map((s) => ({
-                    notes: null,
-                    order: s.order,
-                    reps: s.reps,
-                    type: s.type,
-                    weightKg: s.weightKg,
-                    workoutExerciseId: wexId,
-                }));
+                return !wexId || ex.sets.length === 0
+                    ? []
+                    : ex.sets.map((s) => ({
+                          notes: null,
+                          order: s.order,
+                          reps: s.reps,
+                          type: s.type,
+                          weightKg: s.weightKg,
+                          workoutExerciseId: wexId,
+                      }));
             });
             if (duplicatedSetRows.length > 0) {
                 const q = ctx.db.insert(liftingSet).values(duplicatedSetRows);

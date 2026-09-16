@@ -222,16 +222,14 @@ function sortedRows(
     mode: SortMode,
 ): TradeAssessmentRow[] {
     if (mode === 'oldest') return history.toReversed();
-    if (mode === 'grade') {
-        return history.toSorted((a, b) => {
-            const ga = GRADE_ORDER[a.grade] ?? 99;
-            const gb = GRADE_ORDER[b.grade] ?? 99;
-            if (ga !== gb) return ga - gb;
-            return (
-                new Date(b.createdAt).getTime() -
-                new Date(a.createdAt).getTime()
-            );
-        });
-    }
-    return history;
+    return mode === 'grade'
+        ? history.toSorted((a, b) => {
+              const ga = GRADE_ORDER[a.grade] ?? 99;
+              const gb = GRADE_ORDER[b.grade] ?? 99;
+              return ga === gb
+                  ? new Date(b.createdAt).getTime() -
+                        new Date(a.createdAt).getTime()
+                  : ga - gb;
+          })
+        : history;
 }

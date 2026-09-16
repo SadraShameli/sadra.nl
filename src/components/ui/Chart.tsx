@@ -82,11 +82,7 @@ const ChartStyle = ({ config, id }: { config: ChartConfig; id: string }) => {
         ([, config]) => config.theme || config.color,
     );
 
-    if (colorConfig.length === 0) {
-        return null;
-    }
-
-    return (
+    return colorConfig.length === 0 ? null : (
         <style
             dangerouslySetInnerHTML={{
                 __html: Object.entries(THEMES)
@@ -173,13 +169,9 @@ const ChartTooltipContent = React.forwardRef<
                 );
             }
 
-            if (!value) {
-                return null;
-            }
-
-            return (
+            return value ? (
                 <div className={cn('font-medium', labelClassName)}>{value}</div>
-            );
+            ) : null;
         }, [
             label,
             labelFormatter,
@@ -333,11 +325,7 @@ const ChartLegendContent = React.forwardRef<
     ) => {
         const { config } = useChart();
 
-        if (!payload?.length) {
-            return null;
-        }
-
-        return (
+        return payload?.length ? (
             <div
                 className={cn(
                     'flex items-center justify-center gap-4',
@@ -378,7 +366,7 @@ const ChartLegendContent = React.forwardRef<
                         );
                     })}
             </div>
-        );
+        ) : null;
     },
 );
 ChartLegendContent.displayName = 'ChartLegend';

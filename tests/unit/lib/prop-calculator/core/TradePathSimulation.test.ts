@@ -73,10 +73,12 @@ describe('simulateTradePath', () => {
                 rng,
                 100_000,
             );
-            if (result.outcome === 'win') {
-                isSawWin = true;
-                expect(result.peakR).toBe(rrRatio);
+            if (result.outcome !== 'win') {
+                continue;
             }
+
+            isSawWin = true;
+            expect(result.peakR).toBe(rrRatio);
         }
         expect(isSawWin).toBe(true);
     });
@@ -94,11 +96,13 @@ describe('simulateTradePath', () => {
                 rng,
                 100_000,
             );
-            if (result.outcome === 'loss') {
-                isSawLoss = true;
-                expect(result.peakR).toBeGreaterThanOrEqual(0);
-                expect(result.peakR).toBeLessThan(rrRatio);
+            if (result.outcome !== 'loss') {
+                continue;
             }
+
+            isSawLoss = true;
+            expect(result.peakR).toBeGreaterThanOrEqual(0);
+            expect(result.peakR).toBeLessThan(rrRatio);
         }
         expect(isSawLoss).toBe(true);
     });

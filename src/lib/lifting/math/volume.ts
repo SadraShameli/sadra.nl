@@ -69,8 +69,9 @@ export class VolumeAnalyzer {
     tonnage(sets: readonly VolumeSet[]): number {
         return sets.reduce((accumulator, s) => {
             if (s.weightKg === null || s.reps === null) return accumulator;
-            if (s.weightKg <= 0 || s.reps <= 0) return accumulator;
-            return accumulator + s.weightKg * s.reps;
+            return s.weightKg <= 0 || s.reps <= 0
+                ? accumulator
+                : accumulator + s.weightKg * s.reps;
         }, 0);
     }
 

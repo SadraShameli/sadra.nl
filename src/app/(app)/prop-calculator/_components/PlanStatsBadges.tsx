@@ -84,10 +84,9 @@ function describeLabel(descriptor: DailyLossLimitDescriptor): null | string {
             return null;
         }
         case DailyLossLimitShape.Range: {
-            if (descriptor.max <= descriptor.min) {
-                return `$${descriptor.min.toLocaleString()}`;
-            }
-            return `$${descriptor.min.toLocaleString()}–$${descriptor.max.toLocaleString()} (scales)`;
+            return descriptor.max <= descriptor.min
+                ? `$${descriptor.min.toLocaleString()}`
+                : `$${descriptor.min.toLocaleString()}–$${descriptor.max.toLocaleString()} (scales)`;
         }
         case DailyLossLimitShape.ShareOfPeak: {
             return `${(descriptor.share * 100).toFixed(0)}% of peak`;
@@ -96,14 +95,14 @@ function describeLabel(descriptor: DailyLossLimitDescriptor): null | string {
             const before = describeLabel(descriptor.before);
             const after = describeLabel(descriptor.after);
             if (before === null) return after;
-            if (after === null) return before;
-            return `${before} → ${after}`;
+            return after === null ? before : `${before} → ${after}`;
         }
     }
 }
 
 function drawdownLabel(kind: DrawdownKind): string {
     if (kind === DrawdownKind.EodTrailing) return 'EOD trailing';
-    if (kind === DrawdownKind.IntradayTrailing) return 'Intraday trailing';
-    return 'Static';
+    return kind === DrawdownKind.IntradayTrailing
+        ? 'Intraday trailing'
+        : 'Static';
 }

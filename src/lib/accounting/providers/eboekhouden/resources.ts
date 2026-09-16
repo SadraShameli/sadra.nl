@@ -81,12 +81,11 @@ export class LedgersResource {
             'GET',
             `/ledger/${ledgerId}/balance`,
         );
-        if (body && typeof body === 'object' && !Array.isArray(body)) {
-            return ledgerBalanceSchema.parse(body);
-        }
-        return ledgerBalanceSchema.parse({
-            balance: typeof body === 'number' ? body : 0,
-        });
+        return body && typeof body === 'object' && !Array.isArray(body)
+            ? ledgerBalanceSchema.parse(body)
+            : ledgerBalanceSchema.parse({
+                  balance: typeof body === 'number' ? body : 0,
+              });
     }
     async list(
         options: { limit?: number; offset?: number } = {},

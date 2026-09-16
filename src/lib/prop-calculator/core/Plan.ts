@@ -326,8 +326,9 @@ export abstract class Plan {
             return payoutsIssued >= this.maxLifetimePayouts;
         }
         const ladder = this.payoutLadder;
-        if (ladder === null || ladder.capsAtLastStep === true) return false;
-        return payoutsIssued >= ladder.steps.length;
+        return ladder === null || ladder.capsAtLastStep === true
+            ? false
+            : payoutsIssued >= ladder.steps.length;
     }
 
     isBust(state: AccountState, phase: TradingPhase): boolean {
@@ -366,8 +367,11 @@ export abstract class Plan {
 
     isPassed(state: AccountState): boolean {
         const profit = state.balance - state.startingBalance;
-        if (profit < this.init.profitTarget) return false;
-        if (state.tradingDays < this.init.minTradingDays) return false;
+        if (
+            profit < this.init.profitTarget ||
+            state.tradingDays < this.init.minTradingDays
+        )
+            return false;
         const consistency = this.evalConsistencyRule();
         return !consistency?.isViolated(state.bestDayProfit, profit);
     }
@@ -386,14 +390,15 @@ export abstract class Plan {
         minRetainedCushion: number,
     ): number {
         const cushionFloor = state.threshold + Math.max(0, minRetainedCushion);
-        if (this.payoutBuffer === null) return cushionFloor;
-        return Math.max(
-            cushionFloor,
-            this.payoutBuffer.requiredBalance(
-                this.accountSize,
-                this.fundedDrawdown.amount,
-            ),
-        );
+        return this.payoutBuffer === null
+            ? cushionFloor
+            : Math.max(
+                  cushionFloor,
+                  this.payoutBuffer.requiredBalance(
+                      this.accountSize,
+                      this.fundedDrawdown.amount,
+                  ),
+              );
     }
 
     payoutFromProfit(fundedProfit: number): number {
@@ -405,16 +410,15 @@ export abstract class Plan {
         state: AccountState,
         payoutsIssued: number,
     ): PayoutCapRegime {
-        if (this.payoutCapOverride === null) {
-            return {
-                balanceShareCap: this.payoutBalanceShareCap,
-                requestCap: this.payoutRequestCap,
-            };
-        }
-        return this.payoutCapOverride.resolve({
-            cumulativeQualifyingDays: state.qualifyingDays,
-            payoutsIssued,
-        });
+        return this.payoutCapOverride === null
+            ? {
+                  balanceShareCap: this.payoutBalanceShareCap,
+                  requestCap: this.payoutRequestCap,
+              }
+            : this.payoutCapOverride.resolve({
+                  cumulativeQualifyingDays: state.qualifyingDays,
+                  payoutsIssued,
+              });
     }
 
     evalDayCap(requestedDays: number): number {

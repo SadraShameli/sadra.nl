@@ -45,17 +45,15 @@ export async function GET(
         });
     }
 
-    if (request.headers.has('range')) {
-        return new Response(null, {
-            headers: { ...baseHeaders, 'Content-Range': `bytes */${size}` },
-            status: 416,
-        });
-    }
-
-    return new Response(new Uint8Array(file), {
-        headers: { ...baseHeaders, 'Content-Length': size.toString() },
-        status: 200,
-    });
+    return request.headers.has('range')
+        ? new Response(null, {
+              headers: { ...baseHeaders, 'Content-Range': `bytes */${size}` },
+              status: 416,
+          })
+        : new Response(new Uint8Array(file), {
+              headers: { ...baseHeaders, 'Content-Length': size.toString() },
+              status: 200,
+          });
 }
 
 export async function POST(
@@ -77,14 +75,13 @@ export async function POST(
             recording: normalizedBuffer,
         });
 
-        if (result.status == 201) {
-            return new NextResponse(null, { status: result.status });
-        }
-
-        return NextResponse.json(result, { status: result.status });
+        return result.status == 201
+            ? new NextResponse(null, { status: result.status })
+            : NextResponse.json(result, { status: result.status });
     } catch (error) {
-        if (error instanceof ZodError) return zodErrorResponse(error);
-        return NextResponse.json({ error: String(error) }, { status: 500 });
+        return error instanceof ZodError
+            ? zodErrorResponse(error)
+            : NextResponse.json({ error: String(error) }, { status: 500 });
     }
 }
 
@@ -108,7 +105,11 @@ function parseRangeHeader(
         start = Number(rawStart);
         end = rawEnd === '' ? size - 1 : Number(rawEnd);
     }
-    if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
-    if (start < 0 || end >= size || start > end) return null;
-    return { end, start };
+    return !Number.isFinite(start) ||
+        !Number.isFinite(end) ||
+        start < 0 ||
+        end >= size ||
+        start > end
+        ? null
+        : { end, start };
 }

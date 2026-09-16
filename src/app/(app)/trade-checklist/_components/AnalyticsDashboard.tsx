@@ -38,24 +38,21 @@ export function AnalyticsDashboard({
     const [planFilter, setPlanFilter] = useState<string>(ALL_PLANS);
 
     const filtered = useMemo(() => {
-        if (planFilter === ALL_PLANS) return assessments;
-        return assessments.filter((a) => a.planId === planFilter);
+        return planFilter === ALL_PLANS
+            ? assessments
+            : assessments.filter((a) => a.planId === planFilter);
     }, [assessments, planFilter]);
 
-    if (assessments.length === 0) {
-        return (
-            <Card>
-                <CardContent className="py-12 text-center">
-                    <p className="text-sm text-muted-foreground">
-                        No graded assessments yet. Run the checklist and record
-                        outcomes to see analytics here.
-                    </p>
-                </CardContent>
-            </Card>
-        );
-    }
-
-    return (
+    return assessments.length === 0 ? (
+        <Card>
+            <CardContent className="py-12 text-center">
+                <p className="text-sm text-muted-foreground">
+                    No graded assessments yet. Run the checklist and record
+                    outcomes to see analytics here.
+                </p>
+            </CardContent>
+        </Card>
+    ) : (
         <div
             className={cn(
                 'app-trade-checklist__analytics-dashboard',

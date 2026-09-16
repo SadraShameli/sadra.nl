@@ -28,15 +28,11 @@ export function CumulativeRChart({
 }) {
     const data = useMemo(() => cumulativeRSeries(assessments), [assessments]);
 
-    if (data.length === 0) {
-        return (
-            <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-                Record outcomes with R values to see the equity curve.
-            </div>
-        );
-    }
-
-    return (
+    return data.length === 0 ? (
+        <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
+            Record outcomes with R values to see the equity curve.
+        </div>
+    ) : (
         <ChartContainer
             className={cn(
                 'app-trade-checklist__cumulative-chart',

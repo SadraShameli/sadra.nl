@@ -94,12 +94,9 @@ export function JournalView({ history, plans }: JournalViewProperties) {
             setupTypes: state.setupTypes,
             windowIds: state.windowIds,
         });
-        if (state.singleDate) {
-            return result.filter(
-                (r) => dateKey(r.createdAt) === state.singleDate,
-            );
-        }
-        return result;
+        return state.singleDate
+            ? result.filter((r) => dateKey(r.createdAt) === state.singleDate)
+            : result;
     }, [projected, state]);
 
     const updateState = useCallback(

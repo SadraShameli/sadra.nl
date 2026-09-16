@@ -95,10 +95,12 @@ export function useAudioPlayer({ recordings }: UseAudioPlayerProperties) {
         (recording: RecordingSummary) => {
             if (!recordings) return;
             const newIndex = recordings.indexOf(recording);
-            if (newIndex !== -1) {
-                setCurrentRecordingIndex(newIndex);
-                if (isShuffle) setIsShuffle(false);
+            if (newIndex === -1) {
+                return;
             }
+
+            setCurrentRecordingIndex(newIndex);
+            if (isShuffle) setIsShuffle(false);
         },
         [recordings, isShuffle],
     );

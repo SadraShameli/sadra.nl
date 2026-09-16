@@ -11,14 +11,14 @@ export class BrzyckiFormula extends OneRepMaxFormula {
 
     estimate(weight: number, reps: number): number {
         if (reps <= 1) return weight;
-        if (reps >= 37) return weight;
-        return (weight * 36) / (37 - reps);
+        return reps >= 37 ? weight : (weight * 36) / (37 - reps);
     }
 
     weightFor(targetOneRepMax: number, reps: number): number {
         if (reps <= 1) return targetOneRepMax;
-        if (reps >= 37) return targetOneRepMax;
-        return (targetOneRepMax * (37 - reps)) / 36;
+        return reps >= 37
+            ? targetOneRepMax
+            : (targetOneRepMax * (37 - reps)) / 36;
     }
 }
 
@@ -27,13 +27,11 @@ export class EpleyFormula extends OneRepMaxFormula {
     readonly label = 'Epley';
 
     estimate(weight: number, reps: number): number {
-        if (reps <= 1) return weight;
-        return weight * (1 + reps / 30);
+        return reps <= 1 ? weight : weight * (1 + reps / 30);
     }
 
     weightFor(targetOneRepMax: number, reps: number): number {
-        if (reps <= 1) return targetOneRepMax;
-        return targetOneRepMax / (1 + reps / 30);
+        return reps <= 1 ? targetOneRepMax : targetOneRepMax / (1 + reps / 30);
     }
 }
 
@@ -42,13 +40,13 @@ export class LombardiFormula extends OneRepMaxFormula {
     readonly label = 'Lombardi';
 
     estimate(weight: number, reps: number): number {
-        if (reps <= 1) return weight;
-        return weight * Math.pow(reps, 0.1);
+        return reps <= 1 ? weight : weight * Math.pow(reps, 0.1);
     }
 
     weightFor(targetOneRepMax: number, reps: number): number {
-        if (reps <= 1) return targetOneRepMax;
-        return targetOneRepMax / Math.pow(reps, 0.1);
+        return reps <= 1
+            ? targetOneRepMax
+            : targetOneRepMax / Math.pow(reps, 0.1);
     }
 }
 
@@ -66,9 +64,14 @@ export class OneRepMaxCalculator {
     ) {}
 
     estimate(weight: number, reps: number): number {
-        if (!Number.isFinite(weight) || weight <= 0) return 0;
-        if (!Number.isFinite(reps) || reps <= 0) return 0;
-        if (reps > OneRepMaxCalculator.MAX_REPS_REASONABLE) return 0;
+        if (
+            !Number.isFinite(weight) ||
+            weight <= 0 ||
+            !Number.isFinite(reps) ||
+            reps <= 0 ||
+            reps > OneRepMaxCalculator.MAX_REPS_REASONABLE
+        )
+            return 0;
         if (reps === 1) return weight;
 
         const sum = this.formulas.reduce(
@@ -79,9 +82,14 @@ export class OneRepMaxCalculator {
     }
 
     weightFor(targetOneRepMax: number, reps: number): number {
-        if (!Number.isFinite(targetOneRepMax) || targetOneRepMax <= 0) return 0;
-        if (!Number.isFinite(reps) || reps <= 0) return 0;
-        if (reps > OneRepMaxCalculator.MAX_REPS_REASONABLE) return 0;
+        if (
+            !Number.isFinite(targetOneRepMax) ||
+            targetOneRepMax <= 0 ||
+            !Number.isFinite(reps) ||
+            reps <= 0 ||
+            reps > OneRepMaxCalculator.MAX_REPS_REASONABLE
+        )
+            return 0;
         if (reps === 1) return targetOneRepMax;
 
         const sum = this.formulas.reduce(

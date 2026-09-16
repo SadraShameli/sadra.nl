@@ -84,9 +84,10 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
         const q = search.trim().toLowerCase();
         return exercises
             .filter((wex) => {
-                if (exerciseFilter !== FILTER_ALL && wex.id !== exerciseFilter)
-                    return false;
-                return !q || wex.exercise.name.toLowerCase().includes(q);
+                return exerciseFilter !== FILTER_ALL &&
+                    wex.id !== exerciseFilter
+                    ? false
+                    : !q || wex.exercise.name.toLowerCase().includes(q);
             })
             .map((wex) =>
                 prOnly ? { ...wex, sets: wex.sets.filter((s) => s.isPr) } : wex,

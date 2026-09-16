@@ -48,18 +48,17 @@ export function RestTimerOverlay({
                 (Date.now() - startReference.current) / 1000,
             );
             setElapsed(next);
-            if (next === seconds) {
-                if (
-                    typeof navigator !== 'undefined' &&
-                    'vibrate' in navigator
-                ) {
-                    navigator.vibrate([180, 80, 180]);
-                }
-                autoCloseReference.current = setTimeout(
-                    () => onCloseReference.current(),
-                    5000,
-                );
+            if (next !== seconds) {
+                return;
             }
+
+            if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+                navigator.vibrate([180, 80, 180]);
+            }
+            autoCloseReference.current = setTimeout(
+                () => onCloseReference.current(),
+                5000,
+            );
         }, 250);
         return () => clearInterval(tick);
     }, [open, seconds]);

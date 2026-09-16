@@ -258,24 +258,23 @@ function buildLadderCutScenario(basePlan: Plan): StressScenario {
 }
 
 function buildQualifyingBarScenario(basePlan: Plan): StressScenario {
-    if (basePlan.minQualifyingDayProfit !== null) {
-        return {
-            isNoOp: false,
-            label: 'Qualifying bar +40%',
-            plan: basePlan.withOverrides({
-                minQualifyingDayProfit: dollars(
-                    basePlan.minQualifyingDayProfit * 1.4,
-                ),
-            }),
-        };
-    }
-    return {
-        isNoOp: false,
-        label: 'Profit target +40% (proxy)',
-        plan: basePlan.withOverrides({
-            profitTarget: dollars(basePlan.profitTarget * 1.4),
-        }),
-    };
+    return basePlan.minQualifyingDayProfit === null
+        ? {
+              isNoOp: false,
+              label: 'Profit target +40% (proxy)',
+              plan: basePlan.withOverrides({
+                  profitTarget: dollars(basePlan.profitTarget * 1.4),
+              }),
+          }
+        : {
+              isNoOp: false,
+              label: 'Qualifying bar +40%',
+              plan: basePlan.withOverrides({
+                  minQualifyingDayProfit: dollars(
+                      basePlan.minQualifyingDayProfit * 1.4,
+                  ),
+              }),
+          };
 }
 
 function buildSafetyNetScenario(basePlan: Plan): StressScenario {
@@ -314,9 +313,8 @@ function formatSignedPercent(p: number): string {
 }
 
 function pctDelta(value: number, baseline: null | ScenarioRow): number {
-    if (!baseline || baseline.out.expectedMonthlyNet === 0) return 0;
-    return (
-        (value - baseline.out.expectedMonthlyNet) /
-        Math.abs(baseline.out.expectedMonthlyNet)
-    );
+    return !baseline || baseline.out.expectedMonthlyNet === 0
+        ? 0
+        : (value - baseline.out.expectedMonthlyNet) /
+              Math.abs(baseline.out.expectedMonthlyNet);
 }

@@ -47,8 +47,9 @@ export class BestVolumeSetPrDetector extends PrDetector {
             const v = s.weightKg * s.reps;
             return Math.max(v, accumulator);
         }, 0);
-        if (candidateVolume <= best) return null;
-        return this.unlocked(candidate, candidateVolume);
+        return candidateVolume <= best
+            ? null
+            : this.unlocked(candidate, candidateVolume);
     }
 }
 
@@ -65,8 +66,9 @@ export class EstimatedOneRepMaxPrDetector extends PrDetector {
             const v = oneRepMaxCalculator.estimate(s.weightKg, s.reps);
             return Math.max(v, accumulator);
         }, 0);
-        if (candidateValue <= best) return null;
-        return this.unlocked(candidate, candidateValue);
+        return candidateValue <= best
+            ? null
+            : this.unlocked(candidate, candidateValue);
     }
 }
 
@@ -79,8 +81,9 @@ export class HeaviestWeightPrDetector extends PrDetector {
             (accumulator, s) => Math.max(s.weightKg, accumulator),
             0,
         );
-        if (candidate.weightKg <= best) return null;
-        return this.unlocked(candidate, candidate.weightKg);
+        return candidate.weightKg <= best
+            ? null
+            : this.unlocked(candidate, candidate.weightKg);
     }
 }
 
@@ -92,8 +95,9 @@ export class RepsAtWeightPrDetector extends PrDetector {
         const bestAtWeight = history
             .filter((s) => Math.abs(s.weightKg - candidate.weightKg) < 1e-3)
             .reduce((accumulator, s) => Math.max(s.reps, accumulator), 0);
-        if (candidate.reps <= bestAtWeight) return null;
-        return this.unlocked(candidate, candidate.reps);
+        return candidate.reps <= bestAtWeight
+            ? null
+            : this.unlocked(candidate, candidate.reps);
     }
 }
 

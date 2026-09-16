@@ -555,11 +555,8 @@ function defaultLabScenario(): LabScenario {
 }
 
 function freshId(): string {
-    if (
-        typeof crypto !== 'undefined' &&
+    return typeof crypto !== 'undefined' &&
         typeof crypto.randomUUID === 'function'
-    ) {
-        return crypto.randomUUID();
-    }
-    return `lab-${Math.random().toString(36).slice(2, 11)}`;
+        ? crypto.randomUUID()
+        : `lab-${Math.random().toString(36).slice(2, 11)}`;
 }

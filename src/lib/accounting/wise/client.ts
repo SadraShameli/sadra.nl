@@ -216,8 +216,9 @@ export class WiseClient {
 }
 
 function isPositiveAmount(s: null | string | undefined): boolean {
-    if (!s) return false;
-    return s.includes('<positive>') || s.trimStart().startsWith('+');
+    return s
+        ? s.includes('<positive>') || s.trimStart().startsWith('+')
+        : false;
 }
 
 function parseAmount(s: null | string | undefined): [number, string] | null {
@@ -233,8 +234,7 @@ function parseAmount(s: null | string | undefined): [number, string] | null {
         if (Number.isFinite(n)) value = n;
         else if (token.trim()) currency = token.toUpperCase();
     }
-    if (value === null || !currency) return null;
-    return [value, currency];
+    return value === null || !currency ? null : [value, currency];
 }
 
 function parseCardActivityPage(

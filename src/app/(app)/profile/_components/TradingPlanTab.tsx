@@ -100,8 +100,9 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
     const [orderedPlans, setOrderedPlans] = useState(plans);
     const [editingId, setEditingId] = useState<null | string>(() => {
         const fromUrl = searchParameters.get('plan');
-        if (fromUrl && plans.some((p) => p.id === fromUrl)) return fromUrl;
-        return plans.find((p) => p.isActive)?.id ?? plans[0]?.id ?? null;
+        return fromUrl && plans.some((p) => p.id === fromUrl)
+            ? fromUrl
+            : (plans.find((p) => p.isActive)?.id ?? plans[0]?.id ?? null);
     });
     const [newDialogOpen, setNewDialogOpen] = useState(false);
     const newPlanForm = useForm<TradingPlanCreateInput>({

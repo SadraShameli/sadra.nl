@@ -483,8 +483,9 @@ function recommendationHeadline(
             return 'Hard skip — do not trade.';
         }
         case 'marginal': {
-            if (sized === 0) return 'Sit this one out.';
-            return `Marginal setup — consider reduced size ($${sized.toLocaleString()} vs $${base.toLocaleString()} standard).`;
+            return sized === 0
+                ? 'Sit this one out.'
+                : `Marginal setup — consider reduced size ($${sized.toLocaleString()} vs $${base.toLocaleString()} standard).`;
         }
         case 'skip': {
             return 'Skip this setup.';

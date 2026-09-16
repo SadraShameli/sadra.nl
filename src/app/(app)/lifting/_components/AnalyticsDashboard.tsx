@@ -172,8 +172,7 @@ function FrequencyHeatmap({
             const pct = kg / max;
             if (pct < 0.25) return 1;
             if (pct < 0.5) return 2;
-            if (pct < 0.75) return 3;
-            return 4;
+            return pct < 0.75 ? 3 : 4;
         };
         const weeks: (null | {
             date: string;
@@ -193,10 +192,12 @@ function FrequencyHeatmap({
         }
         for (const cell of cells) {
             week.push({ ...cell, level: level(cell.tonnageKg) });
-            if (week.length === 7) {
-                weeks.push(week);
-                week = [];
+            if (week.length !== 7) {
+                continue;
             }
+
+            weeks.push(week);
+            week = [];
         }
         if (week.length > 0) {
             while (week.length < 7) week.push(null);
@@ -209,17 +210,7 @@ function FrequencyHeatmap({
         return <Skeleton className="h-24 w-full rounded-md" />;
     }
 
-    if (!grid?.hasAny) {
-        return (
-            <EmptyState
-                description="Log a workout to start filling out the heatmap."
-                icon={CalendarRange}
-                title="No activity yet"
-            />
-        );
-    }
-
-    return (
+    return grid?.hasAny ? (
         <TooltipProvider delayDuration={100}>
             <div className="flex flex-col gap-2">
                 <div className="flex items-stretch gap-2">
@@ -279,6 +270,12 @@ function FrequencyHeatmap({
                 </div>
             </div>
         </TooltipProvider>
+    ) : (
+        <EmptyState
+            description="Log a workout to start filling out the heatmap."
+            icon={CalendarRange}
+            title="No activity yet"
+        />
     );
 }
 

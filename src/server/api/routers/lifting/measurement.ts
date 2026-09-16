@@ -65,8 +65,11 @@ export const liftingMeasurementRouter = createTRPCRouter({
         > = {};
         for (const row of rows) {
             const kind = row.kind;
-            if (!MEASUREMENT_KIND_VALUES.includes(kind)) continue;
-            if (Object.hasOwn(out, kind)) continue;
+            if (
+                !MEASUREMENT_KIND_VALUES.includes(kind) ||
+                Object.hasOwn(out, kind)
+            )
+                continue;
             out[kind] = row;
         }
         return out;

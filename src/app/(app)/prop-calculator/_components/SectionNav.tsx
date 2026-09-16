@@ -44,13 +44,15 @@ export default function SectionNav() {
         }
 
         const hash = window.location.hash.slice(1);
-        if (hash && discovered.some((s) => s.id === hash)) {
-            document
-                .querySelector(`#${hash}`)
-                ?.scrollIntoView({ behavior: 'smooth' });
-            setActive(hash);
-            activeReference.current = hash;
+        if (!(hash && discovered.some((s) => s.id === hash))) {
+            return;
         }
+
+        document
+            .querySelector(`#${hash}`)
+            ?.scrollIntoView({ behavior: 'smooth' });
+        setActive(hash);
+        activeReference.current = hash;
     }, []);
 
     useEffect(() => {
@@ -68,11 +70,13 @@ export default function SectionNav() {
                     .map(({ id }) => id)
                     .findLast((id) => intersectingIds.has(id)) ??
                 firstSectionId;
-            if (current !== activeReference.current) {
-                activeReference.current = current;
-                history.replaceState(null, '', `#${current}`);
-                setActive(current);
+            if (current === activeReference.current) {
+                return;
             }
+
+            activeReference.current = current;
+            history.replaceState(null, '', `#${current}`);
+            setActive(current);
         }
 
         const observer = new IntersectionObserver(
@@ -125,40 +129,40 @@ export default function SectionNav() {
         setActive(id);
     }
 
-    if (!slot || sections.length === 0) return null;
-
-    return createPortal(
-        <div
-            className={cn(
-                'app-prop-calculator__section-nav',
-                'relative container mx-auto flex overflow-x-auto',
-            )}
-            ref={navReference}
-            style={{ scrollbarWidth: 'none' }}
-        >
-            {sections.map(({ id, label }) => (
-                <Button
-                    className={cn(
-                        'app-prop-calculator__section-nav-btn',
-                        'h-auto shrink-0 rounded-none px-3 py-2 text-xs font-medium whitespace-nowrap transition-colors duration-300',
-                        active === id
-                            ? 'text-foreground'
-                            : 'text-muted-foreground hover:text-foreground/80',
-                    )}
-                    data-section={id}
-                    key={id}
-                    onClick={() => scrollTo(id)}
-                    type="button"
-                    variant="ghost"
-                >
-                    {label}
-                </Button>
-            ))}
-            <span
-                className="pointer-events-none absolute bottom-0 h-0.5 bg-primary transition-[left,width] duration-300 ease-[cubic-bezier(0.25,0.46,0.45,0.94)]"
-                style={{ left: indicator.left, width: indicator.width }}
-            />
-        </div>,
-        slot,
-    );
+    return !slot || sections.length === 0
+        ? null
+        : createPortal(
+              <div
+                  className={cn(
+                      'app-prop-calculator__section-nav',
+                      'relative container mx-auto flex overflow-x-auto',
+                  )}
+                  ref={navReference}
+                  style={{ scrollbarWidth: 'none' }}
+              >
+                  {sections.map(({ id, label }) => (
+                      <Button
+                          className={cn(
+                              'app-prop-calculator__section-nav-btn',
+                              'h-auto shrink-0 rounded-none px-3 py-2 text-xs font-medium whitespace-nowrap transition-colors duration-300',
+                              active === id
+                                  ? 'text-foreground'
+                                  : 'text-muted-foreground hover:text-foreground/80',
+                          )}
+                          data-section={id}
+                          key={id}
+                          onClick={() => scrollTo(id)}
+                          type="button"
+                          variant="ghost"
+                      >
+                          {label}
+                      </Button>
+                  ))}
+                  <span
+                      className="pointer-events-none absolute bottom-0 h-0.5 bg-primary transition-[left,width] duration-300 ease-[cubic-bezier(0.25,0.46,0.45,0.94)]"
+                      style={{ left: indicator.left, width: indicator.width }}
+                  />
+              </div>,
+              slot,
+          );
 }

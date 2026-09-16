@@ -218,10 +218,12 @@ function pickPlan(firm: TradingFirm, targetSize: number): null | Plan {
     let closestDiff = Infinity;
     for (const p of firm.plans) {
         const diff = Math.abs(p.accountSize - targetSize);
-        if (diff < closestDiff) {
-            closest = p;
-            closestDiff = diff;
+        if (!(diff < closestDiff)) {
+            continue;
         }
+
+        closest = p;
+        closestDiff = diff;
     }
     return closest;
 }

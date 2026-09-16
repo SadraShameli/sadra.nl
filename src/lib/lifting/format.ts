@@ -6,13 +6,11 @@ export const M_PER_MI = 1609.344;
 
 export const DistanceUnit = {
     fromDisplay(value: number, unit: UnitDistance): number {
-        if (unit === 'm') return value;
-        return value * M_PER_MI;
+        return unit === 'm' ? value : value * M_PER_MI;
     },
 
     toDisplay(valueMeters: number, unit: UnitDistance): number {
-        if (unit === 'm') return valueMeters;
-        return valueMeters / M_PER_MI;
+        return unit === 'm' ? valueMeters : valueMeters / M_PER_MI;
     },
 };
 
@@ -26,8 +24,9 @@ export const DurationFormat = {
         const safe = Math.max(0, milliseconds);
         if (safe < 1000) return `${Math.round(safe)}ms`;
         const seconds = safe / 1000;
-        if (seconds < 60) return `${seconds.toFixed(1)}s`;
-        return DurationFormat.seconds(seconds);
+        return seconds < 60
+            ? `${seconds.toFixed(1)}s`
+            : DurationFormat.seconds(seconds);
     },
 
     seconds(totalSeconds: number): string {
@@ -54,23 +53,20 @@ export const LengthUnit = {
     },
 
     fromDisplay(value: number, unit: UnitLength): number {
-        if (unit === 'cm') return value;
-        return value * CM_PER_IN;
+        return unit === 'cm' ? value : value * CM_PER_IN;
     },
 
     toDisplay(valueCm: number, unit: UnitLength): number {
-        if (unit === 'cm') return valueCm;
-        return valueCm / CM_PER_IN;
+        return unit === 'cm' ? valueCm : valueCm / CM_PER_IN;
     },
 };
 
 export const TonnageFormat = {
     format(tonnageKg: number, unit: UnitWeight): string {
         const display = WeightUnit.toDisplay(tonnageKg, unit);
-        if (display >= 1000) {
-            return `${(display / 1000).toFixed(1)}k ${unit}`;
-        }
-        return `${Math.round(display)} ${unit}`;
+        return display >= 1000
+            ? `${(display / 1000).toFixed(1)}k ${unit}`
+            : `${Math.round(display)} ${unit}`;
     },
 };
 
@@ -85,12 +81,10 @@ export const WeightUnit = {
     },
 
     fromDisplay(value: number, unit: UnitWeight): number {
-        if (unit === 'kg') return value;
-        return value * KG_PER_LB;
+        return unit === 'kg' ? value : value * KG_PER_LB;
     },
 
     toDisplay(valueKg: number, unit: UnitWeight): number {
-        if (unit === 'kg') return valueKg;
-        return valueKg / KG_PER_LB;
+        return unit === 'kg' ? valueKg : valueKg / KG_PER_LB;
     },
 };

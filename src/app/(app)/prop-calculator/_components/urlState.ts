@@ -156,19 +156,21 @@ export function decodeState(
                         const plan = firm?.plans.find(
                             (p) => serializePlanId(p.id) === wire.planId,
                         );
-                        if (!firm || !plan) return null;
-                        return {
-                            activationDiscountPercent:
-                                wire.activationDiscountPercent,
-                            count: wire.count,
-                            evalDiscountPercent: wire.evalDiscountPercent,
-                            firmId: firm.id,
-                            id: wire.id,
-                            instrument: wire.instrument,
-                            linkActivationDiscount: wire.linkActivationDiscount,
-                            planId: plan.id,
-                            stopPoints: wire.stopPoints,
-                        };
+                        return !firm || !plan
+                            ? null
+                            : {
+                                  activationDiscountPercent:
+                                      wire.activationDiscountPercent,
+                                  count: wire.count,
+                                  evalDiscountPercent: wire.evalDiscountPercent,
+                                  firmId: firm.id,
+                                  id: wire.id,
+                                  instrument: wire.instrument,
+                                  linkActivationDiscount:
+                                      wire.linkActivationDiscount,
+                                  planId: plan.id,
+                                  stopPoints: wire.stopPoints,
+                              };
                     })
                     .filter((entry): entry is PortfolioEntry => entry !== null);
             }

@@ -1,3 +1,7 @@
+import { type AccountState } from './AccountState';
+import { type Plan } from './Plan';
+import { type Fraction0to1 } from './units';
+
 export enum DayStopRuleKind {
     AfterKLosses = 'after-k-losses',
     AfterTarget = 'after-target',
@@ -12,6 +16,11 @@ export enum RungSizing {
 }
 
 export interface DayPolicy {
+    readonly computeRisk?: (
+        state: AccountState,
+        plan: Plan,
+        tradeIndexToday: number,
+    ) => number;
     readonly ladder: readonly number[];
     readonly maxLossesPerDay: null | number;
     readonly stopRule: DayStopRule;
@@ -35,6 +44,24 @@ export function canonicaliseLadder(ladder: readonly number[]): number[] {
     return out;
 }
 
+export function computedDayPolicy(
+    computeRisk: (
+        state: AccountState,
+        plan: Plan,
+        tradeIndexToday: number,
+    ) => number,
+    maxTrades: number,
+    stopRule?: DayStopRule,
+): DayPolicy {
+    const slots = Math.max(1, Math.floor(maxTrades));
+    return {
+        computeRisk,
+        ladder: Array.from({ length: slots }, () => 0),
+        maxLossesPerDay: null,
+        stopRule: stopRule ?? { kind: DayStopRuleKind.None },
+    };
+}
+
 export function flatDayPolicy(
     riskPerTrade: number,
     tradesPerDay: number,
@@ -50,8 +77,7 @@ export function flatDayPolicy(
 
 export function isFlatLadder(ladder: readonly number[]): boolean {
     const first = ladder[0];
-    if (first === undefined) return true;
-    return ladder.every((rung) => rung === first);
+    return first === undefined ? true : ladder.every((rung) => rung === first);
 }
 
 export function ladderSum(ladder: readonly number[]): number {
@@ -63,13 +89,19 @@ export function ladderSum(ladder: readonly number[]): number {
     return total;
 }
 
+export function resolveFundedTradeRisk(
+    cushion: number,
+    percent: Fraction0to1,
+): number {
+    return percent * cushion;
+}
+
 export function resolveTradeRisk(
     intendedRisk: number,
     cushion: number,
     rungSizing: RungSizing,
 ): number {
-    if (intendedRisk <= 0) return 0;
-    if (cushion <= 0) return 0;
+    if (intendedRisk <= 0 || cushion <= 0) return 0;
     if (rungSizing === RungSizing.SkipIfUnaffordable) {
         return cushion < intendedRisk ? 0 : intendedRisk;
     }

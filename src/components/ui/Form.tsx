@@ -157,11 +157,7 @@ const FormMessage = React.forwardRef<
     const { error, formMessageId } = useFormField();
     const body = error ? (error.message ?? '') : children;
 
-    if (!body) {
-        return null;
-    }
-
-    return (
+    return body ? (
         <p
             className={cn(
                 'animate-in text-sm font-medium text-destructive duration-200 fade-in-0 slide-in-from-top-1',
@@ -173,7 +169,7 @@ const FormMessage = React.forwardRef<
         >
             {body}
         </p>
-    );
+    ) : null;
 });
 FormMessage.displayName = 'FormMessage';
 

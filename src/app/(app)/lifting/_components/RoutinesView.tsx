@@ -42,21 +42,19 @@ export function RoutinesView() {
             </ul>
         );
     }
-    if (!routines.data || routines.data.length === 0) {
-        return (
-            <Card>
-                <CardContent>
-                    <EmptyState
-                        description="Save your favorite workouts as routines for one-tap starts."
-                        icon={Dumbbell}
-                        title="No routines yet"
-                    />
-                </CardContent>
-            </Card>
-        );
-    }
-
-    return <RoutinesList routines={routines.data} />;
+    return !routines.data || routines.data.length === 0 ? (
+        <Card>
+            <CardContent>
+                <EmptyState
+                    description="Save your favorite workouts as routines for one-tap starts."
+                    icon={Dumbbell}
+                    title="No routines yet"
+                />
+            </CardContent>
+        </Card>
+    ) : (
+        <RoutinesList routines={routines.data} />
+    );
 }
 
 function RoutinesList({ routines }: { routines: readonly Routine[] }) {

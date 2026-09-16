@@ -63,11 +63,12 @@ export function TransactionsBrowser() {
     );
 
     const range = useMemo(() => {
-        if (!dateRange?.from) return null;
-        return {
-            from: toIso(dateRange.from),
-            to: toIso(dateRange.to ?? new Date()),
-        };
+        return dateRange?.from
+            ? {
+                  from: toIso(dateRange.from),
+                  to: toIso(dateRange.to ?? new Date()),
+              }
+            : null;
     }, [dateRange]);
 
     const txnsQ = api.accounting.transactions.list.useQuery(
@@ -154,30 +155,26 @@ export function TransactionsBrowser() {
                 accessorKey: 'match',
                 cell: ({ row }) => {
                     const match = row.original.match;
-                    if (!match) {
-                        return (
-                            <Badge
-                                className="font-mono text-[10px] text-amber-300"
-                                variant="outline"
-                            >
-                                Unknown
-                            </Badge>
-                        );
-                    }
-                    return (
+                    return match ? (
                         <div className="flex flex-col items-start gap-0.5">
                             <Badge variant="outline">{match.display}</Badge>
                             <span className="font-mono text-[10px] text-muted-foreground">
                                 {match.ledgerLabel}
                             </span>
                         </div>
+                    ) : (
+                        <Badge
+                            className="font-mono text-[10px] text-amber-300"
+                            variant="outline"
+                        >
+                            Unknown
+                        </Badge>
                     );
                 },
                 filterFn: (row, _columnId, filterValue: string) => {
                     const match = row.original.match;
                     if (filterValue === MATCHED) return match !== null;
-                    if (filterValue === UNKNOWN) return match === null;
-                    return true;
+                    return filterValue === UNKNOWN ? match === null : true;
                 },
                 header: 'Match',
             },

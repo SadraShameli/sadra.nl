@@ -446,6 +446,9 @@ function CreateUserDialog({
 
 function RoleBadge({ role }: { role: string }) {
     if (role === 'root') return <Badge variant="default">root</Badge>;
-    if (role === 'admin') return <Badge variant="secondary">admin</Badge>;
-    return <Badge variant="outline">user</Badge>;
+    return role === 'admin' ? (
+        <Badge variant="secondary">admin</Badge>
+    ) : (
+        <Badge variant="outline">user</Badge>
+    );
 }

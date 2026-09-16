@@ -69,13 +69,10 @@ export class DoubleProgression extends ProgressionRule {
             .filter((s) => s.completed)
             .reduce<CompletedSet | null>((best, s) => {
                 if (!best) return s;
-                if (
-                    s.weightKg > best.weightKg ||
+                return s.weightKg > best.weightKg ||
                     (s.weightKg === best.weightKg && s.reps > best.reps)
-                ) {
-                    return s;
-                }
-                return best;
+                    ? s
+                    : best;
             }, null);
         if (!topSet) {
             return {
@@ -84,18 +81,17 @@ export class DoubleProgression extends ProgressionRule {
                 weightKg: 0,
             };
         }
-        if (topSet.reps >= this.config.maxReps) {
-            return {
-                rationale: `Hit top of rep range — bump weight by ${this.config.incrementKg} kg.`,
-                reps: this.config.minReps,
-                weightKg: topSet.weightKg + this.config.incrementKg,
-            };
-        }
-        return {
-            rationale: 'Add a rep at the same weight.',
-            reps: Math.min(topSet.reps + 1, this.config.maxReps),
-            weightKg: topSet.weightKg,
-        };
+        return topSet.reps >= this.config.maxReps
+            ? {
+                  rationale: `Hit top of rep range — bump weight by ${this.config.incrementKg} kg.`,
+                  reps: this.config.minReps,
+                  weightKg: topSet.weightKg + this.config.incrementKg,
+              }
+            : {
+                  rationale: 'Add a rep at the same weight.',
+                  reps: Math.min(topSet.reps + 1, this.config.maxReps),
+                  weightKg: topSet.weightKg,
+              };
     }
 }
 
@@ -125,18 +121,18 @@ export class LinearProgression extends ProgressionRule {
                 weightKg: 0,
             };
         }
-        if (last.allCompleted) {
-            return {
-                rationale: `Cleared all sets last session — add ${this.config.incrementKg} kg.`,
-                reps: this.config.targetReps,
-                weightKg: baseline.weightKg + this.config.incrementKg,
-            };
-        }
-        return {
-            rationale: 'Missed reps last session — repeat the same weight.',
-            reps: this.config.targetReps,
-            weightKg: baseline.weightKg,
-        };
+        return last.allCompleted
+            ? {
+                  rationale: `Cleared all sets last session — add ${this.config.incrementKg} kg.`,
+                  reps: this.config.targetReps,
+                  weightKg: baseline.weightKg + this.config.incrementKg,
+              }
+            : {
+                  rationale:
+                      'Missed reps last session — repeat the same weight.',
+                  reps: this.config.targetReps,
+                  weightKg: baseline.weightKg,
+              };
     }
 }
 
@@ -217,8 +213,7 @@ function heaviestSet(session: SessionSummary): CompletedSet | null {
         session.sets
             .filter((s) => s.completed)
             .reduce<CompletedSet | null>((best, s) => {
-                if (!best || s.weightKg > best.weightKg) return s;
-                return best;
+                return !best || s.weightKg > best.weightKg ? s : best;
             }, null) ?? null
     );
 }

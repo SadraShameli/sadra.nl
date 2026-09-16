@@ -1,6 +1,6 @@
-import 'server-only';
 import { TRPCError } from '@trpc/server';
 import { and, desc, eq } from 'drizzle-orm';
+import 'server-only';
 
 import {
     goalInputSchema,

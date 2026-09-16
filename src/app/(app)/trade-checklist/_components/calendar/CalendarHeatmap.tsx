@@ -107,23 +107,22 @@ export function CalendarHeatmap({
                                     )}
                                 </div>
                             );
-                            if (isClickable && cell.inMonth) {
-                                return (
-                                    <Link
-                                        className={cn(
-                                            'app-trade-checklist__calendar-day-link',
-                                        )}
-                                        href={withQuery(
-                                            routes.tradeChecklist.journal,
-                                            { date: cell.date },
-                                        )}
-                                        key={cell.date}
-                                    >
-                                        {inner}
-                                    </Link>
-                                );
-                            }
-                            return <div key={cell.date}>{inner}</div>;
+                            return isClickable && cell.inMonth ? (
+                                <Link
+                                    className={cn(
+                                        'app-trade-checklist__calendar-day-link',
+                                    )}
+                                    href={withQuery(
+                                        routes.tradeChecklist.journal,
+                                        { date: cell.date },
+                                    )}
+                                    key={cell.date}
+                                >
+                                    {inner}
+                                </Link>
+                            ) : (
+                                <div key={cell.date}>{inner}</div>
+                            );
                         })}
                     </div>
                 ))}
@@ -137,7 +136,7 @@ function cellTone(bestGrade: null | string, total: number): string {
     if (bestGrade.startsWith('A'))
         return 'bg-emerald-500/20 border-emerald-500/40';
     if (bestGrade.startsWith('B')) return 'bg-amber-500/20 border-amber-500/40';
-    if (bestGrade.startsWith('C'))
-        return 'bg-orange-500/20 border-orange-500/40';
-    return 'bg-rose-500/20 border-rose-500/40';
+    return bestGrade.startsWith('C')
+        ? 'bg-orange-500/20 border-orange-500/40'
+        : 'bg-rose-500/20 border-rose-500/40';
 }

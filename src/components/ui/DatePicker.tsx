@@ -148,6 +148,7 @@ function formatRange(
     placeholder: string,
 ): React.ReactNode {
     if (!range?.from) return <span>{placeholder}</span>;
-    if (!range.to) return format(range.from, 'MMM d, y');
-    return `${format(range.from, 'MMM d, y')} – ${format(range.to, 'MMM d, y')}`;
+    return range.to
+        ? `${format(range.from, 'MMM d, y')} – ${format(range.to, 'MMM d, y')}`
+        : format(range.from, 'MMM d, y');
 }

@@ -136,8 +136,7 @@ function colorForNet(net: number, maxAbs: number): string {
     if (ratio > 0.05) return 'bg-emerald-500/25';
     if (ratio >= -0.05) return 'bg-muted/30';
     if (ratio >= -0.3) return 'bg-rose-500/30';
-    if (ratio >= -0.6) return 'bg-rose-500/45';
-    return 'bg-rose-500/65';
+    return ratio >= -0.6 ? 'bg-rose-500/45' : 'bg-rose-500/65';
 }
 
 function colorForPass(pass: number): string {
@@ -145,8 +144,7 @@ function colorForPass(pass: number): string {
     if (pass >= 0.65) return 'bg-emerald-500/45';
     if (pass >= 0.5) return 'bg-yellow-500/45';
     if (pass >= 0.35) return 'bg-yellow-500/30';
-    if (pass >= 0.2) return 'bg-rose-500/40';
-    return 'bg-rose-500/60';
+    return pass >= 0.2 ? 'bg-rose-500/40' : 'bg-rose-500/60';
 }
 
 function HeatmapCells({

@@ -28,7 +28,8 @@ export class ConsistencyRule {
     }
 
     isViolated(bestDayProfit: number, totalProfit: number): boolean {
-        if (totalProfit <= 0 || bestDayProfit <= 0) return false;
-        return bestDayProfit / totalProfit > this.maxBestDayShare;
+        return totalProfit <= 0 || bestDayProfit <= 0
+            ? false
+            : bestDayProfit / totalProfit > this.maxBestDayShare;
     }
 }

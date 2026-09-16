@@ -322,14 +322,13 @@ function HtmlText({
         <Text style={style}>
             {parts.map((part, index) => {
                 const match = /^<strong>([\S\s]*?)<\/strong>$/.exec(part);
-                if (match) {
-                    return (
-                        <Text key={index} style={{ fontWeight: 700 }}>
-                            {match[1]}
-                        </Text>
-                    );
-                }
-                return part.replaceAll(/<[^>]*>/g, '') || null;
+                return match ? (
+                    <Text key={index} style={{ fontWeight: 700 }}>
+                        {match[1]}
+                    </Text>
+                ) : (
+                    part.replaceAll(/<[^>]*>/g, '') || null
+                );
             })}
         </Text>
     );
@@ -349,11 +348,12 @@ function LocationLink({
 }: {
     location: { title: string; url?: null | string };
 }) {
-    if (!location.url) return <Text>{location.title}</Text>;
-    return (
+    return location.url ? (
         <Link href={location.url} style={styles.linkText}>
             {location.title}
         </Link>
+    ) : (
+        <Text>{location.title}</Text>
     );
 }
 

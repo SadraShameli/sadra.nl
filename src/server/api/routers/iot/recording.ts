@@ -44,14 +44,12 @@ async function getRecording(
         where: (recording) => eq(recording.id, input.id),
     });
 
-    if (!result) {
-        return {
-            error: `Recording id ${input.id} not found`,
-            status: 404,
-        };
-    }
-
-    return { data: result };
+    return result
+        ? { data: result }
+        : {
+              error: `Recording id ${input.id} not found`,
+              status: 404,
+          };
 }
 
 function getRecordingFileName(date: Date) {

@@ -69,13 +69,12 @@ async function getReading(
         where: (reading) => eq(reading.id, input.id),
     });
 
-    if (!result)
-        return {
-            error: `Reading id ${input.id} not found`,
-            status: 404,
-        };
-
-    return { data: result };
+    return result
+        ? { data: result }
+        : {
+              error: `Reading id ${input.id} not found`,
+              status: 404,
+          };
 }
 
 const PERIOD_BY_GRANULARITY: Record<

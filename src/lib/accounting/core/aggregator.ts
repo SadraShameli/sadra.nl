@@ -25,16 +25,18 @@ const compareBookings = (a: Booking, b: Booking): number => {
 
 const compareUnknowns = (a: UnknownMerchant, b: UnknownMerchant): number => {
     if (a.direction !== b.direction) return a.direction < b.direction ? -1 : 1;
-    if (a.count !== b.count) return b.count - a.count;
-    return a.rawName.localeCompare(b.rawName);
+    return a.count === b.count
+        ? a.rawName.localeCompare(b.rawName)
+        : b.count - a.count;
 };
 
 const compareMatches = (a: MatchAudit, b: MatchAudit): number => {
     if (a.direction !== b.direction) return a.direction < b.direction ? -1 : 1;
     if (a.matchedDisplay !== b.matchedDisplay)
         return a.matchedDisplay.localeCompare(b.matchedDisplay);
-    if (a.count !== b.count) return b.count - a.count;
-    return a.rawName.localeCompare(b.rawName);
+    return a.count === b.count
+        ? a.rawName.localeCompare(b.rawName)
+        : b.count - a.count;
 };
 
 class BookingAccumulator {
@@ -199,14 +201,15 @@ class UnknownOccurrences {
         );
         const firstSeen = sorted[0];
         const lastSeen = sorted.at(-1);
-        if (firstSeen === undefined || lastSeen === undefined) return null;
-        return {
-            count: this.dates.length,
-            direction,
-            firstSeen,
-            lastSeen,
-            rawName,
-        };
+        return firstSeen === undefined || lastSeen === undefined
+            ? null
+            : {
+                  count: this.dates.length,
+                  direction,
+                  firstSeen,
+                  lastSeen,
+                  rawName,
+              };
     }
 }
 
@@ -292,8 +295,8 @@ export function requiredCurrencies(
 ): CurrencyCode[] {
     const currencies = new Set<CurrencyCode>();
     for (const tx of transactions) {
-        if (IsoDate.isBefore(tx.date, start)) continue;
-        if (tx.sourceCurrency === 'EUR') continue;
+        if (IsoDate.isBefore(tx.date, start) || tx.sourceCurrency === 'EUR')
+            continue;
         if (ruleSet.findMatch(tx) !== null) currencies.add(tx.sourceCurrency);
     }
     return [...currencies];

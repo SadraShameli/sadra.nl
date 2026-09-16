@@ -27,6 +27,7 @@ export {
 } from './DailyLossLimit';
 export {
     canonicaliseLadder,
+    computedDayPolicy,
     type DayPolicy,
     type DayStopRule,
     DayStopRuleKind,
@@ -34,6 +35,7 @@ export {
     flatDayPolicy,
     isFlatLadder,
     ladderSum,
+    resolveFundedTradeRisk,
     resolveTradeRisk,
     RungSizing,
     shouldStopDay,
@@ -46,6 +48,12 @@ export {
     IntradayTrailingDrawdown,
     StaticDrawdown,
 } from './DrawdownStrategy';
+export {
+    computeEvalStateValue,
+    type EvalStateValueConfig,
+    type EvalStateValueResult,
+    isEvalDpEligible,
+} from './EvalStateValue';
 export {
     type CouponDiscounts,
     type FeeSchedule,
@@ -80,6 +88,20 @@ export {
     runLadderSearch,
     scoreLadder,
 } from './LadderSearch';
+export {
+    lifetimeExpectedNet,
+    type LifetimeExtractionCycle,
+} from './LifetimeExtraction';
+export {
+    createInitialLiveAccountState,
+    type LiveAccountState,
+} from './LiveAccountState';
+export {
+    type LiveCushionPercent,
+    LivePlan,
+    type LivePlanInit,
+} from './LivePlan';
+export { resolveLiveTradeRisk } from './LiveSizing';
 export { PayoutBuffer } from './PayoutBuffer';
 export {
     type PayoutCapContext,

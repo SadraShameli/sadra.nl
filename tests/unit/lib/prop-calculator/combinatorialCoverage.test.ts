@@ -276,10 +276,12 @@ function generateTWiseRows(
             for (const key of keys) {
                 if (uncovered.has(key)) score += 1;
             }
-            if (score > bestScore) {
-                bestScore = score;
-                bestRow = candidate;
+            if (!(score > bestScore)) {
+                continue;
             }
+
+            bestScore = score;
+            bestRow = candidate;
         }
         if (!bestRow) break;
         rows.push(bestRow);

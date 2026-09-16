@@ -1,8 +1,10 @@
 import { resetForNewDay } from '../core/AccountState';
 import {
+    computedDayPolicy,
     type DayPolicy,
     DayStopRuleKind,
     flatDayPolicy,
+    resolveFundedTradeRisk,
     resolveTradeRisk,
     shouldStopDay,
 } from '../core/DayPolicy';
@@ -30,12 +32,24 @@ export function resolveDayPolicy(
             : inputs.fundedDayPolicy;
     if (declared) return declared;
     const isFunded = phase === TradingPhase.Funded;
-    const riskPerTrade = isFunded
-        ? (inputs.fundedRiskPerTrade ?? inputs.riskPerTrade)
-        : inputs.riskPerTrade;
     const tradesPerDay = isFunded
         ? (inputs.fundedTradesPerDay ?? inputs.tradesPerDay)
         : inputs.tradesPerDay;
+    if (isFunded && inputs.fundedCushionPercent !== undefined) {
+        const cushionPercent = inputs.fundedCushionPercent;
+        return computedDayPolicy(
+            (state) =>
+                resolveFundedTradeRisk(
+                    state.balance - state.threshold,
+                    cushionPercent,
+                ),
+            tradesPerDay,
+            inputs.dayStop ?? { kind: DayStopRuleKind.None },
+        );
+    }
+    const riskPerTrade = isFunded
+        ? (inputs.fundedRiskPerTrade ?? inputs.riskPerTrade)
+        : inputs.riskPerTrade;
     return flatDayPolicy(
         riskPerTrade,
         tradesPerDay,
@@ -87,7 +101,11 @@ export function runDay(options: DayRunOptions): {
         rng() < idleChance;
 
     if (!isIdleToday) {
-        for (const intendedRisk of dayPolicy.ladder) {
+        for (let index = 0; index < dayPolicy.ladder.length; index++) {
+            const intendedRisk =
+                dayPolicy.computeRisk?.(state, plan, index) ??
+                dayPolicy.ladder[index] ??
+                0;
             const cushion = state.balance - state.threshold;
             const contractCappedRisk =
                 positionSizing === null
@@ -143,16 +161,10 @@ export function runDay(options: DayRunOptions): {
                     traded: isTraded,
                 };
             }
-            if (plan.isDayLockedOut(state, phase)) {
-                break;
-            }
             if (
-                dayPolicy.maxLossesPerDay !== null &&
-                lossesToday >= dayPolicy.maxLossesPerDay
-            ) {
-                break;
-            }
-            if (
+                plan.isDayLockedOut(state, phase) ||
+                (dayPolicy.maxLossesPerDay !== null &&
+                    lossesToday >= dayPolicy.maxLossesPerDay) ||
                 shouldStopDay(
                     dayPolicy.stopRule,
                     isWon,
@@ -181,11 +193,8 @@ export function runDay(options: DayRunOptions): {
     if (plan.isBust(state, phase)) {
         return { busted: true, closedForInactivity: false, traded: isTraded };
     }
-    if (
-        plan.maxConsecutiveIdleDays !== null &&
+    return plan.maxConsecutiveIdleDays !== null &&
         state.consecutiveIdleDays >= plan.maxConsecutiveIdleDays
-    ) {
-        return { busted: true, closedForInactivity: true, traded: isTraded };
-    }
-    return { busted: false, closedForInactivity: false, traded: isTraded };
+        ? { busted: true, closedForInactivity: true, traded: isTraded }
+        : { busted: false, closedForInactivity: false, traded: isTraded };
 }

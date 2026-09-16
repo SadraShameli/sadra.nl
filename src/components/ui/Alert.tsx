@@ -80,9 +80,7 @@ const Alert = React.forwardRef<HTMLDivElement, AlertProperties>(
             };
         }, [autoDismiss, autoDismissMs, pathname, router, searchParameters]);
 
-        if (!mounted) return null;
-
-        return (
+        return mounted ? (
             <div
                 className={cn(
                     alertVariants({ variant }),
@@ -96,7 +94,7 @@ const Alert = React.forwardRef<HTMLDivElement, AlertProperties>(
                 role="alert"
                 {...properties}
             />
-        );
+        ) : null;
     },
 );
 Alert.displayName = 'Alert';

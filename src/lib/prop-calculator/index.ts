@@ -1,13 +1,34 @@
 export * from './core';
-export { ALL_FIRMS, findFirm } from './firms';
+export {
+    ALL_FIRMS,
+    APEX_LIVE_DEFAULT_CUSHION_PERCENT,
+    buildApexLivePlan,
+    buildFundedNextLivePlan,
+    buildMffuRapidLivePlan,
+    buildTopStepLivePlan,
+    buildTptLivePlan,
+    buildTradeifyLivePlan,
+    computeTopStepLiveStartingBalance,
+    findFirm,
+    findLivePlanBuilder,
+    FUNDEDNEXT_LIVE_DEFAULT_CUSHION_PERCENT,
+    type LivePlanBuilder,
+    MFFU_RAPID_LIVE_DEFAULT_CUSHION_PERCENT,
+    TOPSTEP_LIVE_DEFAULT_CUSHION_PERCENT,
+    TPT_LIVE_DEFAULT_CUSHION_PERCENT,
+    TRADEIFY_LIVE_DEFAULT_CUSHION_PERCENT,
+} from './firms';
 export {
     CorrelationMode,
     type CostBreakdown,
+    type LiveOutputs,
+    type LiveSimInputs,
     type MultiAccountResult,
     type PortfolioSimInputs,
     type SimInputs,
     type SimOutputs,
     simulate,
+    simulateLiveAccount,
     simulatePortfolio,
     type TrialOutcome,
 } from './simulator';

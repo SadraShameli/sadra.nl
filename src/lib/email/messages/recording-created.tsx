@@ -29,8 +29,7 @@ export class RecordingCreatedEmail extends EmailMessage {
 }
 
 function formatDuration(seconds: null | number | undefined): string {
-    if (seconds == null) return '';
-    return ` (${Math.round(seconds)}s)`;
+    return seconds == null ? '' : ` (${Math.round(seconds)}s)`;
 }
 
 function RecordingCreatedTemplate({

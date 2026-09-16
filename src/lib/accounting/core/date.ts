@@ -35,8 +35,7 @@ export const IsoDate = {
         const sorted = dates.toSorted((a, b) => Number(a > b) - Number(a < b));
         const start = sorted[0];
         const end = sorted.at(-1);
-        if (start === undefined || end === undefined) return null;
-        return { end, start };
+        return start === undefined || end === undefined ? null : { end, start };
     },
 
     today: (): ISODate => isoDateSchema.parse(format(new Date(), DATE_FORMAT)),

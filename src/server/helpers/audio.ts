@@ -234,7 +234,9 @@ function decodeImaAdpcmBlocks(
 }
 
 function getDurationSeconds(audio: AudioFile): null | number {
-    if (audio.sampleRate <= 0 || audio.numChannels <= 0) return null;
-    if (audio.samples.length === 0) return null;
-    return audio.samples.length / audio.numChannels / audio.sampleRate;
+    return audio.sampleRate <= 0 ||
+        audio.numChannels <= 0 ||
+        audio.samples.length === 0
+        ? null
+        : audio.samples.length / audio.numChannels / audio.sampleRate;
 }

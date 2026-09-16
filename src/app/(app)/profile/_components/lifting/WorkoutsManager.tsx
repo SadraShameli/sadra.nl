@@ -423,11 +423,13 @@ export function WorkoutsManager() {
 }
 
 function durationSeconds(w: WorkoutRow): null | number {
-    if (!w.endedAt) return null;
-    return Math.round(
-        (new Date(w.endedAt).getTime() - new Date(w.startedAt).getTime()) /
-            1000,
-    );
+    return w.endedAt
+        ? Math.round(
+              (new Date(w.endedAt).getTime() -
+                  new Date(w.startedAt).getTime()) /
+                  1000,
+          )
+        : null;
 }
 
 function WorkoutEditDialog({

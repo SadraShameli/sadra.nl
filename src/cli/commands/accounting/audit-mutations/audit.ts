@@ -181,8 +181,8 @@ export function auditMutations(input: {
         }
 
         const representative = group[0];
-        if (!representative) continue;
-        if (representative.expectedLedgerId === null) continue;
+        if (!representative || representative.expectedLedgerId === null)
+            continue;
         const actual = comboKey(
             representative.actualLedgerId,
             representative.actualVatCode,

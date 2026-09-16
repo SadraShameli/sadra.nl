@@ -38,16 +38,11 @@ export function GradeCalibrationChart({
         [assessments],
     );
 
-    if (data.length === 0) {
-        return (
-            <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-                Record outcome R values to see if A grades actually outperform
-                B.
-            </div>
-        );
-    }
-
-    return (
+    return data.length === 0 ? (
+        <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
+            Record outcome R values to see if A grades actually outperform B.
+        </div>
+    ) : (
         <ChartContainer
             className={cn(
                 'app-trade-checklist__grade-calibration-chart',

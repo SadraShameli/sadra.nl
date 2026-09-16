@@ -7,6 +7,8 @@ import {
 import { type CouponDiscounts } from '../core/FeeSchedule';
 import { type FundedCycleTracker } from '../core/FundedPayoutCycle';
 import { type InstrumentSymbol } from '../core/Instruments';
+import { type LiveAccountState } from '../core/LiveAccountState';
+import { type LivePlan } from '../core/LivePlan';
 import { type Plan } from '../core/Plan';
 import { type PositionSizingConfig } from '../core/PositionSizing';
 import { type Roi } from '../core/Roi';
@@ -152,6 +154,42 @@ export interface FundedHorizonResult {
     totalPayout: number;
 }
 
+export interface LiveDayRunOptions {
+    commission: Dollars;
+    plan: LivePlan;
+    positionSizing: null | PositionSizingConfig;
+    rng: Rng;
+    rrRatio: number;
+    state: LiveAccountState;
+    tradesPerDay: number;
+    winrate: Fraction0to1;
+}
+
+export interface LiveOutputs {
+    cumulativeWithdrawalsAtHorizon: number[];
+    cumulativeWithdrawalsP5: number;
+    cumulativeWithdrawalsP50: number;
+    cumulativeWithdrawalsP95: number;
+    expectedAnnualWithdrawalRate: number;
+    liveBustProbability: number;
+    medianDaysToBust: number;
+    medianDaysToFirstWithdrawal: number;
+}
+
+export interface LiveSimInputs {
+    commissionPerRoundTrip?: number;
+    horizonDays: number;
+    instrument?: InstrumentSymbol;
+    payoutRequestSize?: number;
+    plan: LivePlan;
+    rrRatio: number;
+    seed: number;
+    stopPoints?: number;
+    tradesPerDay: number;
+    trials: number;
+    winrate: number;
+}
+
 export interface MultiAccountResult {
     accountsPassDistribution: number[];
     expectedAccountsPass: number;
@@ -178,6 +216,7 @@ export interface SimInputs {
     dayStop?: DayStopRule;
     discounts?: CouponDiscounts;
     evalDayPolicy?: DayPolicy;
+    fundedCushionPercent?: Fraction0to1;
     fundedDayPolicy?: DayPolicy;
     fundedHorizonDays: number;
     fundedRiskPerTrade?: number;

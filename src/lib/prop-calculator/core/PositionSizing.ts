@@ -23,8 +23,9 @@ export function capRiskToContractLimit(
         positionSizing.instrument.pointValue * positionSizing.stopPoints;
     if (riskPerContract <= 0) return intendedRisk;
     const impliedContracts = intendedRisk / riskPerContract;
-    if (impliedContracts <= maxContracts) return intendedRisk;
-    return maxContracts * riskPerContract;
+    return impliedContracts <= maxContracts
+        ? intendedRisk
+        : maxContracts * riskPerContract;
 }
 
 export function resolveContractLimit(
@@ -51,10 +52,13 @@ export function resolvePositionSizing(
     instrument: InstrumentSymbol | undefined,
     stopPoints: number | undefined,
 ): null | PositionSizingConfig {
-    if (instrument === undefined || stopPoints === undefined) return null;
-    if (!Number.isFinite(stopPoints) || stopPoints <= 0) return null;
-    return {
-        instrument: INSTRUMENTS[instrument],
-        stopPoints: points(stopPoints),
-    };
+    return instrument === undefined ||
+        stopPoints === undefined ||
+        !Number.isFinite(stopPoints) ||
+        stopPoints <= 0
+        ? null
+        : {
+              instrument: INSTRUMENTS[instrument],
+              stopPoints: points(stopPoints),
+          };
 }

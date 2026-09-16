@@ -29,16 +29,12 @@ export function PerWindowChart({
         [assessments],
     );
 
-    if (data.length === 0) {
-        return (
-            <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-                Take trades inside macro windows with recorded outcomes to see
-                per-window performance.
-            </div>
-        );
-    }
-
-    return (
+    return data.length === 0 ? (
+        <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
+            Take trades inside macro windows with recorded outcomes to see
+            per-window performance.
+        </div>
+    ) : (
         <ChartContainer
             className={cn(
                 'app-trade-checklist__per-window-chart',

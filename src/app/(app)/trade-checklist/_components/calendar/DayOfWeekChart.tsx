@@ -28,15 +28,7 @@ export function DayOfWeekChart({
     );
     const hasData = data.some((d) => d.count > 0);
 
-    if (!hasData) {
-        return (
-            <div className="flex h-48 items-center justify-center text-sm text-muted-foreground">
-                Record outcomes across weekdays to see day-of-week edge.
-            </div>
-        );
-    }
-
-    return (
+    return hasData ? (
         <ChartContainer
             className={cn(
                 'app-trade-checklist__day-of-week-chart',
@@ -83,5 +75,9 @@ export function DayOfWeekChart({
                 </Bar>
             </BarChart>
         </ChartContainer>
+    ) : (
+        <div className="flex h-48 items-center justify-center text-sm text-muted-foreground">
+            Record outcomes across weekdays to see day-of-week edge.
+        </div>
     );
 }

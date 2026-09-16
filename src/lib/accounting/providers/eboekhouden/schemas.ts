@@ -116,9 +116,7 @@ export function omitNullish<T extends object>(payload: T): Partial<T> {
 export function unwrapItems<T>(body: unknown, item: z.ZodType<T>): T[] {
     if (body && typeof body === 'object' && !Array.isArray(body)) {
         const items = (body as { items?: unknown }).items;
-        if (Array.isArray(items)) return items.map((row) => item.parse(row));
-        return [];
+        return Array.isArray(items) ? items.map((row) => item.parse(row)) : [];
     }
-    if (Array.isArray(body)) return body.map((row) => item.parse(row));
-    return [];
+    return Array.isArray(body) ? body.map((row) => item.parse(row)) : [];
 }

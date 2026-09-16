@@ -33,14 +33,12 @@ async function getLocation(
         where: (location) => eq(location.location_id, input.location_id),
     });
 
-    if (!result) {
-        return {
-            error: `Location id ${input.location_id} not found`,
-            status: 404,
-        };
-    }
-
-    return { data: result };
+    return result
+        ? { data: result }
+        : {
+              error: `Location id ${input.location_id} not found`,
+              status: 404,
+          };
 }
 
 export const locationRouter = createTRPCRouter({

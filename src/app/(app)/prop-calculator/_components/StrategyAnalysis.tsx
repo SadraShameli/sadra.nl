@@ -546,35 +546,30 @@ export default function StrategyAnalysis({
 function calmarBench(v: number): string {
     if (v > 3) return 'excellent';
     if (v > 2) return 'good';
-    if (v > 1) return 'acceptable';
-    return 'poor';
+    return v > 1 ? 'acceptable' : 'poor';
 }
 
 function calmarColor(v: number): string {
     if (v > 3) return 'text-emerald-400';
     if (v > 2) return 'text-green-400';
-    if (v > 1) return 'text-amber-400';
-    return 'text-rose-400';
+    return v > 1 ? 'text-amber-400' : 'text-rose-400';
 }
 
 function gainToPainColor(v: number): string {
     if (v > 3) return 'text-emerald-400';
     if (v > 1.5) return 'text-green-400';
-    if (v > 1) return 'text-amber-400';
-    return 'text-rose-400';
+    return v > 1 ? 'text-amber-400' : 'text-rose-400';
 }
 
 function kellyColor(index: number): string {
     if (index > 1) return 'text-rose-400';
     if (index > 0.75) return 'text-amber-400';
-    if (index >= 0.25) return 'text-emerald-400';
-    return 'text-amber-400';
+    return index >= 0.25 ? 'text-emerald-400' : 'text-amber-400';
 }
 function kellyLabel(index: number): string {
     if (index > 1) return 'over-betting';
     if (index > 0.75) return 'high variance';
-    if (index >= 0.25) return 'optimal zone';
-    return 'under-betting';
+    return index >= 0.25 ? 'optimal zone' : 'under-betting';
 }
 function Metric({
     label,
@@ -607,35 +602,29 @@ function Metric({
 
 function omegaBench(v: number): string {
     if (v > 2) return 'strong';
-    if (v > 1) return 'acceptable';
-    return 'losing';
+    return v > 1 ? 'acceptable' : 'losing';
 }
 function omegaColor(v: number): string {
     if (v > 2) return 'text-emerald-400';
-    if (v > 1) return 'text-amber-400';
-    return 'text-rose-400';
+    return v > 1 ? 'text-amber-400' : 'text-rose-400';
 }
 function pfBench(v: number): string {
     if (v > 1.5) return 'healthy';
-    if (v > 1) return 'marginal';
-    return 'losing';
+    return v > 1 ? 'marginal' : 'losing';
 }
 function pfColor(v: number): string {
     if (v > 1.5) return 'text-emerald-400';
-    if (v > 1) return 'text-amber-400';
-    return 'text-rose-400';
+    return v > 1 ? 'text-amber-400' : 'text-rose-400';
 }
 function riskAdjustedRatioBench(v: number): string {
     if (v > 2) return 'excellent';
     if (v > 1) return 'good';
-    if (v > 0.5) return 'acceptable';
-    return 'poor';
+    return v > 0.5 ? 'acceptable' : 'poor';
 }
 function riskAdjustedRatioColor(v: number): string {
     if (v > 2) return 'text-emerald-400';
     if (v > 1) return 'text-green-400';
-    if (v > 0.5) return 'text-amber-400';
-    return 'text-rose-400';
+    return v > 0.5 ? 'text-amber-400' : 'text-rose-400';
 }
 function SectionHeader({
     description,
@@ -653,17 +642,14 @@ function SectionHeader({
 }
 function ulcerColor(v: number): string {
     if (v < 3) return 'text-emerald-400';
-    if (v < 8) return 'text-amber-400';
-    return 'text-rose-400';
+    return v < 8 ? 'text-amber-400' : 'text-rose-400';
 }
 function zColor(z: number): string {
     if (z >= 1.645) return 'text-emerald-400';
-    if (z >= 1.28) return 'text-amber-400';
-    return 'text-rose-400';
+    return z >= 1.28 ? 'text-amber-400' : 'text-rose-400';
 }
 
 function zLabel(z: number): string {
     if (z >= 1.645) return 'strong (95% CI)';
-    if (z >= 1.28) return 'moderate (80% CI)';
-    return 'weak';
+    return z >= 1.28 ? 'moderate (80% CI)' : 'weak';
 }

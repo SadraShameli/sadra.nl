@@ -76,8 +76,9 @@ export function SessionsList() {
     );
     const rows = useMemo(() => {
         if (statusFilter === 'current') return allRows.filter((r) => r.current);
-        if (statusFilter === 'others') return allRows.filter((r) => !r.current);
-        return allRows;
+        return statusFilter === 'others'
+            ? allRows.filter((r) => !r.current)
+            : allRows;
     }, [allRows, statusFilter]);
     const hasOthers = allRows.some((r) => !r.current);
     const hasFilters = statusFilter !== 'all';

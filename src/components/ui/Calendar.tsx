@@ -145,16 +145,12 @@ function Calendar({
                         );
                     }
 
-                    if (orientation === 'right') {
-                        return (
-                            <ChevronRightIcon
-                                className={cn('size-4', className)}
-                                {...properties_}
-                            />
-                        );
-                    }
-
-                    return (
+                    return orientation === 'right' ? (
+                        <ChevronRightIcon
+                            className={cn('size-4', className)}
+                            {...properties_}
+                        />
+                    ) : (
                         <ChevronDownIcon
                             className={cn('size-4', className)}
                             {...properties_}

@@ -102,8 +102,7 @@ export default function StrategyLabPanel({
         let best: null | { id: string; monthly: number; score: number } = null;
         for (const sc of scenarios) {
             const r = results.get(sc.id);
-            if (!r) continue;
-            if (r.pAtLeast.kHalf < 0.5) continue;
+            if (!r || r.pAtLeast.kHalf < 0.5) continue;
             if (!best || r.expectedMonthlyNet > best.monthly) {
                 best = {
                     id: sc.id,
@@ -208,16 +207,7 @@ export default function StrategyLabPanel({
             <div className="mt-4 grid gap-3">
                 {scenarios.map((sc) => {
                     const r = results.get(sc.id);
-                    if (!r) {
-                        return (
-                            <Card className="gap-1 py-2" key={sc.id}>
-                                <CardContent className="px-3 text-xs text-muted-foreground">
-                                    {sc.label}: simulating…
-                                </CardContent>
-                            </Card>
-                        );
-                    }
-                    return (
+                    return r ? (
                         <Card className="gap-1 py-2" key={sc.id}>
                             <CardContent className="px-3">
                                 <div className="mb-1 flex items-center justify-between text-xs">
@@ -243,6 +233,12 @@ export default function StrategyLabPanel({
                                         {r.meanTradesPerDay.toFixed(2)}
                                     </span>
                                 </div>
+                            </CardContent>
+                        </Card>
+                    ) : (
+                        <Card className="gap-1 py-2" key={sc.id}>
+                            <CardContent className="px-3 text-xs text-muted-foreground">
+                                {sc.label}: simulating…
                             </CardContent>
                         </Card>
                     );

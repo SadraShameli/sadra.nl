@@ -28,9 +28,9 @@ export function expectedMaxLossStreak(N: number, winrate: number): number {
     if (q >= 1) return N;
     const number_ = Math.log(N * winrate);
     const den = Math.log(1 / q);
-    if (!Number.isFinite(number_) || !Number.isFinite(den) || den <= 0)
-        return 0;
-    return Math.max(0, number_ / den);
+    return !Number.isFinite(number_) || !Number.isFinite(den) || den <= 0
+        ? 0
+        : Math.max(0, number_ / den);
 }
 
 export function gamblersRuinAsymmetric(
@@ -40,8 +40,7 @@ export function gamblersRuinAsymmetric(
     dd: number,
 ): number {
     if (p <= 0) return 0;
-    if (p >= 1) return 1;
-    if (target <= 0) return 1;
+    if (p >= 1 || target <= 0) return 1;
     if (dd <= 0) return 0;
 
     const targetUnits = Math.max(1, Math.round(target));

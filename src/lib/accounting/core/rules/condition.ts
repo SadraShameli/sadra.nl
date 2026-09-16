@@ -19,8 +19,9 @@ export class AmountRangeCondition implements RuleCondition {
 
     isSatisfiedBy(tx: RawTransaction): boolean {
         const amount = Math.abs(tx.sourceAmount);
-        if (this.min !== null && amount < this.min) return false;
-        return this.max === null || amount <= this.max;
+        return this.min !== null && amount < this.min
+            ? false
+            : this.max === null || amount <= this.max;
     }
 }
 
@@ -39,10 +40,9 @@ export class DateRangeCondition implements RuleCondition {
     ) {}
 
     isSatisfiedBy(tx: RawTransaction): boolean {
-        if (this.from !== null && IsoDate.isBefore(tx.date, this.from)) {
-            return false;
-        }
-        return this.to === null || !IsoDate.isBefore(this.to, tx.date);
+        return this.from !== null && IsoDate.isBefore(tx.date, this.from)
+            ? false
+            : this.to === null || !IsoDate.isBefore(this.to, tx.date);
     }
 }
 

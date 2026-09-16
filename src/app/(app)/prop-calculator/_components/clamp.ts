@@ -6,8 +6,9 @@ export function clampInt(
     hi: number,
     fallback: number,
 ): number {
-    if (!Number.isFinite(n)) return fallback;
-    return Math.min(hi, Math.max(lo, Math.floor(n)));
+    return Number.isFinite(n)
+        ? Math.min(hi, Math.max(lo, Math.floor(n)))
+        : fallback;
 }
 
 export function clampNumber(
@@ -16,8 +17,7 @@ export function clampNumber(
     hi: number,
     fallback: number,
 ): number {
-    if (!Number.isFinite(n)) return fallback;
-    return Math.min(hi, Math.max(lo, n));
+    return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : fallback;
 }
 
 export function clampStateToPlan(state: CalculatorState): CalculatorState {

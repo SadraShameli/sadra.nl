@@ -203,14 +203,9 @@ export function DevicesPanel() {
                             </span>
                         );
                     }
-                    if (d.token_hash && d.token_created_at) {
-                        return (
-                            <span className="text-xs text-emerald-400">
-                                issued
-                            </span>
-                        );
-                    }
-                    return (
+                    return d.token_hash && d.token_created_at ? (
+                        <span className="text-xs text-emerald-400">issued</span>
+                    ) : (
                         <span className="text-xs text-muted-foreground">
                             none
                         </span>

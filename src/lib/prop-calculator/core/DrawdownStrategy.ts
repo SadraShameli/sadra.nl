@@ -63,8 +63,7 @@ export abstract class DrawdownStrategy {
         profit: number = state.balance - state.startingBalance,
     ): void {
         const lock = this.init.lock;
-        if (!lock) return;
-        if (profit < lock.atProfit) return;
+        if (!lock || profit < lock.atProfit) return;
         state.threshold = lock.lockedThreshold(state.startingBalance);
         state.thresholdLocked = true;
     }

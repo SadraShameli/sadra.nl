@@ -18,10 +18,9 @@ const clientQueryClientSingleton: { current: QueryClient | undefined } = {
     current: undefined,
 };
 const getQueryClient = () => {
-    if (typeof window === 'undefined') {
-        return createQueryClient();
-    }
-    return (clientQueryClientSingleton.current ??= createQueryClient());
+    return typeof window === 'undefined'
+        ? createQueryClient()
+        : (clientQueryClientSingleton.current ??= createQueryClient());
 };
 
 export const api = createTRPCReact<AppRouter>();
@@ -62,6 +61,7 @@ export function TRPCReactProvider(properties: { children: React.ReactNode }) {
 }
 
 function getBaseUrl() {
-    if (typeof window !== 'undefined') return window.location.origin;
-    return getPublicSiteOrigin();
+    return typeof window === 'undefined'
+        ? getPublicSiteOrigin()
+        : window.location.origin;
 }

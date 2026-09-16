@@ -99,9 +99,9 @@ class EBoekhoudenSession extends ProviderSessionBase {
             PAGE,
         );
         const adapted = all.map((l) => adaptLedger(l));
-        if (options.category)
-            return adapted.filter((l) => l.category === options.category);
-        return adapted;
+        return options.category
+            ? adapted.filter((l) => l.category === options.category)
+            : adapted;
     }
 
     async listMutations(

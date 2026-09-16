@@ -196,8 +196,9 @@ function ltfAligned(
     direction: Answers['bias']['weekly'],
     ltfs: Answers['bias']['weekly'][],
 ): number {
-    if (direction === 'unclear') return 0;
-    return ltfs.filter((d) => d === direction).length;
+    return direction === 'unclear'
+        ? 0
+        : ltfs.filter((d) => d === direction).length;
 }
 
 function makeKnockoutResult(redFlags: string[]): AssessmentResult {

@@ -483,8 +483,7 @@ function defaultUnitFor(
     unitLength: UnitLength,
 ): MeasurementUnit {
     if (kind === 'bodyfat') return '%';
-    if (TAPE_KINDS.has(kind)) return unitLength;
-    return unitWeight;
+    return TAPE_KINDS.has(kind) ? unitLength : unitWeight;
 }
 
 function MeasurementsHistoryTable({

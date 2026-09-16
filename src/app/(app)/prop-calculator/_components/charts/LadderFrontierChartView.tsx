@@ -22,9 +22,7 @@ export default function LadderFrontierChartView({ frontier }: Properties) {
         label: score.ladder.join(' / '),
     }));
 
-    if (data.length === 0) return null;
-
-    return (
+    return data.length === 0 ? null : (
         <ChartContainer
             className={cn(
                 'app-prop-calculator__ladder-frontier',

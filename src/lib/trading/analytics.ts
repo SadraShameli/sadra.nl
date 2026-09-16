@@ -116,8 +116,12 @@ export function componentScoreCorrelation(
     const buckets: { rs: number[] }[] = [];
     for (let index = 0; index < 5; index++) buckets.push({ rs: [] });
     for (const r of rows) {
-        if (!isCountedOutcome(r.outcome)) continue;
-        if (r.outcomeR === null || !Number.isFinite(r.outcomeR)) continue;
+        if (
+            !isCountedOutcome(r.outcome) ||
+            r.outcomeR === null ||
+            !Number.isFinite(r.outcomeR)
+        )
+            continue;
         const cs = r.componentScores?.[category];
         if (!cs || cs.max <= 0) continue;
         const pct = cs.earned / cs.max;
@@ -381,8 +385,11 @@ export function deviationFrequency(
 ): { count: number; deviation: string; winRate: number }[] {
     const counts = new Map<string, { total: number; wins: number }>();
     for (const r of rows) {
-        if (!isCountedOutcome(r.outcome)) continue;
-        if (!r.executionDeviations || r.executionDeviations.length === 0)
+        if (
+            !isCountedOutcome(r.outcome) ||
+            !r.executionDeviations ||
+            r.executionDeviations.length === 0
+        )
             continue;
         for (const d of r.executionDeviations) {
             const b = counts.get(d) ?? { total: 0, wins: 0 };
@@ -538,42 +545,31 @@ export function filterAssessments<
 >(rows: T[], criteria: FilterCriteria): T[] {
     return rows.filter((r) => {
         if (
-            criteria.grades &&
-            criteria.grades.length > 0 &&
-            !criteria.grades.includes(r.grade)
-        )
-            return false;
-        if (
-            criteria.outcomes &&
-            criteria.outcomes.length > 0 &&
-            (!r.outcome || !criteria.outcomes.includes(r.outcome))
-        )
-            return false;
-        if (
-            criteria.windowIds &&
-            criteria.windowIds.length > 0 &&
-            (!r.windowId || !criteria.windowIds.includes(r.windowId))
-        )
-            return false;
-        if (
-            criteria.setupTypes &&
-            criteria.setupTypes.length > 0 &&
-            (!r.setupType || !criteria.setupTypes.includes(r.setupType))
-        )
-            return false;
-        if (
-            criteria.planIds &&
-            criteria.planIds.length > 0 &&
-            (!r.planId || !criteria.planIds.includes(r.planId))
+            (criteria.grades &&
+                criteria.grades.length > 0 &&
+                !criteria.grades.includes(r.grade)) ||
+            (criteria.outcomes &&
+                criteria.outcomes.length > 0 &&
+                (!r.outcome || !criteria.outcomes.includes(r.outcome))) ||
+            (criteria.windowIds &&
+                criteria.windowIds.length > 0 &&
+                (!r.windowId || !criteria.windowIds.includes(r.windowId))) ||
+            (criteria.setupTypes &&
+                criteria.setupTypes.length > 0 &&
+                (!r.setupType || !criteria.setupTypes.includes(r.setupType))) ||
+            (criteria.planIds &&
+                criteria.planIds.length > 0 &&
+                (!r.planId || !criteria.planIds.includes(r.planId)))
         )
             return false;
         if (criteria.mentalFlags && criteria.mentalFlags.length > 0) {
             const flags = new Set(r.mentalFlags);
             if (criteria.mentalFlags.every((f) => !flags.has(f))) return false;
         }
-        if (criteria.dateFrom && dateKey(r.createdAt) < criteria.dateFrom)
-            return false;
-        if (criteria.dateTo && dateKey(r.createdAt) > criteria.dateTo)
+        if (
+            (criteria.dateFrom && dateKey(r.createdAt) < criteria.dateFrom) ||
+            (criteria.dateTo && dateKey(r.createdAt) > criteria.dateTo)
+        )
             return false;
         if (criteria.query && criteria.query.trim().length > 0) {
             const q = criteria.query.toLowerCase();
@@ -589,8 +585,12 @@ export function gradeCalibration(
 ): { avgR: number; count: number; grade: Grade }[] {
     const buckets = new Map<string, { rs: number[] }>();
     for (const r of rows) {
-        if (!isCountedOutcome(r.outcome)) continue;
-        if (r.outcomeR === null || !Number.isFinite(r.outcomeR)) continue;
+        if (
+            !isCountedOutcome(r.outcome) ||
+            r.outcomeR === null ||
+            !Number.isFinite(r.outcomeR)
+        )
+            continue;
         const b = buckets.get(r.grade) ?? { rs: [] };
         b.rs.push(r.outcomeR);
         buckets.set(r.grade, b);
@@ -617,11 +617,15 @@ export function outcomeDistribution(rows: LightAssessment[]): {
     const counts = { breakeven: 0, loss: 0, 'no-trade': 0, win: 0 };
     let total = 0;
     for (const r of rows) {
-        if (r.outcome === null) continue;
-        if (['breakeven', 'loss', 'no-trade', 'win'].includes(r.outcome)) {
-            counts[r.outcome as keyof typeof counts] += 1;
-            total += 1;
+        if (
+            r.outcome === null ||
+            !['breakeven', 'loss', 'no-trade', 'win'].includes(r.outcome)
+        ) {
+            continue;
         }
+
+        counts[r.outcome as keyof typeof counts] += 1;
+        total += 1;
     }
     return (['win', 'loss', 'breakeven', 'no-trade'] as const).map(
         (outcome) => ({

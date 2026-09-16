@@ -225,21 +225,17 @@ export function HistoryView({ from }: HistoryViewProperties) {
         [remove],
     );
 
-    if (!dateRange && !workouts.isLoading && allRows.length === 0) {
-        return (
-            <Card>
-                <CardContent>
-                    <EmptyState
-                        description="Start a workout from the Log tab and it'll show up here."
-                        icon={Calendar}
-                        title="No workouts yet"
-                    />
-                </CardContent>
-            </Card>
-        );
-    }
-
-    return (
+    return !dateRange && !workouts.isLoading && allRows.length === 0 ? (
+        <Card>
+            <CardContent>
+                <EmptyState
+                    description="Start a workout from the Log tab and it'll show up here."
+                    icon={Calendar}
+                    title="No workouts yet"
+                />
+            </CardContent>
+        </Card>
+    ) : (
         <Card>
             <CardHeader>
                 <CardTitle className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
@@ -370,9 +366,11 @@ function durationBucketOf(filterValue: unknown): DurationFilter {
 }
 
 function durationSeconds(w: WorkoutRow): null | number {
-    if (!w.endedAt) return null;
-    return Math.round(
-        (new Date(w.endedAt).getTime() - new Date(w.startedAt).getTime()) /
-            1000,
-    );
+    return w.endedAt
+        ? Math.round(
+              (new Date(w.endedAt).getTime() -
+                  new Date(w.startedAt).getTime()) /
+                  1000,
+          )
+        : null;
 }

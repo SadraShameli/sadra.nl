@@ -42,8 +42,9 @@ export class EcbRateProvider implements RateProvider {
 
     private isCached(currency: CurrencyCode, range: DateRange): boolean {
         const ranges = this.cachedRanges.get(currency);
-        if (!ranges) return false;
-        return ranges.some((r) => r.start <= range.start && r.end >= range.end);
+        return ranges
+            ? ranges.some((r) => r.start <= range.start && r.end >= range.end)
+            : false;
     }
 
     private recordCached(currency: CurrencyCode, range: DateRange): void {

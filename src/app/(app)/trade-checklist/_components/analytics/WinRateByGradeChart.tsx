@@ -27,15 +27,11 @@ export function WinRateByGradeChart({
             }));
     }, [assessments]);
 
-    if (data.length === 0) {
-        return (
-            <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-                Record W/L/BE outcomes to see win rate per grade.
-            </div>
-        );
-    }
-
-    return (
+    return data.length === 0 ? (
+        <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
+            Record W/L/BE outcomes to see win rate per grade.
+        </div>
+    ) : (
         <ChartContainer
             className={cn(
                 'app-trade-checklist__win-rate-chart',
@@ -88,6 +84,5 @@ export function WinRateByGradeChart({
 function gradeColor(grade: string): string {
     if (grade.startsWith('A')) return 'hsl(142 71% 45%)';
     if (grade.startsWith('B')) return 'hsl(45 93% 47%)';
-    if (grade.startsWith('C')) return 'hsl(25 95% 53%)';
-    return 'hsl(0 84% 60%)';
+    return grade.startsWith('C') ? 'hsl(25 95% 53%)' : 'hsl(0 84% 60%)';
 }

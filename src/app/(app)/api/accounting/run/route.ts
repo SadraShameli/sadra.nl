@@ -162,8 +162,7 @@ async function loadFileCredential(
             ),
         )
         .limit(1);
-    if (!row) return null;
-    return { id: row.id, kind: row.kind, meta: row.meta };
+    return row ? { id: row.id, kind: row.kind, meta: row.meta } : null;
 }
 
 async function loadRoutingConfig(

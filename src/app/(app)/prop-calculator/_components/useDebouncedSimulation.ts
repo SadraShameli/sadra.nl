@@ -23,10 +23,12 @@ export function useDebouncedComputation<T>(
         setPending(true);
         const handle = setTimeout(() => {
             const next = computeReference.current();
-            if (!isCancelled) {
-                setResult(next);
-                setPending(false);
+            if (isCancelled) {
+                return;
             }
+
+            setResult(next);
+            setPending(false);
         }, 0);
         return () => {
             isCancelled = true;

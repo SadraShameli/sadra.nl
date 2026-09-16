@@ -153,8 +153,7 @@ function formatGoalTarget(
     if (WEIGHT_KIND.has(kind)) return WeightUnit.format(value, unitWeight);
     if (kind === 'rep_pr') return `${value} reps`;
     if (kind === 'weekly_frequency') return `${value} /wk`;
-    if (kind === 'streak') return `${value} wk`;
-    return String(value);
+    return kind === 'streak' ? `${value} wk` : String(value);
 }
 
 const HEAT_LEVELS = [
@@ -824,17 +823,7 @@ interface HeatmapGrid {
 }
 
 function AchievementHeatmap({ heatmap }: { heatmap: HeatmapGrid }) {
-    if (!heatmap.hasAny) {
-        return (
-            <EmptyState
-                description="Mark goals as achieved to fill this heatmap."
-                icon={CalendarRange}
-                title="No achievements yet"
-            />
-        );
-    }
-
-    return (
+    return heatmap.hasAny ? (
         <TooltipProvider delayDuration={100}>
             <div className="flex h-full flex-col gap-2">
                 <div className="flex items-stretch gap-2">
@@ -891,6 +880,12 @@ function AchievementHeatmap({ heatmap }: { heatmap: HeatmapGrid }) {
                 </div>
             </div>
         </TooltipProvider>
+    ) : (
+        <EmptyState
+            description="Mark goals as achieved to fill this heatmap."
+            icon={CalendarRange}
+            title="No achievements yet"
+        />
     );
 }
 
@@ -934,8 +929,7 @@ function buildHeatmap(goals: GoalRow[]): HeatmapGrid {
         const pct = count / max;
         if (pct < 0.25) return 1;
         if (pct < 0.5) return 2;
-        if (pct < 0.75) return 3;
-        return 4;
+        return pct < 0.75 ? 3 : 4;
     };
 
     const padDays = (getDay(start) + 6) % 7;

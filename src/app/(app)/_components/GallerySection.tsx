@@ -37,9 +37,7 @@ export default function GallerySection({ items }: { items: GalleryItem[] }) {
         }
     }, []);
 
-    if (items.length === 0) return null;
-
-    return (
+    return items.length === 0 ? null : (
         <div
             className={cn(
                 'app-home__gallery',

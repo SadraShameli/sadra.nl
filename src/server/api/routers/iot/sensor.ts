@@ -30,13 +30,12 @@ export async function getSensor(
         where: (sensor, { eq }) => eq(sensor.id, input.id),
     });
 
-    if (!result)
-        return {
-            error: `Sensor id ${input.id} not found`,
-            status: 404,
-        };
-
-    return { data: result };
+    return result
+        ? { data: result }
+        : {
+              error: `Sensor id ${input.id} not found`,
+              status: 404,
+          };
 }
 
 async function assertUnitExists(
