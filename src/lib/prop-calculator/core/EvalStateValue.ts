@@ -1,8 +1,7 @@
 import { type AccountState } from './AccountState';
 import {
-    type DailyLossLimitDescriptor,
-    DailyLossLimitShape,
     describeDailyLossLimit,
+    hasPeakShareDependency,
 } from './DailyLossLimit';
 import {
     computedDayPolicy,
@@ -10,6 +9,7 @@ import {
     type DayStopRule,
     DayStopRuleKind,
     DEFAULT_RUNG_SIZING,
+    PNL_ONLY_STOP_RULE_KINDS,
     resolveTradeRisk,
     type RungSizing,
     shouldStopDay,
@@ -22,11 +22,16 @@ import {
     resolveContractLimit,
 } from './PositionSizing';
 import { TradingPhase } from './TradingPhase';
-import { type ContractCount, type Fraction0to1 } from './units';
+import {
+    type ContractCount,
+    dollars,
+    type Dollars,
+    type Fraction0to1,
+} from './units';
 
 export interface EvalStateValueConfig {
     readonly actionStepDollars?: number;
-    readonly commission?: number;
+    readonly commission?: Dollars;
     readonly cushionStepDollars?: number;
     readonly maxActionDollars?: number;
     readonly maxEvalDays: number;
@@ -53,12 +58,6 @@ const DEFAULT_PROFIT_STEP_DOLLARS = 300;
 const DEFAULT_TERMINAL_VALUE_AT_PASS = 1;
 const DEFAULT_TRADES_PER_DAY = 4;
 
-const CUSHION_GRID_STOP_RULE_KINDS: ReadonlySet<DayStopRuleKind> = new Set([
-    DayStopRuleKind.AfterTarget,
-    DayStopRuleKind.DayGreen,
-    DayStopRuleKind.None,
-]);
-
 export function computeEvalStateValue(
     config: EvalStateValueConfig,
 ): EvalStateValueResult {
@@ -72,7 +71,7 @@ export function computeEvalStateValue(
     const stopRule: DayStopRule = config.stopRule ?? {
         kind: DayStopRuleKind.None,
     };
-    if (!CUSHION_GRID_STOP_RULE_KINDS.has(stopRule.kind)) {
+    if (!PNL_ONLY_STOP_RULE_KINDS[stopRule.kind]) {
         throw new Error(
             `${plan.label}: EvalStateValue's cushion-gridded within-day solve only supports stop rules whose trigger depends solely on today's running P&L (none/day-green/after-target) — "${stopRule.kind}" depends on the day's loss/win sequence, which the grid does not track per-bucket`,
         );
@@ -86,7 +85,7 @@ export function computeEvalStateValue(
 
     const rrRatio = config.rrRatio;
     const winrate = config.winrate;
-    const commission = config.commission ?? 0;
+    const commission = config.commission ?? dollars(0);
     const rungSizing = config.rungSizing ?? DEFAULT_RUNG_SIZING;
     const slots = Math.max(
         1,
@@ -173,6 +172,33 @@ export function computeEvalStateValue(
         return table[cushionBucketIndex(exactCushion)] ?? 0;
     }
 
+    function bucketOuterState(
+        state: AccountState,
+        cushion: number,
+    ): { bestDay: number; cushion: number; thresholdOffset: number } {
+        return {
+            bestDay: isTrackingConsistency
+                ? ceilStep(
+                      clampRange(state.bestDayProfit, maxTrackedProfitLike),
+                      profitStepDollars,
+                  )
+                : 0,
+            cushion: floorStep(
+                clampRange(cushion, maxTrackedProfitLike),
+                cushionStepDollars,
+            ),
+            thresholdOffset: state.thresholdLocked
+                ? 0
+                : floorStep(
+                      clampRange(
+                          state.threshold - initialThreshold,
+                          maxTrackedProfitLike,
+                      ),
+                      profitStepDollars,
+                  ),
+        };
+    }
+
     function onDayComplete(
         cushionAtEnd: number,
         pnlAtEnd: number,
@@ -193,25 +219,11 @@ export function computeEvalStateValue(
 
         if (plan.isPassed(state)) return terminalValueAtPass;
 
-        const cushionNext = floorStep(
-            clampRange(state.balance - state.threshold, maxTrackedProfitLike),
-            cushionStepDollars,
-        );
-        const thresholdOffsetNext = state.thresholdLocked
-            ? 0
-            : floorStep(
-                  clampRange(
-                      state.threshold - initialThreshold,
-                      maxTrackedProfitLike,
-                  ),
-                  profitStepDollars,
-              );
-        const bestDayNext = isTrackingConsistency
-            ? ceilStep(
-                  clampRange(state.bestDayProfit, maxTrackedProfitLike),
-                  profitStepDollars,
-              )
-            : 0;
+        const {
+            bestDay: bestDayNext,
+            cushion: cushionNext,
+            thresholdOffset: thresholdOffsetNext,
+        } = bucketOuterState(state, state.balance - state.threshold);
 
         return dayCloseValue(
             day + 1,
@@ -283,6 +295,36 @@ export function computeEvalStateValue(
         return winrate * valueWin + (1 - winrate) * valueLose;
     }
 
+    function bestActionAt(
+        cushionNow: number,
+        pnlSoFarNow: number,
+        dayStartState: AccountState,
+        day: number,
+        nextTable: readonly number[],
+    ): { bestAction: number; bestValue: number } {
+        let bestValue = -Infinity;
+        let bestAction = 0;
+        for (const risk of candidateRisks(cushionNow)) {
+            const value =
+                risk <= 0
+                    ? onDayComplete(cushionNow, pnlSoFarNow, dayStartState, day)
+                    : valueOfRisk(
+                          risk,
+                          cushionNow,
+                          pnlSoFarNow,
+                          dayStartState,
+                          day,
+                          nextTable,
+                      );
+            if (value <= bestValue) {
+                continue;
+            }
+            bestValue = value;
+            bestAction = risk;
+        }
+        return { bestAction, bestValue };
+    }
+
     function solveDayGrid(
         dayStartState: AccountState,
         day: number,
@@ -316,33 +358,14 @@ export function computeEvalStateValue(
             for (let index = 0; index < cushionBucketCount; index++) {
                 const cushionNow = index * cushionStepDollars;
                 const pnlSoFarNow = cushionNow - cushionAtDayStart;
-                let best = -Infinity;
-                let bestAction = 0;
-                for (const risk of candidateRisks(cushionNow)) {
-                    const value =
-                        risk <= 0
-                            ? onDayComplete(
-                                  cushionNow,
-                                  pnlSoFarNow,
-                                  dayStartState,
-                                  day,
-                              )
-                            : valueOfRisk(
-                                  risk,
-                                  cushionNow,
-                                  pnlSoFarNow,
-                                  dayStartState,
-                                  day,
-                                  nextTable,
-                              );
-                    if (!(value > best)) {
-                        continue;
-                    }
-
-                    best = value;
-                    bestAction = risk;
-                }
-                currentTable[index] = best;
+                const { bestAction, bestValue } = bestActionAt(
+                    cushionNow,
+                    pnlSoFarNow,
+                    dayStartState,
+                    day,
+                    nextTable,
+                );
+                currentTable[index] = bestValue;
                 currentPolicy[index] = bestAction;
             }
             policyTables[tradeIndex] = currentPolicy;
@@ -402,33 +425,15 @@ export function computeEvalStateValue(
     );
     const initialValue = dayCloseValue(0, initialCushion, 0, 0, false);
 
-    function computeRisk(
-        state: AccountState,
-        _plan: Plan,
-        tradeIndexToday: number,
-    ): number {
+    function computeRisk(state: AccountState, tradeIndexToday: number): number {
         const day = state.tradingDays;
         const todayPnL = state.todayPnL;
         const cushionAtDayStart = state.balance - state.threshold - todayPnL;
-        const cushionBucket = floorStep(
-            clampRange(cushionAtDayStart, maxTrackedProfitLike),
-            cushionStepDollars,
-        );
-        const thresholdOffsetBucket = state.thresholdLocked
-            ? 0
-            : floorStep(
-                  clampRange(
-                      state.threshold - initialThreshold,
-                      maxTrackedProfitLike,
-                  ),
-                  profitStepDollars,
-              );
-        const bestDayBucket = isTrackingConsistency
-            ? ceilStep(
-                  clampRange(state.bestDayProfit, maxTrackedProfitLike),
-                  profitStepDollars,
-              )
-            : 0;
+        const {
+            bestDay: bestDayBucket,
+            cushion: cushionBucket,
+            thresholdOffset: thresholdOffsetBucket,
+        } = bucketOuterState(state, cushionAtDayStart);
         const key = outerKey(
             day,
             cushionBucket,
@@ -455,11 +460,24 @@ export function computeEvalStateValue(
     };
 }
 
+export function isDrawdownDpEligible(kind: DrawdownKind): boolean {
+    switch (kind) {
+        case DrawdownKind.EodTrailing:
+        case DrawdownKind.Static: {
+            return true;
+        }
+        case DrawdownKind.IntradayTrailing: {
+            return false;
+        }
+    }
+}
+
 export function isEvalDpEligible(plan: Plan): boolean {
     const drawdown = plan.drawdownFor(TradingPhase.Eval);
-    return drawdown.kind === DrawdownKind.IntradayTrailing
-        ? false
-        : !hasPeakShare(describeDailyLossLimit(plan.evalDailyLossLimit));
+    return (
+        isDrawdownDpEligible(drawdown.kind) &&
+        !hasPeakShareDependency(describeDailyLossLimit(plan.evalDailyLossLimit))
+    );
 }
 
 function ceilStep(value: number, step: number): number {
@@ -472,25 +490,6 @@ function clampRange(value: number, max: number): number {
 
 function floorStep(value: number, step: number): number {
     return step <= 0 ? value : Math.floor(value / step) * step;
-}
-
-function hasPeakShare(descriptor: DailyLossLimitDescriptor): boolean {
-    switch (descriptor.kind) {
-        case DailyLossLimitShape.Fixed:
-        case DailyLossLimitShape.None:
-        case DailyLossLimitShape.Range: {
-            return false;
-        }
-        case DailyLossLimitShape.ShareOfPeak: {
-            return true;
-        }
-        case DailyLossLimitShape.Staged: {
-            return (
-                hasPeakShare(descriptor.before) ||
-                hasPeakShare(descriptor.after)
-            );
-        }
-    }
 }
 
 function outerKey(

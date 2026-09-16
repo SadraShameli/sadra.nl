@@ -1,5 +1,4 @@
 import { type AccountState } from './AccountState';
-import { type Plan } from './Plan';
 import { type Fraction0to1 } from './units';
 
 export enum DayStopRuleKind {
@@ -18,8 +17,8 @@ export enum RungSizing {
 export interface DayPolicy {
     readonly computeRisk?: (
         state: AccountState,
-        plan: Plan,
         tradeIndexToday: number,
+        payoutsIssued?: number,
     ) => number;
     readonly ladder: readonly number[];
     readonly maxLossesPerDay: null | number;
@@ -35,6 +34,14 @@ export type DayStopRule =
 
 export const DEFAULT_RUNG_SIZING: RungSizing = RungSizing.CapToCushion;
 
+export const PNL_ONLY_STOP_RULE_KINDS: Record<DayStopRuleKind, boolean> = {
+    [DayStopRuleKind.AfterKLosses]: false,
+    [DayStopRuleKind.AfterTarget]: true,
+    [DayStopRuleKind.DayGreen]: true,
+    [DayStopRuleKind.FirstWin]: false,
+    [DayStopRuleKind.None]: true,
+};
+
 export function canonicaliseLadder(ladder: readonly number[]): number[] {
     const out: number[] = [];
     for (const rung of ladder) {
@@ -47,8 +54,8 @@ export function canonicaliseLadder(ladder: readonly number[]): number[] {
 export function computedDayPolicy(
     computeRisk: (
         state: AccountState,
-        plan: Plan,
         tradeIndexToday: number,
+        payoutsIssued?: number,
     ) => number,
     maxTrades: number,
     stopRule?: DayStopRule,

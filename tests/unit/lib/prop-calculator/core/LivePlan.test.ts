@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    ContractLimitKind,
     createInitialLiveAccountState,
     DailyLossLimitKind,
     dollars,
@@ -81,6 +82,20 @@ describe('LivePlan constructor invariants (mirroring Plan.ts)', () => {
         expect(() => new LivePlan(apexLikeInit({ payoutTiers: [] }))).toThrow(
             'Test Live: payoutTiers must not be empty',
         );
+    });
+
+    it('throws when contractLimit is a Tiered config with an empty tiers array', () => {
+        expect(
+            () =>
+                new LivePlan(
+                    apexLikeInit({
+                        contractLimit: {
+                            kind: ContractLimitKind.Tiered,
+                            tiers: [],
+                        },
+                    }),
+                ),
+        ).toThrow('Test Live: contractLimit.tiers must not be empty');
     });
 
     it('does not throw for a valid drawdown-shaped config', () => {

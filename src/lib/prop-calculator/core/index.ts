@@ -22,6 +22,7 @@ export {
     DailyLossLimitShape,
     describeDailyLossLimit,
     type DllTier,
+    hasPeakShareDependency,
     resolveDailyLossLimit,
     scaleDailyLossLimit,
 } from './DailyLossLimit';
@@ -35,6 +36,7 @@ export {
     flatDayPolicy,
     isFlatLadder,
     ladderSum,
+    PNL_ONLY_STOP_RULE_KINDS,
     resolveFundedTradeRisk,
     resolveTradeRisk,
     RungSizing,
@@ -52,6 +54,7 @@ export {
     computeEvalStateValue,
     type EvalStateValueConfig,
     type EvalStateValueResult,
+    isDrawdownDpEligible,
     isEvalDpEligible,
 } from './EvalStateValue';
 export {
@@ -66,6 +69,12 @@ export {
     newFundedCycleTracker,
     tryFundedPayout,
 } from './FundedPayoutCycle';
+export {
+    computeFundedStateValue,
+    type FundedStateValueConfig,
+    type FundedStateValueResult,
+    isFundedDpEligible,
+} from './FundedStateValue';
 export {
     ALL_INSTRUMENTS,
     INSTRUMENTS,

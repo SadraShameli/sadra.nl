@@ -1,4 +1,4 @@
-import { type ContractLimitConfig } from './ContractLimits';
+import { type ContractLimitConfig, ContractLimitKind } from './ContractLimits';
 import {
     type DailyLossLimitConfig,
     resolveDailyLossLimit,
@@ -43,6 +43,14 @@ export class LivePlan {
 
     constructor(init: LivePlanInit) {
         this.contractLimit = init.contractLimit ?? null;
+        if (
+            this.contractLimit?.kind === ContractLimitKind.Tiered &&
+            this.contractLimit.tiers.length === 0
+        ) {
+            throw new Error(
+                `${init.label}: contractLimit.tiers must not be empty`,
+            );
+        }
         this.cushionPercent = init.cushionPercent;
         this.label = init.label;
         this.liveDailyLossLimit = init.liveDailyLossLimit;

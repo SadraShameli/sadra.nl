@@ -229,6 +229,7 @@ export function stepFundedDay(options: FundedDayStepOptions): {
         dayPolicy,
         idleDayProbability,
         intradayPathStepsPerR,
+        payoutsIssued: tracker.payoutsIssued,
         phase: TradingPhase.Funded,
         plan,
         positionSizing,

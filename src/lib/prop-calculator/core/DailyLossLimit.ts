@@ -176,6 +176,27 @@ export function describeDailyLossLimit(
     return dailyLossLimitFor(config).describe();
 }
 
+export function hasPeakShareDependency(
+    descriptor: DailyLossLimitDescriptor,
+): boolean {
+    switch (descriptor.kind) {
+        case DailyLossLimitShape.Fixed:
+        case DailyLossLimitShape.None:
+        case DailyLossLimitShape.Range: {
+            return false;
+        }
+        case DailyLossLimitShape.ShareOfPeak: {
+            return true;
+        }
+        case DailyLossLimitShape.Staged: {
+            return (
+                hasPeakShareDependency(descriptor.before) ||
+                hasPeakShareDependency(descriptor.after)
+            );
+        }
+    }
+}
+
 export function resolveDailyLossLimit(
     config: DailyLossLimitConfig,
     context: DailyLossLimitContext,

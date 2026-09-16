@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
     ApexVariant,
     computedDayPolicy,
+    type DayPolicy,
     DayStopRuleKind,
     dollars,
     FirmId,
@@ -57,9 +58,7 @@ describe('computedDayPolicy', () => {
         expect(policy.ladder).toHaveLength(3);
         expect(policy.ladder.every((rung) => rung === 0)).toBe(true);
         expect(policy.maxLossesPerDay).toBeNull();
-        expect(policy.computeRisk?.(apexEod.initialState(), apexEod, 0)).toBe(
-            999,
-        );
+        expect(policy.computeRisk?.(apexEod.initialState(), 0)).toBe(999);
     });
 
     it('wires a percent-of-cushion computeRisk through runDay so each trade is sized off the live cushion, not a fixed dollar amount', () => {
@@ -95,5 +94,34 @@ describe('computedDayPolicy', () => {
             percent * cushionAtStart,
             8,
         );
+    });
+});
+
+describe('runDay when computeRisk is unset', () => {
+    it('falls back to dayPolicy.ladder[index], byte-identical to the pre-computeRisk behavior', () => {
+        const state = apexEod.initialState();
+        const stats = freshStats(state.startingBalance);
+        const dayPolicy: DayPolicy = {
+            ladder: [300],
+            maxLossesPerDay: null,
+            stopRule: { kind: DayStopRuleKind.None },
+        };
+        expect(dayPolicy.computeRisk).toBeUndefined();
+
+        runDay({
+            commission: dollars(0),
+            dayPolicy,
+            phase: TradingPhase.Eval,
+            plan: apexEod,
+            positionSizing: null,
+            rng: alwaysWins,
+            rrRatio: 1,
+            rungSizing: RungSizing.CapToCushion,
+            state,
+            stats,
+            winrate: fraction(1),
+        });
+
+        expect(state.balance - state.startingBalance).toBe(300);
     });
 });

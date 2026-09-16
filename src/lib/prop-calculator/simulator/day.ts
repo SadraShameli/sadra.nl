@@ -67,6 +67,7 @@ export function runDay(options: DayRunOptions): {
         dayPolicy,
         idleDayProbability,
         intradayPathStepsPerR,
+        payoutsIssued,
         phase,
         plan,
         positionSizing,
@@ -103,7 +104,7 @@ export function runDay(options: DayRunOptions): {
     if (!isIdleToday) {
         for (let index = 0; index < dayPolicy.ladder.length; index++) {
             const intendedRisk =
-                dayPolicy.computeRisk?.(state, plan, index) ??
+                dayPolicy.computeRisk?.(state, index, payoutsIssued) ??
                 dayPolicy.ladder[index] ??
                 0;
             const cushion = state.balance - state.threshold;
@@ -125,6 +126,11 @@ export function runDay(options: DayRunOptions): {
                 cushion,
                 rungSizing,
             );
+            if (!Number.isFinite(risk)) {
+                throw new TypeError(
+                    `runDay: computed a non-finite risk (${risk})`,
+                );
+            }
             if (risk <= 0) break;
 
             let isWon: boolean;

@@ -43,6 +43,7 @@ export interface DayRunOptions {
     dayPolicy: DayPolicy;
     idleDayProbability?: number;
     intradayPathStepsPerR?: number;
+    payoutsIssued?: number;
     phase: TradingPhase;
     plan: Plan;
     positionSizing: null | PositionSizingConfig;

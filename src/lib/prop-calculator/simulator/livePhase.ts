@@ -93,9 +93,7 @@ export function runLiveDay(options: LiveDayRunOptions): {
     }
 
     plan.liveDrawdown?.onDayClose(state);
-    return plan.isBust(state)
-        ? { busted: true, traded: isTraded }
-        : { busted: false, traded: isTraded };
+    return { busted: plan.isBust(state), traded: isTraded };
 }
 
 export function runLiveHorizon(options: LiveHorizonOptions): LiveHorizonResult {
@@ -139,21 +137,18 @@ export function runLiveHorizon(options: LiveHorizonOptions): LiveHorizonResult {
         }
 
         const available = plan.withdrawableAmount(state);
-        if (available > 0) {
-            const debited =
-                payoutRequestSize === undefined
-                    ? available
-                    : Math.min(payoutRequestSize, available);
-            if (debited > 0) {
-                state.balance -= debited;
-                const grossPaidBefore =
-                    plan.payoutFromProfit(cumulativeDebited);
-                cumulativeDebited += debited;
-                const grossPaidAfter = plan.payoutFromProfit(cumulativeDebited);
-                totalWithdrawn += grossPaidAfter - grossPaidBefore;
-                daysToFirstWithdrawal ??= daysElapsed;
-            }
-        }
+        if (available <= 0) continue;
+        const debited =
+            payoutRequestSize === undefined
+                ? available
+                : Math.min(payoutRequestSize, available);
+        if (debited <= 0) continue;
+        state.balance -= debited;
+        const grossPaidBefore = plan.payoutFromProfit(cumulativeDebited);
+        cumulativeDebited += debited;
+        const grossPaidAfter = plan.payoutFromProfit(cumulativeDebited);
+        totalWithdrawn += grossPaidAfter - grossPaidBefore;
+        daysToFirstWithdrawal ??= daysElapsed;
     }
 
     return {
