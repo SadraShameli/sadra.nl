@@ -71,7 +71,7 @@ export function computeFundedStateValue(
     const { plan } = config;
     if (!isFundedDpEligible(plan)) {
         throw new Error(
-            `${plan.label}: not eligible for FundedStateValue DP (call isFundedDpEligible first) — either its funded drawdown is intraday-trailing or its funded daily loss limit depends on peak-day-close profit`,
+            `${plan.label}: not eligible for FundedStateValue DP (call isFundedDpEligible first) — its funded drawdown is intraday-trailing, its funded daily loss limit depends on peak-day-close profit, or it has no funded drawdown lock and no ReleaseFloor payout floor effect`,
         );
     }
     const stopRule: DayStopRule = config.stopRule ?? {
@@ -251,10 +251,10 @@ export function computeFundedStateValue(
 
         const tracker = newFundedCycleTracker(state);
         tracker.payoutsIssued = regimeAtStart;
-        tracker.lastPayoutBalance = plan.payoutBalanceFloor(
-            state,
-            retainedCushion,
-        );
+        tracker.lastPayoutBalance =
+            regimeAtStart === 0
+                ? startingBalance
+                : plan.payoutBalanceFloor(state, retainedCushion);
         tracker.qualifyingDaysAtLastPayout = 0;
         tracker.cycleBestDayProfit = 0;
 
@@ -315,7 +315,7 @@ export function computeFundedStateValue(
         cushionNow: number,
         accountProfitNow: number,
     ): number[] {
-        const risks = new Set<number>([0]);
+        const risks = new Set<number>();
         const contractLimit: ContractCount | null =
             positionSizing === null
                 ? null
@@ -337,6 +337,7 @@ export function computeFundedStateValue(
             const risk = resolveTradeRisk(capped, cushionNow, rungSizing);
             risks.add(Math.max(0, risk));
         }
+        risks.add(0);
         return [...risks];
     }
 
@@ -587,7 +588,9 @@ export function isFundedDpEligible(plan: Plan): boolean {
         isDrawdownDpEligible(plan.fundedDrawdown.kind) &&
         !hasPeakShareDependency(
             describeDailyLossLimit(plan.fundedDailyLossLimit),
-        )
+        ) &&
+        (plan.fundedDrawdown.lock !== undefined ||
+            plan.payoutFloorEffect === PayoutFloorEffect.ReleaseFloor)
     );
 }
 
