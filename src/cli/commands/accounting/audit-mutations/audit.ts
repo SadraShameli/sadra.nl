@@ -53,14 +53,6 @@ const STOPWORDS = new Set([
     'your',
 ]);
 
-export interface AuditIssue {
-    codes: string[];
-    message: string;
-    mutationIds: string[];
-    severity: 'error' | 'warning';
-    type: IssueType;
-}
-
 export interface AuditReport {
     issues: AuditIssue[];
     matchedByRule: number;
@@ -81,6 +73,14 @@ export interface VendorBreakdownRow {
     display: string;
     matched: boolean;
     total: number;
+}
+
+interface AuditIssue {
+    codes: string[];
+    message: string;
+    mutationIds: string[];
+    severity: 'error' | 'warning';
+    type: IssueType;
 }
 
 interface Classified {
@@ -181,8 +181,7 @@ export function auditMutations(input: {
         }
 
         const representative = group[0];
-        if (!representative || representative.expectedLedgerId === null)
-            continue;
+        if (representative?.expectedLedgerId == null) continue;
         const actual = comboKey(
             representative.actualLedgerId,
             representative.actualVatCode,
@@ -344,14 +343,7 @@ function groupBy<T, K>(
     items: readonly T[],
     keyFunction: (item: T) => K,
 ): Map<K, T[]> {
-    const groups = new Map<K, T[]>();
-    for (const item of items) {
-        const key = keyFunction(item);
-        const array = groups.get(key) ?? [];
-        array.push(item);
-        groups.set(key, array);
-    }
-    return groups;
+    return Map.groupBy(items, keyFunction);
 }
 
 function ledgerCode(

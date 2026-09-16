@@ -98,17 +98,16 @@ export function PushPanel({
             if (event.kind === 'progress' && event.stage === 'post') {
                 setProgress({ current: event.current, total: event.total });
             }
-            if (event.kind === 'done') {
-                const posted = rowMap
-                    .values()
-                    .filter((r) => r.status === 'posted')
-                    .toArray().length;
-                const failed = rowMap
-                    .values()
-                    .filter((r) => r.status === 'failed')
-                    .toArray().length;
-                onCompleted({ failed, posted });
-            }
+            if (event.kind !== 'done') continue;
+            const posted = rowMap
+                .values()
+                .filter((r) => r.status === 'posted')
+                .toArray().length;
+            const failed = rowMap
+                .values()
+                .filter((r) => r.status === 'failed')
+                .toArray().length;
+            onCompleted({ failed, posted });
         }
         completedSeenReference.current = stream.events.length;
     }, [onCompleted, rowMap, stream.events]);

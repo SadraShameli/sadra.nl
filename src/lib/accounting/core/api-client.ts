@@ -35,9 +35,9 @@ export abstract class AccountingApiClientBase {
         }
         const headers: Record<string, string> = {
             'User-Agent': this.userAgent,
+            ...(json !== undefined && { 'Content-Type': 'application/json' }),
+            ...(requiresAuth && (await this.authHeader())),
         };
-        if (json !== undefined) headers['Content-Type'] = 'application/json';
-        if (requiresAuth) Object.assign(headers, await this.authHeader());
 
         const controller = new AbortController();
         const timeout = setTimeout(

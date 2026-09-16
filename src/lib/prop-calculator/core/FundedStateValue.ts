@@ -168,6 +168,12 @@ export function computeFundedStateValue(
         actionGrid.push(a);
     }
 
+    const maxDailySwingDollars =
+        slots * maxActionDollars * Math.max(1, rrRatio);
+    const unlockedWorkingBucketCount =
+        unlockedCushionBucketCount +
+        Math.max(0, Math.ceil(maxDailySwingDollars / cushionStepDollars));
+
     const value = new Map<string, number>();
     const policy = new Map<string, number[][]>();
 
@@ -406,9 +412,10 @@ export function computeFundedStateValue(
         isLockedAtStart: boolean,
         regimeAtStart: number,
         cushionBucketCount: number,
+        workingBucketCount: number,
     ): { dayStartValues: number[]; policyTables: number[][] } {
         let nextRoundTable: number[] = Array.from(
-            { length: cushionBucketCount },
+            { length: workingBucketCount },
             (_, index) =>
                 dayCloseValue(
                     index * cushionStepDollars,
@@ -420,12 +427,12 @@ export function computeFundedStateValue(
         const policyTables: number[][] = [];
         for (let tradeIndex = slots - 1; tradeIndex >= 0; tradeIndex--) {
             const currentTable: number[] = Array.from({
-                length: cushionBucketCount,
+                length: workingBucketCount,
             });
             const currentPolicy: number[] = Array.from({
-                length: cushionBucketCount,
+                length: workingBucketCount,
             });
-            for (let index = 0; index < cushionBucketCount; index++) {
+            for (let index = 0; index < workingBucketCount; index++) {
                 const cushionNow = index * cushionStepDollars;
                 const { bestAction, bestValue } = bestActionAt(
                     cushionNow,
@@ -433,7 +440,7 @@ export function computeFundedStateValue(
                     isLockedAtStart,
                     regimeAtStart,
                     nextRoundTable,
-                    cushionBucketCount,
+                    workingBucketCount,
                 );
                 currentTable[index] = bestValue;
                 currentPolicy[index] = bestAction;
@@ -441,7 +448,10 @@ export function computeFundedStateValue(
             policyTables[tradeIndex] = currentPolicy;
             nextRoundTable = currentTable;
         }
-        return { dayStartValues: nextRoundTable, policyTables };
+        return {
+            dayStartValues: nextRoundTable.slice(0, cushionBucketCount),
+            policyTables,
+        };
     }
 
     function sweepLevel(
@@ -449,6 +459,7 @@ export function computeFundedStateValue(
         isLockedAtStart: boolean,
         regimeAtStart: number,
         cushionBucketCount: number,
+        workingBucketCount: number,
         keyFor: (cushionIndex: number) => string,
     ): { maxDelta: number; policyTables: number[][] } {
         const { dayStartValues, policyTables } = solveDayTree(
@@ -456,6 +467,7 @@ export function computeFundedStateValue(
             isLockedAtStart,
             regimeAtStart,
             cushionBucketCount,
+            workingBucketCount,
         );
         let maxDelta = 0;
         for (let index = 0; index < cushionBucketCount; index++) {
@@ -475,6 +487,7 @@ export function computeFundedStateValue(
         isLockedAtStart: boolean,
         regimeAtStart: number,
         cushionBucketCount: number,
+        workingBucketCount: number,
         keyFor: (cushionIndex: number) => string,
     ): number[][] {
         let policyTables: number[][] = [];
@@ -488,6 +501,7 @@ export function computeFundedStateValue(
                 isLockedAtStart,
                 regimeAtStart,
                 cushionBucketCount,
+                workingBucketCount,
                 keyFor,
             );
             policyTables = result.policyTables;
@@ -501,6 +515,7 @@ export function computeFundedStateValue(
             lockedThresholdDollars(),
             true,
             regime,
+            lockedCushionBucketCount,
             lockedCushionBucketCount,
             (index) => lockedKey(regime, index),
         );
@@ -520,6 +535,7 @@ export function computeFundedStateValue(
                 false,
                 regime,
                 unlockedCushionBucketCount,
+                unlockedWorkingBucketCount,
                 (index) => unlockedKey(offsetIndex, regime, index),
             );
             policy.set(unlockedLevelKey(offsetIndex, regime), policyTables);
@@ -550,7 +566,7 @@ export function computeFundedStateValue(
         );
         const cushionIndex = bucketIndex(
             cushionDollars,
-            unlockedCushionBucketCount,
+            unlockedWorkingBucketCount,
         );
         const policyTables = policy.get(unlockedLevelKey(offsetIndex, regime));
         return policyTables?.[tradeIndexToday]?.[cushionIndex] ?? 0;

@@ -52,9 +52,10 @@ export const liftingGoalRouter = createTRPCRouter({
     list: protectedProcedure
         .input(listGoalsInputSchema)
         .query(async ({ ctx, input }) => {
-            const filters = [eq(liftingGoal.userId, ctx.userId)];
-            if (input.status)
-                filters.push(eq(liftingGoal.status, input.status));
+            const filters = [
+                eq(liftingGoal.userId, ctx.userId),
+                ...(input.status ? [eq(liftingGoal.status, input.status)] : []),
+            ];
             const rows = await ctx.db
                 .select({
                     achievedAt: liftingGoal.achievedAt,

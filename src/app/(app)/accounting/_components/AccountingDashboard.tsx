@@ -162,7 +162,7 @@ export function AccountingDashboard() {
         }
     };
     useEffect(() => {
-        if (sourceSelectionTouched.current || !source) return;
+        if (!source || sourceSelectionTouched.current) return;
         setApiCredentialIds([source.id]);
     }, [source]);
 

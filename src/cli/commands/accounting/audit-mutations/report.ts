@@ -1,11 +1,6 @@
 import { ui } from '~/cli/ui';
 
-import type {
-    AuditIssue,
-    AuditReport,
-    IssueType,
-    VendorBreakdownRow,
-} from './audit';
+import type { AuditReport, IssueType, VendorBreakdownRow } from './audit';
 
 const ISSUE_LABEL: Record<IssueType, string> = {
     'invalid-vat-code': 'Invalid VAT codes',
@@ -58,12 +53,7 @@ export function printReport(report: AuditReport): void {
         `${report.issues.length} issue(s) found — ${errors.length} error(s), ${warnings.length} warning(s)`,
     );
 
-    const byType = new Map<IssueType, AuditIssue[]>();
-    for (const issue of report.issues) {
-        const array = byType.get(issue.type) ?? [];
-        array.push(issue);
-        byType.set(issue.type, array);
-    }
+    const byType = Map.groupBy(report.issues, (issue) => issue.type);
 
     for (const type of ISSUE_ORDER) {
         const issues = byType.get(type);

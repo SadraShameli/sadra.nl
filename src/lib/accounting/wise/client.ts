@@ -153,8 +153,8 @@ export class WiseClient {
         for (;;) {
             const parameters: Record<string, string> = {
                 size: String(PAGE_SIZE),
+                ...(nextCursor && { nextCursor }),
             };
-            if (nextCursor) parameters.nextCursor = nextCursor;
             const body = await this.get<unknown>(
                 `/v1/profiles/${arguments_.profileId}/activities`,
                 parameters,

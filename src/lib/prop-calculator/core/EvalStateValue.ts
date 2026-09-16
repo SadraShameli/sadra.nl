@@ -52,6 +52,14 @@ export interface EvalStateValueResult {
     readonly reachedStateCount: number;
 }
 
+interface OuterState {
+    readonly bestDay: number;
+    readonly cushion: number;
+    readonly day: number;
+    readonly isLocked: boolean;
+    readonly thresholdOffset: number;
+}
+
 const DEFAULT_ACTION_STEP_DOLLARS = 50;
 const DEFAULT_CUSHION_STEP_DOLLARS = 100;
 const DEFAULT_PROFIT_STEP_DOLLARS = 300;
@@ -225,13 +233,13 @@ export function computeEvalStateValue(
             thresholdOffset: thresholdOffsetNext,
         } = bucketOuterState(state, state.balance - state.threshold);
 
-        return dayCloseValue(
-            day + 1,
-            cushionNext,
-            thresholdOffsetNext,
-            bestDayNext,
-            state.thresholdLocked,
-        );
+        return dayCloseValue({
+            bestDay: bestDayNext,
+            cushion: cushionNext,
+            day: day + 1,
+            isLocked: state.thresholdLocked,
+            thresholdOffset: thresholdOffsetNext,
+        });
     }
 
     function continuationValue(
@@ -378,14 +386,9 @@ export function computeEvalStateValue(
         };
     }
 
-    function dayCloseValue(
-        day: number,
-        cushion: number,
-        thresholdOffset: number,
-        bestDay: number,
-        isLocked: boolean,
-    ): number {
-        const key = outerKey(day, cushion, thresholdOffset, bestDay, isLocked);
+    function dayCloseValue(outerState: OuterState): number {
+        const { bestDay, cushion, day, isLocked, thresholdOffset } = outerState;
+        const key = outerKey(outerState);
         const cached = memo.get(key);
         if (cached !== undefined) return cached;
         if (day >= dayCap) {
@@ -423,7 +426,13 @@ export function computeEvalStateValue(
         initialState.balance - initialState.threshold,
         cushionStepDollars,
     );
-    const initialValue = dayCloseValue(0, initialCushion, 0, 0, false);
+    const initialValue = dayCloseValue({
+        bestDay: 0,
+        cushion: initialCushion,
+        day: 0,
+        isLocked: false,
+        thresholdOffset: 0,
+    });
 
     function computeRisk(state: AccountState, tradeIndexToday: number): number {
         const day = state.tradingDays;
@@ -434,13 +443,13 @@ export function computeEvalStateValue(
             cushion: cushionBucket,
             thresholdOffset: thresholdOffsetBucket,
         } = bucketOuterState(state, cushionAtDayStart);
-        const key = outerKey(
+        const key = outerKey({
+            bestDay: bestDayBucket,
+            cushion: cushionBucket,
             day,
-            cushionBucket,
-            thresholdOffsetBucket,
-            bestDayBucket,
-            state.thresholdLocked,
-        );
+            isLocked: state.thresholdLocked,
+            thresholdOffset: thresholdOffsetBucket,
+        });
         const policyTables = policy.get(key);
         if (!policyTables) return 0;
         const currentCushion = state.balance - state.threshold;
@@ -492,12 +501,6 @@ function floorStep(value: number, step: number): number {
     return step <= 0 ? value : Math.floor(value / step) * step;
 }
 
-function outerKey(
-    day: number,
-    cushion: number,
-    thresholdOffset: number,
-    bestDay: number,
-    isLocked: boolean,
-): string {
-    return `${day}|${cushion}|${thresholdOffset}|${bestDay}|${isLocked ? 1 : 0}`;
+function outerKey(state: OuterState): string {
+    return `${state.day}|${state.cushion}|${state.thresholdOffset}|${state.bestDay}|${state.isLocked ? 1 : 0}`;
 }

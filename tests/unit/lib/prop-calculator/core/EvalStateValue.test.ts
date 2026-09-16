@@ -44,6 +44,16 @@ function baseBuilderPlan(): Plan {
     return plan;
 }
 
+function lucidDailyIntradayDllPlan(): Plan {
+    const plan = new LucidTrading().findPlan({
+        accountSize: 50_000,
+        firm: FirmId.Lucid,
+        variant: LucidVariant.DailyIntradayDll,
+    });
+    if (!plan) throw new Error('Lucid DailyIntradayDll 50K plan not found');
+    return plan;
+}
+
 function lucidDailyIntradayPlan(): Plan {
     const plan = new LucidTrading().findPlan({
         accountSize: 50_000,
@@ -135,7 +145,11 @@ describe('computeEvalStateValue backward induction — hand-computable toy cases
 
     it(
         'the wired computeRisk actually risks capital on day one instead of ' +
-            'the dominated stop action, matching the hand-derived optimal policy',
+            'the dominated stop action ($50 and $100 are hand-derived as an ' +
+            "exact tie here, both giving V=0.25, so this pins the DP's " +
+            'deterministic tie-break to the lower, first-encountered action, ' +
+            'not a claim that $50 uniquely beats $100; the contract-limit ' +
+            'test below is the case with a genuinely unique optimum',
         () => {
             const plan = toyPlan(250);
             const result = computeEvalStateValue(toyDpConfig(plan, 2, 100));
@@ -364,6 +378,42 @@ describe('isEvalDpEligible / computeEvalStateValue scope cut', () => {
             "hardcoded to Apex's variant",
         () => {
             const plan = lucidDailyIntradayPlan();
+            expect(isEvalDpEligible(plan)).toBe(false);
+            expect(() =>
+                computeEvalStateValue({
+                    maxEvalDays: 21,
+                    plan,
+                    rrRatio: 2,
+                    winrate: fraction(0.4),
+                }),
+            ).toThrow(/not eligible/);
+        },
+    );
+
+    it(
+        "also excludes Lucid's DailyIntradayDll variant, a second, " +
+            'independently-registered IntradayTrailingDrawdown plan distinct ' +
+            'from plain DailyIntraday (same drawdown kind, different Daily ' +
+            'Loss Limit configuration)',
+        () => {
+            const plan = lucidDailyIntradayDllPlan();
+            expect(isEvalDpEligible(plan)).toBe(false);
+        },
+    );
+
+    it(
+        'excludes a plan whose eval daily loss limit depends on peak-day-' +
+            'close profit, independent of the drawdown-kind check (the base ' +
+            'plan here uses EodTrailingDrawdown, which alone is DP-eligible), ' +
+            "so this isolates isEvalDpEligible's second, otherwise-untested " +
+            'disqualifying condition',
+        () => {
+            const plan = baseBuilderPlan().withOverrides({
+                evalDailyLossLimit: {
+                    kind: DailyLossLimitKind.PeakProfitShare,
+                    share: fraction(0.5),
+                },
+            });
             expect(isEvalDpEligible(plan)).toBe(false);
             expect(() =>
                 computeEvalStateValue({

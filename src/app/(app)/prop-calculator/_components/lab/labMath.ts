@@ -110,17 +110,8 @@ export function groupedPassDistribution(
     let working = [...out];
     for (const size of groupSizes) {
         const next = Array.from({ length: N + 1 }, () => 0);
-        const fail = 1 - perGroupP;
         const newTotal = totalSeen + size;
-        for (let k = 0; k <= totalSeen; k++) {
-            const pk = working[k] ?? 0;
-            if (pk !== 0) {
-                next[k] = (next[k] ?? 0) + pk * fail;
-                const indexPass = k + size;
-                if (indexPass <= N)
-                    next[indexPass] = (next[indexPass] ?? 0) + pk * perGroupP;
-            }
-        }
+        applyGroupStep(working, next, totalSeen, size, perGroupP, N);
         working = next;
         totalSeen = newTotal;
     }
@@ -143,6 +134,25 @@ export function probStreakAtLeast(N: number, k: number, q: number): number {
     if (q >= 1) return 1;
     const expected = (N - k + 1) * Math.pow(q, k);
     return 1 - Math.exp(-expected);
+}
+
+function applyGroupStep(
+    working: readonly number[],
+    next: number[],
+    totalSeen: number,
+    size: number,
+    perGroupP: number,
+    N: number,
+): void {
+    const fail = 1 - perGroupP;
+    for (let k = 0; k <= totalSeen; k++) {
+        const pk = working[k] ?? 0;
+        if (pk === 0) continue;
+        next[k] = (next[k] ?? 0) + pk * fail;
+        const indexPass = k + size;
+        if (indexPass <= N)
+            next[indexPass] = (next[indexPass] ?? 0) + pk * perGroupP;
+    }
 }
 
 function logBinomCoef(n: number, k: number): number {

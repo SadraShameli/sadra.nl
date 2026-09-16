@@ -900,11 +900,10 @@ function buildCalendarMarkers(goals: GoalRow[]): CalendarMarkers {
         if (g.achievedAt) {
             markers.achieved.push(startOfDay(new Date(g.achievedAt)));
         }
-        if (g.targetDate && g.status === GOAL_STATUS.ACTIVE) {
-            const d = parseISO(g.targetDate);
-            if (isBefore(d, today)) markers.targetMissed.push(d);
-            else markers.targetActive.push(d);
-        }
+        if (!g.targetDate || g.status !== GOAL_STATUS.ACTIVE) continue;
+        const d = parseISO(g.targetDate);
+        if (isBefore(d, today)) markers.targetMissed.push(d);
+        else markers.targetActive.push(d);
     }
     return markers;
 }

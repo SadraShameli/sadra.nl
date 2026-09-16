@@ -220,12 +220,15 @@ export const liftingWorkoutRouter = createTRPCRouter({
     list: protectedProcedure
         .input(listWorkoutsInputSchema)
         .query(async ({ ctx, input }) => {
-            const filters = [eq(liftingWorkout.userId, ctx.userId)];
-            if (input.from) {
-                filters.push(gte(liftingWorkout.startedAt, input.from));
-            }
-            if (input.to)
-                filters.push(lt(liftingWorkout.startedAt, rangeEnd(input.to)));
+            const filters = [
+                eq(liftingWorkout.userId, ctx.userId),
+                ...(input.from
+                    ? [gte(liftingWorkout.startedAt, input.from)]
+                    : []),
+                ...(input.to
+                    ? [lt(liftingWorkout.startedAt, rangeEnd(input.to))]
+                    : []),
+            ];
             return ctx.db
                 .select()
                 .from(liftingWorkout)

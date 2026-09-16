@@ -174,17 +174,16 @@ export function useAudioPlayer({ recordings }: UseAudioPlayerProperties) {
     useEffect(() => {
         if (!recordings?.length || !audio.current) return;
         const recording = recordings[safeCurrentIndex];
-        if (recording) {
-            const newSource = GetRecordingURL(recording);
-            if (!audio.current.src.endsWith(newSource)) {
-                audio.current.src = newSource;
-                audio.current.load();
-                setTime(0);
-                setDuration(0);
-            }
-            audio.current.volume = volume;
-            audio.current.playbackRate = playbackRate;
+        if (!recording) return;
+        const newSource = GetRecordingURL(recording);
+        if (!audio.current.src.endsWith(newSource)) {
+            audio.current.src = newSource;
+            audio.current.load();
+            setTime(0);
+            setDuration(0);
         }
+        audio.current.volume = volume;
+        audio.current.playbackRate = playbackRate;
     }, [playbackRate, recordings, safeCurrentIndex, volume]);
 
     useEffect(() => {

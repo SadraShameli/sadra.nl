@@ -78,15 +78,18 @@ export const liftingMeasurementRouter = createTRPCRouter({
     list: protectedProcedure
         .input(listMeasurementsInputSchema)
         .query(async ({ ctx, input }) => {
-            const filters = [eq(liftingMeasurement.userId, ctx.userId)];
-            if (input.kind)
-                filters.push(eq(liftingMeasurement.kind, input.kind));
-            if (input.from)
-                filters.push(gte(liftingMeasurement.takenAt, input.from));
-            if (input.to)
-                filters.push(
-                    lt(liftingMeasurement.takenAt, rangeEnd(input.to)),
-                );
+            const filters = [
+                eq(liftingMeasurement.userId, ctx.userId),
+                ...(input.kind
+                    ? [eq(liftingMeasurement.kind, input.kind)]
+                    : []),
+                ...(input.from
+                    ? [gte(liftingMeasurement.takenAt, input.from)]
+                    : []),
+                ...(input.to
+                    ? [lt(liftingMeasurement.takenAt, rangeEnd(input.to))]
+                    : []),
+            ];
             return ctx.db
                 .select()
                 .from(liftingMeasurement)

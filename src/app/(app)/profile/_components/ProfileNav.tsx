@@ -82,10 +82,13 @@ export function ProfileNav({
 }: ProfileNavProperties) {
     const router = useRouter();
     const [pending, startTransition] = useTransition();
-    const items: NavItem[] = [ACCOUNT_ITEM];
-    if (isAdmin) items.push(USERS_ITEM, SENSOR_HUB_ITEM);
-    items.push(TRADING_PLAN_ITEM, LIFTING_ITEM);
-    if (isRoot) items.push(ACCOUNTING_ITEM);
+    const items: NavItem[] = [
+        ACCOUNT_ITEM,
+        ...(isAdmin ? [USERS_ITEM, SENSOR_HUB_ITEM] : []),
+        TRADING_PLAN_ITEM,
+        LIFTING_ITEM,
+        ...(isRoot ? [ACCOUNTING_ITEM] : []),
+    ];
     const initial = ((name ?? email)[0] ?? '?').toUpperCase();
 
     return (

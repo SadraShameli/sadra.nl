@@ -3,7 +3,10 @@ import { describe, expect, it } from 'vitest';
 import {
     dollars,
     fraction,
+    INSTRUMENTS,
+    InstrumentSymbol,
     type LiveAccountState,
+    points,
     TRADING_DAYS_PER_MONTH,
 } from '~/lib/prop-calculator/core';
 import { buildApexLivePlan } from '~/lib/prop-calculator/firms/apex/ApexLive';
@@ -61,6 +64,28 @@ describe('runLiveDay on Apex numbers ($0 start, $3,000 EOD trailing, 5% pre-lock
         expect(state.balance).toBe(-150);
         expect(state.threshold).toBe(-3000);
         expect(state.thresholdLocked).toBe(false);
+    });
+
+    it('caps a live trade to the plan max-mini-contract limit when the position-sizing config implies more contracts than allowed: $150 intended risk on a 0.5pt NQ stop ($10/contract) implies 15 contracts, capped down to $100 (10 contracts)', () => {
+        const plan = buildApexLivePlan();
+        const state = plan.initialState();
+
+        runLiveDay({
+            commission: dollars(0),
+            plan,
+            positionSizing: {
+                instrument: INSTRUMENTS[InstrumentSymbol.NQ],
+                stopPoints: points(0.5),
+            },
+            rng: alwaysLoses,
+            rrRatio: 2,
+            state,
+            tradesPerDay: 1,
+            winrate: fraction(0),
+        });
+
+        expect(state.balance).toBe(-100);
+        expect(state.threshold).toBe(-3000);
     });
 
     it('never busts from a pure losing streak alone: risk shrinks with the cushion faster than the cushion can reach zero', () => {

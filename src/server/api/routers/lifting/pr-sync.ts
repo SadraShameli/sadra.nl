@@ -25,7 +25,7 @@ export class PrSyncService {
             where: (w, { eq: equals }) => equals(w.id, workoutExerciseId),
             with: { workout: true },
         });
-        return !row || row.workout.userId !== userId ? null : row.exerciseId;
+        return row?.workout.userId === userId ? row.exerciseId : null;
     }
 
     async syncExercise(userId: string, exerciseId: string): Promise<void> {

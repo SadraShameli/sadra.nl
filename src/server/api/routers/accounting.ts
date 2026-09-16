@@ -502,8 +502,8 @@ export const accountingRouter = createTRPCRouter({
             .mutation(async ({ ctx, input }) => {
                 const patch: Record<string, unknown> = {
                     updatedAt: new Date(),
+                    ...(input.label !== undefined && { label: input.label }),
                 };
-                if (input.label !== undefined) patch.label = input.label;
                 if (input.meta !== undefined) {
                     const [row] = await ctx.db
                         .select({
@@ -819,15 +819,20 @@ export const accountingRouter = createTRPCRouter({
             .mutation(async ({ ctx, input }) => {
                 const patch: Record<string, unknown> = {
                     updatedAt: new Date(),
+                    ...(input.currency !== undefined && {
+                        currency: input.currency,
+                    }),
+                    ...(input.dateFrom !== undefined && {
+                        dateFrom: input.dateFrom,
+                    }),
+                    ...(input.dateTo !== undefined && { dateTo: input.dateTo }),
+                    ...(input.direction !== undefined && {
+                        direction: input.direction,
+                    }),
+                    ...(input.display !== undefined && {
+                        display: input.display,
+                    }),
                 };
-                if (input.currency !== undefined)
-                    patch.currency = input.currency;
-                if (input.dateFrom !== undefined)
-                    patch.dateFrom = input.dateFrom;
-                if (input.dateTo !== undefined) patch.dateTo = input.dateTo;
-                if (input.direction !== undefined)
-                    patch.direction = input.direction;
-                if (input.display !== undefined) patch.display = input.display;
                 if (input.ledger !== undefined) {
                     patch.ledgerId = input.ledger.id;
                     patch.ledgerLabel = input.ledger.label;

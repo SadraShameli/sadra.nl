@@ -16,9 +16,8 @@ export default class SeedSensorUnit extends DatabaseSeeder {
             .map((r) => r.unit)
             .filter((v) => !known.has(v))
             .map((value) => ({ value }));
-        if (toInsert.length > 0) {
-            const q = db.insert(sensorUnit).values(toInsert);
-            await q;
-        }
+        if (toInsert.length === 0) return;
+        const q = db.insert(sensorUnit).values(toInsert);
+        await q;
     }
 }

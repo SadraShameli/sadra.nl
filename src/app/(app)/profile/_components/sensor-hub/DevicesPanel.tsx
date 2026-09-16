@@ -629,7 +629,7 @@ function ManageSensorsDialog({
     const devices = api.device.listAdmin.useQuery();
     const device = devices.data?.find((d) => d.id === deviceId);
     const deviceQuery = api.device.getDevice.useQuery(
-        device ? { device_id: device.device_id } : { device_id: 0 },
+        { device_id: device?.device_id ?? 0 },
         { enabled: !!device },
     );
 

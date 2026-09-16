@@ -67,12 +67,11 @@ const Alert = React.forwardRef<HTMLDivElement, AlertProperties>(
                     sp.delete(key);
                     isChanged = true;
                 }
-                if (isChanged) {
-                    const query = sp.toString();
-                    router.replace(query ? `${pathname}?${query}` : pathname, {
-                        scroll: false,
-                    });
-                }
+                if (!isChanged) return;
+                const query = sp.toString();
+                router.replace(query ? `${pathname}?${query}` : pathname, {
+                    scroll: false,
+                });
             }, autoDismissMs + FADE_DURATION_MS);
             return () => {
                 clearTimeout(fade);

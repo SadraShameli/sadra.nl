@@ -71,27 +71,35 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
     const availablePlatesKg = form.watch('availablePlatesKg');
 
     const onSubmit = form.handleSubmit((values) => {
-        const diff: UpdateSettingsInput = {};
-        if (values.barWeightKg !== initial.barWeightKg)
-            diff.barWeightKg = values.barWeightKg;
-        if (values.defaultRestSeconds !== initial.defaultRestSeconds)
-            diff.defaultRestSeconds = values.defaultRestSeconds;
-        if (values.unitDistance !== initial.unitDistance)
-            diff.unitDistance = values.unitDistance;
-        if (values.unitLength !== initial.unitLength)
-            diff.unitLength = values.unitLength;
-        if (values.unitWeight !== initial.unitWeight)
-            diff.unitWeight = values.unitWeight;
-        if (values.weekStart !== initial.weekStart)
-            diff.weekStart = values.weekStart;
         const isPlatesChanged =
             values.availablePlatesKg.length !==
                 initial.availablePlatesKg.length ||
             values.availablePlatesKg.some(
                 (p, index) => p !== initial.availablePlatesKg[index],
             );
-        if (isPlatesChanged)
-            diff.availablePlatesKg = [...values.availablePlatesKg];
+        const diff: UpdateSettingsInput = {
+            ...(values.barWeightKg !== initial.barWeightKg && {
+                barWeightKg: values.barWeightKg,
+            }),
+            ...(values.defaultRestSeconds !== initial.defaultRestSeconds && {
+                defaultRestSeconds: values.defaultRestSeconds,
+            }),
+            ...(values.unitDistance !== initial.unitDistance && {
+                unitDistance: values.unitDistance,
+            }),
+            ...(values.unitLength !== initial.unitLength && {
+                unitLength: values.unitLength,
+            }),
+            ...(values.unitWeight !== initial.unitWeight && {
+                unitWeight: values.unitWeight,
+            }),
+            ...(values.weekStart !== initial.weekStart && {
+                weekStart: values.weekStart,
+            }),
+            ...(isPlatesChanged && {
+                availablePlatesKg: [...values.availablePlatesKg],
+            }),
+        };
         update.mutate(diff);
     });
 

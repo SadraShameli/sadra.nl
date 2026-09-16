@@ -85,15 +85,14 @@ export default async function ProfilePage({
     const isUserIsRoot = isRoot(role);
     const activeTab = normalizeProfileTab(rawParameters.tab, isAdmin);
 
-    const prefetches: Promise<unknown>[] = [];
-    if (isAdmin) {
-        prefetches.push(
-            api.device.listAdmin.prefetch(),
-            api.location.listAdmin.prefetch(),
-            api.sensor.listAdmin.prefetch(),
-            api.user.notification.getMyPrefs.prefetch(),
-        );
-    }
+    const prefetches: Promise<unknown>[] = isAdmin
+        ? [
+              api.device.listAdmin.prefetch(),
+              api.location.listAdmin.prefetch(),
+              api.sensor.listAdmin.prefetch(),
+              api.user.notification.getMyPrefs.prefetch(),
+          ]
+        : [];
     await Promise.all(prefetches);
 
     const accountTab: ReactNode = (

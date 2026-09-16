@@ -22,11 +22,11 @@ export function useDebouncedComputation<T>(
         let isCancelled = false;
         setPending(true);
         const handle = setTimeout(() => {
-            const next = computeReference.current();
             if (isCancelled) {
                 return;
             }
 
+            const next = computeReference.current();
             setResult(next);
             setPending(false);
         }, 0);

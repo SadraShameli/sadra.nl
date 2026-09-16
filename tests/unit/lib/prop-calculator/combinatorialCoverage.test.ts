@@ -265,24 +265,13 @@ function generateTWiseRows(
     const rows: number[][] = [];
 
     while (uncovered.size > 0 && rows.length < maxRows) {
-        let bestRow: null | number[] = null;
-        let bestScore = -1;
-        for (let c = 0; c < candidatesPerStep; c++) {
-            const candidate = levelCounts.map((count) =>
-                Math.floor(rng() * count),
-            );
-            const keys = rowTupleKeys(candidate, dimensionCombos);
-            let score = 0;
-            for (const key of keys) {
-                if (uncovered.has(key)) score += 1;
-            }
-            if (!(score > bestScore)) {
-                continue;
-            }
-
-            bestScore = score;
-            bestRow = candidate;
-        }
+        const bestRow = pickBestCandidate(
+            levelCounts,
+            dimensionCombos,
+            uncovered,
+            rng,
+            candidatesPerStep,
+        );
         if (!bestRow) break;
         rows.push(bestRow);
         for (const key of rowTupleKeys(bestRow, dimensionCombos)) {
@@ -309,6 +298,32 @@ function kCombinations(n: number, k: number): number[][] {
     };
     build(0);
     return out;
+}
+
+function pickBestCandidate(
+    levelCounts: readonly number[],
+    dimensionCombos: readonly number[][],
+    uncovered: ReadonlySet<string>,
+    rng: () => number,
+    candidatesPerStep: number,
+): null | number[] {
+    let bestRow: null | number[] = null;
+    let bestScore = -1;
+    for (let c = 0; c < candidatesPerStep; c++) {
+        const candidate = levelCounts.map((count) => Math.floor(rng() * count));
+        const keys = rowTupleKeys(candidate, dimensionCombos);
+        let score = 0;
+        for (const key of keys) {
+            if (uncovered.has(key)) score += 1;
+        }
+        if (!(score > bestScore)) {
+            continue;
+        }
+
+        bestScore = score;
+        bestRow = candidate;
+    }
+    return bestRow;
 }
 
 function rowTupleKeys(

@@ -136,13 +136,12 @@ export function DataTable<TData extends RowData>({
             const next =
                 typeof updater === 'function' ? updater(rowSelection) : updater;
             setRowSelection(next);
-            if (onRowSelectionChange) {
-                const selectedRows = table
-                    .getFilteredRowModel()
-                    .rows.filter((r) => next[r.id])
-                    .map((r) => r.original);
-                onRowSelectionChange(selectedRows);
-            }
+            if (!onRowSelectionChange) return;
+            const selectedRows = table
+                .getFilteredRowModel()
+                .rows.filter((r) => next[r.id])
+                .map((r) => r.original);
+            onRowSelectionChange(selectedRows);
         },
         onSortingChange: (updater) => {
             const next =

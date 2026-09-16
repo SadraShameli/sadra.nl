@@ -39,31 +39,32 @@ export class Rule {
     static fromRow(row: RuleRow): Rule {
         const conditions: RuleCondition[] = [
             new DirectionCondition(row.direction),
+            ...(row.minAmount == null && row.maxAmount == null
+                ? []
+                : [
+                      new AmountRangeCondition(
+                          row.minAmount ?? null,
+                          row.maxAmount ?? null,
+                      ),
+                  ]),
+            ...(row.currency == null
+                ? []
+                : [
+                      new CurrencyCondition(
+                          currencyCodeSchema.parse(row.currency),
+                      ),
+                  ]),
+            ...(row.dateFrom == null && row.dateTo == null
+                ? []
+                : [
+                      new DateRangeCondition(
+                          row.dateFrom == null
+                              ? null
+                              : IsoDate.parse(row.dateFrom),
+                          row.dateTo == null ? null : IsoDate.parse(row.dateTo),
+                      ),
+                  ]),
         ];
-
-        if (row.minAmount != null || row.maxAmount != null) {
-            conditions.push(
-                new AmountRangeCondition(
-                    row.minAmount ?? null,
-                    row.maxAmount ?? null,
-                ),
-            );
-        }
-
-        if (row.currency != null) {
-            conditions.push(
-                new CurrencyCondition(currencyCodeSchema.parse(row.currency)),
-            );
-        }
-
-        if (row.dateFrom != null || row.dateTo != null) {
-            conditions.push(
-                new DateRangeCondition(
-                    row.dateFrom == null ? null : IsoDate.parse(row.dateFrom),
-                    row.dateTo == null ? null : IsoDate.parse(row.dateTo),
-                ),
-            );
-        }
 
         const matcher = MatcherFactory.create(
             row.matchType ?? 'contains',

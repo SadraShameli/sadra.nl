@@ -38,28 +38,26 @@ export function scoreAssessment(
     plan: TradingPlanConfig,
     answers: Answers,
 ): AssessmentResult {
-    const redFlags: string[] = [];
-
-    if (plan.knockouts.distracted && answers.mental.distracted) {
-        redFlags.push('Distracted — execution risk too high to trade.');
-    }
-    if (plan.knockouts.revengeOrFomo && answers.mental.revengeOrFomo) {
-        redFlags.push('Revenge / FOMO impulse detected — stand down.');
-    }
-    if (plan.knockouts.boredomHunt && answers.mental.boredomHunt) {
-        redFlags.push('Setup is invented out of boredom — walk away.');
-    }
-    if (plan.knockouts.outsideMacroWindow && !answers.context.windowId) {
-        redFlags.push('Outside macro time window.');
-    }
-    if (plan.knockouts.bothSidedLiquidity && answers.dol.bothSided) {
-        redFlags.push(
-            'Both-sided liquidity — sit out until one side is taken.',
-        );
-    }
-    if (plan.knockouts.dolAlreadyTaken && answers.finals.dolAlreadyTaken) {
-        redFlags.push('Draw on liquidity already taken or invalidated.');
-    }
+    const redFlags: string[] = [
+        ...(plan.knockouts.distracted && answers.mental.distracted
+            ? ['Distracted — execution risk too high to trade.']
+            : []),
+        ...(plan.knockouts.revengeOrFomo && answers.mental.revengeOrFomo
+            ? ['Revenge / FOMO impulse detected — stand down.']
+            : []),
+        ...(plan.knockouts.boredomHunt && answers.mental.boredomHunt
+            ? ['Setup is invented out of boredom — walk away.']
+            : []),
+        ...(plan.knockouts.outsideMacroWindow && !answers.context.windowId
+            ? ['Outside macro time window.']
+            : []),
+        ...(plan.knockouts.bothSidedLiquidity && answers.dol.bothSided
+            ? ['Both-sided liquidity — sit out until one side is taken.']
+            : []),
+        ...(plan.knockouts.dolAlreadyTaken && answers.finals.dolAlreadyTaken
+            ? ['Draw on liquidity already taken or invalidated.']
+            : []),
+    ];
     const slCount =
         (answers.sl.ob ? 1 : 0) +
         (answers.sl.bb ? 1 : 0) +
@@ -432,11 +430,12 @@ function scoreMental(
     answers: Answers['mental'],
     max: number,
 ): { score: ComponentScore; strengths: string[]; weaknesses: string[] } {
-    const fails: string[] = [];
-    if (answers.hesitation) fails.push(MENTAL_LABELS.hesitation);
-    if (answers.boredomHunt) fails.push(MENTAL_LABELS.boredomHunt);
-    if (answers.revengeOrFomo) fails.push(MENTAL_LABELS.revengeOrFomo);
-    if (answers.distracted) fails.push(MENTAL_LABELS.distracted);
+    const fails: string[] = [
+        ...(answers.hesitation ? [MENTAL_LABELS.hesitation] : []),
+        ...(answers.boredomHunt ? [MENTAL_LABELS.boredomHunt] : []),
+        ...(answers.revengeOrFomo ? [MENTAL_LABELS.revengeOrFomo] : []),
+        ...(answers.distracted ? [MENTAL_LABELS.distracted] : []),
+    ];
 
     const earned = Math.max(0, max * (1 - fails.length / 4));
     const strengths: string[] = [];

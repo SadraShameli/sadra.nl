@@ -43,13 +43,14 @@ export function JournalView({ history, plans }: JournalViewProperties) {
     const projected = useMemo(
         () =>
             history.map((r) => {
-                const mentalFlags: string[] = [];
-                if (r.answers.mental.hesitation) mentalFlags.push('hesitation');
-                if (r.answers.mental.distracted) mentalFlags.push('distracted');
-                if (r.answers.mental.revengeOrFomo)
-                    mentalFlags.push('revengeOrFomo');
-                if (r.answers.mental.boredomHunt)
-                    mentalFlags.push('boredomHunt');
+                const mentalFlags: string[] = [
+                    ...(r.answers.mental.hesitation ? ['hesitation'] : []),
+                    ...(r.answers.mental.distracted ? ['distracted'] : []),
+                    ...(r.answers.mental.revengeOrFomo
+                        ? ['revengeOrFomo']
+                        : []),
+                    ...(r.answers.mental.boredomHunt ? ['boredomHunt'] : []),
+                ];
                 const notesSnippet = [
                     r.answers.finals.notes,
                     r.outcomeNotes ?? '',
