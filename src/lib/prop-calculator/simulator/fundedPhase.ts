@@ -226,6 +226,7 @@ export function stepFundedDay(options: FundedDayStepOptions): {
     } = options;
     const { busted, closedForInactivity } = runDay({
         commission,
+        cycleBestDayProfit: tracker.cycleBestDayProfit,
         dayPolicy,
         idleDayProbability,
         intradayPathStepsPerR,

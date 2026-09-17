@@ -1,3 +1,4 @@
+import { resetFactor } from '../core/FeeSchedule';
 import { TradingPhase } from '../core/TradingPhase';
 import { runDay } from './day';
 import { LossStreak, newPhaseStats } from './PhaseStats';
@@ -100,6 +101,7 @@ export function runEvalWithRetries(
     const {
         commission,
         dayPolicy,
+        discounts,
         idleDayProbability,
         intradayPathStepsPerR,
         maxAttempts,
@@ -147,7 +149,7 @@ export function runEvalWithRetries(
         }
 
         if (attempt.outcome === 'busted' && attemptsUsed < maxAttempts) {
-            resetFeesPaid += plan.fees.reset;
+            resetFeesPaid += plan.fees.reset * resetFactor(discounts);
             continue;
         }
 

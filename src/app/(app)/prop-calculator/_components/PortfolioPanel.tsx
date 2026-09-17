@@ -103,6 +103,10 @@ export default function PortfolioPanel({
                                 : entry.activationDiscountPercent,
                         ),
                         evalPercent: percent(entry.evalDiscountPercent),
+                        monthlySubscriptionPercent: percent(
+                            entry.monthlySubscriptionDiscountPercent,
+                        ),
+                        resetPercent: percent(entry.resetDiscountPercent),
                     },
                     instrument: entry.instrument ?? baseInputs.instrument,
                     plan,
@@ -151,7 +155,9 @@ export default function PortfolioPanel({
                 id: crypto.randomUUID(),
                 instrument: null,
                 linkActivationDiscount: false,
+                monthlySubscriptionDiscountPercent: 0,
                 planId: currentPlan.id,
+                resetDiscountPercent: 0,
                 stopPoints: null,
             },
         ]);
@@ -349,8 +355,11 @@ function buildCacheKey(
         dayStop: baseInputs.dayStop,
         evalDayPolicy: baseInputs.evalDayPolicy ?? null,
         fundedHorizonDays: baseInputs.fundedHorizonDays,
+        idleDayProbability: baseInputs.idleDayProbability ?? 0,
         instrument: baseInputs.instrument ?? null,
         maxEvalDays: baseInputs.maxEvalDays,
+        minRetainedCushion: baseInputs.minRetainedCushion ?? null,
+        payoutRequestSize: baseInputs.payoutRequestSize ?? null,
         portfolio: portfolio.map((entry) => ({
             actDiscount: entry.activationDiscountPercent,
             count: entry.count,
@@ -358,11 +367,14 @@ function buildCacheKey(
             firmId: entry.firmId,
             instrument: entry.instrument,
             linkAct: entry.linkActivationDiscount,
+            msubDiscount: entry.monthlySubscriptionDiscountPercent,
             planId: entry.planId,
+            resetDiscount: entry.resetDiscountPercent,
             stopPoints: entry.stopPoints,
         })),
         risk: baseInputs.riskPerTrade,
         rr: baseInputs.rrRatio,
+        rungSizing: baseInputs.rungSizing ?? null,
         seed: baseInputs.seed,
         stopPoints: baseInputs.stopPoints ?? null,
         tpd: baseInputs.tradesPerDay,
@@ -403,10 +415,18 @@ function CouponCell({
     const effectiveActDiscount = entry.linkActivationDiscount
         ? entry.evalDiscountPercent
         : entry.activationDiscountPercent;
-    const hasCoupon = entry.evalDiscountPercent > 0 || effectiveActDiscount > 0;
+    const hasCoupon =
+        entry.evalDiscountPercent > 0 ||
+        effectiveActDiscount > 0 ||
+        entry.monthlySubscriptionDiscountPercent > 0 ||
+        entry.resetDiscountPercent > 0;
     const evalAfter =
         plan.fees.oneTimeEval * (1 - entry.evalDiscountPercent / 100);
     const actAfter = plan.fees.activation * (1 - effectiveActDiscount / 100);
+    const monthlySubscriptionAfter =
+        plan.fees.monthlySubscription *
+        (1 - entry.monthlySubscriptionDiscountPercent / 100);
+    const resetAfter = plan.fees.reset * (1 - entry.resetDiscountPercent / 100);
     return (
         <Popover>
             <PopoverTrigger asChild>
@@ -528,6 +548,91 @@ function CouponCell({
                             </Toggle>
                         </div>
                     </div>
+                    <div>
+                        <div className="mb-1 flex items-center justify-between">
+                            <label
+                                className="text-xs text-muted-foreground"
+                                htmlFor={`monthly-subscription-discount-${entry.id}`}
+                            >
+                                Monthly subscription discount
+                            </label>
+                            {plan.fees.monthlySubscription > 0 && (
+                                <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
+                                    {entry.monthlySubscriptionDiscountPercent >
+                                    0
+                                        ? `${formatCompactCurrency(plan.fees.monthlySubscription)} → ${formatCompactCurrency(monthlySubscriptionAfter)}`
+                                        : formatCompactCurrency(
+                                              plan.fees.monthlySubscription,
+                                          )}
+                                </span>
+                            )}
+                        </div>
+                        <div className="relative">
+                            <Input
+                                className="pr-7"
+                                disabled={plan.fees.monthlySubscription === 0}
+                                id={`monthly-subscription-discount-${entry.id}`}
+                                max={100}
+                                min={0}
+                                onChange={(event) =>
+                                    onUpdate(entry.id, {
+                                        monthlySubscriptionDiscountPercent:
+                                            Number(event.target.value),
+                                    })
+                                }
+                                step={1}
+                                type="number"
+                                value={
+                                    entry.monthlySubscriptionDiscountPercent ||
+                                    ''
+                                }
+                            />
+                            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
+                                %
+                            </span>
+                        </div>
+                    </div>
+                    <div>
+                        <div className="mb-1 flex items-center justify-between">
+                            <label
+                                className="text-xs text-muted-foreground"
+                                htmlFor={`reset-discount-${entry.id}`}
+                            >
+                                Reset fee discount
+                            </label>
+                            {plan.fees.reset > 0 && (
+                                <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
+                                    {entry.resetDiscountPercent > 0
+                                        ? `${formatCompactCurrency(plan.fees.reset)} → ${formatCompactCurrency(resetAfter)}`
+                                        : formatCompactCurrency(
+                                              plan.fees.reset,
+                                          )}
+                                </span>
+                            )}
+                        </div>
+                        <div className="relative">
+                            <Input
+                                className="pr-7"
+                                disabled={plan.fees.reset === 0}
+                                id={`reset-discount-${entry.id}`}
+                                max={100}
+                                min={0}
+                                onChange={(event) =>
+                                    onUpdate(entry.id, {
+                                        resetDiscountPercent: Number(
+                                            event.target.value,
+                                        ),
+                                    })
+                                }
+                                step={1}
+                                type="number"
+                                value={entry.resetDiscountPercent || ''}
+                            />
+                            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
+                                %
+                            </span>
+                        </div>
+                    </div>
                     {hasCoupon && (
                         <Button
                             className="h-auto justify-start p-0 text-[11px] text-muted-foreground hover:text-foreground"
@@ -536,6 +641,8 @@ function CouponCell({
                                     activationDiscountPercent: 0,
                                     evalDiscountPercent: 0,
                                     linkActivationDiscount: false,
+                                    monthlySubscriptionDiscountPercent: 0,
+                                    resetDiscountPercent: 0,
                                 })
                             }
                             size="sm"

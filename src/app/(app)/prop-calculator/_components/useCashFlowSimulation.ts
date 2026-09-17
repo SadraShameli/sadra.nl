@@ -5,6 +5,7 @@ import {
     type DayPolicy,
     type DayStopRule,
     type Plan,
+    type RungSizing,
 } from '~/lib/prop-calculator';
 import {
     DEFAULT_DAY_BUDGET,
@@ -22,9 +23,12 @@ interface Arguments {
     discounts?: CouponDiscounts;
     evalDayPolicy?: DayPolicy;
     maxEvalDays: number;
+    minRetainedCushion?: number;
+    payoutRequestSize?: number;
     plan: Plan;
     riskPerTrade: number;
     rrRatio: number;
+    rungSizing?: RungSizing;
     seed: number;
     tradesPerDay: number;
     trials: number;
@@ -53,9 +57,12 @@ export function useCashFlowSimulation(
         discounts,
         evalDayPolicy,
         maxEvalDays,
+        minRetainedCushion,
+        payoutRequestSize,
         plan,
         riskPerTrade,
         rrRatio,
+        rungSizing,
         seed,
         tradesPerDay,
         trials,
@@ -77,9 +84,12 @@ export function useCashFlowSimulation(
         effectiveTradesPerDay,
         evalDayPolicy,
         maxEvalDays,
+        minRetainedCushion,
+        payoutRequestSize,
         plan,
         riskPerTrade,
         rrRatio,
+        rungSizing,
         seed,
         trials,
         winrate,
@@ -98,9 +108,12 @@ export function useCashFlowSimulation(
                     discounts,
                     evalDayPolicy,
                     maxEvalDays,
+                    minRetainedCushion,
+                    payoutRequestSize,
                     plan,
                     riskPerTrade,
                     rrRatio,
+                    rungSizing,
                     seed,
                     tradesPerDay: effectiveTradesPerDay,
                     trials,
@@ -122,9 +135,12 @@ function buildCacheKey(fields: {
     effectiveTradesPerDay: number;
     evalDayPolicy: DayPolicy | undefined;
     maxEvalDays: number;
+    minRetainedCushion: number | undefined;
+    payoutRequestSize: number | undefined;
     plan: Plan;
     riskPerTrade: number;
     rrRatio: number;
+    rungSizing: RungSizing | undefined;
     seed: number;
     trials: number;
     winrate: number;
@@ -136,11 +152,16 @@ function buildCacheKey(fields: {
         dayStop: fields.dayStop,
         discActivation: fields.discounts?.activationPercent ?? 0,
         discEval: fields.discounts?.evalPercent ?? 0,
+        discMonthlySub: fields.discounts?.monthlySubscriptionPercent ?? 0,
+        discReset: fields.discounts?.resetPercent ?? 0,
         evalDayPolicy: fields.evalDayPolicy,
         maxEvalDays: fields.maxEvalDays,
+        minRetainedCushion: fields.minRetainedCushion ?? null,
+        payoutRequestSize: fields.payoutRequestSize ?? null,
         planId: fields.plan.id,
         risk: fields.riskPerTrade,
         rr: fields.rrRatio,
+        rungSizing: fields.rungSizing ?? null,
         seed: fields.seed,
         tpd: fields.effectiveTradesPerDay,
         trials: fields.trials,

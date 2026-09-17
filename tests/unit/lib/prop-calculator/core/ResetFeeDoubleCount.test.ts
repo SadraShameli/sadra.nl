@@ -5,6 +5,7 @@ import {
     dollars,
     flatDayPolicy,
     fraction,
+    percent,
     RungSizing,
     TopStepVariant,
 } from '~/lib/prop-calculator/core';
@@ -142,5 +143,63 @@ describe('eval-retry cost accounting is monotonic: more elapsed days plus a real
         expect(bustThenResetThenPass.totalCost).toBeGreaterThanOrEqual(
             bustOnly.totalCost,
         );
+    });
+});
+
+describe('a real resetPercent discount reaches resetFeesPaid end-to-end', () => {
+    it('runEvalWithRetries discounts the accumulated reset fee by resetPercent', () => {
+        const plan = standardStandardPlan();
+        const totals = new TradeTotals();
+
+        const retryResult = runEvalWithRetries({
+            commission: dollars(0),
+            dayPolicy: BUST_THEN_PASS_POLICY,
+            discounts: {
+                activationPercent: percent(0),
+                evalPercent: percent(0),
+                resetPercent: percent(40),
+            },
+            maxAttempts: 2,
+            maxEvalDays: 30,
+            plan,
+            positionSizing: null,
+            rng: scriptedRng(EVAL_DRAWS),
+            rrRatio: 2,
+            rungSizing: RungSizing.CapToCushion,
+            shouldCaptureEquity: false,
+            totals,
+            winrate: fraction(0.5),
+        });
+
+        expect(retryResult.resetFeesPaid).toBe(plan.fees.reset * 0.6);
+    });
+
+    it("simulateTrial forwards discounts through to the eval retry loop's resetFeesPaid", () => {
+        const plan = standardStandardPlan();
+
+        const bustThenResetThenPass = simulateTrial({
+            commission: dollars(0),
+            discounts: {
+                activationPercent: percent(0),
+                evalPercent: percent(0),
+                resetPercent: percent(40),
+            },
+            evalDayPolicy: BUST_THEN_PASS_POLICY,
+            fundedDayPolicy: BUST_THEN_PASS_POLICY,
+            fundedHorizonDays: 1,
+            maxAttempts: 2,
+            maxEvalDays: 30,
+            minRetainedCushion: dollars(0),
+            payoutRequestSize: undefined,
+            plan,
+            positionSizing: null,
+            rng: scriptedRng([...EVAL_DRAWS, 0.9]),
+            rrRatio: 2,
+            rungSizing: RungSizing.CapToCushion,
+            shouldCaptureEquity: false,
+            winrate: fraction(0.5),
+        });
+
+        expect(bustThenResetThenPass.resetFeesPaid).toBe(plan.fees.reset * 0.6);
     });
 });

@@ -270,7 +270,7 @@ describe(
 
                 expect(out.passProbability).toBeCloseTo(dp.initialValue, 1);
             },
-            30_000,
+            120_000,
         );
     },
 );
@@ -344,7 +344,7 @@ describe(
                     dpOut.passProbability - ladderOut.passProbability,
                 ).toBeGreaterThan(ADOPT_THRESHOLD_PP);
             },
-            45_000,
+            200_000,
         );
     },
 );
@@ -483,26 +483,38 @@ describe('idle-days DP state dimension', () => {
 
     it(
         'accountSize 1000 / drawdown 100 / profitTarget 0 / minTradingDays ' +
-            '2 / maxConsecutiveIdleDays 1 / 2-day cap / one $50-at-1:2 slot ' +
-            'per day: with profitTarget 0, any nonnegative final profit ' +
-            'passes once tradingDays reaches 2, so idling both days is a ' +
-            'free, guaranteed pass (V=1) under an idle-blind engine — ' +
-            'proven directly below by clearing maxConsecutiveIdleDays to ' +
-            'null on the identical config. But maxConsecutiveIdleDays=1 ' +
+            '0 (deliberately already satisfied on its own, so it cannot ' +
+            'itself force any trading — this isolates the idle-days effect ' +
+            'from the separate tradingDays gate covered by its own ' +
+            'describe block below) / maxConsecutiveIdleDays 1 / 2-day cap / ' +
+            'one $50-at-1:2 slot per day: with minTradingDays 0, idling is ' +
+            'a free, guaranteed pass (profit stays 0 >= profitTarget 0) ' +
+            'whenever nothing else forces a trade — proven directly below ' +
+            'by clearing maxConsecutiveIdleDays to null on the identical ' +
+            'config (V=1, decided at the very first day close, no need to ' +
+            'reach the 2-day cap at all). But maxConsecutiveIdleDays=1 ' +
             'busts on the very first idle day, so the real engine is ' +
-            'forced to trade both days instead: hand backward induction — ' +
-            'day1 win (p=0.5, profit +$100, EodTrailingDrawdown ratchets ' +
-            'threshold 900->1000) makes day2 unconditionally safe (both ' +
-            'win and lose keep final profit >= 0, so both pass, V=1); day1 ' +
-            'loss (p=0.5, profit -$50, threshold stays 900, cushion 50) ' +
-            'makes day2 a coin flip between passing (win, V=1) and busting ' +
-            'the drawdown exactly at cushion 0 (lose: balance 900 == ' +
-            'threshold 900, V=0) — total V(initial) = ' +
+            'forced to trade day 1 instead: hand backward induction — day1 ' +
+            'win (p=0.5, profit +$100, EodTrailingDrawdown ratchets ' +
+            'threshold 900->1000) passes immediately (profit 100 >= 0, ' +
+            'V=1); day1 loss (p=0.5, profit -$50, threshold stays 900, ' +
+            'cushion 50) is not yet passing (profit -50 < 0) and, since ' +
+            'idling day 2 would immediately bust too, is forced to trade ' +
+            'again — day2 win (profit 50 >= 0, V=1) or lose (balance 900 ' +
+            '== threshold 900, V=0), a coin flip — total V(initial) = ' +
             '0.5*1 + 0.5*(0.5*1 + 0.5*0) = 0.75, a real bust the old, ' +
             'idle-blind DP would have missed entirely (it would have ' +
-            'reported the impossible-in-practice V=1)',
+            'reported the impossible-in-practice V=1). (This test used to ' +
+            'set minTradingDays 2 instead of 0 and relied on the ' +
+            'tradingDays-counts-every-calendar-day bug to make its own ' +
+            'idle-blind reference point read V=1 — fixing that bug (see ' +
+            "the 'tradingDays DP state dimension' describe block) made " +
+            'minTradingDays 2 force the same two trading days on its own, ' +
+            'independent of maxConsecutiveIdleDays, collapsing both arms of ' +
+            'that comparison to the same 0.75 and destroying the contrast; ' +
+            'minTradingDays 0 restores a clean, single-variable comparison)',
         () => {
-            const basePlan = toyPlan(0).withOverrides({ minTradingDays: 2 });
+            const basePlan = toyPlan(0).withOverrides({ minTradingDays: 0 });
 
             const idleBlindEquivalent = basePlan.withOverrides({
                 maxConsecutiveIdleDays: undefined,
@@ -524,6 +536,71 @@ describe('idle-days DP state dimension', () => {
 
             const risk = result.dayPolicy.computeRisk?.(plan.initialState(), 0);
             expect(risk).toBe(50);
+        },
+    );
+});
+
+describe('tradingDays DP state dimension', () => {
+    it(
+        'accountSize 1000 / drawdown 100 / profitTarget 0 / minTradingDays ' +
+            '1 / maxConsecutiveIdleDays null / 1-day cap / one $50-at-1:2 ' +
+            "slot: pins tradingDays to simulator/day.ts's real semantics — " +
+            '`state.tradingDays += 1` only `if (isTraded)` (day.ts:186-189), ' +
+            'never unconditionally per calendar day. Idling day 0 reaches ' +
+            'the 1-day cap having traded zero real days, so tradingDays ' +
+            'stays 0 and minTradingDays 1 is never satisfied — V(idle ' +
+            'branch) = 0 (times out, does not pass), even though profit is ' +
+            'a trivially-passing 0 and one full calendar day elapsed. The ' +
+            'prior bug (`state.tradingDays = day + 1` unconditionally, ' +
+            'ignoring wasIdleToday) would have credited that elapsed ' +
+            'calendar day as a trading day and wrongly reported V=1 for ' +
+            'the idle branch. Trading instead (the only other option) ' +
+            "risks the plan's $100 drawdown for a real shot at passing: " +
+            'win reaches profit 100 with tradingDays 1, passing ' +
+            'immediately (V=1); lose reaches profit -50, fails the profit ' +
+            'target, and the 1-day cap times out (V=0) — so trading is ' +
+            "worth exactly the winrate (0.5), strictly beating idling's 0, " +
+            'and the DP must correctly prefer it over the free-looking, ' +
+            'actually-dead-end idle action',
+        () => {
+            const plan = toyPlan(0).withOverrides({
+                maxConsecutiveIdleDays: undefined,
+                minTradingDays: 1,
+            });
+            expect(plan.maxConsecutiveIdleDays).toBeNull();
+
+            const result = computeEvalStateValue(toyDpConfig(plan, 1, 50));
+
+            expect(result.initialValue).toBeCloseTo(0.5, 10);
+
+            const risk = result.dayPolicy.computeRisk?.(plan.initialState(), 0);
+            expect(risk).toBe(50);
+        },
+    );
+
+    it(
+        'the identical config with minTradingDays reset to 0 collapses ' +
+            'back to the trivial free pass (tradingDays(0) < ' +
+            'minTradingDays(0) is false immediately, regardless of whether ' +
+            'any real trade ever happens), confirming the 0.5 result above ' +
+            'comes specifically from the minTradingDays gate rejecting an ' +
+            'idle-only day, not from some other difference in this config, ' +
+            'and that the new tradingDays dimension is a true no-op — ' +
+            'exactly the "collapses to a smaller/no-op range once the cap ' +
+            'is reached" pattern already used for idleDays and ' +
+            "payoutRegimeCap — whenever a plan doesn't set minTradingDays",
+        () => {
+            const plan = toyPlan(0).withOverrides({
+                maxConsecutiveIdleDays: undefined,
+                minTradingDays: 0,
+            });
+
+            const result = computeEvalStateValue(toyDpConfig(plan, 1, 50));
+
+            expect(result.initialValue).toBeCloseTo(1, 10);
+
+            const risk = result.dayPolicy.computeRisk?.(plan.initialState(), 0);
+            expect(risk).toBe(0);
         },
     );
 });

@@ -6,6 +6,7 @@ import {
     DayStopRuleKind,
     InstrumentSymbol,
     parseFirmId,
+    RungSizing,
     serializePlanId,
     type TradingFirm,
 } from '~/lib/prop-calculator';
@@ -106,6 +107,18 @@ export function decodeState(
               CALCULATOR_SCALAR_BOUNDS.rc.fallback,
           )
         : null;
+    const payoutRequestSize = parameters.has('pr')
+        ? clampNumber(
+              Number(parameters.get('pr')),
+              CALCULATOR_SCALAR_BOUNDS.pr.min,
+              CALCULATOR_SCALAR_BOUNDS.pr.max,
+              CALCULATOR_SCALAR_BOUNDS.pr.fallback,
+          )
+        : null;
+    const rungSizing =
+        parameters.get('rung') === RungSizing.SkipIfUnaffordable
+            ? RungSizing.SkipIfUnaffordable
+            : RungSizing.CapToCushion;
 
     const resolvedFirm = firm ?? fallback.firm;
     const resolvedPlan = plan ?? (firm ? firm.plans[0] : null) ?? fallback.plan;
@@ -168,7 +181,11 @@ export function decodeState(
                                   instrument: wire.instrument,
                                   linkActivationDiscount:
                                       wire.linkActivationDiscount,
+                                  monthlySubscriptionDiscountPercent:
+                                      wire.monthlySubscriptionDiscountPercent,
                                   planId: plan.id,
+                                  resetDiscountPercent:
+                                      wire.resetDiscountPercent,
                                   stopPoints: wire.stopPoints,
                               };
                     })
@@ -193,12 +210,16 @@ export function decodeState(
         linkActivationDiscount: parameters.get('linkAct') === '1',
         maxAttempts: scalarFields.attempts,
         maxEvalDays: scalarFields.maxDays,
+        monthlySubscriptionDiscountPercent: scalarFields.msub,
+        payoutRequestSize,
         plan: resolvedPlan,
         portfolio,
+        resetDiscountPercent: scalarFields.rstd,
         retainedCushion,
         riskDollars: scalarFields.rd,
         riskPercent: scalarFields.rp,
         rrRatio: scalarFields.rr,
+        rungSizing,
         seed: scalarFields.seed,
         sizingMode,
         stopPoints,
@@ -223,18 +244,24 @@ export function encodeState(state: CalculatorState): URLSearchParams {
     p.set('eval', String(state.evalDiscountPercent));
     p.set('act', String(state.activationDiscountPercent));
     p.set('linkAct', state.linkActivationDiscount ? '1' : '0');
+    p.set('msub', String(state.monthlySubscriptionDiscountPercent));
+    p.set('rstd', String(state.resetDiscountPercent));
     p.set('comm', String(state.commissionPerRoundTrip));
     p.set('attempts', String(state.maxAttempts));
     p.set('copy', String(state.copyAccounts));
     p.set('maxDays', String(state.maxEvalDays));
     p.set('fundedDays', String(state.fundedHorizonDays));
     p.set('idp', state.idleDayProbability.toFixed(3));
+    p.set('rung', state.rungSizing);
     if (state.instrument !== null && state.stopPoints !== null) {
         p.set('instr', state.instrument);
         p.set('sp', String(state.stopPoints));
     }
     if (state.retainedCushion !== null) {
         p.set('rc', String(state.retainedCushion));
+    }
+    if (state.payoutRequestSize !== null) {
+        p.set('pr', String(state.payoutRequestSize));
     }
     if (state.dayStop.kind !== DayStopRuleKind.None) {
         const ds = base64UrlEncode(JSON.stringify(state.dayStop));
@@ -257,7 +284,10 @@ export function encodeState(state: CalculatorState): URLSearchParams {
             id: entry.id,
             instrument: entry.instrument,
             linkActivationDiscount: entry.linkActivationDiscount,
+            monthlySubscriptionDiscountPercent:
+                entry.monthlySubscriptionDiscountPercent,
             planId: serializePlanId(entry.planId),
+            resetDiscountPercent: entry.resetDiscountPercent,
             stopPoints: entry.stopPoints,
         }));
         const pf = base64UrlEncode(JSON.stringify(wire));

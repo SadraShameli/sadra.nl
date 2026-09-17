@@ -19,6 +19,7 @@ export interface DayPolicy {
         state: AccountState,
         tradeIndexToday: number,
         payoutsIssued?: number,
+        cycleBestDayProfit?: number,
     ) => number;
     readonly ladder: readonly number[];
     readonly maxLossesPerDay: null | number;
@@ -56,6 +57,7 @@ export function computedDayPolicy(
         state: AccountState,
         tradeIndexToday: number,
         payoutsIssued?: number,
+        cycleBestDayProfit?: number,
     ) => number,
     maxTrades: number,
     stopRule?: DayStopRule,

@@ -98,6 +98,9 @@ export class Tradeify extends TradingFirm {
         "Select's evaluation-phase 40% consistency rule can be paid-upgraded to a looser 50% limit (with a 2-day minimum pass period) for an extra fee that scales by account size (+$40 at 50K), confirmed on Tradeify's own Overview tab but not modeled -- a purchasable rule-variant choice, not a price discount, the same judgement call already made for Lucid's DLL toggle and MyFundedFutures' Flex DLL add-on.",
         "Select Daily and Select Flex may be the same underlying evaluation product previewed under two different post-pass payout tracks rather than two genuinely separate purchasable challenges -- both are priced identically ($165 list) with an identical reset fee, and Tradeify's own Overview tab states 'You do NOT choose your payout policy until after you pass the evaluation.' Modeled here as two independently simulatable plan variants (a trader picks which payout track to assume in advance for simulation purposes), not as two separate purchases a trader would make simultaneously.",
         "Select's reset fee was $109 with no clean primary-source confirmation (secondary sources scattered across $85/$95/$99/$109 and two incompatible business models). Resolved 2026-09-14 by reading tradeify.co/select-plan's own live pricing data directly (the page bakes its pricing tables into inline JS objects server-rendered into the static HTML, retrievable via a plain fetch once the right script tag is found): Select 50K's own panel reads 'Reset Fee: $99 -- Allowed up to 10 resets per month' across all three broker tabs (Tradovate/WealthCharts/Tradesea), with Profit Target $3,000 / Drawdown $2,000 / Consistency 40% matching every other already-confirmed Select 50K figure in this file. Corrected from $109 to $99. The $159/month-subscription-with-free-reset story some secondary sources described turned out to belong to Tradeify's separate Lightning product, not Select.",
+        "A monthly-renamed promo code is confirmed running 4+ consecutive months at 30-50% off, standing rather than seasonal -- the bulkDiscount mechanism already modeled on this file's Growth/Select plans is self-documenting in code, so this note is about the separate coupon-code discount only.",
+        "The site's own live pricing data explicitly tags $50K Growth/Select/Lightning as `subscription: 'one time'` -- no monthly fee exists for any of them, matching this codebase's existing model exactly; no change needed.",
+        "A separate, unrelated $359-to-$251 'before/after' banner appears on the same pricing page and is likely a non-functional template artifact rather than real per-tier pricing (the identical pair appears on every account-size card regardless of the labeled size, and is static across snapshots months apart) -- not encoded anywhere, flagged here only so a future re-check doesn't mistake it for a real, missed discount.",
     ];
     readonly plans = [
         ...GROWTH_SIZES.map((s) => this.buildPlan(buildGrowthPlan(s))),
@@ -115,6 +118,7 @@ function buildGrowthPlan(size: TradeifyGrowthSize): PlanInit {
     const profitTarget = dollars(size.accountSize * PROFIT_TARGET_RATIO);
     return {
         accountSize: size.accountSize,
+        bulkDiscount: { minAccounts: 5, percent: fraction(0.05) },
         consistency: new ConsistencyRule(
             ConsistencyScope.Funded,
             fraction(0.35),
@@ -221,6 +225,7 @@ function buildSelectDailyPlan(size: TradeifySelectSize): PlanInit {
     const profitTarget = dollars(size.accountSize * PROFIT_TARGET_RATIO);
     return {
         accountSize: size.accountSize,
+        bulkDiscount: { minAccounts: 5, percent: fraction(0.05) },
         consistency: new ConsistencyRule(ConsistencyScope.Eval, fraction(0.4)),
         contractLimits: CONTRACT_LIMITS,
         drawdown: new EodTrailingDrawdown({ amount: size.maxDrawdown }),
@@ -270,6 +275,7 @@ function buildSelectFlexPlan(size: TradeifySelectSize): PlanInit {
     const profitTarget = dollars(size.accountSize * PROFIT_TARGET_RATIO);
     return {
         accountSize: size.accountSize,
+        bulkDiscount: { minAccounts: 5, percent: fraction(0.05) },
         consistency: new ConsistencyRule(ConsistencyScope.Eval, fraction(0.4)),
         contractLimits: CONTRACT_LIMITS,
         drawdown: new EodTrailingDrawdown({ amount: size.maxDrawdown }),

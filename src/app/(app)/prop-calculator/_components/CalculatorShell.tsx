@@ -97,6 +97,9 @@ export default function CalculatorShell() {
                                 c.state.plan,
                             )}
                             maxEvalDays={c.state.maxEvalDays}
+                            monthlySubscriptionDiscountPercent={
+                                c.state.monthlySubscriptionDiscountPercent
+                            }
                             onActivationDiscountPercentChange={
                                 c.setActivationDiscountPercent
                             }
@@ -115,22 +118,33 @@ export default function CalculatorShell() {
                             }
                             onMaxAttemptsChange={c.setMaxAttempts}
                             onMaxEvalDaysChange={c.setMaxEvalDays}
+                            onMonthlySubscriptionDiscountPercentChange={
+                                c.setMonthlySubscriptionDiscountPercent
+                            }
+                            onPayoutRequestSizeChange={c.setPayoutRequestSize}
                             onResetCoupon={c.resetCoupon}
+                            onResetDiscountPercentChange={
+                                c.setResetDiscountPercent
+                            }
                             onRetainedCushionChange={c.setRetainedCushion}
                             onRiskDollarsChange={c.setRiskDollars}
                             onRiskPercentChange={c.setRiskPercent}
                             onRrRatioChange={c.setRrRatio}
+                            onRungSizingChange={c.setRungSizing}
                             onSeedChange={c.setSeed}
                             onSizingModeChange={c.setSizingMode}
                             onStopPointsChange={c.setStopPoints}
                             onTradesPerDayChange={c.setTradesPerDay}
                             onTrialsChange={c.setTrials}
                             onWinrateChange={c.setWinrate}
+                            payoutRequestSize={c.state.payoutRequestSize}
                             plan={c.state.plan}
+                            resetDiscountPercent={c.state.resetDiscountPercent}
                             retainedCushion={c.state.retainedCushion}
                             riskDollars={c.state.riskDollars}
                             riskPercent={c.state.riskPercent}
                             rrRatio={c.state.rrRatio}
+                            rungSizing={c.state.rungSizing}
                             seed={c.state.seed}
                             sizingMode={c.state.sizingMode}
                             stopPoints={c.state.stopPoints}
@@ -377,11 +391,15 @@ export default function CalculatorShell() {
                     fundedHorizonDays={c.state.fundedHorizonDays}
                     linkActivationDiscount={c.state.linkActivationDiscount}
                     maxEvalDays={c.state.maxEvalDays}
+                    monthlySubscriptionDiscountPercent={
+                        c.state.monthlySubscriptionDiscountPercent
+                    }
                     onAdd={c.addLabScenario}
                     onRemove={c.removeLabScenario}
                     onReset={c.resetLabScenarios}
                     onUpdate={c.updateLabScenario}
                     plan={c.state.plan}
+                    resetDiscountPercent={c.state.resetDiscountPercent}
                     scenarios={c.state.labScenarios}
                     seed={c.state.seed}
                 />

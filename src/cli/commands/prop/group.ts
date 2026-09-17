@@ -19,8 +19,8 @@ export default defineCommand({
             const commandModule = await import('./live/command');
             return commandModule.default;
         },
-        'optimize-funded': async () => {
-            const commandModule = await import('./optimize-funded/command');
+        optimize: async () => {
+            const commandModule = await import('./optimize/group');
             return commandModule.default;
         },
         plans: async () => {

@@ -43,6 +43,7 @@ export type ConsistencyOverride =
 
 export interface PlanInit {
     accountSize: Dollars;
+    bulkDiscount?: { minAccounts: number; percent: Fraction0to1 };
     consistency: ConsistencyRule | null;
     contractLimits?: ContractLimits;
     drawdown: DrawdownStrategy;
@@ -80,6 +81,11 @@ export interface PlanInit {
 
 export abstract class Plan {
     readonly accountSize: Dollars;
+
+    readonly bulkDiscount: null | {
+        minAccounts: number;
+        percent: Fraction0to1;
+    };
 
     readonly consistency: ConsistencyRule | null;
 
@@ -145,6 +151,7 @@ export abstract class Plan {
 
     constructor(protected readonly init: PlanInit) {
         this.accountSize = init.accountSize;
+        this.bulkDiscount = init.bulkDiscount ?? null;
         this.consistency = init.consistency;
         this.contractLimits = init.contractLimits ?? null;
         for (const [key, config] of [
@@ -347,6 +354,10 @@ export abstract class Plan {
         return this.maxConsecutiveIdleDays === null
             ? 0
             : Math.min(state.consecutiveIdleDays, this.maxConsecutiveIdleDays);
+    }
+
+    clampedTradingDays(state: AccountState): number {
+        return Math.min(state.tradingDays, this.minTradingDays);
     }
 
     evalConsistencyRule(): ConsistencyRule | null {

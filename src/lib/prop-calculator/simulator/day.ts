@@ -64,6 +64,7 @@ export function runDay(options: DayRunOptions): {
 } {
     const {
         commission,
+        cycleBestDayProfit,
         dayPolicy,
         idleDayProbability,
         intradayPathStepsPerR,
@@ -104,7 +105,12 @@ export function runDay(options: DayRunOptions): {
     if (!isIdleToday) {
         for (let index = 0; index < dayPolicy.ladder.length; index++) {
             const intendedRisk =
-                dayPolicy.computeRisk?.(state, index, payoutsIssued) ??
+                dayPolicy.computeRisk?.(
+                    state,
+                    index,
+                    payoutsIssued,
+                    cycleBestDayProfit,
+                ) ??
                 dayPolicy.ladder[index] ??
                 0;
             const cushion = state.balance - state.threshold;

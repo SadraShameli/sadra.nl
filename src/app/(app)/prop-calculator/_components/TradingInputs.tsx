@@ -27,6 +27,7 @@ import {
     type Plan,
     points,
     resolveContractLimit,
+    type RungSizing,
     TradingPhase,
 } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
@@ -48,6 +49,7 @@ interface TradingInputsProperties {
     maxAttempts: number;
     maxCopyAccounts: number;
     maxEvalDays: number;
+    monthlySubscriptionDiscountPercent: number;
     onActivationDiscountPercentChange: (n: number) => void;
     onCommissionPerRoundTripChange: (n: number) => void;
     onCopyAccountsChange: (n: number) => void;
@@ -58,22 +60,29 @@ interface TradingInputsProperties {
     onLinkActivationDiscountChange: (isLinked: boolean) => void;
     onMaxAttemptsChange: (n: number) => void;
     onMaxEvalDaysChange: (n: number) => void;
+    onMonthlySubscriptionDiscountPercentChange: (n: number) => void;
+    onPayoutRequestSizeChange: (n: null | number) => void;
     onResetCoupon: () => void;
+    onResetDiscountPercentChange: (n: number) => void;
     onRetainedCushionChange: (n: null | number) => void;
     onRiskDollarsChange: (n: number) => void;
     onRiskPercentChange: (n: number) => void;
     onRrRatioChange: (n: number) => void;
+    onRungSizingChange: (mode: RungSizing) => void;
     onSeedChange: (n: number) => void;
     onSizingModeChange: (m: SizingMode) => void;
     onStopPointsChange: (n: number) => void;
     onTradesPerDayChange: (n: number) => void;
     onTrialsChange: (n: number) => void;
     onWinrateChange: (n: number) => void;
+    payoutRequestSize: null | number;
     plan: Plan;
+    resetDiscountPercent: number;
     retainedCushion: null | number;
     riskDollars: number;
     riskPercent: number;
     rrRatio: number;
+    rungSizing: RungSizing;
     seed: number;
     sizingMode: SizingMode;
     stopPoints: null | number;
@@ -95,6 +104,7 @@ export default function TradingInputs({
     maxAttempts,
     maxCopyAccounts,
     maxEvalDays,
+    monthlySubscriptionDiscountPercent,
     onActivationDiscountPercentChange,
     onCommissionPerRoundTripChange,
     onCopyAccountsChange,
@@ -105,22 +115,29 @@ export default function TradingInputs({
     onLinkActivationDiscountChange,
     onMaxAttemptsChange,
     onMaxEvalDaysChange,
+    onMonthlySubscriptionDiscountPercentChange,
+    onPayoutRequestSizeChange,
     onResetCoupon,
+    onResetDiscountPercentChange,
     onRetainedCushionChange,
     onRiskDollarsChange,
     onRiskPercentChange,
     onRrRatioChange,
+    onRungSizingChange,
     onSeedChange,
     onSizingModeChange,
     onStopPointsChange,
     onTradesPerDayChange,
     onTrialsChange,
     onWinrateChange,
+    payoutRequestSize,
     plan,
+    resetDiscountPercent,
     retainedCushion,
     riskDollars,
     riskPercent,
     rrRatio,
+    rungSizing,
     seed,
     sizingMode,
     stopPoints,
@@ -290,6 +307,33 @@ export default function TradingInputs({
                             <div>
                                 <label
                                     className="mb-1 block text-xs font-medium text-muted-foreground"
+                                    htmlFor="payout-request-size"
+                                >
+                                    Payout request size ($)
+                                </label>
+                                <Input
+                                    id="payout-request-size"
+                                    min={0}
+                                    onChange={(event) => {
+                                        const raw = event.target.value;
+                                        onPayoutRequestSizeChange(
+                                            raw === '' ? null : Number(raw),
+                                        );
+                                    }}
+                                    placeholder="Withdraw everything"
+                                    step={100}
+                                    type="number"
+                                    value={payoutRequestSize ?? ''}
+                                />
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    How much to withdraw per payout. Empty means
+                                    withdraw everything above the retained
+                                    cushion.
+                                </p>
+                            </div>
+                            <div>
+                                <label
+                                    className="mb-1 block text-xs font-medium text-muted-foreground"
                                     htmlFor="idle-day-probability"
                                 >
                                     Idle-day probability
@@ -313,6 +357,31 @@ export default function TradingInputs({
                                     inactivity-closure rule (e.g. MFFU Rapid
                                     EOD).
                                 </p>
+                            </div>
+                            <div>
+                                <label
+                                    className="mb-1 block text-xs font-medium text-muted-foreground"
+                                    htmlFor="rung-sizing"
+                                >
+                                    Unaffordable rung
+                                </label>
+                                <select
+                                    className="h-8 w-full rounded-md border bg-transparent px-2 text-xs"
+                                    id="rung-sizing"
+                                    onChange={(event) =>
+                                        onRungSizingChange(
+                                            event.target.value as RungSizing,
+                                        )
+                                    }
+                                    value={rungSizing}
+                                >
+                                    <option value="capToCushion">
+                                        Cap to cushion
+                                    </option>
+                                    <option value="skipIfUnaffordable">
+                                        Skip trade
+                                    </option>
+                                </select>
                             </div>
                         </div>
                     </PopoverContent>
@@ -606,6 +675,8 @@ export default function TradingInputs({
                         disabled={
                             evalDiscountPercent === 0 &&
                             activationDiscountPercent === 0 &&
+                            monthlySubscriptionDiscountPercent === 0 &&
+                            resetDiscountPercent === 0 &&
                             !linkActivationDiscount
                         }
                         onClick={onResetCoupon}
@@ -733,6 +804,98 @@ export default function TradingInputs({
                             >
                                 Match eval
                             </Toggle>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div className="mb-1 flex items-center justify-between">
+                            <label
+                                className="text-xs font-medium text-muted-foreground"
+                                htmlFor="monthly-subscription-discount"
+                            >
+                                Monthly subscription discount
+                            </label>
+                            <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                                {plan.fees.monthlySubscription > 0
+                                    ? monthlySubscriptionDiscountPercent > 0
+                                        ? `${formatCompactCurrency(
+                                              plan.fees.monthlySubscription,
+                                          )} → ${formatCompactCurrency(
+                                              plan.fees.monthlySubscription *
+                                                  (1 -
+                                                      monthlySubscriptionDiscountPercent /
+                                                          100),
+                                          )}`
+                                        : formatCompactCurrency(
+                                              plan.fees.monthlySubscription,
+                                          )
+                                    : 'no monthly subscription'}
+                            </span>
+                        </div>
+                        <div className="relative">
+                            <Input
+                                className="pr-7"
+                                disabled={plan.fees.monthlySubscription === 0}
+                                id="monthly-subscription-discount"
+                                max={100}
+                                min={0}
+                                onChange={(event) =>
+                                    onMonthlySubscriptionDiscountPercentChange(
+                                        Number(event.target.value),
+                                    )
+                                }
+                                step={1}
+                                type="number"
+                                value={monthlySubscriptionDiscountPercent || ''}
+                            />
+                            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
+                                %
+                            </span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div className="mb-1 flex items-center justify-between">
+                            <label
+                                className="text-xs font-medium text-muted-foreground"
+                                htmlFor="reset-discount"
+                            >
+                                Reset fee discount
+                            </label>
+                            <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                                {plan.fees.reset > 0
+                                    ? resetDiscountPercent > 0
+                                        ? `${formatCompactCurrency(
+                                              plan.fees.reset,
+                                          )} → ${formatCompactCurrency(
+                                              plan.fees.reset *
+                                                  (1 -
+                                                      resetDiscountPercent /
+                                                          100),
+                                          )}`
+                                        : formatCompactCurrency(plan.fees.reset)
+                                    : 'no reset fee'}
+                            </span>
+                        </div>
+                        <div className="relative">
+                            <Input
+                                className="pr-7"
+                                disabled={plan.fees.reset === 0}
+                                id="reset-discount"
+                                max={100}
+                                min={0}
+                                onChange={(event) =>
+                                    onResetDiscountPercentChange(
+                                        Number(event.target.value),
+                                    )
+                                }
+                                step={1}
+                                type="number"
+                                value={resetDiscountPercent || ''}
+                            />
+                            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
+                                %
+                            </span>
                         </div>
                     </div>
                 </div>

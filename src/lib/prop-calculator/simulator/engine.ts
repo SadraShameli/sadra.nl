@@ -221,13 +221,17 @@ export function simulate(inputs: SimInputs): SimOutputs {
     const breakEvenFundedProfit = expectedTotalCost;
 
     const m = accountMultiplier;
+    const bulkDiscountFactor =
+        plan.bulkDiscount && accountMultiplier >= plan.bulkDiscount.minAccounts
+            ? 1 - plan.bulkDiscount.percent
+            : 1;
     return {
         accountSize: plan.accountSize,
         breakEvenFundedProfit: breakEvenFundedProfit * m,
         bustProbability: counts['bust-eval'] / totalTrials,
         costBreakdown: {
-            activationFee: costBreakdown.activationFee * m,
-            evalFee: costBreakdown.evalFee * m,
+            activationFee: costBreakdown.activationFee * m * bulkDiscountFactor,
+            evalFee: costBreakdown.evalFee * m * bulkDiscountFactor,
             monthlySubsTotal: costBreakdown.monthlySubsTotal * m,
             perAccountActivationFee: costBreakdown.perAccountActivationFee,
             perAccountEvalFee: costBreakdown.perAccountEvalFee,

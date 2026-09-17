@@ -40,7 +40,7 @@ export default defineCommand({
     meta: {
         description:
             'Sweep flat-$ and percent-of-cushion funded-phase policies (--firm, --variant) and rank by renewal-adjusted lifetime expected cash extraction.',
-        name: 'optimize-funded',
+        name: 'funded',
     },
     run(context) {
         let spinner: ReturnType<typeof ui.spinner> | undefined;

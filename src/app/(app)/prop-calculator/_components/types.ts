@@ -6,6 +6,7 @@ import {
     type InstrumentSymbol,
     type Plan,
     type PlanId,
+    type RungSizing,
     type TradingFirm,
 } from '~/lib/prop-calculator';
 
@@ -38,12 +39,16 @@ export interface CalculatorState {
     linkActivationDiscount: boolean;
     maxAttempts: number;
     maxEvalDays: number;
+    monthlySubscriptionDiscountPercent: number;
+    payoutRequestSize: null | number;
     plan: Plan;
     portfolio: PortfolioEntry[];
+    resetDiscountPercent: number;
     retainedCushion: null | number;
     riskDollars: number;
     riskPercent: number;
     rrRatio: number;
+    rungSizing: RungSizing;
     seed: number;
     sizingMode: SizingMode;
     stopPoints: null | number;
@@ -82,7 +87,9 @@ export interface PortfolioEntry {
     id: string;
     instrument: InstrumentSymbol | null;
     linkActivationDiscount: boolean;
+    monthlySubscriptionDiscountPercent: number;
     planId: PlanId;
+    resetDiscountPercent: number;
     stopPoints: null | number;
 }
 

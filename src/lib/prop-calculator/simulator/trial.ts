@@ -39,6 +39,7 @@ export function simulateTrial(options: TrialOptions): TrialResult {
     const retryResult = runEvalWithRetries({
         commission,
         dayPolicy: evalDayPolicy,
+        discounts,
         idleDayProbability,
         intradayPathStepsPerR,
         maxAttempts,

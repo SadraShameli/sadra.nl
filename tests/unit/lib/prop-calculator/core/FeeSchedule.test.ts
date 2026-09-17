@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
     type FeeSchedule,
     feesUntilPass,
+    resetFactor,
     totalFees,
 } from '~/lib/prop-calculator/core/FeeSchedule';
 import { dollars, percent } from '~/lib/prop-calculator/core/units';
@@ -81,5 +82,27 @@ describe('feesUntilPass', () => {
 
     it('matches totalFees month-rounding behavior', () => {
         expect(feesUntilPass(fees, 22)).toBe(49 * 2);
+    });
+});
+
+describe('resetFactor', () => {
+    it('is 1 (no discount) when discounts are undefined or resetPercent is unset', () => {
+        expect(resetFactor(undefined)).toBe(1);
+        expect(
+            resetFactor({
+                activationPercent: percent(0),
+                evalPercent: percent(0),
+            }),
+        ).toBe(1);
+    });
+
+    it('reduces the reset fee by resetPercent', () => {
+        expect(
+            resetFactor({
+                activationPercent: percent(0),
+                evalPercent: percent(0),
+                resetPercent: percent(40),
+            }),
+        ).toBe(0.6);
     });
 });

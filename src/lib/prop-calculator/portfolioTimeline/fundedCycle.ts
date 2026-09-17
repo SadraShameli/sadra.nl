@@ -51,6 +51,7 @@ export function runEvalToFundedCycle(
     const retryResult = runEvalWithRetries({
         commission,
         dayPolicy: evalDayPolicy,
+        discounts,
         idleDayProbability,
         maxAttempts: MAX_EVAL_ATTEMPTS_PER_CARD,
         maxEvalDays: safeMaxEvalDays,

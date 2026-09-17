@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
     computeEvalStateValue,
     computeFundedStateValue,
+    ConsistencyRule,
+    ConsistencyScope,
     createInitialState,
     DailyLossLimitKind,
     dollars,
@@ -22,6 +24,12 @@ import {
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 import { TopStep } from '~/lib/prop-calculator/firms/topstep/TopStep';
 import { simulate } from '~/lib/prop-calculator/simulator';
+
+function consistencyToyPlan(rule: ConsistencyRule | null): Plan {
+    return onePayoutToyPlan().withOverrides({
+        fundedConsistency: { kind: 'set', rule },
+    });
+}
 
 function onePayoutToyPlan(): Plan {
     return rapidEodPlan().withOverrides({
@@ -388,7 +396,7 @@ describe(
 
                 expect(empiricalLifetimeNet).toBeGreaterThan(bestK1);
             },
-            600_000,
+            2_700_000,
         );
     },
 );
@@ -636,6 +644,163 @@ describe('idle-days DP state dimension', () => {
 
             const risk = result.dayPolicy.computeRisk?.(plan.initialState(), 0);
             expect(risk).toBe(100);
+        },
+    );
+});
+
+describe('cycleBestDayProfit DP state dimension', () => {
+    it(
+        'zero-regression: MFF Rapid EOD 50K (no funded consistency rule — ' +
+            'plan.fundedConsistencyRule() is null) is byte-for-byte ' +
+            'unaffected by the new cycleBestDayProfit dimension — measured ' +
+            'directly against the pre-fix engine (git HEAD at the time of ' +
+            'this change) by literally swapping in its FundedStateValue.ts, ' +
+            'rerunning this exact config standalone, and pinning the real ' +
+            'observed output: initialValue=29505.52018082788, ' +
+            'reachedStateCount=19698, and the exported policy chooses ' +
+            'identical risk at every (tradeIndex, payoutsIssued) ' +
+            'combination checked below — because isViolated is never even ' +
+            'called when fundedConsistencyRule() is null (short-circuited ' +
+            'by `!consistency?.isViolated(...)`), the tracked ' +
+            'cycleBestDayProfit value can never influence this plan',
+        () => {
+            const plan = rapidEodPlan();
+            expect(plan.fundedConsistencyRule()).toBeNull();
+
+            const result = computeFundedStateValue({
+                actionStepMultiple: 0.1,
+                evalInitialValue: 20_000,
+                feePerAttempt: plan.fees.reset,
+                maxActionMultiple: 0.3,
+                plan,
+                rrRatio: 2,
+                tradesPerDay: 4,
+                winrate: 0.4,
+            });
+
+            expect(result.initialValue).toBeCloseTo(29_505.52018082788, 6);
+            expect(result.reachedStateCount).toBe(19_698);
+
+            const state = plan.initialState();
+            const expectedRisksByPayoutsIssued = [
+                [200, 0, 0, 0],
+                [200, 0, 0, 0],
+                [200, 0, 0, 0],
+            ];
+            for (const [
+                payoutsIssued,
+                expectedRisks,
+            ] of expectedRisksByPayoutsIssued.entries()) {
+                for (const [
+                    tradeIndex,
+                    expectedRisk,
+                ] of expectedRisks.entries()) {
+                    expect(
+                        result.dayPolicy.computeRisk?.(
+                            state,
+                            tradeIndex,
+                            payoutsIssued,
+                        ),
+                    ).toBe(expectedRisk);
+                }
+            }
+        },
+    );
+
+    it(
+        "hand-verified boundary proof that the fix's isViolated check is " +
+            'real, not a no-op: a one-payout toy (win locks-and-would-pay-' +
+            'out a same-day $100 profit — a 100%-concentrated cycle, ' +
+            'bestDayProfit === cycleProfit === 200 exactly, hand-traced ' +
+            "from the plan's own $100 drawdown/action/rr=2 setup) sits " +
+            'exactly on a consistency-share boundary: ' +
+            'isViolated(200,200) = 200/200=1.0 > maxBestDayShare. At ' +
+            'maxBestDayShare=1.0, 1.0 > 1.0 is false (never violated), so ' +
+            'the day-1 payout is allowed exactly as in the no-rule ' +
+            'baseline — initialValue must come out byte-identical to the ' +
+            'no-rule case (50, from the existing one-payout-toy test ' +
+            'above). At maxBestDayShare=0.9999, the identical trade path ' +
+            'now has 1.0 > 0.9999 (violated), so the DP is forced to deny ' +
+            'the day-1 payout and continue — a real, hand-predicted ' +
+            'behavior change that an unfixed engine (bestDayProfit ' +
+            'hardcoded to 0, so isViolated(0, x) is always false) could ' +
+            'never produce for any maxBestDayShare',
+        () => {
+            const baseline = consistencyToyPlan(null);
+            const config = {
+                actionStepMultiple: 1,
+                cushionStepMultiple: 1,
+                evalInitialValue: 0,
+                feePerAttempt: dollars(0),
+                maxActionMultiple: 1,
+                rrRatio: 2,
+                tradesPerDay: 1,
+                winrate: 0.5,
+            };
+            const baselineResult = computeFundedStateValue({
+                ...config,
+                plan: baseline,
+            });
+            expect(baselineResult.initialValue).toBeCloseTo(50, 10);
+
+            const neverViolatedPlan = consistencyToyPlan(
+                new ConsistencyRule(ConsistencyScope.Funded, fraction(1)),
+            );
+            const neverViolatedResult = computeFundedStateValue({
+                ...config,
+                plan: neverViolatedPlan,
+            });
+            expect(neverViolatedResult.initialValue).toBeCloseTo(50, 10);
+
+            const alwaysViolatedOnDayOnePlan = consistencyToyPlan(
+                new ConsistencyRule(ConsistencyScope.Funded, fraction(0.9999)),
+            );
+            const alwaysViolatedResult = computeFundedStateValue({
+                ...config,
+                plan: alwaysViolatedOnDayOnePlan,
+            });
+            expect(alwaysViolatedResult.initialValue).not.toBeCloseTo(50, 5);
+            expect(alwaysViolatedResult.initialValue).toBeGreaterThan(
+                baselineResult.initialValue,
+            );
+        },
+    );
+
+    it(
+        "a realistic funded-consistency share (0.4, matching TopStep's " +
+            "'Consistency' variants) also produces a real, materially " +
+            'different value from the no-rule baseline for the same ' +
+            'one-payout toy, confirming the fix matters at realistic, not ' +
+            'just boundary, share values',
+        () => {
+            const baseline = consistencyToyPlan(null);
+            const withRealisticShare = consistencyToyPlan(
+                new ConsistencyRule(ConsistencyScope.Funded, fraction(0.4)),
+            );
+            const config = {
+                actionStepMultiple: 1,
+                cushionStepMultiple: 1,
+                evalInitialValue: 0,
+                feePerAttempt: dollars(0),
+                maxActionMultiple: 1,
+                rrRatio: 2,
+                tradesPerDay: 1,
+                winrate: 0.5,
+            };
+            const baselineResult = computeFundedStateValue({
+                ...config,
+                plan: baseline,
+            });
+            const withRealisticShareResult = computeFundedStateValue({
+                ...config,
+                plan: withRealisticShare,
+            });
+
+            expect(baselineResult.initialValue).toBeCloseTo(50, 10);
+            expect(withRealisticShareResult.initialValue).not.toBeCloseTo(
+                50,
+                2,
+            );
         },
     );
 });

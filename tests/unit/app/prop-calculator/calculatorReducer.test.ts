@@ -15,6 +15,7 @@ import {
     FirmId,
     InstrumentSymbol,
     MffuVariant,
+    RungSizing,
 } from '~/lib/prop-calculator';
 import { ALL_FIRMS } from '~/lib/prop-calculator/firms';
 
@@ -234,12 +235,14 @@ describe('calculatorReducer lab scenario actions', () => {
 });
 
 describe('calculatorReducer reset actions', () => {
-    it('RESET_COUPON clears discount fields without touching the rest of state', () => {
+    it('RESET_COUPON clears all four discount fields without touching the rest of state', () => {
         const state: CalculatorState = {
             ...defaultCalculatorState(),
             activationDiscountPercent: 50,
             evalDiscountPercent: 25,
             linkActivationDiscount: true,
+            monthlySubscriptionDiscountPercent: 40,
+            resetDiscountPercent: 10,
             trials: 3000,
         };
         const next = reduce(state, {
@@ -248,6 +251,8 @@ describe('calculatorReducer reset actions', () => {
         expect(next.activationDiscountPercent).toBe(0);
         expect(next.evalDiscountPercent).toBe(0);
         expect(next.linkActivationDiscount).toBe(false);
+        expect(next.monthlySubscriptionDiscountPercent).toBe(0);
+        expect(next.resetDiscountPercent).toBe(0);
         expect(next.trials).toBe(3000);
     });
 
@@ -364,5 +369,93 @@ describe('calculatorReducer retained cushion (E14 revisit)', () => {
             value: NaN,
         });
         expect(invalid.retainedCushion).toBe(5000);
+    });
+});
+
+describe('calculatorReducer monthly subscription / reset discount (H2)', () => {
+    it('SET_MONTHLY_SUBSCRIPTION_DISCOUNT_PERCENT clamps to the shared schema bounds and falls back to the current value on invalid input', () => {
+        const state = {
+            ...defaultCalculatorState(),
+            monthlySubscriptionDiscountPercent: 40,
+        };
+        const tooHigh = reduce(state, {
+            type: CalculatorActionType.SetMonthlySubscriptionDiscountPercent,
+            value: 500,
+        });
+        expect(tooHigh.monthlySubscriptionDiscountPercent).toBe(100);
+
+        const invalid = reduce(state, {
+            type: CalculatorActionType.SetMonthlySubscriptionDiscountPercent,
+            value: NaN,
+        });
+        expect(invalid.monthlySubscriptionDiscountPercent).toBe(40);
+    });
+
+    it('SET_RESET_DISCOUNT_PERCENT clamps to the shared schema bounds and falls back to the current value on invalid input', () => {
+        const state = {
+            ...defaultCalculatorState(),
+            resetDiscountPercent: 25,
+        };
+        const tooLow = reduce(state, {
+            type: CalculatorActionType.SetResetDiscountPercent,
+            value: -10,
+        });
+        expect(tooLow.resetDiscountPercent).toBe(0);
+
+        const invalid = reduce(state, {
+            type: CalculatorActionType.SetResetDiscountPercent,
+            value: NaN,
+        });
+        expect(invalid.resetDiscountPercent).toBe(25);
+    });
+});
+
+describe('calculatorReducer payoutRequestSize (H3)', () => {
+    it('SET_PAYOUT_REQUEST_SIZE sets and clears independently, defaulting to null ("withdraw everything")', () => {
+        const state = defaultCalculatorState();
+        expect(state.payoutRequestSize).toBeNull();
+
+        const withValue = reduce(state, {
+            type: CalculatorActionType.SetPayoutRequestSize,
+            value: 5000,
+        });
+        expect(withValue.payoutRequestSize).toBe(5000);
+
+        const cleared = reduce(withValue, {
+            type: CalculatorActionType.SetPayoutRequestSize,
+            value: null,
+        });
+        expect(cleared.payoutRequestSize).toBeNull();
+    });
+
+    it('SET_PAYOUT_REQUEST_SIZE clamps to the shared schema bounds and falls back to the current value on invalid input', () => {
+        const state = {
+            ...defaultCalculatorState(),
+            payoutRequestSize: 5000,
+        };
+        const tooHigh = reduce(state, {
+            type: CalculatorActionType.SetPayoutRequestSize,
+            value: 999_999_999,
+        });
+        expect(tooHigh.payoutRequestSize).toBe(1_000_000);
+
+        const invalid = reduce(state, {
+            type: CalculatorActionType.SetPayoutRequestSize,
+            value: NaN,
+        });
+        expect(invalid.payoutRequestSize).toBe(5000);
+    });
+});
+
+describe('calculatorReducer rungSizing (H4)', () => {
+    it('SET_RUNG_SIZING replaces the mode verbatim, defaulting to CapToCushion', () => {
+        const state = defaultCalculatorState();
+        expect(state.rungSizing).toBe(RungSizing.CapToCushion);
+
+        const next = reduce(state, {
+            type: CalculatorActionType.SetRungSizing,
+            value: RungSizing.SkipIfUnaffordable,
+        });
+        expect(next.rungSizing).toBe(RungSizing.SkipIfUnaffordable);
     });
 });

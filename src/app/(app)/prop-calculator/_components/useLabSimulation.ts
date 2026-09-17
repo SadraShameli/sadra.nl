@@ -19,7 +19,9 @@ interface Arguments {
     fundedHorizonDays: number;
     linkActivationDiscount?: boolean;
     maxEvalDays: number;
+    monthlySubscriptionDiscountPercent?: number;
     plan: Plan;
+    resetDiscountPercent?: number;
     scenarios: LabScenario[];
     seed: number;
 }
@@ -40,7 +42,9 @@ export function useLabSimulation(arguments_: Arguments): {
         fundedHorizonDays,
         linkActivationDiscount = false,
         maxEvalDays,
+        monthlySubscriptionDiscountPercent = 0,
         plan,
+        resetDiscountPercent = 0,
         scenarios,
         seed,
     } = arguments_;
@@ -52,7 +56,9 @@ export function useLabSimulation(arguments_: Arguments): {
         fundedHorizonDays,
         linkActivationDiscount,
         maxEvalDays,
+        monthlySubscriptionDiscountPercent,
         plan,
+        resetDiscountPercent,
         scenarios,
         seed,
     });
@@ -83,6 +89,10 @@ export function useLabSimulation(arguments_: Arguments): {
                                 : activationDiscountPercent,
                         ),
                         evalPercent: percent(discountPercent),
+                        monthlySubscriptionPercent: percent(
+                            monthlySubscriptionDiscountPercent,
+                        ),
+                        resetPercent: percent(resetDiscountPercent),
                     },
                     fundedHorizonDays,
                     groups: sc.groups,
@@ -126,7 +136,9 @@ function buildCacheKey(fields: {
     fundedHorizonDays: number;
     linkActivationDiscount: boolean;
     maxEvalDays: number;
+    monthlySubscriptionDiscountPercent: number;
     plan: Plan;
+    resetDiscountPercent: number;
     scenarios: LabScenario[];
     seed: number;
 }): string {
@@ -137,7 +149,9 @@ function buildCacheKey(fields: {
         fundedHorizonDays: fields.fundedHorizonDays,
         linkAct: fields.linkActivationDiscount,
         maxEvalDays: fields.maxEvalDays,
+        msubDiscount: fields.monthlySubscriptionDiscountPercent,
         planId: fields.plan.id,
+        resetDiscount: fields.resetDiscountPercent,
         scenarios: fields.scenarios.map((s) => ({
             a: s.accounts,
             c: s.correlation,

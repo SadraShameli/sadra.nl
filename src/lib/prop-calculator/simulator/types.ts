@@ -40,6 +40,7 @@ export interface CostBreakdown {
 
 export interface DayRunOptions {
     commission: Dollars;
+    cycleBestDayProfit?: number;
     dayPolicy: DayPolicy;
     idleDayProbability?: number;
     intradayPathStepsPerR?: number;
@@ -82,6 +83,7 @@ export interface EvalAttemptResult {
 }
 
 export interface EvalWithRetriesOptions extends EvalAttemptOptions {
+    discounts?: CouponDiscounts;
     maxAttempts: number;
 }
 

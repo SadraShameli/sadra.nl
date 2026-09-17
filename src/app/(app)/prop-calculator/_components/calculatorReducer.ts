@@ -4,10 +4,12 @@ import {
     type DayPolicy,
     type DayStopRule,
     DayStopRuleKind,
+    DEFAULT_RUNG_SIZING,
     findFirm,
     FirmId,
     type InstrumentSymbol,
     type Plan,
+    type RungSizing,
     type TradingFirm,
 } from '~/lib/prop-calculator';
 import { CALCULATOR_SCALAR_BOUNDS } from '~/lib/schemas/url';
@@ -55,12 +57,16 @@ export enum CalculatorActionType {
     SetLinkActivationDiscount = 'set-link-activation-discount',
     SetMaxAttempts = 'set-max-attempts',
     SetMaxEvalDays = 'set-max-eval-days',
+    SetMonthlySubscriptionDiscountPercent = 'set-monthly-subscription-discount-percent',
+    SetPayoutRequestSize = 'set-payout-request-size',
     SetPlan = 'set-plan',
     SetPortfolio = 'set-portfolio',
+    SetResetDiscountPercent = 'set-reset-discount-percent',
     SetRetainedCushion = 'set-retained-cushion',
     SetRiskDollars = 'set-risk-dollars',
     SetRiskPercent = 'set-risk-percent',
     SetRrRatio = 'set-rr-ratio',
+    SetRungSizing = 'set-rung-sizing',
     SetSeed = 'set-seed',
     SetSizingMode = 'set-sizing-mode',
     SetStopPoints = 'set-stop-points',
@@ -121,12 +127,22 @@ export type CalculatorAction =
     | { type: CalculatorActionType.SetMaxAttempts; value: number }
     | { type: CalculatorActionType.SetMaxEvalDays; value: number }
     | {
+          type: CalculatorActionType.SetMonthlySubscriptionDiscountPercent;
+          value: number;
+      }
+    | {
+          type: CalculatorActionType.SetPayoutRequestSize;
+          value: null | number;
+      }
+    | { type: CalculatorActionType.SetResetDiscountPercent; value: number }
+    | {
           type: CalculatorActionType.SetRetainedCushion;
           value: null | number;
       }
     | { type: CalculatorActionType.SetRiskDollars; value: number }
     | { type: CalculatorActionType.SetRiskPercent; value: number }
     | { type: CalculatorActionType.SetRrRatio; value: number }
+    | { type: CalculatorActionType.SetRungSizing; value: RungSizing }
     | { type: CalculatorActionType.SetSeed; value: number }
     | { type: CalculatorActionType.SetStopPoints; value: number }
     | { type: CalculatorActionType.SetTradesPerDay; value: number }
@@ -212,6 +228,8 @@ export function calculatorReducer(
                 activationDiscountPercent: 0,
                 evalDiscountPercent: 0,
                 linkActivationDiscount: false,
+                monthlySubscriptionDiscountPercent: 0,
+                resetDiscountPercent: 0,
             };
         }
         case CalculatorActionType.ResetLabScenarios: {
@@ -355,6 +373,32 @@ export function calculatorReducer(
                 ),
             };
         }
+        case CalculatorActionType.SetMonthlySubscriptionDiscountPercent: {
+            return {
+                ...state,
+                monthlySubscriptionDiscountPercent: clampNumber(
+                    action.value,
+                    CALCULATOR_SCALAR_BOUNDS.msub.min,
+                    CALCULATOR_SCALAR_BOUNDS.msub.max,
+                    state.monthlySubscriptionDiscountPercent,
+                ),
+            };
+        }
+        case CalculatorActionType.SetPayoutRequestSize: {
+            return {
+                ...state,
+                payoutRequestSize:
+                    action.value === null
+                        ? null
+                        : clampNumber(
+                              action.value,
+                              CALCULATOR_SCALAR_BOUNDS.pr.min,
+                              CALCULATOR_SCALAR_BOUNDS.pr.max,
+                              state.payoutRequestSize ??
+                                  CALCULATOR_SCALAR_BOUNDS.pr.fallback,
+                          ),
+            };
+        }
         case CalculatorActionType.SetPlan: {
             const { plan } = action;
             const cap = state.firm.maxFundedAccounts(plan);
@@ -371,6 +415,17 @@ export function calculatorReducer(
         }
         case CalculatorActionType.SetPortfolio: {
             return { ...state, portfolio: action.entries };
+        }
+        case CalculatorActionType.SetResetDiscountPercent: {
+            return {
+                ...state,
+                resetDiscountPercent: clampNumber(
+                    action.value,
+                    CALCULATOR_SCALAR_BOUNDS.rstd.min,
+                    CALCULATOR_SCALAR_BOUNDS.rstd.max,
+                    state.resetDiscountPercent,
+                ),
+            };
         }
         case CalculatorActionType.SetRetainedCushion: {
             return {
@@ -419,6 +474,9 @@ export function calculatorReducer(
                     state.rrRatio,
                 ),
             };
+        }
+        case CalculatorActionType.SetRungSizing: {
+            return { ...state, rungSizing: action.value };
         }
         case CalculatorActionType.SetSeed: {
             return {
@@ -506,6 +564,8 @@ export function defaultCalculatorState(): CalculatorState {
         linkActivationDiscount: false,
         maxAttempts: 1,
         maxEvalDays: 60,
+        monthlySubscriptionDiscountPercent: 0,
+        payoutRequestSize: null,
         plan: DEFAULT_PLAN,
         portfolio: [
             {
@@ -516,18 +576,22 @@ export function defaultCalculatorState(): CalculatorState {
                 id: 'default-apex-50k-eod',
                 instrument: null,
                 linkActivationDiscount: false,
+                monthlySubscriptionDiscountPercent: 0,
                 planId: {
                     accountSize: 50_000,
                     firm: FirmId.Apex,
                     variant: ApexVariant.Eod,
                 },
+                resetDiscountPercent: 0,
                 stopPoints: null,
             },
         ],
+        resetDiscountPercent: 0,
         retainedCushion: null,
         riskDollars: 250,
         riskPercent: 0.5,
         rrRatio: 2,
+        rungSizing: DEFAULT_RUNG_SIZING,
         seed: 42,
         sizingMode: SizingMode.Dollar,
         stopPoints: null,

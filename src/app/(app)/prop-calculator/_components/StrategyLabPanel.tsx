@@ -48,11 +48,13 @@ interface StrategyLabPanelProperties {
     fundedHorizonDays: number;
     linkActivationDiscount: boolean;
     maxEvalDays: number;
+    monthlySubscriptionDiscountPercent: number;
     onAdd: () => void;
     onRemove: (id: string) => void;
     onReset: () => void;
     onUpdate: (id: string, patch: Partial<LabScenario>) => void;
     plan: Plan;
+    resetDiscountPercent: number;
     scenarios: LabScenario[];
     seed: number;
 }
@@ -77,11 +79,13 @@ export default function StrategyLabPanel({
     fundedHorizonDays,
     linkActivationDiscount,
     maxEvalDays,
+    monthlySubscriptionDiscountPercent,
     onAdd,
     onRemove,
     onReset,
     onUpdate,
     plan,
+    resetDiscountPercent,
     scenarios,
     seed,
 }: StrategyLabPanelProperties) {
@@ -92,7 +96,9 @@ export default function StrategyLabPanel({
         fundedHorizonDays,
         linkActivationDiscount,
         maxEvalDays,
+        monthlySubscriptionDiscountPercent,
         plan,
+        resetDiscountPercent,
         scenarios,
         seed,
     });

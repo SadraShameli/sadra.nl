@@ -34,6 +34,8 @@ export interface TableColumn {
 
 export interface TradingArguments extends PlanSelectorArguments {
     'activation-discount': string;
+    commission: string;
+    'copy-accounts': string;
     'eval-days': string;
     'eval-discount': string;
     'funded-days': string;
@@ -62,6 +64,8 @@ export interface TradingArguments extends PlanSelectorArguments {
 
 export interface TradingInputsInit {
     activationDiscountPercent: number;
+    commissionPerRoundTrip: number;
+    copyAccounts: number;
     dayStop: DayStopRule;
     evalDiscountPercent: number;
     fundedHorizonDays: number;
@@ -170,6 +174,14 @@ export class TradingInputs {
                 arguments_['activation-discount'],
                 'activation-discount',
             ),
+            commissionPerRoundTrip: readNumber(
+                arguments_.commission,
+                'commission',
+            ),
+            copyAccounts: readNumber(
+                arguments_['copy-accounts'],
+                'copy-accounts',
+            ),
             dayStop: readStopRule(arguments_.stop),
             evalDiscountPercent: readNumber(
                 arguments_['eval-discount'],
@@ -232,6 +244,8 @@ export class TradingInputs {
     }
 
     readonly activationDiscountPercent: number;
+    readonly commissionPerRoundTrip: number;
+    readonly copyAccounts: number;
     readonly dayStop: DayStopRule;
     readonly evalDiscountPercent: number;
     readonly fundedHorizonDays: number;
@@ -259,6 +273,8 @@ export class TradingInputs {
 
     constructor(init: TradingInputsInit) {
         this.activationDiscountPercent = init.activationDiscountPercent;
+        this.commissionPerRoundTrip = init.commissionPerRoundTrip;
+        this.copyAccounts = init.copyAccounts;
         this.dayStop = init.dayStop;
         this.evalDiscountPercent = init.evalDiscountPercent;
         this.fundedHorizonDays = init.fundedHorizonDays;
@@ -302,6 +318,8 @@ export class TradingInputs {
                 ? plan
                 : plan.withMaxLifetimePayouts(this.maxLifetimePayoutsOverride);
         return {
+            commissionPerRoundTrip: this.commissionPerRoundTrip,
+            copyAccounts: this.copyAccounts,
             dayStop: this.dayStop,
             discounts:
                 this.activationDiscountPercent > 0 ||
@@ -381,6 +399,17 @@ export const tradingArguments = {
         default: '0',
         description:
             'Coupon discount percent [0,100] off the one-time activation fee',
+        type: 'string',
+    },
+    commission: {
+        default: '0',
+        description: 'Commission per round trip in account currency',
+        type: 'string',
+    },
+    'copy-accounts': {
+        default: '1',
+        description:
+            'Number of identical accounts run together (multiplies per-account fees and P&L)',
         type: 'string',
     },
     'eval-days': {

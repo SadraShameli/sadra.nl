@@ -5,6 +5,7 @@ export interface CouponDiscounts {
     activationPercent: Percent0to100;
     evalPercent: Percent0to100;
     monthlySubscriptionPercent?: Percent0to100;
+    resetPercent?: Percent0to100;
 }
 
 export interface FeeSchedule {
@@ -24,6 +25,10 @@ export function feesUntilPass(
         fees.oneTimeEval * evalFactor(discounts) +
         fees.monthlySubscription * monthlySubscriptionFactor(discounts) * months
     );
+}
+
+export function resetFactor(discounts: CouponDiscounts | undefined): number {
+    return 1 - (discounts?.resetPercent ?? 0) / 100;
 }
 
 export function totalFees(

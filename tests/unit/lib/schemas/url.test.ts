@@ -217,3 +217,23 @@ describe('portfolioEntrySchema instrument/stopPoints (E15 extension to Portfolio
         expect(r.data?.stopPoints).toBeNull();
     });
 });
+
+describe('portfolioEntrySchema monthlySubscriptionDiscountPercent/resetDiscountPercent (H2 extension to Portfolio Panel)', () => {
+    it('accepts an entry carrying both new discount fields', () => {
+        const r = portfolioEntrySchema.safeParse({
+            ...LEGACY_PORTFOLIO_ENTRY,
+            monthlySubscriptionDiscountPercent: 40,
+            resetDiscountPercent: 25,
+        });
+        expect(r.success).toBe(true);
+        expect(r.data?.monthlySubscriptionDiscountPercent).toBe(40);
+        expect(r.data?.resetDiscountPercent).toBe(25);
+    });
+
+    it('defaults both new discount fields to 0 when absent from a pre-H2 saved entry', () => {
+        const r = portfolioEntrySchema.safeParse(LEGACY_PORTFOLIO_ENTRY);
+        expect(r.success).toBe(true);
+        expect(r.data?.monthlySubscriptionDiscountPercent).toBe(0);
+        expect(r.data?.resetDiscountPercent).toBe(0);
+    });
+});

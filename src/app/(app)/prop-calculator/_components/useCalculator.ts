@@ -9,6 +9,7 @@ import {
     type InstrumentSymbol,
     percent,
     type Plan,
+    type RungSizing,
     type SimInputs,
     type SimOutputs,
     simulate,
@@ -64,12 +65,16 @@ export interface UseCalculatorReturn {
     setLinkActivationDiscount: (isLinked: boolean) => void;
     setMaxAttempts: (n: number) => void;
     setMaxEvalDays: (n: number) => void;
+    setMonthlySubscriptionDiscountPercent: (n: number) => void;
+    setPayoutRequestSize: (n: null | number) => void;
     setPlan: (plan: Plan) => void;
     setPortfolio: (entries: PortfolioEntry[]) => void;
+    setResetDiscountPercent: (n: number) => void;
     setRetainedCushion: (n: null | number) => void;
     setRiskDollars: (n: number) => void;
     setRiskPercent: (n: number) => void;
     setRrRatio: (n: number) => void;
+    setRungSizing: (mode: RungSizing) => void;
     setSeed: (n: number) => void;
     setSizingMode: (m: SizingMode) => void;
     setStopPoints: (n: number) => void;
@@ -152,6 +157,10 @@ export function useCalculator(): UseCalculatorReturn {
             discounts: {
                 activationPercent: percent(effectiveActivationDiscount),
                 evalPercent: percent(state.evalDiscountPercent),
+                monthlySubscriptionPercent: percent(
+                    state.monthlySubscriptionDiscountPercent,
+                ),
+                resetPercent: percent(state.resetDiscountPercent),
             },
             evalDayPolicy: state.evalDayPolicy ?? undefined,
             fundedHorizonDays: state.fundedHorizonDays,
@@ -160,9 +169,11 @@ export function useCalculator(): UseCalculatorReturn {
             maxAttempts: state.maxAttempts,
             maxEvalDays: state.maxEvalDays,
             minRetainedCushion: state.retainedCushion ?? undefined,
+            payoutRequestSize: state.payoutRequestSize ?? undefined,
             plan: state.plan,
             riskPerTrade,
             rrRatio: state.rrRatio,
+            rungSizing: state.rungSizing,
             seed: state.seed,
             stopPoints: state.stopPoints ?? undefined,
             tradesPerDay: state.tradesPerDay,
@@ -181,6 +192,8 @@ export function useCalculator(): UseCalculatorReturn {
             state.seed,
             state.evalDiscountPercent,
             effectiveActivationDiscount,
+            state.monthlySubscriptionDiscountPercent,
+            state.resetDiscountPercent,
             state.commissionPerRoundTrip,
             state.maxAttempts,
             state.copyAccounts,
@@ -190,6 +203,8 @@ export function useCalculator(): UseCalculatorReturn {
             state.stopPoints,
             state.retainedCushion,
             state.idleDayProbability,
+            state.payoutRequestSize,
+            state.rungSizing,
         ],
     );
 
@@ -257,9 +272,21 @@ export function useCalculator(): UseCalculatorReturn {
             act({ type: CalculatorActionType.SetMaxAttempts, value: n }),
         setMaxEvalDays: (n) =>
             act({ type: CalculatorActionType.SetMaxEvalDays, value: n }),
+        setMonthlySubscriptionDiscountPercent: (n) =>
+            act({
+                type: CalculatorActionType.SetMonthlySubscriptionDiscountPercent,
+                value: n,
+            }),
+        setPayoutRequestSize: (n) =>
+            act({ type: CalculatorActionType.SetPayoutRequestSize, value: n }),
         setPlan: (plan) => act({ plan, type: CalculatorActionType.SetPlan }),
         setPortfolio: (entries) =>
             act({ entries, type: CalculatorActionType.SetPortfolio }),
+        setResetDiscountPercent: (n) =>
+            act({
+                type: CalculatorActionType.SetResetDiscountPercent,
+                value: n,
+            }),
         setRetainedCushion: (n) =>
             act({ type: CalculatorActionType.SetRetainedCushion, value: n }),
         setRiskDollars: (n) =>
@@ -268,6 +295,8 @@ export function useCalculator(): UseCalculatorReturn {
             act({ type: CalculatorActionType.SetRiskPercent, value: n }),
         setRrRatio: (n) =>
             act({ type: CalculatorActionType.SetRrRatio, value: n }),
+        setRungSizing: (mode) =>
+            act({ type: CalculatorActionType.SetRungSizing, value: mode }),
         setSeed: (n) => act({ type: CalculatorActionType.SetSeed, value: n }),
         setSizingMode: (mode) =>
             act({ mode, type: CalculatorActionType.SetSizingMode }),
