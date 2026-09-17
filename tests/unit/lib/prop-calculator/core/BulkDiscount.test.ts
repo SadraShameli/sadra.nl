@@ -94,6 +94,27 @@ describe("Tradeify's confirmed 5-account bulk discount", () => {
         expect(fiveAccountCost).toBeCloseTo(oneAccountCost * 5 * 0.95, 6);
     });
 
+    it('applies no discount at 5 copies on Lightning, whose bulkDiscount is null, proving the null-guard behaviorally rather than only structurally', () => {
+        const basePlan = tradeifyPlan(TradeifyVariant.Lightning);
+        const plan = basePlan.withOverrides({
+            fees: { ...basePlan.fees, activation: dollars(50) },
+        });
+
+        const oneAccount = simulate(
+            alwaysBustsInputs({ copyAccounts: 1, plan }),
+        );
+        const fiveAccounts = simulate(
+            alwaysBustsInputs({ copyAccounts: 5, plan }),
+        );
+
+        expect(fiveAccounts.costBreakdown.evalFee).toBe(
+            oneAccount.costBreakdown.evalFee * 5,
+        );
+        expect(fiveAccounts.costBreakdown.activationFee).toBe(
+            oneAccount.costBreakdown.activationFee * 5,
+        );
+    });
+
     it('gives no discount at all at 4 copies -- minAccounts is a hard floor of 5, not a rounding boundary', () => {
         const basePlan = tradeifyPlan(TradeifyVariant.Growth);
         const plan = basePlan.withOverrides({

@@ -230,6 +230,7 @@ export function computeFundedStateValue(
             balance,
             bestDayProfit: 0,
             consecutiveIdleDays: 0,
+            elapsedDays: 0,
             peakDayCloseProfit: 0,
             qualifyingDays: LARGE_QUALIFYING_DAYS,
             startingBalance,

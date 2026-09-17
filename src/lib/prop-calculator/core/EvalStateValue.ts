@@ -453,6 +453,7 @@ export function computeEvalStateValue(
             balance: threshold + cushion,
             bestDayProfit: bestDay,
             consecutiveIdleDays: idleDays,
+            elapsedDays: day,
             peakDayCloseProfit: 0,
             qualifyingDays: 0,
             startingBalance: plan.accountSize,
@@ -489,7 +490,7 @@ export function computeEvalStateValue(
     });
 
     function computeRisk(state: AccountState, tradeIndexToday: number): number {
-        const day = state.tradingDays;
+        const day = state.elapsedDays ?? 0;
         const todayPnL = state.todayPnL;
         const cushionAtDayStart = state.balance - state.threshold - todayPnL;
         const {

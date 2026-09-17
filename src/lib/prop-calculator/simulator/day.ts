@@ -189,6 +189,9 @@ export function runDay(options: DayRunOptions): {
         }
     }
 
+    if (phase === TradingPhase.Eval) {
+        state.elapsedDays = (state.elapsedDays ?? 0) + 1;
+    }
     if (isTraded) {
         if (phase === TradingPhase.Eval) {
             state.tradingDays += 1;

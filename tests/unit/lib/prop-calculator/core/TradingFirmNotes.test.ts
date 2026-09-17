@@ -84,6 +84,7 @@ describe('TradingFirm.notes (live-verified 2026-09-10, MFFU only)', () => {
     it("MyFundedFutures documents the CLUB coupon code and Builder's separately-confirmed discount tiers", () => {
         const notes = new MyFundedFutures().notes;
         expect(notes.some((note) => note.includes('CODE: CLUB'))).toBe(true);
+        expect(notes.some((note) => note.includes('50%OFF'))).toBe(true);
         expect(
             notes.some((note) =>
                 note.includes('Discounted Price (40% OFF - 2 uses only)'),
@@ -91,9 +92,19 @@ describe('TradingFirm.notes (live-verified 2026-09-10, MFFU only)', () => {
         ).toBe(true);
     });
 
-    it('FundedNext documents the FNFLEX/RAPID coupon codes and the reset-fee-priced-off-list-price caveat', () => {
+    it('FundedNext documents the FNFLEX/RAPID coupon codes, their confirmed percentages, and the Legacy-exclusion fact', () => {
         const notes = findFirm(FirmId.FundedNext)?.notes ?? [];
-        expect(notes.some((note) => note.includes('FNFLEX'))).toBe(true);
+        expect(notes.some((note) => note.includes('FNFLEX (~47% off'))).toBe(
+            true,
+        );
+        expect(notes.some((note) => note.includes('RAPID (~43-46% off'))).toBe(
+            true,
+        );
+        expect(
+            notes.some((note) =>
+                note.includes('Legacy is explicitly not discounted'),
+            ),
+        ).toBe(true);
         expect(
             notes.some((note) =>
                 note.includes('reset fee is calculated off list price'),
@@ -101,31 +112,59 @@ describe('TradingFirm.notes (live-verified 2026-09-10, MFFU only)', () => {
         ).toBe(true);
     });
 
-    it('Tradeify documents the standing monthly promo code, the one-time-subscription confirmation, and the banner-artifact caveat', () => {
+    it('Tradeify documents the standing monthly promo code and its confirmed 30-50% range, the one-time-subscription confirmation, and the banner-artifact caveat', () => {
         const notes = findFirm(FirmId.Tradeify)?.notes ?? [];
         expect(
             notes.some((note) => note.includes('monthly-renamed promo code')),
         ).toBe(true);
+        expect(notes.some((note) => note.includes('30-50% off'))).toBe(true);
         expect(
             notes.some((note) => note.includes("subscription: 'one time'")),
         ).toBe(true);
         expect(notes.some((note) => note.includes('before/after'))).toBe(true);
     });
 
-    it('AlphaFutures documents the TRADINGVIEW code and the lower-confidence DIRECT35 secondary offer', () => {
+    it('AlphaFutures documents the TRADINGVIEW code at its confirmed 50% and the lower-confidence DIRECT35 secondary offer with its percentage and $50K scoping', () => {
         const notes = findFirm(FirmId.AlphaFutures)?.notes ?? [];
-        expect(notes.some((note) => note.includes('TRADINGVIEW'))).toBe(true);
-        expect(notes.some((note) => note.includes('DIRECT35'))).toBe(true);
+        expect(
+            notes.some((note) => note.includes('50% off all evaluations')),
+        ).toBe(true);
+        expect(notes.some((note) => note.includes('DIRECT35 (35% off)'))).toBe(
+            true,
+        );
+        expect(
+            notes.some((note) =>
+                note.includes('$50K "Direct Qualified" account'),
+            ),
+        ).toBe(true);
     });
 
     it("Take Profit Trader documents the NOFEE40 coupon's exact two-field mechanics", () => {
         const notes = findFirm(FirmId.Tpt)?.notes ?? [];
         expect(notes.some((note) => note.includes('NOFEE40'))).toBe(true);
+        expect(
+            notes.some((note) =>
+                note.includes('40% off the monthly Test subscription'),
+            ),
+        ).toBe(true);
+        expect(
+            notes.some((note) =>
+                note.includes('separate 100% activation-fee waiver'),
+            ),
+        ).toBe(true);
+        expect(
+            notes.some((note) => note.includes('unlimited/uncapped stacking')),
+        ).toBe(true);
     });
 
-    it('Apex documents the SAVENOW scope caveat, the March 1, 2026 fee-model change, and the unconfirmed 5-Pack bundle', () => {
+    it('Apex documents the SAVENOW scope caveat with its confirmed percentage and exclusion warning, the March 1, 2026 fee-model change, and the unconfirmed 5-Pack bundle', () => {
         const notes = findFirm(FirmId.Apex)?.notes ?? [];
-        expect(notes.some((note) => note.includes('SAVENOW'))).toBe(true);
+        expect(notes.some((note) => note.includes('up to 90% off'))).toBe(true);
+        expect(
+            notes.some((note) =>
+                note.includes('excluded from resets and PA activation fees'),
+            ),
+        ).toBe(true);
         expect(notes.some((note) => note.includes('March 1, 2026'))).toBe(true);
         expect(
             notes.some((note) => note.includes('5-Pack Evaluation Bundle')),

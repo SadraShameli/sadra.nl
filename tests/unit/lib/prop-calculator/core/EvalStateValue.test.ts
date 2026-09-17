@@ -604,3 +604,53 @@ describe('tradingDays DP state dimension', () => {
         },
     );
 });
+
+describe('elapsedDays DP state dimension', () => {
+    it(
+        'accountSize 1000 / drawdown 100 / profitTarget 0 / minTradingDays ' +
+            '1 / maxConsecutiveIdleDays 3 / 2-day cap / one $50-at-1:2 ' +
+            "slot: computeRisk's within-day lookup must key off real " +
+            'elapsed calendar days, not off state.tradingDays — the two ' +
+            'diverge the moment a real day passes without a trade (e.g. an ' +
+            'idle day forced externally by idleDayProbability, independent ' +
+            "of what this day's own policy would have recommended). A " +
+            'hand-built state representing "day 1, after one such forced-' +
+            'idle day 0" (elapsedDays 1, tradingDays still 0, ' +
+            'consecutiveIdleDays 1) must get the same forced-to-trade $50 ' +
+            "recommendation day 0's own initial state gets: with only one " +
+            'day left before the 2-day cap and minTradingDays 1 still ' +
+            'unmet, idling again guarantees a timeout, exactly the ' +
+            "reasoning the 'tradingDays DP state dimension' block above " +
+            'proves for day 0 itself. The bug this pins — computeRisk ' +
+            'substituting state.tradingDays for elapsed days — would ' +
+            'instead build a day=0/idleDays=1 lookup key that the backward ' +
+            'induction never populates (day 0 only ever has idleDays 0), ' +
+            'silently falling back to a phantom "skip" recommendation (0) ' +
+            'instead of the real day-1 policy',
+        () => {
+            const plan = toyPlan(0).withOverrides({
+                maxConsecutiveIdleDays: 3,
+                minTradingDays: 1,
+            });
+
+            const result = computeEvalStateValue(toyDpConfig(plan, 2, 50));
+
+            const day0Risk = result.dayPolicy.computeRisk?.(
+                plan.initialState(),
+                0,
+            );
+            expect(day0Risk).toBe(50);
+
+            const day1AfterForcedIdleState = {
+                ...plan.initialState(),
+                consecutiveIdleDays: 1,
+                elapsedDays: 1,
+            };
+            const day1Risk = result.dayPolicy.computeRisk?.(
+                day1AfterForcedIdleState,
+                0,
+            );
+            expect(day1Risk).toBe(50);
+        },
+    );
+});

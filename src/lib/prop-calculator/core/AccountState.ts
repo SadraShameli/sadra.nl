@@ -2,6 +2,7 @@ export interface AccountState {
     balance: number;
     bestDayProfit: number;
     consecutiveIdleDays: number;
+    elapsedDays?: number;
     peakDayCloseProfit: number;
     qualifyingDays: number;
     startingBalance: number;
@@ -19,6 +20,7 @@ export function createInitialState(
         balance: startingBalance,
         bestDayProfit: 0,
         consecutiveIdleDays: 0,
+        elapsedDays: 0,
         peakDayCloseProfit: 0,
         qualifyingDays: 0,
         startingBalance,
