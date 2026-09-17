@@ -95,7 +95,7 @@ export default function PortfolioPanel({
                 if (!plan) continue;
                 const out = simulate({
                     ...baseInputs,
-                    copyAccounts: 1,
+                    copyAccounts: entry.count,
                     discounts: {
                         activationPercent: percent(
                             entry.linkActivationDiscount
@@ -125,11 +125,11 @@ export default function PortfolioPanel({
     const totals = useMemo(() => {
         if (simmed.length === 0) return null;
         const monthlyNet = simmed.reduce(
-            (s, { entry, out }) => s + out.expectedMonthlyNet * entry.count,
+            (s, { out }) => s + out.expectedMonthlyNet,
             0,
         );
         const totalCost = simmed.reduce(
-            (s, { entry, out }) => s + out.expectedTotalCost * entry.count,
+            (s, { out }) => s + out.expectedTotalCost,
             0,
         );
         const totalFunding = simmed.reduce(
@@ -858,7 +858,10 @@ function PortfolioTable({
                 id: 'days',
             },
             {
-                accessorFn: (r) => r.sim?.out.expectedMonthlyNet ?? -Infinity,
+                accessorFn: (r) =>
+                    r.sim
+                        ? r.sim.out.expectedMonthlyNet / r.entry.count
+                        : -Infinity,
                 cell: ({ row }) => (
                     <ComputedCell
                         className={
@@ -871,43 +874,48 @@ function PortfolioTable({
                         pending={pending}
                         sim={row.original.sim}
                     >
-                        {(out) => formatCurrency(out.expectedMonthlyNet)}
+                        {(out) =>
+                            formatCurrency(
+                                out.expectedMonthlyNet /
+                                    row.original.entry.count,
+                            )
+                        }
                     </ComputedCell>
                 ),
                 header: 'Net/acct',
                 id: 'net',
             },
             {
-                accessorFn: (r) =>
-                    r.sim
-                        ? r.sim.out.expectedMonthlyNet * r.entry.count
-                        : -Infinity,
+                accessorFn: (r) => r.sim?.out.expectedMonthlyNet ?? -Infinity,
                 cell: ({ row }) => (
                     <ComputedCell
                         className="font-semibold text-foreground"
                         pending={pending}
                         sim={row.original.sim}
                     >
-                        {(out) =>
-                            formatCurrency(
-                                out.expectedMonthlyNet *
-                                    row.original.entry.count,
-                            )
-                        }
+                        {(out) => formatCurrency(out.expectedMonthlyNet)}
                     </ComputedCell>
                 ),
                 header: 'Combined net',
                 id: 'combined',
             },
             {
-                accessorFn: (r) => r.sim?.out.expectedTotalCost ?? Infinity,
+                accessorFn: (r) =>
+                    r.sim
+                        ? r.sim.out.expectedTotalCost / r.entry.count
+                        : Infinity,
                 cell: ({ row }) => (
                     <ComputedCell
                         className="text-muted-foreground"
                         pending={pending}
                         sim={row.original.sim}
                     >
-                        {(out) => formatCurrency(out.expectedTotalCost)}
+                        {(out) =>
+                            formatCurrency(
+                                out.expectedTotalCost /
+                                    row.original.entry.count,
+                            )
+                        }
                     </ComputedCell>
                 ),
                 header: 'Cost/acct',

@@ -76,3 +76,30 @@ describe('Plan.withMaxLifetimePayouts', () => {
         expect(uncapped.isAccountConcluded(9999)).toBe(false);
     });
 });
+
+describe('Plan constructor: minTradingDays invariant', () => {
+    it('rejects a negative minTradingDays at construction', () => {
+        expect(() => lucidDirect.withOverrides({ minTradingDays: -1 })).toThrow(
+            /minTradingDays/,
+        );
+    });
+
+    it(
+        'rejects NaN and fractional minTradingDays values too, matching ' +
+            'the error message\'s own "integer" promise',
+        () => {
+            expect(() =>
+                lucidDirect.withOverrides({ minTradingDays: NaN }),
+            ).toThrow(/minTradingDays/);
+            expect(() =>
+                lucidDirect.withOverrides({ minTradingDays: 2.5 }),
+            ).toThrow(/minTradingDays/);
+        },
+    );
+
+    it('accepts zero, the "no minimum trading days" sentinel', () => {
+        expect(
+            lucidDirect.withOverrides({ minTradingDays: 0 }).minTradingDays,
+        ).toBe(0);
+    });
+});

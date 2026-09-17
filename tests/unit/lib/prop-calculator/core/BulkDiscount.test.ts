@@ -29,6 +29,21 @@ function alwaysBustsInputs(overrides: Partial<SimInputs>): SimInputs {
     } as SimInputs;
 }
 
+function alwaysPassesInputs(overrides: Partial<SimInputs>): SimInputs {
+    return {
+        dayStop: { kind: DayStopRuleKind.None },
+        fundedHorizonDays: 60,
+        maxEvalDays: 150,
+        riskPerTrade: 250,
+        rrRatio: 2,
+        seed: 1,
+        tradesPerDay: 1,
+        trials: 5,
+        winrate: 1,
+        ...overrides,
+    } as SimInputs;
+}
+
 function tradeifyPlan(variant: TradeifyVariant) {
     const plan = tradeify.findPlan({
         accountSize: 50_000,
@@ -120,6 +135,33 @@ describe("Tradeify's confirmed 5-account bulk discount", () => {
         );
         expect(fiveAccounts.costBreakdown.resetFeesTotal).toBe(
             oneAccount.costBreakdown.resetFeesTotal * 5,
+        );
+    });
+
+    it('leaves perAccountActivationFee/perAccountEvalFee and costPerFundedAccount/costPerDrawdownDollar unaffected by the 5-copy bulk discount -- these describe a single account and its eval-retry economics, not the bulk-purchase aggregate', () => {
+        const plan = tradeifyPlan(TradeifyVariant.Growth);
+
+        const oneAccount = simulate(
+            alwaysPassesInputs({ copyAccounts: 1, plan }),
+        );
+        const fiveAccounts = simulate(
+            alwaysPassesInputs({ copyAccounts: 5, plan }),
+        );
+
+        expect(oneAccount.passProbability).toBe(1);
+        expect(fiveAccounts.passProbability).toBe(1);
+
+        expect(fiveAccounts.costBreakdown.perAccountActivationFee).toBe(
+            oneAccount.costBreakdown.perAccountActivationFee,
+        );
+        expect(fiveAccounts.costBreakdown.perAccountEvalFee).toBe(
+            oneAccount.costBreakdown.perAccountEvalFee,
+        );
+        expect(fiveAccounts.costPerFundedAccount).toBe(
+            oneAccount.costPerFundedAccount,
+        );
+        expect(fiveAccounts.costPerDrawdownDollar).toBe(
+            oneAccount.costPerDrawdownDollar,
         );
     });
 });

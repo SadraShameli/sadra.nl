@@ -147,4 +147,15 @@ describe('TradingFirm.notes (live-verified 2026-09-10, MFFU only)', () => {
             ),
         ).toBe(true);
     });
+
+    it("E8 Futures documents the E8 coupon's exact eval-fee cut and the confirmed 5-payout lifetime cap", () => {
+        const notes = findFirm(FirmId.E8Futures)?.notes ?? [];
+        expect(notes.some((note) => note.includes('Coupon code "E8"'))).toBe(
+            true,
+        );
+        expect(notes.some((note) => note.includes('$160 -> $120'))).toBe(true);
+        expect(
+            notes.some((note) => note.includes('hard 5-payout lifetime cap')),
+        ).toBe(true);
+    });
 });

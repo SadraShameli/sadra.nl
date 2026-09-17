@@ -154,6 +154,7 @@ export abstract class Plan {
         this.bulkDiscount = init.bulkDiscount ?? null;
         this.consistency = init.consistency;
         this.contractLimits = init.contractLimits ?? null;
+
         for (const [key, config] of [
             ['fundedMicros', this.contractLimits?.fundedMicros],
             ['fundedMinis', this.contractLimits?.fundedMinis],
@@ -167,6 +168,7 @@ export abstract class Plan {
                 );
             }
         }
+
         this.drawdown = init.drawdown;
         this.evalDailyLossLimit = init.evalDailyLossLimit;
         this.fees = init.fees;
@@ -177,6 +179,7 @@ export abstract class Plan {
         this.isInstantFunded = init.isInstantFunded ?? false;
         this.label = init.label;
         this.maxConsecutiveIdleDays = init.maxConsecutiveIdleDays ?? null;
+
         if (
             this.maxConsecutiveIdleDays !== null &&
             (!Number.isSafeInteger(this.maxConsecutiveIdleDays) ||
@@ -186,6 +189,7 @@ export abstract class Plan {
                 `${this.label}: maxConsecutiveIdleDays must be a positive integer or omitted, got ${this.maxConsecutiveIdleDays}`,
             );
         }
+
         this.maxFundedAccounts = init.maxFundedAccounts;
         this.maxEvalTradingDays = init.maxEvalTradingDays ?? null;
         this.maxLifetimePayouts = init.maxLifetimePayouts ?? null;
@@ -197,9 +201,20 @@ export abstract class Plan {
         this.minPayoutRequest = init.minPayoutRequest ?? dollars(0);
         this.minQualifyingDayProfit = init.minQualifyingDayProfit ?? null;
         this.minTradingDays = init.minTradingDays;
+
+        if (
+            !Number.isSafeInteger(this.minTradingDays) ||
+            this.minTradingDays < 0
+        ) {
+            throw new Error(
+                `${this.label}: minTradingDays must be a non-negative integer, got ${this.minTradingDays}`,
+            );
+        }
+
         this.payoutBalanceShareCap = init.payoutBalanceShareCap ?? null;
         this.payoutBuffer = init.payoutBuffer ?? null;
         this.payoutCapOverride = init.payoutCapOverride ?? null;
+
         if (
             this.payoutCapOverride !== null &&
             (this.payoutBalanceShareCap !== null ||
@@ -209,6 +224,7 @@ export abstract class Plan {
                 `${this.label}: payoutCapOverride makes payoutBalanceShareCap/payoutRequestCap dead; set only one`,
             );
         }
+
         if (
             init.fundedConsistencyLadder !== undefined &&
             init.fundedConsistency?.kind === 'set'
@@ -217,13 +233,16 @@ export abstract class Plan {
                 `${this.label}: fundedConsistencyLadder makes fundedConsistency dead; set only one`,
             );
         }
+
         if (init.fundedConsistencyLadder?.steps.length === 0) {
             throw new Error(
                 `${this.label}: fundedConsistencyLadder.steps must not be empty`,
             );
         }
+
         this.payoutFloorEffect =
             init.payoutFloorEffect ?? PayoutFloorEffect.None;
+
         if (
             this.payoutFloorEffect === PayoutFloorEffect.LockAtPlanFloor &&
             this.fundedDrawdown.lock === undefined
@@ -232,6 +251,7 @@ export abstract class Plan {
                 `${this.label}: payoutFloorEffect is LockAtPlanFloor but fundedDrawdown has no lock config`,
             );
         }
+
         this.payoutLadder = init.payoutLadder ?? null;
         if (
             this.payoutLadder !== null &&
@@ -241,9 +261,11 @@ export abstract class Plan {
                 `${this.label}: payoutLadder.steps must not be empty`,
             );
         }
+
         this.payoutMethodFee = init.payoutMethodFee ?? dollars(0);
         this.payoutProfitShare = init.payoutProfitShare ?? null;
         this.payoutRequestCap = init.payoutRequestCap ?? null;
+
         if (
             this.payoutRequestCap !== null &&
             this.minPayoutRequest > this.payoutRequestCap
@@ -252,10 +274,12 @@ export abstract class Plan {
                 `${this.label}: minPayoutRequest (${this.minPayoutRequest}) exceeds payoutRequestCap (${this.payoutRequestCap})`,
             );
         }
+
         this.payoutTiers = init.payoutTiers;
         if (this.payoutTiers.length === 0) {
             throw new Error(`${this.label}: payoutTiers must not be empty`);
         }
+
         const seenThresholds = new Set<number>();
         for (const tier of this.payoutTiers) {
             if (seenThresholds.has(tier.thresholdProfit)) {
