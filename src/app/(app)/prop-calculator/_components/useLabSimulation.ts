@@ -5,6 +5,7 @@ import {
     type MultiAccountResult,
     percent,
     type Plan,
+    type RungSizing,
     simulatePortfolio,
 } from '~/lib/prop-calculator';
 
@@ -19,9 +20,12 @@ interface Arguments {
     fundedHorizonDays: number;
     linkActivationDiscount?: boolean;
     maxEvalDays: number;
+    minRetainedCushion?: number;
     monthlySubscriptionDiscountPercent?: number;
+    payoutRequestSize?: number;
     plan: Plan;
     resetDiscountPercent?: number;
+    rungSizing?: RungSizing;
     scenarios: LabScenario[];
     seed: number;
 }
@@ -42,9 +46,12 @@ export function useLabSimulation(arguments_: Arguments): {
         fundedHorizonDays,
         linkActivationDiscount = false,
         maxEvalDays,
+        minRetainedCushion,
         monthlySubscriptionDiscountPercent = 0,
+        payoutRequestSize,
         plan,
         resetDiscountPercent = 0,
+        rungSizing,
         scenarios,
         seed,
     } = arguments_;
@@ -56,9 +63,12 @@ export function useLabSimulation(arguments_: Arguments): {
         fundedHorizonDays,
         linkActivationDiscount,
         maxEvalDays,
+        minRetainedCushion,
         monthlySubscriptionDiscountPercent,
+        payoutRequestSize,
         plan,
         resetDiscountPercent,
+        rungSizing,
         scenarios,
         seed,
     });
@@ -99,9 +109,12 @@ export function useLabSimulation(arguments_: Arguments): {
                     instrument: sc.instrument ?? undefined,
                     maxAttempts: 1,
                     maxEvalDays,
+                    minRetainedCushion,
+                    payoutRequestSize,
                     plan,
                     riskPerTrade: sc.riskPerTrade,
                     rrRatio: sc.rrRatio,
+                    rungSizing,
                     seed,
                     stopPoints: sc.stopPoints ?? undefined,
                     tradesPerDay: sc.tradesPerDay,
@@ -136,9 +149,12 @@ function buildCacheKey(fields: {
     fundedHorizonDays: number;
     linkActivationDiscount: boolean;
     maxEvalDays: number;
+    minRetainedCushion: number | undefined;
     monthlySubscriptionDiscountPercent: number;
+    payoutRequestSize: number | undefined;
     plan: Plan;
     resetDiscountPercent: number;
+    rungSizing: RungSizing | undefined;
     scenarios: LabScenario[];
     seed: number;
 }): string {
@@ -149,9 +165,12 @@ function buildCacheKey(fields: {
         fundedHorizonDays: fields.fundedHorizonDays,
         linkAct: fields.linkActivationDiscount,
         maxEvalDays: fields.maxEvalDays,
+        minRetainedCushion: fields.minRetainedCushion ?? null,
         msubDiscount: fields.monthlySubscriptionDiscountPercent,
+        payoutRequestSize: fields.payoutRequestSize ?? null,
         planId: fields.plan.id,
         resetDiscount: fields.resetDiscountPercent,
+        rungSizing: fields.rungSizing ?? null,
         scenarios: fields.scenarios.map((s) => ({
             a: s.accounts,
             c: s.correlation,

@@ -391,6 +391,7 @@ export default function CalculatorShell() {
                     fundedHorizonDays={c.state.fundedHorizonDays}
                     linkActivationDiscount={c.state.linkActivationDiscount}
                     maxEvalDays={c.state.maxEvalDays}
+                    minRetainedCushion={c.simInputs.minRetainedCushion}
                     monthlySubscriptionDiscountPercent={
                         c.state.monthlySubscriptionDiscountPercent
                     }
@@ -398,8 +399,10 @@ export default function CalculatorShell() {
                     onRemove={c.removeLabScenario}
                     onReset={c.resetLabScenarios}
                     onUpdate={c.updateLabScenario}
+                    payoutRequestSize={c.simInputs.payoutRequestSize}
                     plan={c.state.plan}
                     resetDiscountPercent={c.state.resetDiscountPercent}
+                    rungSizing={c.simInputs.rungSizing}
                     scenarios={c.state.labScenarios}
                     seed={c.state.seed}
                 />

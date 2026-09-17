@@ -28,6 +28,7 @@ import {
     DayStopRuleKind,
     type InstrumentSymbol,
     type Plan,
+    type RungSizing,
 } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
@@ -48,13 +49,16 @@ interface StrategyLabPanelProperties {
     fundedHorizonDays: number;
     linkActivationDiscount: boolean;
     maxEvalDays: number;
+    minRetainedCushion: number | undefined;
     monthlySubscriptionDiscountPercent: number;
     onAdd: () => void;
     onRemove: (id: string) => void;
     onReset: () => void;
     onUpdate: (id: string, patch: Partial<LabScenario>) => void;
+    payoutRequestSize: number | undefined;
     plan: Plan;
     resetDiscountPercent: number;
+    rungSizing: RungSizing | undefined;
     scenarios: LabScenario[];
     seed: number;
 }
@@ -79,13 +83,16 @@ export default function StrategyLabPanel({
     fundedHorizonDays,
     linkActivationDiscount,
     maxEvalDays,
+    minRetainedCushion,
     monthlySubscriptionDiscountPercent,
     onAdd,
     onRemove,
     onReset,
     onUpdate,
+    payoutRequestSize,
     plan,
     resetDiscountPercent,
+    rungSizing,
     scenarios,
     seed,
 }: StrategyLabPanelProperties) {
@@ -96,9 +103,12 @@ export default function StrategyLabPanel({
         fundedHorizonDays,
         linkActivationDiscount,
         maxEvalDays,
+        minRetainedCushion,
         monthlySubscriptionDiscountPercent,
+        payoutRequestSize,
         plan,
         resetDiscountPercent,
+        rungSizing,
         scenarios,
         seed,
     });
