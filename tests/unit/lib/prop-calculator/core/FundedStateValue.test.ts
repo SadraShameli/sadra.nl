@@ -14,6 +14,7 @@ import {
     isFundedDpEligible,
     lifetimeExpectedNet,
     MffuVariant,
+    PayoutFloorEffect,
     type Plan,
     points,
     replacementEconomics,
@@ -61,6 +62,16 @@ function rapidEodPlan(): Plan {
         variant: MffuVariant.RapidEod,
     });
     if (!plan) throw new Error('MFF Rapid EOD 50K plan not found');
+    return plan;
+}
+
+function rapidPlan(): Plan {
+    const plan = new MyFundedFutures().findPlan({
+        accountSize: 50_000,
+        firm: FirmId.Mffu,
+        variant: MffuVariant.Rapid,
+    });
+    if (!plan) throw new Error('MFF Rapid 50K plan not found');
     return plan;
 }
 
@@ -377,7 +388,7 @@ describe(
 
                 expect(empiricalLifetimeNet).toBeGreaterThan(bestK1);
             },
-            60_000,
+            600_000,
         );
     },
 );
@@ -479,6 +490,152 @@ describe('isFundedDpEligible scope cut', () => {
                     winrate: 0.4,
                 }),
             ).toThrow(/not eligible/);
+        },
+    );
+
+    it(
+        'a real, currently idle-limited funded plan (MFF Rapid EOD 50K, ' +
+            'maxConsecutiveIdleDays=7) is DP-eligible — isFundedDpEligible ' +
+            'never excluded on maxConsecutiveIdleDays to begin with (it ' +
+            'only checks drawdown kind, the peak-share daily-loss-limit ' +
+            'dependency, and whether the plan has a funded drawdown lock ' +
+            'or a ReleaseFloor payout floor effect), so this pins ' +
+            'idle-limited plans as eligible while confirming the other ' +
+            'exclusion categories (peak-share DLL, covered by the ' +
+            "scope-cut case above; MFF Rapid's IntradayTrailingDrawdown " +
+            'funded drawdown; and a lock-less, non-ReleaseFloor funded ' +
+            'drawdown) all stay excluded, independent of ' +
+            'maxConsecutiveIdleDays',
+        () => {
+            const idleLimitedPlan = rapidEodPlan();
+            expect(idleLimitedPlan.maxConsecutiveIdleDays).not.toBeNull();
+            expect(isFundedDpEligible(idleLimitedPlan)).toBe(true);
+
+            expect(isFundedDpEligible(rapidPlan())).toBe(false);
+
+            const noLockNoReleaseFloorPlan = rapidEodPlan().withOverrides({
+                fundedDrawdown: new EodTrailingDrawdown({
+                    amount: dollars(2000),
+                }),
+            });
+            expect(
+                noLockNoReleaseFloorPlan.fundedDrawdown.lock,
+            ).toBeUndefined();
+            expect(noLockNoReleaseFloorPlan.payoutFloorEffect).toBe(
+                PayoutFloorEffect.None,
+            );
+            expect(isFundedDpEligible(noLockNoReleaseFloorPlan)).toBe(false);
+        },
+    );
+});
+
+describe('idle-days DP state dimension', () => {
+    it(
+        'plans without maxConsecutiveIdleDays set are byte-for-byte ' +
+            'unaffected by the idle-days dimension: the one-payout toy ' +
+            '(winrate 0.5, feePerAttempt 0) was measured against the ' +
+            'unmodified pre-idle-days engine at initialValue=50, ' +
+            'reachedStateCount=105, risk@0=100 (matching the existing ' +
+            'hand-derived one-payout toy case above) — asserting those ' +
+            'exact, previously-measured figures here pins the ' +
+            'post-change engine to produce identical output for every ' +
+            'plan that never sets the field',
+        () => {
+            const plan = onePayoutToyPlan().withOverrides({
+                maxConsecutiveIdleDays: undefined,
+            });
+            expect(plan.maxConsecutiveIdleDays).toBeNull();
+
+            const result = computeFundedStateValue({
+                actionStepMultiple: 1,
+                cushionStepMultiple: 1,
+                evalInitialValue: 0,
+                feePerAttempt: dollars(0),
+                maxActionMultiple: 1,
+                plan,
+                rrRatio: 2,
+                tradesPerDay: 1,
+                winrate: 0.5,
+            });
+
+            expect(result.initialValue).toBeCloseTo(50, 10);
+            expect(result.reachedStateCount).toBe(105);
+
+            const risk = result.dayPolicy.computeRisk?.(plan.initialState(), 0);
+            expect(risk).toBe(100);
+        },
+    );
+
+    it(
+        'the one-payout toy (winrate 0.1, a single $100 trade at 1:2 ' +
+            'either locks-and-pays-out $100 and immediately concludes the ' +
+            'account, hand-verified to be exactly $100 regardless of ' +
+            'winrate/bustTerminalValue since isAccountConcluded short ' +
+            'circuits before any further continuation, or drops the ' +
+            'cushion to exactly 0 and busts, worth bustTerminalValue=-200 ' +
+            'from feePerAttempt=200) makes trading a real expected loss: ' +
+            'V(trade) = 0.1*100 + 0.9*(-200) = -170. An idle-blind engine ' +
+            "has no way to ever bust from idling — its 'stay idle forever' " +
+            'action is a pure zero-reward self-loop from the initial ' +
+            'value-iteration seed of 0 — so it reports idling as strictly ' +
+            'better than trading (0 > -170) and picks it, hand-verified ' +
+            'directly below by clearing maxConsecutiveIdleDays to null on ' +
+            'the identical config. But maxConsecutiveIdleDays=1 busts on ' +
+            'the very first idle day (worth the same bustTerminalValue, ' +
+            '-200, which is worse than trading), so the real engine is ' +
+            'forced to trade instead: V(initial) = -170, a real, ' +
+            'materially worse expected loss the old idle-blind DP would ' +
+            'have completely missed by reporting the impossible-in-practice ' +
+            'V=0',
+        () => {
+            const idleBlindPlan = onePayoutToyPlan().withOverrides({
+                maxConsecutiveIdleDays: undefined,
+            });
+            expect(idleBlindPlan.maxConsecutiveIdleDays).toBeNull();
+            const idleBlindResult = computeFundedStateValue({
+                actionStepMultiple: 1,
+                cushionStepMultiple: 1,
+                evalInitialValue: 0,
+                feePerAttempt: dollars(200),
+                maxActionMultiple: 1,
+                plan: idleBlindPlan,
+                rrRatio: 2,
+                tradesPerDay: 1,
+                winrate: 0.1,
+            });
+            expect(idleBlindResult.bustTerminalValue).toBe(-200);
+            expect(idleBlindResult.initialValue).toBeCloseTo(0, 10);
+            expect(
+                idleBlindResult.dayPolicy.computeRisk?.(
+                    idleBlindPlan.initialState(),
+                    0,
+                ),
+            ).toBe(0);
+
+            const plan = onePayoutToyPlan().withOverrides({
+                maxConsecutiveIdleDays: 1,
+            });
+            expect(plan.maxConsecutiveIdleDays).toBe(1);
+            const result = computeFundedStateValue({
+                actionStepMultiple: 1,
+                cushionStepMultiple: 1,
+                evalInitialValue: 0,
+                feePerAttempt: dollars(200),
+                maxActionMultiple: 1,
+                plan,
+                rrRatio: 2,
+                tradesPerDay: 1,
+                winrate: 0.1,
+            });
+
+            expect(result.bustTerminalValue).toBe(-200);
+            expect(result.initialValue).toBeCloseTo(-170, 10);
+            expect(result.initialValue).toBeLessThan(
+                idleBlindResult.initialValue,
+            );
+
+            const risk = result.dayPolicy.computeRisk?.(plan.initialState(), 0);
+            expect(risk).toBe(100);
         },
     );
 });

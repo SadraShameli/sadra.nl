@@ -124,6 +124,7 @@ export function computeFundedStateValue(
                 ),
         ),
     );
+    const idleDaysBucketCount = plan.maxConsecutiveIdleDays ?? 1;
 
     const lockedCushionBucketCount =
         Math.max(
@@ -218,11 +219,12 @@ export function computeFundedStateValue(
         threshold: number,
         isThresholdLocked: boolean,
         regimeCapped: number,
+        idleDays: number,
     ): number {
         const cushion = balance - threshold;
         if (isThresholdLocked) {
             const index = bucketIndex(cushion, lockedCushionBucketCount);
-            return value.get(lockedKey(regimeCapped, index)) ?? 0;
+            return value.get(lockedKey(regimeCapped, idleDays, index)) ?? 0;
         }
         const offsetIndex = bucketIndex(
             threshold - initialThreshold,
@@ -230,7 +232,9 @@ export function computeFundedStateValue(
         );
         const cushionIndex = bucketIndex(cushion, unlockedCushionBucketCount);
         return (
-            value.get(unlockedKey(offsetIndex, regimeCapped, cushionIndex)) ?? 0
+            value.get(
+                unlockedKey(offsetIndex, regimeCapped, idleDays, cushionIndex),
+            ) ?? 0
         );
     }
 
@@ -239,6 +243,8 @@ export function computeFundedStateValue(
         thresholdDollars: number,
         isLockedAtStart: boolean,
         regimeAtStart: number,
+        wasIdleToday: boolean,
+        idleDaysAtStart: number,
     ): number {
         const state = buildState(
             thresholdDollars + cushionAtEnd,
@@ -248,6 +254,19 @@ export function computeFundedStateValue(
         drawdown.onDayClose(state);
         plan.recordDayClosePeak(state);
         if (plan.isBust(state, TradingPhase.Funded)) return bustTerminalValue;
+
+        const idleDaysAtEnd =
+            plan.maxConsecutiveIdleDays === null
+                ? 0
+                : wasIdleToday
+                  ? idleDaysAtStart + 1
+                  : 0;
+        if (
+            plan.maxConsecutiveIdleDays !== null &&
+            idleDaysAtEnd >= plan.maxConsecutiveIdleDays
+        ) {
+            return bustTerminalValue;
+        }
 
         const tracker = newFundedCycleTracker(state);
         tracker.payoutsIssued = regimeAtStart;
@@ -279,6 +298,7 @@ export function computeFundedStateValue(
                 state.threshold,
                 state.thresholdLocked,
                 regimeNow,
+                idleDaysAtEnd,
             )
         );
     }
@@ -288,6 +308,7 @@ export function computeFundedStateValue(
         thresholdDollars: number,
         isLockedAtStart: boolean,
         regimeAtStart: number,
+        idleDaysAtStart: number,
         nextRoundTable: readonly number[],
         cushionBucketCount: number,
     ): number {
@@ -305,6 +326,8 @@ export function computeFundedStateValue(
                 thresholdDollars,
                 isLockedAtStart,
                 regimeAtStart,
+                false,
+                idleDaysAtStart,
             );
         }
         const index = bucketIndex(cushionAfter, cushionBucketCount);
@@ -347,6 +370,7 @@ export function computeFundedStateValue(
         thresholdDollars: number,
         isLockedAtStart: boolean,
         regimeAtStart: number,
+        idleDaysAtStart: number,
         nextRoundTable: readonly number[],
         cushionBucketCount: number,
     ): number {
@@ -356,6 +380,7 @@ export function computeFundedStateValue(
             thresholdDollars,
             isLockedAtStart,
             regimeAtStart,
+            idleDaysAtStart,
             nextRoundTable,
             cushionBucketCount,
         );
@@ -365,6 +390,7 @@ export function computeFundedStateValue(
             thresholdDollars,
             isLockedAtStart,
             regimeAtStart,
+            idleDaysAtStart,
             nextRoundTable,
             cushionBucketCount,
         );
@@ -376,6 +402,8 @@ export function computeFundedStateValue(
         thresholdDollars: number,
         isLockedAtStart: boolean,
         regimeAtStart: number,
+        idleDaysAtStart: number,
+        tradeIndex: number,
         nextRoundTable: readonly number[],
         cushionBucketCount: number,
     ): { bestAction: number; bestValue: number } {
@@ -391,6 +419,8 @@ export function computeFundedStateValue(
                           thresholdDollars,
                           isLockedAtStart,
                           regimeAtStart,
+                          tradeIndex === 0,
+                          idleDaysAtStart,
                       )
                     : valueOfRisk(
                           risk,
@@ -398,6 +428,7 @@ export function computeFundedStateValue(
                           thresholdDollars,
                           isLockedAtStart,
                           regimeAtStart,
+                          idleDaysAtStart,
                           nextRoundTable,
                           cushionBucketCount,
                       );
@@ -412,6 +443,7 @@ export function computeFundedStateValue(
         thresholdDollars: number,
         isLockedAtStart: boolean,
         regimeAtStart: number,
+        idleDaysAtStart: number,
         cushionBucketCount: number,
         workingBucketCount: number,
     ): { dayStartValues: number[]; policyTables: number[][] } {
@@ -423,6 +455,8 @@ export function computeFundedStateValue(
                     thresholdDollars,
                     isLockedAtStart,
                     regimeAtStart,
+                    false,
+                    idleDaysAtStart,
                 ),
         );
         const policyTables: number[][] = [];
@@ -440,6 +474,8 @@ export function computeFundedStateValue(
                     thresholdDollars,
                     isLockedAtStart,
                     regimeAtStart,
+                    idleDaysAtStart,
+                    tradeIndex,
                     nextRoundTable,
                     workingBucketCount,
                 );
@@ -461,26 +497,50 @@ export function computeFundedStateValue(
         regimeAtStart: number,
         cushionBucketCount: number,
         workingBucketCount: number,
-        keyFor: (cushionIndex: number) => string,
-    ): { maxDelta: number; policyTables: number[][] } {
-        const { dayStartValues, policyTables } = solveDayTree(
-            thresholdDollars,
-            isLockedAtStart,
-            regimeAtStart,
-            cushionBucketCount,
-            workingBucketCount,
-        );
+        keyFor: (idleDays: number, cushionIndex: number) => string,
+    ): { maxDelta: number; policyTablesByIdleDays: number[][][] } {
+        const solvedByIdleDays: {
+            dayStartValues: number[];
+            policyTables: number[][];
+        }[] = [];
+        for (let idleDays = 0; idleDays < idleDaysBucketCount; idleDays++) {
+            solvedByIdleDays.push(
+                solveDayTree(
+                    thresholdDollars,
+                    isLockedAtStart,
+                    regimeAtStart,
+                    idleDays,
+                    cushionBucketCount,
+                    workingBucketCount,
+                ),
+            );
+        }
         let maxDelta = 0;
-        for (let index = 0; index < cushionBucketCount; index++) {
-            const key = keyFor(index);
-            const old = value.get(key) ?? 0;
-            const next = dayStartValues[index] ?? 0;
-            maxDelta = Math.max(maxDelta, Math.abs(next - old));
+        for (const [
+            idleDays,
+            { dayStartValues },
+        ] of solvedByIdleDays.entries()) {
+            for (let index = 0; index < cushionBucketCount; index++) {
+                const key = keyFor(idleDays, index);
+                const old = value.get(key) ?? 0;
+                const next = dayStartValues[index] ?? 0;
+                maxDelta = Math.max(maxDelta, Math.abs(next - old));
+            }
         }
-        for (let index = 0; index < cushionBucketCount; index++) {
-            value.set(keyFor(index), dayStartValues[index] ?? 0);
+        for (const [
+            idleDays,
+            { dayStartValues },
+        ] of solvedByIdleDays.entries()) {
+            for (let index = 0; index < cushionBucketCount; index++) {
+                value.set(keyFor(idleDays, index), dayStartValues[index] ?? 0);
+            }
         }
-        return { maxDelta, policyTables };
+        return {
+            maxDelta,
+            policyTablesByIdleDays: solvedByIdleDays.map(
+                (solved) => solved.policyTables,
+            ),
+        };
     }
 
     function solveLevelToConvergence(
@@ -489,9 +549,9 @@ export function computeFundedStateValue(
         regimeAtStart: number,
         cushionBucketCount: number,
         workingBucketCount: number,
-        keyFor: (cushionIndex: number) => string,
-    ): number[][] {
-        let policyTables: number[][] = [];
+        keyFor: (idleDays: number, cushionIndex: number) => string,
+    ): number[][][] {
+        let policyTablesByIdleDays: number[][][] = [];
         for (
             let iteration = 0;
             iteration < maxIterationsPerLevel;
@@ -505,22 +565,27 @@ export function computeFundedStateValue(
                 workingBucketCount,
                 keyFor,
             );
-            policyTables = result.policyTables;
+            policyTablesByIdleDays = result.policyTablesByIdleDays;
             if (result.maxDelta < convergenceTolerance) break;
         }
-        return policyTables;
+        return policyTablesByIdleDays;
     }
 
     for (let regime = payoutRegimeCap; regime >= 0; regime--) {
-        const policyTables = solveLevelToConvergence(
+        const policyTablesByIdleDays = solveLevelToConvergence(
             lockedThresholdDollars(),
             true,
             regime,
             lockedCushionBucketCount,
             lockedCushionBucketCount,
-            (index) => lockedKey(regime, index),
+            (idleDays, index) => lockedKey(regime, idleDays, index),
         );
-        policy.set(lockedLevelKey(regime), policyTables);
+        for (let idleDays = 0; idleDays < idleDaysBucketCount; idleDays++) {
+            policy.set(
+                lockedLevelKey(regime, idleDays),
+                policyTablesByIdleDays[idleDays] ?? [],
+            );
+        }
     }
 
     for (
@@ -531,15 +596,21 @@ export function computeFundedStateValue(
         const thresholdDollars =
             initialThreshold + offsetIndex * cushionStepDollars;
         for (let regime = payoutRegimeCap; regime >= 0; regime--) {
-            const policyTables = solveLevelToConvergence(
+            const policyTablesByIdleDays = solveLevelToConvergence(
                 thresholdDollars,
                 false,
                 regime,
                 unlockedCushionBucketCount,
                 unlockedWorkingBucketCount,
-                (index) => unlockedKey(offsetIndex, regime, index),
+                (idleDays, index) =>
+                    unlockedKey(offsetIndex, regime, idleDays, index),
             );
-            policy.set(unlockedLevelKey(offsetIndex, regime), policyTables);
+            for (let idleDays = 0; idleDays < idleDaysBucketCount; idleDays++) {
+                policy.set(
+                    unlockedLevelKey(offsetIndex, regime, idleDays),
+                    policyTablesByIdleDays[idleDays] ?? [],
+                );
+            }
         }
     }
 
@@ -547,7 +618,8 @@ export function computeFundedStateValue(
         drawdownAmount,
         unlockedCushionBucketCount,
     );
-    const initialValue = value.get(unlockedKey(0, 0, initialCushionIndex)) ?? 0;
+    const initialValue =
+        value.get(unlockedKey(0, 0, 0, initialCushionIndex)) ?? 0;
 
     function computeRisk(
         state: AccountState,
@@ -555,10 +627,11 @@ export function computeFundedStateValue(
         payoutsIssued?: number,
     ): number {
         const regime = Math.min(payoutsIssued ?? 0, payoutRegimeCap);
+        const idleDays = plan.clampedIdleDays(state);
         const cushionDollars = state.balance - state.threshold;
         if (state.thresholdLocked) {
             const index = bucketIndex(cushionDollars, lockedCushionBucketCount);
-            const policyTables = policy.get(lockedLevelKey(regime));
+            const policyTables = policy.get(lockedLevelKey(regime, idleDays));
             return policyTables?.[tradeIndexToday]?.[index] ?? 0;
         }
         const offsetIndex = bucketIndex(
@@ -569,7 +642,9 @@ export function computeFundedStateValue(
             cushionDollars,
             unlockedWorkingBucketCount,
         );
-        const policyTables = policy.get(unlockedLevelKey(offsetIndex, regime));
+        const policyTables = policy.get(
+            unlockedLevelKey(offsetIndex, regime, idleDays),
+        );
         return policyTables?.[tradeIndexToday]?.[cushionIndex] ?? 0;
     }
 
@@ -594,22 +669,31 @@ export function isFundedDpEligible(plan: Plan): boolean {
     );
 }
 
-function lockedKey(regime: number, cushionIndex: number): string {
-    return `L|${regime}|${cushionIndex}`;
+function lockedKey(
+    regime: number,
+    idleDays: number,
+    cushionIndex: number,
+): string {
+    return `L|${regime}|${idleDays}|${cushionIndex}`;
 }
 
-function lockedLevelKey(regime: number): string {
-    return `L|${regime}`;
+function lockedLevelKey(regime: number, idleDays: number): string {
+    return `L|${regime}|${idleDays}`;
 }
 
 function unlockedKey(
     offsetIndex: number,
     regime: number,
+    idleDays: number,
     cushionIndex: number,
 ): string {
-    return `U|${offsetIndex}|${regime}|${cushionIndex}`;
+    return `U|${offsetIndex}|${regime}|${idleDays}|${cushionIndex}`;
 }
 
-function unlockedLevelKey(offsetIndex: number, regime: number): string {
-    return `U|${offsetIndex}|${regime}`;
+function unlockedLevelKey(
+    offsetIndex: number,
+    regime: number,
+    idleDays: number,
+): string {
+    return `U|${offsetIndex}|${regime}|${idleDays}`;
 }

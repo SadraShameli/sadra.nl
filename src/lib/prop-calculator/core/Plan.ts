@@ -343,6 +343,12 @@ export abstract class Plan {
         return limit !== null && state.todayPnL <= -limit;
     }
 
+    clampedIdleDays(state: AccountState): number {
+        return this.maxConsecutiveIdleDays === null
+            ? 0
+            : Math.min(state.consecutiveIdleDays, this.maxConsecutiveIdleDays);
+    }
+
     evalConsistencyRule(): ConsistencyRule | null {
         const rule = this.init.consistency;
         return rule?.appliesToEval() ? rule : null;

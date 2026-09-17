@@ -425,4 +425,105 @@ describe('isEvalDpEligible / computeEvalStateValue scope cut', () => {
             ).toThrow(/not eligible/);
         },
     );
+
+    it(
+        'a real, currently idle-limited eval plan (MFF Rapid EOD 50K, ' +
+            'maxConsecutiveIdleDays=7) is DP-eligible — isEvalDpEligible ' +
+            'never excluded on maxConsecutiveIdleDays to begin with (it only ' +
+            'checks drawdown kind and the peak-share daily-loss-limit ' +
+            'dependency), so this pins idle-limited plans as eligible while ' +
+            "confirming the other exclusion categories (Apex's " +
+            'IntradayTrailingDrawdown, peak-share DLL — both covered by the ' +
+            'scope-cut cases above) stay excluded, independent of ' +
+            'maxConsecutiveIdleDays',
+        () => {
+            const idleLimitedPlan = rapidEodPlan();
+            expect(idleLimitedPlan.maxConsecutiveIdleDays).not.toBeNull();
+            expect(isEvalDpEligible(idleLimitedPlan)).toBe(true);
+
+            expect(isEvalDpEligible(apexIntradayPlan())).toBe(false);
+
+            const peakShareDllPlan = baseBuilderPlan().withOverrides({
+                evalDailyLossLimit: {
+                    kind: DailyLossLimitKind.PeakProfitShare,
+                    share: fraction(0.5),
+                },
+            });
+            expect(isEvalDpEligible(peakShareDllPlan)).toBe(false);
+        },
+    );
+});
+
+describe('idle-days DP state dimension', () => {
+    it(
+        'plans without maxConsecutiveIdleDays set are byte-for-byte ' +
+            'unaffected by the idle-days dimension: this exact config ' +
+            '(toyPlan(250), 2-day cap, actionGrid [50,100]) was measured ' +
+            'against the unmodified pre-idle-days engine at ' +
+            'initialValue=0.25, reachedStateCount=17, risk@0=50 (matching ' +
+            "the existing hand-derived 'two linked days' toy case above) — " +
+            'asserting those exact, previously-measured figures here pins ' +
+            'the post-change engine to produce identical output for every ' +
+            'plan that never sets the field',
+        () => {
+            const plan = toyPlan(250).withOverrides({
+                maxConsecutiveIdleDays: undefined,
+            });
+            expect(plan.maxConsecutiveIdleDays).toBeNull();
+
+            const result = computeEvalStateValue(toyDpConfig(plan, 2, 100));
+
+            expect(result.initialValue).toBeCloseTo(0.25, 10);
+            expect(result.reachedStateCount).toBe(17);
+
+            const risk = result.dayPolicy.computeRisk?.(plan.initialState(), 0);
+            expect(risk).toBe(50);
+        },
+    );
+
+    it(
+        'accountSize 1000 / drawdown 100 / profitTarget 0 / minTradingDays ' +
+            '2 / maxConsecutiveIdleDays 1 / 2-day cap / one $50-at-1:2 slot ' +
+            'per day: with profitTarget 0, any nonnegative final profit ' +
+            'passes once tradingDays reaches 2, so idling both days is a ' +
+            'free, guaranteed pass (V=1) under an idle-blind engine — ' +
+            'proven directly below by clearing maxConsecutiveIdleDays to ' +
+            'null on the identical config. But maxConsecutiveIdleDays=1 ' +
+            'busts on the very first idle day, so the real engine is ' +
+            'forced to trade both days instead: hand backward induction — ' +
+            'day1 win (p=0.5, profit +$100, EodTrailingDrawdown ratchets ' +
+            'threshold 900->1000) makes day2 unconditionally safe (both ' +
+            'win and lose keep final profit >= 0, so both pass, V=1); day1 ' +
+            'loss (p=0.5, profit -$50, threshold stays 900, cushion 50) ' +
+            'makes day2 a coin flip between passing (win, V=1) and busting ' +
+            'the drawdown exactly at cushion 0 (lose: balance 900 == ' +
+            'threshold 900, V=0) — total V(initial) = ' +
+            '0.5*1 + 0.5*(0.5*1 + 0.5*0) = 0.75, a real bust the old, ' +
+            'idle-blind DP would have missed entirely (it would have ' +
+            'reported the impossible-in-practice V=1)',
+        () => {
+            const basePlan = toyPlan(0).withOverrides({ minTradingDays: 2 });
+
+            const idleBlindEquivalent = basePlan.withOverrides({
+                maxConsecutiveIdleDays: undefined,
+            });
+            expect(idleBlindEquivalent.maxConsecutiveIdleDays).toBeNull();
+            const idleBlindResult = computeEvalStateValue(
+                toyDpConfig(idleBlindEquivalent, 2, 50),
+            );
+            expect(idleBlindResult.initialValue).toBeCloseTo(1, 10);
+
+            const plan = basePlan.withOverrides({ maxConsecutiveIdleDays: 1 });
+            expect(plan.maxConsecutiveIdleDays).toBe(1);
+            const result = computeEvalStateValue(toyDpConfig(plan, 2, 50));
+
+            expect(result.initialValue).toBeCloseTo(0.75, 10);
+            expect(result.initialValue).toBeLessThan(
+                idleBlindResult.initialValue,
+            );
+
+            const risk = result.dayPolicy.computeRisk?.(plan.initialState(), 0);
+            expect(risk).toBe(50);
+        },
+    );
 });
