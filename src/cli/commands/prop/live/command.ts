@@ -81,6 +81,10 @@ export default defineCommand({
                     context.args['horizon-days'],
                     'horizon-days',
                 ),
+                idleDayProbability: readNumber(
+                    context.args['idle-day-probability'],
+                    'idle-day-probability',
+                ),
                 instrument: context.args.instrument,
                 payoutRequestSize:
                     requestSize === undefined
@@ -119,6 +123,10 @@ export default defineCommand({
             table.printRow([
                 'bust probability',
                 formatPercent(out.liveBustProbability),
+            ]);
+            table.printRow([
+                'inactivity closure probability',
+                formatPercent(out.liveInactivityClosureProbability),
             ]);
             table.printRow([
                 'median days to bust',

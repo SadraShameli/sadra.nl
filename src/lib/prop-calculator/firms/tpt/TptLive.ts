@@ -14,6 +14,7 @@ export const TPT_LIVE_DEFAULT_CUSHION_PERCENT: LiveCushionPercent = {
 };
 
 const DRAWDOWN_AMOUNT = dollars(2000);
+const MAX_CONSECUTIVE_IDLE_DAYS = 7;
 
 export function buildTptLivePlan(
     cushionPercent: LiveCushionPercent = TPT_LIVE_DEFAULT_CUSHION_PERCENT,
@@ -29,8 +30,10 @@ export function buildTptLivePlan(
                 lockedThreshold: lockThresholdAt(0),
             },
         }),
+        maxConsecutiveIdleDays: MAX_CONSECUTIVE_IDLE_DAYS,
         payoutTiers: [
             { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
         ],
+        requiresLockForWithdrawal: false,
     });
 }

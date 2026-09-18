@@ -17,10 +17,20 @@ describe('buildFundedNextLivePlan', () => {
         expect(state.thresholdLocked).toBe(false);
     });
 
-    it('locks the threshold $1,000 BELOW the starting balance once profit reaches $1,000 -- the opposite direction from every other confirmed live firm', () => {
+    it('does not lock yet at $1,000 profit (balance $3,000) -- the lock trigger is profit equal to the starting balance, not the $1,000 offset', () => {
         const plan = buildFundedNextLivePlan();
         const state = plan.initialState();
         state.balance = 3000;
+
+        plan.liveDrawdown?.onDayClose(state);
+
+        expect(state.thresholdLocked).toBe(false);
+    });
+
+    it('locks the threshold $1,000 BELOW the starting balance once profit reaches the starting balance itself (balance $4,000) -- the opposite lock direction from every other confirmed live firm', () => {
+        const plan = buildFundedNextLivePlan();
+        const state = plan.initialState();
+        state.balance = 4000;
 
         plan.liveDrawdown?.onDayClose(state);
 

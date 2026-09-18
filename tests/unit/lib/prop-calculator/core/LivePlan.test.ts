@@ -98,6 +98,20 @@ describe('LivePlan constructor invariants (mirroring Plan.ts)', () => {
         ).toThrow('Test Live: contractLimit.tiers must not be empty');
     });
 
+    it('throws when maxConsecutiveIdleDays is zero, negative, or non-integer', () => {
+        expect(() =>
+            new LivePlan(apexLikeInit({ maxConsecutiveIdleDays: 0 })),
+        ).toThrow(
+            'Test Live: maxConsecutiveIdleDays must be a positive integer or omitted, got 0',
+        );
+        expect(() =>
+            new LivePlan(apexLikeInit({ maxConsecutiveIdleDays: -1 })),
+        ).toThrow();
+        expect(() =>
+            new LivePlan(apexLikeInit({ maxConsecutiveIdleDays: 2.5 })),
+        ).toThrow();
+    });
+
     it('does not throw for a valid drawdown-shaped config', () => {
         expect(() => new LivePlan(apexLikeInit())).not.toThrow();
     });
@@ -239,6 +253,38 @@ describe('LivePlan.withdrawableAmount', () => {
         expect(
             plan.withdrawableAmount(
                 stateAt({ balance: 50, threshold: 100, thresholdLocked: true }),
+            ),
+        ).toBe(0);
+    });
+
+    it('is balance-minus-threshold even before the threshold locks, when requiresLockForWithdrawal is false, matching TPT PRO+\'s confirmed "no buffer zone requirement for withdrawal"', () => {
+        const plan = new LivePlan(
+            apexLikeInit({ requiresLockForWithdrawal: false }),
+        );
+
+        expect(
+            plan.withdrawableAmount(
+                stateAt({
+                    balance: 1000,
+                    threshold: -3000,
+                    thresholdLocked: false,
+                }),
+            ),
+        ).toBe(4000);
+    });
+
+    it('is still 0, not negative, when requiresLockForWithdrawal is false but balance sits below the unlocked threshold', () => {
+        const plan = new LivePlan(
+            apexLikeInit({ requiresLockForWithdrawal: false }),
+        );
+
+        expect(
+            plan.withdrawableAmount(
+                stateAt({
+                    balance: -4000,
+                    threshold: -3000,
+                    thresholdLocked: false,
+                }),
             ),
         ).toBe(0);
     });

@@ -159,6 +159,7 @@ export interface FundedHorizonResult {
 
 export interface LiveDayRunOptions {
     commission: Dollars;
+    idleDayProbability?: number;
     plan: LivePlan;
     positionSizing: null | PositionSizingConfig;
     rng: Rng;
@@ -175,6 +176,7 @@ export interface LiveOutputs {
     cumulativeWithdrawalsP95: number;
     expectedAnnualWithdrawalRate: number;
     liveBustProbability: number;
+    liveInactivityClosureProbability: number;
     medianDaysToBust: number;
     medianDaysToFirstWithdrawal: number;
 }
@@ -182,6 +184,7 @@ export interface LiveOutputs {
 export interface LiveSimInputs {
     commissionPerRoundTrip?: number;
     horizonDays: number;
+    idleDayProbability?: number;
     instrument?: InstrumentSymbol;
     payoutRequestSize?: number;
     plan: LivePlan;

@@ -135,7 +135,9 @@ export class FundedCycleTracker {
         }
         this.lastPayoutBalance = state.balance;
         this.qualifyingDaysAtLastPayout = state.qualifyingDays;
-        this.cycleBestDayProfit = 0;
+        if (!fundedConsistency?.isPerpetual()) {
+            this.cycleBestDayProfit = 0;
+        }
         this.cumulativePayout += traderReceives;
         this.payoutsIssued += 1;
 

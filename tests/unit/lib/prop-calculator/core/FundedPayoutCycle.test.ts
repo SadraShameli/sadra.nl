@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import {
     ApexVariant,
+    ConsistencyBasis,
+    ConsistencyRule,
+    ConsistencyScope,
     ContractLimitKind,
     DailyLossLimitKind,
     dollars,
@@ -31,6 +34,15 @@ const apex = new ApexTraderFunding();
 const lucid = new LucidTrading();
 const tradeify = new Tradeify();
 
+function cyclePlan() {
+    return plan(MffuVariant.RapidEod).withOverrides({
+        consistency: new ConsistencyRule(ConsistencyScope.Funded, fraction(0.2)),
+        minPayoutProfit: dollars(0),
+        minPayoutProfitPerCycle: dollars(0),
+        minPayoutRequest: dollars(1),
+    });
+}
+
 function flexLikePlan() {
     return plan(MffuVariant.RapidEod).withOverrides({
         minPayoutProfit: dollars(500),
@@ -54,6 +66,19 @@ function fundedState(profit: number, threshold: number) {
     state.thresholdLocked = true;
     state.qualifyingDays = 99;
     return state;
+}
+
+function perpetualPlan() {
+    return plan(MffuVariant.RapidEod).withOverrides({
+        consistency: new ConsistencyRule(
+            ConsistencyScope.Funded,
+            fraction(0.2),
+            ConsistencyBasis.Perpetual,
+        ),
+        minPayoutProfit: dollars(0),
+        minPayoutProfitPerCycle: dollars(0),
+        minPayoutRequest: dollars(1),
+    });
 }
 
 function plan(
@@ -934,6 +959,112 @@ describe('Topstep 50K parameters (help.topstep.com)', () => {
 
         expect(secondPayout?.debited).toBe(150);
         expect(state.threshold).toBe(state.startingBalance);
+    });
+});
+
+describe('ConsistencyBasis.Perpetual (FundedNext FNL:003\'s "20% Perpetual Consistency Rule": best day ever recorded, never reset by a payout)', () => {
+    it('does not reset cycleBestDayProfit after a successful payout, unlike the default Cycle basis', () => {
+        const target = perpetualPlan();
+        expect(target.fundedConsistencyRule()?.isPerpetual()).toBe(true);
+
+        const state = target.initialState();
+        state.balance = state.startingBalance + 5000;
+        state.threshold = state.startingBalance + 100;
+        state.thresholdLocked = true;
+        state.qualifyingDays = 999;
+        const tracker = newFundedCycleTracker(state);
+        tracker.lastPayoutBalance = state.startingBalance;
+        tracker.qualifyingDaysAtLastPayout = 0;
+        tracker.cycleBestDayProfit = 1000;
+
+        const payout = tryFundedPayout({
+            maxPayouts: Infinity,
+            minRetainedCushion: 0,
+            payoutRequestSize: undefined,
+            plan: target,
+            state,
+            tracker,
+        });
+
+        expect(payout).not.toBeNull();
+        expect(tracker.cycleBestDayProfit).toBe(1000);
+    });
+
+    it('blocks a later, much smaller cycle once its own profit makes the still-carried-over best day exceed 20%', () => {
+        const target = perpetualPlan();
+        const state = target.initialState();
+        state.balance = state.startingBalance + 5000;
+        state.threshold = state.startingBalance + 100;
+        state.thresholdLocked = true;
+        state.qualifyingDays = 999;
+        const tracker = newFundedCycleTracker(state);
+        tracker.lastPayoutBalance = state.startingBalance;
+        tracker.qualifyingDaysAtLastPayout = 0;
+        tracker.cycleBestDayProfit = 1000;
+
+        const firstPayout = tryFundedPayout({
+            maxPayouts: Infinity,
+            minRetainedCushion: 0,
+            payoutRequestSize: undefined,
+            plan: target,
+            state,
+            tracker,
+        });
+        expect(firstPayout).not.toBeNull();
+
+        state.balance += 1000;
+        state.qualifyingDays += 999;
+
+        const secondPayout = tryFundedPayout({
+            maxPayouts: Infinity,
+            minRetainedCushion: 0,
+            payoutRequestSize: undefined,
+            plan: target,
+            state,
+            tracker,
+        });
+
+        expect(secondPayout).toBeNull();
+    });
+
+    it('contrast: the default Cycle basis resets cycleBestDayProfit after payout, so the identical follow-up cycle is NOT blocked', () => {
+        const target = cyclePlan();
+        expect(target.fundedConsistencyRule()?.isPerpetual()).toBe(false);
+
+        const state = target.initialState();
+        state.balance = state.startingBalance + 5000;
+        state.threshold = state.startingBalance + 100;
+        state.thresholdLocked = true;
+        state.qualifyingDays = 999;
+        const tracker = newFundedCycleTracker(state);
+        tracker.lastPayoutBalance = state.startingBalance;
+        tracker.qualifyingDaysAtLastPayout = 0;
+        tracker.cycleBestDayProfit = 1000;
+
+        const firstPayout = tryFundedPayout({
+            maxPayouts: Infinity,
+            minRetainedCushion: 0,
+            payoutRequestSize: undefined,
+            plan: target,
+            state,
+            tracker,
+        });
+        expect(firstPayout).not.toBeNull();
+        expect(tracker.cycleBestDayProfit).toBe(0);
+
+        state.balance += 1000;
+        state.qualifyingDays += 999;
+
+        const secondPayout = tryFundedPayout({
+            maxPayouts: Infinity,
+            minRetainedCushion: 0,
+            payoutRequestSize: undefined,
+            plan: target,
+            state,
+            tracker,
+        });
+
+        expect(secondPayout).not.toBeNull();
     });
 });
 

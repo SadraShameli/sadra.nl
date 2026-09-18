@@ -27,7 +27,7 @@ export function buildFundedNextLivePlan(
         liveDrawdown: new EodTrailingDrawdown({
             amount: STARTING_BALANCE,
             lock: {
-                atProfit: dollars(STARTING_BALANCE + LOCK_OFFSET),
+                atProfit: STARTING_BALANCE,
                 lockedThreshold: lockThresholdAt(LOCK_OFFSET),
             },
         }),

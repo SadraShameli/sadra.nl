@@ -3,7 +3,11 @@ export {
     createInitialState,
     resetForNewDay,
 } from './AccountState';
-export { ConsistencyRule, ConsistencyScope } from './ConsistencyRule';
+export {
+    ConsistencyBasis,
+    ConsistencyRule,
+    ConsistencyScope,
+} from './ConsistencyRule';
 export { TRADING_DAYS_PER_MONTH } from './constants';
 export {
     type ContractLimitConfig,

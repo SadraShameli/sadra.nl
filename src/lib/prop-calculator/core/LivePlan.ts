@@ -22,7 +22,9 @@ export interface LivePlanInit {
     label: string;
     liveDailyLossLimit: DailyLossLimitConfig | null;
     liveDrawdown: DrawdownStrategy | null;
+    maxConsecutiveIdleDays?: number;
     payoutTiers: readonly PayoutTier[];
+    requiresLockForWithdrawal?: boolean;
     startingBalance?: Dollars;
 }
 
@@ -37,7 +39,11 @@ export class LivePlan {
 
     readonly liveDrawdown: DrawdownStrategy | null;
 
+    readonly maxConsecutiveIdleDays: null | number;
+
     readonly payoutTiers: readonly PayoutTier[];
+
+    readonly requiresLockForWithdrawal: boolean;
 
     readonly startingBalance: Dollars;
 
@@ -55,6 +61,17 @@ export class LivePlan {
         this.label = init.label;
         this.liveDailyLossLimit = init.liveDailyLossLimit;
         this.liveDrawdown = init.liveDrawdown;
+        this.maxConsecutiveIdleDays = init.maxConsecutiveIdleDays ?? null;
+        if (
+            this.maxConsecutiveIdleDays !== null &&
+            (!Number.isSafeInteger(this.maxConsecutiveIdleDays) ||
+                this.maxConsecutiveIdleDays <= 0)
+        ) {
+            throw new Error(
+                `${this.label}: maxConsecutiveIdleDays must be a positive integer or omitted, got ${this.maxConsecutiveIdleDays}`,
+            );
+        }
+        this.requiresLockForWithdrawal = init.requiresLockForWithdrawal ?? true;
         this.startingBalance = init.startingBalance ?? dollars(0);
         if (this.liveDrawdown === null && this.liveDailyLossLimit === null) {
             throw new Error(
@@ -111,8 +128,6 @@ export class LivePlan {
         if (this.liveDrawdown === null) {
             return Math.max(0, state.balance - state.startingBalance);
         }
-        return state.thresholdLocked
-            ? Math.max(0, state.balance - state.threshold)
-            : 0;
+        return !this.requiresLockForWithdrawal || state.thresholdLocked ? Math.max(0, state.balance - state.threshold) : 0;
     }
 }

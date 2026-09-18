@@ -21,6 +21,7 @@ export enum E8FuturesVariant {
 
 export enum FundedNextVariant {
     Flex = 'flex',
+    Fnl003 = 'fnl-003',
     Legacy = 'legacy',
     RapidDaily = 'rapid-daily',
     RapidPro = 'rapid-pro',

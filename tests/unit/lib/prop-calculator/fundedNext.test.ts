@@ -108,3 +108,73 @@ describe('FundedNext Legacy/Rapid Pro contract limits (live-verified 2026-09-14)
         expect(plan.contractLimits?.fundedMicros).toBeNull();
     });
 });
+
+describe('FundedNext FNL:003 50K Instant Account (Labs, no Challenge phase, 20% Perpetual Consistency Rule)', () => {
+    const plan = planFor(FundedNextVariant.Fnl003);
+
+    it('skips the Challenge phase entirely and starts the trader directly in the funded stage', () => {
+        expect(plan.isInstantFunded).toBe(true);
+    });
+
+    it('is a single $50,000 tier with a $149.99 one-time account price and no reset fee', () => {
+        expect(plan.accountSize).toBe(50_000);
+        expect(plan.fees.oneTimeEval).toBe(149.99);
+        expect(plan.fees.reset).toBe(0);
+    });
+
+    it('has a flat 3 mini / 30 micro contract limit', () => {
+        expect(plan.contractLimits?.evalMinis).toBe(3);
+        expect(plan.contractLimits?.evalMicros).toBe(30);
+        const funded = plan.contractLimits?.fundedMinis;
+        if (funded?.kind !== ContractLimitKind.Flat) {
+            throw new Error('expected a flat funded contract limit for FNL:003');
+        }
+        expect(funded.maxContracts).toBe(3);
+    });
+
+    it('locks its $2,000 EOD-trailing drawdown at Initial Balance + $100 ($50,100), the same offset as Flex/Rapid Pro/Rapid Daily', () => {
+        const state = plan.initialState();
+        expect(state.threshold).toBe(48_000);
+
+        state.balance = 52_100;
+        plan.fundedDrawdown.onDayClose(state);
+
+        expect(state.thresholdLocked).toBe(true);
+        expect(state.threshold).toBe(50_100);
+    });
+
+    it('requires clearing the $2,100-profit buffer ($52,100 balance) before any payout, matching the source\'s own "$2,100 buffer" figure', () => {
+        expect(
+            plan.payoutBuffer?.requiredBalance(
+                plan.accountSize,
+                plan.fundedDrawdown.amount,
+            ),
+        ).toBe(52_100);
+    });
+
+    it('requires $2,900 first-cycle profit ($2,100 buffer + the confirmed $800-above-buffer gate) and $800 for every cycle after', () => {
+        expect(plan.minPayoutProfit).toBe(2900);
+        expect(plan.minPayoutProfitPerCycle).toBe(800);
+    });
+
+    it('caps withdrawals between $800 and $1,200, 90% Reward Share, 5 lifetime payouts', () => {
+        expect(plan.minPayoutRequest).toBe(800);
+        expect(plan.payoutRequestCap).toBe(1200);
+        expect(plan.payoutTiers[0]?.traderShare).toBe(0.9);
+        expect(plan.maxLifetimePayouts).toBe(5);
+    });
+
+    it('caps concurrent accounts at its own 3-account limit, distinct from the other four plans\' shared 5-account allocation', () => {
+        expect(plan.maxFundedAccounts).toBe(3);
+        const legacy = planFor(FundedNextVariant.Legacy);
+        expect(legacy.maxFundedAccounts).toBe(5);
+    });
+
+    it('applies a 20% Perpetual Consistency Rule to the funded stage', () => {
+        const rule = plan.fundedConsistencyRule();
+        expect(rule).not.toBeNull();
+        expect(rule?.maxBestDayShare).toBe(0.2);
+        expect(rule?.isPerpetual()).toBe(true);
+        expect(plan.evalConsistencyRule()).toBeNull();
+    });
+});

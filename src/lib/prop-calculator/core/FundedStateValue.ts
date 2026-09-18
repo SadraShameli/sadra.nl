@@ -130,7 +130,10 @@ export function computeFundedStateValue(
     );
     const idleDaysBucketCount = plan.maxConsecutiveIdleDays ?? 1;
 
-    const isTrackingFundedConsistency = plan.fundedConsistencyRule() !== null;
+    const fundedConsistencyRule = plan.fundedConsistencyRule();
+    const isTrackingFundedConsistency = fundedConsistencyRule !== null;
+    const isPerpetualFundedConsistency =
+        fundedConsistencyRule?.isPerpetual() === true;
     const cycleBestDayBucketCount = isTrackingFundedConsistency
         ? Math.max(
               1,
@@ -343,7 +346,9 @@ export function computeFundedStateValue(
 
         const regimeNow = Math.min(payoutsIssuedNow, payoutRegimeCap);
         const cycleBestDayForContinuation =
-            payout === null ? cycleBestDayAtEndIndex : 0;
+            payout === null || isPerpetualFundedConsistency
+                ? cycleBestDayAtEndIndex
+                : 0;
         return (
             receivedCash +
             continuationValue(

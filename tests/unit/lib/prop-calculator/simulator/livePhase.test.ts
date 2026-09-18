@@ -12,6 +12,7 @@ import {
 import { buildApexLivePlan } from '~/lib/prop-calculator/firms/apex/ApexLive';
 import { buildFundedNextLivePlan } from '~/lib/prop-calculator/firms/fundednext/FundedNextLive';
 import { buildTopStepLivePlan } from '~/lib/prop-calculator/firms/topstep/TopStepLive';
+import { buildTptLivePlan } from '~/lib/prop-calculator/firms/tpt/TptLive';
 import { type Rng } from '~/lib/prop-calculator/rng';
 import {
     runLiveDay,
@@ -21,6 +22,7 @@ import {
 
 const alwaysLoses: Rng = () => 0.999;
 const alwaysWins: Rng = () => 0;
+const alwaysIdle: Rng = () => 0;
 
 function runDays(
     state: LiveAccountState,
@@ -219,7 +221,7 @@ describe('runLiveHorizon on Apex numbers', () => {
 });
 
 describe('runLiveHorizon on FundedNext numbers (negative lock offset + staged payout split)', () => {
-    it('locks the threshold $1,000 below the $2,000 starting balance on the day cumulative profit first reaches $1,000, unlike every positive-offset firm', () => {
+    it('does not lock yet at day 10 (cumulative profit $1,000, half of the $2,000 starting-balance trigger)', () => {
         const plan = buildFundedNextLivePlan();
         const state = plan.initialState();
 
@@ -237,6 +239,27 @@ describe('runLiveHorizon on FundedNext numbers (negative lock offset + staged pa
         }
 
         expect(state.balance).toBeCloseTo(3000, 8);
+        expect(state.thresholdLocked).toBe(false);
+    });
+
+    it('locks the threshold $1,000 below the $2,000 starting balance on the day cumulative profit first reaches the $2,000 starting balance itself, unlike every positive-offset firm', () => {
+        const plan = buildFundedNextLivePlan();
+        const state = plan.initialState();
+
+        for (let day = 0; day < 20; day++) {
+            runLiveDay({
+                commission: dollars(0),
+                plan,
+                positionSizing: null,
+                rng: alwaysWins,
+                rrRatio: 1,
+                state,
+                tradesPerDay: 1,
+                winrate: fraction(1),
+            });
+        }
+
+        expect(state.balance).toBeCloseTo(4000, 8);
         expect(state.thresholdLocked).toBe(true);
         expect(state.threshold).toBe(1000);
     });
@@ -255,8 +278,8 @@ describe('runLiveHorizon on FundedNext numbers (negative lock offset + staged pa
         });
 
         expect(result.busted).toBe(false);
-        expect(result.daysToFirstWithdrawal).toBe(10);
-        expect(result.totalWithdrawn).toBeCloseTo(5495, 6);
+        expect(result.daysToFirstWithdrawal).toBe(20);
+        expect(result.totalWithdrawn).toBeCloseTo(5045, 6);
     });
 });
 
@@ -334,6 +357,101 @@ describe('runLiveHorizon on TopStep numbers (no trailing drawdown, DailyLossLimi
         expect(result.busted).toBe(false);
         expect(state.todayPnL).toBeLessThanOrEqual(-2000);
         expect(state.todayPnL).toBeGreaterThan(-2500);
+    });
+});
+
+describe('runLiveDay on TPT PRO+ numbers (no buffer-zone withdrawal gate + weekly idle-day closure)', () => {
+    it('is withdrawable pre-lock: balance-minus-threshold cushion is available even before thresholdLocked, matching "no buffer zone requirement for withdrawal"', () => {
+        const plan = buildTptLivePlan();
+        const state = plan.initialState();
+        state.balance = 500;
+
+        expect(state.thresholdLocked).toBe(false);
+        expect(plan.withdrawableAmount(state)).toBe(
+            state.balance - state.threshold,
+        );
+    });
+
+    it('does not close for inactivity with the default idleDayProbability of 0, even across many consecutive days, since no day is ever rolled idle', () => {
+        const plan = buildTptLivePlan();
+        const state = plan.initialState();
+
+        let result = { busted: false, closedForInactivity: false, traded: false };
+        for (let day = 0; day < 30; day++) {
+            result = runLiveDay({
+                commission: dollars(0),
+                plan,
+                positionSizing: null,
+                rng: alwaysWins,
+                rrRatio: 1,
+                state,
+                tradesPerDay: 1,
+                winrate: fraction(1),
+            });
+        }
+
+        expect(result.closedForInactivity).toBe(false);
+        expect(state.consecutiveIdleDays).toBe(0);
+    });
+
+    it('closes for inactivity once 7 consecutive idle days accrue, matching the same maxConsecutiveIdleDays: 7 rule as PRO\'s own funded-phase weekly-trading requirement', () => {
+        const plan = buildTptLivePlan();
+        const state = plan.initialState();
+
+        let result = { busted: false, closedForInactivity: false, traded: false };
+        for (let day = 0; day < 7; day++) {
+            result = runLiveDay({
+                commission: dollars(0),
+                idleDayProbability: 1,
+                plan,
+                positionSizing: null,
+                rng: alwaysIdle,
+                rrRatio: 1,
+                state,
+                tradesPerDay: 1,
+                winrate: fraction(1),
+            });
+        }
+
+        expect(state.consecutiveIdleDays).toBe(7);
+        expect(result.busted).toBe(true);
+        expect(result.closedForInactivity).toBe(true);
+    });
+
+    it('resets the idle-day counter to 0 on any traded day, so an interrupted idle streak never accumulates toward closure', () => {
+        const plan = buildTptLivePlan();
+        const state = plan.initialState();
+
+        for (let day = 0; day < 6; day++) {
+            runLiveDay({
+                commission: dollars(0),
+                idleDayProbability: 1,
+                plan,
+                positionSizing: null,
+                rng: alwaysWins,
+                rrRatio: 1,
+                state,
+                tradesPerDay: 1,
+                winrate: fraction(1),
+            });
+        }
+        expect(state.consecutiveIdleDays).toBe(6);
+
+        const tradedDay = runLiveDay({
+            commission: dollars(0),
+            idleDayProbability: 0,
+            plan,
+            positionSizing: null,
+            rng: alwaysWins,
+            rrRatio: 1,
+            state,
+            tradesPerDay: 1,
+            winrate: fraction(1),
+        });
+
+        expect(tradedDay.traded).toBe(true);
+        expect(state.consecutiveIdleDays).toBe(0);
+        expect(tradedDay.closedForInactivity).toBe(false);
     });
 });
 

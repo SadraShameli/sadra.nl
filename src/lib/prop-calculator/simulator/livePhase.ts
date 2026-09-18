@@ -26,6 +26,7 @@ import {
 interface LiveHorizonOptions {
     commission: Dollars;
     horizonDays: number;
+    idleDayProbability?: number;
     payoutRequestSize: number | undefined;
     plan: LivePlan;
     positionSizing: null | PositionSizingConfig;
@@ -37,6 +38,7 @@ interface LiveHorizonOptions {
 
 interface LiveHorizonResult {
     busted: boolean;
+    closedForInactivity: boolean;
     daysElapsed: number;
     daysToBust: null | number;
     daysToFirstWithdrawal: null | number;
@@ -45,10 +47,12 @@ interface LiveHorizonResult {
 
 export function runLiveDay(options: LiveDayRunOptions): {
     busted: boolean;
+    closedForInactivity: boolean;
     traded: boolean;
 } {
     const {
         commission,
+        idleDayProbability,
         plan,
         positionSizing,
         rng,
@@ -60,46 +64,74 @@ export function runLiveDay(options: LiveDayRunOptions): {
     resetForNewDay(state);
     let isTraded = false;
 
-    for (let index = 0; index < tradesPerDay; index++) {
-        const cushion = state.balance - state.threshold;
-        const cushionPercent = plan.cushionPercentFor(state);
-        const intendedRisk = resolveLiveTradeRisk(cushion, cushionPercent);
-        const maxContracts = maxContractsAt(plan.contractLimit, state.balance);
-        const risk =
-            positionSizing === null
-                ? intendedRisk
-                : capRiskToContractLimit(
-                      intendedRisk,
-                      positionSizing,
-                      maxContracts,
-                  );
-        if (risk <= 0) break;
+    const idleChance = idleDayProbability ?? 0;
+    const isIdleToday =
+        idleChance > 0 &&
+        plan.maxConsecutiveIdleDays !== null &&
+        rng() < idleChance;
 
-        const isWon = rng() < winrate;
-        const tradeGross = isWon ? rrRatio * risk : -risk;
-        const pnl = tradeGross - commission;
-        state.balance += pnl;
-        state.todayPnL += pnl;
-        isTraded = true;
+    if (!isIdleToday) {
+        for (let index = 0; index < tradesPerDay; index++) {
+            const cushion = state.balance - state.threshold;
+            const cushionPercent = plan.cushionPercentFor(state);
+            const intendedRisk = resolveLiveTradeRisk(cushion, cushionPercent);
+            const maxContracts = maxContractsAt(
+                plan.contractLimit,
+                state.balance,
+            );
+            const risk =
+                positionSizing === null
+                    ? intendedRisk
+                    : capRiskToContractLimit(
+                          intendedRisk,
+                          positionSizing,
+                          maxContracts,
+                      );
+            if (risk <= 0) break;
 
-        plan.liveDrawdown?.onTrade(state, pnl);
+            const isWon = rng() < winrate;
+            const tradeGross = isWon ? rrRatio * risk : -risk;
+            const pnl = tradeGross - commission;
+            state.balance += pnl;
+            state.todayPnL += pnl;
+            isTraded = true;
 
-        if (plan.isBust(state)) {
-            return { busted: true, traded: isTraded };
-        }
-        if (plan.isDayLockedOut(state)) {
-            break;
+            plan.liveDrawdown?.onTrade(state, pnl);
+
+            if (plan.isBust(state)) {
+                return {
+                    busted: true,
+                    closedForInactivity: false,
+                    traded: isTraded,
+                };
+            }
+            if (plan.isDayLockedOut(state)) {
+                break;
+            }
         }
     }
 
+    if (isTraded) {
+        state.consecutiveIdleDays = 0;
+    } else {
+        state.consecutiveIdleDays += 1;
+    }
+
     plan.liveDrawdown?.onDayClose(state);
-    return { busted: plan.isBust(state), traded: isTraded };
+    if (plan.isBust(state)) {
+        return { busted: true, closedForInactivity: false, traded: isTraded };
+    }
+    return plan.maxConsecutiveIdleDays !== null &&
+        state.consecutiveIdleDays >= plan.maxConsecutiveIdleDays
+        ? { busted: true, closedForInactivity: true, traded: isTraded }
+        : { busted: false, closedForInactivity: false, traded: isTraded };
 }
 
 export function runLiveHorizon(options: LiveHorizonOptions): LiveHorizonResult {
     const {
         commission,
         horizonDays,
+        idleDayProbability,
         payoutRequestSize,
         plan,
         positionSizing,
@@ -114,8 +146,9 @@ export function runLiveHorizon(options: LiveHorizonOptions): LiveHorizonResult {
     let totalWithdrawn = 0;
 
     for (let day = 0; day < horizonDays; day++) {
-        const { busted } = runLiveDay({
+        const { busted, closedForInactivity } = runLiveDay({
             commission,
+            idleDayProbability,
             plan,
             positionSizing,
             rng,
@@ -129,6 +162,7 @@ export function runLiveHorizon(options: LiveHorizonOptions): LiveHorizonResult {
         if (busted) {
             return {
                 busted: true,
+                closedForInactivity,
                 daysElapsed,
                 daysToBust: daysElapsed,
                 daysToFirstWithdrawal,
@@ -153,6 +187,7 @@ export function runLiveHorizon(options: LiveHorizonOptions): LiveHorizonResult {
 
     return {
         busted: false,
+        closedForInactivity: false,
         daysElapsed: horizonDays,
         daysToBust: null,
         daysToFirstWithdrawal,
@@ -164,6 +199,7 @@ export function simulateLiveAccount(inputs: LiveSimInputs): LiveOutputs {
     const {
         commissionPerRoundTrip = 0,
         horizonDays,
+        idleDayProbability,
         instrument,
         payoutRequestSize,
         plan,
@@ -180,6 +216,7 @@ export function simulateLiveAccount(inputs: LiveSimInputs): LiveOutputs {
     const rng = mulberry32(seed);
 
     let bustedCount = 0;
+    let inactivityClosureCount = 0;
     const daysToBustValues: number[] = [];
     const daysToFirstWithdrawalValues: number[] = [];
     const cumulativeWithdrawalsAtHorizon: number[] = [];
@@ -189,6 +226,7 @@ export function simulateLiveAccount(inputs: LiveSimInputs): LiveOutputs {
         const result = runLiveHorizon({
             commission,
             horizonDays,
+            idleDayProbability,
             payoutRequestSize,
             plan,
             positionSizing,
@@ -203,6 +241,7 @@ export function simulateLiveAccount(inputs: LiveSimInputs): LiveOutputs {
                 daysToBustValues.push(result.daysToBust);
             }
         }
+        if (result.closedForInactivity) inactivityClosureCount += 1;
         if (result.daysToFirstWithdrawal !== null) {
             daysToFirstWithdrawalValues.push(result.daysToFirstWithdrawal);
         }
@@ -229,6 +268,8 @@ export function simulateLiveAccount(inputs: LiveSimInputs): LiveOutputs {
         ),
         expectedAnnualWithdrawalRate,
         liveBustProbability: bustedCount / totalTrials,
+        liveInactivityClosureProbability:
+            inactivityClosureCount / totalTrials,
         medianDaysToBust: median(daysToBustValues),
         medianDaysToFirstWithdrawal: median(daysToFirstWithdrawalValues),
     };

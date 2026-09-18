@@ -1,5 +1,10 @@
 import { type Fraction0to1 } from './lib/units';
 
+export enum ConsistencyBasis {
+    Cycle = 'cycle',
+    Perpetual = 'perpetual',
+}
+
 export enum ConsistencyScope {
     Both = 'both',
     Eval = 'eval',
@@ -11,6 +16,7 @@ export class ConsistencyRule {
     constructor(
         readonly scope: ConsistencyScope,
         readonly maxBestDayShare: Fraction0to1,
+        readonly basis: ConsistencyBasis = ConsistencyBasis.Cycle,
     ) {}
 
     appliesToEval(): boolean {
@@ -25,6 +31,10 @@ export class ConsistencyRule {
             this.scope === ConsistencyScope.Funded ||
             this.scope === ConsistencyScope.Both
         );
+    }
+
+    isPerpetual(): boolean {
+        return this.basis === ConsistencyBasis.Perpetual;
     }
 
     isViolated(bestDayProfit: number, totalProfit: number): boolean {
