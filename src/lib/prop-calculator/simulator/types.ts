@@ -7,13 +7,13 @@ import {
 import { type CouponDiscounts } from '../core/FeeSchedule';
 import { type FundedCycleTracker } from '../core/FundedPayoutCycle';
 import { type InstrumentSymbol } from '../core/Instruments';
+import { type Dollars, type Fraction0to1 } from '../core/lib/units';
 import { type LiveAccountState } from '../core/LiveAccountState';
 import { type LivePlan } from '../core/LivePlan';
 import { type Plan } from '../core/Plan';
 import { type PositionSizingConfig } from '../core/PositionSizing';
 import { type Roi } from '../core/Roi';
 import { type TradingPhase } from '../core/TradingPhase';
-import { type Dollars, type Fraction0to1 } from '../core/units';
 import { type Rng } from '../rng';
 import {
     type LossStreak,

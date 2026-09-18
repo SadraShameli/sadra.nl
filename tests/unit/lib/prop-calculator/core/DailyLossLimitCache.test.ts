@@ -5,7 +5,7 @@ import {
     DailyLossLimitKind,
     resolveDailyLossLimit,
 } from '~/lib/prop-calculator/core';
-import { dollars, fraction } from '~/lib/prop-calculator/core/units';
+import { dollars, fraction } from '~/lib/prop-calculator/core/lib/units';
 
 function context(profit: number, isThresholdLocked = false) {
     return { isThresholdLocked, peakDayCloseProfit: profit, profit };

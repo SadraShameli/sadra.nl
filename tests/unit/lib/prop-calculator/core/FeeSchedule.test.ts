@@ -6,7 +6,7 @@ import {
     resetFactor,
     totalFees,
 } from '~/lib/prop-calculator/core/FeeSchedule';
-import { dollars, percent } from '~/lib/prop-calculator/core/units';
+import { dollars, percent } from '~/lib/prop-calculator/core/lib/units';
 
 const fees: FeeSchedule = {
     activation: dollars(149),

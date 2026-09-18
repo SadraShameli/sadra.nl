@@ -1,8 +1,8 @@
 import { type AccountState } from './AccountState';
+import { dollars } from './lib/units';
 import { PayoutFloorEffect } from './PayoutFloorEffect';
 import { type PayoutLadder } from './PayoutTiers';
 import { type Plan } from './Plan';
-import { dollars } from './units';
 
 export interface FundedPayoutOptions {
     maxPayouts: number;
@@ -24,6 +24,8 @@ type LadderStepLookup =
     | { kind: 'no-ladder' };
 
 export class FundedCycleTracker {
+    cumulativePayout = 0;
+
     cycleBestDayProfit = 0;
 
     lastPayoutBalance: number;
@@ -47,7 +49,13 @@ export class FundedCycleTracker {
             plan,
             state,
         } = options;
-        if (this.payoutsIssued >= maxPayouts) return null;
+        if (
+            this.payoutsIssued >= maxPayouts ||
+            (plan.maxLifetimePayoutDollars !== null &&
+                this.cumulativePayout >= plan.maxLifetimePayoutDollars)
+        ) {
+            return null;
+        }
 
         const ladder = plan.payoutLadder;
         const cycleProfit = state.balance - this.lastPayoutBalance;
@@ -109,6 +117,7 @@ export class FundedCycleTracker {
             withdrawable,
         });
         if (debited === null) return null;
+        const traderReceives = plan.payoutFromProfit(debited);
 
         state.balance -= debited;
         switch (plan.payoutFloorEffect) {
@@ -127,11 +136,12 @@ export class FundedCycleTracker {
         this.lastPayoutBalance = state.balance;
         this.qualifyingDaysAtLastPayout = state.qualifyingDays;
         this.cycleBestDayProfit = 0;
+        this.cumulativePayout += traderReceives;
         this.payoutsIssued += 1;
 
         return {
             debited,
-            traderReceives: plan.payoutFromProfit(debited),
+            traderReceives,
         };
     }
 }

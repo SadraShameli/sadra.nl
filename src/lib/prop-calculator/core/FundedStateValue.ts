@@ -14,6 +14,7 @@ import {
 } from './DayPolicy';
 import { isDrawdownDpEligible } from './EvalStateValue';
 import { newFundedCycleTracker, tryFundedPayout } from './FundedPayoutCycle';
+import { type ContractCount, dollars, type Dollars } from './lib/units';
 import { PayoutFloorEffect } from './PayoutFloorEffect';
 import { type Plan } from './Plan';
 import {
@@ -22,7 +23,6 @@ import {
     resolveContractLimit,
 } from './PositionSizing';
 import { TradingPhase } from './TradingPhase';
-import { type ContractCount, dollars, type Dollars } from './units';
 
 export interface FundedStateValueConfig {
     readonly actionStepMultiple?: number;

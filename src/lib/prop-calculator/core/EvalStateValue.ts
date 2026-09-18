@@ -15,6 +15,12 @@ import {
     shouldStopDay,
 } from './DayPolicy';
 import { DrawdownKind } from './DrawdownStrategy';
+import {
+    type ContractCount,
+    dollars,
+    type Dollars,
+    type Fraction0to1,
+} from './lib/units';
 import { type Plan } from './Plan';
 import {
     capRiskToContractLimit,
@@ -22,12 +28,6 @@ import {
     resolveContractLimit,
 } from './PositionSizing';
 import { TradingPhase } from './TradingPhase';
-import {
-    type ContractCount,
-    dollars,
-    type Dollars,
-    type Fraction0to1,
-} from './units';
 
 export interface EvalStateValueConfig {
     readonly actionStepDollars?: number;

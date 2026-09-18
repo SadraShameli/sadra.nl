@@ -56,7 +56,9 @@ function fundedState(profit: number, threshold: number) {
     return state;
 }
 
-function plan(variant: MffuVariant.Builder | MffuVariant.RapidEod) {
+function plan(
+    variant: MffuVariant.Builder | MffuVariant.Pro | MffuVariant.RapidEod,
+) {
     const found = mffu.findPlan({
         accountSize: 50_000,
         firm: FirmId.Mffu,
@@ -932,5 +934,85 @@ describe('Topstep 50K parameters (help.topstep.com)', () => {
 
         expect(secondPayout?.debited).toBe(150);
         expect(state.threshold).toBe(state.startingBalance);
+    });
+});
+
+describe('maxLifetimePayoutDollars', () => {
+    it('caps cumulative trader-received payout, not the gross account debit', () => {
+        const target = plan(MffuVariant.Pro).withOverrides({
+            maxLifetimePayoutDollars: dollars(1000),
+            minDaysAfterPassForPayout: 0,
+            minPayoutProfit: dollars(0),
+            minPayoutRequest: dollars(1),
+            payoutTiers: [
+                { thresholdProfit: dollars(0), traderShare: fraction(0.8) },
+            ],
+        });
+        const state = fundedState(2000, 0);
+        state.qualifyingDays = 99;
+        const tracker = newFundedCycleTracker(state);
+        tracker.lastPayoutBalance = state.startingBalance;
+        tracker.qualifyingDaysAtLastPayout = 0;
+
+        const firstPayout = tryFundedPayout({
+            maxPayouts: Infinity,
+            minRetainedCushion: 0,
+            payoutRequestSize: 1000,
+            plan: target,
+            state,
+            tracker,
+        });
+
+        expect(firstPayout?.debited).toBe(1000);
+        expect(firstPayout?.traderReceives).toBe(800);
+        expect(tracker.cumulativePayout).toBe(800);
+        expect(target.isAccountConcluded(1, tracker.cumulativePayout)).toBe(
+            false,
+        );
+
+        state.balance += 1000;
+        tracker.qualifyingDaysAtLastPayout = 0;
+        state.qualifyingDays += 99;
+
+        const secondPayout = tryFundedPayout({
+            maxPayouts: Infinity,
+            minRetainedCushion: 0,
+            payoutRequestSize: 1000,
+            plan: target,
+            state,
+            tracker,
+        });
+
+        expect(secondPayout?.debited).toBe(1000);
+        expect(secondPayout?.traderReceives).toBe(800);
+        expect(tracker.cumulativePayout).toBe(1600);
+        expect(target.isAccountConcluded(2, tracker.cumulativePayout)).toBe(
+            true,
+        );
+
+        state.balance += 1000;
+        tracker.qualifyingDaysAtLastPayout = 0;
+        state.qualifyingDays += 99;
+
+        const thirdPayout = tryFundedPayout({
+            maxPayouts: Infinity,
+            minRetainedCushion: 0,
+            payoutRequestSize: 1000,
+            plan: target,
+            state,
+            tracker,
+        });
+
+        expect(thirdPayout).toBeNull();
+    });
+
+    it('does not restrict plans that never set the field', () => {
+        const target = plan(MffuVariant.RapidEod);
+        expect(target.maxLifetimePayoutDollars).toBeNull();
+        expect(target.isAccountConcluded(1_000_000, 1_000_000_000)).toBe(false);
+    });
+
+    it('is confirmed set on the real Pro plan at $100,000', () => {
+        expect(plan(MffuVariant.Pro).maxLifetimePayoutDollars).toBe(100_000);
     });
 });

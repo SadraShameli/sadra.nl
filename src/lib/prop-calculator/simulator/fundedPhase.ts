@@ -129,7 +129,12 @@ export function runFundedDays(options: FundedDaysOptions): FundedDaysResult {
                 stage: FundedStage.PayoutBudgetSpent,
             };
         }
-        if (plan.isAccountConcluded(tracker.payoutsIssued)) {
+        if (
+            plan.isAccountConcluded(
+                tracker.payoutsIssued,
+                tracker.cumulativePayout,
+            )
+        ) {
             return {
                 closedForInactivity: false,
                 daysElapsed,

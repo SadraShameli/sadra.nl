@@ -4,8 +4,8 @@ import {
     type InstrumentSpec,
     type InstrumentSymbol,
 } from './Instruments';
+import { type ContractCount, points, type Points } from './lib/units';
 import { TradingPhase } from './TradingPhase';
-import { type ContractCount, points, type Points } from './units';
 
 export interface PositionSizingConfig {
     instrument: InstrumentSpec;

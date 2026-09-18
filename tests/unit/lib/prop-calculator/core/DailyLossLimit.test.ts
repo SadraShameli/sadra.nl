@@ -7,7 +7,7 @@ import {
     type DllTier,
     resolveDailyLossLimit,
 } from '~/lib/prop-calculator/core/DailyLossLimit';
-import { contracts, dollars } from '~/lib/prop-calculator/core/units';
+import { contracts, dollars } from '~/lib/prop-calculator/core/lib/units';
 
 function atProfit(profit: number): DailyLossLimitContext {
     return { isThresholdLocked: false, peakDayCloseProfit: 0, profit };

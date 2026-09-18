@@ -1,5 +1,5 @@
 import { TRADING_DAYS_PER_MONTH } from './constants';
-import { type Dollars, type Percent0to100 } from './units';
+import { type Dollars, type Percent0to100 } from './lib/units';
 
 export interface CouponDiscounts {
     activationPercent: Percent0to100;

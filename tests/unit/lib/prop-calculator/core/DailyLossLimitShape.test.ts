@@ -11,7 +11,11 @@ import {
     resolveDailyLossLimit,
     scaleDailyLossLimit,
 } from '~/lib/prop-calculator/core';
-import { contracts, dollars, fraction } from '~/lib/prop-calculator/core/units';
+import {
+    contracts,
+    dollars,
+    fraction,
+} from '~/lib/prop-calculator/core/lib/units';
 import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFunding';
 import { LucidTrading } from '~/lib/prop-calculator/firms/lucid/LucidTrading';
 

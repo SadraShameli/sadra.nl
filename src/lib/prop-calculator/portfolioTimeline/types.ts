@@ -5,9 +5,9 @@ import {
 } from '../core/DayPolicy';
 import { type CouponDiscounts } from '../core/FeeSchedule';
 import { type InstrumentSymbol } from '../core/Instruments';
+import { type Dollars, type Fraction0to1 } from '../core/lib/units';
 import { type Plan } from '../core/Plan';
 import { type PositionSizingConfig } from '../core/PositionSizing';
-import { type Dollars, type Fraction0to1 } from '../core/units';
 import { type Rng } from '../rng';
 
 export const DEFAULT_DAY_BUDGET = 252;

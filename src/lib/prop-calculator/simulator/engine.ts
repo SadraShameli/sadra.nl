@@ -1,12 +1,12 @@
 import { TRADING_DAYS_PER_MONTH } from '../core/constants';
 import { DEFAULT_RUNG_SIZING } from '../core/DayPolicy';
 import { type CouponDiscounts } from '../core/FeeSchedule';
+import { dollars, fraction } from '../core/lib/units';
 import { type Plan } from '../core/Plan';
 import { resolvePositionSizing } from '../core/PositionSizing';
 import { replacementEconomics } from '../core/Replacement';
 import { totalRoiOnCost } from '../core/Roi';
 import { TradingPhase } from '../core/TradingPhase';
-import { dollars, fraction } from '../core/units';
 import { deriveSubSeed, mulberry32 } from '../rng';
 import { percentile } from '../stats';
 import { resolveDayPolicy } from './day';

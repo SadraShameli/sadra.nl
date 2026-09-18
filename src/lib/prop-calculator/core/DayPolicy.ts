@@ -1,5 +1,5 @@
 import { type AccountState } from './AccountState';
-import { type Fraction0to1 } from './units';
+import { type Fraction0to1 } from './lib/units';
 
 export enum DayStopRuleKind {
     AfterKLosses = 'after-k-losses',

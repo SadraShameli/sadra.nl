@@ -5,7 +5,7 @@ import {
     FirmId,
     PayoutFloorEffect,
 } from '~/lib/prop-calculator/core';
-import { dollars } from '~/lib/prop-calculator/core/units';
+import { dollars } from '~/lib/prop-calculator/core/lib/units';
 import { ALL_FIRMS, findFirm } from '~/lib/prop-calculator/firms';
 
 describe('PayoutFloorEffect is a single discriminant, not two booleans', () => {

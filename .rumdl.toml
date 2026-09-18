@@ -1,0 +1,17 @@
+[global]
+exclude = [
+    ".next",
+    ".vercel",
+    "out",
+    "build",
+    "coverage",
+    "node_modules",
+    "public",
+]
+respect-gitignore = true
+
+[MD024]
+siblings-only = true
+
+[per-file-ignores]
+".claude/prop-firms/_template/*.md" = ["MD057"]

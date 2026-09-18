@@ -17,6 +17,12 @@ import {
     feesUntilPass,
     totalFees,
 } from './FeeSchedule';
+import {
+    type Dollars,
+    dollars,
+    type Fraction0to1,
+    type ProfitShareMultiplier,
+} from './lib/units';
 import { type PayoutBuffer } from './PayoutBuffer';
 import { type PayoutCapRegime, type PayoutCapStrategy } from './PayoutCap';
 import { PayoutFloorEffect } from './PayoutFloorEffect';
@@ -27,12 +33,6 @@ import {
 } from './PayoutTiers';
 import { type PlanId } from './PlanId';
 import { TradingPhase } from './TradingPhase';
-import {
-    type Dollars,
-    dollars,
-    type Fraction0to1,
-    type ProfitShareMultiplier,
-} from './units';
 
 export interface ConsistencyLadder {
     steps: readonly Fraction0to1[];
@@ -59,6 +59,7 @@ export interface PlanInit {
     maxConsecutiveIdleDays?: number;
     maxEvalTradingDays?: number;
     maxFundedAccounts: number;
+    maxLifetimePayoutDollars?: Dollars;
     maxLifetimePayouts?: number;
     minDaysAfterPassForPayout?: number;
     minDaysAfterPassForPayoutPerCycle?: number;
@@ -112,6 +113,8 @@ export abstract class Plan {
     readonly maxFundedAccounts: number;
 
     readonly maxEvalTradingDays: null | number;
+
+    readonly maxLifetimePayoutDollars: Dollars | null;
 
     readonly maxLifetimePayouts: null | number;
 
@@ -192,6 +195,7 @@ export abstract class Plan {
 
         this.maxFundedAccounts = init.maxFundedAccounts;
         this.maxEvalTradingDays = init.maxEvalTradingDays ?? null;
+        this.maxLifetimePayoutDollars = init.maxLifetimePayoutDollars ?? null;
         this.maxLifetimePayouts = init.maxLifetimePayouts ?? null;
         this.minDaysAfterPassForPayout = init.minDaysAfterPassForPayout ?? 0;
         this.minDaysAfterPassForPayoutPerCycle =
@@ -352,7 +356,13 @@ export abstract class Plan {
         };
     }
 
-    isAccountConcluded(payoutsIssued: number): boolean {
+    isAccountConcluded(payoutsIssued: number, cumulativePayout = 0): boolean {
+        if (
+            this.maxLifetimePayoutDollars !== null &&
+            cumulativePayout >= this.maxLifetimePayoutDollars
+        ) {
+            return true;
+        }
         if (this.maxLifetimePayouts !== null) {
             return payoutsIssued >= this.maxLifetimePayouts;
         }
