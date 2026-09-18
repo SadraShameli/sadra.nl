@@ -102,6 +102,10 @@ Following Live account closure due to Maximum Loss breach, a 21-day cooldown per
 - **During Cooldown (21 calendar days):** All Sim Funded account trading is prohibited. New Evaluation purchases, account resets, or additional account acquisitions are prohibited.
 - **Post-Cooldown (after 21 calendar days):** Cooldown restrictions are lifted. Traders can continue from active Sim Funded account (if applicable) and/or purchase new Evaluations or accounts, unless communicated otherwise by the team.
 
+## Other Confirmed Rules
+
+**2% CME Price Limit Rule applies here.** Per the firm-wide "2% Price Limit Rule" article (found via a full sitemap sweep of `help.myfundedfutures.com`, see SOURCES.md), trading is prohibited whenever a product is within 2% of its own CME price limit, and this restriction is explicitly enforced on "Sim Funded Account and Live Funded Account," naming this file's own account type directly, not just Sim Funded. See README.md's Firm-Wide Rules for the full mechanic (daily 5:05 PM EST price-limit recalculation, trader's own responsibility to monitor).
+
 ## Not Confirmed By This Source
 
 - **Daily Loss Limit (Intraday Limit)** — The cited sources do not mention an intraday daily loss limit for Rapid Live accounts; they only reference the end-of-day maximum loss limit. Do not assume Rapid Live has an intraday daily loss limit without a separate citation. Weak, non-affirmative supporting context: MFF's own live pricing page (`myfundedfutures.com/plans/rapid`) has a "LIVE ACCOUNT" data table listing Initial Balance, Max Loss Limit, Drawdown Type, Drawdown Floor, Max Contracts, Payout Frequency, and Profit Split (independently verified via raw HTML/JSON, matching this file's already-confirmed Live Account Parameters table exactly) — with no Daily Loss Limit row anywhere in it. Absence from a comprehensive-looking table is suggestive, not a source affirmatively stating "none."
@@ -115,6 +119,7 @@ Following Live account closure due to Maximum Loss breach, a 21-day cooldown per
 
 - https://help.myfundedfutures.com/en/articles/13134718-understanding-rapid-live (Updated: September 8, 2026)
 - https://help.myfundedfutures.com/en/articles/13286746-rapid-plan-reserve-program-performance-bonus-structure (Updated: January 16, 2026)
+- https://help.myfundedfutures.com/en/articles/9698984-2-price-limit-rule ("Updated over 3 weeks ago"), found via a full sitemap sweep of `help.myfundedfutures.com`. Firm-wide article, source of the 2% Price Limit Rule note above.
 - https://myfundedfutures.com/plans/rapid — no "last updated" date visible. Fetched live and independently verified via raw HTML/JSON (not WebFetch's summarization pass, which had misattributed this page's Sim-Funded payout data to the Live account — see the corrections above). Its "LIVE ACCOUNT" table corroborates Max Loss Limit, Drawdown Type, Drawdown Floor ("stops at $0"), Max Contracts, Payout Frequency, and Profit Split already confirmed in the Live Account Parameters table above; contributes only weak, non-affirmative context for the Daily Loss Limit gap (absent from that table, not stated as "none").
 
 **Last Updated:** 2026-09-18

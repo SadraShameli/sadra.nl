@@ -12,8 +12,9 @@ in full before doing anything else — it is the actual spec this skill
 enforces, not just background reading. CONVENTIONS.md's "Known bug classes"
 section names the specific, recurring ways this kind of documentation goes
 wrong (drawdown-lock figures, worked-example unit mixing, cross-plan
-carryover) — check every draft against all of them, every time, not just when
-something looks suspicious.
+carryover, README scope inflation, search-only completeness gaps), check
+every draft against all of them, every time, not just when something looks
+suspicious.
 
 A single drafting pass, however careful, cannot be trusted to self-certify —
 this data drives real trading decisions on real money, and a fact that reads
@@ -63,10 +64,45 @@ verify). Do not skip stage 3 and do not fold it into stage 2 as "the same
 agent double-checking its own work" — it must be a fresh agent with no memory
 of drafting the file, per CONVENTIONS.md §Verification protocol step 5.
 
-1. **Extract.** For each source document, extract plain text preserving
-   every number verbatim (strip HTML tags/scripts/styles; do not summarize or
-   paraphrase at this stage). Do this yourself, directly — it's a mechanical
-   step, not a judgment call, so it doesn't need a subagent.
+1. **Discover & Extract.** Do this yourself, directly, before spawning any
+   subagent: it's mechanical, not a judgment call.
+    - **Discover the full source set first, not just what the user pasted or
+      what search turns up.** See CONVENTIONS.md bug class #5. Targeted
+      search (WebSearch, or links noticed inside an article already open)
+      finds what you already suspect exists; it cannot confirm nothing else
+      does. Fetch the firm's help-center sitemap directly: try
+      `<help-center-domain>/sitemap.xml` first, then `/sitemap_index.xml`,
+      then check `/robots.txt` for a `Sitemap:` directive if neither
+      resolves. A working sitemap returns a flat list of every collection
+      and article URL on the site. Diff that list against every source
+      already fetched or pasted this pass, and fetch/read whatever's
+      missing before moving to stage 2. If no sitemap can be found at all
+      for that firm, say so explicitly in `SOURCES.md` rather than silently
+      treating search results as if they were complete.
+    - **Only skip an article for being genuinely out of scope, never for
+      being inconvenient or unlikely.** Legitimate skips: a collection
+      explicitly marked legacy/discontinued, or an invite-only/unreleased
+      product the user hasn't asked to document, named with its specific
+      reason in the final report (stage 8). "It didn't come up in search"
+      or "the title sounds like marketing" are not reasons to skip on their
+      own; fetch and read it, then exclude it based on its actual content if
+      it turns out to have nothing rule-relevant, rather than assuming that
+      from the title.
+    - **For each source document** (pasted, sitemap-discovered, or
+      search-discovered), extract plain text preserving every number
+      verbatim (strip HTML tags/scripts/styles; do not summarize or
+      paraphrase at this stage).
+    - **If a URL fails to fetch** (blocked, 403, persistent error) after one
+      retry and a Wayback Machine fallback attempt, do not silently mark it
+      Unconfirmed and move on. Collect every failed URL into a single list
+      and give it to the user, asking them to open each one in their own
+      logged-in browser and paste the content back, the same "give me links
+      to dump" pattern already established in this repo's prop-firm
+      research. Never reach for a browser automation tool (Chrome DevTools
+      MCP or similar) to work around the block yourself: when a user says
+      "browser" in this context they mean their own logged-in browser, not
+      an automated one, and an automated browser doesn't get past a
+      Cloudflare-style block anyway.
 
 2. **Draft** (one agent per plan file, in parallel where there's more than
    one plan). Spawn `ecc:doc-updater` with a prompt that:
@@ -82,10 +118,14 @@ of drafting the file, per CONVENTIONS.md §Verification protocol step 5.
       verbatim in the provided source text. Anything not stated goes in the
       '## Not Confirmed By This Source' section with a reason, not into a
       table as if it were fact."
-    - Names the three known bug classes from CONVENTIONS.md explicitly in the
-      prompt (lock-trigger-vs-locked-value, mixed worked-example conventions,
+    - Names the known bug classes from CONVENTIONS.md that apply to a single
+      plan file's own accuracy, explicitly in the prompt
+      (lock-trigger-vs-locked-value, mixed worked-example conventions,
       assumed cross-plan carryover) and requires the draft to self-check
-      against each before returning.
+      against each before returning. (Bug classes #4 and #5, README scope
+      inflation and search-only completeness gaps, are firm-wide concerns
+      handled in stage 1 and stage 6, not per-plan-file drafting concerns, so
+      they aren't part of this per-file prompt.)
     - If the firm/plan already has an engine implementation under
       `src/lib/prop-calculator/firms/<firm-slug>/`, instructs it to read that
       file too and flag (not silently resolve) any place the doc and the code
@@ -99,10 +139,10 @@ of drafting the file, per CONVENTIONS.md §Verification protocol step 5.
    one, list it as unsupported — do not assume the drafter checked, and do
    not try to justify a number by inference; either it's quotably in the
    source or it isn't." Also instruct it to specifically hunt for the three
-   named bug classes (a lock table row that conflates trigger and locked
+   per-file bug classes (a lock table row that conflates trigger and locked
    value; a worked example that changes its balance convention partway
    through; a claim that reads like it was borrowed from a sibling plan file
-   rather than this plan's own source) — name them explicitly, don't rely on
+   rather than this plan's own source), name them explicitly, don't rely on
    the agent inferring what to look for. Return a structured list of
    unsupported/incorrect items, each anchored to the exact draft line.
 
@@ -131,7 +171,13 @@ of drafting the file, per CONVENTIONS.md §Verification protocol step 5.
 8. **Report.** State plainly which files were created or changed, and give an
    explicit confirmed-vs-unconfirmed summary — do not say a firm's docs are
    "done" if any `## Not Confirmed By This Source` section is non-empty.
-   Fail loud on what's still open, per this repo's standing rules.
+   State the sitemap-diff completeness result too, per CONVENTIONS.md bug
+   class #5: how many articles the sitemap listed, how many were read, and
+   the specific named reason for every one that wasn't (out-of-scope
+   collection, or still on the stage-1 user-dump list). "I searched for the
+   relevant articles" is not a completeness claim; "N of M sitemap articles
+   read, here's what's excluded and why" is. Fail loud on what's still open,
+   per this repo's standing rules.
 
 ## What this skill does not do
 

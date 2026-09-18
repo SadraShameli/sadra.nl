@@ -147,6 +147,28 @@ confirmed for some and merely assumed for others, it is a per-plan fact, not
 a firm-wide one — move it to each plan's own file (with its own confirmed/
 unconfirmed status) instead of asserting it once at the firm level.
 
+### 5. Assumed completeness from search-only discovery
+
+Targeted search (WebSearch, or following links noticed inside an article
+already open) finds what you already suspect might exist. It cannot confirm
+nothing else does, and a firm's help center routinely carries firm-wide
+policy articles (hedging, scalping restrictions, product/commission lists,
+platform support) that never surface in a plan-specific search because
+nothing in a plan's own article links to them. A tree built this way can
+look thorough, pass its own adversarial-verification stage cleanly, and
+still be missing entire categories of confirmed, citable rules. (This is not
+hypothetical: a real pass on this repo's Lucid tree shipped seven files that
+looked complete and had cleanly passed verification, then a sitemap diff
+turned up 14 unread, in-scope articles, including one that corrected a
+materially wrong table, not just added missing detail.)
+
+**Rule:** before any file in a firm's tree is reported as done, fetch that
+firm's help-center sitemap directly (see `SKILL.md`'s Discover & Extract
+stage for the mechanics) and diff it against every article actually read. A
+"search turned up nothing more" is not a completeness claim; a sitemap diff
+is. If no sitemap can be found or fetched for that firm, say so explicitly in
+`SOURCES.md` rather than silently reporting the tree as complete.
+
 ## The Unconfirmed-flag format
 
 Always the same three-part shape, inside the `## Not Confirmed By This
