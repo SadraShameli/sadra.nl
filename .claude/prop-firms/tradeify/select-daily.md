@@ -1,0 +1,136 @@
+# Select Daily ($50K)
+
+**Sources:**
+
+- **Select Evaluation Accounts** — https://help.tradeify.co/en/articles/12853921-select-evaluation-accounts
+- **Select Flex and Select Daily Payout Policies** — https://help.tradeify.co/en/articles/12853966-select-flex-and-select-daily-payout-policies
+- **Introducing the New Select Plan: Changes to the Live Program** — https://help.tradeify.co/en/articles/12987441-introducing-the-new-select-plan-changes-to-the-live-program
+- **Tradeify Pricing Reference** — https://help.tradeify.co/en/articles/14369021-tradeify-pricing-reference
+- **How do I Reset a Failed Evaluation** — https://help.tradeify.co/en/articles/10468256-how-do-i-reset-a-failed-evaluation
+- **Are There Activation Fees** — https://help.tradeify.co/en/articles/10468246-are-there-activation-fees
+- **Rules: Trailing Max Drawdowns** (firm-wide; states "Applies to: All Tradeify accounts (Growth, Select, Lightning)") — https://help.tradeify.co/en/articles/10495897-rules-trailing-max-drawdowns
+- **Rules: Daily Loss Limit** (narrower scope than the drawdown article above; states "Applies to: Growth, Lightning, and Select Daily Funded accounts. Select Flex accounts do not have a DLL.") — https://help.tradeify.co/en/articles/10468321-rules-daily-loss-limit
+- `https://tradeify.co/select-plan` — legacy marketing page (Webflow, fetched 2026-09-18), cited only for the flagged pricing conflicts below (see Not Confirmed); not used for any other figure in this file.
+
+All eight help-center articles above were pasted into this session's source dump on 2026-09-18 as live content (not Wayback snapshots); none of them shows a stated "last updated" date in the pasted text, so none is invented here.
+
+**Last Verified:** 2026-09-18
+**Last Updated:** 2026-09-18
+
+## Overview
+
+Select Daily is one of two funded-account payout tracks a trader chooses after passing the shared Select evaluation (3 minimum trading days, 40% consistency, no Daily Loss Limit during evaluation, $2,000 max drawdown at 50K) — the choice between Select Daily and Select Flex is made only after passing and is permanent per account ("Select Flex and Select Daily Payout Policies": "choose between two payout policies — permanent for that account"). Relative to Select Flex's 5-day, larger-cap, no-DLL structure, Select Daily is the "rapid-access, daily eligibility, tighter risk" variant: daily payout eligibility instead of every-5-winning-days, a funded-stage Daily Loss Limit that Flex does not have, and smaller per-request payout caps governed by a "Daily Continuity Rule" (up to 2x the profit earned since the last payout, subject to a hard cap). There is no activation fee, and activation from evaluation to funded is not automatic — the trader must activate the funded account themselves from the dashboard once eligible. Profit split is 90% to the trader / 10% to Tradeify.
+
+## Evaluation
+
+| Parameter | Value |
+| --- | --- |
+| Starting Balance | $50,000 (derived from the article's own "50K Account Evaluation" tier label — no sentence literally states an evaluation "Starting Balance"; see Not Confirmed) |
+| Profit Target | $3,000 |
+| Drawdown Type | Trailing Max Drawdown (End-of-Day / EOD) |
+| Drawdown Amount | $2,000 |
+| Minimum Balance at Start | Unconfirmed |
+| Daily Loss Limit | None ("Daily Loss Limit: None" during evaluation) |
+| Max Contracts | 4 mini / 40 micro |
+| Consistency Rule | 40% ("no single day >40% of total profit"); optional paid 50% add-on available — see note below |
+| Minimum Trading Days | 3 days |
+| News Trading | Tier 1 News Trading allowed (stated for the Select evaluation stage) |
+| Inactivity Rule | Unconfirmed |
+| One-Time Eval Fee | $165 — a separate legacy-page pricing widget shows $111; unresolved conflict, see Not Confirmed |
+| Reset Fee | $109 — conflicts with this firm's own simulator engine, which models $99; unresolved conflict, see Not Confirmed |
+
+**Optional 50% Consistency Add-on (Tradeify Pricing Reference):** raises the evaluation consistency limit from 40% to 50%, allowing a pass in as little as 2 trading days instead of 3. At 50K this add-on costs $205 (vs. $165 standard) with a $135 reset fee (vs. $109 standard). Not modeled in the tables above, which describe the standard 40%-consistency evaluation.
+
+**Legacy Accounts (Pre-Dashboard-Launch):** the cited "Select Evaluation Accounts" article states that 50K accounts purchased before the platform's new dashboard launch retain their original $2,500 profit target rather than the current $3,000 shown in the table above, "including on reset." No date is given for when the new dashboard launched, so this file cannot say which accounts this affects; it applies to some pre-existing 50K accounts, not new purchases.
+
+## Sim Funded
+
+| Parameter | Value |
+| --- | --- |
+| Starting Balance | $50,000, nominal-balance convention (same tier-label derivation as Evaluation). This corrects an earlier draft of this file, which stated Sim Funded starts at "$0 (funded account)" — the source's own Select Daily and Trailing-Drawdown worked examples ("50K account, balance $53,500…", "Starting balance $100,000, Drawdown $3,500…") consistently track a literal, full nominal balance for Sim Funded accounts. A literal $0 starting balance is stated only for Elite Live accounts after transition, a later stage this file does not cover in detail — see Live Transition. |
+| Drawdown Type | Trailing Max Drawdown (EOD) |
+| Drawdown Amount | $2,000 |
+| Drawdown Lock | Trigger (stops trailing): EOD balance reaches $52,100 ("Lock trigger balances (EOD): … 50K $52,100 (both)" — Select Flex and Select Daily share this figure at the 50K tier; "How the Drawdown Works" below explains why) — or immediately upon payout request, whichever comes first. Locked value (absolute floor once locked): $50,100 — "$100 above starting balance" — fixed and "never moves up again," per both the Select Evaluation Accounts article and the firm-wide Rules: Trailing Max Drawdowns article ("50K Select locks at EOD balance $52,100, floor becomes $50,100 permanently"). |
+| Minimum Balance (ongoing) | No separate figure — this plan uses an EOD trailing/lock drawdown, and breaching that floor (documented in the Drawdown Lock row above) is an automatic, immediate hard-breach closure. By construction there is no minimum balance distinct from that floor; nothing else could impose a stricter one. |
+| Daily Loss Limit | $1,000 flat. Confirmed that Select Daily funded accounts have a DLL at all ("Applies to: Growth, Lightning, and Select Daily Funded accounts. Select Flex accounts do not have a DLL."). No 6%-profit DLL escalation is stated for Select Daily — see Not Confirmed. |
+| Max Contracts | Starts at 2 mini / 20 micro on funding; scales to 3 mini / 30 micro at $1,500 profit (EOD equity), then to 4 mini / 40 micro (max) at $2,000 profit — takes effect the next trading day after the threshold is hit. Formerly Unconfirmed; now resolved by source — see engine-disagreement flag in Not Confirmed. |
+| Consistency Rule | None |
+| News Trading | Unconfirmed at the funded stage (Tier 1 News Trading is confirmed only for the Evaluation stage — see Not Confirmed) |
+| Inactivity Rule | Unconfirmed |
+| Max Active/Concurrent Accounts | Up to 5 ("Up to 5 funded accounts simultaneously") |
+| Profit Split | 90% trader / 10% Tradeify |
+
+## How the Drawdown Works
+
+Select Daily 50K funded accounts carry a $2,000 End-of-Day (EOD) Trailing Max Drawdown. Per the firm-wide "Rules: Trailing Max Drawdowns" article, which explicitly names Select Daily, the floor trails the account's highest-ever EOD balance and only moves up on a new EOD high; a lower EOD balance than the prior day does not pull the floor back down. The floor recalculates only once per day at EOD, but is enforced continuously in real time against net liquidation value — a hard breach (net liq touching or crossing the floor at any point, even intraday) fails the account immediately and permanently, even if the account recovers by the close of that same day. There is no reset once funded — per "How do I Reset a Failed Evaluation," resets exist only for the Evaluation stage; a Sim Funded drawdown breach requires purchasing a new account.
+
+On Sim Funded (not Evaluation) accounts specifically, the floor locks permanently once triggered — this has two distinct numbers, stated separately, per this repo's own drawdown-lock convention:
+
+- **Trigger** (the point where it stops trailing): the EOD balance reaches $52,100, "or immediately when payout requested — whichever [comes] first."
+- **Locked value** (the absolute floor once locked): $50,100 — "$100 above starting balance" — and this "never moves up again," even if the account balance keeps climbing afterward.
+
+Because Select Daily 50K's own Maximum Drawdown ($2,000) happens to equal Select Flex 50K's, both tracks share the identical $52,100 / $50,100 pair at this tier; the two diverge only at 100K/150K, where Select Daily's smaller funded-stage drawdown produces a lower trigger balance than Flex's ($102,600 vs. $103,100 at 100K; $153,600 vs. $154,600 at 150K) — not applicable to this 50K file, but noted so the shared 50K figures aren't mistaken for a universal rule across tiers.
+
+Note also that the "Buffer Requirement" of $2,100 in the Payouts table below is this exact same $52,100 trigger restated in profit terms ($52,100 EOD balance − $50,000 starting balance = $2,100 profit) — one underlying mechanic, expressed in the firm's own articles using two different unit conventions (nominal EOD balance in one place, profit-above-start in another), not two different numbers.
+
+Engine cross-check: this $52,100 trigger / $50,100 locked-value pair matches `buildSelectDailyPlan`'s `fundedDrawdown.lock` in `Tradeify.ts` exactly — `atProfit: maxDrawdown + LOCK_OFFSET` = $2,000 + $100 = $2,100 profit (EOD balance $52,100), and `lockedThreshold: lockThresholdAt(LOCK_OFFSET)` = starting balance + $100 = $50,100 (verified by reading `PayoutBuffer.ts` and `shared.ts` directly, not assumed from field names). No disagreement here, unlike the three engine mismatches flagged below.
+
+### Worked Example
+
+This example uses the full nominal-balance convention: the account's real, literal balance, starting at $50,000 (matching the "50K" tier and the source's own worked examples, e.g. "50K account, balance $53,500…"). No number in this example switches to a $0-based or profit-only framing.
+
+1. The account is funded at a nominal balance of $50,000. The initial EOD trailing floor is $50,000 − $2,000 = $48,000.
+2. The account trades profitably and reaches a new EOD high of $52,100. This is the lock trigger, stated directly in the source: the floor stops trailing here and locks permanently at $100 above the starting balance — $50,100. (This also equals $52,100 − $2,000 = $50,100, so the two ways of deriving it agree.)
+3. The account continues trading and its EOD balance later reaches $53,500 (matching the source's own Select Daily payout example balance). The floor does **not** trail up further — it stays fixed at $50,100, because it is already locked.
+4. If the account's balance, or its intraday net liquidation value, were to fall to $50,099, that would breach the locked $50,100 floor and fail the account immediately and permanently — a hard breach, enforced in real time, not reversible even by closing that day higher.
+
+## Payouts
+
+| Parameter | Value |
+| --- | --- |
+| Profit Split | 90% trader / 10% Tradeify |
+| Payout Frequency | Daily eligibility (no fixed winning-day threshold, unlike Flex's every-5-winning-days) |
+| Buffer Requirement | $2,100 (50K) must be exceeded before a payout is eligible; profits above the buffer are eligible up to the payout cap. Cannot withdraw an amount that would bring the balance below the buffer. This is the same $52,100-EOD-balance threshold as the Drawdown Lock trigger above, restated in profit terms — see How the Drawdown Works. |
+| Minimum Payout Request | $250 |
+| Max Payout per Cycle | Daily Continuity Rule: up to 2x the profit earned since the last payout, capped at — **accounts purchased before Sep 1, 2026:** $1,000 (50K); **accounts purchased on/after Sep 1, 2026:** $1,250 (50K). Both splits are stated explicitly by the source and are documented here together (not just one); today's date (2026-09-18) is after the Sep 1, 2026 cutover, so a newly-purchased 50K account falls under the $1,250 cap. The cap resets after each payout cycle. |
+| Consistency on Payouts | None (no consistency-percentage rule on payouts). A separate rule applies instead: the account must show positive net profit for the current payout cycle before requesting again ("Loss Recovery Required: Yes — net positive for cycle"), and only one payout request may be open at a time. |
+| Maximum Total Payouts / Lifetime Cap | No cap stated. The payout mechanic itself is a resettable per-cycle formula (2x fresh profit since the last payout, capped per request) with no countdown or terminal step described anywhere — weaker evidence than Growth/Lightning's open-ended tier tables, but still no structural indication of a lifetime limit; see Not Confirmed. |
+
+The source's own worked example (50K account): at balance $53,500 with $250 profit since the last payout, 2x$250 = $500 is requestable (comfortably above the $2,100 buffer); balance after is $53,000. At $700 profit, 2x$700 = $1,400 exceeds the cap, so the request is capped — the source states one "balance after" figure ($52,500) without adjusting it for the Sep-1-2026 cap change: $52,500 only actually re-derives from the pre-Sep-1-2026 $1,000 cap ($53,500 − $1,000 = $52,500); under today's post-Sep-1-2026 $1,250 cap the correct balance after the capped request is $52,250 ($53,500 − $1,250), not $52,500 as the source's own single example implies. At $100 profit, 2x$100 = $200 falls below the $250 minimum payout, so no request is possible until profit reaches at least $125 (yielding a $250 request). Negative profit is not eligible at all until losses are recovered.
+
+## Live Transition
+
+Select Daily funded accounts become eligible for Elite Live consideration once they reach "3 payouts on a single account, OR 10 total payouts since the last live transition across all plan types," measured "since the last Live Transition, or since the first purchase" if the trader has never transitioned before — per this file's own cited "Select Flex and Select Daily Payout Policies" article ("Path to Live (Select)"), which states this threshold "Applies across Select, Growth, Lightning equally." These are minimum thresholds for consideration only, not automatic qualification.
+
+Per "Introducing the New Select Plan," the current-era ("Tradeify Elite") live program carries no cap on Sim-Funded profit accumulated before going live, permits unlimited repeated transitions, and grants one Elite Live account per funded account that has received at least one payout (up to 5 simultaneously) — while accounts purchased before December 3, 2025 may instead keep the older, legacy one-account / $100K sim-cap system.
+
+This file does not document the destination Elite Live account's own parameters (drawdown, DLL, contract limits, payout split, inactivity policy) — those are documented in the shared [`elite-live.md`](elite-live.md) file, not duplicated here.
+
+## Not Confirmed By This Source
+
+- **Minimum Balance at Start (Evaluation)** — not stated in any cited source. Do not assume it equals the drawdown amount or profit target.
+- **Minimum Balance (ongoing, Sim Funded) — resolved by construction, see table above** — not separately stated because there is nothing separate to state: an EOD trailing/lock drawdown breach is an automatic, immediate account closure (confirmed identically for this plan via "Rules: Trailing Max Drawdowns"), so the drawdown floor already documented in this file's Drawdown Lock row necessarily *is* the minimum balance. High confidence — this follows from mechanics already fully confirmed, not a new claim.
+- **Daily Loss Limit — 6%-profit escalation (Sim Funded)** — the firm-wide "Rules: Daily Loss Limit" article's "DLL Increases at 6% Profit" table gives escalated DLL values only for Lightning ("Lightning DLL Becomes") and Growth ("Growth DLL Becomes"); it has no "Select Daily DLL Becomes" column, and no other cited source states an escalated DLL figure for Select Daily. Do not assume Select Daily's $1,000 flat DLL (stated in the Sim Funded table above) either does or does not escalate at 6% profit the way Growth's and Lightning's do — the source is silent on this specific plan.
+- **Inactivity Rule (both stages)** — not stated in any of this file's cited sources. This firm's simulator engine (`Tradeify.ts`) models a firm-wide 7-day idle-closure rule for all four Tradeify plans, sourced (per the engine's own inline note) from Tradeify's Funded Trader Agreement Section 6.9 and a "Guidelines for Traders" help article — neither of which is a citation read for this file. Do not assume Select Daily carries that figure without an independent citation for this plan.
+- **News Trading (Sim Funded stage)** — "Tier 1 News Trading allowed" is stated only under the Evaluation stage's "Key Evaluation Features." Do not assume it carries over to the funded stage without its own citation.
+- **Maximum Total Payouts / Lifetime Cap — reasoned inference, not a direct statement** — no source says "unlimited" or states a cap. The payout mechanic is a resettable, per-cycle formula with no described termination condition, which is weak-to-moderate structural evidence against a lifetime cap, but this is inferred from the absence of a stopping condition, not quoted. Treat with lower confidence than Growth's or Lightning's equivalent inference (those have an explicit open-ended "+" tier notation; this plan's formula-based mechanic doesn't have an analogous tell).
+- **One-Time Eval Fee — unresolved pricing conflict ($165 vs. $111)** — carried forward from an earlier draft of this file: the legacy marketing page (`tradeify.co/select-plan`) has a structured pricing object showing $165 for Select 50K, and a separate quick-preview widget on the same page showing $111, with no documented discount code that reconciles the two. This session's new "Tradeify Pricing Reference" help article independently states $165 for Select 50K (40%-consistency evaluation), corroborating the $165 figure but not resolving the $111 discrepancy. Do not treat $111 as a confirmed alternative price.
+- **Reset Fee — unresolved conflict between the Pricing Reference article and this firm's own engine ($109 vs. $99)** — this file's cited "Tradeify Pricing Reference" article states Select 50K's Reset Fee is $109 (used in the table above). The simulator engine's `SELECT_RESET_FEE` constant (`src/lib/prop-calculator/firms/tradeify/Tradeify.ts`) is $99, sourced per the engine's own inline note from directly reading `tradeify.co/select-plan`'s live checkout panel text ("Reset Fee: $99 — Allowed up to 10 resets per month"). Both are live, dated-today sources that disagree on the same fact for the same product. This file uses $109 because the Pricing Reference article was the source named for fees in this task; it does not treat $99 as ruled out. Flagged, not silently resolved either direction.
+- **Max Contracts (Sim Funded) — engine disagreement, not a source gap** — the source's Contract Scaling Plan table (now resolved, see Sim Funded table above) states Select Daily 50K funded accounts start at 2 mini/20 micro and scale progressively to 4 mini/40 micro only after hitting $1,500-then-$2,000-profit equity milestones. The engine's `CONTRACT_LIMITS.fundedMinis`/`fundedMicros` in `Tradeify.ts` are set to `ContractLimitKind.Flat` at 4/40 — i.e. the engine grants the full scaled-up contract size from day one of funding, with no progressive-scaling model, even though the underlying `ContractLimits` type supports a `Tiered` kind used elsewhere in this codebase (`LivePlan.ts`). This is a real mismatch between the newly-confirmed source and the current engine model. Flagged, not silently resolved.
+- **Select Daily Payout Cap (Daily Continuity Rule) — engine disagreement** — the source states two purchase-date-dependent 50K caps ($1,000 pre-Sep-1-2026, $1,250 post-Sep-1-2026; both documented in the Payouts table above). The engine's `buildSelectDailyPlan` hardcodes a single `payoutRequestCap: dollars(1000)` with no purchase-date branching — matching only the now-superseded pre-Sep-1-2026 figure. As of today (2026-09-18), new Select Daily 50K purchases should be subject to the $1,250 cap per source, which the engine does not currently model. Flagged, not silently resolved.
+- **Account sizes other than $50K** — this file covers the $50K plan only (the size modeled in the engine and the only size the prior drafts of this file documented). The sources gathered this session confirm Tradeify offers Select Daily in 25K, 100K, and 150K sizes with different drawdowns, DLLs, buffers, and payout caps (all visible in the tables pulled from "Select Flex and Select Daily Payout Policies" above), plus a 300K "limited release" size (KYC required, no resets, max 3 per user, excluded from the 15-evaluation monthly limit, and a materially different Daily payout mechanic — a flat $3,500/day cap requiring 50% new profit since the last payout, not the 2x-multiplier/per-size-cap mechanic documented above) — none of these tiers are documented here.
+
+---
+
+**Last Updated:** 2026-09-18
+**Sources:**
+
+- https://help.tradeify.co/en/articles/12853921-select-evaluation-accounts (Select Evaluation Accounts)
+- https://help.tradeify.co/en/articles/12853966-select-flex-and-select-daily-payout-policies (Select Flex and Select Daily Payout Policies)
+- https://help.tradeify.co/en/articles/12987441-introducing-the-new-select-plan-changes-to-the-live-program (Introducing the New Select Plan: Changes to the Live Program)
+- https://help.tradeify.co/en/articles/14369021-tradeify-pricing-reference (Tradeify Pricing Reference)
+- https://help.tradeify.co/en/articles/10468256-how-do-i-reset-a-failed-evaluation (How do I Reset a Failed Evaluation)
+- https://help.tradeify.co/en/articles/10468246-are-there-activation-fees (Are There Activation Fees)
+- https://help.tradeify.co/en/articles/10495897-rules-trailing-max-drawdowns (Rules: Trailing Max Drawdowns — firm-wide)
+- https://help.tradeify.co/en/articles/10468321-rules-daily-loss-limit (Rules: Daily Loss Limit — firm-wide)
+- `https://tradeify.co/select-plan` (legacy marketing page, Webflow, fetched 2026-09-18) — cited only for the flagged $165/$111 and $109/$99 pricing conflicts above; no other figure in this file relies on it.
