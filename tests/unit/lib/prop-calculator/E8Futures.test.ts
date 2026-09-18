@@ -242,6 +242,26 @@ describe('E8 Zero (MAX/Starter x 80%/100% payout) 50K', () => {
         },
     );
 
+    it('actually keeps trailing through the challenge stage past the $1,500 point that would lock it funded, run forward day by day rather than just checked by config', () => {
+        const zero = findE8ZeroPlan(E8FuturesVariant.ZeroMax80);
+
+        const evalState = zero.initialState();
+        evalState.balance = evalState.startingBalance + 1000;
+        zero.drawdown.onDayClose(evalState);
+        evalState.balance += 1000;
+        zero.drawdown.onDayClose(evalState);
+        expect(evalState.thresholdLocked).toBe(false);
+        expect(evalState.threshold).toBe(evalState.balance - 1500);
+
+        const fundedState = zero.initialState();
+        fundedState.balance = fundedState.startingBalance + 1000;
+        zero.fundedDrawdown.onDayClose(fundedState);
+        fundedState.balance += 1000;
+        zero.fundedDrawdown.onDayClose(fundedState);
+        expect(fundedState.thresholdLocked).toBe(true);
+        expect(fundedState.threshold).toBe(fundedState.startingBalance);
+    });
+
     it('prices MAX above Starter, and 100% payout above 80%, at $50K', () => {
         const maxEighty = findE8ZeroPlan(E8FuturesVariant.ZeroMax80);
         const maxHundred = findE8ZeroPlan(E8FuturesVariant.ZeroMax100);
