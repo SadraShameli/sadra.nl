@@ -1,0 +1,125 @@
+# E8 Zero: Starter & Max ($50,000 / $100,000 / $200,000)
+
+**Sources:** https://helpfutures.e8markets.com/en/articles/15935817-e8-zero-starter-and-max (updated over 3 weeks ago, per the page; no absolute date shown), https://helpfutures.e8markets.com/en/articles/15692158-payout-request-from-e8-zero (July 14, 2026), https://helpfutures.e8markets.com/en/articles/13106558-all-product-overviews-e8-one-vs-e8-zero-vs-e8-pro-vs-e8-signature (updated over 2 weeks ago), https://helpfutures.e8markets.com/en/articles/11864596-eod-dynamic-drawdown (July 14, 2026), https://helpfutures.e8markets.com/en/articles/15936479-40-best-day-rule-challenge (August 4, 2026), https://helpfutures.e8markets.com/en/articles/15272556-everything-about-payouts-when-how-how-fast (updated over a week ago), https://helpfutures.e8markets.com/en/articles/10155917-max-available-contract-sizes (August 19, 2026), https://helpfutures.e8markets.com/en/articles/11640147-account-reset (August 12, 2026), https://helpfutures.e8markets.com/en/articles/5515039-how-many-accounts-can-i-apply-for-at-once (updated over 2 weeks ago), https://helpfutures.e8markets.com/en/articles/9453425-is-there-any-inactivity-rule (June 22, 2026), https://helpfutures.e8markets.com/en/articles/10209321-can-i-trade-news (updated over 3 weeks ago), https://helpfutures.e8markets.com/en/articles/5514957-is-my-account-live-or-demo (May 14, 2026).
+
+**Last Verified:** 2026-09-18
+**Last Updated:** 2026-09-18
+
+## Overview
+
+E8 Zero is E8 Markets' single-phase Futures product ("Built for Futures traders who want minimal payout restrictions"), sold in two tiers, E8 Zero Starter and E8 Zero Max, at three account sizes: $50,000 / $100,000 / $200,000. Each tier is purchased with either an 80% or 100% payout share, for four total purchasable variants (Zero Starter 80%, Zero Starter 100%, Zero Max 80%, Zero Max 100%). Its one consistency rule (a 40% Best Day Rule) applies only in the SimFi Challenge stage; the SimFi Performance (funded) stage that follows carries no consistency rule, no daily loss limit, and no minimum-profitable-days requirement. Its only funded-stage restrictions are a per-cycle payout cap and a 5-payout lifetime cap per account.
+
+Per the plan's own article, "Both versions have identical rules; the only difference is that the starter version is cheaper with smaller payout caps, and Zero Max has a slightly higher price but offers bigger payout caps." Every table below therefore applies identically to both tiers except the One-Time Eval Fee (price: Unconfirmed for both tiers, see Not Confirmed) and Max Payout per Cycle (payout cap: see the Starter/Max sub-table under Payouts). Firm-wide trading policies that apply across every E8 Futures plan (bots/algorithmic trading, hedging, copy trading, the Front Month Contract requirement, trading platform, restricted countries) are documented once in this firm's README.md rather than repeated per-plan here.
+
+## Evaluation
+
+| Parameter | $50,000 | $100,000 | $200,000 |
+| --- | --- | --- | --- |
+| Starting Balance | $50,000 (derived from the account-size label used throughout the source articles; see Not Confirmed) | $100,000 (derived from the account-size label; see Not Confirmed) | $200,000 (derived from the account-size label; see Not Confirmed) |
+| Profit Target | $3,000 | $6,500 | $13,500 |
+| Drawdown Type | EOD Dynamic Drawdown: trails only, does not lock during the Challenge stage (see How the Drawdown Works) | EOD Dynamic Drawdown (same) | EOD Dynamic Drawdown (same) |
+| Drawdown Amount | $1,500 (computed: 3% × $50,000; see Not Confirmed) | $3,000 (computed: 3% × $100,000; see Not Confirmed) | $6,000 (computed: 3% × $200,000; see Not Confirmed) |
+| Minimum Balance at Start | Unconfirmed | Unconfirmed | Unconfirmed |
+| Daily Loss Limit | None | None | None |
+| Max Contracts | 4 | 8 | 10 |
+| Consistency Rule | 40% Best Day Rule (Challenge stage only): no single trading day's profit may exceed 40% of the $3,000 profit target (computed: $1,200; see Not Confirmed); breaching it does not fail the challenge, it raises the effective profit target to (that day's profit ÷ 0.40) instead | 40% Best Day Rule: no single day's profit may exceed 40% of the $6,500 target (computed: $2,600); same non-failing, target-raising effect | 40% Best Day Rule: no single day's profit may exceed 40% of the $13,500 target (computed: $5,400); same effect |
+| Minimum Trading Days | None ("No minimum Trading days") | None | None |
+| News Trading | Yes, unrestricted | Yes, unrestricted | Yes, unrestricted |
+| Inactivity Rule | 7 days (place and close at least one trade every 7 days) | 7 days | 7 days |
+| One-Time Eval Fee | Unconfirmed for all 4 variants; see Not Confirmed | Unconfirmed | Unconfirmed |
+| Reset Fee | Unconfirmed for all 4 variants; see Not Confirmed | Unconfirmed | Unconfirmed |
+
+## Sim Funded
+
+| Parameter | $50,000 | $100,000 | $200,000 |
+| --- | --- | --- | --- |
+| Starting Balance | $50,000 (nominal/literal balance; see Not Confirmed) | $100,000 (nominal) | $200,000 (nominal) |
+| Drawdown Type | EOD Dynamic Drawdown | EOD Dynamic Drawdown | EOD Dynamic Drawdown |
+| Drawdown Amount | $1,500 (computed: 3% × $50,000; see Not Confirmed) | $3,000 (computed: 3% × $100,000) | $6,000 (computed: 3% × $200,000) |
+| Drawdown Lock | Trigger: closed profit reaching $1,500 (3% of starting balance) OR requesting your first payout, whichever happens first ("Once your account reaches a closed profit in the amount of EOD Dynamic Drawdown or you request your first payout, the Drawdown locks..."). Locked value: $50,000, your literal starting balance/breakeven ("locks on the initial balance level" / "locks permanently at the initial balance level" / "the EOD loss level moves up to your initial balance and stays there permanently"). Does not apply during the Challenge stage. | Trigger: closed profit reaching $3,000 OR first payout requested, whichever first. Locked value: $100,000 (starting balance). Does not apply during Challenge. | Trigger: closed profit reaching $6,000 OR first payout requested, whichever first. Locked value: $200,000 (starting balance). Does not apply during Challenge. |
+| Minimum Balance (ongoing) | Trails at (highest end-of-day balance − $1,500) until the lock triggers; fixed at $50,000 once locked | Trails at (highest EOD balance − $3,000); fixed at $100,000 once locked | Trails at (highest EOD balance − $6,000); fixed at $200,000 once locked |
+| Daily Loss Limit | None | None | None |
+| Max Contracts | Starts at 2 ($20,000 margin); scales to 3 ($30,000 margin) once 1.5% profit is secured; scales to 5 ($50,000 margin) once 3% profit is secured (computed dollar equivalents: $750 and $1,500; see Not Confirmed). Scales automatically at the start of each new trading day. | Starts at 3 ($30,000 margin); scales to 5 ($50,000 margin) at 1.5% profit; scales to 8 ($80,000 margin) at 3% profit (computed: $1,500 and $3,000) | Starts at 4 ($40,000 margin); scales to 7 ($70,000 margin) at 1.5% profit; scales to 10 ($100,000 margin) at 3% profit (computed: $3,000 and $6,000) |
+| Consistency Rule | None (the 40% Best Day Rule applies only in the Challenge stage) | None | None |
+| News Trading | Yes, unrestricted | Yes, unrestricted | Yes, unrestricted |
+| Inactivity Rule | 7 days | 7 days | 7 days |
+| Max Active/Concurrent Accounts | 3 (per household; shared across all E8 Zero performance accounts regardless of tier, share, or size) | 3 | 3 |
+| Profit Split | 80% or 100%, selected at purchase (see Overview and Payouts) | 80% or 100% | 80% or 100% |
+
+## How the Drawdown Works
+
+E8 Zero's drawdown is the EOD Dynamic Drawdown, using the same formula in both the Challenge and Performance stages: "Highest End-of-the-day balance − Drawdown amount (3%) = Loss level." The loss level rises only when you close a profit at end-of-day, never from intraday equity swings, and it does not fall on a losing day either: it tracks the *highest* end-of-day balance reached to date, not the latest one, so a down day leaves the prior day's loss level unchanged. It recalculates once per day at market close; intraday moves between closes do not affect it. If account equity or balance ever reaches or falls below the current loss level, the account is permanently closed for breaching the rule.
+
+In the SimFi Performance (funded) stage, once your account's closed profit reaches the EOD Dynamic Drawdown dollar amount (3% of starting balance), or you request your first payout (whichever happens first), the loss level locks permanently at your literal starting balance (breakeven) and stops trailing altogether, even past that point.
+
+In the SimFi Challenge stage specifically, E8 Zero does **not** carry this lock at all. Per the source's own words: "In challange stage of E8 Zero, the Eod Drawdown scales with your profit, no matter what amount you make. Meaning that the loss level is not being locked at the initial balance and can go further." The Challenge-stage floor keeps trailing upward with profit indefinitely. This exception is stated only for E8 Zero's Challenge stage, not for the Performance stage, and not for any other E8 Futures product.
+
+### Worked Example
+
+This example tracks E8 Zero's SimFi Performance stage at the $50,000 size using the account's literal, nominal dollar balance, not a $0-based profit convention. This matches the EOD Dynamic Drawdown article's own dollar-denominated framing, which illustrates the identical mechanic with a table of Starting Balance $100,000 / EOD Dynamic Drawdown (3%) $3,000 / Loss level $97,000. The drawdown amount at this size is $1,500 (3% of $50,000).
+
+1. You start the Performance stage with a $50,000 balance. Highest end-of-day balance so far: $50,000. Loss level: $50,000 − $1,500 = $48,500. Cumulative closed profit: $0.
+2. Day 1: you close $600 in profit. EOD balance = $50,600 (a new high). Tomorrow's loss level = $50,600 − $1,500 = $49,100. Cumulative closed profit = $600 (below the $1,500 lock threshold, no lock yet).
+3. Day 2: you close $500 more profit. EOD balance = $51,100 (a new high). Loss level = $51,100 − $1,500 = $49,600. Cumulative closed profit = $600 + $500 = $1,100 (still below $1,500).
+4. Day 3: you close a $300 loss. EOD balance = $50,800, below the existing $51,100 high, so the loss level does **not** fall; it stays at $49,600 (the loss level only rises on a profit day). Cumulative closed profit = $1,100 − $300 = $800.
+5. Day 4: you close $1,000 in profit. EOD balance = $51,800 (a new high). Cumulative closed profit = $800 + $1,000 = $1,800: this passes the $1,500 EOD Dynamic Drawdown amount within this single day (it was $800 before Day 4, never landing exactly on $1,500). Per the source, the drawdown locks the moment cumulative closed profit reaches the drawdown amount: the loss level locks here, permanently, at your literal starting balance, **$50,000**. Note this is *not* the same figure the ordinary trailing formula would separately produce at this new high ($51,800 − $1,500 = $50,300); the source is explicit that the lock target is always the account's initial balance level, not a continuation of the trailing computation, and the $300 gap between $50,300 (naive trailing math) and $50,000 (the actual locked floor) is exactly the distinction this file's Drawdown Lock row states as Trigger vs. Locked value.
+6. From Day 4 onward, the loss level is fixed at $50,000 regardless of further balance moves. If the account balance ever reaches or falls below $50,000, it is permanently closed for breaching the EOD Dynamic Drawdown rule.
+
+(The same lock would instead trigger earlier, at whatever balance the account was at that moment, if a first payout were requested before cumulative closed profit reached $1,500; see Payouts.)
+
+## Payouts
+
+| Parameter | $50,000 | $100,000 | $200,000 |
+| --- | --- | --- | --- |
+| Profit Split | 80% or 100%, selected at purchase | 80% or 100% | 80% or 100% |
+| Payout Frequency | Daily (no fixed schedule; request any day the requirements below are met) | Daily | Daily |
+| Buffer Requirement | No hard pre-payout balance floor gates eligibility; advisory only, see note below the table | Advisory only | Advisory only |
+| Minimum Payout Request | $100 (net; see Not Confirmed for the 80%-share variants) | $100 | $100 |
+| Max Payout per Cycle | See Starter/Max sub-table below | See sub-table | See sub-table |
+| Consistency on Payouts | None ("no consistency rules" in the Performance stage) | None | None |
+| Maximum Total Payouts / Lifetime Cap | 5 payouts per account; after the 5th, the cycle closes, the account is deactivated, and you move on with a free Challenge account of the same size | 5 (same terms) | 5 (same terms) |
+
+**Max Payout per Cycle, by tier** (caps are based on account size alone, not on the number of payouts already taken):
+
+| Tier | $50,000 | $100,000 | $200,000 |
+| --- | --- | --- | --- |
+| E8 Zero Starter | $1,000 | $1,600 | $2,100 |
+| E8 Zero Max | $3,000 | $5,000 | $7,000 (source shows "$7.000"; see Not Confirmed) |
+
+**Buffer note:** E8 Zero's own payout-request article frames buffer only as situational, advisory guidance ("in certain situations, you need to leave a buffer" / "in certain scenarios, you should leave a buffer when you are requesting a payout"), not a hard eligibility gate. The reason it matters: once your first payout is processed, the loss level locks permanently at your starting balance (see Drawdown Lock), and every payout further reduces your account balance, so an oversized request can leave your balance uncomfortably close to, or even at or below, that locked floor. The source's own rule of thumb ("Coach Play"): leave at least $2,000 above your loss level after every payout (stated once, generally, not restated per account size; see Not Confirmed). Each payout cycle's profit requirement is independent of any buffer left from a prior cycle: leftover balance from a previous payout is not counted toward the next cycle's minimum.
+
+## Live Transition
+
+E8 Zero has no live or broker-funded account stage. The SimFi Performance account (reached after passing the SimFi Challenge) is the final, payout-eligible stage for both E8 Zero Starter and E8 Zero Max; no source read for this file describes any transition out of the simulated environment into a live/real-capital account. This matches E8 Markets' own description of its whole product line: "All accounts at E8 Markets are demo accounts within a simulated environment powered by real market data. This applies to all accounts, including SimFi™ Challenge accounts (Phase-1) and SimFi™ Performance accounts."
+
+## Not Confirmed By This Source
+
+- **Minimum Balance at Start (Evaluation, all sizes)**: not stated as a distinct figure in either source. Do not assume it equals $0 or equals the starting balance; it is simply unaddressed by the cited articles.
+- **Starting Balance (Evaluation and Sim Funded, all sizes)**: no single sentence in either source states "Starting Balance: $X." The $50,000/$100,000/$200,000 figures are derived from the account-size labels used consistently in the Challenge Profit Target list and the Max Contract Sizes table, and (for Sim Funded specifically) corroborated by the Payout Request article's own dollar-denominated worked examples on what it calls "a $100,000 account." Do not assume a $0-based profit convention applies anywhere in this file; every dollar figure for E8 Zero is nominal/literal-balance.
+- **Drawdown Amount, dollar figures at every stage and size ($1,500 / $3,000 / $6,000)**: the source states the rate directly ("3% EOD-Dynamic Drawdown... based on your highest end-of-day balance") but never restates the resulting dollar amount per size; these are this file's own arithmetic (3% × starting balance), not an independently-quoted figure. The $50,000-size figure ($1,500) has stronger corroboration than the other two sizes: it is exactly what the existing engine implementation already models (`ZERO_DRAWDOWN`), and it is exactly the sum of the two funded-stage contract-scaling thresholds in the Max Contract Sizes article ($750 + $750).
+- **40% Best Day Rule dollar caps (Evaluation, $1,200 / $2,600 / $5,400)**: the Challenge Rules source states only the 40% rate and each size's profit target; these dollar caps are this file's own arithmetic (40% × profit target), not an independently-quoted figure. Do not read them as a directly sourced number.
+- **Max Contracts scaling-trigger dollar equivalents ($750 / $1,500 / $3,000 / $6,000)**: the Max Contract Sizes article states the scaling triggers only as percentages ("Scaling trigger 1 (1.5% reached in profit)," "Scaling trigger 2 (3% reached in profit)") and gives dollar figures only for margin, a different concept, never for the profit threshold itself. The dollar equivalents shown are this file's own computation (percentage × starting balance), bridged from the separately-sourced Drawdown Amount figures rather than stated in the Max Contract Sizes article itself. Do not treat them as directly quoted from that article.
+- **One-Time Eval Fee (all 4 variants, all 3 sizes)**: no dollar price for purchasing any E8 Zero account appears anywhere in the provided source bundles. The existing engine implementation (`src/lib/prop-calculator/firms/e8futures/E8Futures.ts`) hardcodes $214 / $279 (Zero Max, 80% / 100% share) and $116 / $149 (Zero Starter, 80% / 100% share) at the $50,000 size, with no citation for those figures in the engine's own code comments or in this file's sources. Do not assume the engine's figures are confirmed correct, or wrong, from this pass alone; they are unconfirmed by the source text available to this draft.
+- **Reset Fee (all 4 variants, all 3 sizes)**: no flat reset-fee dollar figure is stated anywhere. The only reset-related mechanic sourced is a 10% discount off the original purchase price to restart from the Challenge phase after a failure, valid for 7 days (see the Account Reset source below), a discount mechanic, not a standalone fee amount. Do not assume Reset Fee equals the One-Time Eval Fee; the existing engine implementation makes exactly that assumption (`reset: shareConfig.evalFee`), and its own code comment already flags this as unconfirmed and pending direct confirmation, which this pass's sources do not resolve.
+- **Minimum Payout Request, net-vs-gross at the 80%-payout-share variants (Zero Starter 80%, Zero Max 80%)**: E8 Zero's own article states a flat "Minimum Payout: $100" with no net/gross qualification. A separate, firm-wide payouts article states the $100 minimum is net-of-share "with every product type" and that an 80%-share account must request at least $125 gross to net $100, but that same article also independently describes E8 Zero's minimum as simply "$100" in a sentence contrasting Zero against E8 One/Signature's on-demand model, without repeating the net/gross distinction there. Do not assume either reading is confirmed; the table above states the directly-quoted $100 figure rather than computing $125 into it.
+- **Payout cap, E8 Zero Max at $200,000 ($7,000)**: the source's own text renders this as "$7.000" (a decimal point, where every other figure in the same list uses a comma as thousands separator). Transcribed here as $7,000, treating it as a formatting artifact consistent with every other figure's punctuation and with Max's caps otherwise running roughly 3x Starter's at each size. Do not treat this one figure as unambiguously stated the way the other five payout-cap figures are.
+- **The "$2,000 buffer" rule of thumb**: stated once, in the Payout Request article's own worked example built around a $100,000 account, as a general "Coach Play" tip, not restated as scaling (or not scaling) with account size. Applied here as-is for all three sizes; do not assume it is meant to scale proportionally (e.g. to $1,000 or $4,000) at the $50,000/$200,000 sizes without an explicit statement to that effect.
+
+---
+
+**Last Updated:** 2026-09-18
+
+**Sources:**
+
+- https://helpfutures.e8markets.com/en/articles/15935817-e8-zero-starter-and-max (updated over 3 weeks ago), primary source for E8 Zero's own plan article: Challenge/Performance rules, profit targets, the 40% Best Day Rule reference, payout caps by tier and size, minimum payout, 5-payout lifetime cap, inactivity, news trading.
+- https://helpfutures.e8markets.com/en/articles/15692158-payout-request-from-e8-zero (July 14, 2026), source for the first-payout drawdown-lock trigger, the buffer worked examples, and the "$2,000 above your loss level" guidance.
+- https://helpfutures.e8markets.com/en/articles/13106558-all-product-overviews-e8-one-vs-e8-zero-vs-e8-pro-vs-e8-signature (updated over 2 weeks ago), source for Daily Loss Limit = None, EOD Dynamic Drawdown naming, and the 80%/100% payout-share confirmation.
+- https://helpfutures.e8markets.com/en/articles/11864596-eod-dynamic-drawdown (July 14, 2026), source for the EOD Dynamic Drawdown formula, the lock trigger/mechanism, and the explicit Challenge-stage exception for E8 Zero.
+- https://helpfutures.e8markets.com/en/articles/15936479-40-best-day-rule-challenge (August 4, 2026), source for the 40% Best Day Rule's mechanics and its target-raising (not failing) consequence.
+- https://helpfutures.e8markets.com/en/articles/15272556-everything-about-payouts-when-how-how-fast (updated over a week ago), source for payout processors, median timing, and the $100/$125 net-vs-gross discussion flagged in Not Confirmed.
+- https://helpfutures.e8markets.com/en/articles/10155917-max-available-contract-sizes (August 19, 2026), source for Max Contracts at every stage and size.
+- https://helpfutures.e8markets.com/en/articles/11640147-account-reset (August 12, 2026), source for the 10% reset discount mechanic.
+- https://helpfutures.e8markets.com/en/articles/5515039-how-many-accounts-can-i-apply-for-at-once (updated over 2 weeks ago), source for Max Active/Concurrent Accounts = 3.
+- https://helpfutures.e8markets.com/en/articles/9453425-is-there-any-inactivity-rule (June 22, 2026), corroborates the 7-day Futures inactivity rule and confirms the 60-day figure applies to Forex/Crypto only, not used here.
+- https://helpfutures.e8markets.com/en/articles/10209321-can-i-trade-news (updated over 3 weeks ago), corroborates unrestricted news trading.
+- https://helpfutures.e8markets.com/en/articles/5514957-is-my-account-live-or-demo (May 14, 2026), source for Live Transition.

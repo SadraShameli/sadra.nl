@@ -62,7 +62,7 @@ describe('E8 Futures Signature 50K', () => {
     });
 
     it('does not repeat the TPT bug: minPayoutRequest is explicit and independent of minPayoutProfit', () => {
-        expect(plan.minPayoutRequest).toBe(0.01);
+        expect(plan.minPayoutRequest).toBe(100);
         expect(plan.minPayoutRequest).not.toBe(plan.minPayoutProfit);
     });
 
@@ -108,10 +108,10 @@ describe('E8 Futures Signature 50K', () => {
     });
 
     it(
-        'requires 3 profitable days ($150+/0.3%) for the first payout but 5 for every payout after ' +
-            "(live-verified 2026-09-14 against helpfutures.e8markets.com's 'E8 Signature Futures' article)",
+        'has no explicit day-count gate on the first payout, but still requires 5 profitable days between every payout after ' +
+            "(corrected 2026-09-18: 'What is Payout On Demand?' and 'Everything about Payouts' both state the old '3 days for the first payout' figure was never a separate rule, only how the 35% Best Day Rule's own math happens to work out; live-verified against helpfutures.e8markets.com)",
         () => {
-            expect(plan.minDaysAfterPassForPayout).toBe(3);
+            expect(plan.minDaysAfterPassForPayout).toBe(0);
             expect(plan.minDaysAfterPassForPayoutPerCycle).toBe(5);
             expect(plan.minQualifyingDayProfit).toBe(150);
 
@@ -121,19 +121,7 @@ describe('E8 Futures Signature 50K', () => {
             const tracker = newFundedCycleTracker(state);
             state.balance = state.startingBalance + 10_000;
 
-            state.qualifyingDays = 2;
-            expect(
-                tryFundedPayout({
-                    maxPayouts: Infinity,
-                    minRetainedCushion: 0,
-                    payoutRequestSize: undefined,
-                    plan,
-                    state,
-                    tracker,
-                }),
-            ).toBeNull();
-
-            state.qualifyingDays = 3;
+            state.qualifyingDays = 0;
             const firstPayout = tryFundedPayout({
                 maxPayouts: Infinity,
                 minRetainedCushion: 0,
@@ -146,7 +134,7 @@ describe('E8 Futures Signature 50K', () => {
             expect(tracker.payoutsIssued).toBe(1);
 
             state.balance += 3000;
-            state.qualifyingDays += 3;
+            state.qualifyingDays += 4;
             expect(
                 tryFundedPayout({
                     maxPayouts: Infinity,
@@ -158,7 +146,7 @@ describe('E8 Futures Signature 50K', () => {
                 }),
             ).toBeNull();
 
-            state.qualifyingDays += 2;
+            state.qualifyingDays += 1;
             const secondPayout = tryFundedPayout({
                 maxPayouts: Infinity,
                 minRetainedCushion: 0,
@@ -233,16 +221,26 @@ describe('E8 Zero (MAX/Starter x 80%/100% payout) 50K', () => {
         expect(zero.fundedConsistencyRule()).toBeNull();
     });
 
-    it('matches the live-verified $1,500 drawdown, $3,000 target and no daily loss limit on either stage', () => {
-        const zero = findE8ZeroPlan(E8FuturesVariant.ZeroMax80);
-        expect(zero.drawdown.kind).toBe(DrawdownKind.EodTrailing);
-        expect(zero.drawdown.amount).toBe(1500);
-        expect(zero.drawdown.lock?.atProfit).toBe(1500);
-        expect(zero.profitTarget).toBe(3000);
-        expect(
-            zero.isDayLockedOut(zero.initialState(), TradingPhase.Eval),
-        ).toBe(false);
-    });
+    it(
+        'matches the live-verified $1,500 drawdown and $3,000 target on both stages, but only the funded-stage floor locks ' +
+            "(fixed 2026-09-18: the challenge-stage EOD Dynamic Drawdown was previously locking too, contradicting the plan's own article: 'In challange stage of E8 Zero, the Eod Drawdown scales with your profit... the loss level is not being locked at the initial balance and can go further')",
+        () => {
+            const zero = findE8ZeroPlan(E8FuturesVariant.ZeroMax80);
+            expect(zero.drawdown.kind).toBe(DrawdownKind.EodTrailing);
+            expect(zero.drawdown.amount).toBe(1500);
+            expect(zero.drawdown.lock).toBeUndefined();
+            expect(zero.fundedDrawdown.kind).toBe(DrawdownKind.EodTrailing);
+            expect(zero.fundedDrawdown.amount).toBe(1500);
+            expect(zero.fundedDrawdown.lock?.atProfit).toBe(1500);
+            expect(zero.fundedDrawdown.lock?.lockedThreshold(50_000)).toBe(
+                50_000,
+            );
+            expect(zero.profitTarget).toBe(3000);
+            expect(
+                zero.isDayLockedOut(zero.initialState(), TradingPhase.Eval),
+            ).toBe(false);
+        },
+    );
 
     it('prices MAX above Starter, and 100% payout above 80%, at $50K', () => {
         const maxEighty = findE8ZeroPlan(E8FuturesVariant.ZeroMax80);
