@@ -1,0 +1,120 @@
+# FundedNext Futures Flex Challenge ($50,000 / $100,000 / $150,000)
+
+**Sources:** `https://helpfutures.fundednext.com/en/articles/14878751-what-is-fundednext-futures-flex-challenge` ("What is FundedNext Futures Flex Challenge?", updated 2026-07-29), `https://helpfutures.fundednext.com/en/articles/14878830-how-do-i-pass-fundednext-futures-flex-challenge` ("How do I pass FundedNext Futures Flex Challenge?", updated 2026-06-24), `https://helpfutures.fundednext.com/en/articles/14878840-what-is-the-profit-target-in-the-fundednext-futures-flex-challenge` ("What is the profit target...", updated 2026-06-29), `https://helpfutures.fundednext.com/en/articles/14878851-is-there-any-consistency-rule-in-the-fundednext-futures-flex-challenge-and-fundednext-account` ("Is there any Consistency Rule...", updated 2026-05-12), `https://helpfutures.fundednext.com/en/articles/14878865-what-are-the-performance-reward-eligibility-criteria-for-flex-fundednext-account` ("Performance Reward eligibility criteria for Flex FundedNext Account", updated 2026-07-29), plus firm-wide articles: `https://helpfutures.fundednext.com/en/articles/14298225-what-is-the-maximum-loss-limit-at-fundednext-futures-and-how-does-it-work` (updated 2026-09-08), `https://helpfutures.fundednext.com/en/articles/14262297-what-is-the-contract-limit-policy-at-fundednext-futures` (updated 2026-07-10), `https://helpfutures.fundednext.com/en/articles/14298328-is-there-any-inactivity-period-in-fundednext-futures` (updated 2026-07-06), `https://helpfutures.fundednext.com/en/articles/14298245-are-there-any-news-trading-rules-for-fundednext-futures` (updated 2026-04-07), `https://helpfutures.fundednext.com/en/articles/14298258-what-are-benchmark-days-at-fundednext-futures` (updated 2026-05-12), `https://helpfutures.fundednext.com/en/articles/14298542-what-is-a-soft-breach-and-a-hard-breach-in-fundednext-futures` (updated 2026-04-12), `https://helpfutures.fundednext.com/en/articles/14260538-what-are-the-reset-conditions-and-fees-at-fundednext-futures` (updated 2026-09-03), `https://helpfutures.fundednext.com/en/articles/14261075-how-many-accounts-can-i-hold-with-fundednext-futures-and-what-is-the-maximum-allocation-available` (updated 2026-09-01).
+
+**Last Verified:** 2026-09-18
+**Last Updated:** 2026-09-18
+
+## Overview
+
+The Flex Challenge is FundedNext Futures' lowest-profit-target, single-fee 1-step model, sold in three sizes ($50K/$100K/$150K). It uses an EOD (End-of-Day) trailing Maximum Loss Limit (MLL) with no Daily Loss Limit at any stage, a 40% consistency rule that applies only during the Challenge Phase, and a 95% funded-stage reward share.
+
+Flex's Challenge Phase and its funded stage ("FundedNext Account") share the same MLL mechanic without a phase split: Flex's own contract-limit and MLL articles state identical numbers for "Challenge or FundedNext Account" together. The FundedNext Account drops the consistency rule entirely and instead gates payouts on a 5-benchmark-day cadence.
+
+## Evaluation
+
+| Parameter | $50,000 | $100,000 | $150,000 |
+| --- | --- | --- | --- |
+| Starting Balance | Unconfirmed | Unconfirmed | Unconfirmed |
+| Profit Target | $2,500 | $5,000 | $8,000 |
+| Drawdown Type | EOD (End-of-Day) trailing drawdown: "the FundedNext Futures Flex Account follows an EOD-based trailing drawdown method" ("How do I pass...") | (same) | (same) |
+| Drawdown Amount | $1,500 (Maximum Loss Limit, "Account Sizes" table) | $2,500 | $4,000 |
+| Minimum Balance at Start | Unconfirmed | Unconfirmed | Unconfirmed |
+| Daily Loss Limit | None: "No Daily Loss Limit... no daily loss limits are enforced, giving you more flexibility in trade management. However, the maximum loss limit still applies" ("How do I pass...") | (same) | (same) |
+| Max Contracts | 3 e-mini / 30 micro e-mini | 5 e-mini / 50 micro e-mini | 8 e-mini / 80 micro e-mini |
+| Consistency Rule | 40%: "Daily profit cannot exceed 40% of your total profit target," Challenge Phase only ("How do I pass..."); Formula: 40% × Profit Target = Daily Profit Threshold ($1,000 for $50K). If exceeded, Required Total Profit = Highest Daily Profit ÷ 40% | 40% (same formula, threshold = 40% × $5,000 = $2,000) | 40% (same formula, threshold = 40% × $8,000 = $3,200) |
+| Minimum Trading Days | Unconfirmed. No source states a minimum-days requirement for Flex. "No time limit" (Key Features, profit-target article) describes the *absence of a maximum* time to pass, not a minimum-days figure; do not conflate the two. | Unconfirmed | Unconfirmed |
+| News Trading | Unrestricted, firm-wide: "FundedNext Futures does not impose any news trading rules... during both the Challenge Account and the FundedNext Account" (no Flex-specific override found) | (same) | (same) |
+| Inactivity Rule | 30 consecutive calendar days with no trade, firm-wide: "Both FundedNext Challenge and FundedNext Account are breached after 30 consecutive calendar days of no trades"; count starts if no trade is placed by 04:01:00 PM CT after purchase, counts weekends, resets on any trade | (same) | (same) |
+| One-Time Eval Fee | $69.99 (1st:5th purchase) / $79.99 (6th purchase onward), list price $133.99 | $129.99 (1st:5th) / $149.99 (6th onward), list $249.99 | $249.99 (1st:5th) / $289.99 (6th onward), list $483.99 |
+| Reset Fee | $77.99 | Unconfirmed (see Not Confirmed: two conflicting source figures) | $278.99 |
+
+## Sim Funded
+
+| Parameter | $50,000 | $100,000 | $150,000 |
+| --- | --- | --- | --- |
+| Starting Balance | Unconfirmed | Unconfirmed | Unconfirmed |
+| Drawdown Type | EOD trailing drawdown, same mechanism as Evaluation; the firm-wide MLL article groups "Bolt, Flex and Rapid Pro and Daily" together without a Challenge/FundedNext Account split | (same) | (same) |
+| Drawdown Amount | $1,500 | $2,500 | $4,000 |
+| Drawdown Lock | Locked value (directly stated): "the maximum loss limit will stop trailing once it reaches $50,100 ($50K)" (firm-wide MLL article, "Note:" paragraph following the Maximum Loss Limits table); independently confirmed by this plan's own source: "It locks and stops trailing once the account hits $50,100 for 50K Account" ("How do I pass..."). General rule behind the offset: "For Bolt, Flex and Rapid Pro and Daily the maximum loss limit stops trailing at Initial balance + $100." Trigger (computed, not separately stated as a dollar balance by either source): EOD balance reaching locked value + drawdown amount = $50,100 + $1,500 = **$51,600**, derived by combining the source's own general trigger description ("When the account reaches a profit equivalent to the maximum loss limit, the maximum loss limit locks in") with the stated $1,500 drawdown amount, not itself a quoted figure. | Locked value: $100,100 (same two sources). Trigger (computed, same method): $100,100 + $2,500 = **$102,600**. | Locked value: $150,100 (same two sources). Trigger (computed, same method): $150,100 + $4,000 = **$154,100**. |
+| Minimum Balance (ongoing) | No separate figure stated; the (trailing or locked) MLL floor above is the minimum equity by construction: "If equity falls below the MLL at any time, the account is breached" (firm-wide MLL article) | (same) | (same) |
+| Daily Loss Limit | None (same "no daily loss limits" statement, not phrased as Challenge-only) | (same) | (same) |
+| Max Contracts | 3 e-mini / 30 micro e-mini, same limit as Evaluation; the firm-wide contract-limit article's own example states "A trader with a $100K Flex (Challenge or FundedNext Account) can trade up to 50 contracts... or 5 contracts," confirming one flat limit spans both phases | 5 e-mini / 50 micro e-mini | 8 e-mini / 80 micro e-mini |
+| Consistency Rule | None: "the Futures Flex FundedNext Account does not [have a consistency rule]" ("Is there any Consistency Rule...") | (same) | (same) |
+| News Trading | Unrestricted (same firm-wide rule) | (same) | (same) |
+| Inactivity Rule | 30 consecutive calendar days (same firm-wide rule, explicitly names "FundedNext Accounts" too) | (same) | (same) |
+| Max Active/Concurrent Accounts | Up to 5 active FundedNext Accounts at a time, firm-wide cap shared across **every** FundedNext Futures plan combined, not Flex-specific ("Each user/household... can hold up to 5 active FundedNext Accounts simultaneously, regardless of individual account sizes") | (same) | (same) |
+| Profit Split | 95% trader: "Reward Share | 95%" (Performance Reward eligibility table); "traders can earn up to a 95% Reward Share" (TL;DR) | 95% | 95% |
+
+## How the Drawdown Works
+
+The Flex Maximum Loss Limit (MLL) follows the firm-wide EOD trailing system: it recalculates once per trading day from the highest EOD balance reached, moves up with profit, never moves down on a loss, and does not react in real time except that an intraday floating loss reaching the MLL causes an instant breach (firm-wide MLL article). Uniquely for Flex (shared with Bolt and Rapid Pro/Daily, unlike Legacy's zero-offset lock), the MLL stops trailing and locks $100 **above** the account's starting balance rather than exactly at it: $50,100 / $100,100 / $150,100 for the three sizes. This same trailing/locking mechanic applies identically across the Challenge Phase and the FundedNext Account, per both cited sources.
+
+Separately, this plan's own Performance Reward eligibility article states the first Performance Reward withdrawal itself forces this same lock: "Locks at $50,100 after first payout" (50K row), and "The first withdrawal resets the maximum loss limit (MLL) back to $50,100, $100,100 & $150,100." This is worded as a second, independent trigger path (the payout request itself), reaching the *same* locked value already described above, not a different figure; it is consistent with, and does not contradict, the profit-based trigger.
+
+A Hard Breach (equity at or below the MLL) permanently closes the account; a reset is required to trade again. Flex has no Daily Loss Limit, so there is no Soft Breach path for this plan (Soft Breach only applies to plans with a Daily Loss Limit, per the firm-wide soft/hard breach article).
+
+### Worked Example
+
+This example uses the full nominal-balance convention for the $50,000 tier: the account's real balance, starting at a literal $50,000, tracked throughout (matching the account-size label used for Starting Balance in the tables above).
+
+1. The account opens at $50,000. The Maximum Loss Limit (MLL) is set at $50,000 − $1,500 = $48,500.
+2. EOD balance rises to a new high of $51,000 (still below the $51,600 computed trigger). The MLL trails up to $51,000 − $1,500 = $49,500.
+3. EOD balance reaches a new high of $51,600 exactly. Per the source's own stated locked value, the MLL locks at **$50,100** and stops trailing.
+4. EOD balance later rises further to $53,000 (a new high). The MLL does not move; it remains fixed at $50,100, since it already locked in step 3.
+5. If the account's balance ever fell to $50,100 or below (whether at EOD or intraday), the account is Hard Breached and permanently closed.
+
+Re-derivation check: starting balance $50,000 + drawdown amount $1,500 + the plan's own $100 lock offset = $51,600 trigger balance, and $50,000 + $100 = $50,100 locked value; both match the source-stated locked value and the computed trigger used above.
+
+## Payouts
+
+| Parameter | $50,000 | $100,000 | $150,000 |
+| --- | --- | --- | --- |
+| Profit Split | 95% trader / 5% FundedNext | 95% / 5% | 95% / 5% |
+| Payout Frequency | Every 5 benchmark days (this plan's own Performance Reward eligibility article: "you can withdraw up to 50% of your accumulated profit... after every 5 benchmark days"). A benchmark day requires at least $200 profit that day, per the separate firm-wide Benchmark Days article | Every 5 benchmark days, $200/day threshold | Every 5 benchmark days, $250/day threshold |
+| Buffer Requirement | None: "no buffer rules" (TL;DR) | (same) | (same) |
+| Minimum Payout Request | $250 ("Minimum Withdrawal" row, Performance Reward eligibility table) | $250 | $250 |
+| Max Payout per Cycle | Up to 50% of accumulated profit, capped at $1,500 ("Maximum Withdrawal | Up to 50% of profit (max $1,500)") | Up to 50% of profit, capped at $2,500 | Up to 50% of profit, capped at $4,000 |
+| Consistency on Payouts | No percentage-based consistency rule applies to the FundedNext Account (see Sim Funded table). Eligibility instead requires $500 in accumulated profit within the current cycle ("Minimum Profit | $500," same table) across the 5 required benchmark days, a profit-accumulation gate, not a percentage check. | $500 minimum cycle profit (same) | $500 minimum cycle profit (same) |
+| Maximum Total Payouts / Lifetime Cap | 5: "After 5 Performance Reward Withdrawals, the Flex FundedNext Account will be concluded" ("Key Takeaway") | 5 | 5 |
+
+## Live Transition
+
+Flex funded accounts may enter FundedNext's live-review pool if one or more of the following are met: (1) completion of 5 Performance Reward Cycles from a single account, (2) an exceptional performance record across FundedNext Accounts, or (3) prior live trading experience ("What are the Criteria to move to the Live Trading program..."). Meeting a criterion does not guarantee selection; final selection is at FundedNext's sole discretion.
+
+If selected: all of the trader's existing FundedNext Accounts are concluded as part of the transition, and all Simulated Profit in those closed accounts is forfeited. This plan's own source states directly (not derived): "the cumulative maximum deposit of the live account across all combined Flex Accounts cannot exceed a total threshold of $10,000."
+
+The resulting live account's own mechanics (deposit amount, drawdown structure, payout tiers) are documented in full in [`live.md`](live.md) rather than duplicated here; this plan's own sources do not themselves describe the live account's mechanics, only the review-pool entry criteria and the $10,000 cumulative deposit cap above. See Not Confirmed below.
+
+## Not Confirmed By This Source
+
+- **Starting Balance (Evaluation and Sim Funded, all tiers):** no source literally uses the phrase "Starting Balance" for Flex; the $50,000/$100,000/$150,000 figures are derived from each tier's own account-size label. Do not treat this as a directly-quoted figure.
+- **Minimum Balance at Start (Evaluation, all tiers):** not stated in any cited source.
+- **Minimum Trading Days (Evaluation, all tiers):** not stated as a formal minimum-days requirement. Do not assume it is 0 by analogy to Legacy/Rapid Pro/Rapid Daily (all independently confirmed at 0 elsewhere); Flex's own sources simply never state this figure either way.
+- **Reset Fee, $100,000 tier:** this plan's own pricing article ("What is FundedNext Futures Flex Challenge?") states $144.99; the firm-wide reset-conditions article states $147.99 for the same "Flex 100K" row. The 50K ($77.99) and 150K ($278.99) reset figures agree exactly across both sources, so this is an isolated one-figure contradiction between two of the firm's own articles, not a systemic one. Per this repo's own engine notes on FundedNext, the firm's reset-fee documentation is independently known to be internally inconsistent elsewhere too (see Not Confirmed further down re: FundedNext.ts). Do not average the two figures or silently pick one as "the" number; both are cited above.
+- **Trigger balance for the Drawdown Lock (all tiers):** neither cited source states the EOD balance level that causes the MLL to lock as a literal dollar figure; the $51,600 / $102,600 / $154,100 figures shown in the Drawdown Lock row are computed by adding the source's own stated locked value and drawdown amount together, not directly quoted.
+- **Live-stage deposit amount, lock offset, and payout tiers for Flex specifically:** this plan's own sources confirm only the $10,000 cumulative live-deposit cap and the discretionary review-pool entry criteria; the mechanical details (starting deposit, EOD lock offset, payout-tier splits) are documented only in the shared `live.md`, which this pass did not re-verify against a Flex-specific source.
+- **Engine disagreement, `maxLifetimePayouts` (FundedNext.ts, `buildFlexPlan`):** this file's own source states a firm 5-payout lifetime cap ("After 5 Performance Reward Withdrawals, the Flex FundedNext Account will be concluded"), but `buildFlexPlan` in `src/lib/prop-calculator/firms/fundednext/FundedNext.ts` does not set `maxLifetimePayouts` at all (unlike Rapid Pro/Daily, which set it to `RAPID_MAX_WITHDRAWALS` = 5). Flagged, not silently fixed here.
+- **Engine disagreement, `minPayoutProfit` / `minPayoutRequest` (FundedNext.ts, `buildFlexPlan`):** this file's own source states a $500 minimum cycle profit and a $250 minimum withdrawal request, but `buildFlexPlan` sets neither field (its own inline code comment says both were "left unset... defaulting to $0" because "the pricing page" didn't state them; a different, Performance Reward eligibility article does). Flagged, not silently fixed here.
+- **Engine note now superseded, the $100 lock offset:** `FundedNext.ts`'s own inline notes describe the Flex drawdown lock's $100 offset (`RAPID_LOCK_OFFSET`) as "an inference, not a confirmed figure... since Flex's own marketing tagline... does not claim a zero-buffer lock." Both sources cited in this file directly and explicitly confirm the $100 offset ("Initial balance + $100"; "$50,100/$100,100/$150,100"). The modeled number is correct; the code comment's characterization of it as unconfirmed is now stale relative to the sources used for this pass.
+- **Engine scope gap, $100,000 and $150,000 Flex tiers are entirely unmodeled:** `FLEX_SIZES` in `FundedNext.ts` contains only a single 50K entry. Both cited sources confirm 100K and 150K Flex Challenges as real, currently-purchasable products with their own profit targets, MLL figures, contract limits, and pricing (all captured in this file's tables). This is a real engine/doc scope gap, not something this documentation pass resolves.
+
+---
+
+**Last Updated:** 2026-09-18
+**Sources:**
+
+- `https://helpfutures.fundednext.com/en/articles/14878751-what-is-fundednext-futures-flex-challenge`: "What is FundedNext Futures Flex Challenge?" (updated 2026-07-29)
+- `https://helpfutures.fundednext.com/en/articles/14878830-how-do-i-pass-fundednext-futures-flex-challenge`: "How do I pass FundedNext Futures Flex Challenge?" (updated 2026-06-24)
+- `https://helpfutures.fundednext.com/en/articles/14878840-what-is-the-profit-target-in-the-fundednext-futures-flex-challenge`: "What is the profit target in the FundedNext Futures Flex Challenge?" (updated 2026-06-29)
+- `https://helpfutures.fundednext.com/en/articles/14878851-is-there-any-consistency-rule-in-the-fundednext-futures-flex-challenge-and-fundednext-account`: "Is there any Consistency Rule in the FundedNext Futures Flex Challenge and FundedNext Account?" (updated 2026-05-12)
+- `https://helpfutures.fundednext.com/en/articles/14878865-what-are-the-performance-reward-eligibility-criteria-for-flex-fundednext-account`: "What are the Performance Reward eligibility criteria for Flex FundedNext Account?" (updated 2026-07-29)
+- `https://helpfutures.fundednext.com/en/articles/14298225-what-is-the-maximum-loss-limit-at-fundednext-futures-and-how-does-it-work`: firm-wide MLL article (updated 2026-09-08)
+- `https://helpfutures.fundednext.com/en/articles/14262297-what-is-the-contract-limit-policy-at-fundednext-futures`: firm-wide contract-limit policy (updated 2026-07-10)
+- `https://helpfutures.fundednext.com/en/articles/14298328-is-there-any-inactivity-period-in-fundednext-futures`: firm-wide inactivity rule (updated 2026-07-06)
+- `https://helpfutures.fundednext.com/en/articles/14298245-are-there-any-news-trading-rules-for-fundednext-futures`: firm-wide news trading policy (updated 2026-04-07)
+- `https://helpfutures.fundednext.com/en/articles/14298258-what-are-benchmark-days-at-fundednext-futures`: firm-wide benchmark days (updated 2026-05-12)
+- `https://helpfutures.fundednext.com/en/articles/14298542-what-is-a-soft-breach-and-a-hard-breach-in-fundednext-futures`: firm-wide breach types (updated 2026-04-12)
+- `https://helpfutures.fundednext.com/en/articles/14260538-what-are-the-reset-conditions-and-fees-at-fundednext-futures`: firm-wide reset conditions/fees (updated 2026-09-03)
+- `https://helpfutures.fundednext.com/en/articles/14261075-how-many-accounts-can-i-hold-with-fundednext-futures-and-what-is-the-maximum-allocation-available`: firm-wide account allocation (updated 2026-09-01)
+- Cross-checked against `src/lib/prop-calculator/firms/fundednext/FundedNext.ts` (`buildFlexPlan`, `FLEX_SIZES`, and the class's own `notes` array). See Not Confirmed above for every point of disagreement found.

@@ -1,0 +1,103 @@
+# FundedNext Futures Live Account (25K / 50K / 100K / 150K)
+
+**Sources:** https://helpfutures.fundednext.com/en/articles/16522296-road-to-live-trading-rapid-challenge-and-flex-challenge (updated September 3, 2026; the most recently updated of the three, and the only one of the three that tabulates all four account sizes; treated as this file's primary/canonical source), https://helpfutures.fundednext.com/en/articles/15900277-road-to-live-trading-rapid-challenge (updated August 15, 2026; Rapid-specific, filed under the "FundedNext Futures Rapid Pro and Daily Challenge FAQ" collection, tabulates 25K/50K/100K only), https://helpfutures.fundednext.com/en/articles/15430139-road-to-live-trading-flex-challenge (updated August 15, 2026; Flex-specific, tabulates 50K/100K/150K only). Full detail on how the three relate is in the footer.
+
+**Last Verified:** 2026-09-18
+**Last Updated:** 2026-09-18
+
+## Overview
+
+This file documents FundedNext Futures' newer live-trading program, the one a Flex, Rapid Pro, or Rapid Daily FundedNext Account transitions into after a trader is selected for live trading. It is shared by `flex.md`, `rapid-pro.md`, and `rapid-daily.md` and is not duplicated in any of those files. It is a different mechanic from the older/legacy live program used by the Legacy Challenge, documented separately in [`legacy-live.md`](legacy-live.md); none of the three source articles cited here describe that program, so no legacy-live figures are stated in this file.
+
+All three cited articles cover the same eligibility, transition-process, and breach/cooldown mechanics in substantially similar wording, with minor phrasing differences between them, and they differ in which account sizes each one's Section 3/4 tables list. The two plan-specific articles (Rapid: 25K/50K/100K; Flex: 50K/100K/150K) are each scoped to the funded-account sizes that plan itself sells. This file does not independently confirm that Rapid Pro/Daily ever offers a 150K funded tier, or that Flex ever offers a 25K funded tier; each plan's own file is the source of truth for which sizes that plan sells. The combined, most-recently-updated article lists the union of all four sizes and is used below as the canonical per-size table.
+
+A live account's starting balance is a small fixed deposit by size, not $0. The Max Loss Limit (MLL) itself starts from $0 at account open and trails up with the account's balance. Once transitioned, a trader holds up to 5 live accounts (one per eligible funded account transitioning).
+
+## Live Account Parameters
+
+| Parameter | 25K | 50K | 100K | 150K |
+| --- | --- | --- | --- | --- |
+| Starting Balance | $1,500 | $2,000 | $3,000 | $4,500 |
+| Drawdown Type | Trailing Max Loss Limit (MLL), starts from $0 | Trailing Max Loss Limit (MLL), starts from $0 | Trailing Max Loss Limit (MLL), starts from $0 | Trailing Max Loss Limit (MLL), starts from $0 |
+| Drawdown Amount | Trails as Balance − Starting Balance (MLL "Starts from $0" at account open, when Balance = Starting Balance) | Same pattern | Same pattern | Same pattern |
+| Drawdown Lock | Trigger: profit equals your initial MLL amount / starting balance (derived: balance reaches $3,000; the source states this general rule and works it through explicitly only for the 50K tier). Locked value: $500, per "$1,000 below your starting balance," in the Locked MLL floors table. | Trigger: "profit equals your starting balance (balance reaches $4,000)," stated explicitly in source, or on payout request, whichever comes first. Locked value: $1,000, per "$1,000 below your starting balance." This $1,000 figure supersedes the $2,000 figure shown in the same article's own earlier worked-example table; see How the Drawdown Works for the internal inconsistency. | Trigger: profit equals starting balance (derived: balance reaches $6,000). Locked value: $2,000, per "$1,000 below your starting balance." | Trigger: profit equals starting balance (derived: balance reaches $9,000). Locked value: $3,500, per "$1,000 below your starting balance." |
+| Minimum Balance (ongoing) | Not stated as a figure distinct from the Drawdown Lock values above; see Not Confirmed | Not stated; see Not Confirmed | Not stated; see Not Confirmed | Not stated; see Not Confirmed |
+| Daily Loss Limit | None ("No DLL is imposed on the live account(s)") | None | None | None |
+| Max Contracts (Before MLL Locks) | 2 Mini / 20 Micro | 3 Mini / 30 Micro | 4 Mini / 40 Micro | 5 Mini / 50 Micro |
+| Max Contracts (After MLL Locks) | 4 Mini / 40 Micro | 6 Mini / 60 Micro | 8 Mini / 80 Micro | 10 Mini / 100 Micro |
+| Consistency Rule | Not stated in any of the three cited articles; see Not Confirmed | Not stated; see Not Confirmed | Not stated; see Not Confirmed | Not stated; see Not Confirmed |
+| News Trading | Not stated in any of the three cited articles for the live stage specifically; see Not Confirmed | Not stated; see Not Confirmed | Not stated; see Not Confirmed | Not stated; see Not Confirmed |
+| Inactivity Rule | Not stated in any of the three cited articles for the live stage specifically; see Not Confirmed | Not stated; see Not Confirmed | Not stated; see Not Confirmed | Not stated; see Not Confirmed |
+| Max Active/Concurrent Accounts | Up to 5 live accounts total ("up to a maximum of 5 live accounts"), one per eligible funded account transitioning | Same | Same | Same |
+| Profit Split | 100% on the first $5,000 in cumulative withdrawals, then 90/10 thereafter | Same | Same | Same |
+
+## How the Drawdown Works
+
+The Maximum Loss Limit (MLL) on the live account is a trailing floor: "It moves up as your account grows, but never moves down." It starts from $0 at account open (when Balance = Starting Balance) and, while trailing, sits at Balance − Starting Balance.
+
+The MLL locks (stops trailing permanently): "in any of two situations: When you request a payout; [or] When your profit equals your initial MLL amount." The source's own "MLL Lock Benefit" section clarifies that "your initial MLL amount" in that sentence means the starting balance: "The MLL locks when your profit equals your starting balance... or when you request a payout, whichever comes first."
+
+Once locked, the floor is fixed: "If your balance touches or drops below this floor, the account is auto-liquidated." The source states this size-invariant rule for the locked value itself: "Your MLL locks $1,000 below your starting balance... This is the MLL Lock Benefit, and it applies automatically to every live account," and separately, "Every size follows the same rule: the lock is $1,000 below your starting balance."
+
+**An internal inconsistency in the source that this file does not silently resolve (bug class 1):** the article's earlier "Trailing MLL Explained" section walks a 50K example where the MLL, at the moment of lock (balance reaches $4,000), is shown locking at "$2,000," i.e. at the starting balance itself, not $1,000 below it. The very next section, "MLL Lock Benefit," directly addresses this exact figure and overrides it: "On a 50K live account, that means your MLL locks at $1,000, not at the $2,000 starting balance." Both sections appear in all three cited articles, worded identically. This file treats $1,000-below-starting-balance (the "MLL Lock Benefit" figure) as the operative locked value for every size, per the article's own explicit correction and its dedicated "Locked MLL floors per account size" table (which states $500/$1,000/$2,000/$3,500 for 25K/50K/100K/150K), but the source's own earlier example table is quoted above rather than deleted, since a reader of the raw article will encounter both.
+
+**A second ambiguity the source does not resolve, and this file does not invent an answer to:** a separate note in the "Trailing MLL Explained" section states, "If the requested withdrawal reduces the current account balance to the initial deposit amount, the account will be automatically liquidated." This is a distinct trigger from the locked-floor breach described above: it fires off the starting-balance level, not the (lower, $1,000-below-start) locked MLL floor. Neither cited article states how this interacts with an account whose MLL has already locked at the lower floor (e.g., whether a withdrawal that drops a locked 50K account's balance to exactly $2,000, above its $1,000 locked floor, triggers auto-liquidation anyway, or whether this note only applies pre-lock). Do not assume either resolution.
+
+### Worked Example
+
+This example tracks the FundedNext Live account's literal, nominal balance from its actual starting deposit (not a $0-based profit convention), matching the source's own balance-denominated language throughout its own worked tables ("Balance reaches $4,000," "Balance drops to $1,800"). It uses the 50K tier ($2,000 starting balance), the only size the source works through explicitly.
+
+1. Account opens. Balance = $2,000 (the Starting Balance). MLL Floor = $0, matching the source's own "Account opens | $2,000 | Trailing from $0 | Active."
+
+2. Balance grows to $3,000 (a new high). MLL Floor trails up: Floor = Balance − Starting Balance = $3,000 − $2,000 = $1,000, matching the source's own "Balance grows to $3,000 | $3,000 | $1,000 | MLL trails up with balance."
+
+3. Balance reaches $4,000 (a new high). Profit at this point = Balance − Starting Balance = $4,000 − $2,000 = $2,000, exactly equal to the $2,000 starting balance: the source's stated lock trigger ("profit equals your starting balance"). The MLL now locks permanently. Per the "MLL Lock Benefit," the locked floor is set $1,000 below the $2,000 starting balance: $2,000 − $1,000 = $1,000 (not the $2,000 that the earlier example table in this same source shows at this same balance level; see the flagged inconsistency above). This matches the source's own "Balance reaches $4,000 (or payout requested) | $4,000 | Locks at $1,000 | Active."
+
+4. Balance drops to $1,800 (a loss from the $4,000 peak). $1,800 is still above the locked $1,000 floor, so the account remains active; the floor does not move, matching "Balance drops to $1,800 | $1,800 | $1,000 | Active."
+
+5. Balance touches $1,000 (a further loss, reaching the locked floor exactly). Per the source, "If your balance touches or drops below this floor, the account is auto-liquidated." The account breaches, matching "Balance touches $1,000 | $1,000 | $1,000 | Breached."
+
+Re-derivation check: Starting Balance $2,000 → lock trigger at profit = $2,000 (balance $4,000, stated explicitly in the source) → locked floor = $2,000 − $1,000 = $1,000, matching the source's own directly stated "MLL Locks at $1,000" for the 50K tier exactly.
+
+## Live Account Eligibility & Transition
+
+**Eligibility criteria.** "Earn 15 Performance Rewards during your FundedNext journey to enter the live review pool." Traders returning from a previous live journey "re-enter the review pool after every 5 Performance Rewards — since going live once already proves the trader's strategy." Meeting the threshold does not guarantee a transition: "the FundedNext risk team evaluates each trader's full performance history, and only traders who demonstrate consistent, responsible trading behaviour will be moved to live. If you're not selected, your accounts continue as normal." Transitions "only happen at the end of an active payout cycle — never mid-cycle": "If a trader is selected during the 3rd cycle, the transition will occur after the trader requests their 3rd payout from that cycle."
+
+**Transition process, Challenge Accounts.** "All active Challenge Accounts are permanently closed at the time of transition" and "are not eligible for any refunds." The source notes: "Traders who prefer to preserve their Challenge Accounts should keep this in mind before stacking multiple Challenge Accounts."
+
+**Transition process, FundedNext Accounts.** "FundedNext Accounts with at least 1 successful withdrawal will be transitioned to a live account." "FundedNext Accounts with 0 payouts will be closed, and the funded account's cost will be refunded within 24 hours once the live transition is completed."
+
+**Accounts received.** "Traders receive one live account per eligible funded account transitioning, up to a maximum of 5 live accounts."
+
+## Breach and Cooldown
+
+Traders who breach a live account enter a mandatory cooldown before any trading is permitted:
+
+- Standard cooldown: "2 weeks mandatory for all traders."
+- Extended cooldown: "4 weeks or an extended period, at FundedNext's discretion, for traders who breach through reckless behaviour such as aggressive positions or breaching within a single trading session."
+
+After completing the cooldown, "traders return to normal simulated trading, purchasing Challenge Accounts and following the standard path back to live."
+
+## Not Confirmed By This Source
+
+- **Minimum Balance (ongoing)**: none of the three cited articles states a minimum-balance figure distinct from the Drawdown Lock values already in the table above. Do not assume it equals $0, the locked MLL floor, or any other value.
+- **Consistency Rule**: not mentioned anywhere in any of the three cited articles for the live stage. Do not assume it carries over from the Rapid Pro FundedNext Account's 40% Consistency Rule or from any other plan's funded-stage rule; this is a live-stage-specific gap, per bug class 3 of this repo's own conventions, not an inference from a sibling plan file.
+- **News Trading**: not mentioned anywhere in any of the three cited articles for the live stage specifically. Do not assume the firm-wide "no news trading restrictions" policy (documented for the Challenge/FundedNext Account stages in `rapid-pro.md`/`rapid-daily.md`) automatically extends to live accounts without its own citation.
+- **Inactivity Rule**: not mentioned anywhere in any of the three cited articles for the live stage specifically. Do not assume the 30-consecutive-calendar-day Challenge/FundedNext Account inactivity rule carries over to live accounts.
+- **Buffer Requirement, Max Payout per Cycle, Consistency on Payouts**: none of these payout-mechanics fields is stated for the live stage. Do not assume any Challenge/FundedNext Account payout figure (e.g. Rapid Pro's $250 minimum / $1,200 max per cycle) carries over; the live stage's own stated payout figures are only "Minimum withdrawal request: $100" and the 100%-then-90/10 split.
+- **Maximum Total Payouts / Lifetime Cap**: not stated. The $5,000 cumulative-withdrawal figure is a profit-split tier threshold (100% below it, 90/10 above it), not itself a stated cap on total live payouts; no lifetime withdrawal cap is stated in any of the three cited articles. Do not treat $5,000 as a lifetime maximum.
+- **Whether the MLL check is end-of-day (EOD) or intraday**: none of the three cited articles uses "End-of-Day" or "EOD" terminology for the live-stage MLL check (unlike the Challenge/FundedNext Account stage, which is explicitly EOD per other FundedNext plan files). The worked examples here describe discrete "Balance" events without stating their timing basis. Do not assume EOD without a separate citation.
+- **Auto-liquidation-on-withdrawal-to-starting-balance vs. the locked MLL floor**: see the second ambiguity flagged under How the Drawdown Works. Do not assume either resolution (that this note applies only pre-lock, or that it remains an independent breach trigger even after the MLL has locked lower).
+- **Per-plan account-size availability**: this file's canonical table (25K/50K/100K/150K) comes from the combined, most-recently-updated article. The plan-specific Rapid article lists only 25K/50K/100K; the plan-specific Flex article lists only 50K/100K/150K. Do not assume Rapid Pro/Daily has a 150K live tier or that Flex has a 25K live tier without checking that specific plan's own file for which funded-account sizes it actually sells.
+- **Engine scope gap (`FundedNextLive.ts`)**: the engine's single, hardcoded `LivePlan` (via `buildFundedNextLivePlan`, mapped 1:1 to `FirmId.FundedNext` with no per-size variant in `firms/index.ts`) models only the 50K/$2,000-deposit tier. It has no model at all for the 25K, 100K, or 150K tiers this source confirms exist. This matches `FundedNext.ts`'s own inline note ("FundedNextLive.ts models the 50K tier only... LivePlan/LiveAccountState have no per-size variant concept by design"), which is treated here as a legitimate prior-research citation for what the engine's own authors already knew was unmodeled, not as independent confirmation of any dollar figure. Flagged, not silently resolved.
+- **Engine correctness gap (`FundedNextLive.ts`), drawdown lock trigger, traced against `DrawdownStrategy.ts`'s `maybeLock`**: `DrawdownStrategy.ts` fires the lock when cumulative profit (`state.balance - state.startingBalance`) reaches `lock.atProfit`. `FundedNextLive.ts` sets `atProfit: dollars(STARTING_BALANCE + LOCK_OFFSET)`, i.e. `2000 + (-1000) = 1000` for the 50K tier, so the lock would fire in the engine once profit reaches $1,000 (balance $3,000). This source states the trigger fires when profit reaches the starting balance itself ($2,000, balance $4,000); see the Drawdown Lock row and Worked Example above. The engine's *locked value* is correct (`lockThresholdAt(-1000)(2000) = 1000`, matching this source's $1,000 locked floor for 50K exactly), but its *trigger* appears to double-count the −$1,000 offset, folding it into both the trigger and the locked value, when this source's trigger is stated independently of that offset (trigger = starting balance alone, full stop). This is traced directly against `DrawdownStrategy.ts`'s source (not assumed from the field name), and is reported here as a likely engine bug per this task's instruction to flag disagreements rather than resolve them; this file does not modify the engine.
+- **Engine scope gap (`FundedNextLive.ts`), contract limits**: none of `buildFundedNextLivePlan`'s fields set `contractLimit` (the `LivePlan` class does support an optional `contractLimit: ContractLimitConfig`, per `LivePlan.ts`, so this is an available-but-unused field, not a missing capability). This source states explicit, per-size, pre-lock and post-lock-doubled contract limits (e.g. 3 Mini/30 Micro before lock, 6 Mini/60 Micro after, for the 50K tier). The engine does not model this at all. Flagged, not silently resolved.
+
+---
+
+**Last Updated:** 2026-09-18
+**Sources:**
+
+- https://helpfutures.fundednext.com/en/articles/16522296-road-to-live-trading-rapid-challenge-and-flex-challenge (updated September 3, 2026): "Road to Live Trading - Rapid Challenge and Flex Challenge," filed under "FundedNext Futures Live Trading Program FAQ." Primary source for this file: the only one of the three articles to tabulate all four account sizes (25K/50K/100K/150K); used for every table above.
+- https://helpfutures.fundednext.com/en/articles/15900277-road-to-live-trading-rapid-challenge (updated August 15, 2026): "Road To Live Trading - Rapid Challenge," filed under "FundedNext Futures Rapid Pro and Daily Challenge FAQ." Corroborates every mechanic and dollar figure for the 25K/50K/100K tiers; establishes this file's applicability to `rapid-pro.md`/`rapid-daily.md` via its collection membership.
+- https://helpfutures.fundednext.com/en/articles/15430139-road-to-live-trading-flex-challenge (updated August 15, 2026): "Road To Live Trading - Flex Challenge," filed under "FundedNext Futures Flex Challenge FAQ." Corroborates every mechanic and dollar figure for the 50K/100K/150K tiers; establishes this file's applicability to `flex.md`.

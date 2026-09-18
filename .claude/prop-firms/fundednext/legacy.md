@@ -1,0 +1,120 @@
+# `Legacy Challenge` (`$25,000 / $50,000 / $100,000`)
+
+**Sources:** https://helpfutures.fundednext.com/en/articles/14282252-how-do-i-pass-fundednext-futures-legacy-challenge (updated 2026-06-29), https://helpfutures.fundednext.com/en/articles/14282332-what-is-the-profit-target-in-the-fundednext-futures-legacy-challenge (updated 2026-06-29), https://helpfutures.fundednext.com/en/articles/14282421-is-there-any-consistency-rule-in-the-fundednext-futures-legacy-challenge-and-fundednext-account (updated 2026-04-09), https://helpfutures.fundednext.com/en/articles/14282529-what-are-the-performance-reward-eligibility-criteria-for-legacy-fundednext-account (updated 2026-08-04), https://helpfutures.fundednext.com/en/articles/14298201-what-is-the-daily-loss-limit-at-fundednext-futures-how-do-i-calculate-my-daily-loss-limit (updated 2026-07-11), https://helpfutures.fundednext.com/en/articles/14298225-what-is-the-maximum-loss-limit-at-fundednext-futures-and-how-does-it-work (updated 2026-09-08), https://helpfutures.fundednext.com/en/articles/14298245-are-there-any-news-trading-rules-for-fundednext-futures (updated 2026-04-07), https://helpfutures.fundednext.com/en/articles/14298258-what-are-benchmark-days-at-fundednext-futures (updated 2026-05-12), https://helpfutures.fundednext.com/en/articles/14298328-is-there-any-inactivity-period-in-fundednext-futures (updated 2026-07-06), https://helpfutures.fundednext.com/en/articles/14298542-what-is-a-soft-breach-and-a-hard-breach-in-fundednext-futures (updated 2026-04-12), https://helpfutures.fundednext.com/en/articles/14255818-what-types-and-sizes-of-challenges-are-available-at-fundednext-futures (updated 2026-07-10), https://helpfutures.fundednext.com/en/articles/14260538-what-are-the-reset-conditions-and-fees-at-fundednext-futures (updated 2026-09-03), https://helpfutures.fundednext.com/en/articles/14261075-how-many-accounts-can-i-hold-with-fundednext-futures-and-what-is-the-maximum-allocation-available (updated 2026-09-01), https://helpfutures.fundednext.com/en/articles/14262297-what-is-the-contract-limit-policy-at-fundednext-futures (updated 2026-07-10).
+
+**Last Verified:** `2026-09-18`
+**Last Updated:** `2026-09-18`
+
+## Overview
+
+The Legacy Challenge is FundedNext Futures' original, most structured 1-step futures Challenge, offered at $25,000, $50,000, and $100,000. It enforces a 40% consistency rule during the Challenge Phase and carries no Daily Loss Limit at any stage, though the Maximum Loss Limit (MLL) still applies throughout. Passing the Challenge moves a trader into the Legacy FundedNext Account, which drops the consistency rule entirely and gates Performance Reward withdrawals behind a Benchmark Day system rather than a fixed payout schedule.
+
+Legacy's live-account stage uses FundedNext's older Reserve/Auto-Liquidation live program, documented separately in [legacy-live.md](./legacy-live.md); see Live Transition below for why none of this file's own figures extend into that file.
+
+## Evaluation
+
+| Parameter                | $25,000 | $50,000 | $100,000 |
+| ------------------------ | ------- | ------- | -------- |
+| Starting Balance         | Unconfirmed | Unconfirmed | Unconfirmed |
+| Profit Target            | $1,250 | $3,000 | $6,000 |
+| Drawdown Type            | Maximum Loss Limit (MLL), trailing end-of-day (EOD) system ("follows a trailing end-of-day (EOD) system... updates once per day, based on the highest balance your account reached that day"); applies "in their Futures Challenge or FundedNext Account" alike | Same | Same |
+| Drawdown Amount          | $1,000 | $2,000 | $3,000 |
+| Minimum Balance at Start | Unconfirmed | Unconfirmed | Unconfirmed |
+| Daily Loss Limit         | None ("No daily loss limits are enforced, giving you more flexibility in trade management. However, the maximum loss limit still applies to safeguard overall risk.") | None | None |
+| Max Contracts            | 2 e-minis / 20 micro e-minis | 3 e-minis / 30 micro e-minis | 5 e-minis / 50 micro e-minis |
+| Consistency Rule         | 40% of profit target per day, Challenge Phase only ("Daily profit cannot exceed 40% of the total profit target"); computed threshold $500 (40% × $1,250) | Threshold $1,200 (40% × $3,000, directly stated in the source's own worked example) | Threshold $2,400 (40% × $6,000) |
+| Minimum Trading Days     | Unconfirmed (see Not Confirmed) | Unconfirmed | Unconfirmed |
+| News Trading             | Unrestricted ("FundedNext Futures does not impose any news trading rules... allowed to engage in news trading during both the Challenge Account and the FundedNext Account") | Unrestricted | Unrestricted |
+| Inactivity Rule          | 30 consecutive calendar days without a trade ("Challenge Accounts: Marked as breached and deactivated after 30 consecutive calendar days of no trades") | 30 days | 30 days |
+| One-Time Eval Fee        | $79.99 | $199.99 | $239.99 |
+| Reset Fee                | $73.99 | $183.99 | $220.79 |
+
+**Consistency-rule worked example (source's own, $50,000 tier):** "40% x Profit Target = Daily Profit Threshold" → $1,200. If a trader earns $1,500 in a single day (exceeding $1,200), the rule does not fail the Challenge; it recalculates the required total profit as Highest Daily Profit ÷ 0.40 = $1,500 ÷ 0.40 = $3,750, replacing the original $3,000 target. The $25,000 and $100,000 thresholds above ($500 / $2,400) apply the same stated formula to those sizes' own profit targets; only the $50,000 figure is the source's own directly-stated example.
+
+## Sim Funded
+
+| Parameter                      | $25,000 | $50,000 | $100,000 |
+| ------------------------------- | ------- | ------- | -------- |
+| Starting Balance               | Unconfirmed | Unconfirmed | Unconfirmed |
+| Drawdown Type                  | Maximum Loss Limit (MLL), trailing EOD system (same mechanic as Evaluation) | Same | Same |
+| Drawdown Amount                | $1,000 | $2,000 | $3,000 |
+| Drawdown Lock                  | Trigger: "Once the MLL reaches the initial account balance, it locks and no longer increases": reached once the day's profit equals this plan's own Drawdown Amount ($1,000). Locked value: the account's initial balance itself, stated directly as "$25,000 ($25K)" (source text renders the $50K figure with a stray space as "$50,00 0($50K)"; read here as $50,000, consistent with every other figure in the same list). | Trigger: same mechanic, reached at $2,000 profit. Locked value: "$50,000 ($50K)" (see the typo note in the $25K cell). | Trigger: same mechanic, reached at $3,000 profit. Locked value: "$100,000 ($100K)", directly matching the source's own worked example (see Worked Example below). |
+| Minimum Balance (ongoing)      | Trails at (highest EOD balance − $1,000) until the lock triggers; fixed at $25,000 once locked | Trails at (highest EOD balance − $2,000); fixed at $50,000 once locked | Trails at (highest EOD balance − $3,000); fixed at $100,000 once locked |
+| Daily Loss Limit               | Not separately restated for the FundedNext Account stage; see Not Confirmed | Not separately restated; see Not Confirmed | Not separately restated; see Not Confirmed |
+| Max Contracts                  | 3 e-minis / 30 micro e-minis | 5 e-minis / 50 micro e-minis | 7 e-minis / 70 micro e-minis |
+| Consistency Rule                | None ("there is no consistency rule for the Futures Legacy FundedNext Account") | None | None |
+| News Trading                   | Unrestricted (firm-wide, applies to "both the Challenge Account and the FundedNext Account") | Unrestricted | Unrestricted |
+| Inactivity Rule                | 30 consecutive calendar days without a trade ("FundedNext Accounts: Marked as inactive and deactivated after 30 consecutive calendar days of no trades") | 30 days | 30 days |
+| Max Active/Concurrent Accounts | 5 (firm-wide: "up to 5 active FundedNext Accounts at any time," no Legacy-specific override found) | 5 | 5 |
+| Profit Split                   | 80% ("Reward Share: Traders receive 80% of the requested Performance Reward") | 80% | 80% |
+
+## How the Drawdown Works
+
+Legacy's only drawdown mechanic is the Maximum Loss Limit (MLL), and it operates identically whether the account is still in the Challenge Phase or has already become a Legacy FundedNext Account: "The maximum loss limit is the total amount a trader can lose in their Futures Challenge or FundedNext Account before their account is restricted from further trading." The MLL follows a trailing end-of-day system: it recalculates once per day, at the close of trading, based on the highest balance reached that day. It moves up as the account balance grows, but it never moves back down when the account takes a loss. It only updates at end-of-day, not intraday, "However, if your floating loss reaches the maximum loss limit during an active trade, your account will be instantly breached."
+
+Once the trader's profit for the account reaches an amount equal to the plan's own Drawdown Amount ($1,000 / $2,000 / $3,000 at $25K / $50K / $100K), the MLL will have trailed up to exactly equal the account's own initial balance. At that point it locks there permanently and stops trailing further, regardless of how much the balance subsequently grows. If the account balance ever falls to or below this locked floor, the account is hard-breached: "If a trader's balance reaches the maximum loss limit, the account is permanently breached."
+
+### Worked Example
+
+This example uses the account's full nominal balance (not a $0-based profit convention), matching the source's own framing: "A trader starts with a $100K Legacy Challenge and a maximum loss limit of $3,000. This means the account balance cannot fall below $97,000."
+
+1. **Start:** Balance = $100,000. MLL = $100,000 − $3,000 = $97,000.
+2. **Day 1:** The trader profits $1,000, balance = $101,000. At EOD, the MLL recalculates: $101,000 − $3,000 = $98,000.
+3. **Day 2:** The trader profits $2,000 more, balance = $103,000. At EOD, the MLL recalculates: $103,000 − $3,000 = $100,000. Since this equals the account's own initial balance ($100,000), the MLL locks here and will not increase any further.
+4. **Day 3:** Balance drops $2,000 to $101,000. The MLL remains locked at $100,000 and does not decrease with the loss.
+5. **Day 4:** Balance increases $5,000 to $106,000. The MLL stays locked at $100,000: "Despite the increased balance, the maximum loss limit won't increase further beyond the initial balance." If balance ever drops to or below $100,000, the account is permanently (hard) breached.
+
+## Payouts
+
+| Parameter                            | Value |
+| ------------------------------------- | ----- |
+| Profit Split                         | 80% trader share of the requested Performance Reward |
+| Payout Frequency                     | Every 5 Benchmark Days ("you can withdraw up to 50%... of accumulated profit after every 5 Benchmark Days"). After 30 Benchmark Days, the 50% withdrawal-amount cap is removed, but the source never states the 5-Benchmark-Day cadence gate is also removed; do not assume unrestricted cadence (see Not Confirmed) |
+| Buffer Requirement                   | Not stated as a distinct pre-payout balance buffer in either bundle; see Not Confirmed |
+| Minimum Payout Request               | $250 |
+| Max Payout per Cycle                 | Before 30 Benchmark Days: up to 50% of accumulated profit, capped at $3,000 (25K) / $6,000 (50K) / $6,000 (100K). After 30 Benchmark Days: up to 100% of simulated profit ("Both the 50% of simulated profit limit and the withdrawal cap rule will be removed") |
+| Consistency on Payouts               | None ("No consistency rule to be maintained in Legacy FundedNext Account") |
+| Maximum Total Payouts / Lifetime Cap | Unconfirmed (see Not Confirmed) |
+
+**Cycle-profit note:** a Benchmark Day requires a minimum profit of $100 (25K) / $200 (50K) / $200 (100K); at least 5 Benchmark Days are required before the first withdrawal. For any withdrawal after the first, the source states a separate gate: "At least $500 profit is required after your last withdrawal before requesting another." The source also states two important mechanics not captured by the table rows above: "The first withdrawal resets the maximum loss limit (MLL) back to the initial balance," and "Withdrawing all of your simulated profit in one go causes a hard breach."
+
+## Live Transition
+
+Legacy FundedNext Account traders transition to a live account under FundedNext's older Reserve/Auto-Liquidation live program, documented separately in [legacy-live.md](./legacy-live.md) rather than the newer live.md used by Flex, Rapid Pro, and Rapid Daily.
+
+**This file's own two source bundles (the Legacy-specific FAQ bundle and the firm-wide bundle) contain no article at all about the live-account transition for Legacy**, no eligibility trigger, no split mechanics, no Reserve/Auto-Liquidation terms. Every figure describing that program (the $100,000 Total Active Profits review trigger, the 80% Eligible Profit split, the 50%/25%/remainder Settlement/Live-Deposit/Reserve breakdown, the 20%-of-deposit Auto Liquidation Threshold, etc.) comes from prior research outside these two bundles and must be independently sourced and cited inside legacy-live.md itself, not asserted here.
+
+## Not Confirmed By This Source
+
+- **Payout Frequency after 30 Benchmark Days**: the source confirms the 50% withdrawal-amount cap is removed after 30 Benchmark Days ("Both the 50% of simulated profit limit and the withdrawal cap rule will be removed"), but never states that the separate 5-Benchmark-Day cadence gate is also removed. Do not assume payouts become available at an unrestricted cadence; only the amount cap is confirmed as lifted.
+- **Minimum Trading Days (Evaluation, all sizes)**: no explicit minimum-day-count requirement appears in either bundle. The only phase-duration statement found is "no time limit: allowing traders to complete it at their own pace while following the rules," which addresses the *maximum* allowed duration, not a minimum-days floor. `FundedNext.ts`'s `buildLegacyPlan` sets `minTradingDays: 0`, citing (in its own inline notes) a Trading Objectives table and Futures Challenge Terms page that are not part of either bundle used to draft this file. Do not treat 0 as confirmed by this file's own sources; this is a flagged doc/engine gap, not resolved here.
+- **First-payout minimum-profit gate vs. the $500 "cycle in profit" rule**: the cited source ties its $500 profit figure specifically to withdrawals "after your last withdrawal," i.e. the second and later withdrawals. The first withdrawal's own stated gate is the 5-Benchmark-Day requirement plus each Benchmark Day's own profit minimum ($100/$200 per day). `FundedNext.ts`'s `buildLegacyPlan` sets `minPayoutProfit: dollars(500)` identically to `minPayoutProfitPerCycle`, reusing the "another withdrawal" figure as if it also gated the first payout. Do not assume this is confirmed; it is flagged as an unresolved doc/engine discrepancy.
+- **Daily Loss Limit at the FundedNext Account (funded) stage**: Legacy's own "No Daily Loss Limit" statement is made under a heading specifically about passing the Challenge Phase. Neither bundle restates it for the funded stage. The firm-wide Daily Loss Limit article's own per-plan tables list Bolt, Rapid Daily, and Rapid Pro (Add-On) only, with no Legacy row at all, consistent with "no DLL" but not a direct statement for this specific stage. Do not treat the funded-stage figure as more than corroborated by omission.
+- **"Withdrawing all of your simulated profit in one go causes a hard breach"**: directly stated in the Legacy-specific bundle, but not modeled anywhere in `FundedNext.ts`'s `buildLegacyPlan` (no full-withdrawal guard exists among the `PlanInit` fields used). This is a real, sourced rule with no corresponding engine field. Do not assume it is silently handled elsewhere in the simulator.
+- **Legacy at $25,000 and $100,000**: both sizes are directly confirmed by these bundles' own profit-target, MLL, contract-limit, and pricing tables, but `FundedNext.ts`'s `LEGACY_SIZES` array only builds the $50,000 tier. The $25K/$100K figures in this file are genuinely sourced; they are simply unmodeled in the engine. Do not read the engine's silence on these sizes as evidence they're doc-side unconfirmed.
+- **Live Transition (Legacy's own live-account program)**: neither bundle used for this file contains any article on Legacy's live-account eligibility, mechanics, or terms. `FundedNextLive.ts` (the engine's live-account model) only models the firm's newer live program (Flex/Rapid Pro/Rapid Daily's small-fixed-deposit, EOD-trailing-from-$0, lock-$1,000-below-start mechanic) and has no model at all for the older Reserve/Auto-Liquidation program that Legacy actually transitions into. This is a genuine, confirmed engine/doc scope gap; do not assume Legacy's live stage behaves like the modeled new program.
+- **Starting Balance (Evaluation and Sim Funded, all sizes)**: no sentence in either bundle states "Starting Balance: $X" as a figure distinct from the account-size label itself. FundedNext Futures articles use "Account Size" and balance interchangeably, so $25,000/$50,000/$100,000 is a reasonable reading, but it is not a directly quoted sentence. Do not treat the table's "Unconfirmed" as meaning the size is in doubt; it means only that no source sentence literally states "Starting Balance."
+- **Minimum Balance (ongoing), locked-value figures**: the $25,000/$50,000/$100,000 locked floor is directly sourced from the MLL article's own locked-value statement (see Drawdown Lock row), but the "trails at highest EOD balance minus Drawdown Amount" framing before the lock is a mechanical derivation from the MLL's stated trailing behavior, not a sentence quoted verbatim from either bundle. Do not treat the pre-lock trailing figure as itself a directly quoted number.
+- **Minimum Balance at Start (Evaluation, all sizes)** and **Buffer Requirement (Payouts, all sizes)**: neither concept is stated in either bundle for Legacy. Do not assume $0 or any other figure for either.
+- **Maximum Total Payouts / Lifetime Cap**: no lifetime numeric cap on the count of payouts is stated anywhere in either bundle for Legacy (distinct from the per-cycle dollar caps, which are confirmed). Do not assume one exists, or that it matches Rapid Pro/Daily's 5-payout lifetime cap; Legacy's own sources never mention such a cap, and `FundedNext.ts` likewise leaves `maxLifetimePayouts` unset for Legacy, which is consistent, not itself confirmation.
+- **Drawdown Lock locked-value figure at $50,000**: the firm-wide MLL article's own text renders this as "$50,00 0($50K)" with a stray space, evidently a typo for "$50,000 ($50K)." Read here as $50,000, consistent with every other figure in the same source list and with the plan's own $2,000 Drawdown Amount + $50,000 initial balance arithmetic. Do not treat this one figure as unambiguously typeset the way the $25K and $100K figures in the same sentence are.
+
+---
+
+**Last Updated:** `2026-09-18`
+**Sources:**
+
+- https://helpfutures.fundednext.com/en/articles/14282252-how-do-i-pass-fundednext-futures-legacy-challenge (updated 2026-06-29): Consistency rule mechanics, "No Daily Loss Limit" statement for the Challenge.
+- https://helpfutures.fundednext.com/en/articles/14282332-what-is-the-profit-target-in-the-fundednext-futures-legacy-challenge (updated 2026-06-29): Profit targets by size, "no time limit" statement.
+- https://helpfutures.fundednext.com/en/articles/14282421-is-there-any-consistency-rule-in-the-fundednext-futures-legacy-challenge-and-fundednext-account (updated 2026-04-09): Consistency rule formula and worked example, "no consistency rule" for the FundedNext Account.
+- https://helpfutures.fundednext.com/en/articles/14282529-what-are-the-performance-reward-eligibility-criteria-for-legacy-fundednext-account (updated 2026-08-04): Benchmark Days, withdrawal caps/shares/minimums, first-withdrawal MLL reset, full-withdrawal hard-breach note.
+- https://helpfutures.fundednext.com/en/articles/14298201-what-is-the-daily-loss-limit-at-fundednext-futures-how-do-i-calculate-my-daily-loss-limit (updated 2026-07-11): Firm-wide DLL tables (no Legacy row).
+- https://helpfutures.fundednext.com/en/articles/14298225-what-is-the-maximum-loss-limit-at-fundednext-futures-and-how-does-it-work (updated 2026-09-08): MLL mechanic, MLL-by-size table, Legacy lock-value statement, $100K Legacy worked example.
+- https://helpfutures.fundednext.com/en/articles/14298245-are-there-any-news-trading-rules-for-fundednext-futures (updated 2026-04-07): Firm-wide unrestricted news trading.
+- https://helpfutures.fundednext.com/en/articles/14298258-what-are-benchmark-days-at-fundednext-futures (updated 2026-05-12): Firm-wide Benchmark Day corroboration for Legacy.
+- https://helpfutures.fundednext.com/en/articles/14298328-is-there-any-inactivity-period-in-fundednext-futures (updated 2026-07-06): Firm-wide 30-day inactivity rule.
+- https://helpfutures.fundednext.com/en/articles/14298542-what-is-a-soft-breach-and-a-hard-breach-in-fundednext-futures (updated 2026-04-12): Soft/hard breach definitions.
+- https://helpfutures.fundednext.com/en/articles/14255818-what-types-and-sizes-of-challenges-are-available-at-fundednext-futures (updated 2026-07-10): Challenge sizes/types overview, Legacy description.
+- https://helpfutures.fundednext.com/en/articles/14260538-what-are-the-reset-conditions-and-fees-at-fundednext-futures (updated 2026-09-03): One-Time Eval Fee and Reset Fee by size.
+- https://helpfutures.fundednext.com/en/articles/14261075-how-many-accounts-can-i-hold-with-fundednext-futures-and-what-is-the-maximum-allocation-available (updated 2026-09-01): Max Active/Concurrent Accounts (5).
+- https://helpfutures.fundednext.com/en/articles/14262297-what-is-the-contract-limit-policy-at-fundednext-futures (updated 2026-07-10): Max Contracts by size, Challenge and FundedNext Account.

@@ -1,0 +1,108 @@
+# FNL:003 50K Instant Account ($50,000)
+
+**Sources:** https://helpfutures.fundednext.com/en/articles/16847874-what-is-the-fundednext-futures-fnl-003-50k-instant-account (updated 2026-09-08), https://helpfutures.fundednext.com/en/articles/16847903-what-is-the-perpetual-consistency-rule-and-how-does-it-work (updated 2026-09-08), https://helpfutures.fundednext.com/en/articles/16847913-what-are-the-requirements-for-requesting-a-performance-reward-on-the-fundednext-futures-fnl-003-50k-instant-account (updated 2026-09-09), https://helpfutures.fundednext.com/en/articles/14298225-what-is-the-maximum-loss-limit-at-fundednext-futures-and-how-does-it-work (updated 2026-09-08). See full Sources list at the bottom for every article checked.
+
+**Last Verified:** 2026-09-18
+**Last Updated:** 2026-09-18
+
+## Overview
+
+The FNL:003 50K Instant Account is a limited-release FundedNext Futures Labs product that skips the Challenge Phase entirely: a trader purchases direct access to a FundedNext Account for a flat one-time fee and begins trading immediately under FundedNext Account rules, so the EOD Trailing Drawdown, the 20% Perpetual Consistency Rule, and the Performance Reward conditions all apply from the first trading day rather than after passing an evaluation. It is available in a single account size, has no reset option at any stage, and each trader may purchase up to three FNL:003 accounts, which do not count against the firm's standard 5-account FundedNext Account allocation limit.
+
+As of this writing, FNL:003 is not modeled in this repository's prop-calculator engine: `src/lib/prop-calculator/firms/fundednext/FundedNext.ts` has no `FundedNextVariant` entry or build function for it, unlike Flex, Legacy, Rapid Pro, and Rapid Daily, all of which are modeled there.
+
+## Evaluation
+
+| Parameter                | Value |
+| ------------------------ | ----- |
+| Starting Balance         | N/A: no Challenge Phase. FNL:003 grants direct access to the FundedNext Account; see Sim Funded for its $50,000 starting balance. |
+| Profit Target            | N/A: no Challenge Phase. Source, verbatim: "There is no profit target to clear." |
+| Drawdown Type            | N/A: no Challenge Phase; the drawdown mechanic applies identically from day one in the FundedNext Account (see Sim Funded). |
+| Drawdown Amount          | N/A: no Challenge Phase (see Sim Funded). |
+| Minimum Balance at Start | N/A: no Challenge Phase (see Sim Funded). |
+| Daily Loss Limit         | N/A: no Challenge Phase (see Sim Funded; Unconfirmed there too). |
+| Max Contracts            | N/A: no separate Challenge-phase limit; a single account-wide contract limit applies from day one (see Sim Funded). |
+| Consistency Rule         | N/A: no Challenge Phase; the 20% Perpetual Consistency Rule applies immediately in the FundedNext Account (see Sim Funded). |
+| Minimum Trading Days     | N/A: no Challenge Phase. |
+| News Trading             | N/A: no Challenge Phase (see Sim Funded). |
+| Inactivity Rule          | N/A: no Challenge Phase (see Sim Funded). |
+| One-Time Eval Fee        | $149.99. This is the plan's only fee, a flat one-time account-purchase price, not a separate "evaluation" fee, since there is no Challenge Phase to clear. Source's pricing table: "Account Size \| Starting Balance \| Account Price" row, "FNL:003 50K Instant \| $50,000 \| $149.99" data row. |
+| Reset Fee                | N/A: reset is not available. Source, verbatim: "No. Reset is not available on FNL:003 50K Instant Accounts at any stage." Corroborated firm-wide: FNL:003 does not appear in the firm's Reset Fees table at all. |
+
+## Sim Funded
+
+| Parameter                      | Value |
+| ------------------------------ | ----- |
+| Starting Balance               | $50,000. Source's pricing table: "Account Size \| Starting Balance \| Account Price" row, "FNL:003 50K Instant \| $50,000 \| $149.99" data row. |
+| Drawdown Type                  | EOD (End-of-Day) Trailing Drawdown. Source, verbatim: "FNL:003 uses an EOD (End-of-Day) Trailing Drawdown. This is a loss limit that moves up based on your end-of-day balance as your account grows but never moves back down... it updates once at the close of each trading day." |
+| Drawdown Amount                | $2,000. Source: firm-wide "Maximum Loss Limits by Account Size" table, FNL:003 50K Instant Account column, $50K row: "$2,000." This figure is not restated in the FNL:003-specific article bundle itself, but it is internally consistent with that bundle's own $50,100 lock value and $2,100 buffer figures: see Worked Example. |
+| Drawdown Lock                  | Trigger: the threshold "trails upward only until it locks at Starting Balance + $100," per the plan's own article; mechanically, since the floor trails at (highest EOD balance − $2,000 Drawdown Amount), this point is reached once cumulative profit reaches $2,100 (a derived figure, shown in the Worked Example, not an independently stated dollar-profit sentence). Locked value: $50,100, stated directly: "this means the threshold locks at $50,100." Once locked, "it no longer trails." |
+| Minimum Balance (ongoing)      | $50,100 once the maximum loss limit locks (see Drawdown Lock row); before locking, the floor trails at (highest EOD balance − $2,000), per the firm-wide EOD-trailing mechanism description. |
+| Daily Loss Limit               | Unconfirmed. Not stated in the FNL:003-specific source. The firm-wide Daily Loss Limit article names only Bolt, Rapid Daily, and Rapid Pro (with add-on); FNL:003 does not appear in it at all. See Not Confirmed. |
+| Max Contracts                  | 3 Mini / 30 Micro. Source's contract-limit table: "Account Size \| Maximum Contract Limits" row, "FNL:003 50K Instant Account \| 3 Mini \| 30 Micro" data row. (The firm-wide contract-limit-policy article's own overview table does not list FNL:003 at all, so this figure comes solely from the plan's own article, not a borrowed cross-plan figure.) |
+| Consistency Rule               | 20% Perpetual Consistency Rule: "your highest single trading day ever recorded on the account may not exceed 20% of your total profit in the current trading cycle (the period since your last withdrawal or since account start). This best-day record carries forward across cycles." Source explicitly distinguishes it: "which is different from the consistency rule used on other FundedNext Futures models." |
+| News Trading                   | No news trading restrictions (firm-wide policy). Source, verbatim: "FundedNext Futures does not impose any news trading rules, meaning traders are allowed to engage in news trading during both the Challenge Account and the FundedNext Account." This article does not name FNL:003 specifically; applying it here relies on FNL:003's own article describing itself as trading "under the FundedNext Account rules" from purchase: see Not Confirmed. |
+| Inactivity Rule                | 30 consecutive calendar days without a trade (firm-wide FundedNext Account rule). Source, verbatim: "FundedNext Accounts: Marked as inactive and deactivated after 30 consecutive calendar days of no trades." This article does not name FNL:003 specifically either; same category-level basis as News Trading above: see Not Confirmed. |
+| Max Active/Concurrent Accounts | Up to 3 FNL:003 accounts per user (purchase cap), and these are explicitly not counted against the firm's standard 5-account FundedNext Account maximum. Source, verbatim: "Purchase cap: A maximum of 3 FNL:003 50K Instant Accounts per user. Allocation: FNL:003 50K Instant Accounts are not counted against your standard 5 FundedNext Account Futures maximum allocation limit." |
+| Profit Split                   | 90% Reward Share, from the very first trading day. Source (TL;DR): "offers a 90% Reward Share from the very beginning"; restated in the Performance Reward requirements article: "Reward Share: 90%." |
+
+## How the Drawdown Works
+
+FNL:003's EOD Trailing Drawdown recalculates once per trading day, at the close, off the highest end-of-day balance the account has reached so far. The floor sits $2,000 (the Drawdown Amount) below that highest EOD balance, and it moves up as the balance grows but never moves back down on a losing day. This continues "only until it locks at Starting Balance + $100," which for this $50,000 account is $50,100; once the floor reaches that level it stops trailing entirely, even if the balance keeps rising afterward. If equity ever falls to or below the current floor (trailing, or locked at $50,100), the account is breached.
+
+### Worked Example
+
+This example uses the account's real, literal nominal balance throughout, starting at the source's own stated $50,000 starting balance: FNL:003 has no separate $0-based Challenge stage to distinguish from, since it grants direct access to the FundedNext Account. Every balance figure below is that same literal account balance; the convention never switches.
+
+1. The trader purchases the FNL:003 50K Instant Account. Balance: $50,000. The EOD trailing floor is Balance − $2,000 (Drawdown Amount) = $48,000.
+2. Over subsequent trading days, EOD balance rises with profit. At each EOD close the floor recalculates as (highest EOD balance so far − $2,000), moving up but never down.
+3. EOD balance reaches $52,100 (cumulative profit of $2,100). The floor is now $52,100 − $2,000 = $50,100, which equals Starting Balance + $100, the source's own stated lock value. From this point the floor stops trailing and stays fixed at $50,100, even if the balance keeps climbing.
+4. This same $52,100 balance / $2,100 cumulative profit also clears the plan's separately-stated $2,100 buffer requirement for Performance Reward eligibility (Condition 1 in the source). These are two distinct, separately-defined rules (the drawdown-lock trigger and the buffer requirement) that happen to land on the same $2,100 figure here: the source never states they are the same mechanism, only that both are $2,100.
+5. To actually request a withdrawal, the trader must also satisfy the 20% Perpetual Consistency Rule and hold at least $800 above the buffer, per the source: "You must have at least $800 above the buffer to make a withdrawal." That means cumulative cycle profit of at least $2,100 + $800 = $2,900, i.e., a balance of at least $52,900.
+6. Once eligible, the trader can request a withdrawal of between $800 (minimum) and $1,200 (maximum), paid at a 90% Reward Share.
+
+## Payouts
+
+| Parameter                            | Value |
+| ------------------------------------- | ----- |
+| Profit Split                         | 90% Reward Share. Source: "Reward Share: 90%." |
+| Payout Frequency                     | Unconfirmed: no source states a fixed cadence (e.g. "daily" or "every N days") for FNL:003. Only per-cycle eligibility conditions (buffer + consistency) are stated; a cycle is defined as "the period since your last withdrawal or since account start." See Not Confirmed. |
+| Buffer Requirement                   | $2,100. Source, verbatim: "Clear the $2,100 buffer. The buffer stays in the account, and profit above it is withdrawable." |
+| Minimum Payout Request               | $800. Source: "Minimum Withdrawal: $800." Also stated as an eligibility gate in its own right: "You must have at least $800 above the buffer to make a withdrawal": the same $800 figure serves both as the eligibility threshold above the buffer and the minimum withdrawal amount. |
+| Max Payout per Cycle                 | $1,200. Source: "Maximum Withdrawal: $1,200." |
+| Consistency on Payouts               | 20% Perpetual Consistency Rule (same rule as the Sim Funded table above: this is the plan's only consistency mechanic, and it is itself a payout-eligibility condition, not a separate Challenge-stage rule). |
+| Maximum Total Payouts / Lifetime Cap | 5. Source: "Maximum Withdrawals Count: 5." Corroborated by the certificates article: the trader's "5th withdrawal earns a concluding certificate that marks the completion of your Performance Reward journey on the account." |
+
+## Live Transition
+
+No live-transition path is stated anywhere in the provided sources for FNL:003. Neither the plan-specific article bundle nor the firm-wide bundle mentions FNL:003 in connection with either of FundedNext's two live-account programs (the new fixed-deposit live program used by Flex/Rapid Pro/Rapid Daily, or the old profit-threshold-review program used by Legacy). Do not assume either program applies to FNL:003 by analogy: this is a genuine gap in the provided source material, not a confirmed "no live transition" statement.
+
+## Not Confirmed By This Source
+
+- **Daily Loss Limit**: not stated anywhere in the FNL:003-specific source. The firm-wide Daily Loss Limit article ("What is the daily loss limit at FundedNext Futures?") names only Bolt, Rapid Daily, and Rapid Pro (with add-on); FNL:003 does not appear in that article at all. Do not assume FNL:003 has no daily loss limit, and do not assume one of the Rapid Daily/Rapid Pro figures ($500/$1,000/$1,250) applies to it.
+- **Payout Frequency / withdrawal cadence**: no source states a fixed cadence (daily, every N days, etc.) for FNL:003 withdrawals, unlike other FundedNext plans that do state one (e.g. Rapid Pro's "every 3 days"). Do not assume a cadence carries over from another FundedNext plan; only the per-cycle buffer and consistency conditions are confirmed.
+- **News Trading**: the "no news trading rules" article states its policy for "the Challenge Account and the FundedNext Account" generically and does not name FNL:003 specifically. Applying it here relies on FNL:003's own article stating it operates "under the FundedNext Account rules" from purchase, not on an FNL:003-named restatement of the news-trading policy itself. Do not treat this as independently re-confirmed by an FNL:003-specific article.
+- **Inactivity Rule**: the same category-level caveat as News Trading applies: the 30-day inactivity rule is stated for "FundedNext Accounts" generically, not for FNL:003 by name. Do not treat this as independently re-confirmed by an FNL:003-specific article.
+- **Live Transition**: not addressed in any provided source (see Live Transition section above). Do not assume either of FundedNext's two documented live-account programs (the new fixed-deposit program used by Flex/Rapid Pro/Rapid Daily, or the old profit-threshold-review program used by Legacy) applies to FNL:003.
+- **Drawdown Amount ($2,000) provenance**: sourced only from the firm-wide "Maximum Loss Limits by Account Size" table's FNL:003 column, not restated anywhere in the FNL:003-specific article bundle. It is internally consistent with that bundle's own $50,100 lock value and $2,100 buffer figures (see Worked Example), which corroborates it, but it has not been independently confirmed by a second, FNL:003-specific source. Do not assume a different Drawdown Amount if a future FNL:003-specific article states one directly.
+- **Engine cross-check**: `src/lib/prop-calculator/firms/fundednext/FundedNext.ts` does not model FNL:003 at all (no `FundedNextVariant` entry, no build function), so there is no engine-side figure to cross-check any value in this file against, and no doc/engine disagreement to flag beyond this absence itself. Do not assume FNL:003 is modeled elsewhere in the codebase under a different name.
+
+---
+
+**Last Updated:** 2026-09-18
+
+**Sources:**
+
+- https://helpfutures.fundednext.com/en/articles/16847874-what-is-the-fundednext-futures-fnl-003-50k-instant-account (updated 2026-09-08): primary source for this file: Starting Balance, Account Price, Challenge-Phase absence, Drawdown Lock mechanic and locked value, Consistency Rule, Buffer/withdrawal eligibility conditions, withdrawal min/max, Contract Limits, purchase cap and allocation exemption.
+- https://helpfutures.fundednext.com/en/articles/16847903-what-is-the-perpetual-consistency-rule-and-how-does-it-work (updated 2026-09-08): Perpetual Consistency Rule mechanics and worked examples.
+- https://helpfutures.fundednext.com/en/articles/16847913-what-are-the-requirements-for-requesting-a-performance-reward-on-the-fundednext-futures-fnl-003-50k-instant-account (updated 2026-09-09): Buffer Requirement, Consistency condition, withdrawal min/max, Reward Share, Maximum Withdrawals Count, KYC timing.
+- https://helpfutures.fundednext.com/en/articles/16857693-what-are-the-certificates-provided-in-the-fnl-003-50k-instant-account (updated 2026-09-08): read; corroborates the 5-withdrawal lifetime cap via the "5th withdrawal" Limitless Trader Certificate. No table figures sourced from this article beyond that corroboration.
+- https://helpfutures.fundednext.com/en/articles/16847859-what-is-fundednext-futures-labs (updated 2026-09-08): read for background context on the Labs program; not cited for any numeric figure in this file.
+- https://helpfutures.fundednext.com/en/articles/14298225-what-is-the-maximum-loss-limit-at-fundednext-futures-and-how-does-it-work (updated 2026-09-08): firm-wide source of Drawdown Amount ($2,000, FNL:003 column of the Maximum Loss Limits by Account Size table) and independent corroboration of the $50,100 lock value.
+- https://helpfutures.fundednext.com/en/articles/14298245-are-there-any-news-trading-rules-for-fundednext-futures (updated 2026-04-07): firm-wide News Trading policy; does not name FNL:003 (see Not Confirmed).
+- https://helpfutures.fundednext.com/en/articles/14298328-is-there-any-inactivity-period-in-fundednext-futures (updated 2026-07-06): firm-wide Inactivity Rule; does not name FNL:003 (see Not Confirmed).
+- https://helpfutures.fundednext.com/en/articles/14261075-how-many-accounts-can-i-hold-with-fundednext-futures-and-what-is-the-maximum-allocation-available (updated 2026-09-01): corroborates the standard 5-account FundedNext Account allocation cap that FNL:003 is explicitly excluded from.
+- https://helpfutures.fundednext.com/en/articles/14262297-what-is-the-contract-limit-policy-at-fundednext-futures (updated 2026-07-10): checked; confirms FNL:003 is absent from the firm-wide contract-limit tables, establishing the plan's own article as the sole source for its 3 Mini / 30 Micro limit.
+- https://helpfutures.fundednext.com/en/articles/14260538-what-are-the-reset-conditions-and-fees-at-fundednext-futures (updated 2026-09-03): checked; confirms FNL:003 is absent from the Reset Fees table, corroborating "no reset available at any stage."
+- https://helpfutures.fundednext.com/en/articles/14298201-what-is-the-daily-loss-limit-at-fundednext-futures-how-do-i-calculate-my-daily-loss-limit (updated 2026-07-11): checked; confirms FNL:003 is absent from every Daily Loss Limit table (see Not Confirmed).
+- https://helpfutures.fundednext.com/en/articles/14255182-when-am-i-eligible-for-kyc-verification-in-fundednext-futures (updated 2026-07-31): firm-wide KYC policy, corroborates the plan's own "KYC before first Performance Reward" statement.
