@@ -1,0 +1,123 @@
+# LucidFlex
+
+**Sources:** `https://support.lucidtrading.com/en/articles/12945790-lucidflex-evaluation-account` ("LucidFlex Evaluation Account," "Updated over 2 weeks ago"), `https://support.lucidtrading.com/en/articles/12945795-lucidflex-funded-account` ("LucidFlex Funded Account," dated August 15, 2026), `https://support.lucidtrading.com/en/articles/12945815-lucidflex-drawdown` ("LucidFlex Drawdown," "Updated over 3 weeks ago"), `https://support.lucidtrading.com/en/articles/12945805-lucidflex-consistency-percentage` ("LucidFlex Consistency Percentage," "Updated over 3 weeks ago"), `https://support.lucidtrading.com/en/articles/12945808-lucidflex-scaling-plan` ("LucidFlex Scaling Plan," dated May 6, 2026), `https://support.lucidtrading.com/en/articles/12945796-lucidflex-payouts` ("LucidFlex Payouts," dated July 28, 2026), `https://support.lucidtrading.com/en/articles/16226050-lucidflex-customization` ("LucidFlex Customization," dated August 6, 2026), plus the firm-wide articles cited in pro.md (Maximum Number of Accounts, Inactivity Policy, Simulated Account Fees, Allowed Trading Times, Other Trading Activities). All fetched directly via raw HTTP on 2026-09-18, none through an LLM summarization pass.
+
+**Last Verified:** 2026-09-18
+**Last Updated:** 2026-09-18
+
+## Overview
+
+LucidFlex is offered in four account sizes ($25K/$50K/$100K/$150K) with a single purchasable customization at checkout: Daily Loss Limit ON (lower evaluation price, DLL enforced on both stages) or OFF (higher price, no DLL at either stage) — "LucidFlex Customization." Unlike LucidPro, this file's own sources never state a dollar DLL amount for any tier under the ON configuration — see Not Confirmed.
+
+LucidFlex's defining feature relative to LucidPro is its funded-stage structure: no consistency rule at all once funded ("There is no Consistency Percentage on LucidFlex funded accounts" — "LucidFlex Funded Account"), no payout buffer requirement, and a funded-stage contract scaling plan tied to simulated profit (LucidPro and LucidDirect both explicitly state they have no such scaling plan). Both evaluation and funded stages use an explicitly-confirmed End-of-Day drawdown.
+
+## Evaluation
+
+| Parameter | $25K | $50K | $100K | $150K |
+| --- | --- | --- | --- | --- |
+| Starting Balance | $25,000 (derived from tier label, see Not Confirmed) | $50,000 (derived from tier label, see Not Confirmed) | $100,000 (derived from tier label, see Not Confirmed) | $150,000 (derived from tier label, see Not Confirmed) |
+| Profit Target | $1,250 | $3,000 | $6,000 | $9,000 |
+| Drawdown Type | End-of-Day Drawdown — "LucidFlex evaluation and funded accounts use an End-of-Day Drawdown (EOD Drawdown) system" ("LucidFlex Drawdown") | (same) | (same) | (same) |
+| Drawdown Amount | $1,000 | $2,000 | $3,000 | $4,500 |
+| Minimum Balance at Start | Unconfirmed | Unconfirmed | Unconfirmed | Unconfirmed |
+| Daily Loss Limit | Off: none — On: exists, dollar amount Unconfirmed for this plan (see Not Confirmed) | (same) | (same) | (same) |
+| Max Contracts | 2 mini / 20 micro | 4 mini / 40 micro | 6 mini / 60 micro | 10 mini / 100 micro |
+| Consistency Rule | 50% or less: "Largest Single Day Profit / Account Profit" must not exceed 50% to be eligible to upgrade to funded ("LucidFlex Consistency Percentage") | (same) | (same) | (same) |
+| Minimum Trading Days | Unconfirmed as a formal rule — the consistency article states a built-in "cushion" lets traders "pass in two days," which describes the fastest realistic pass time given the consistency math, not a stated minimum-days requirement. Do not conflate the two — see Not Confirmed. | (same) | (same) | (same) |
+| News Trading | Allowed: "Allowed on Flex, Pro and Direct: Traders may enter or exit positions around scheduled or unscheduled news events on these plans without it being a breach" ("Other Trading Activities"). Trade at own risk; slippage/velocity-logic warning stated. | Allowed (same) | Allowed (same) | Allowed (same) |
+| Inactivity Rule | 30 calendar days with no trade resulting in at least $1 net profit or loss — firm-wide "Inactivity Policy" | (same) | (same) | (same) |
+| One-Time Eval Fee | Unconfirmed | Off: $146 — On: $136 (engine-sourced, not independently confirmed by this file's own sources — see Not Confirmed) | Unconfirmed | Unconfirmed |
+| Reset Fee | Unconfirmed | Unconfirmed (engine models $95, not independently confirmed) | Unconfirmed | Unconfirmed |
+
+**No activation fee** to upgrade a passed evaluation to funded ("LucidFlex Evaluation Account Benefits": "No activation fees to upgrade to funded account"). **Real-time activation** within 5–30 minutes of hitting the profit target (same source).
+
+## Sim Funded
+
+| Parameter | $25K | $50K | $100K | $150K |
+| --- | --- | --- | --- | --- |
+| Starting Balance | $0 (inferred by analogy to every other confirmed Lucid funded-account start — not literally quoted for LucidFlex; see Not Confirmed) | $0 (same basis) | $0 (same basis) | $0 (same basis) |
+| Drawdown Type | End-of-Day Drawdown (same confirmed mechanism as Evaluation) | (same) | (same) | (same) |
+| Drawdown Amount | $1,000 | $2,000 | $3,000 | $4,500 |
+| Drawdown Lock | Trigger: EOD closing balance exceeds the Initial Trail Balance — $26,100 / $52,100 / $103,100 / $154,600 for 25K/50K/100K/150K. Locked value: $25,100 / $50,100 / $100,100 / $150,100 — starting balance + $100. Both figures directly quoted from "LucidFlex Drawdown"'s own table, the only one of this tree's Lucid plan files with a directly-confirmed (not inferred) locked value. |
+| Minimum Balance (ongoing) | No separate figure — the (trailing or locked) MLL floor above is the minimum balance by construction; a balance reaching the MLL is a confirmed breach ("If your account balance reached the MLL, your account will be breached" — "LucidFlex Drawdown"). |
+| Daily Loss Limit | Off: none — On: exists, dollar amount Unconfirmed (see Not Confirmed) | (same) | (same) | (same) |
+| Max Contracts | Scaling, tied to simulated profit, not flat — see the Contract Scaling table below | (same, own column) | (same, own column) | (same, own column) |
+| Consistency Rule | None — "There is no Consistency Percentage on LucidFlex funded accounts" ("LucidFlex Funded Account"); independently confirmed by "LucidFlex Consistency Percentage": "Once promoted to Live account status, the consistency requirement no longer applies. The 50% consistency requirement applies only during the evaluation stage." | (same) | (same) | (same) |
+| News Trading | Allowed: "Allowed on Flex, Pro and Direct: Traders may enter or exit positions around scheduled or unscheduled news events on these plans without it being a breach" ("Other Trading Activities"). Trade at own risk; slippage/velocity-logic warning stated. | Allowed (same) | Allowed (same) | Allowed (same) |
+| Inactivity Rule | 30 calendar days, same firm-wide policy | (same) | (same) | (same) |
+| Max Active/Concurrent Accounts | Up to 5 active funded accounts per household, shared across every Lucid funded-account type combined — "Maximum Number of Accounts" |
+| Profit Split | 90% trader / 10% Lucid Trading — "All LucidFlex funded account payouts are split 90% to the trader and 10% to Lucid Trading" ("LucidFlex Payouts") |
+
+**Contract Scaling Plan (Funded only — no scaling during Evaluation):**
+
+| Simulated Profit | $25K Max | $50K Max | $100K Max | $150K Max |
+| --- | --- | --- | --- | --- |
+| $0 – $999 | 1 mini / 10 micro | 2 mini / 20 micro | 3 mini / 30 micro | 4 mini / 40 micro |
+| $1,000 – $1,999 | 2 mini / 20 micro | 3 mini / 30 micro | 4 mini / 40 micro | 5 mini / 50 micro |
+| $2,000 – $2,999 | — (already at max) | 4 mini / 40 micro | 5 mini / 50 micro | 6 mini / 60 micro |
+| $3,000 – $4,499 | — | — | 6 mini / 60 micro | 8 mini / 80 micro |
+| $4,500+ | — | — | — | 10 mini / 100 micro |
+
+Recalculated at the end of each trading session, not in real time ("LucidFlex Scaling Plan"). A payout reduces simulated profit and can move the tier back down: "Since payouts reduce your simulated balance, your scaling tier may adjust downward to reflect the updated profit level" (same source).
+
+## How the Drawdown Works
+
+Both LucidFlex stages use an explicitly-confirmed End-of-Day Drawdown: the Max Loss Limit (MLL) trails the account's highest-ever closing balance, rising as the balance grows, and never moving down on its own. Once the account's EOD closing balance exceeds the tier's Initial Trail Balance (drawdown amount + $100 above starting balance), the MLL locks permanently at starting balance + $100 and stops trailing — the only one of this tree's Lucid plans with this locked value directly quoted in its own source, rather than inferred by analogy.
+
+Separately, "once you request a payout from LucidFlex, your MLL automatically adjusts to the Locked MLL Balance" ("LucidFlex Drawdown") — meaning a payout request itself can trigger the lock even before the account's own EOD balance has crossed the Initial Trail Balance, not only the ordinary balance-crossing trigger. This file does not have a worked scenario confirming exactly how these two trigger paths interact when the payout-triggered lock occurs at a *different* balance than the trail would have implied; treated as a second, independent trigger path, not walked through numerically below.
+
+Reaching the (trailing or locked) MLL is a breach with no stated recovery, distinct from a DLL hit, which only pauses trading until the next session (per the same soft-breach/hard-breach distinction confirmed for LucidPro).
+
+### Worked Example
+
+This example uses the full nominal-balance convention for the $50,000 tier: the account's real balance, starting at a literal $50,000, tracked throughout.
+
+1. The funded account opens at $50,000. The $2,000 Max Loss Limit sets an initial floor of $50,000 − $2,000 = $48,000.
+2. The account closes at a new EOD high of $51,200 (a new peak, still below the $52,100 Initial Trail Balance). The MLL trails up to $51,200 − $2,000 = $49,200.
+3. The account closes at a new EOD high of $52,100 exactly — the Initial Trail Balance. The MLL locks at $50,100 (starting balance + $100), per this plan's own directly-confirmed locked value, and stops trailing.
+4. The account later closes at $54,000 (a new high). The MLL does not move again — it remains fixed at $50,100 regardless of any future high, since it already locked in step 3.
+5. The account has 5 separate trading days each with at least $150 profit (the 50K tier's Minimum Daily Profit — see Payouts table) and positive net profit for the cycle. The trader requests a payout. Per "LucidFlex Drawdown," this request itself would also trigger the lock if it hadn't already happened — in this example it is already locked, so the payout request changes nothing about the MLL.
+6. If the account's balance ever fell to $50,100 or below, it would breach the locked MLL and close.
+
+## Payouts
+
+| Parameter | $25K | $50K | $100K | $150K |
+| --- | --- | --- | --- | --- |
+| Profit Split | 90% trader / 10% Lucid Trading |
+| Payout Frequency | No fixed payout window — request any day once eligible ("LucidFlex Payouts") |
+| Buffer Requirement | None — "There is no buffer balance that must be maintained in LucidFlex funded accounts" ("LucidFlex Payouts") |
+| Minimum Payout Request | $500 |
+| Max Payout per Cycle | Lesser of 50% of account balance or a flat cap: $1,000 (25K) / $2,000 (50K) / $2,500 (100K) / $3,000 (150K). Unlike LucidPro, this cap does **not** scale up with later payout cycles: "the maximums here do not scale up with more payouts. The table above shows the payout maximums for all requests" ("LucidFlex Payouts"). |
+| Consistency on Payouts | None — no percentage rule; instead, two separate eligibility conditions apply: (1) at least the tier's Minimum Daily Profit on 5 separate trading days per cycle — $100 (25K) / $150 (50K) / $200 (100K) / $250 (150K); (2) positive net profit (even $1) for the cycle overall. Both reset after every approved payout. |
+| Maximum Total Payouts / Lifetime Cap | 5 payouts per account — "Traders may take up to 5 payouts from each LucidFlex account after which they will be moved live" ("LucidFlex Payouts"). The only one of this tree's Lucid plan files with this figure directly confirmed by its own dedicated source, rather than inferred from the shared `live.md` article's more general "Payout 5" reference. |
+
+Payouts are deducted within a few minutes of approval; funds are disbursed within 2 business days.
+
+## Live Transition
+
+LucidFlex funded accounts transition into the shared **LucidLive** program at Lucid's discretion, documented in full in [`live.md`](live.md). LucidFlex's own dedicated payout article independently confirms the "5 payouts, then moved live" structure referenced only generically in the shared live article. Every LucidFlex funded account with at least one payout is moved to its own live account on transition, starting at $0 with an EOD drawdown, no Daily Loss Limit, and daily payout eligibility. LucidFlex is eligible for the one-time Live Bonus described in `live.md`.
+
+## Not Confirmed By This Source
+
+- **Starting Balance (Evaluation and Sim Funded, all tiers)** — no source literally states a "Starting Balance" for LucidFlex at either stage. Evaluation figures are derived from each tier's own account-size label; the Sim Funded $0 figure is inferred by analogy to every other confirmed Lucid plan, not directly quoted for LucidFlex.
+- **Daily Loss Limit dollar amounts (DLL-ON configuration, all tiers, both stages)** — "LucidFlex Customization" and "LucidFlex Funded Account" both confirm a DLL toggle exists, but neither this file's Evaluation article, Funded article, nor Customization article states a dollar figure for any tier. **Confirmed absent from the help center, not merely unfound**: a full sitemap sweep of `support.lucidtrading.com` (see `SOURCES.md`) lists exactly 8 LucidFlex articles total, and none of them is a DLL article, unlike LucidPro, LucidDirect, and LucidDaily, which each have one. This is a genuine gap distinct from LucidPro (whose own evaluation and DLL articles do state per-tier dollar amounts); do not assume LucidFlex's DLL amounts match LucidPro's by analogy, and do not assume a further search will find an article that the sitemap confirms does not exist.
+- **Minimum Balance at Start (Evaluation)** — not stated in any source read for this file.
+- **Minimum Trading Days (Evaluation)** — not stated as a formal rule. "Pass in two days" describes the fastest realistic pass time given the consistency-percentage math, not a stated minimum-days requirement — do not conflate the two.
+- **One-Time Eval Fee and Reset Fee, 25K/100K/150K tiers** — no source states dollar pricing for any tier other than the engine's own 50K figures ($146 off-DLL / $136 on-DLL eval, $95 reset), which are not independently confirmed by this file's own sources.
+- **Drawdown lock vs. payout-request lock interaction** — "LucidFlex Drawdown" confirms both a balance-crossing trigger and a payout-request trigger for the same lock, but this file's sources do not describe a scenario where a payout is requested before the balance has crossed the Initial Trail Balance in enough detail to state exactly what locked value would result in that case. The Worked Example above does not attempt to walk through this specific ordering.
+
+---
+
+**Last Updated:** 2026-09-18
+
+**Sources:**
+
+- `https://support.lucidtrading.com/en/articles/12945790-lucidflex-evaluation-account` — "LucidFlex Evaluation Account." Fetched directly, 2026-09-18. "Updated over 2 weeks ago."
+- `https://support.lucidtrading.com/en/articles/12945795-lucidflex-funded-account` — "LucidFlex Funded Account." Fetched directly, 2026-09-18. Dated August 15, 2026.
+- `https://support.lucidtrading.com/en/articles/12945815-lucidflex-drawdown` — "LucidFlex Drawdown." Fetched directly, 2026-09-18. "Updated over 3 weeks ago."
+- `https://support.lucidtrading.com/en/articles/12945805-lucidflex-consistency-percentage` — "LucidFlex Consistency Percentage." Fetched directly, 2026-09-18. "Updated over 3 weeks ago."
+- `https://support.lucidtrading.com/en/articles/12945808-lucidflex-scaling-plan` — "LucidFlex Scaling Plan." Fetched directly, 2026-09-18. Dated May 6, 2026 — the least current of LucidFlex's own dedicated sources.
+- `https://support.lucidtrading.com/en/articles/12945796-lucidflex-payouts` — "LucidFlex Payouts." Fetched directly, 2026-09-18. Dated July 28, 2026.
+- `https://support.lucidtrading.com/en/articles/16226050-lucidflex-customization` — "LucidFlex Customization." Fetched directly, 2026-09-18. Dated August 6, 2026.
+- Firm-wide articles: Maximum Number of Accounts, Inactivity Policy, Simulated Account Fees, Allowed Trading Times, Other Trading Activities (all `support.lucidtrading.com`, see `pro.md`'s Sources for full citations, reused here, not re-fetched separately). Other Trading Activities is the source of the confirmed News Trading resolution (Allowed, both stages).
+- Cross-checked against `src/lib/prop-calculator/firms/lucid/LucidTrading.ts` for the 50K tier's pricing figures, per the Not Confirmed notes above.
