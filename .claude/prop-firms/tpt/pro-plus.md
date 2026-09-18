@@ -1,0 +1,236 @@
+# Take Profit Trader PRO+ (Live) ($25,000 / $50,000 / $75,000 / $100,000 / $150,000 PRO-Origin Sizes)
+
+**Sources:** https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/15171929948829-Advantages-of-PRO (March 16, 2026), https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/15171978600349-PRO-Account-Upgrade-Process-Overview-and-Guidelines (June 19, 2026), https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/15172006753821-PRO-Account-Rules (September 1, 2026), https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/36429526878237-PRO-Development-Accounts (May 28, 2026) : see the full Sources list at the bottom for every article used.
+
+**Last Verified:** 2026-09-18
+**Last Updated:** 2026-09-18
+
+## Overview
+
+Take Profit Trader (TPT) is a single, linear program: Test (paid monthly evaluation) → PRO (sim-funded, real-money payouts on simulated trading) → PRO+ (live, real capital traded directly at the exchange, invite-only). This file covers PRO+, TPT's final stage. It is entered only by discretionary invitation extended to an already-funded PRO trader : there is no separate, purchasable PRO+ evaluation product of its own. For the Test and PRO stages that precede it, see `test-pro.md`.
+
+PRO+ accounts trade TPT's own real capital directly at the exchange rather than a simulated fill environment ("Trader directly routed to the exchange, not on the simulation or ''copy traded''"), carry a 90/10 profit split (up from PRO's 80/20), and, per TPT's own materials, have no buffer-zone requirement before a first withdrawal. The drawdown mechanic at this stage is an EOD (End-of-Day) trailing drawdown (see `test-pro.md` for how this compares to Test's and PRO's own mechanics, which are outside this file's own sources) : carrying over the exact dollar amount of the trader's own originating PRO account's starting drawdown, applied against a PRO+ account that itself begins at a literal $0 balance. A reduced-parameter, discretionary sub-variant, PRO+ Development, also exists for traders showing higher-risk trading patterns. Both the standard PRO+ upgrade mechanic (including a $5,000 PRO-profit freeze) and PRO+ Development are covered in full below, since neither is modeled anywhere in this repository's engine (`src/lib/prop-calculator/firms/tpt/TptLive.ts`) : see Not Confirmed By This Source and the engine cross-checks noted throughout.
+
+Several firm-wide policies apply to PRO+ identically to Test and PRO : the Universal Trading Policies, the Independent Trade Execution and Trade Copier policies, Restricted Countries, and general CME compliance rules : and are only summarized here to the extent they bear directly on PRO+'s own trading mechanics (see Account Rules & Trading Conduct, below); their full text belongs in this firm's `README.md`, not repeated per plan file.
+
+## Eligibility & Upgrade Process
+
+*This section replaces the template's `## Evaluation`. PRO+ has no purchasable evaluation product of its own : entry is a discretionary upgrade offered to an existing PRO trader, not a pass/fail test with its own fee, profit target, or day-count requirement. Those concepts belong to the Test stage; see `test-pro.md`.*
+
+**Becoming eligible.** Advancement to PRO+ is based on "a comprehensive review of trading performance and behavior across multiple objective factors," specifically "consistency, risk management, execution patterns, and overall trading discipline over time." TPT's own language is explicit that "there isn't a single threshold that determines promotion" : the team reviews performance holistically. TPT's separate "Sustainable Trading Policy" describes the same review in more detail: traders whose profile shows "using maximum position size on the majority of trades," "repeatedly blowing through maximum loss limits," "relying on simulation-specific fill inefficiencies," or "account churning" draw closer review before being extended live capital, and TPT reserves the right to decline or delay that extension at its sole discretion. Once a trader is deemed eligible, "an official invitation will be sent via email by the Take Profit Trader team"; the decision itself "is made solely at the discretion of Take Profit Trader."
+
+**Upgrade process.** The upgrade is "fully managed by Take Profit Trader and requires action by both the trader and the brokerage" : the trader must complete "any required onboarding steps, agreements, or documentation requested during the transition process." Part of that documentation, the Power of Attorney (POA) form, is actually signed earlier, at PRO-account creation, specifically "to ensure that any potential upgrade to a PRO+ account will proceed smoothly and efficiently"; it is "a crucial document required for the opening of a PRO+ account with Tradovate, our designated broker at TakeProfit" (NinjaTrader's logo appears on the form because "NinjaTrader owns Tradovate"). Once all requirements are satisfied, PRO+ setup "typically takes several days," and the trader is notified once it is ready.
+
+As part of the final setup stage, the account is upgraded to professional market-data access, which "can take up to 12 hours, during which trading on both your PRO and test accounts will be temporarily unavailable" : the trader is notified in advance of this window. Once the upgrade completes, "all future trading and withdrawals must be done on the PRO+ account only."
+
+**Structure once PRO+ is issued.** Three things happen simultaneously:
+
+1. The originating PRO account is placed on hold.
+2. **$5,000 of the PRO account's own profit is frozen** and "must remain in the account while the PRO+ is active." Anything above that $5,000 "can be withdrawn immediately according to the PRO Account Profit Split" (PRO's normal 80/20 split).
+3. The PRO+ account itself begins at a literal **$0 balance**, with an initial EOD drawdown "equivalent to the starting drawdown of the original PRO account." TPT's own worked example: "if the PRO account was a $50,000 account, the PRO+ account would start at $0 with an EOD drawdown of -$2,000." As trades become profitable, "the minimum account balance will trail accordingly... stopping once it reaches $0, where it will remain" : see How the Drawdown Works, below, for the full mechanic.
+
+**In case of account loss.** If the trader loses the PRO+ account, two things determine what becomes withdrawable:
+
+- "Any remaining profits within the PRO+ account, along with the trader's share of the frozen $5,000 profit from the PRO account, will be eligible for withdrawal" (the "trader's share" language ties back to the normal PRO 80/20 split governing that $5,000, the same split named one paragraph earlier in the same source article).
+- "If the PRO+ account ends with a negative balance, that amount will be deducted from the $5,000 profit held in the PRO account. The remaining balance will be available for withdrawal, subject to the standard PRO account profit split terms" : i.e., any PRO+ shortfall is deducted from the frozen $5,000 first, and only the remainder is then split 80/20.
+
+*Illustration only (round, hypothetical numbers : not a source-stated example): a trader upgrades from a $50,000 PRO account with $5,000 frozen. The PRO+ account is later lost with a −$300 balance. That $300 is deducted from the frozen $5,000 first, leaving $4,700. That $4,700 is then released under the PRO account's standard 80/20 split, i.e. $3,760 to the trader.*
+
+**Not modeled by the engine.** None of the above : the $5,000 freeze, the PRO-account-hold, the $0-start/carried-drawdown mechanic's *origin*, or the account-loss deduction order : is modeled anywhere in `src/lib/prop-calculator/firms/tpt/TptLive.ts`. The engine's `buildTptLivePlan` hard-codes a single $2,000 `DRAWDOWN_AMOUNT` (matching only the $50,000-origin case) with no freeze, no PRO-side accounting, and no loss-handling logic at all.
+
+## PRO+ Live Account Parameters
+
+*This section replaces the template's `## Sim Funded` : PRO+ trades real capital directly at the exchange, not a simulated account.*
+
+| Parameter | $25,000 | $50,000 | $75,000 | $100,000 | $150,000 |
+| --- | --- | --- | --- | --- | --- |
+| Starting Balance | $0 | $0 | $0 | $0 | $0 |
+| Drawdown Type | EOD (End-of-Day) Trailing Drawdown | EOD (End-of-Day) Trailing Drawdown | EOD (End-of-Day) Trailing Drawdown | EOD (End-of-Day) Trailing Drawdown | EOD (End-of-Day) Trailing Drawdown |
+| Drawdown Amount | Unconfirmed : mechanic confirmed (equals this size's own originating PRO account's starting drawdown), dollar figure not stated in these sources for this size | $2,000 (matches a $50,000-origin PRO account's own starting drawdown, per TPT's own worked example) | Unconfirmed (same reasoning as $25,000) | Unconfirmed (same reasoning as $25,000) | Unconfirmed (same reasoning as $25,000) |
+| Drawdown Lock | Trigger: cumulative profit reaches this size's own EOD Drawdown amount (dollar figure unconfirmed for this size). Locked value: $0 flat (mechanic confirmed for every size). | Trigger: cumulative realized profit since PRO+ activation reaches $2,000 (this size's own EOD Drawdown amount). Locked value: $0 flat : not the account's starting balance plus an offset, literally $0, since the account itself starts at $0. | Trigger: cumulative profit reaches this size's own EOD Drawdown amount (dollar figure unconfirmed for this size). Locked value: $0 flat (mechanic confirmed for every size). | Trigger: cumulative profit reaches this size's own EOD Drawdown amount (dollar figure unconfirmed for this size). Locked value: $0 flat (mechanic confirmed for every size). | Trigger: cumulative profit reaches this size's own EOD Drawdown amount (dollar figure unconfirmed for this size). Locked value: $0 flat (mechanic confirmed for every size). |
+| Minimum Balance (ongoing) | Before lock: trails up daily as (EOD balance − this size's own EOD Drawdown amount); the source states it trails up on profit but does not explicitly state whether it holds or retraces on a losing day (see Not Confirmed). After lock: fixed at $0. | Before lock: trails up daily as (EOD balance − $2,000); same unstated losing-day behavior, see Not Confirmed. After lock: fixed at $0. | Before lock: trails up daily as (EOD balance − this size's own EOD Drawdown amount); same unstated losing-day behavior. After lock: fixed at $0. | Before lock: trails up daily as (EOD balance − this size's own EOD Drawdown amount); same unstated losing-day behavior. After lock: fixed at $0. | Before lock: trails up daily as (EOD balance − this size's own EOD Drawdown amount); same unstated losing-day behavior. After lock: fixed at $0. |
+| Daily Loss Limit | None stated for standard PRO+ (no DLL appears among the six "PRO+ Account Rules" or in "Advantages of PRO+"). Contrast PRO+ Development's own soft-breach DLL, below. | None stated (same) | None stated (same) | None stated (same) | None stated (same) |
+| Max Contracts | Unconfirmed : no source states a standard-PRO+ contract-count figure; see Not Confirmed | Unconfirmed (same) | Unconfirmed (same) | Unconfirmed (same) | Unconfirmed (same) |
+| Consistency Rule | None stated as a fixed rule; TPT's discretionary "Sustainable Trading Policy" reviews trading patterns instead : see Account Rules & Trading Conduct | None stated (same) | None stated (same) | None stated (same) | None stated (same) |
+| News Trading | Restricted : must be flat (no open positions or working orders) one minute before, during, and one minute after specific prohibited-news windows; see Account Rules & Trading Conduct | Restricted (same) | Restricted (same) | Restricted (same) | Restricted (same) |
+| Inactivity Rule | Weekly Trading Requirement: at least one traded day (1+ round-trip on any permitted instrument) per calendar week, Sunday–Friday | Same | Same | Same | Same |
+| Max Active/Concurrent Accounts | 5 active funded accounts total (PRO + PRO+ combined, one shared pool) : "When you move to PRO+, your full five-account allowance moves with you." Test accounts are separate and unlimited. | Same | Same | Same | Same |
+| Profit Split | 90% to the trader (90/10) | 90% to the trader (90/10) | 90% to the trader (90/10) | 90% to the trader (90/10) | 90% to the trader (90/10) |
+
+**Engine cross-check (Starting Balance, EOD Drawdown, Profit Split, Daily Loss Limit):** this repository's `TptLive.ts` models a $0 starting balance, a $2,000 EOD drawdown, a 90/10 split, and no daily loss limit : all four now independently confirmed by this pass's own direct fetch of TPT's Zendesk help center for the $50,000-origin tier. `TakeProfitTrader.ts`'s own code comment on PRO+ had flagged these same figures as sourced only from "the search engine's own indexed page text," not a live primary-source fetch; this pass supersedes that flag for those four figures specifically (see Not Confirmed for what remains genuinely open). Neither file models the $50,000-specific scope limit itself as a caveat : `TptLive.ts` simply hard-codes $2,000 with no other size available, which happens to match this file's own source coverage exactly, for a different reason (code scope vs. source coverage) than a true agreement would imply.
+
+## PRO+ Development
+
+PRO+ Development is "a version of our live-market account designed to support more consistent risk management and disciplined trading" : traders "still trading TPT's live capital," but under a reduced risk structure. TPT names three differences from standard PRO+: "reduced contract sizing," a "soft breach daily loss limit (pauses you, doesn't fail you)," and a "smaller end of day drawdown." Because only these three are named as differences, this file treats every other PRO+ mechanic (the $0 start, the EOD-trailing-then-locks-at-$0 drawdown behavior, the Weekly Trading Requirement, No Counter Positions, the prohibited-news windows, and eligible instruments/hours) as carrying over unchanged from standard PRO+ : this is this file's own inference from that "three differences" framing, not a separately, explicitly restated fact; see Not Confirmed.
+
+| Parameter | $25,000 | $50,000 | $75,000 | $100,000 | $150,000 |
+| --- | --- | --- | --- | --- | --- |
+| Max Contracts (Mini / Micro) | 1 / 10 | 2 / 20 | 3 / 30 | 4 / 40 | 5 / 50 |
+| Daily Loss Limit (soft breach) | $500 | $1,000 | $1,250 | $1,500 | $2,000 |
+| EOD Drawdown | $750 | $1,250 | $1,500 | $1,750 | $2,250 |
+| Payout Frequency | Daily | Daily | Daily | Daily | Daily |
+| Max Payout per Cycle | No withdrawal limits | No withdrawal limits | No withdrawal limits | No withdrawal limits | No withdrawal limits |
+
+The Daily Loss Limit is a **soft breach**: it "pauses you, doesn't fail you," unlike a hard DLL that would close the account. Payout policy is stated directly, not inferred: "The payout policy remains unchanged. Daily payouts with no withdrawal limits." "Payout policy" is not itself broken out into a Profit Split figure in this article, but the "unchanged" framing is read here as covering the 90/10 split too, the same way it covers frequency and cycle limits : see Not Confirmed for the same inference caveat that applies to standard PRO+'s own Payout Frequency and Max Payout per Cycle.
+
+**Who gets moved here.** Placement is discretionary, "based on a review of your overall trading performance, strategy, and risk behavior across both PRO and live accounts," reflecting "patterns over time, not any single trade or blown account." Named patterns: "aggressive sizing," "rapid drawdowns," having "blown through loss limits," "reckless risk management," or "single-session losses that put account longevity at risk" : closely mirroring the "higher-risk profile" patterns described in TPT's separate "Sustainable Trading Policy" (max position sizing on most trades, repeatedly blowing through loss limits, account churning).
+
+**Path back to standard PRO+.** Placement "isn't a permanent placement." TPT states it wants to see "roughly 60 days of consistent, disciplined risk management... appropriate position sizing, controlled drawdowns, and trading that protects your account" : explicitly "not... a specific profit number." A trader may also "request a manual review at any time" by emailing `development@takeprofittrader.com` with their User ID and relevant context, and may keep trading both Test and PRO+ Development accounts while that review is pending.
+
+**Not modeled by the engine at all.** `TptLive.ts` has a single `buildTptLivePlan` function with no Development branch, no reduced-contract table, no soft-breach DLL, and no smaller-EOD-drawdown table : PRO+ Development does not exist anywhere in this repository's calculator.
+
+## How the Drawdown Works
+
+PRO+'s EOD (End-of-Day) Drawdown is recalculated once per trading day at close, based on the account's own realized profit, not tick-by-tick. Per "PRO+ Account Rules": "Your account balance — including open positions — must not reach or exceed the maximum EOD drawdown limit." The floor starts at the account's $0 starting balance minus the size's own EOD Drawdown amount (e.g., −$2,000 for a $50,000-origin account) and trails upward, one-for-one, with each day's realized profit: TPT's own description is that "the minimum account balance will trail accordingly. If the trader earns $500 in realized profit at the end of trading day, the minimum balance would trail $500 up." This trailing continues only until cumulative profit reaches the size's own EOD Drawdown amount, at which point the floor locks permanently at exactly $0 : "stopping once it reaches $0, where it will remain" : even if EOD balance keeps climbing afterward. Reaching or falling below the current floor at any day's close breaches the account.
+
+### Worked Example
+
+This example uses a literal $0 starting balance throughout, matching TPT's own statement that "the PRO+ account will begin with a $0 balance." Every number below is the account's own real-dollar balance (never a nominal-plus-profit figure), and each step's floor is computed by hand from the previous step. It uses the $50,000-origin PRO+ tier : the only size this file's sources state a concrete EOD Drawdown dollar figure for ($2,000).
+
+1. **PRO+ activation (Day 0):** balance = $0. Per TPT's own worked figure ("the PRO+ account would start at $0 with an EOD drawdown of -$2,000"), the initial floor is $0 − $2,000 = **−$2,000**.
+2. **Day 1:** closes $500 in realized profit. EOD balance = $500. Per the source's own $500 example, the floor trails up by the same $500: −$2,000 → **−$1,500**.
+3. **Day 2:** closes a further $700 in profit. Cumulative EOD balance = $1,200. Floor = balance − $2,000 = $1,200 − $2,000 = **−$800**.
+4. **Day 3:** closes a further $800 in profit. Cumulative EOD balance = $2,000 : exactly this size's own $2,000 EOD Drawdown amount. Floor = $2,000 − $2,000 = $0. Because cumulative profit has now reached the EOD Drawdown amount, the floor **locks permanently at $0** and stops trailing from here on, per "stopping once it reaches $0, where it will remain."
+5. **Day 4:** closes a $300 loss. EOD balance falls to $1,700, but the locked floor does not move : it stays at **$0**. The account must close at or above $0 every day from now on.
+6. **Day 5:** closes a further $1,900 loss. EOD balance falls to −$200, at or below the locked $0 floor. This breaches the EOD Drawdown and closes the PRO+ account. Per the account-loss provision (see Eligibility & Upgrade Process above), this account's own $200 negative balance is deducted from the $5,000 frozen PRO profit first, leaving $4,800, which then releases for withdrawal under the standard PRO 80/20 split.
+
+## Payouts
+
+| Parameter | $25,000 | $50,000 | $75,000 | $100,000 | $150,000 |
+| --- | --- | --- | --- | --- | --- |
+| Profit Split | 90% | 90% | 90% | 90% | 90% |
+| Payout Frequency | Daily (inferred : see note below) | Daily (inferred) | Daily (inferred) | Daily (inferred) | Daily (inferred) |
+| Buffer Requirement | None : "No buffer zone requirement for withdrawal" (see Not Confirmed for an engine-behavior flag on this point) | None (same) | None (same) | None (same) | None (same) |
+| Minimum Payout Request | Unconfirmed | Unconfirmed | Unconfirmed | Unconfirmed | Unconfirmed |
+| Max Payout per Cycle | No limit stated (inferred : see note below) | No limit stated (inferred) | No limit stated (inferred) | No limit stated (inferred) | No limit stated (inferred) |
+| Consistency on Payouts | Unconfirmed | Unconfirmed | Unconfirmed | Unconfirmed | Unconfirmed |
+| Maximum Total Payouts / Lifetime Cap | Unconfirmed | Unconfirmed | Unconfirmed | Unconfirmed | Unconfirmed |
+
+**Payout Frequency / Max Payout per Cycle note:** no cited article states these two figures for *standard* PRO+ directly. They are inferred from "PRO+ Development Accounts"' own statement that its payout policy : "Daily payouts with no withdrawal limits" : is "unchanged" from standard PRO+. That "unchanged" framing is this file's actual citation for standard PRO+'s Daily/no-limit figures; there is no separately-stated standard-PRO+ payout-policy article confirming them in isolation.
+
+**Payout mechanics.** Withdrawing is a two-step process. Step one, account → wallet: balance is "not updated real time," refreshing only once daily "between 8PM - 9PM EST" (confirmed independently by a second, more recent article: "The TPT dashboard reflects updated account balances approximately between 8-9PM EST"). Per the "Speed of Payouts Update" (dated July 17, 2026, updated August 20, 2026), this account-to-wallet step is now automated and takes "5-10 seconds" for "the vast majority of Tradovate PRO account withdrawals" : but explicitly **not** for PRO+: "Rithmic PRO, PRO+ withdrawals, and a small number of archived Tradovate PRO accounts remain manual for now" : the source does not state a duration for this specific step (the "up to 12 business hours, though usually a lot faster" language in this same source article is stated only for the separate wallet-to-bank step, described next). Payout *eligibility* itself (not gated behind any buffer or day-count per the Buffer Requirement row above) is unaffected by this speed change : only approval latency is. Step two, wallet → bank/PayPal/Wise: a separate admin-approval step, again "up to 12 business hours" though "usually a lot faster," after which bank processing time depends on method.
+
+**Payout methods.** Three options: Plaid (US bank accounts only, "real-time or through ACH transfer," in some cases "1-2 business days"), PayPal, or Wise ("covers 160 countries"). LLC payouts must use Wise, or PayPal if the LLC already has an established PayPal business account. All three methods require the receiving account's identity to match the registered TPT user under AML rules : a mismatch delays the payout for review or gets it denied outright. A trader must be flat (no open positions or working orders) at the moment a withdrawal request is submitted.
+
+**Withdrawal fee.** Free above $250; a flat $50 fee is charged automatically at or below $250 (from the wallet). Selecting PayPal may add PayPal's own additional fees on top, deducted from the withdrawal amount.
+
+## Account Rules & Trading Conduct
+
+**Eligible Instruments & Trading Hours (PRO+ Account Rules #1; Rule 4 firm-wide).** Only approved products, during approved hours. Approved exchanges: CME, CBOT, NYMEX, COMEX (no EUREX products appear anywhere on TPT's own instrument list). Trading window: 6:00 PM ET – 5:00 PM ET; positions cannot be carried from one session to the next. TPT "will automatically close any open position at 4:55 PM Eastern." Trading may resume at 6:00 PM ET, but a trade opened at or after 6:00 PM counts toward the next trading day. Holiday-schedule monitoring is explicitly the trader's own responsibility.
+
+The full, verbatim Approved Instruments list ("Approved Instruments & Permitted Products List"):
+
+| Symbol | Product Name | Exchange |
+| --- | --- | --- |
+| 6A | Australian Dollar Futures | CME |
+| 6B | British Pound Futures | CME |
+| 6C | Canadian Dollar Futures | CME |
+| 6E | Euro FX Futures | CME |
+| 6J | Japanese Yen Futures | CME |
+| 6N | New Zealand Dollar Futures | CME |
+| 6S | Swiss Franc Futures | CME |
+| CL | Crude Oil Futures | NYMEX |
+| E7 | E-mini Euro FX Futures | CME |
+| ES | E-mini S&P 500 Futures | CME |
+| GC | Gold Futures | COMEX |
+| HG | Copper Futures | COMEX |
+| LE | Live Cattle Futures | CME |
+| MBT | Micro Bitcoin Futures and Options | CME |
+| M2K | Micro E-mini Russell 2000 Index Futures | CME |
+| M6E | Micro EUR/USD Futures | CME |
+| MET | Micro Ether Futures and Options | CME |
+| MCL | Micro WTI Crude Oil Futures | NYMEX |
+| MES | Micro E-mini S&P 500 Index Futures | CME |
+| MGC | Micro Gold Futures | COMEX |
+| MNQ | Micro E-mini Nasdaq-100 Index Futures | CME |
+| M6A | Micro AUD/USD Futures | CME |
+| MYM | Micro E-mini Dow Jones Industrial Average Index Futures | CBOT |
+| NG | Henry Hub Natural Gas Futures | NYMEX |
+| NQ | E-mini Nasdaq-100 Futures | CME |
+| QI | E-mini Silver Futures | COMEX |
+| QM | E-mini Crude Oil Futures | NYMEX |
+| QO | E-mini Gold Futures | COMEX |
+| RTY | E-mini Russell 2000 Index Futures | CME |
+| SI | Silver Futures | COMEX |
+| UB | Ultra U.S. Treasury Bond Futures | CBOT |
+| YM | E-mini Dow ($5) Futures | CBOT |
+| ZF | 5-Year T-Note Futures | CBOT |
+| ZL | Soybean Oil Futures | CBOT |
+| ZS | Soybean Futures | CBOT |
+| ZN | 10-Year T-Note Futures | CBOT |
+| ZT | 2-Year T-Note Futures | CBOT |
+| ZW | Chicago SRW Wheat Futures | CBOT |
+
+**No Open Positions During Prohibited News (PRO+ Account Rules #6).** Must be flat : no open positions or working orders : one minute before, during, and one minute after: FOMC statements/announcements (Wednesdays, 2:00 PM ET; Fed speakers and FOMC meeting minutes are allowed), Non-Farm Payroll (monthly, Fridays 8:30 AM ET), and CPI. Product-specific restrictions also apply: Crude Oil Inventories restricts Crude Oil only (symbol CL above); Bond Auctions restricts "10-Year Note" and "30-Year Bond." The 10-Year Note maps unambiguously to **ZN** (10-Year T-Note Futures) on the table above. The "30-Year Bond" mapping is less certain: TPT's instrument list contains no plain "ZB" symbol at all; the closest 30-year-tenor product listed is **UB**, Ultra U.S. Treasury Bond Futures. This file treats UB as the likely intended product, but no cited source states an explicit symbol-to-symbol mapping for "30-Year Bond" : see Not Confirmed. Track prohibited news via red-folder, USD-currency events on forexfactory.com, or the trader calendar at `takeprofittrader.com/user-info/calendar`.
+
+**No Counter Positions (PRO+ Account Rules #4; UTP #5; firm-wide Rule 6).** Traders may not hold opposing positions in the same or closely related product across any accounts under their own control, whether alone or coordinated with another trader. This applies "across all account types: Test, PRO, and PRO+." Named correlated pairs (list explicitly "not exhaustive"): ES↔MES, NQ↔MNQ, YM↔MYM. Hedging using correlated products is also prohibited, not just identical-contract offsetting ("Can hedging strategies using related futures be used? No."). A violation liquidates **both** accounts automatically and forfeits all profit in the violating account, detected via an automated "Counter-Positions Report" system operating "in near real time." Traders are fully responsible for violations a trade copier causes, including ones they did not intend (per Rule 6's own FAQ: "Traders are fully responsible for the use of any trade copiers or third-party automation tools... Any trades executed through a copier or automation tool are treated as the trader's own actions under all rules and policies"). Rule 6's own text calls out PRO+ specifically as at stake: enforcing it protects "the firm's ability to offer live-market capital to funded accounts (e.g. PRO+)."
+
+**Avoid the Limit Up/Down (PRO+ Account Rules #5).** Traders must exit all open positions before a CME price limit is reached; current daily price limits are published on the CME website. If a price limit is hit and the position was not exited, the trader "will lose your PRO+ Account."
+
+**Universal Trading Policies (UTP).** Apply firm-wide, across Test, PRO, and PRO+: #1 no trading bots, algos, or automated execution tools at all (fully prohibited, not conditionally permitted); #2 do not exceed the maximum position size for the account type; #3 comply with CME Group requirements; #4 the Independent Trading Requirement (below); #5 no counter-position trading (above); #6 trade approved products during approved times only, no overnight holding. Violating any UTP "may result in profit forfeiture, account reset, account closure, or removal from the platform."
+
+**Independent Trade Execution Policy & Trade Copier Policy.** Trade copiers and similar execution/order-management tools are explicitly permitted, but only across accounts a trader personally owns and controls, and only when they do not create coordinated, opposing, or risk-neutralizing positions across those accounts or with other traders. Approved copier tools are named explicitly: Tradesyncer, TradeCopia, Affordable Indicators, Replikanto Flowbot ("Compliance Edition only" : standard or modified versions are not permitted), and platform-native copier tools (Tradovate, NinjaTrader, MotiveWave, Quantower, and similar). Traders are fully responsible for violations a copier causes.
+
+**Self-Match Prevention (SMP).** All PRO+ accounts operate under a single, unified SMP ID at the CME Globex exchange level. If a trader's own buy and sell orders would match against each other (or against another PRO+ account sharing TPT's firm-level ID), CME Globex automatically cancels one order before a match occurs : this enforces CME Rule 534 (Wash Trades Prohibited). TPT describes the resulting occasional "rejected by CME" message as normal, rare, and not damaging to account standing; the order can simply be resubmitted.
+
+**Restricted Countries.** TPT maintains its own current Restricted Countries list (not reproduced here : see the cited source; it is long and firm-wide). The source itself describes restrictions in platform-wide terms only ("our platform," "trading accounts and market data") rather than naming Test/PRO/PRO+ individually; this file treats it as applying identically to all three as a reasonable inference, not a directly stated one. Access : including placing a trade or merely viewing market data : from a restricted country is prohibited even once, including via VPN, remote connection, or a shared network routing through one. Separately, VPN use is blocked specifically during account **registration**, regardless of the trader's actual country.
+
+**Commissions.** PRO+ "commission rates... differ from those applied to Test and PRO accounts" and are governed by "a separate commission structure" : TPT does not publish its own PRO+ commission table, deferring entirely to NinjaTrader's (`ninjatrader.com/PDF/ninjatrader_futures_commissions.pdf`) and Tradovate's (`tradovate.com/pricing/`) own published schedules. This contrasts with Test and PRO, where commissions are set directly by TPT itself, identically across both: $4.50 round-trip per mini contract, $1.50 round-trip per micro contract, flat across every permitted product ("these commissions are not imposed by a third party; rather, they are established and regulated by TakeProfitTrader").
+
+## Resetting PRO+
+
+"Resetting a PRO+ account directly is not possible." If a trader loses their PRO+ account, there are exactly two ways back into PRO+: pass a brand-new Test evaluation from scratch, or reset the existing (on-hold) PRO account : TPT then upgrades that PRO account to PRO+ again. This file does not restate PRO's own reset pricing or mechanics; those belong to `test-pro.md`, and are not repeated here without that file's own citation.
+
+## Live Transition
+
+PRO+ (including its PRO+ Development variant) is Take Profit Trader's final, real-capital trading stage. No source read for this file describes any further live or broker-funded tier beyond PRO+ itself. There is no additional live-account file this plan transitions into.
+
+## Not Confirmed By This Source
+
+- **Minimum Balance (ongoing) : losing-day behavior before lock, all sizes** : the source describes the pre-lock floor trailing up on a profitable day ("the minimum account balance will trail accordingly... trail $500 up") but never explicitly states what happens on a losing day. This file assumes the floor holds rather than retraces, by analogy with the same held-not-retraced behavior Test and PRO both state explicitly for themselves, but no PRO+-specific source confirms this. Do not treat it as directly stated for PRO+.
+- **Drawdown Amount / Drawdown Lock / Minimum Balance, $25,000 / $75,000 / $100,000 / $150,000 tiers** : only the $50,000-origin tier's EOD Drawdown dollar figure ($2,000) is stated verbatim in these sources. The underlying mechanic (PRO+'s own EOD Drawdown equals the trader's originating PRO account's own starting drawdown) is confirmed for every size, but the dollar figures for the other four sizes are not stated anywhere in this file's own sources. Do not borrow a PRO-side drawdown-by-size table from a sibling file (e.g. `test-pro.md`) without that file's own citation : this file's own sources do not state one.
+- **Max Contracts, standard (non-Development) PRO+** : no source states an explicit contract-count figure. "PRO+ Development Accounts"' own "reduced contract sizing" framing confirms indirectly that standard PRO+ has *some* (larger) limit, but not its value. Do not assume it equals the funded-PRO figure (6 minis / 60 micros) this repository's `TakeProfitTrader.ts` models; that engine figure is itself sourced from a third-party extraction per that file's own code comment, not this pass's primary sources.
+- **Consistency Rule, standard PRO+ payouts** : no Best-Day-Rule or fixed numeric consistency requirement is stated anywhere in these sources for PRO+. "Sustainable Trading Policy" describes a discretionary, pattern-based review instead. Do not assume a fixed percentage-based consistency rule exists for PRO+ payouts.
+- **Minimum Payout Request, PRO+** : no dollar figure is stated anywhere in these sources. Do not assume the $0.01 figure this repository's engine models for the Test→PRO plan (`TakeProfitTrader.ts`) applies to PRO+; that figure's own code comment describes it as an engineering approximation for PRO, and `TptLive.ts` does not model this field at all.
+- **Maximum Total Payouts / Lifetime Cap, PRO+** : no lifetime payout cap is stated anywhere in these sources. Do not assume one exists (or that payouts are uncapped for life); the sources are simply silent on this point.
+- **Payout Frequency and Max Payout per Cycle, standard PRO+** : inferred from "PRO+ Development Accounts"' own "unchanged" framing relative to standard PRO+, not a directly, separately stated standard-PRO+ payout-policy citation. Do not treat this as equally strong sourcing as a figure Development states about itself.
+- **PRO+ Development's inheritance of standard PRO+'s other Account Rules** (Weekly Trading Requirement, No Counter Positions, prohibited-news windows, Avoid Limit Up/Down, eligible instruments/hours) and its own $0-start/EOD-trailing-lock mechanic : not explicitly restated in "PRO+ Development Accounts." Inferred from that article's own "three differences from standard PRO+" framing. Do not treat this as a separately, explicitly stated fact for Development specifically.
+- **"30-Year Bond" news-restriction mapping** : "PRO+ Account Rules" names the Bond Auctions-restricted product only as "30-Year Bond," not a ticker. No plain "ZB" symbol exists on TPT's own Approved Instruments list; the closest 30-year-tenor product listed is UB (Ultra U.S. Treasury Bond Futures). This file notes UB as the likely intended product but no cited source states an explicit symbol mapping. Do not treat UB as a confirmed 1:1 mapping.
+- **Whether standard PRO+ accounts can be Rithmic-routed, or are exclusively Tradovate/CQG-routed** : "Understanding the POA Form" names Tradovate as TPT's "designated broker" for PRO+ account opening, and "Commissions for PRO+" defers to both NinjaTrader's and Tradovate's pricing pages, but no source explicitly confirms or rules out Rithmic for PRO+. The "Speed of Payouts Update" Q&A's "Rithmic PRO, PRO+ withdrawals... remain manual" phrasing groups PRO+ into the manual-review bucket regardless, so it does not resolve this either way.
+- **PRO+ commission figures themselves** : "Commissions for PRO+" states only that a separate structure exists and defers entirely to NinjaTrader's and Tradovate's own externally-hosted pricing pages, neither of which was fetched as a source for this pass. Do not invent or assume a specific PRO+ commission dollar figure.
+- **Engine cross-check : `withdrawableAmount()` vs. "no buffer zone requirement."** This repository's `LivePlan` class (`core/LivePlan.ts`) returns $0 withdrawable for any live plan with a drawdown set : which includes TPT's PRO+ via `TptLive.ts` : until the drawdown threshold locks (for the $50,000-origin tier, that is $2,000 of cumulative profit). This directly conflicts with "Advantages of PRO+"'s own explicit claim that PRO+ has "No buffer zone requirement for withdrawal." This file's own tables follow the confirmed source claim (no such requirement); the engine's generic `withdrawableAmount()` formula is flagged here as the side without its own PRO+-specific citation, per this repo's verification protocol : not silently resolved either way. Per the `prop-firm-docs` skill's own scope, this is reported, not fixed, in `src/lib/prop-calculator/**`.
+- **Engine cross-check : Weekly Trading Requirement is not modeled at all.** `LivePlan`'s own `LivePlanInit` type has no inactivity/idle-day field of any kind, so `TptLive.ts` cannot and does not model the confirmed "PRO+ Account Rules" #3 (at least one traded day per calendar week, Sunday–Friday). This is a real modeling gap, not a disagreement over a number.
+- **Engine cross-check : single-size scope.** `TptLive.ts`'s `buildTptLivePlan` hard-codes one $2,000 `DRAWDOWN_AMOUNT` with no other size selectable, matching only this file's own $50,000-origin coverage. This is not evidence the other four sizes' figures are $2,000 too : it is a code-scope limitation, not a sourced confirmation.
+- **Restricted Countries** : TPT's own current list (cited below) names 119 distinct jurisdictions (counted directly from the source), is long, and is firm-wide; this file does not reproduce it. Do not assume it overlaps with any other firm documented in this repository.
+
+---
+
+**Last Updated:** 2026-09-18
+
+**Sources:**
+
+- https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/15171929948829-Advantages-of-PRO, "Advantages of PRO+" (March 16, 2026). Source of the PRO+ definition, eligibility-invitation language, 90/10 split, direct-exchange-routing, no-buffer-requirement, and EOD Drawdown labeling.
+- https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/15171978600349-PRO-Account-Upgrade-Process-Overview-and-Guidelines, "PRO+ Account Upgrade Process – Overview and Guidelines" (June 19, 2026). Primary source for the eligibility review criteria, the upgrade process, the Market Data Update window, the $5,000 freeze mechanic, the $0-start/carried-drawdown mechanic, the trailing/locking description, and the account-loss provision.
+- https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/15172006753821-PRO-Account-Rules, "PRO+ Account Rules" (September 1, 2026). Source of the six PRO+ Account Rules: eligible instruments/hours, EOD Drawdown, Weekly Trading Requirement, No Counter Positions, Avoid Limit Up/Down, and Prohibited News windows.
+- https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/36429526878237-PRO-Development-Accounts, "PRO+ Development Accounts" (May 28, 2026). Source of the full PRO+ Development table, placement criteria, and the ~60-day path back to standard PRO+.
+- https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/30166235705629-Resetting-A-PRO-Account, "Resetting A PRO+ Account" (July 2, 2026). Source of the Resetting PRO+ section.
+- https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/15172012844957-Commissions-for-PRO, "Commissions for PRO+" (November 14, 2025). Source of the PRO+ commission deferral to NinjaTrader/Tradovate.
+- https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/34431153546397-TakeProfitTrader-Universal-Trading-Policies-UTP, "TakeProfitTrader Universal Trading Policies (UTP)" (March 6, 2026). Source of the UTP #1–6 summary.
+- https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/34431223270557-Independent-Trade-Execution-Policy, "Independent Trade Execution Policy" (April 7, 2026). Source of the independent-trading/synchronization rules.
+- https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/34431176505245-Trade-Copier-Policy, "Trade Copier Policy" (March 6, 2026). Source of the approved-copier-tools list and permitted/prohibited copier usage.
+- https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/15170347090461-Rule-4-Trade-Approved-Products-During-Approved-Hours, "Rule 4: Trade Approved Products, During Approved Hours" (May 6, 2026). Source of approved exchanges, trading-hours window, and the 4:55 PM ET auto-close.
+- https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/30331694826909-Rule-6-No-Counter-Positions, "Rule 6: No Counter Positions" (November 27, 2025). Source of the full No Counter Positions mechanic, named correlated pairs, the Counter-Positions Report system, and the explicit PRO+ callout.
+- https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/31254068167837-Self-Match-Prevention-SMP-Implementation-for-PRO-Accounts, "Self-Match Prevention (SMP) Implementation for PRO+ Accounts" (November 24, 2025). Source of the SMP note.
+- https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/36569493361693-Sustainable-Trading-Policy, "Sustainable Trading Policy" (July 1, 2026). Corroborates the eligibility and PRO+ Development placement criteria with more detail.
+- https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/22447557656477-Restricted-Countries, "Restricted Countries" (April 20, 2026). Source of the Restricted Countries note (list not reproduced).
+- https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/37085469996573-Registration-Denial-FAQ, "Registration Denial FAQ" (August 27, 2026). Source of the registration-only VPN block.
+- https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/15172695563933-Rules-for-Multiple-Accounts, "Rules for Multiple Accounts" (September 15, 2026). Source of the 5-active-funded-account shared-pool figure and its explicit PRO+ carryover language.
+- https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/15172548967069-Commissions-on-Test-and-PRO-accounts, "Commissions on Test and PRO accounts" (August 8, 2026). Source of Test/PRO's own flat commission figures, used here only as a contrast to PRO+'s separate structure.
+- https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/15172629238301-Approved-Instruments-Permitted-Products-List, "Approved Instruments & Permitted Products List" (August 8, 2026). Source of the full instrument table.
+- https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/15172354954525-Withdrawal-Fees, "Withdrawal Fees" (December 28, 2025). Source of the $250 / $50 withdrawal-fee threshold.
+- https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/15172296875165-Payout-System, "Payout System" (December 28, 2025). Source of the Plaid/PayPal/Wise payout methods, LLC payout rules, and AML identity-match requirement.
+- https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/15172253980061-How-to-Withdraw-from-PRO-Account-to-the-Wallet, "How to Withdraw from PRO Account to the Wallet" (July 20, 2026). Source of PRO's own 80/20 split figure ("commission... is the 20% owed to Take Profit Trader. The total amount due to you (80% of profit)..."), used here only as contrast/context for PRO+'s 90/10 split and the $5,000-freeze release mechanic; also corroborates the 8–9PM EST balance-update window.
+- https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/15965203144477-How-to-Withdraw-from-the-Wallet, "How to Withdraw from the Wallet" (November 13, 2025). Source of the wallet-to-bank admin-approval step and its own up-to-12-business-hour timing.
+- https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/37697356049949-Speed-of-Payouts-Update-Q-A, "Speed of Payouts Update: Q&A" (dated July 17, 2026, updated August 20, 2026). Source of the account-to-wallet automation, its explicit exclusion of PRO+ withdrawals, and the "still day-1 and daily" eligibility-unaffected language.
+- https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/17239170507805-Understanding-the-POA-Form, "Understanding the POA Form" (November 14, 2025). Source of the POA form's role in PRO+ account opening and the Tradovate/NinjaTrader relationship.
+- https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/27415794415901-Connecting-US-Bank-Accounts-For-Payouts, "Connecting US Bank Accounts For Payouts" (November 25, 2025). Corroborates the AML identity-match and LLC/Wise payout rules.
