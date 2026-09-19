@@ -156,8 +156,8 @@ A two-round fixed-payout Challenge with no progression to Live. A trader purchas
 | Daily Loss Limit | None | None |
 | Max Contracts | 10 micro / 1 mini | 10 micro / 1 mini |
 | Consistency Target | None | None |
-| Activation Fee | — | Free |
-| Path | — | Standard only |
+| Activation Fee | N/A: applies to the Payout Round only | Free |
+| Path | N/A: applies to the Payout Round only | Standard only |
 | Payout | Passing advances to Payout Round | Fixed $3,000, paid one time. No 90/10 split. Account closes. |
 | Resets | None | None |
 | Purchase Limit | No limit on Challenge Round | Max 5 active Payout-Round accounts at once (firm-wide, separate from XFA 5-account limit) |
@@ -190,8 +190,8 @@ A two-round fixed-payout Challenge. Similar structure to Drop #003 but with a $1
 | Daily Loss Limit | None | None |
 | Max Contracts | 2 micro (no minis) | 2 micro (no minis) |
 | Consistency Target | None | None |
-| Activation Fee | — | Free |
-| Path | — | Standard only |
+| Activation Fee | N/A: applies to the Payout Round only | Free |
+| Path | N/A: applies to the Payout Round only | Standard only |
 | Payout | Passing advances to Payout Round | Fixed $1,500, paid one time. No 90/10 split. Account closes. |
 | Resets | None | None |
 | Purchase Limit | No limit per round | Max 5 per Trader, total (including closed accounts; closed accounts count toward the 5, so if one closes you cannot replace it) |
@@ -223,8 +223,8 @@ A two-round fixed-payout Challenge. Higher payout ($6,000) and higher price ($14
 | Daily Loss Limit | None | None |
 | Max Contracts | 10 micro / 1 mini | 10 micro / 1 mini |
 | Consistency Target | None | None |
-| Activation Fee | — | Free |
-| Path | — | Standard only |
+| Activation Fee | N/A: applies to the Payout Round only | Free |
+| Path | N/A: applies to the Payout Round only | Standard only |
 | Payout | Passing advances to Payout Round | Fixed $6,000, paid one time. No 90/10 split. Account closes. |
 | Resets | None | None |
 | Purchase Limit | No limit per round | Max 5 per Trader, total (including closed accounts; closed accounts count, so if one closes you cannot replace it) |
