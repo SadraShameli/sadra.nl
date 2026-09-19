@@ -1,0 +1,65 @@
+# `Topstep` Plans Reference
+
+**Firm website:** `https://www.topstep.com`
+**Last Verified:** `2026-09-19`
+**Last Updated:** `2026-09-19`
+**Source:** see each plan's own file; firm-wide claims below are cross-checked against every plan file's own table, not asserted independently (see Firm-Wide Rules).
+
+## Overview
+
+Topstep runs a single evaluation, the Trading Combine®, sold at three account sizes ($50K/$100K/$150K), which funds into an Express Funded Account® (XFA). At XFA activation a trader picks one of two Payout paths, Standard or Consistency, documented as two separate plan files here because the funded-stage payout mechanic genuinely differs between them (day-count-only vs. a 40%-consistency-percentage check), even though the Trading Combine itself is identical either way. A separate, structurally different product, the Pro Account, substitutes for the Live Funded Account (LFA) for traders in jurisdictions that don't support live market access; it is entered directly from an XFA via a Risk-team call-up, not purchased, and has no Challenge phase of its own. The LFA itself, reached from either XFA Payout path by discretionary Risk-Team call-up, is documented once in a shared live file since its own parameters do not depend on which Payout path a trader used to reach it. Two more files round out the tree: `labs.md`, a rotating series of limited-availability experimental products sold alongside the standard lineup, and `trader-programs.md`, two behavioral-restriction overlays Topstep applies to an existing account rather than a purchasable product in its own right.
+
+## Plans
+
+- **[Standard](standard.md)**: Trading Combine + XFA, Standard Payout path: $50K/$100K/$150K, 5 winning days of $150+ Net P&L per Payout cycle, no funded-stage consistency check, Max Payout per Cycle capped at $2,000/$3,000/$5,000.
+- **[Consistency](consistency.md)**: Trading Combine + XFA, Consistency Payout path: same Combine as Standard, but funded-stage eligibility requires 3 trading days plus a 40% Consistency Objective (Largest Single-Day Net Profit ÷ Total Net Profit) instead, in exchange for a higher Max Payout per Cycle ($3,000/$4,000/$6,000).
+- **[Pro Account](pro-account.md)**: $50K/$100K/$150K, a simulated LFA substitute for traders whose jurisdiction doesn't support live market access. No Challenge phase; entered directly from an existing XFA via Risk-team call-up. Borrows the XFA's own Maximum Loss Limit by cross-reference; its own Starting Balance, Daily Loss Limit, and Payout Cap are separate fixed-by-size tables.
+
+## Labs
+
+- **[`labs.md`](labs.md)**: Topstep Labs, a rotating series of limited-availability, first-come-first-served experimental products, documented as 5 numbered Drops (#001–#005) as of this pass. Drops #001 and #002 are 3-phase products like the standard lineup but at different sizes and with Drop #001 introducing a static (non-trailing) Maximum Loss Limit found nowhere else in this tree; Drops #003–#005 are 2-round fixed-Payout Challenges with no funded or live stage at all. Each Drop is a genuinely different product, not a size variant of one plan, so this file uses one subsection per Drop rather than the single size-tiered table the other plan files use.
+
+## Live Accounts
+
+- **[`live.md`](live.md)**: the Live Funded Account (LFA), shared by `standard.md` and `consistency.md` (both XFA Payout paths transition into the same LFA). Size and starting balance are derived from a trader's cumulative XFA balances (20% unlocked immediately, minimum $10,000; 80% held in Reserve, released in four 25% increments at profit thresholds). Has no Maximum Loss Limit of its own; risk is instead governed by a Daily Loss Limit that expands with profit (Dynamic Live Risk Expansion) or contracts if tradable balance falls (Daily Loss Limit Safeguard), plus a flat $1,000 tradable-balance auto-liquidation floor.
+- `pro-account.md` is not a waypoint to the LFA under ordinary terms; for the population it serves, it is the terminal stage. See that file's own Live Transition section for its one stated, policy-contingent path back toward live trading.
+
+## Behavioral Programs
+
+- **[`trader-programs.md`](trader-programs.md)**: the Focused Trader Program (FTP) and Responsible Trading Program (RTP), both behavioral-restriction overlays Topstep's Risk Team applies to an existing Trading Combine/XFA/LFA after a review, not purchasable products. FTP (conduct violations) caps a trader to 1 active $50K account; RTP (risk-management concerns) forces the existing optional Daily Loss Limit figures onto every new account and forces the Consistency Payout path, without FTP's account cap. A trader can be escalated from RTP into FTP for continued violations.
+
+## Firm-Wide Rules
+
+Only rules confirmed, independently, in every one of the four documented files' own content.
+
+- **News trading is unrestricted**: confirmed in `standard.md`, `consistency.md`, `pro-account.md`, and `live.md`, all four citing the same firm-wide Economic Releases article ("Topstep doesn't require you to flatten positions during economic releases — in SIM or Funded Accounts"). `pro-account.md` and `live.md` both flag that this statement never names Pro Account or the LFA individually by name; each file reads its own account type into the general "SIM or Funded Accounts" language rather than treating it as directly confirmed by name.
+
+Rules that looked firm-wide but are NOT included above, because at least one plan's own file does not independently confirm them: the Maximum Loss Limit's general trailing/locking mechanic (confirmed in `standard.md`, `consistency.md`, and `pro-account.md` via cross-reference, but `live.md` states the LFA has no MLL of its own at all); the 30-consecutive-day inactivity closure (confirmed for the XFA in `standard.md`/`consistency.md` and for the LFA in `live.md`, but explicitly Unconfirmed for Pro Account in `pro-account.md`); the discretionary, Risk-Team-driven call-up to the LFA (confirmed identically in `standard.md`, `consistency.md`, and `live.md`, but `pro-account.md`'s own transition mechanic back toward live trading is structurally different: policy-contingent, not performance-based).
+
+## Key Cross-Plan Differences
+
+| Aspect | Standard | Consistency | Pro Account |
+| --- | --- | --- | --- |
+| Account Size | $50K / $100K / $150K | $50K / $100K / $150K | $50K / $100K / $150K |
+| Eval Cost | Trading Combine: $49–$199/month by size (Standard pricing) or $95–$229/month (No Activation Fee pricing), recurring subscription, not one-time; +$149/$0 one-time XFA Activation Fee | Same (shared Trading Combine) | N/A: no Challenge/eval phase, not purchased |
+| Profit Target | $3,000 / $6,000 / $9,000 (Trading Combine) | Same (shared Trading Combine) | N/A: no Challenge/eval phase |
+| Eval Consistency | 55% Consistency Target (Trading Combine only, shared by both Payout paths) | Same (shared Trading Combine) | N/A: no Challenge/eval phase |
+| Min Eval Days | 2 (Trading Combine) | Same (shared Trading Combine) | N/A |
+| Funded Consistency | None (day-count-only Payout eligibility) | 40% Consistency Objective, resets after each Payout | None ("Payout rules are the same as a standard Express Funded Account") |
+| Funded Drawdown Type | MLL, EOD trailing, two independent lock triggers (natural trail to $2,000/$3,000/$4,500 profit; forced on first Payout), locks at $0 | Same mechanic (shared XFA drawdown design) | MLL "mirrors the Express Funded Account® Maximum Loss Limit"; this file's own derivation locks at the account's own Starting Balance, not $0, since Pro's own balance doesn't start at $0 (see Not Confirmed in `pro-account.md`) |
+| DLL (Funded) | Optional; $1,000 / $2,000 / $3,000 if added at Trading Combine checkout | Same | $1,000 / $2,000 / $3,000, stated as a fixed by-size table, not framed as optional in Pro's own source |
+| Sim Payout Split | 90/10 | 90/10 | Unconfirmed (not stated for Pro Account by either source used) |
+| Max Funded Accounts | Up to 5 active XFAs, shared pool across both Payout paths and all sizes | Same shared pool | 1 Pro Account at a time |
+| Inactivity Rule | 30 consecutive days (XFA); none stated during the Trading Combine | Same | Unconfirmed (not stated for Pro Account by either source used) |
+| Lifetime Sim Payouts | No general cap; $200,000 lifetime cap for traders from XFA-only-eligible countries | Same | Unconfirmed (not stated for Pro Account specifically) |
+| Live Transition | Discretionary Risk-Team call-up, no fixed trigger → `live.md` | Same | Not a waypoint to the LFA under ordinary terms; own policy-contingent path, see `pro-account.md` |
+
+Every cell above traces back to the matching row in that plan's own file. Where a plan's own file marks a value "Unconfirmed," this table repeats that status rather than guessing.
+
+## Documentation Scope
+
+- **Topstep Labs (`labs.md`) and the behavioral programs (`trader-programs.md`) are now documented**, closing a gap an earlier pass in this same session initially mischaracterized (see `SOURCES.md`'s Discovery completeness section for how that was caught and fixed). Both files deliberately deviate from `CONVENTIONS.md`'s single-file, size-tiered-columns plan layout, for reasons stated in each file's own Overview: Labs' 5 Drops are unrelated products, not size variants of one plan, and the two behavioral programs are account-restriction overlays, not purchasable plans at all.
+- **The Reset Credit Bank mechanic** (Getting Started with the Topstep Dashboard: each Trading Combine rebill earns a Reset Credit, tied to a specific size/path, expiring after 1 year) is not reflected in `standard.md`/`consistency.md`'s own flat Reset Fee rows. Flagged, not fixed, in this pass.
+- **The Topstep Octagon** (the monthly leaderboard competition that replaced the retired TopstepX™ Live Performance Bonus) is documented in `live.md`'s Other Confirmed Rules, but deliberately not modeled in the engine: it is a population-relative mechanic incompatible with this simulator's single-account design, the same reasoning already applied to Shoulder Tap review.
+- **This repository's simulator (`src/lib/prop-calculator/firms/topstep/TopStep.ts` and `TopStepLive.ts`) does not fully match this tree's scope.** Both files hardcode a single $50K tier; the $100K and $150K Trading Combine/XFA/LFA figures throughout this tree are confirmed firm data with no corresponding engine implementation. `TopStepLive.ts` has no Reserve/Capital Expansion mechanic, no representation of the confirmed $1,000 auto-liquidation floor, and no Daily Loss Limit Safeguard. `TopStep.ts` has no representation of Pro Account at all (no `TopStepVariant` entry, no `PlanInit`, no mention in its own notes). Each gap is traced and flagged, not fixed, in that file's own Engine cross-check notes; none were resolved silently in either direction.
+- **Pro Account's own account-type scope is genuinely inconsistent across Topstep's own help-center articles.** Two firm-wide articles (Holiday Trading Hours, Understanding Hedging) enumerate "Trading Combine®, Express Funded Account®, Live Funded Account®" without naming Pro Account, while a third (Risk Adjustments: High Risk/High Volatility) explicitly groups Pro Account with the Trading Combine and XFA for its own, unrelated, temporary volatility position-limit table. This tree does not assume either inclusion or exclusion where a Pro-Account-specific citation is missing; see `pro-account.md`'s own Not Confirmed section for the full list.

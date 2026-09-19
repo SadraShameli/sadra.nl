@@ -1,0 +1,139 @@
+# Pro Account ($50,000 / $100,000 / $150,000)
+
+**Sources:** https://help.topstep.com/en/articles/14645398-what-is-a-pro-account (updated 2026-09-11), https://help.topstep.com/en/articles/8284204-what-is-the-maximum-loss-limit (updated 2026-09-18), https://help.topstep.com/en/articles/8284223-what-is-the-scaling-plan (updated 2026-07-16), https://help.topstep.com/en/articles/8284116-am-i-eligible-to-trade-with-topstep (updated 2026-09-04). See full Sources list at the bottom for every article checked.
+
+**Last Verified:** 2026-09-19
+**Last Updated:** 2026-09-19
+
+## Overview
+
+A Pro Account is a simulated substitute for the Live Funded Account® (LFA), offered to traders who "would typically earn a Live Funded Account (LFA), but whose jurisdiction currently doesn't support live market access." It is "a simulated account with parameters similar to an LFA," entered directly from an existing Express Funded Account® (XFA), not purchased and not reached via its own Challenge/evaluation phase: "Topstep's Risk team will reach out when you're ready to move to a Pro Account. Your XFAs will be closed as part of this process." Topstep's own eligibility article ties this explicitly to geography: traders who are citizens/residents of a specific list of countries (e.g. Albania, Germany, Hong Kong, Vietnam, and roughly twenty others named in that article) can hold XFAs but not LFAs, and "select Traders from these countries may be considered for the Pro Account track rather than the Live Funded Account, based on performance." In other words, Pro Account eligibility is geography-gated and performance-based, not automatic or self-service (by the time a trader reaches this stage, IDV/KYC, required before a second purchase, is already long complete).
+
+Structurally, Pro Account sits closer to the XFA than to the LFA it substitutes for: its own article states plainly that it does "not have the Balance Expansion feature available in the Live Funded Account" and that "Balance adjusts only through P&L and Payouts," while it is explicitly "subject to the contract size Scaling Plan," the same contract-size-by-balance mechanic that governs the XFA (the Trading Combine's own Max Contracts is a flat, non-tiered limit per its own Evaluation-phase rules, not the Scaling Plan), not the LFA's own Dynamic Live Risk Expansion. Its own Starting Balance, Daily Loss Limit, and Payout Cap are each given by Topstep as fixed tables by account size (all reproduced below); its Maximum Loss Limit is not a distinct Pro-specific table but the XFA's own MLL-by-size figures, borrowed by explicit cross-reference ("mirrors the Express Funded Account® (XFA) Maximum Loss Limit," see How the Drawdown Works below).
+
+This repository's simulator has no model of Pro Account at all. `src/lib/prop-calculator/firms/topstep/TopStep.ts` (read in full for this file, including its complete `notes` array) defines only Trading Combine/XFA plans, at a single hardcoded `ACCOUNT_SIZE = 50_000`; there is no `TopStepVariant` entry, `PlanInit`, or mention of "Pro Account" anywhere in that file. See Not Confirmed for how that same $50K-only scope gap specifically constrains any future Pro Account model.
+
+## Evaluation
+
+| Parameter | $50K | $100K | $150K |
+| --- | --- | --- | --- |
+| Starting Balance | N/A: no Challenge/eval phase of its own. Pro Account is entered directly from an existing XFA via Topstep's Risk-team Call Up Process (see Overview); see Sim Funded for this plan's own starting balance. | N/A: same as $50K. | N/A: same as $50K. |
+| Profit Target | N/A: no Challenge/eval phase of its own. | N/A: same as $50K. | N/A: same as $50K. |
+| Drawdown Type | N/A: no Challenge/eval phase; the drawdown mechanic applies from the account's first day (see Sim Funded). | N/A: same as $50K. | N/A: same as $50K. |
+| Drawdown Amount | N/A: no Challenge/eval phase (see Sim Funded). | N/A: same as $50K. | N/A: same as $50K. |
+| Minimum Balance at Start | N/A: no Challenge/eval phase (see Sim Funded). | N/A: same as $50K. | N/A: same as $50K. |
+| Daily Loss Limit | N/A: no Challenge/eval phase (see Sim Funded for this plan's own DLL table). | N/A: same as $50K. | N/A: same as $50K. |
+| Max Contracts | N/A: no separate eval-phase limit; subject to the Scaling Plan from day one (see Sim Funded). | N/A: same as $50K. | N/A: same as $50K. |
+| Consistency Rule | N/A: no Challenge/eval phase (see Sim Funded). | N/A: same as $50K. | N/A: same as $50K. |
+| Minimum Trading Days | N/A: no Challenge/eval phase. Not stated for Pro Account by either source in any case. | N/A: same as $50K. | N/A: same as $50K. |
+| News Trading | N/A: no Challenge/eval phase (see Sim Funded). | N/A: same as $50K. | N/A: same as $50K. |
+| Inactivity Rule | N/A: no Challenge/eval phase (see Sim Funded; Unconfirmed there too). | N/A: same as $50K. | N/A: same as $50K. |
+| One-Time Eval Fee | N/A: Pro Account is not purchased. Source, verbatim: "Topstep's Risk team will reach out when you're ready to move to a Pro Account." No fee of any kind is stated in either source. | N/A: same as $50K. | N/A: same as $50K. |
+| Reset Fee | N/A: no reset/reactivation path exists for Pro Account. Source, verbatim: "Back2Funded is not available for Pro Accounts." | N/A: same as $50K. | N/A: same as $50K. |
+
+## Sim Funded
+
+| Parameter | $50K | $100K | $150K |
+| --- | --- | --- | --- |
+| Starting Balance | $10,000 | $20,000 | $30,000 |
+| Drawdown Type | Maximum Loss Limit (End-of-Day Trailing); see How the Drawdown Works. | Maximum Loss Limit (End-of-Day Trailing); see How the Drawdown Works. | Maximum Loss Limit (End-of-Day Trailing); see How the Drawdown Works. |
+| Drawdown Amount | $2,000 | $3,000 | $4,500 |
+| Drawdown Lock | Trigger: not independently stated for Pro Account by name; the source, verbatim, says only that the MLL "mirrors the Express Funded Account® (XFA) Maximum Loss Limit." Locked value: likewise not independently stated for Pro Account. This file's own reasoned (not directly quoted) derivation, combining that statement with the general MLL mechanic and this tier's own Starting Balance, is worked through step by step in the Worked Example below and flagged in Not Confirmed. Do not treat any dollar trigger or locked value as a Topstep-stated Pro Account figure. | Same as $50K: not independently stated for Pro Account; see Worked Example (which uses the $50K tier) and Not Confirmed. | Same as $50K: not independently stated for Pro Account; see Worked Example (which uses the $50K tier) and Not Confirmed. |
+| Minimum Balance (ongoing) | Not independently stated for Pro Account. See Drawdown Lock row and the Worked Example for this file's own reasoned derivation once the MLL locks; before locking, the general mechanic's floor = EOD balance − MLL amount applies (EOD balance − $2,000 for this tier). | Not independently stated; before locking, EOD balance − $3,000 by the same general mechanic. | Not independently stated; before locking, EOD balance − $4,500 by the same general mechanic. |
+| Daily Loss Limit | $1,000 | $2,000 | $3,000 |
+| Max Contracts | Scaling Plan (mini-equivalents, 10:1 micro ratio): below $1,500 = 2 lots; $1,500-$2,000 = 3 lots; above $2,000 = 5 lots. Source states Pro Accounts are "subject to the contract size Scaling Plan" (article 14645398); the table itself is not restated as bundle text anywhere. It exists only as a chart image embedded in article 8284223, read and verified directly against that image this session. Whether the chart's "Account Balance" axis means Pro Account's literal balance or its profit above its own $10,000 Starting Balance is not stated by either source (immaterial for the XFA, whose own balance starts at $0 and so equals its own profit; material here, since Pro's own balance does not start at $0); see Not Confirmed. A separate, temporary, volatility-driven position-limit table (article 13613539) also explicitly names "Trading Combine, Express Funded Account, Pro Account" together for a small set of restricted energy/metals products during extreme volatility; not reproduced here as it is temporary and product-specific, not a standing Max Contracts figure. | Scaling Plan: below $1,500 = 3 lots; $1,500-$2,000 = 4 lots; $2,000-$3,000 = 5 lots; above $3,000 = 10 lots. Same sourcing and axis caveat as $50K. | Scaling Plan: below $1,500 = 3 lots; $1,500-$2,000 = 4 lots; $2,000-$3,000 = 5 lots; $3,000-$4,500 = 10 lots; above $4,500 = 15 lots. Same sourcing and axis caveat as $50K. |
+| Consistency Rule | None. Source, verbatim: "Payout rules are the same as a standard Express Funded Account." The Standard XFA path has no consistency-percentage check (unlike the separate Consistency XFA path), and Pro's own article never mentions a consistency percentage. | None. Same reasoning as $50K. | None. Same reasoning as $50K. |
+| News Trading | Not restricted, per the firm-wide statement that Topstep "doesn't require you to flatten positions during economic releases — in SIM or Funded Accounts" (article 8284211; em dash original to the source). Not a Pro-Account-specific statement by name; see Not Confirmed. | Same as $50K. | Same as $50K. |
+| Inactivity Rule | Unconfirmed: not stated for Pro Account by either source. See Not Confirmed; do not assume the XFA's own 30-day figure carries over. | Unconfirmed: same as $50K. | Unconfirmed: same as $50K. |
+| Max Active/Concurrent Accounts | 1 (applies uniformly, not size-specific). Source, verbatim: "Traders are limited to 1 Pro Account at a time" (under the heading "One Pro Account maximum"). | 1 | 1 |
+| Profit Split | Unconfirmed: not stated for Pro Account by either source. See Not Confirmed. | Unconfirmed | Unconfirmed |
+
+## How the Drawdown Works
+
+Topstep's general Maximum Loss Limit mechanic (article 8284204, stated before that article splits into its own Trading Combine and XFA sections) is: "The Maximum Loss Limit (MLL) is the lowest point your account balance is allowed to reach. If your balance hits it at any point during the trading day, including on unrealized P&L, your account is liquidated immediately," and "The MLL is a trailing limit. It rises as your end-of-day balance grows, but never moves down. Once it reaches your starting balance, it locks permanently." Pro Account's own article does not restate this mechanic; it states only that "The Maximum Loss Limit in a Pro Account mirrors the Express Funded Account® (XFA) Maximum Loss Limit."
+
+This file reads "mirrors the XFA Maximum Loss Limit" as supplying the MLL **amount** by size ($2,000 / $3,000 / $4,500, the same figures the firm-wide article states for the XFA), combined with the general "locks at your starting balance" rule quoted above and Pro Account's own, separately-stated Starting Balance table, to derive the trigger and locked-value figures discussed below. This is a consistent reading: the same general formula (floor = EOD balance − MLL amount while trailing; locks at the account's own starting balance once that floor would reach it) is what the same article's Trading Combine section (locks at the full account size) and XFA section (locks at $0, because XFA's own starting balance is $0) each separately instantiate. But it is this file's own derivation, not a sentence Topstep has written naming Pro Account and a dollar lock-value together. Do not treat the $12,000/$23,000/$34,500 triggers or the $10,000/$20,000/$30,000 locked values worked out below as directly quoted Topstep figures.
+
+A second, related gap: for the XFA, Topstep states that "After your first Payout: Your MLL is set to $0 regardless of where it was before. The remaining balance becomes your effective loss floor." If "mirrors the XFA Maximum Loss Limit" extends to this rule too, the Pro Account analog (by the same substitution logic above) would force the MLL to Pro's own Starting Balance, not literally $0, since the XFA's "$0" is itself just the XFA's own starting point, not a universal constant. Pro Account's own article never mentions this rule at all. Not modeled or asserted here; see Not Confirmed.
+
+On a breach, Pro Account's own article states the consequence directly: "If your Pro Account breaches the Maximum Loss Limit and closes: You can continue trading in Trading Combines and activate XFAs as they become available; Back2Funded is not available for Pro Accounts; Strong, consistent performance in your XFAs may make you eligible for another Pro Account in the future." A closed Pro Account is not reactivated. The trader returns to the ordinary Combine/XFA cycle and may eventually be called up again.
+
+### Worked Example
+
+Using the $50K tier, on the nominal-balance convention: the account starts at its own literal $10,000 Starting Balance (this file's own Sim Funded table above, matching the source's own "$50K | $10,000" row), not at $0.
+
+1. The account is called up and opens at a balance of $10,000. Applying the $2,000 MLL amount as a trailing distance below the current EOD balance (the mechanic firm-wide article 8284204 describes generally), the MLL floor on day one is $10,000 − $2,000 = $8,000.
+2. Trading profitably, EOD balance rises to $10,800 (+$800). Per "it rises as your end-of-day balance grows, but never moves down," the floor trails up to $10,800 − $2,000 = $8,800.
+3. Over further days, cumulative profit reaches $2,000 from the $10,000 start, i.e. EOD balance reaches $12,000. By this file's own derivation above (not an independently quoted Pro-specific number), the floor, which would compute to $12,000 − $2,000 = $10,000, has now reached the account's own Starting Balance and locks there permanently, matching the general "once it reaches your starting balance, it locks permanently" rule.
+4. From this point forward, the account cannot fall to $9,999 or below without triggering liquidation; the $10,000 floor no longer trails upward even on further profit that same day.
+
+Re-derivation check: trigger balance ($12,000) minus MLL amount ($2,000) equals $10,000, which equals the tier's own Starting Balance, which equals the locked value. Internally consistent under the stated derivation; the derivation itself, as opposed to the arithmetic, is flagged in Not Confirmed.
+
+## Payouts
+
+| Parameter | $50K | $100K | $150K |
+| --- | --- | --- | --- |
+| Profit Split | Unconfirmed: not stated for Pro Account by either source. Do not assume the 90% trader share TopStep.ts models for XFA/Combine applies here; that file has no Pro Account entry at all. See Not Confirmed. | Unconfirmed | Unconfirmed |
+| Payout Frequency | Not stated as an explicit cadence (no "daily" / "every N days" wording). The closest analog is the qualifying gate itself: "5 or more winning days of $150 (non-consecutive)" before a Payout can be requested, and "net positive after your first Payout" thereafter (both verbatim, article 14645398), a day-count-and-per-day-minimum condition, not a stated cadence. | Same as $50K. | Same as $50K. |
+| Buffer Requirement | No cumulative dollar buffer is stated. The qualifying gate above (5 winning days of $150+, non-consecutive) is the closest analog but is not framed as a single buffer figure the way some other firms' plans are. Do not compute an implied $750 (5 × $150) buffer, as the source never states it that way. | Same as $50K. | Same as $50K. |
+| Minimum Payout Request | Unconfirmed: not stated for Pro Account by either source. Do not assume the XFA's own $125 minimum (an engine-note figure, not a source cited in this file) applies here. | Unconfirmed | Unconfirmed |
+| Max Payout per Cycle | $2,000, per the source's own "Account Size \| Payout Cap" table. The source's own Payouts paragraph separately states, in one sentence, "Payout up to 50% of the account and up to $5,000": a flat $5,000 ceiling that conflicts with this size's own $2,000 table figure. This file treats the by-size table as the operative figure (it is the more specific statement, and its $150K row independently matches the flat $5,000 language exactly), but the source itself never resolves the conflict; see Not Confirmed. | $3,000, same table-vs-flat-$5,000-clause conflict as $50K; see Not Confirmed. | $5,000, per the by-size table; this is also the one size where the table matches the flat "up to $5,000" clause exactly, so no conflict here. |
+| Consistency on Payouts | None (Standard-XFA-shaped payout path; no consistency-percentage check). Same reasoning and citation as the Sim Funded table's Consistency Rule row. | None. Same as $50K. | None. Same as $50K. |
+| Maximum Total Payouts / Lifetime Cap | Unconfirmed: not stated for Pro Account specifically. See Not Confirmed regarding the eligibility article's separate "$200,000 in total payouts" figure, which is not the same thing. | Unconfirmed | Unconfirmed |
+
+## Live Transition
+
+Pro Account is not itself a step toward a further account type under normal operation. For the specific population it serves (traders whose jurisdiction does not currently support live market access), it **is** the terminal stage, not a waypoint to the Live Funded Account®. It is entered directly from an existing XFA (never from a Trading Combine directly) via Topstep's Risk-team Call Up Process, and its own article does not describe any onward transition to the LFA under ordinary performance-based terms the way the XFA-to-LFA path is described elsewhere.
+
+The one stated path back toward live trading is policy-contingent, not performance-based: per Pro Account's own FAQ, "Topstep will reach out to notify you if their Live Funded Account policy or live market access changes for your jurisdiction." No parameters, thresholds, or mechanics for such a transition are given anywhere in either source; it depends on Topstep's own future policy or broker/regulatory access changes in the trader's jurisdiction, not on anything the trader does in the Pro Account itself. This file does not invent a transition mechanic to fill that gap.
+
+If a Pro Account closes (MLL breach), the trader does not move to a live stage at all. See How the Drawdown Works: they return to the ordinary Trading Combine/XFA cycle and may become eligible for another Pro Account call-up later, per the source's own words.
+
+## Not Confirmed By This Source
+
+- **Drawdown Lock trigger and locked value, all sizes**: derived by combining Pro Account's "mirrors the Express Funded Account® (XFA) Maximum Loss Limit" statement (article 14645398) with the general MLL mechanic's "locks at your starting balance" rule and Pro's own Starting Balance table (both article 8284204 and 14645398). No source directly states a dollar trigger or locked value naming Pro Account. Do not treat $12,000/$23,000/$34,500 (trigger) or $10,000/$20,000/$30,000 (locked value) as directly quoted Topstep figures; they are this file's own derivation.
+
+- **Post-first-payout MLL force-to-floor rule**: the XFA's own article states the MLL is force-set to "$0" after a trader's first Payout. Whether "mirrors the XFA Maximum Loss Limit" extends to this specific rule for Pro Account is not stated. If it does, the correct analog (by this file's own substitution logic) would be Pro's own Starting Balance, not literal $0, since XFA's "$0" is itself just XFA's own starting point. Do not assume Pro Account's post-first-payout floor is literal $0, and do not assume the rule applies at all.
+
+- **Scaling Plan "Account Balance" axis (Max Contracts, all sizes)**: the Scaling Plan chart (article 8284223) is keyed to "Account Balance." A different, firm-wide article (8284204) states "Your Express Funded Account (XFA) balance starts at $0," making balance and profit numerically identical for the XFA; article 8284223 itself is not part of either bundle used for this file and was not independently checked for its own wording of that same point. Pro Account's own nonzero Starting Balance makes this distinction material, and neither source states whether Pro's own Max Contracts thresholds are keyed to literal balance or to profit above the $10,000/$20,000/$30,000 starting point. Do not assume either reading without further confirmation.
+
+- **Max Payout per Cycle, $50K/$100K, table-vs-prose conflict**: Pro Account's own Payouts paragraph states in one sentence that Payouts run "up to 50% of the account and up to $5,000," but the same article's own by-size Payout Cap table gives $2,000 ($50K) and $3,000 ($100K), not $5,000. The source does not explain or resolve this conflict. This file's Payouts table uses the by-size figures as authoritative; do not assume $5,000 is available at $50K or $100K.
+
+- **Inactivity Rule, Sim Funded (all sizes)**: not stated in either source for Pro Account. Do not assume the XFA's own 30-consecutive-day closure rule carries over; that figure's own source article (8284215, "Express Funded Account® Parameters") is outside both bundles used for this file and was not independently re-checked here.
+
+- **Profit Split, all sizes (Sim Funded and Payouts tables)**: not stated in either source for Pro Account. TopStep.ts models a flat 90% trader share for XFA/Combine plans, but that file has no Pro Account representation at all; do not carry the 90/10 split over without a Pro-Account-specific citation.
+
+- **Buffer Requirement / Payout Frequency, all sizes**: no cumulative dollar buffer or explicit payout cadence ("daily," "every N days," etc.) is stated. The 5-winning-days-of-$150+ qualifying gate is the closest analog but is a day-count-and-per-day-minimum condition, not a single buffer figure or a stated cadence. Do not compute or assume an implied $750 buffer.
+
+- **Minimum Payout Request, all sizes**: not stated for Pro Account by either source. Do not assume the XFA's own $125 minimum (an engine-note figure, not independently confirmed here) applies.
+
+- **Maximum Total Payouts / Lifetime Cap, all sizes**: not stated for Pro Account specifically. The eligibility article (8284116) states that traders from XFA-only-eligible countries generally can "take up to $200,000 in total payouts" without LFA access, but does not say whether Pro Account payouts count toward, are additive to, or are excluded from that figure. Do not treat $200,000 as this plan's own lifetime payout cap.
+
+- **Holiday trading-hours / CME Protocol applicability**: the "Topstep Holiday Trading Hours" article (13350348, updated 2026-09-18) explicitly enumerates which account types its 15-minutes-before-early-close rule and CME-Protocol blended-trade-date table apply to ("Trading Combine®, Express Funded Account® (XFA), Live Funded Account® (LFA)") and does not include Pro Account in that list. Do not assume the same treatment applies to Pro Account either way.
+
+- **Hedging-enforcement account-type scope**: "Understanding Hedging" (13747047, updated 2026-07-27) states its policy "applies to the Trading Combine, Express, and Live Accounts," again without naming Pro Account, even though the more recently updated "Risk Adjustments: High Risk/High Volatility" article (13613539, updated 2026-09-17) does explicitly group "Pro Account" with Trading Combine/XFA for its own, unrelated, temporary volatility position-limit table. Do not assume either inclusion or exclusion for hedging enforcement specifically; the two articles are inconsistent in whether they name Pro Account at all.
+
+- **Level 1/2 market-data cost coverage**: "Level 1 and Level 2 Market Data" (8284120) names only "Trading Combine® and Express Funded Account® (XFA) accounts" for free Level 1 coverage; Pro Account is not named. Do not assume free Level 1 data extends to Pro Account without its own citation.
+
+- **Standard-vs-Consistency payout-path choice**: Pro's own article states payout rules are "the same as a standard Express Funded Account," which this file reads as prescriptive (Pro Account is unconditionally on the Standard path). The source never explicitly states that a Consistency-XFA-style alternative (3 winning days + 40% consistency target) is unavailable for Pro Account; it simply never mentions one. Do not assume a Consistency-path option exists for Pro Account.
+
+- **Engine model (TopStep.ts)**: read in full for this file, including its complete `notes` array. There is no `TopStepVariant` entry, `PlanInit`, `PAYOUT_PATHS`/`PRICING_PATHS` entry, or any other representation of Pro Account anywhere in that file, and its notes never mention "Pro Account." `TopStepLive.ts` (the LFA model) is known to this file only secondhand, via TopStep.ts's own notes describing it; this drafting pass did not independently open `TopStepLive.ts`, and those notes likewise never mention Pro Account. Do not assume any engine-side Pro Account support exists anywhere in this repository.
+
+- **Engine's $50K-only XFA scope and its knock-on effect on Pro Account sizing**: `ACCOUNT_SIZE = 50_000` is hardcoded in TopStep.ts; the engine has no $100K/$150K XFA representation at all today. Since Pro Account's own size is derived by averaging the account-size tier of a trader's open XFAs (rounded up to the nearest tier, per article 14645398's own worked example), a hypothetical future engine model of Pro Account could not produce anything above the $50K Pro tier until the underlying $100K/$150K XFA gap is closed first. Do not treat these as two independent gaps; the Pro Account gap is downstream of, and bounded by, the existing XFA one.
+
+---
+
+**Last Updated:** 2026-09-19
+**Sources:**
+
+- https://help.topstep.com/en/articles/14645398-what-is-a-pro-account (updated 2026-09-11): primary source for all Pro Account-specific figures (account count limit, size derivation, Starting Balance table, MLL "mirrors XFA" statement, DLL table, No Balance Expansion / Scaling Plan statement, Payout terms and Payout Cap table, Call Up Process, closure consequences, FAQ).
+- https://help.topstep.com/en/articles/8284204-what-is-the-maximum-loss-limit (updated 2026-09-18): general MLL mechanic ("How the MLL works"), firm-wide MLL-by-size table, Trading Combine/XFA worked instantiations of the lock rule, post-first-payout XFA force-to-$0 rule.
+- https://help.topstep.com/en/articles/8284223-what-is-the-scaling-plan (updated 2026-07-16): Scaling Plan mechanic description and 10:1 micro/mini ratio; its own embedded chart image (not restated as bundle text) supplies the Max Contracts table, verified directly against that image this session.
+- https://help.topstep.com/en/articles/8284116-am-i-eligible-to-trade-with-topstep (updated 2026-09-04): eligibility-by-country list and the "may be considered for the Pro Account track" callout; the $200,000 total-payout figure discussed in Not Confirmed.
+- https://help.topstep.com/en/articles/13613539-risk-adjustments-high-risk-high-volatility (updated 2026-09-17): explicitly names "Pro Account" in its temporary volatility position-limit table.
+- https://help.topstep.com/en/articles/8284211-economic-releases (updated 2026-09-10): firm-wide "SIM or Funded Accounts" news-trading statement.
+- https://help.topstep.com/en/articles/12578731-how-idv-identity-verification-works (updated 2026-07-21): IDV/KYC timing, referenced briefly in Overview.
+- https://help.topstep.com/en/articles/13350348-topstep-holiday-trading-hours (updated 2026-09-18): cited in Not Confirmed for its account-type enumeration excluding Pro Account.
+- https://help.topstep.com/en/articles/13747047-understanding-hedging (updated 2026-07-27): cited in Not Confirmed for its account-type enumeration excluding Pro Account.
+- https://help.topstep.com/en/articles/8284120-level-1-and-level-2-market-data (updated 2026-06-18): cited in Not Confirmed for its account-type enumeration excluding Pro Account.
+- `src/lib/prop-calculator/firms/topstep/TopStep.ts` (repository file, not a help-center article): cross-checked for engine-model status; read in full, including its complete `notes` array.
