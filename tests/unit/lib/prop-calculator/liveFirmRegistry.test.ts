@@ -7,6 +7,7 @@ const MODELED_LIVE_FIRMS = [
     FirmId.AlphaFutures,
     FirmId.Apex,
     FirmId.FundedNext,
+    FirmId.Lucid,
     FirmId.Mffu,
     FirmId.TopStep,
     FirmId.Tpt,

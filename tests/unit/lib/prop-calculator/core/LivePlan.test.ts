@@ -10,6 +10,7 @@ import {
     type LiveAccountState,
     LivePlan,
     type LivePlanInit,
+    PayoutFloorEffect,
 } from '~/lib/prop-calculator/core';
 import { buildApexLivePlan } from '~/lib/prop-calculator/firms/apex/ApexLive';
 
@@ -41,6 +42,27 @@ function dllLikeInit(overrides: Partial<LivePlanInit> = {}): LivePlanInit {
         payoutTiers: [
             { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
         ],
+        ...overrides,
+    };
+}
+
+function lucidLikeInit(overrides: Partial<LivePlanInit> = {}): LivePlanInit {
+    return {
+        cushionPercent: { postLock: fraction(0.1), preLock: fraction(0.05) },
+        label: 'Test Lucid Live',
+        liveDailyLossLimit: null,
+        liveDrawdown: new EodTrailingDrawdown({
+            amount: dollars(2000),
+            lock: {
+                atProfit: dollars(2000),
+                lockedThreshold: (start) => start + 100,
+            },
+        }),
+        payoutFloorEffect: PayoutFloorEffect.LockAtPlanFloor,
+        payoutTiers: [
+            { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
+        ],
+        requiresLockForWithdrawal: false,
         ...overrides,
     };
 }
@@ -120,6 +142,83 @@ describe('LivePlan constructor invariants (mirroring Plan.ts)', () => {
 
     it('does not throw for a valid daily-loss-limit-shaped config', () => {
         expect(() => new LivePlan(dllLikeInit())).not.toThrow();
+    });
+
+    it('throws when payoutFloorEffect is LockAtPlanFloor but the drawdown has no lock config, because a payout request cannot lock a floor the plan never defined', () => {
+        const lockless = new EodTrailingDrawdown({ amount: dollars(2000) });
+
+        expect(
+            () => new LivePlan(lucidLikeInit({ liveDrawdown: lockless })),
+        ).toThrow(
+            'Test Lucid Live: payoutFloorEffect is LockAtPlanFloor but liveDrawdown has no lock config',
+        );
+    });
+
+    it('throws when payoutFloorEffect is LockAtPlanFloor but requiresLockForWithdrawal is true (also the default), because every withdrawal would already sit behind the lock and the lock-on-request effect could never fire', () => {
+        expect(
+            () =>
+                new LivePlan(
+                    lucidLikeInit({ requiresLockForWithdrawal: true }),
+                ),
+        ).toThrow(
+            'Test Lucid Live: payoutFloorEffect is LockAtPlanFloor but requiresLockForWithdrawal gates every withdrawal behind the lock, so the effect could never fire',
+        );
+        expect(
+            () =>
+                new LivePlan(
+                    apexLikeInit({
+                        payoutFloorEffect: PayoutFloorEffect.LockAtPlanFloor,
+                    }),
+                ),
+        ).toThrow(
+            'Test Live: payoutFloorEffect is LockAtPlanFloor but requiresLockForWithdrawal gates every withdrawal behind the lock, so the effect could never fire',
+        );
+    });
+
+    it('throws when payoutFloorEffect is ReleaseFloor but liveDrawdown is null, because a daily-loss-limit-shaped plan has no trailing floor to release', () => {
+        expect(
+            () =>
+                new LivePlan(
+                    dllLikeInit({
+                        payoutFloorEffect: PayoutFloorEffect.ReleaseFloor,
+                    }),
+                ),
+        ).toThrow(
+            'Test DLL Live: payoutFloorEffect is ReleaseFloor but liveDrawdown is null',
+        );
+    });
+
+    it('does not throw for a Lucid Live-shaped LockAtPlanFloor config with requiresLockForWithdrawal false and a locking drawdown', () => {
+        expect(() => new LivePlan(lucidLikeInit())).not.toThrow();
+    });
+
+    it('throws when payoutFloor and a non-None payoutFloorEffect are both set, because withdraw() would move the threshold to the effect\'s floor while withdrawableAmount() had already capped the withdrawal at the payoutFloor override, letting balance fall below the effect\'s floor', () => {
+        expect(
+            () => new LivePlan(lucidLikeInit({ payoutFloor: dollars(500) })),
+        ).toThrow(
+            "Test Lucid Live: payoutFloor and a non-None payoutFloorEffect cannot both be set -- withdraw() would move the threshold to the effect's floor while withdrawableAmount() had already capped the withdrawal at the payoutFloor override, letting balance fall below the effect's floor",
+        );
+        expect(
+            () =>
+                new LivePlan(
+                    lucidLikeInit({
+                        payoutFloor: dollars(500),
+                        payoutFloorEffect: PayoutFloorEffect.ReleaseFloor,
+                    }),
+                ),
+        ).toThrow(/payoutFloor and a non-None payoutFloorEffect/);
+    });
+
+    it('does not throw when payoutFloor is set alongside the default None payoutFloorEffect, matching Apex Live\'s own $3,100 safety-net configuration', () => {
+        expect(
+            () => new LivePlan(apexLikeInit({ payoutFloor: dollars(3100) })),
+        ).not.toThrow();
+    });
+
+    it('defaults payoutFloorEffect to None when omitted, so every existing live plan keeps its payout-never-touches-the-floor behaviour', () => {
+        expect(new LivePlan(apexLikeInit()).payoutFloorEffect).toBe(
+            PayoutFloorEffect.None,
+        );
     });
 });
 
@@ -332,6 +431,140 @@ describe('LivePlan.withdrawableAmount', () => {
             ),
         ).toBe(0);
     });
+
+    it('is balance minus the $100 the MLL is about to lock to, not balance minus the -$1,900 trailing threshold, for a pre-lock Lucid Live LockAtPlanFloor plan, because the payout request itself locks the floor before the money leaves', () => {
+        const plan = new LivePlan(lucidLikeInit());
+
+        expect(
+            plan.withdrawableAmount(
+                stateAt({
+                    balance: 1000,
+                    threshold: -1900,
+                    thresholdLocked: false,
+                }),
+            ),
+        ).toBe(900);
+    });
+
+    it('keeps the trailing threshold as the floor pre-lock when it already sits above the $100 lock target, mirroring forceLock only ever raising the threshold', () => {
+        const plan = new LivePlan(lucidLikeInit());
+
+        expect(
+            plan.withdrawableAmount(
+                stateAt({
+                    balance: 1000,
+                    threshold: 150,
+                    thresholdLocked: false,
+                }),
+            ),
+        ).toBe(850);
+    });
+
+    it('is balance minus the locked threshold once a Lucid Live LockAtPlanFloor plan has locked, unchanged from every other locked drawdown plan', () => {
+        const plan = new LivePlan(lucidLikeInit());
+
+        expect(
+            plan.withdrawableAmount(
+                stateAt({
+                    balance: 1000,
+                    threshold: 100,
+                    thresholdLocked: true,
+                }),
+            ),
+        ).toBe(900);
+    });
+
+    it('is balance minus startingBalance pre-lock for a ReleaseFloor plan, because the request releases the trailing floor back to the starting balance', () => {
+        const plan = new LivePlan(
+            lucidLikeInit({
+                payoutFloorEffect: PayoutFloorEffect.ReleaseFloor,
+            }),
+        );
+
+        expect(
+            plan.withdrawableAmount(
+                stateAt({
+                    balance: 1000,
+                    startingBalance: 0,
+                    threshold: -1900,
+                    thresholdLocked: false,
+                }),
+            ),
+        ).toBe(1000);
+    });
+});
+
+describe('LivePlan.withdraw', () => {
+    it('debits the balance and force-locks the MLL at startingBalance + $100 for a LockAtPlanFloor plan, encoding Lucid Live\'s "requesting a payout before $2,000 profit locks the Max Loss Limit at $100" rule', () => {
+        const plan = new LivePlan(lucidLikeInit());
+        const state = stateAt({
+            balance: 1000,
+            threshold: -1900,
+            thresholdLocked: false,
+        });
+
+        plan.withdraw(state, 300);
+
+        expect(state.balance).toBe(700);
+        expect(state.thresholdLocked).toBe(true);
+        expect(state.threshold).toBe(100);
+    });
+
+    it('debits the balance and leaves threshold and thresholdLocked untouched for a None plan', () => {
+        const plan = new LivePlan(
+            lucidLikeInit({ payoutFloorEffect: PayoutFloorEffect.None }),
+        );
+        const state = stateAt({
+            balance: 1000,
+            threshold: -1900,
+            thresholdLocked: false,
+        });
+
+        plan.withdraw(state, 300);
+
+        expect(state.balance).toBe(700);
+        expect(state.threshold).toBe(-1900);
+        expect(state.thresholdLocked).toBe(false);
+    });
+
+    it('debits the balance and releases the threshold to startingBalance, locked, for a ReleaseFloor plan', () => {
+        const plan = new LivePlan(
+            lucidLikeInit({
+                payoutFloorEffect: PayoutFloorEffect.ReleaseFloor,
+            }),
+        );
+        const state = stateAt({
+            balance: 1000,
+            threshold: -1900,
+            thresholdLocked: false,
+        });
+
+        plan.withdraw(state, 300);
+
+        expect(state.balance).toBe(700);
+        expect(state.threshold).toBe(state.startingBalance);
+        expect(state.thresholdLocked).toBe(true);
+    });
+
+    it.each([
+        { effect: PayoutFloorEffect.LockAtPlanFloor, name: 'LockAtPlanFloor' },
+        { effect: PayoutFloorEffect.ReleaseFloor, name: 'ReleaseFloor' },
+    ])(
+        'never leaves balance below the resulting threshold after withdrawing exactly withdrawableAmount(state), for $name -- the invariant floorAfterWithdrawal exists to guarantee, since a violation here means a payout can push the account into an immediate bust',
+        ({ effect }) => {
+            const plan = new LivePlan(lucidLikeInit({ payoutFloorEffect: effect }));
+            const state = stateAt({
+                balance: 1000,
+                threshold: -1900,
+                thresholdLocked: false,
+            });
+
+            const available = plan.withdrawableAmount(state);
+            plan.withdraw(state, available);
+
+            expect(state.balance).toBeGreaterThanOrEqual(state.threshold);
+        },
+    );
 });
 
 describe('LivePlan.payoutFromProfit', () => {
@@ -346,5 +579,36 @@ describe('LivePlan.payoutFromProfit', () => {
 
         expect(plan.payoutFromProfit(0)).toBe(0);
         expect(plan.payoutFromProfit(-500)).toBe(0);
+    });
+});
+
+describe("LivePlan.transitionPayout (LucidDaily's one-time sim-profit-above-buffer credit)", () => {
+    it('defaults to $0 so no firm that never sets it silently gains a one-time credit it has no confirmed rule for', () => {
+        expect(new LivePlan(lucidLikeInit()).transitionPayout).toBe(0);
+        expect(buildApexLivePlan().transitionPayout).toBe(0);
+    });
+
+    it('holds the gross credit only, leaving payoutFromProfit to apply the same 90/10 split every ordinary live withdrawal goes through, so the split lives in exactly one place', () => {
+        const plan = new LivePlan(
+            lucidLikeInit({ transitionPayout: dollars(1000) }),
+        );
+
+        expect(plan.transitionPayout).toBe(1000);
+        expect(plan.payoutFromProfit(plan.transitionPayout)).toBeCloseTo(
+            900,
+            10,
+        );
+        expect(plan.payoutFromProfit(1000)).toBeCloseTo(900, 10);
+    });
+
+    it('never becomes live trading capital: the credit is cash already realized at transition, so the initial balance and trailing floor stay exactly where a plan without one starts them', () => {
+        const plan = new LivePlan(
+            lucidLikeInit({ transitionPayout: dollars(15_000) }),
+        );
+        const state = plan.initialState();
+
+        expect(state.balance).toBe(0);
+        expect(state.startingBalance).toBe(0);
+        expect(state.threshold).toBe(-2000);
     });
 });

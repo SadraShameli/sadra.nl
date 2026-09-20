@@ -368,8 +368,8 @@ describe('LucidDaily (live-verified 2026-09-14 from lucidtrading.com plan-card m
 describe('LucidDirect (live-verified 2026-09-14 from lucidtrading.com plan-card markup)', () => {
     const direct = lucidPlan(LucidVariant.Direct);
 
-    it('sets minDaysAfterPassForPayout to 5, not 0', () => {
-        expect(direct.minDaysAfterPassForPayout).toBe(5);
+    it("sets minDaysAfterPassForPayout to 0, not 5, per LucidDirect's own Payout Objectives article stating there is no fixed payout window", () => {
+        expect(direct.minDaysAfterPassForPayout).toBe(0);
     });
 
     it('has the confirmed 4 mini / 40 micro contract limit, both eval and funded', () => {

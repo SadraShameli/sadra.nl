@@ -80,6 +80,7 @@ export function runDay(options: DayRunOptions): {
         winrate,
     } = options;
     resetForNewDay(state);
+    const profitAtDayStart = plan.accountProfit(state);
     let isTraded = false;
     let lossesToday = 0;
     const drawdown = plan.drawdownFor(phase);
@@ -124,6 +125,7 @@ export function runDay(options: DayRunOptions): {
                               phase,
                               positionSizing.instrument.isMicro,
                               plan.accountProfit(state),
+                              profitAtDayStart,
                           ),
                       );
             const risk = resolveTradeRisk(

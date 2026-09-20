@@ -5,6 +5,8 @@ import {
     computeFundedStateValue,
     ConsistencyRule,
     ConsistencyScope,
+    ContractLimitKind,
+    contracts,
     createInitialState,
     DailyLossLimitKind,
     dollars,
@@ -81,6 +83,54 @@ function rapidPlan(): Plan {
     });
     if (!plan) throw new Error('MFF Rapid 50K plan not found');
     return plan;
+}
+
+function secondTradeRisk(plan: Plan, todayPnL: number): number {
+    const result = computeFundedStateValue({
+        actionStepMultiple: 0.25,
+        cushionStepMultiple: 1,
+        cycleBestDayBucketCount: 1,
+        evalInitialValue: 0,
+        feePerAttempt: dollars(0),
+        maxActionMultiple: 1,
+        payoutRegimeCap: 0,
+        plan,
+        positionSizing: {
+            instrument: INSTRUMENTS[InstrumentSymbol.NQ],
+            stopPoints: points(1.25),
+        },
+        rrRatio: 2,
+        tradesPerDay: 2,
+        winrate: 0.5,
+    });
+    const state = createInitialState(plan.accountSize, plan.accountSize);
+    state.balance = plan.accountSize + 350;
+    state.threshold = plan.accountSize;
+    state.thresholdLocked = true;
+    state.todayPnL = todayPnL;
+    return result.dayPolicy.computeRisk?.(state, 1) ?? 0;
+}
+
+function tieredContractToyPlan(isEffectiveNextSession: boolean): Plan {
+    return onePayoutToyPlan().withOverrides({
+        contractLimits: {
+            evalMicros: contracts(10),
+            evalMinis: contracts(1),
+            fundedMicros: null,
+            fundedMinis: {
+                ...(isEffectiveNextSession && { isEffectiveNextSession }),
+                kind: ContractLimitKind.Tiered,
+                tiers: [
+                    { maxContracts: contracts(1), minBalance: dollars(0) },
+                    { maxContracts: contracts(4), minBalance: dollars(300) },
+                ],
+            },
+        },
+        fundedConsistency: {
+            kind: 'set',
+            rule: new ConsistencyRule(ConsistencyScope.Funded, fraction(1)),
+        },
+    });
 }
 
 function tinySoloActionConfig(plan: Plan) {
@@ -471,6 +521,60 @@ describe(
                     0,
                 );
                 expect(topTierRisk ?? 0).toBeGreaterThan(0);
+            },
+        );
+    },
+);
+
+describe(
+    'computeFundedStateValue vs a funded contract cap opted into the day-' +
+        "start-frozen tier (isEffectiveNextSession): the DP's own day tree " +
+        'must size its second trade off the profit the day opened at, not ' +
+        'the profit accrued so far within that same day. The toy carries a ' +
+        'never-violated funded consistency rule (share 1.0) purely to put ' +
+        'the solver on its cushion-at-day-start-tracking path, which is the ' +
+        'only path where the DP distinguishes day-start state from live ' +
+        'state at all',
+    () => {
+        const DAY_START_TIER_RISK = 25;
+        const LIVE_TIER_RISK = 100;
+
+        it(
+            'a plan that has not opted in keeps sizing its second trade off ' +
+                'live profit ($300 cushion at a $1,000 locked threshold = ' +
+                'the 4-contract tier, $100 of risk at $25/contract), ' +
+                'unchanged by the new day-start argument',
+            () => {
+                expect(secondTradeRisk(tieredContractToyPlan(false), 150)).toBe(
+                    LIVE_TIER_RISK,
+                );
+            },
+        );
+
+        it(
+            'an opted-in plan sizes the same second trade off the profit ' +
+                'the day opened at ($200, the 1-contract tier) even though ' +
+                "the day's first trade has already carried live profit into " +
+                'the 4-contract tier',
+            () => {
+                const frozen = secondTradeRisk(
+                    tieredContractToyPlan(true),
+                    150,
+                );
+                expect(frozen).toBeLessThanOrEqual(DAY_START_TIER_RISK);
+                expect(frozen).toBeLessThan(LIVE_TIER_RISK);
+            },
+        );
+
+        it(
+            'an opted-in plan is frozen at the day-start tier, not pinned to ' +
+                'the bottom tier: with a flat day so far (todayPnL 0) the ' +
+                'day-start profit is the live profit and the 4-contract tier ' +
+                'applies again',
+            () => {
+                expect(secondTradeRisk(tieredContractToyPlan(true), 0)).toBe(
+                    LIVE_TIER_RISK,
+                );
             },
         );
     },

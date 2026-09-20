@@ -402,6 +402,7 @@ export function computeFundedStateValue(
     function candidateRisks(
         cushionNow: number,
         accountProfitNow: number,
+        accountProfitAtDayStart: number,
     ): number[] {
         const risks = new Set<number>();
         const contractLimit: ContractCount | null =
@@ -412,6 +413,7 @@ export function computeFundedStateValue(
                       TradingPhase.Funded,
                       positionSizing.instrument.isMicro,
                       accountProfitNow,
+                      accountProfitAtDayStart,
                   );
         for (const action of actionGrid) {
             const capped =
@@ -482,9 +484,15 @@ export function computeFundedStateValue(
     ): { bestAction: number; bestValue: number } {
         const accountProfitNow =
             thresholdDollars + cushionNow - startingBalance;
+        const accountProfitAtDayStart =
+            thresholdDollars + cushionAtDayStart - startingBalance;
         let bestValue = -Infinity;
         let bestAction = 0;
-        for (const risk of candidateRisks(cushionNow, accountProfitNow)) {
+        for (const risk of candidateRisks(
+            cushionNow,
+            accountProfitNow,
+            accountProfitAtDayStart,
+        )) {
             const value =
                 risk <= 0
                     ? dayCloseValue(

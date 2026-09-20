@@ -85,33 +85,39 @@ describe('rng draw counts', () => {
         expect(counted.draws()).toBe(28);
     });
 
-    it('pins a full eval-plus-funded draw count', () => {
-        const counted = countedRng(42);
-        const retry = runEvalWithRetries({
-            ...EVAL_OPTIONS,
-            plan: lucidPro,
-            rng: counted.rng,
-            totals: new TradeTotals(),
-        });
-        const afterEval = counted.draws();
-        expect(afterEval).toBe(22);
+    it(
+        'pins a full eval-plus-funded draw count -- 142, not the pre-fix 118, ' +
+            "now that LucidPro's own unconfirmed maxLifetimePayouts: 5 carryover " +
+            'is removed and the 60-day funded horizon no longer concludes early ' +
+            'after the 5th payout',
+        () => {
+            const counted = countedRng(42);
+            const retry = runEvalWithRetries({
+                ...EVAL_OPTIONS,
+                plan: lucidPro,
+                rng: counted.rng,
+                totals: new TradeTotals(),
+            });
+            const afterEval = counted.draws();
+            expect(afterEval).toBe(22);
 
-        runFundedHorizon({
-            attempt: retry.attempt,
-            commission: dollars(0),
-            dayPolicy: DAY_POLICY,
-            fundedHorizonDays: 60,
-            minRetainedCushion: dollars(2000),
-            payoutRequestSize: undefined,
-            plan: lucidPro,
-            positionSizing: null,
-            rng: counted.rng,
-            rrRatio: 2,
-            rungSizing: RungSizing.CapToCushion,
-            winrate: fraction(0.5),
-        });
-        expect(counted.draws()).toBe(118);
-    });
+            runFundedHorizon({
+                attempt: retry.attempt,
+                commission: dollars(0),
+                dayPolicy: DAY_POLICY,
+                fundedHorizonDays: 60,
+                minRetainedCushion: dollars(2000),
+                payoutRequestSize: undefined,
+                plan: lucidPro,
+                positionSizing: null,
+                rng: counted.rng,
+                rrRatio: 2,
+                rungSizing: RungSizing.CapToCushion,
+                winrate: fraction(0.5),
+            });
+            expect(counted.draws()).toBe(142);
+        },
+    );
 
     it('pins the account-timeline draw count', () => {
         const counted = countedRng(42);

@@ -33,6 +33,7 @@ export function resolveContractLimit(
     phase: TradingPhase,
     isMicro: boolean,
     accountProfit: number,
+    accountProfitAtSessionStart: number = accountProfit,
 ): ContractCount | null {
     if (limits === null) return null;
     switch (phase) {
@@ -43,6 +44,7 @@ export function resolveContractLimit(
             return maxContractsAt(
                 isMicro ? limits.fundedMicros : limits.fundedMinis,
                 accountProfit,
+                accountProfitAtSessionStart,
             );
         }
     }

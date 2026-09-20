@@ -7,12 +7,13 @@ export enum ContractLimitKind {
 
 export type ContractLimitConfig =
     | {
-          readonly kind: ContractLimitKind.Flat;
-          readonly maxContracts: ContractCount;
-      }
-    | {
+          readonly isEffectiveNextSession?: boolean;
           readonly kind: ContractLimitKind.Tiered;
           readonly tiers: readonly ContractLimitTier[];
+      }
+    | {
+          readonly kind: ContractLimitKind.Flat;
+          readonly maxContracts: ContractCount;
       };
 
 export interface ContractLimits {
@@ -44,9 +45,13 @@ export function isRungPlaceable(options: {
 export function maxContractsAt(
     config: ContractLimitConfig | null,
     balance: number,
+    profitAtSessionStart: number = balance,
 ): ContractCount | null {
     if (config === null) return null;
     if (config.kind === ContractLimitKind.Flat) return config.maxContracts;
+    const effectiveBalance = config.isEffectiveNextSession
+        ? profitAtSessionStart
+        : balance;
     let lowest: ContractLimitTier | undefined;
     let best: ContractLimitTier | undefined;
     for (const tier of config.tiers) {
@@ -54,7 +59,7 @@ export function maxContractsAt(
             lowest = tier;
         }
         if (
-            balance >= tier.minBalance &&
+            effectiveBalance >= tier.minBalance &&
             (!best || tier.minBalance > best.minBalance)
         ) {
             best = tier;

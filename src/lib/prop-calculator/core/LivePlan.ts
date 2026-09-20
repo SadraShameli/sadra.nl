@@ -9,6 +9,7 @@ import {
     createInitialLiveAccountState,
     type LiveAccountState,
 } from './LiveAccountState';
+import { PayoutFloorEffect } from './PayoutFloorEffect';
 import { type PayoutTier, walkPayoutTiers } from './PayoutTiers';
 
 export interface LiveCushionPercent {
@@ -24,9 +25,11 @@ export interface LivePlanInit {
     liveDrawdown: DrawdownStrategy | null;
     maxConsecutiveIdleDays?: number;
     payoutFloor?: Dollars;
+    payoutFloorEffect?: PayoutFloorEffect;
     payoutTiers: readonly PayoutTier[];
     requiresLockForWithdrawal?: boolean;
     startingBalance?: Dollars;
+    transitionPayout?: Dollars;
 }
 
 export class LivePlan {
@@ -44,11 +47,15 @@ export class LivePlan {
 
     readonly payoutFloor: Dollars | null;
 
+    readonly payoutFloorEffect: PayoutFloorEffect;
+
     readonly payoutTiers: readonly PayoutTier[];
 
     readonly requiresLockForWithdrawal: boolean;
 
     readonly startingBalance: Dollars;
+
+    readonly transitionPayout: Dollars;
 
     constructor(init: LivePlanInit) {
         this.contractLimit = init.contractLimit ?? null;
@@ -75,16 +82,71 @@ export class LivePlan {
             );
         }
         this.payoutFloor = init.payoutFloor ?? null;
+        this.payoutFloorEffect =
+            init.payoutFloorEffect ?? PayoutFloorEffect.None;
         this.requiresLockForWithdrawal = init.requiresLockForWithdrawal ?? true;
         this.startingBalance = init.startingBalance ?? dollars(0);
+        this.transitionPayout = init.transitionPayout ?? dollars(0);
         if (this.liveDrawdown === null && this.liveDailyLossLimit === null) {
             throw new Error(
                 `${this.label}: must set liveDrawdown or liveDailyLossLimit`,
             );
         }
+        if (
+            this.payoutFloorEffect === PayoutFloorEffect.LockAtPlanFloor &&
+            this.liveDrawdown?.lock === undefined
+        ) {
+            throw new Error(
+                `${this.label}: payoutFloorEffect is LockAtPlanFloor but liveDrawdown has no lock config`,
+            );
+        }
+        if (
+            this.payoutFloorEffect === PayoutFloorEffect.LockAtPlanFloor &&
+            this.requiresLockForWithdrawal
+        ) {
+            throw new Error(
+                `${this.label}: payoutFloorEffect is LockAtPlanFloor but requiresLockForWithdrawal gates every withdrawal behind the lock, so the effect could never fire`,
+            );
+        }
+        if (
+            this.payoutFloorEffect === PayoutFloorEffect.ReleaseFloor &&
+            this.liveDrawdown === null
+        ) {
+            throw new Error(
+                `${this.label}: payoutFloorEffect is ReleaseFloor but liveDrawdown is null`,
+            );
+        }
+        if (
+            this.payoutFloor !== null &&
+            this.payoutFloorEffect !== PayoutFloorEffect.None
+        ) {
+            throw new Error(
+                `${this.label}: payoutFloor and a non-None payoutFloorEffect cannot both be set -- withdraw() would move the threshold to the effect's floor while withdrawableAmount() had already capped the withdrawal at the payoutFloor override, letting balance fall below the effect's floor`,
+            );
+        }
         this.payoutTiers = init.payoutTiers;
         if (this.payoutTiers.length === 0) {
             throw new Error(`${this.label}: payoutTiers must not be empty`);
+        }
+    }
+
+    private floorAfterWithdrawal(state: LiveAccountState): number {
+        switch (this.payoutFloorEffect) {
+            case PayoutFloorEffect.LockAtPlanFloor: {
+                const lock = this.liveDrawdown?.lock;
+                return lock === undefined || state.thresholdLocked
+                    ? state.threshold
+                    : Math.max(
+                          state.threshold,
+                          lock.lockedThreshold(state.startingBalance),
+                      );
+            }
+            case PayoutFloorEffect.None: {
+                return state.threshold;
+            }
+            case PayoutFloorEffect.ReleaseFloor: {
+                return this.startingBalance;
+            }
         }
     }
 
@@ -128,9 +190,26 @@ export class LivePlan {
             return Math.max(0, state.balance - state.startingBalance);
         }
         if (!this.requiresLockForWithdrawal || state.thresholdLocked) {
-            const floor = this.payoutFloor ?? state.threshold;
+            const floor = this.payoutFloor ?? this.floorAfterWithdrawal(state);
             return Math.max(0, state.balance - floor);
         }
         return 0;
+    }
+
+    withdraw(state: LiveAccountState, amount: number): void {
+        state.balance -= amount;
+        switch (this.payoutFloorEffect) {
+            case PayoutFloorEffect.LockAtPlanFloor: {
+                this.liveDrawdown?.forceLock(state);
+                break;
+            }
+            case PayoutFloorEffect.None: {
+                break;
+            }
+            case PayoutFloorEffect.ReleaseFloor: {
+                this.liveDrawdown?.release(state, this.startingBalance);
+                break;
+            }
+        }
     }
 }

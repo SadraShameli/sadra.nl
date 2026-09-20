@@ -41,6 +41,7 @@ const ZERO_PROFIT_TARGET = dollars(3000);
 const ZERO_EVAL_CONTRACTS = contracts(4);
 
 const ZERO_FUNDED_CONTRACT_LIMITS: ContractLimitConfig = {
+    isEffectiveNextSession: true,
     kind: ContractLimitKind.Tiered,
     tiers: [
         { maxContracts: contracts(2), minBalance: dollars(0) },
@@ -102,6 +103,7 @@ export class E8Futures extends TradingFirm {
         "Signature's minPayoutRequest was dollars(0.01), never independently confirmed against a source. Corrected 2026-09-18 to dollars(100), matching the site's own confirmed minimum payout request (E8 Signature Futures article, and independently corroborated by 'What is Payout On Demand?' and 'Everything about Payouts').",
         "E8's live futures-specific inactivity-rule article (helpfutures.e8markets.com/en/articles/10253631-inactivity-rule) states accounts are closed after 7 consecutive days without a placed-and-closed trade, with no split by account stage or market type; a separate, differently-numbered article on the general E8 Markets help domain covers an unrelated 90-day rule that does not apply to Futures accounts. This was previously unmodeled (maxConsecutiveIdleDays was left unset); now set to 7, matching the mechanism MyFundedFutures already models the same way.",
         'No live-account program exists -- the account model terminates at a simulated, payout-eligible stage.',
+        "E8 Zero's ZERO_FUNDED_CONTRACT_LIMITS now sets isEffectiveNextSession: true: helpfutures.e8markets.com's dedicated 'Max Available Contract Sizes' article states the tier 'scales automatically at the start of each new trading day,' not continuously as simulated profit moves intraday. Previously the shared engine recomputed this tier on every trade within a day (a real bug this session found and fixed generally via ContractLimits.ts's new isEffectiveNextSession flag, mirroring the identical flag already used for Tiered daily-loss-limit configs); a losing or winning streak within a single session could never have moved E8 Zero's contract cap mid-session in reality, but previously could in this simulator.",
     ];
     readonly plans = [
         ...SIZES.map((s) => this.buildPlan(buildSignaturePlan(s))),

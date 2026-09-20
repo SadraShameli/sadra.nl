@@ -92,6 +92,7 @@ export class ApexTraderFunding extends TradingFirm {
         'The confirmed March 1, 2026 fee-model change itself (one-time fee, no subscription, no reset fee -- Apex\'s own FAQ: "Are there reset fees? There are no reset fees. If an Evaluation fails, the only way to continue is by purchasing a new one.") is the reason monthlySubscription/reset are already $0/= evalCost in this codebase, so a future re-verification pass doesn\'t mistake that for stale data.',
         "The confirmed 5-Pack Evaluation Bundle (Apex's own help article confirms it exists and covers 50K, for both Intraday and EOD) previously had its exact discount percentage flagged as unconfirmed because the article pointed to a client-side-rendered product picker this sweep couldn't read. This repo's own re-audited eod.md doc tree has since read the homepage's `window.productPickerConfig` catalog JSON directly and states exact, per-size, per-path 5-Pack dollar prices (standard path 25K $1,950/50K $2,450/100K $4,450/150K $8,950; No-Activation-Fee path 25K $4,450/50K $5,450, unavailable for 100K/150K) -- the underlying data is no longer unreadable, though the decision not to build a bulk-purchase mechanism for Apex remains unchanged (a scope choice, not a data-availability one).",
         "ApexLive.ts's withdrawableAmount (via core/LivePlan.ts) previously computed the post-lock payout floor as balance minus the drawdown lock's own lockedThreshold (start + $100), understating the real floor by $3,000: this repo's own re-audited live.md doc tree confirms twice verbatim that payout-eligible profit is balance minus the $3,100 Buffer Requirement/Safety Net, a distinct concept from the $100 drawdown-lock floor. Corrected by adding a `payoutFloor` field to LivePlanInit/LivePlan (defaulting to null, i.e. falling back to the old lockedThreshold-based behavior for every other live firm, none of which have a confirmed distinct payout floor), and setting ApexLive.ts's payoutFloor to dollars(DRAWDOWN_AMOUNT + LOCK_OFFSET) (=$3,100).",
+        "fundedContractLimitsOf now takes an explicit isEffectiveNextSession parameter, set true for EOD and false (unconfirmed) for Intraday -- the two variants previously shared one Tiered contract-limit config with no notion of within-day recompute timing at all, before ContractLimits.ts gained the isEffectiveNextSession flag this session (mirroring the identical flag already used for Tiered daily-loss-limit configs). EOD: apextraderfunding.com's dedicated 'Scaling Levels (PA) Explained' article states plainly 'Tier Levels are set once per trading day before the session begins, based on the prior session's closing balance, and never change mid-session' -- exactly the day-close-frozen behavior isEffectiveNextSession now models, closing a real bug where this simulator previously let a single day's own intraday P&L swing move the EOD account's contract cap mid-session. Intraday: no source read for eod.md/intraday.md states the Level/tier recalculation timing for the Intraday PA specifically (only the drawdown mechanism's own real-time nature is confirmed there, a separate concept from the contract-limit tier) -- left at the default live-recompute behavior pending a source, not assumed to match EOD's confirmed once-per-day rule.",
     ];
     readonly plans = SIZES.flatMap((s) => [
         this.buildPlan(buildEodPlan(s)),
@@ -112,7 +113,7 @@ function buildEodPlan(size: ApexSize): PlanInit {
         ),
         contractLimits: {
             ...size.contractLimits,
-            ...fundedContractLimitsOf(size),
+            ...fundedContractLimitsOf(size, true),
         },
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
@@ -171,7 +172,7 @@ function buildIntradayPlan(size: ApexSize): PlanInit {
         ),
         contractLimits: {
             ...size.contractLimits,
-            ...fundedContractLimitsOf(size),
+            ...fundedContractLimitsOf(size, false),
         },
         drawdown: new IntradayTrailingDrawdown({
             amount: size.maxDrawdown,
@@ -224,12 +225,16 @@ function evalLockOf(size: ApexSize) {
     };
 }
 
-function fundedContractLimitsOf(size: ApexSize): {
+function fundedContractLimitsOf(
+    size: ApexSize,
+    isEffectiveNextSession: boolean,
+): {
     fundedMicros: ContractLimitConfig;
     fundedMinis: ContractLimitConfig;
 } {
     return {
         fundedMicros: {
+            isEffectiveNextSession,
             kind: ContractLimitKind.Tiered,
             tiers: size.fundedDllTiers.map((tier) => ({
                 maxContracts: contracts(tier.maxContracts * 10),
@@ -237,6 +242,7 @@ function fundedContractLimitsOf(size: ApexSize): {
             })),
         },
         fundedMinis: {
+            isEffectiveNextSession,
             kind: ContractLimitKind.Tiered,
             tiers: size.fundedDllTiers.map((tier) => ({
                 maxContracts: tier.maxContracts,

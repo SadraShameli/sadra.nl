@@ -276,30 +276,6 @@ export function buildVendorBreakdown(
     return rows.toSorted((a, b) => b.total - a.total);
 }
 
-function findDuplicateCandidates(
-    mutations: MutationResponse[],
-): AuditIssue[] {
-    const withVendor = mutations.filter((m) => m.description);
-    const groups = groupBy(withVendor, duplicateKey);
-    const issues: AuditIssue[] = [];
-    for (const group of groups.values()) {
-        if (group.length < 2) continue;
-        const first = group[0];
-        if (!first) continue;
-        const ids = group
-            .map((m) => m.id)
-            .toSorted((a, b) => Number(a) - Number(b));
-        issues.push({
-            codes: ids,
-            message: `${group.length} mutation(s) on ${first.date} share the exact same description "${first.description}" and amount €${rowsTotal(first).toFixed(2)}: ${ids.map((id) => `#${id}`).join(', ')} — check for a duplicate booking.`,
-            mutationIds: ids,
-            severity: 'warning',
-            type: 'possible-duplicate',
-        });
-    }
-    return issues;
-}
-
 function classifyMutations(
     mutations: MutationResponse[],
     ruleSet: RuleSet,
@@ -369,6 +345,30 @@ function describeCombo(
 function duplicateKey(m: MutationResponse): string {
     const description = (m.description ?? '').trim().toLowerCase();
     return `${m.date}::${rowsTotal(m).toFixed(2)}::${description}`;
+}
+
+function findDuplicateCandidates(
+    mutations: MutationResponse[],
+): AuditIssue[] {
+    const withVendor = mutations.filter((m) => m.description);
+    const groups = groupBy(withVendor, duplicateKey);
+    const issues: AuditIssue[] = [];
+    for (const group of groups.values()) {
+        if (group.length < 2) continue;
+        const first = group[0];
+        if (!first) continue;
+        const ids = group
+            .map((m) => m.id)
+            .toSorted((a, b) => Number(a) - Number(b));
+        issues.push({
+            codes: ids,
+            message: `${group.length} mutation(s) on ${first.date} share the exact same description "${first.description}" and amount €${rowsTotal(first).toFixed(2)}: ${ids.map((id) => `#${id}`).join(', ')} — check for a duplicate booking.`,
+            mutationIds: ids,
+            severity: 'warning',
+            type: 'possible-duplicate',
+        });
+    }
+    return issues;
 }
 
 function groupBy<T, K>(

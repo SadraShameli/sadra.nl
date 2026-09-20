@@ -11,6 +11,7 @@ import { ApexTraderFunding } from './apex/ApexTraderFunding';
 import { E8Futures } from './e8futures/E8Futures';
 import { FundedNext } from './fundednext/FundedNext';
 import { buildFundedNextLivePlan } from './fundednext/FundedNextLive';
+import { buildLucidLivePlan } from './lucid/LucidLive';
 import { LucidTrading } from './lucid/LucidTrading';
 import { buildMffuRapidLivePlan } from './mffu/MffuRapidLive';
 import { MyFundedFutures } from './mffu/MyFundedFutures';
@@ -44,6 +45,7 @@ export const LIVE_PLAN_BUILDERS: ReadonlyMap<FirmId, LivePlanBuilder> = new Map(
         [FirmId.AlphaFutures, buildAlphaFuturesLivePlan],
         [FirmId.Apex, buildApexLivePlan],
         [FirmId.FundedNext, buildFundedNextLivePlan],
+        [FirmId.Lucid, buildLucidLivePlan],
         [FirmId.Mffu, buildMffuRapidLivePlan],
         [FirmId.TopStep, buildTopStepLivePlan],
         [FirmId.Tpt, buildTptLivePlan],
@@ -71,6 +73,11 @@ export {
     buildFundedNextLivePlan,
     FUNDEDNEXT_LIVE_DEFAULT_CUSHION_PERCENT,
 } from './fundednext/FundedNextLive';
+export {
+    buildLucidDailyLivePlan,
+    buildLucidLivePlan,
+    LUCID_LIVE_DEFAULT_CUSHION_PERCENT,
+} from './lucid/LucidLive';
 export { LucidTrading } from './lucid/LucidTrading';
 export {
     buildMffuRapidLivePlan,

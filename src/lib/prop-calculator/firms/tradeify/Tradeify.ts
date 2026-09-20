@@ -40,6 +40,7 @@ const SELECT_CONTRACT_LIMITS = {
     evalMicros: contracts(40),
     evalMinis: contracts(4),
     fundedMicros: {
+        isEffectiveNextSession: true,
         kind: ContractLimitKind.Tiered,
         tiers: [
             { maxContracts: contracts(20), minBalance: dollars(0) },
@@ -48,6 +49,7 @@ const SELECT_CONTRACT_LIMITS = {
         ],
     },
     fundedMinis: {
+        isEffectiveNextSession: true,
         kind: ContractLimitKind.Tiered,
         tiers: [
             { maxContracts: contracts(2), minBalance: dollars(0) },
@@ -127,6 +129,7 @@ export class Tradeify extends TradingFirm {
         "Select Flex's 50% payout-eligibility cap was modeled via payoutProfitShare, which FundedCycleTracker computes against cycle-since-last-payout profit, not total account profit. select-flex.md's own worked payout example computes the 50% share against TOTAL profit since the account's starting balance, not cycle profit -- confirmed by re-deriving the doc's own second-payout example against the two formulas (cycle-based gave $1,375, the doc's stated figure is $2,000). Select Daily's own identical-looking payoutProfitShare usage is unaffected -- its own worked example explicitly bases its 2x multiplier on cycle-since-last-payout profit, so cycle-based is correct there. Corrected: Select Flex now uses payoutBalanceShareCap (fraction of total accountProfit, an existing PlanInit field) instead of payoutProfitShare.",
         "Growth's and Lightning's scaling funded Daily Loss Limit (SCALING_FUNDED_DLL, $1,250 up to $2,000 once EOD balance reaches $53,000/6% profit) was selecting its tier from live intraday profit, so the higher DLL could apply mid-day the instant balance crossed the threshold. Both plans' own sources state the increase is 'effective the next trading session, not immediately.' Corrected: TieredDailyLossLimit now supports an `isEffectiveNextSession` option (selecting the tier from the prior day's confirmed EOD close profit instead of today's live profit), set true on SCALING_FUNDED_DLL. Apex's and TopStep's own, unrelated uses of DailyLossLimitKind.Tiered are unaffected -- isEffectiveNextSession defaults to false, preserving their existing immediate-application behavior (TopStep's own notes explicitly disclose and rely on that immediate-application simplification).",
         "Lightning Funded has no reset mechanism at all per its own sources ('failure is permanent, must purchase a new account'), but fees.reset still models a $492 value (LIGHTNING_SIZES.resetFee) for Lightning, reused as the effective cost of purchasing a replacement account after a bust -- not a real per-reset charge. This repo's own re-audited lightning.md doc tree independently flags this as a genuine engine/doc disagreement; documented here rather than silently zeroed, since the simulator's own use of fees.reset for Lightning's isInstantFunded flow was not independently re-audited this pass.",
+        "SELECT_CONTRACT_LIMITS' funded Tiered tiers (2/20 -> 3/30 at $1,500 profit -> 4/40 at $2,000 profit) had the exact same intraday-recompute bug as SCALING_FUNDED_DLL did before the note above's fix, just on ContractLimits.ts rather than DailyLossLimit.ts: select-daily.md states plainly the new tier 'takes effect the next trading day after the threshold is hit,' and select-flex.md gates the same tiers on 'EOD equity' (lower confidence -- not a directly quoted timing sentence, but the same source article as Select Daily's and no contrary language). Corrected the same way, general this time rather than Tradeify-specific: ContractLimitConfig's Tiered kind gained its own isEffectiveNextSession flag (ContractLimits.ts, mirroring DailyLossLimitConfig's), set true on both fundedMicros and fundedMinis here. Growth's and Lightning's flat CONTRACT_LIMITS are unaffected (no tiers, nothing to freeze).",
     ];
     readonly plans = [
         ...GROWTH_SIZES.map((s) => this.buildPlan(buildGrowthPlan(s))),

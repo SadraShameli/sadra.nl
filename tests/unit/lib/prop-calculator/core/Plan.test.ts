@@ -17,15 +17,26 @@ if (!lucidDirect) throw new Error('LucidDirect 50K plan not found');
 
 describe('Plan.withMaxLifetimePayouts', () => {
     it(
-        "LucidDirect's own payoutLadder has exactly 5 steps and no capsAtLastStep -- " +
-            'confirms the real trap this method exists to close: clearing only ' +
-            'maxLifetimePayouts is NOT enough to uncap the plan',
+        'a synthetic 5-step payoutLadder with no capsAtLastStep -- confirms the ' +
+            'real trap this method exists to close: clearing only ' +
+            'maxLifetimePayouts is NOT enough to uncap the plan. LucidDirect used ' +
+            'to be exactly this shape until capsAtLastStep: true was added to its ' +
+            "own payoutLadder to match the firm's confirmed no-cap payout policy, " +
+            "so this test now builds the trap directly instead of riding a live " +
+            'plan that could get fixed out from under it again',
         () => {
-            expect(lucidDirect.maxLifetimePayouts).toBeNull();
-            expect(lucidDirect.payoutLadder?.steps.length).toBe(5);
-            expect(lucidDirect.payoutLadder?.capsAtLastStep).toBeUndefined();
+            const trapped = lucidDirect.withOverrides({
+                maxLifetimePayouts: undefined,
+                payoutLadder: lucidDirect.payoutLadder && {
+                    ...lucidDirect.payoutLadder,
+                    capsAtLastStep: undefined,
+                },
+            });
+            expect(trapped.maxLifetimePayouts).toBeNull();
+            expect(trapped.payoutLadder?.steps.length).toBe(5);
+            expect(trapped.payoutLadder?.capsAtLastStep).toBeUndefined();
 
-            const withCap = lucidDirect.withOverrides({
+            const withCap = trapped.withOverrides({
                 maxLifetimePayouts: 5,
             });
             expect(withCap.maxLifetimePayouts).toBe(5);

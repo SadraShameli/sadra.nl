@@ -85,15 +85,22 @@ describe('account conclusion', () => {
         }
     });
 
-    it('closes a capped-ladder plan on its lifetime payout cap instead', () => {
-        const lucidPro = lucidPlan(LucidVariant.Pro);
-        expect(lucidPro.maxLifetimePayouts).toBe(5);
-        expect(lucidPro.isAccountConcluded(4)).toBe(false);
-        expect(lucidPro.isAccountConcluded(5)).toBe(true);
-    });
+    it(
+        'closes a capped-ladder plan on an explicit lifetime payout cap instead of the ladder -- synthetic, since no real Lucid plan combines a capsAtLastStep ladder with a real ' +
+            'maxLifetimePayouts any more: LucidPro used to be exactly this shape until its own maxLifetimePayouts=5 was found to be an unconfirmed carryover from LucidFlex and removed',
+        () => {
+            const cappedAtFive = lucidPlan(LucidVariant.Pro).withOverrides({
+                maxLifetimePayouts: 5,
+            });
+            expect(cappedAtFive.payoutLadder?.capsAtLastStep).toBe(true);
+            expect(cappedAtFive.isAccountConcluded(4)).toBe(false);
+            expect(cappedAtFive.isAccountConcluded(5)).toBe(true);
+        },
+    );
 
     it('never closes a capped-ladder plan with no lifetime cap', () => {
         for (const plan of [
+            lucidPlan(LucidVariant.Pro),
             tradeifyPlan(TradeifyVariant.Growth),
             tradeifyPlan(TradeifyVariant.Lightning),
         ]) {

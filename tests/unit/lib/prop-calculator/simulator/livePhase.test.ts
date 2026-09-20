@@ -11,6 +11,11 @@ import {
 } from '~/lib/prop-calculator/core';
 import { buildApexLivePlan } from '~/lib/prop-calculator/firms/apex/ApexLive';
 import { buildFundedNextLivePlan } from '~/lib/prop-calculator/firms/fundednext/FundedNextLive';
+import {
+    buildLucidDailyLivePlan,
+    buildLucidLivePlan,
+    LUCID_LIVE_DEFAULT_CUSHION_PERCENT,
+} from '~/lib/prop-calculator/firms/lucid/LucidLive';
 import { buildTopStepLivePlan } from '~/lib/prop-calculator/firms/topstep/TopStepLive';
 import { buildTptLivePlan } from '~/lib/prop-calculator/firms/tpt/TptLive';
 import { type Rng } from '~/lib/prop-calculator/rng';
@@ -281,6 +286,201 @@ describe('runLiveHorizon on FundedNext numbers (negative lock offset + staged pa
         expect(result.busted).toBe(false);
         expect(result.daysToFirstWithdrawal).toBe(20);
         expect(result.totalWithdrawn).toBeCloseTo(5045, 6);
+    });
+});
+
+describe('runLiveHorizon on Lucid Live numbers (payout request locks the $100 MLL early)', () => {
+    it('makes its first withdrawal on day 2, long before live profit reaches the $2,000 starting drawdown, because Lucid locks the Max Loss Limit at $100 the moment a payout is requested and the withdrawable cushion is measured against that $100 lock target instead of the -$1,800 trailing floor', () => {
+        const result = runLiveHorizon({
+            commission: dollars(0),
+            horizonDays: 10,
+            payoutRequestSize: 50,
+            plan: buildLucidLivePlan(),
+            positionSizing: null,
+            rng: alwaysWins,
+            rrRatio: 1,
+            tradesPerDay: 1,
+            winrate: fraction(1),
+        });
+
+        expect(result.daysToFirstWithdrawal).toBe(2);
+        expect(result.totalWithdrawn).toBeCloseTo(0.9 * 105.5, 6);
+    });
+
+    it('day 1 produces nothing withdrawable at all: $100 of profit sits exactly at the $100 lock target the request would move the floor to, so the trader cannot pull a cent before day 2', () => {
+        const plan = buildLucidLivePlan();
+        const state = plan.initialState();
+
+        runLiveDay({
+            commission: dollars(0),
+            plan,
+            positionSizing: null,
+            rng: alwaysWins,
+            rrRatio: 1,
+            state,
+            tradesPerDay: 1,
+            winrate: fraction(1),
+        });
+
+        expect(state.balance).toBe(100);
+        expect(state.threshold).toBe(-1900);
+        expect(state.thresholdLocked).toBe(false);
+        expect(plan.withdrawableAmount(state)).toBe(0);
+    });
+
+    it('busts on day 5 once the early lock has pinned the floor at $100: a flat $50 request outruns 10% post-lock growth on the shrinking cushion and drains the balance exactly onto the locked Max Loss Limit -- the price Lucid charges for taking a payout before the $2,000 profit lock', () => {
+        const result = runLiveHorizon({
+            commission: dollars(0),
+            horizonDays: 10,
+            payoutRequestSize: 50,
+            plan: buildLucidLivePlan(),
+            positionSizing: null,
+            rng: alwaysWins,
+            rrRatio: 1,
+            tradesPerDay: 1,
+            winrate: fraction(1),
+        });
+
+        expect(result.busted).toBe(true);
+        expect(result.daysToBust).toBe(5);
+    });
+
+    it('still withdraws on day 2 rather than after $2,000 of profit when the trader withdraws everything, and busts on day 3 because a full withdrawal drains the balance exactly onto the freshly locked $100 floor -- the same drain-to-floor property every threshold-floored live plan here has, documented for Lucid rather than hidden', () => {
+        const result = runLiveHorizon({
+            commission: dollars(0),
+            horizonDays: 3,
+            payoutRequestSize: undefined,
+            plan: buildLucidLivePlan(),
+            positionSizing: null,
+            rng: alwaysWins,
+            rrRatio: 1,
+            tradesPerDay: 1,
+            winrate: fraction(1),
+        });
+
+        expect(result.daysToFirstWithdrawal).toBe(2);
+        expect(result.totalWithdrawn).toBeCloseTo(90, 6);
+        expect(result.busted).toBe(true);
+        expect(result.daysToBust).toBe(3);
+    });
+
+    it('still locks at $100 via the other trigger -- live profit reaching the $2,000 starting drawdown -- after 20 winning days with no payout request at all', () => {
+        const plan = buildLucidLivePlan();
+        const state = plan.initialState();
+
+        for (let day = 0; day < 20; day++) {
+            runLiveDay({
+                commission: dollars(0),
+                plan,
+                positionSizing: null,
+                rng: alwaysWins,
+                rrRatio: 1,
+                state,
+                tradesPerDay: 1,
+                winrate: fraction(1),
+            });
+        }
+
+        expect(state.balance).toBeCloseTo(2000, 8);
+        expect(state.thresholdLocked).toBe(true);
+        expect(state.threshold).toBe(100);
+    });
+});
+
+describe("runLiveHorizon with a transitionPayout (LucidDaily's one-time capped sim-profit-above-buffer credit)", () => {
+    it("pays the capped credit out before day 1 has even traded -- it is already-earned sim profit released at the moment of transition, not capital the trader still has to win -- so 90% of $15,000 is $13,500 withdrawn at daysToFirstWithdrawal 0, while day 1's own $100 of live profit sits exactly on the $100 lock target and stays unwithdrawable", () => {
+        const result = runLiveHorizon({
+            commission: dollars(0),
+            horizonDays: 1,
+            payoutRequestSize: undefined,
+            plan: buildLucidDailyLivePlan(),
+            positionSizing: null,
+            rng: alwaysWins,
+            rrRatio: 1,
+            tradesPerDay: 1,
+            winrate: fraction(1),
+        });
+
+        expect(result.daysToFirstWithdrawal).toBe(0);
+        expect(result.totalWithdrawn).toBeCloseTo(13_500, 6);
+    });
+
+    it("layers day 2's ordinary $100 full withdrawal on top of the seeded credit as a $90 increment rather than re-paying the transition amount, ending at $13,590, and busts on day 3 exactly as the same plan without a credit does -- the cash never protects the live account", () => {
+        const result = runLiveHorizon({
+            commission: dollars(0),
+            horizonDays: 3,
+            payoutRequestSize: undefined,
+            plan: buildLucidDailyLivePlan(),
+            positionSizing: null,
+            rng: alwaysWins,
+            rrRatio: 1,
+            tradesPerDay: 1,
+            winrate: fraction(1),
+        });
+
+        expect(result.daysToFirstWithdrawal).toBe(0);
+        expect(result.totalWithdrawn).toBeCloseTo(13_590, 6);
+        expect(result.busted).toBe(true);
+        expect(result.daysToBust).toBe(3);
+    });
+
+    it('clamps any sim profit above the buffer to the flat $15,000 cap, which does not scale with account size or count: "whether you have one 25k account or five 150k accounts, the maximum sim profit paid out on the move to live is $15,000"', () => {
+        expect(buildLucidDailyLivePlan().transitionPayout).toBe(15_000);
+        expect(
+            buildLucidDailyLivePlan(
+                LUCID_LIVE_DEFAULT_CUSHION_PERCENT,
+                dollars(30_000),
+            ).transitionPayout,
+        ).toBe(15_000);
+    });
+
+    it('passes a sub-cap amount through unclamped and splits it 90/10 like any other withdrawal, because $15,000 is a ceiling on the credit, not a guaranteed grant: $5,000 of profit above the buffer pays $4,500', () => {
+        const plan = buildLucidDailyLivePlan(
+            LUCID_LIVE_DEFAULT_CUSHION_PERCENT,
+            dollars(5000),
+        );
+
+        const result = runLiveHorizon({
+            commission: dollars(0),
+            horizonDays: 1,
+            payoutRequestSize: undefined,
+            plan,
+            positionSizing: null,
+            rng: alwaysWins,
+            rrRatio: 1,
+            tradesPerDay: 1,
+            winrate: fraction(1),
+        });
+
+        expect(plan.transitionPayout).toBe(5000);
+        expect(result.totalWithdrawn).toBeCloseTo(4500, 6);
+    });
+
+    it('starts the credited account at the same $0 balance and -$2,000 floor as a LucidPro-originated live account, since the funded buffer funds the starting live drawdown and the credit is paid out instead of traded', () => {
+        const state = buildLucidDailyLivePlan().initialState();
+
+        expect(state.balance).toBe(0);
+        expect(state.startingBalance).toBe(0);
+        expect(state.threshold).toBe(-2000);
+    });
+
+    it('leaves every plan without a credit untouched: the shared Lucid builder and Apex both report no withdrawal at all through day 5, not a phantom day-0 payout', () => {
+        expect(buildLucidLivePlan().transitionPayout).toBe(0);
+
+        const result = runLiveHorizon({
+            commission: dollars(0),
+            horizonDays: 5,
+            payoutRequestSize: undefined,
+            plan: buildApexLivePlan(),
+            positionSizing: null,
+            rng: alwaysWins,
+            rrRatio: 1,
+            tradesPerDay: 1,
+            winrate: fraction(1),
+        });
+
+        expect(result.daysToFirstWithdrawal).toBeNull();
+        expect(result.totalWithdrawn).toBe(0);
     });
 });
 

@@ -141,9 +141,10 @@ export function runLiveHorizon(options: LiveHorizonOptions): LiveHorizonResult {
         winrate,
     } = options;
     const state: LiveAccountState = plan.initialState();
-    let daysToFirstWithdrawal: null | number = null;
-    let cumulativeDebited = 0;
-    let totalWithdrawn = 0;
+    let cumulativeDebited: number = plan.transitionPayout;
+    let totalWithdrawn = plan.payoutFromProfit(cumulativeDebited);
+    let daysToFirstWithdrawal: null | number =
+        plan.transitionPayout > 0 ? 0 : null;
 
     for (let day = 0; day < horizonDays; day++) {
         const { busted, closedForInactivity } = runLiveDay({
@@ -177,7 +178,7 @@ export function runLiveHorizon(options: LiveHorizonOptions): LiveHorizonResult {
                 ? available
                 : Math.min(payoutRequestSize, available);
         if (debited <= 0) continue;
-        state.balance -= debited;
+        plan.withdraw(state, debited);
         const grossPaidBefore = plan.payoutFromProfit(cumulativeDebited);
         cumulativeDebited += debited;
         const grossPaidAfter = plan.payoutFromProfit(cumulativeDebited);
