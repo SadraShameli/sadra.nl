@@ -14,6 +14,7 @@ export interface FundedPayoutOptions {
 }
 
 export interface FundedPayoutResult {
+    causesHardBreach: boolean;
     debited: number;
     traderReceives: number;
 }
@@ -118,6 +119,9 @@ export class FundedCycleTracker {
         });
         if (debited === null) return null;
         const traderReceives = plan.payoutFromProfit(debited);
+        const isCausesHardBreach =
+            plan.fullWithdrawalHardBreach &&
+            debited >= plan.accountProfit(state);
 
         state.balance -= debited;
         switch (plan.payoutFloorEffect) {
@@ -142,6 +146,7 @@ export class FundedCycleTracker {
         this.payoutsIssued += 1;
 
         return {
+            causesHardBreach: isCausesHardBreach,
             debited,
             traderReceives,
         };

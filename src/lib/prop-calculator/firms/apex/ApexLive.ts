@@ -37,6 +37,7 @@ export function buildApexLivePlan(
                 lockedThreshold: lockThresholdAt(LOCK_OFFSET),
             },
         }),
+        payoutFloor: dollars(DRAWDOWN_AMOUNT + LOCK_OFFSET),
         payoutTiers: [
             { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
         ],

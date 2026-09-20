@@ -18,6 +18,7 @@ const ACCOUNT_SIZE_TIER = dollars(50_000);
 const MIN_STARTING_BALANCE = dollars(10_000);
 const STARTING_BALANCE_SHARE = fraction(0.2);
 const TRADER_SHARE = 0.9;
+const INACTIVITY_CLOSURE_DAYS = 30;
 
 const DLL_TIERS: readonly DllTier[] = [
     {
@@ -74,6 +75,7 @@ export function buildTopStepLivePlan(
             tiers: DLL_TIERS,
         },
         liveDrawdown: null,
+        maxConsecutiveIdleDays: INACTIVITY_CLOSURE_DAYS,
         payoutTiers: [
             {
                 thresholdProfit: dollars(0),

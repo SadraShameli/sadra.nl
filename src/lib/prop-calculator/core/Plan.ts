@@ -3,7 +3,11 @@ import {
     createInitialState,
     resetForNewDay,
 } from './AccountState';
-import { ConsistencyRule, ConsistencyScope } from './ConsistencyRule';
+import {
+    ConsistencyRule,
+    ConsistencyScope,
+    ConsistencyViolationEffect,
+} from './ConsistencyRule';
 import { ContractLimitKind, type ContractLimits } from './ContractLimits';
 import {
     type DailyLossLimitConfig,
@@ -48,7 +52,9 @@ export interface PlanInit {
     contractLimits?: ContractLimits;
     drawdown: DrawdownStrategy;
     evalDailyLossLimit: DailyLossLimitConfig;
+    evalMaxConsecutiveIdleDays?: null | number;
     fees: FeeSchedule;
+    fullWithdrawalHardBreach?: boolean;
     fundedConsistency?: ConsistencyOverride;
     fundedConsistencyLadder?: ConsistencyLadder;
     fundedDailyLossLimit?: DailyLossLimitConfig;
@@ -101,6 +107,8 @@ export abstract class Plan {
     readonly fundedDailyLossLimit: DailyLossLimitConfig;
 
     readonly fundedDrawdown: DrawdownStrategy;
+
+    readonly fullWithdrawalHardBreach: boolean;
 
     readonly id: PlanId;
 
@@ -178,6 +186,7 @@ export abstract class Plan {
         this.fundedDailyLossLimit =
             init.fundedDailyLossLimit ?? init.evalDailyLossLimit;
         this.fundedDrawdown = init.fundedDrawdown ?? init.drawdown;
+        this.fullWithdrawalHardBreach = init.fullWithdrawalHardBreach ?? false;
         this.id = init.id;
         this.isInstantFunded = init.isInstantFunded ?? false;
         this.label = init.label;
@@ -386,10 +395,18 @@ export abstract class Plan {
         return limit !== null && state.todayPnL <= -limit;
     }
 
-    clampedIdleDays(state: AccountState): number {
-        return this.maxConsecutiveIdleDays === null
+    clampedIdleDays(state: AccountState, phase: TradingPhase): number {
+        const limit = this.maxConsecutiveIdleDaysFor(phase);
+        return limit === null
             ? 0
-            : Math.min(state.consecutiveIdleDays, this.maxConsecutiveIdleDays);
+            : Math.min(state.consecutiveIdleDays, limit);
+    }
+
+    maxConsecutiveIdleDaysFor(phase: TradingPhase): null | number {
+        if (phase === TradingPhase.Funded) return this.maxConsecutiveIdleDays;
+        return this.init.evalMaxConsecutiveIdleDays === undefined
+            ? this.maxConsecutiveIdleDays
+            : this.init.evalMaxConsecutiveIdleDays;
     }
 
     clampedTradingDays(state: AccountState): number {
@@ -426,7 +443,13 @@ export abstract class Plan {
         )
             return false;
         const consistency = this.evalConsistencyRule();
-        return !consistency?.isViolated(state.bestDayProfit, profit);
+        return (
+            consistency === null ||
+            !consistency.isViolated(state.bestDayProfit, profit) ||
+            (consistency.violationEffect ===
+                ConsistencyViolationEffect.DoubleTarget &&
+                profit >= 2 * this.init.profitTarget)
+        );
     }
 
     defaultRetainedCushion(): number {

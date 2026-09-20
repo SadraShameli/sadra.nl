@@ -122,6 +122,14 @@ export function runFundedDays(options: FundedDaysOptions): FundedDaysResult {
 
         sink.record(dayOffsetBase + daysElapsed, payout.traderReceives);
 
+        if (payout.causesHardBreach) {
+            return {
+                closedForInactivity: false,
+                daysElapsed,
+                stage: FundedStage.Busted,
+            };
+        }
+
         if (tracker.payoutsIssued >= maxPayouts) {
             return {
                 closedForInactivity: false,

@@ -5,6 +5,7 @@ import {
     type TradingFirm,
 } from '../core';
 import { AlphaFutures } from './alphafutures/AlphaFutures';
+import { buildAlphaFuturesLivePlan } from './alphafutures/AlphaFuturesLive';
 import { buildApexLivePlan } from './apex/ApexLive';
 import { ApexTraderFunding } from './apex/ApexTraderFunding';
 import { E8Futures } from './e8futures/E8Futures';
@@ -40,6 +41,7 @@ export function findFirm(id: FirmId): TradingFirm | undefined {
 
 export const LIVE_PLAN_BUILDERS: ReadonlyMap<FirmId, LivePlanBuilder> = new Map(
     [
+        [FirmId.AlphaFutures, buildAlphaFuturesLivePlan],
         [FirmId.Apex, buildApexLivePlan],
         [FirmId.FundedNext, buildFundedNextLivePlan],
         [FirmId.Mffu, buildMffuRapidLivePlan],
@@ -54,6 +56,10 @@ export function findLivePlanBuilder(id: FirmId): LivePlanBuilder | undefined {
 }
 
 export { AlphaFutures } from './alphafutures/AlphaFutures';
+export {
+    ALPHAFUTURES_LIVE_DEFAULT_CUSHION_PERCENT,
+    buildAlphaFuturesLivePlan,
+} from './alphafutures/AlphaFuturesLive';
 export {
     APEX_LIVE_DEFAULT_CUSHION_PERCENT,
     buildApexLivePlan,
@@ -79,6 +85,7 @@ export {
 } from './topstep/TopStepLive';
 export { TakeProfitTrader } from './tpt/TakeProfitTrader';
 export {
+    buildTptLiveDevelopmentPlan,
     buildTptLivePlan,
     TPT_LIVE_DEFAULT_CUSHION_PERCENT,
 } from './tpt/TptLive';

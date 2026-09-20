@@ -3,22 +3,15 @@ import { eq } from 'drizzle-orm';
 
 import type { LedgerResponse } from '~/lib/accounting/providers/eboekhouden/schemas';
 
+import { EboekhoudenCredentialResolver } from '~/cli/commands/accounting/EboekhoudenCredentialResolver';
 import { ui } from '~/cli/ui';
 import { LedgerId } from '~/lib/accounting/core/ids';
-import { CredentialKind } from '~/lib/accounting/credentials/registry';
-import { EBoekhoudenClient } from '~/lib/accounting/providers/eboekhouden/client';
 import {
     LedgersResource,
     MutationsResource,
 } from '~/lib/accounting/providers/eboekhouden/resources';
 import { loadRuleSet } from '~/lib/accounting/rules/load';
-import { openSecret } from '~/lib/crypto/secrets';
-import {
-    accountingBankAccount,
-    accountingCredential,
-    db,
-    endDb,
-} from '~/server/db';
+import { accountingBankAccount, db, endDb } from '~/server/db';
 
 import { auditMutations, buildVendorBreakdown } from './audit';
 import { mapWithConcurrency, paginate } from './concurrency';
@@ -62,44 +55,11 @@ export default defineCommand({
         const isVerbose = context.args.verbose;
 
         try {
-            const rows = await db
-                .select()
-                .from(accountingCredential)
-                .where(
-                    eq(accountingCredential.kind, CredentialKind.EBoekhouden),
+            const credentialRow =
+                await EboekhoudenCredentialResolver.resolveRow(
+                    credentialArgument,
                 );
-
-            if (rows.length === 0) {
-                ui.fail('No eBoekhouden credential found in the database.');
-                process.exitCode = 1;
-                return;
-            }
-
-            let credentialRow = rows[0];
-            if (rows.length > 1) {
-                const match = credentialArgument
-                    ? rows.find(
-                          (r) =>
-                              r.id === credentialArgument ||
-                              r.label.toLowerCase() ===
-                                  credentialArgument.toLowerCase(),
-                      )
-                    : undefined;
-                if (!match) {
-                    ui.fail(
-                        'Multiple eBoekhouden credentials found — pass --credential <id|label>:',
-                    );
-                    for (const r of rows) ui.note(`${r.label}  (${r.id})`);
-                    process.exitCode = 1;
-                    return;
-                }
-                credentialRow = match;
-            }
-
-            if (!credentialRow?.ciphertext) {
-                ui.fail(
-                    `Credential "${credentialRow?.label ?? ''}" has no stored secret.`,
-                );
+            if (!credentialRow) {
                 process.exitCode = 1;
                 return;
             }
@@ -108,14 +68,8 @@ export default defineCommand({
                 `Auditing eBoekhouden mutations — credential "${credentialRow.label}"`,
             );
 
-            const secret = await openSecret(credentialRow.ciphertext);
-            const source =
-                typeof credentialRow.meta.source === 'string'
-                    ? credentialRow.meta.source
-                    : 'sadranl';
-
-            const client = new EBoekhoudenClient(secret, { source });
-            await client.openSession();
+            const client =
+                await EboekhoudenCredentialResolver.openClient(credentialRow);
 
             try {
                 const ledgersApi = new LedgersResource(client);

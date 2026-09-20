@@ -10,5 +10,9 @@ export default defineCommand({
             const commandModule = await import('./audit-mutations/command');
             return commandModule.default;
         },
+        mutations: async () => {
+            const commandModule = await import('./mutations/group');
+            return commandModule.default;
+        },
     },
 });

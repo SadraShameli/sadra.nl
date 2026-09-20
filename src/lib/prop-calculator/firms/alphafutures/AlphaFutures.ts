@@ -2,6 +2,8 @@ import {
     AlphaFuturesVariant,
     ConsistencyRule,
     ConsistencyScope,
+    ContractLimitKind,
+    contracts,
     DailyLossLimitKind,
     dollars,
     EodTrailingDrawdown,
@@ -52,6 +54,55 @@ type AfAdvancedSize = (typeof ADVANCED_SIZES)[number];
 type AfStandardSize = (typeof STANDARD_SIZES)[number];
 type AfZeroSize = (typeof ZERO_SIZES)[number];
 
+const ADVANCED_CONTRACT_LIMITS = {
+    evalMicros: contracts(50),
+    evalMinis: contracts(5),
+    fundedMicros: { kind: ContractLimitKind.Flat, maxContracts: contracts(50) },
+    fundedMinis: { kind: ContractLimitKind.Flat, maxContracts: contracts(5) },
+} as const;
+
+const STANDARD_CONTRACT_LIMITS = {
+    evalMicros: contracts(50),
+    evalMinis: contracts(5),
+    fundedMicros: {
+        kind: ContractLimitKind.Tiered,
+        tiers: [
+            { maxContracts: contracts(20), minBalance: dollars(0) },
+            { maxContracts: contracts(30), minBalance: dollars(1500) },
+            { maxContracts: contracts(50), minBalance: dollars(2000) },
+        ],
+    },
+    fundedMinis: {
+        kind: ContractLimitKind.Tiered,
+        tiers: [
+            { maxContracts: contracts(2), minBalance: dollars(0) },
+            { maxContracts: contracts(3), minBalance: dollars(1500) },
+            { maxContracts: contracts(5), minBalance: dollars(2000) },
+        ],
+    },
+} as const;
+
+const ZERO_EVAL_CONTRACT_LIMITS = { evalMicros: contracts(30), evalMinis: contracts(3) };
+
+const ZERO_FUNDED_CONTRACT_LIMITS = {
+    fundedMicros: {
+        kind: ContractLimitKind.Tiered,
+        tiers: [
+            { maxContracts: contracts(10), minBalance: dollars(0) },
+            { maxContracts: contracts(20), minBalance: dollars(1500) },
+            { maxContracts: contracts(30), minBalance: dollars(2000) },
+        ],
+    },
+    fundedMinis: {
+        kind: ContractLimitKind.Tiered,
+        tiers: [
+            { maxContracts: contracts(1), minBalance: dollars(0) },
+            { maxContracts: contracts(2), minBalance: dollars(1500) },
+            { maxContracts: contracts(3), minBalance: dollars(2000) },
+        ],
+    },
+} as const;
+
 export class AlphaFutures extends TradingFirm {
     readonly displayName = 'Alpha Futures';
     readonly id = FirmId.AlphaFutures;
@@ -60,6 +111,8 @@ export class AlphaFutures extends TradingFirm {
         'help.alpha-futures.com\'s Payout Policy article confirms Zero, Standard, and Advanced plans have no recurring per-cycle profit requirement (only "Direct Qualified Accounts", a product not modeled here, have a resetting per-cycle profit target), so minPayoutProfitPerCycle is left unset rather than guessed; it defaults to $0.',
         'The TRADINGVIEW coupon code is confirmed sitewide at 50% off all evaluations, with no expiry markup found on any page checked.',
         'Separately, with lower confidence: a company blog post describes a second code, DIRECT35 (35% off), scoped specifically to the $50K "Direct Qualified" account -- noted as a distinct, lower-confidence secondary offer rather than folded into the sitewide TRADINGVIEW figure.',
+        "None of the three plan builders previously set contractLimits, so plan.contractLimits resolved to null for every Alpha Futures plan and per-trade risk sizing was never capped against a max-contracts rule. This repo's own doc tree directly confirms per-plan Max Contracts figures: Zero eval flat 3 minis/30 micros, Zero funded scaling 1/10 (<$1,500 profit) -> 2/20 ($1,500-2,000) -> 3/30 ($2,000+); Standard eval flat 5 minis/50 micros, Standard funded scaling 2/20 (<$1,500 profit) -> 3/30 ($1,500-2,000) -> 5/50 ($2,000+, ceiling); Advanced flat 5 minis/50 micros both stages (no scaling plan). Corrected: added ADVANCED_CONTRACT_LIMITS/STANDARD_CONTRACT_LIMITS/ZERO_*_CONTRACT_LIMITS using ContractLimitKind.Flat/Tiered, tiers keyed on accountProfit (not raw balance) matching this codebase's existing convention (see PositionSizing.ts's resolveContractLimit).",
+        "The post-Qualified LIVE stage (live.md), previously entirely unmodeled, is now built in AlphaFuturesLive.ts for the 50K-eligible-Qualified-Account tier only, mirroring the LivePlan pattern already used by 6 other firms. Modeled: $0 starting balance, $2,000 EOD-trailing MLL with NO lock (live.md's own Not Confirmed section states the Live-specific lock trigger/locked-value are unconfirmed by any source -- left unset rather than guessed, so the floor trails indefinitely), a contract limit tiered 2 minis before $2,000 simulated profit / 4 minis at or above it (raw balance and profit are identical here since starting balance is $0, so the existing balance-keyed ContractLimitKind.Tiered mechanism needs no adjustment), and the 80%-split 'Alpha Futures Live Program' path only. `payoutFloor: dollars(0)` plus `requiresLockForWithdrawal: false` together model live.md's own confirmed payout rule ('daily, uncapped withdrawals on any of their gains above starting live balance') exactly -- this is a materially different, more permissive formula than TptLive.ts's 'withdraw down to the current trailing floor' rule, not the same mechanism reused. Two confirmed-but-unmodeled gaps, both deliberate: (1) the alternative 60%-split 'Alpha Prime Program' path has its own separate, uncapped-here salary mechanic (50% of Qualified-stage sim profit, up to $75,000, paid as a 12-month salary) with no equivalent concept anywhere in LivePlan -- modeling it would require a new capability, not a config tweak, so only the simpler 80% path is built; (2) live.md's own DLL row describes a 'Scaling Daily Loss Limit (30% of account)' for Live, but LivePlan's constructor only allows liveDrawdown XOR liveDailyLossLimit, never both, and this plan already needs the MLL drawdown to represent the confirmed bust condition -- the scaling DLL cannot be represented alongside it under the current class shape (compounded by live.md's own admission that no starting dollar floor is stated for the DLL under the current $0-start structure). maxConsecutiveIdleDays is left unset: live.md confirms Live's inactivity handling is discretionary Performance-Team review, not a fixed day-count, so inventing one would be less accurate than modeling none.",
     ];
     readonly plans = [
         ...ZERO_SIZES.map((s) => this.buildPlan(buildZeroPlan(s))),
@@ -73,6 +126,7 @@ function buildAdvancedPlan(size: AfAdvancedSize): PlanInit {
     return {
         accountSize: size.accountSize,
         consistency: new ConsistencyRule(ConsistencyScope.Eval, fraction(0.4)),
+        contractLimits: ADVANCED_CONTRACT_LIMITS,
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
@@ -111,6 +165,7 @@ function buildStandardPlan(size: AfStandardSize): PlanInit {
     return {
         accountSize: size.accountSize,
         consistency: new ConsistencyRule(ConsistencyScope.Eval, fraction(0.5)),
+        contractLimits: STANDARD_CONTRACT_LIMITS,
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {
@@ -160,6 +215,7 @@ function buildZeroPlan(size: AfZeroSize): PlanInit {
             ConsistencyScope.Funded,
             fraction(0.4),
         ),
+        contractLimits: { ...ZERO_EVAL_CONTRACT_LIMITS, ...ZERO_FUNDED_CONTRACT_LIMITS },
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {

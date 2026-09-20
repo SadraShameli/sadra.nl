@@ -12,11 +12,17 @@ export enum ConsistencyScope {
     None = 'none',
 }
 
+export enum ConsistencyViolationEffect {
+    DoubleTarget = 'double-target',
+    Fail = 'fail',
+}
+
 export class ConsistencyRule {
     constructor(
         readonly scope: ConsistencyScope,
         readonly maxBestDayShare: Fraction0to1,
         readonly basis: ConsistencyBasis = ConsistencyBasis.Cycle,
+        readonly violationEffect: ConsistencyViolationEffect = ConsistencyViolationEffect.Fail,
     ) {}
 
     appliesToEval(): boolean {

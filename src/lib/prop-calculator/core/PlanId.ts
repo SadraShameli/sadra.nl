@@ -25,6 +25,7 @@ export enum FundedNextVariant {
     Legacy = 'legacy',
     RapidDaily = 'rapid-daily',
     RapidPro = 'rapid-pro',
+    RapidProDllAddOn = 'rapid-pro-dll-add-on',
 }
 
 export enum LucidVariant {
@@ -35,6 +36,7 @@ export enum LucidVariant {
     Direct = 'direct',
     Flex = 'flex',
     FlexDll = 'flex-dll',
+    Maxx = 'maxx',
     Pro = 'pro',
     ProNoDll = 'pro-no-dll',
 }
@@ -49,6 +51,7 @@ export enum MffuVariant {
 export enum TopStepVariant {
     NoFeeConsistency = 'no-fee-consistency',
     NoFeeStandard = 'no-fee-standard',
+    ProAccount = 'pro-account',
     StandardConsistency = 'standard-consistency',
     StandardStandard = 'standard-standard',
 }

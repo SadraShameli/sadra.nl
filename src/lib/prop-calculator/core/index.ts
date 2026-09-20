@@ -7,6 +7,7 @@ export {
     ConsistencyBasis,
     ConsistencyRule,
     ConsistencyScope,
+    ConsistencyViolationEffect,
 } from './ConsistencyRule';
 export { TRADING_DAYS_PER_MONTH } from './constants';
 export {

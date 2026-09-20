@@ -97,10 +97,9 @@ export function runDay(options: DayRunOptions): {
             : undefined;
 
     const idleChance = idleDayProbability ?? 0;
+    const maxConsecutiveIdleDays = plan.maxConsecutiveIdleDaysFor(phase);
     const isIdleToday =
-        idleChance > 0 &&
-        plan.maxConsecutiveIdleDays !== null &&
-        rng() < idleChance;
+        idleChance > 0 && maxConsecutiveIdleDays !== null && rng() < idleChance;
 
     if (!isIdleToday) {
         for (let index = 0; index < dayPolicy.ladder.length; index++) {
@@ -208,8 +207,8 @@ export function runDay(options: DayRunOptions): {
     if (plan.isBust(state, phase)) {
         return { busted: true, closedForInactivity: false, traded: isTraded };
     }
-    return plan.maxConsecutiveIdleDays !== null &&
-        state.consecutiveIdleDays >= plan.maxConsecutiveIdleDays
+    return maxConsecutiveIdleDays !== null &&
+        state.consecutiveIdleDays >= maxConsecutiveIdleDays
         ? { busted: true, closedForInactivity: true, traded: isTraded }
         : { busted: false, closedForInactivity: false, traded: isTraded };
 }

@@ -125,8 +125,18 @@ const DIRECT_SIZES = [
     { accountSize: dollars(50_000), evalCost: 515, maxDrawdown: dollars(2000) },
 ] as const;
 
+const MAXX_SIZES = [
+    {
+        accountSize: dollars(50_000),
+        evalCost: 180,
+        maxDrawdown: dollars(2000),
+        profitTarget: dollars(3000),
+    },
+] as const;
+
 type LucidDirectSize = (typeof DIRECT_SIZES)[number];
 type LucidFlexSize = (typeof FLEX_SIZES)[number];
+type LucidMaxxSize = (typeof MAXX_SIZES)[number];
 type LucidProSize = (typeof PRO_SIZES)[number];
 
 export class LucidTrading extends TradingFirm {
@@ -146,6 +156,12 @@ export class LucidTrading extends TradingFirm {
         "LucidDaily (50K), previously entirely unmodeled, added from live-read plan-card markup 2026-09-14: $3,000 target, $2,000 max loss, 50% eval-only consistency (explicit 'No Consistency in Funded'), a 'Daily Payouts' badge (modeled as minDaysAfterPassForPayout: 0, matching how FundedNext's own Rapid Daily plan is modeled in this codebase). Two independent checkout toggles, confirmed as separate button groups in the page markup: eval drawdown type (EOD or Intraday) and Daily Loss Limit (OFF or $1,200 ON, identical mechanism to Pro/Flex's toggle). Modeled as four independent plan variants (LucidVariant.DailyEod/DailyEodDll/DailyIntraday/DailyIntradayDll) rather than collapsing to one. Funded-side rules were originally defaulted by analogy rather than confirmed; support.lucidtrading.com's dedicated 'LucidDaily Payouts' article has since been read directly and confirms the 90% split, $0 minPayoutRequest floor of $500, no minimum trading-day count, and no per-request payout cap were all correct by analogy -- but the profit-per-cycle floor was not: the article states 'traders must have positive net profit (even just $1) between each payout request,' the same recurring-$0.01-per-cycle rule already modeled for LucidFlex, not the 'no explicit floor' this file originally guessed. Corrected: minPayoutProfit/minPayoutProfitPerCycle both set to $0.01. The same article also documents a buffer requirement previously missed entirely: 'the buffer is equal to: Initial Max Loss Limit + $100' ($52,100 required balance at the 50K tier) -- added as payoutBuffer: new PayoutBuffer(dollars(LOCK_OFFSET)), the same mechanism and offset already used for LucidPro.",
         "LucidDaily's EOD and Intraday drawdown-type variants are priced differently, not identically as first modeled: live-verified 2026-09-14 directly against lucidtrading.com's own pricing-config JSON (planCode LDE050/LDI050), EOD costs $165 eval / $115 reset, Intraday costs $136 eval / $95 reset for the DLL-ON variants specifically -- see the DLL-toggle note above for the since-corrected DLL-OFF pricing ($185 EOD / $156 Intraday). The same pricing-config JSON independently confirmed LucidPro ($172/$120), LucidFlex ($136/$95), and LucidDirect ($515, no separate reset SKU) are all already correct in this file.",
         "Confirmed: the site's own pricing template supports a list-vs-discount price display, so a standing discount almost certainly exists, but the exact current dollar amounts could not be retrieved (Cloudflare-blocked, no sufficiently recent archive) -- flagged explicitly as unconfirmed rather than guessed, consistent with this whole project's live-source-only rule for firm data.",
+        "LucidDaily's funded stage is always Intraday regardless of which eval-stage drawdown type (EOD or Intraday) was purchased, per two independent support articles ('LucidDaily Customization' and 'LucidDaily Drawdown'). Previously the DailyEod/DailyEodDll variants left `fundedDrawdown` unset, so they silently inherited the EOD eval drawdown for the funded stage too (via Plan.ts's `fundedDrawdown ?? drawdown` fallback). Corrected: `fundedDrawdown` is now explicitly set to `IntradayTrailingDrawdown` for every LucidDaily variant, matching the confirmed always-Intraday funded rule.",
+        "LucidDaily has no payout-count-based lifetime cap at all -- its real mechanic is an unrelated same-day dollar trigger, 'Maximum Daily Profit' ($8,000 at 50K), which auto-triggers a live-transition review if hit in a single day, not a count of payout requests. `maxLifetimePayouts` was previously set to the shared MAX_LIFETIME_PAYOUTS (5) for every LucidDaily variant by pattern-matching against Pro/Flex/Direct; removed (left unset) since no payout-count cap exists for Daily. The Maximum Daily Profit trigger itself remains unmodeled (a different mechanic, not a lifetime-payout-count field).",
+        "LucidVariant.ProNoDll (DLL toggle OFF) was routing through the same `scalingDllAfterTrail` post-lock mechanism as the DLL-ON variant, giving the no-DLL configuration a 60%-of-peak-profit funded DLL once the drawdown locked. pro.md's Sim Funded table states the Off configuration's Daily Loss Limit plainly as 'Off: none' with no post-lock-scaling clause. Corrected: `fundedDailyLossLimit` now only routes through `scalingDllAfterTrail` when an eval-stage DLL was purchased; the no-DLL variant gets `flatDailyLossLimitOf(null)` (no DLL at all, either stage).",
+        "LucidFlex's minTradingDays was hardcoded to 2, but no source confirms a formal minimum-trading-days rule for Flex -- the '2 days' figure was only the fastest-possible pass time implied by the 50% consistency math, not a stated rule (the consistency article's own 'cushion' language). Corrected to 0 (no gate), matching how LucidDaily already models its own identically-unconfirmed minimum-trading-days field.",
+        "LucidDirect's `maxLifetimePayouts` was set to the same shared MAX_LIFETIME_PAYOUTS constant Flex uses, but LucidDirect's own payout-cap status is separately unconfirmed -- no source states Direct shares Flex's specific cap. Removed (left unset) rather than silently assuming another plan's confirmed figure carries over.",
+        "LucidMaxx (lucidmaxx.md), previously entirely unmodeled, is now built for the 50K tier only. Unlike every other Lucid plan, LucidMaxx has no separate Sim Funded stage at all -- passing its eval moves the trader directly into a real live account. This engine's Plan class has no notion of 'simulated' vs 'real' capital in the first place (funded-phase mechanics are the same balance/drawdown/payout math either way), so LucidMaxx's live stage is modeled as an ordinary funded phase, not a new capability: fundedDrawdown uses the confirmed 'same as the standard Lucid live structure' cross-reference ($2,000 EOD drawdown at 50K, locking at a flat $100-above-start once cumulative profit reaches $2,000), and payoutFloorEffect: LockAtPlanFloor reuses the existing forced-lock-on-first-payout mechanism (already used for FundedNext's Legacy/Rapid Pro/Rapid Daily) to model the source's own 'or the trader requests a payout, whichever comes first' lock trigger. Eval-stage Drawdown Type is itself marked Unconfirmed by the source (only the live-stage mechanic is confirmed by cross-reference); modeled as EOD trailing by analogy to every other Lucid plan's own eval-stage mechanic, since `drawdown` is a required field with no 'leave unset' option -- a structural best-guess, not a confirmed figure, and disclosed as such here per this file's own sourcing convention. LucidMaxx's own eval/reset fee is not a fixed price but a dynamic, 4-tier figure keyed to a trader's own prior blown-live-account count ($180/$215/$250/$290 at 50K for tiers 1-4); modeled at Tier 1 ($180), the rate a trader with 0-4 blown live accounts pays, since that is the natural starting point for a newly LucidMaxx-eligible trader -- not a confirmed 'the' price, since the real price moves with each trader's own track record. Eval-stage Max Contracts/Daily Loss Limit are both Unconfirmed and left unset (the sensible default, matching this file's own established convention for genuinely unconfirmed fields). maxFundedAccounts models the confirmed 'up to 5 simultaneous accounts' cap; whether this pool is shared with the standard LucidLive household cap is unconfirmed and not modeled either way.",
     ];
     readonly plans = [
         ...DAILY_EOD_SIZES.flatMap((s) => [
@@ -165,6 +181,7 @@ export class LucidTrading extends TradingFirm {
             this.buildPlan(buildProPlan(s, null)),
         ]),
         ...DIRECT_SIZES.map((s) => this.buildPlan(buildDirectPlan(s))),
+        ...MAXX_SIZES.map((s) => this.buildPlan(buildMaxxPlan(s))),
     ];
     readonly website = 'https://lucidtrading.com';
 }
@@ -204,6 +221,10 @@ function buildDailyPlan(
             ),
             reset: dollars(size.resetFee),
         },
+        fundedDrawdown: new IntradayTrailingDrawdown({
+            amount: size.maxDrawdown,
+            lock,
+        }),
         id: { accountSize: 50_000, firm: FirmId.Lucid, variant },
         label: planLabel(
             size.accountSize,
@@ -213,7 +234,6 @@ function buildDailyPlan(
         ),
         maxConsecutiveIdleDays: INACTIVITY_CLOSURE_DAYS,
         maxFundedAccounts: MAX_FUNDED_ACCOUNTS,
-        maxLifetimePayouts: MAX_LIFETIME_PAYOUTS,
         minDaysAfterPassForPayout: 0,
         minPayoutProfit: dollars(0.01),
         minPayoutProfitPerCycle: dollars(0.01),
@@ -262,7 +282,6 @@ function buildDirectPlan(size: LucidDirectSize): PlanInit {
         label: planLabel(size.accountSize, 'LucidDirect'),
         maxConsecutiveIdleDays: INACTIVITY_CLOSURE_DAYS,
         maxFundedAccounts: MAX_FUNDED_ACCOUNTS,
-        maxLifetimePayouts: MAX_LIFETIME_PAYOUTS,
         minDaysAfterPassForPayout: 5,
         minPayoutProfit: dollars(3000),
         minPayoutProfitPerCycle: dollars(2500),
@@ -328,7 +347,7 @@ function buildFlexPlan(
         minPayoutProfitPerCycle: dollars(0.01),
         minPayoutRequest: dollars(500),
         minQualifyingDayProfit: dollars(150),
-        minTradingDays: 2,
+        minTradingDays: 0,
         payoutFloorEffect: PayoutFloorEffect.LockAtPlanFloor,
         payoutProfitShare: profitShareMultiplier(0.5),
         payoutRequestCap: dollars(2000),
@@ -336,6 +355,41 @@ function buildFlexPlan(
             { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
         ],
         profitTarget,
+    };
+}
+
+function buildMaxxPlan(size: LucidMaxxSize): PlanInit {
+    return {
+        accountSize: size.accountSize,
+        consistency: new ConsistencyRule(ConsistencyScope.Eval, fraction(0.4)),
+        drawdown: new EodTrailingDrawdown({ amount: size.maxDrawdown }),
+        evalDailyLossLimit: { kind: DailyLossLimitKind.None },
+        fees: {
+            activation: dollars(0),
+            monthlySubscription: dollars(0),
+            oneTimeEval: dollars(size.evalCost),
+            reset: dollars(size.evalCost),
+        },
+        fundedDrawdown: new EodTrailingDrawdown({
+            amount: size.maxDrawdown,
+            lock: {
+                atProfit: dollars(size.maxDrawdown),
+                lockedThreshold: lockThresholdAt(LOCK_OFFSET),
+            },
+        }),
+        id: {
+            accountSize: 50_000,
+            firm: FirmId.Lucid,
+            variant: LucidVariant.Maxx,
+        },
+        label: planLabel(size.accountSize, 'LucidMaxx'),
+        maxFundedAccounts: 5,
+        minTradingDays: 5,
+        payoutFloorEffect: PayoutFloorEffect.LockAtPlanFloor,
+        payoutTiers: [
+            { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
+        ],
+        profitTarget: size.profitTarget,
     };
 }
 
@@ -367,7 +421,10 @@ function buildProPlan(
             ),
             reset: dollars(size.resetFee),
         },
-        fundedDailyLossLimit: scalingDllAfterTrail(dailyLossLimit),
+        fundedDailyLossLimit:
+            dailyLossLimit === null
+                ? flatDailyLossLimitOf(null)
+                : scalingDllAfterTrail(dailyLossLimit),
         id: {
             accountSize: 50_000,
             firm: FirmId.Lucid,

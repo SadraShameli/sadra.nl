@@ -1,4 +1,5 @@
 import { type AccountState } from './AccountState';
+import { ConsistencyViolationEffect } from './ConsistencyRule';
 import {
     describeDailyLossLimit,
     hasPeakShareDependency,
@@ -90,7 +91,11 @@ export function computeEvalStateValue(
     const drawdown = plan.drawdownFor(TradingPhase.Eval);
     const lock = drawdown.lock;
     const initialThreshold = drawdown.initialThreshold(plan.accountSize);
-    const isTrackingConsistency = plan.evalConsistencyRule() !== null;
+    const evalConsistencyRule = plan.evalConsistencyRule();
+    const isTrackingConsistency = evalConsistencyRule !== null;
+    const canDoubleTarget =
+        evalConsistencyRule?.violationEffect ===
+        ConsistencyViolationEffect.DoubleTarget;
     const dayCap = plan.evalDayCap(config.maxEvalDays);
 
     const rrRatio = config.rrRatio;
@@ -123,7 +128,7 @@ export function computeEvalStateValue(
         actionGrid.push(a);
     }
     const maxTrackedProfitLike =
-        plan.profitTarget +
+        (canDoubleTarget ? plan.profitTarget * 2 : plan.profitTarget) +
         drawdown.amount +
         maxActionDollars * Math.max(1, rrRatio);
     const cushionBucketCount =
@@ -203,7 +208,7 @@ export function computeEvalStateValue(
                 clampRange(cushion, maxTrackedProfitLike),
                 cushionStepDollars,
             ),
-            idleDays: plan.clampedIdleDays(state),
+            idleDays: plan.clampedIdleDays(state, TradingPhase.Eval),
             thresholdOffset: state.thresholdLocked
                 ? 0
                 : floorStep(
@@ -236,9 +241,12 @@ export function computeEvalStateValue(
         const idleDaysAtEnd = wasIdleToday
             ? dayStartState.consecutiveIdleDays + 1
             : 0;
+        const maxConsecutiveIdleDays = plan.maxConsecutiveIdleDaysFor(
+            TradingPhase.Eval,
+        );
         if (
-            plan.maxConsecutiveIdleDays !== null &&
-            idleDaysAtEnd >= plan.maxConsecutiveIdleDays
+            maxConsecutiveIdleDays !== null &&
+            idleDaysAtEnd >= maxConsecutiveIdleDays
         ) {
             return 0;
         }

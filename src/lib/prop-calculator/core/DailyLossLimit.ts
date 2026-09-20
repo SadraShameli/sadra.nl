@@ -29,14 +29,15 @@ export type DailyLossLimitConfig =
           readonly kind: DailyLossLimitKind.AfterThresholdLock;
       }
     | { readonly amount: Dollars; readonly kind: DailyLossLimitKind.Flat }
+    | {
+          readonly isEffectiveNextSession?: boolean;
+          readonly kind: DailyLossLimitKind.Tiered;
+          readonly tiers: readonly DllTier[];
+      }
     | { readonly kind: DailyLossLimitKind.None }
     | {
           readonly kind: DailyLossLimitKind.PeakProfitShare;
           readonly share: Fraction0to1;
-      }
-    | {
-          readonly kind: DailyLossLimitKind.Tiered;
-          readonly tiers: readonly DllTier[];
       };
 
 export interface DailyLossLimitContext {
@@ -131,7 +132,10 @@ class PeakProfitShareDailyLossLimit extends DailyLossLimit {
 }
 
 class TieredDailyLossLimit extends DailyLossLimit {
-    constructor(private readonly tiers: readonly DllTier[]) {
+    constructor(
+        private readonly tiers: readonly DllTier[],
+        private readonly isEffectiveNextSession: boolean,
+    ) {
         super();
         if (tiers.length === 0) {
             throw new Error('TieredDailyLossLimit: tiers must not be empty');
@@ -165,7 +169,10 @@ class TieredDailyLossLimit extends DailyLossLimit {
     }
 
     resolve(context: DailyLossLimitContext): null | number {
-        const selected = this.selectTier(context.profit);
+        const profit = this.isEffectiveNextSession
+            ? context.peakDayCloseProfit
+            : context.profit;
+        const selected = this.selectTier(profit);
         return selected ? selected.dailyLossLimit : null;
     }
 }
@@ -233,6 +240,7 @@ export function scaleDailyLossLimit(
         }
         case DailyLossLimitKind.Tiered: {
             return {
+                isEffectiveNextSession: config.isEffectiveNextSession,
                 kind: DailyLossLimitKind.Tiered,
                 tiers: config.tiers.map((tier) => ({
                     ...tier,
@@ -263,7 +271,10 @@ function buildDailyLossLimit(config: DailyLossLimitConfig): DailyLossLimit {
             return new PeakProfitShareDailyLossLimit(config.share);
         }
         case DailyLossLimitKind.Tiered: {
-            return new TieredDailyLossLimit(config.tiers);
+            return new TieredDailyLossLimit(
+                config.tiers,
+                config.isEffectiveNextSession ?? false,
+            );
         }
     }
 }

@@ -340,8 +340,10 @@ export function computeFundedStateValue(
             tracker,
         });
         const receivedCash = payout?.traderReceives ?? 0;
-        const payoutsIssuedNow = tracker.payoutsIssued;
 
+        if (payout?.causesHardBreach) return receivedCash;
+
+        const payoutsIssuedNow = tracker.payoutsIssued;
         if (plan.isAccountConcluded(payoutsIssuedNow)) return receivedCash;
 
         const regimeNow = Math.min(payoutsIssuedNow, payoutRegimeCap);
@@ -815,7 +817,7 @@ export function computeFundedStateValue(
         cycleBestDayProfit?: number,
     ): number {
         const regime = Math.min(payoutsIssued ?? 0, payoutRegimeCap);
-        const idleDays = plan.clampedIdleDays(state);
+        const idleDays = plan.clampedIdleDays(state, TradingPhase.Funded);
         const cushionDollars = state.balance - state.threshold;
         const cycleBestDay = cycleBestDayIndex(cycleBestDayProfit ?? 0);
         const cushionAtDayStartDollars = cushionDollars - state.todayPnL;

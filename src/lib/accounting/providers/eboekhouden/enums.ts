@@ -122,6 +122,16 @@ export enum MutationType {
     MoneySent = '6',
 }
 
+export const MUTATION_TYPE_LABEL: Record<MutationType, string> = {
+    [MutationType.GeneralJournal]: 'General journal entry',
+    [MutationType.InvoicePaymentReceived]: 'Invoice payment received',
+    [MutationType.InvoicePaymentSent]: 'Invoice payment sent',
+    [MutationType.InvoiceReceived]: 'Invoice received',
+    [MutationType.InvoiceSent]: 'Invoice sent',
+    [MutationType.MoneyReceived]: 'Money received',
+    [MutationType.MoneySent]: 'Money sent',
+};
+
 export enum RelationType {
     Business = 'B',
     Private = 'P',
