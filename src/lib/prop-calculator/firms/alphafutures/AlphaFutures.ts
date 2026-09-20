@@ -82,7 +82,10 @@ const STANDARD_CONTRACT_LIMITS = {
     },
 } as const;
 
-const ZERO_EVAL_CONTRACT_LIMITS = { evalMicros: contracts(30), evalMinis: contracts(3) };
+const ZERO_EVAL_CONTRACT_LIMITS = {
+    evalMicros: contracts(30),
+    evalMinis: contracts(3),
+};
 
 const ZERO_FUNDED_CONTRACT_LIMITS = {
     fundedMicros: {
@@ -215,7 +218,10 @@ function buildZeroPlan(size: AfZeroSize): PlanInit {
             ConsistencyScope.Funded,
             fraction(0.4),
         ),
-        contractLimits: { ...ZERO_EVAL_CONTRACT_LIMITS, ...ZERO_FUNDED_CONTRACT_LIMITS },
+        contractLimits: {
+            ...ZERO_EVAL_CONTRACT_LIMITS,
+            ...ZERO_FUNDED_CONTRACT_LIMITS,
+        },
         drawdown: new EodTrailingDrawdown({
             amount: size.maxDrawdown,
             lock: {

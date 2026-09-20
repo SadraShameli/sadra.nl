@@ -204,7 +204,10 @@ function buildProAccountPlan(): PlanInit {
                 lockedThreshold: lockThresholdAt(0),
             },
         }),
-        evalDailyLossLimit: { amount: PRO_ACCOUNT_DLL, kind: DailyLossLimitKind.Flat },
+        evalDailyLossLimit: {
+            amount: PRO_ACCOUNT_DLL,
+            kind: DailyLossLimitKind.Flat,
+        },
         fees: {
             activation: dollars(0),
             monthlySubscription: dollars(0),

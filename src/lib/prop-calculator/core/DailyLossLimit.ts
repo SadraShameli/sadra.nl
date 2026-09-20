@@ -240,7 +240,9 @@ export function scaleDailyLossLimit(
         }
         case DailyLossLimitKind.Tiered: {
             return {
-                ...(config.isEffectiveNextSession !== undefined && { isEffectiveNextSession: config.isEffectiveNextSession }),
+                ...(config.isEffectiveNextSession !== undefined && {
+                    isEffectiveNextSession: config.isEffectiveNextSession,
+                }),
                 kind: DailyLossLimitKind.Tiered,
                 tiers: config.tiers.map((tier) => ({
                     ...tier,

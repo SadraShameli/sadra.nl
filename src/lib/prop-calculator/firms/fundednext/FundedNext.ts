@@ -128,8 +128,7 @@ type FunctionFlexSize = (typeof FLEX_SIZES)[number];
 type FunctionFnl003Size = (typeof FNL003_SIZES)[number];
 type FunctionLegacySize = (typeof LEGACY_SIZES)[number];
 type FunctionRapidDailySize = (typeof RAPID_DAILY_SIZES)[number];
-type FunctionRapidProDllAddOnSize =
-    (typeof RAPID_PRO_DLL_ADD_ON_SIZES)[number];
+type FunctionRapidProDllAddOnSize = (typeof RAPID_PRO_DLL_ADD_ON_SIZES)[number];
 type FunctionRapidProSize = (typeof RAPID_PRO_SIZES)[number];
 
 export class FundedNext extends TradingFirm {

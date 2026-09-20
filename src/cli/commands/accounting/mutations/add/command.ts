@@ -86,7 +86,8 @@ export default defineCommand({
         },
     },
     meta: {
-        description: 'Manually create a mutation in eBoekhouden (dry by default)',
+        description:
+            'Manually create a mutation in eBoekhouden (dry by default)',
         name: 'add',
     },
     async run(context) {
@@ -101,9 +102,10 @@ export default defineCommand({
                 return;
             }
 
-            const credentialRow = await EboekhoudenCredentialResolver.resolveRow(
-                context.args.credential,
-            );
+            const credentialRow =
+                await EboekhoudenCredentialResolver.resolveRow(
+                    context.args.credential,
+                );
             if (!credentialRow) {
                 process.exitCode = 1;
                 return;
@@ -111,7 +113,9 @@ export default defineCommand({
 
             const payload = buildManualMutationPayload(parsed.data);
 
-            ui.heading(`Mutation to post — credential "${credentialRow.label}"`);
+            ui.heading(
+                `Mutation to post — credential "${credentialRow.label}"`,
+            );
             for (const line of formatMutationPayload(payload)) ui.note(line);
 
             if (!context.args.yes) {

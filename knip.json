@@ -15,7 +15,6 @@
         "cssnano",
         "cssnano-preset-default",
         "pino-pretty",
-        "sharp",
-        "zod-compiler"
+        "sharp"
     ]
 }

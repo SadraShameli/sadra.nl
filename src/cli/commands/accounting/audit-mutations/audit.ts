@@ -276,7 +276,7 @@ export function buildVendorBreakdown(
     return rows.toSorted((a, b) => b.total - a.total);
 }
 
-export function findDuplicateCandidates(
+function findDuplicateCandidates(
     mutations: MutationResponse[],
 ): AuditIssue[] {
     const withVendor = mutations.filter((m) => m.description);

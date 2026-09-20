@@ -26,9 +26,10 @@ export default defineCommand({
     },
     async run(context) {
         try {
-            const credentialRow = await EboekhoudenCredentialResolver.resolveRow(
-                context.args.credential,
-            );
+            const credentialRow =
+                await EboekhoudenCredentialResolver.resolveRow(
+                    context.args.credential,
+                );
             if (!credentialRow) {
                 process.exitCode = 1;
                 return;

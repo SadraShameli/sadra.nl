@@ -397,9 +397,7 @@ export abstract class Plan {
 
     clampedIdleDays(state: AccountState, phase: TradingPhase): number {
         const limit = this.maxConsecutiveIdleDaysFor(phase);
-        return limit === null
-            ? 0
-            : Math.min(state.consecutiveIdleDays, limit);
+        return limit === null ? 0 : Math.min(state.consecutiveIdleDays, limit);
     }
 
     maxConsecutiveIdleDaysFor(phase: TradingPhase): null | number {
