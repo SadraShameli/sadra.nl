@@ -13,71 +13,125 @@ and record the result in that firm's own `SOURCES.md`, not in this file.
 | ------------ | ---------- | ------------------- | ----------------- | --------------- | ------------------- |
 | alphafutures | 5          | 37                  | 13                | 3               | Done 2026-09-20      |
 | apex         | 4          | 129 (main-site dump)| yes               | 0               | Done 2026-09-20      |
-| e8futures    | 2          | 61 (repaired cache) | 16                | 0               | Done 2026-09-20      |
-| fundednext   | 8          | 63                  | 0                 | 0               | Done 2026-09-20      |
-| lucid        | 6          | 60                  | 173               | 0               | Done 2026-09-20      |
-| mffu         | 5          | 52                  | 4                 | 0               | Done 2026-09-20      |
-| topstep      | 6          | 41                  | 0                 | 0               | Done 2026-09-20      |
-| tpt          | 2          | 87 (repaired cache) | 71                | 0               | Done 2026-09-20      |
-| tradeify     | 5          | 76 (repaired cache) | 3                 | 1               | Done 2026-09-20      |
+| e8futures    | 2          | 61 (repaired cache) | 16                | 4               | Done 2026-09-20      |
+| fundednext   | 8          | 63                  | 0                 | 5               | Done 2026-09-20      |
+| lucid        | 6          | 60                  | 173               | 4 (5th, the Trader Agreement, blocked, see item 1) | Done 2026-09-20      |
+| mffu         | 5          | 52                  | 4                 | 3               | Done 2026-09-20      |
+| topstep      | 6          | 41                  | 0                 | 5               | Done 2026-09-20      |
+| tpt          | 2          | 87 (repaired cache) | 71                | 2               | Done 2026-09-20      |
+| tradeify     | 5          | 76 (repaired cache) | 3                 | 1 (re-read) + 3 | Done 2026-09-20      |
 
 All nine firms have had the bulk adversarial verifier pass and the per-file
 two-direction line-by-line audit described in item 2. Apex's src-to-doc
 direction (76 findings: 71 MISSING_RULE, 5 CONTRADICTED, heaviest in
 `legacy.md` at 37) was the last piece to close, all applied 2026-09-20.
 
-## 1. Legal and main-site sweep, 6 firms
+**All 8 non-Alpha-Futures firms now have at least one legal document read**,
+closing item 1 below. 74 findings applied tree-wide (29 from a 5-firm
+workflow sweep + e8futures/fundednext/mffu/topstep/tradeify's own direct
+follow-up reads, + Lucid's 21 + TPT's 6 direct reads), including several
+Alpha-Futures-shaped findings: a firm's own signed Terms/Agreement
+contradicting a help-center-sourced refund policy (e8futures, fundednext,
+tradeify), a non-disparagement clause enforceable by termination (e8futures,
+fundednext), an entire separate binding document never read that outranks
+even the Terms and Conditions themselves (mffu's "Simulated Trader Agreement
+and its Appendices"), and an arbitration-administrator citation that was
+simply wrong (mffu: help center said AAA, the actual Terms say JAMS).
 
-**Highest value per unit of effort. Do this first.**
+## 1. Legal document sweep, 8 firms: done, one page still blocked
 
-`e8futures`, `fundednext`, `lucid`, `mffu`, `topstep`, `tpt` have **zero**
-legal documents in their ledgers. `tradeify` has one. Terms and conditions,
-service agreements and return policies are where payout splits, termination
-triggers and refund rights actually live, and they are frequently at odds with
-the help center's marketing copy.
+**Done 2026-09-20 for all 8 firms that had zero legal documents.** Terms and
+conditions, service agreements and return policies are where payout splits,
+termination triggers and refund rights actually live, and they are
+frequently at odds with the help center's marketing copy.
 
-Alpha Futures is the evidence. Reading its legal pages on 2026-09-20 produced
-the five highest-consequence findings of the entire pass, none of which the
-help center disclosed:
+Alpha Futures was the evidence this item was originally justified on. Reading
+its legal pages on 2026-09-20 produced the five highest-consequence findings
+of the entire pass, none of which the help center disclosed (tiered
+70/80/90 split vs. advertised flat split, a cooling-off right waived on the
+first trade, non-disparagement enforceable by termination, a
+maintain-the-same-risk termination trigger, a 4% vs. 3.5% MLL conflict). The
+same category of finding turned up in every other firm once its legal pages
+were finally read:
 
-- the signed General Service Agreement defines a **tiered 70%/80%/90%** split
-  while every plan overview advertises "90% profit split from the start, no
-  tiered system"
-- a **14-day cooling-off right that is waived on the first trade**, against a
-  Return Policy page stating "All sales are final, no refunds will be issued."
-- **non-disparagement, enforceable by account termination**
-- a **maintain-the-same-risk requirement** whose breach is instant termination
-- Schedule 2 gives Advanced Qualified a **4% Maximum Loss Limit** against the
-  tree's 3.5%
+- **e8futures**: Terms of Service Section 4.2 states fees are non-refundable
+  "under any circumstance" the moment access is activated, contradicting the
+  help-center-sourced "refund if zero activity within 30 days" rule already
+  in the tree; plus a non-disparagement clause, mandatory AAA arbitration
+  with a 30-day opt-out, and a crypto-payout forfeiture-on-wrong-address rule.
+- **fundednext**: the main Terms of Service grant a real 7-day,
+  pre-first-trade refund right against the tree's "all fees strictly
+  non-refundable" rule (and a third, separately-conflicting Futures Challenge
+  Terms document says "non-refundable under any circumstances"); a
+  non-disparagement clause, a confidentiality clause barring even screenshots
+  of enforcement communications, a post-payout Performance Reward clawback
+  right, mandatory DIAC (Dubai) arbitration, a USD 25,000 contractual penalty
+  on top of suspension, and a no-notice trading freeze that can lock a trader
+  into an open, still-losing position.
+- **lucid**: a full Refund and Chargeback Policy (previously entirely
+  undocumented) with a strict no-refund-once-traded rule and a
+  permanent-ban chargeback clause; a direct conflict between the Terms of
+  Use's "for use only by persons located in the United States" and the
+  Restricted Countries rule's ~80-country exclusion list (which implies most
+  other countries are permitted); account eligibility exclusions (felony
+  conviction, NFA/CFTC discipline, outstanding balance with another firm).
+  The single highest-value page, `lucid-trader-agreement/`, came back with an
+  empty body (client-rendered content a plain `fetch()` can't see) and is
+  still unread; see the note in `lucid/SOURCES.md`.
+- **mffu**: discovered an entire second, binding document, the "Simulated
+  Trader Agreement and its Appendices," which the Terms and Conditions state
+  outranks the Terms themselves, and which this tree has never located or
+  read, the exact Alpha Futures failure mode at one level of remove; plus a
+  wrong arbitration-administrator citation (help center said AAA, the actual
+  Terms name JAMS), a card-fraud rule contradicted by the Terms' actual
+  verification-path language, and an unqualified (not payment-model-scoped)
+  7-day dormant-account rule that the tree had wrongly treated as legacy-exempt.
+- **topstep**: felony/NFA/CFTC/outstanding-balance eligibility exclusions;
+  a VPN consequence harsher than documented (forfeiture of profits, not just
+  a login block); a cross-account Prohibited Conduct clawback that forfeits
+  every account a trader holds, not just the offending one; a real conflict
+  between the Payout Policy's checkout-only double-payout-cap DLL rule and
+  the firm's own separately-published promo terms; a 30-day/6-month Trading
+  Combine activation deadline; a discretionary Octagon-bonus clawback right
+  flagged as uncertain (stale "LPB" naming from a retired program).
+- **tpt**: a full 72-hour/$75-fee Refund Policy, a chargeback waiver, an
+  arbitration/class-action-waiver clause, and a one-email-per-customer rule,
+  none previously documented; the main site (`takeprofittrader.com`) is
+  Cloudflare-blocked, so this required a user browser-console fetch.
+- **tradeify**: a direct conflict between the signed Funded Trader
+  Agreement's §6.5 (requires avoiding DCA/flipping) and the help-center-sourced
+  "unrestricted" claim already in the tree (the Agreement's own §11 may
+  resolve this in the trader's favor, but that clause isn't cited where the
+  DCA/flipping claim is made); a chargeback-dispute-rights waiver; a
+  payout-suspension-pending-investigation clause; a strict-liability
+  Expired/Non-Active Contract prohibition with retroactive consequences; a
+  second-tier "eligible to evaluate, permanently ineligible for Elite Live"
+  jurisdiction restriction.
 
-Per firm, the minimum target set:
+**What's still open:**
 
-- `/terms-and-conditions` or `/terms-of-use`
-- `/general-service-agreement`, or whatever the signed trader agreement is
-  called
-- `/return-policy` or `/refund-policy`
-- `/privacy-policy` (only if it carries account or data rules with
-  consequences)
-- the product and pricing pages, which settle price conflicts the blog pages
-  create
+- **Lucid's `lucid-trader-agreement/` page** returned empty (client-rendered,
+  not visible to a plain `fetch()`). Needs a manual copy-paste from the fully
+  rendered page, or a PDF/download link if the agreement is served that way.
+- **Two firms' main sites remain Cloudflare-blocked to any non-browser fetch**
+  (`lucidtrading.com`, `takeprofittrader.com`), worked around this pass via a
+  user browser-console script (`fetch()` from an authenticated tab); the same
+  approach will be needed for any future re-read of those two domains.
+- **Product/pricing pages** (the fourth item in the original per-firm target
+  list) were not systematically re-swept this pass; the legal-document sweep
+  focused on Terms/Privacy/Refund/signed-agreement pages specifically, since
+  those produced the Alpha Futures pattern. A dedicated pricing-page sweep
+  remains a separate, not-yet-started task if wanted.
 
-**Method.** Fetch the main-site `sitemap.xml`, diff it against what the firm's
-`SOURCES.md` already lists, and read every page line by line. Do not sample and
-do not skip a page because its title reads like marketing: Alpha Futures'
-worst contradictions were on blog and comparison pages.
-
-**Expected shape:** one 10-agent workflow per firm, batching pages by byte size,
-`ecc:code-explorer`, Sonnet 5 only, effort high. Model it on
-`alphafutures-mainsite-linread-wf_ed419f30-50c.js`.
-
-**Verify every finding before applying it.** Of Alpha Futures' 79 main-site
-findings, two entire clusters were rejected on inspection:
-
-- 19 distinct pages claimed a 50% Advanced consistency rule; the help center,
-  the Advanced overview and the Terms all say 40%, and the Terms assign 50% to
-  Standard. The blog pages had copied the wrong plan's figure.
-- a cluster quoted Zero at $119/month and Advanced at $139/month; the firm's
-  own product pages confirmed the tree's $139 and $209.
+**Verify every finding before applying it**, the same discipline Alpha
+Futures required. Of the 34 candidate findings this pass's 5-firm workflow
+surfaced (before adding e8futures' extra 5, fundednext's extra 2 beyond the
+core, and Lucid/TPT's direct reads), 13 were rejected by the adversarial
+verify stage as already-covered, boilerplate, or unsupported, before any of
+the surviving 29 were applied. Of Alpha Futures' own original 79
+main-site findings, two entire clusters were separately rejected on
+inspection: 19 pages had copied the wrong plan's consistency-rule figure, and
+a pricing cluster was contradicted by the firm's own product pages.
 
 Marketing pages go stale. The help center and the product pages outrank them.
 Where they conflict, record the conflict and keep the higher-authority figure.
@@ -156,13 +210,17 @@ Was deferred earlier on 2026-09-20; resumed and finished the same day.
   for the recurring-subscription mechanics (72-hour grace period, 48-hour
   refund window, auto-reset-on-renewal, and related deadlines) that Legacy's
   billing model needs and the current-generation products don't.
-- **Still open, not part of this pass:** `support.apextraderfunding.com`
-  (Zendesk) was never fetched — it returned HTTP 403 to every direct curl
-  attempt, and its own "How to Contact" article states that helpdesk was
-  discontinued. Whether any of its content contradicts the current
-  `apextraderfunding.com` help center is unresolved. No help-center sources
-  proper are in Apex's ledger at all; every row traces to the main-site
-  browser dump instead.
+- **Still open, retried and re-confirmed blocked 2026-09-20:**
+  `support.apextraderfunding.com` (Zendesk) returns HTTP 403 to every direct
+  curl attempt, including the Zendesk REST API endpoint that worked around
+  the same kind of block for Take Profit Trader's Zendesk instance (this one
+  is fully Cloudflare-protected, not just access-restricted). Its own "How to
+  Contact" article states that helpdesk was discontinued. Whether any of its
+  content contradicts the current `apextraderfunding.com` help center is
+  unresolved. No help-center sources proper are in Apex's ledger at all;
+  every row traces to the main-site browser dump instead. Would need a user
+  browser-console fetch, the same workaround used for Lucid and TPT's
+  legal pages in item 1, if pursued further.
 
 ## 6. Open Not Confirmed bullets
 
