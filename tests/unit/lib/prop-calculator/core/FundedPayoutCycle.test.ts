@@ -36,7 +36,10 @@ const tradeify = new Tradeify();
 
 function cyclePlan() {
     return plan(MffuVariant.RapidEod).withOverrides({
-        consistency: new ConsistencyRule(ConsistencyScope.Funded, fraction(0.2)),
+        consistency: new ConsistencyRule(
+            ConsistencyScope.Funded,
+            fraction(0.2),
+        ),
         minPayoutProfit: dollars(0),
         minPayoutProfitPerCycle: dollars(0),
         minPayoutRequest: dollars(1),

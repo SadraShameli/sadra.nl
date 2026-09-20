@@ -376,7 +376,11 @@ describe('runLiveDay on TPT PRO+ numbers (no buffer-zone withdrawal gate + weekl
         const plan = buildTptLivePlan();
         const state = plan.initialState();
 
-        let result = { busted: false, closedForInactivity: false, traded: false };
+        let result = {
+            busted: false,
+            closedForInactivity: false,
+            traded: false,
+        };
         for (let day = 0; day < 30; day++) {
             result = runLiveDay({
                 commission: dollars(0),
@@ -394,11 +398,15 @@ describe('runLiveDay on TPT PRO+ numbers (no buffer-zone withdrawal gate + weekl
         expect(state.consecutiveIdleDays).toBe(0);
     });
 
-    it('closes for inactivity once 7 consecutive idle days accrue, matching the same maxConsecutiveIdleDays: 7 rule as PRO\'s own funded-phase weekly-trading requirement', () => {
+    it("closes for inactivity once 7 consecutive idle days accrue, matching the same maxConsecutiveIdleDays: 7 rule as PRO's own funded-phase weekly-trading requirement", () => {
         const plan = buildTptLivePlan();
         const state = plan.initialState();
 
-        let result = { busted: false, closedForInactivity: false, traded: false };
+        let result = {
+            busted: false,
+            closedForInactivity: false,
+            traded: false,
+        };
         for (let day = 0; day < 7; day++) {
             result = runLiveDay({
                 commission: dollars(0),

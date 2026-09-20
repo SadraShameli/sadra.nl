@@ -136,7 +136,7 @@ export function useLabSimulation(arguments_: Arguments): {
         },
         EMPTY_RESULTS,
     );
-    const isPending = scenarios.length === 0 ? false : computation.pending;
+    const isPending = scenarios.length > 0 && computation.pending;
     const results = scenarios.length === 0 ? EMPTY_RESULTS : computation.result;
 
     return { pending: isPending, results };

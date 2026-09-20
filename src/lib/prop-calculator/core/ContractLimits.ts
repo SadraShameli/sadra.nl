@@ -38,7 +38,7 @@ export function isRungPlaceable(options: {
         options.contracts,
         options.pointValue,
     );
-    return required === null ? false : required <= options.maxStopPoints;
+    return required !== null && required <= options.maxStopPoints;
 }
 
 export function maxContractsAt(

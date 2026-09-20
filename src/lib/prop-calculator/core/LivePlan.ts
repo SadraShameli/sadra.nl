@@ -128,6 +128,8 @@ export class LivePlan {
         if (this.liveDrawdown === null) {
             return Math.max(0, state.balance - state.startingBalance);
         }
-        return !this.requiresLockForWithdrawal || state.thresholdLocked ? Math.max(0, state.balance - state.threshold) : 0;
+        return !this.requiresLockForWithdrawal || state.thresholdLocked
+            ? Math.max(0, state.balance - state.threshold)
+            : 0;
     }
 }

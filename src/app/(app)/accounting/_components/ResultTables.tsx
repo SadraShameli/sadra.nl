@@ -161,10 +161,11 @@ export function BookingsTable({
     const rows = useMemo(
         () =>
             bookings.filter((b) => {
-                return (direction !== ALL && b.direction !== direction) ||
-                    (taxCode !== ALL && b.taxCode !== taxCode)
-                    ? false
-                    : isIsoInRange(b.date, dateRange);
+                return (
+                    (direction === ALL || b.direction === direction) &&
+                    (taxCode === ALL || b.taxCode === taxCode) &&
+                    isIsoInRange(b.date, dateRange)
+                );
             }),
         [bookings, direction, taxCode, dateRange],
     );
@@ -695,9 +696,10 @@ export function UnknownsTable({
     const rows = useMemo(
         () =>
             result.unknowns.filter((u) => {
-                return direction !== ALL && u.direction !== direction
-                    ? false
-                    : isIsoInRange(u.firstSeen, dateRange);
+                return (
+                    (direction === ALL || u.direction === direction) &&
+                    isIsoInRange(u.firstSeen, dateRange)
+                );
             }),
         [result.unknowns, direction, dateRange],
     );

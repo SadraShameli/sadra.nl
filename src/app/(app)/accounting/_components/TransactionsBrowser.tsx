@@ -173,8 +173,9 @@ export function TransactionsBrowser() {
                 },
                 filterFn: (row, _columnId, filterValue: string) => {
                     const match = row.original.match;
-                    if (filterValue === MATCHED) return match !== null;
-                    return filterValue === UNKNOWN ? match === null : true;
+                    return filterValue === MATCHED
+                        ? match !== null
+                        : filterValue !== UNKNOWN || match === null;
                 },
                 header: 'Match',
             },

@@ -2,17 +2,17 @@
 
 **Sources:**
 
-- https://helpfutures.fundednext.com/en/articles/14283903-road-to-live-trading-legacy-challenge-rapid-challenge-former (updated 2026-08-29): "Road To Live Trading - Legacy Challenge & Rapid Challenge (Former)"
-- https://helpfutures.fundednext.com/en/articles/14284453-what-are-the-data-fees-in-the-fundednext-live-trading-program (updated 2026-04-08): "What are the data fees in the FundedNext Live Trading Program?"
+- <https://helpfutures.fundednext.com/en/articles/14283903-road-to-live-trading-legacy-challenge-rapid-challenge-former> (updated 2026-08-29): "Road To Live Trading - Legacy Challenge & Rapid Challenge (Former)"
+- <https://helpfutures.fundednext.com/en/articles/14284453-what-are-the-data-fees-in-the-fundednext-live-trading-program> (updated 2026-04-08): "What are the data fees in the FundedNext Live Trading Program?"
 
-**Last Verified:** 2026-09-18
-**Last Updated:** 2026-09-18
+**Last Verified:** 2026-09-19
+**Last Updated:** 2026-09-19
 
 ## Overview
 
 This is the older/legacy FundedNext Futures live-trading program: the stage a Legacy Challenge trader enters after their FundedNext (funded) Account is selected for live transition. Per the primary source's own callout, "New Rapid purchases after July 10th will follow the new live structure. Existing accounts will follow the current structure stated below": meaning this file's mechanics apply to Legacy, and to any pre-July-10 Rapid account still in flight, but not to any Rapid account purchased or reset after July 10, 2026. Per this repo's own scope rules, the old Rapid Challenge is discontinued and not separately documented, so this file is shared by `legacy.md` only.
 
-Eligibility for review is reached after $100,000 in Total Active Profits across all of a trader's active FundedNext Futures Accounts (withdrawals already taken plus current simulated profit, combined), but selection is discretionary, decided case-by-case by the FundedNext Risk Desk Team, not automatic on hitting the threshold. Traders keep trading normally after crossing $100,000 until (and unless) selected; being selected pauses all active accounts and starts the review, typically completed within 5 business days. Once selected, the trader's Total Simulated Profit converts into Eligible Profit, split into a Settlement Withdrawal (instant cash), a Live Deposit (the starting live balance), and a no-cap Reserve that auto-refills the live account after withdrawals. This is a fundamentally different mechanic from FundedNext's newer live program (used by Flex, Rapid Pro, and Rapid Daily): a small fixed deposit by account size with a $1,000-below-start EOD trail. The two are not interchangeable, and nothing in this file assumes or borrows a figure from that other program.
+Eligibility for review is reached after $100,000 in Total Active Profits across all of a trader's active FundedNext Futures Accounts (withdrawals already taken plus current simulated profit, combined), but selection is discretionary, decided case-by-case by the FundedNext Risk Desk Team, not automatic on hitting the threshold. Traders keep trading normally after crossing $100,000 until (and unless) selected; being selected pauses all active accounts and starts the review, typically completed within 5 business days. Once selected, the trader's Total Simulated Profit converts into Eligible Profit, split into a Settlement Withdrawal (instant cash), a Live Deposit (the starting live balance), and a no-cap Reserve that auto-refills the live account after withdrawals. This is a fundamentally different mechanic from FundedNext's newer live program (used by Flex, Rapid Pro, and Rapid Daily), which is documented with its own citations in [live.md](live.md); no figure from that program is used or restated here. The two are not interchangeable, and nothing in this file assumes or borrows a figure from that other program.
 
 ## Effect on Other Active Accounts During the Same Transition Event
 
@@ -20,46 +20,46 @@ Per the same source article, once a trader is selected: all active FundedNext Ac
 
 ## Live Account Parameters
 
-| Parameter | Value |
-| --- | --- |
-| Live Deposit (starting live balance) | 25% of Eligible Profit, capped at $50,000; any excess above the cap is added to the Reserve instead. Not a fixed tier: the dollar amount depends entirely on the trader's own Total Simulated Profit at selection (see How Simulated Profit Is Split, below). |
-| Drawdown Type | Auto Liquidation Threshold: an EOD-checked equity floor ("The Auto Liquidation Limit follows a trailing end-of-day (EOD) system"), based on account equity including unrealized losses, not balance. |
-| Drawdown Amount | Not expressed by the source as a fixed dollar loss amount; risk is expressed as a percentage of the initial Live Deposit instead. See Auto Liquidation Threshold row and How the Threshold Works below. |
-| Auto Liquidation Threshold (Drawdown Lock) | See "How the Auto Liquidation Threshold Works" below for the full trigger/locked-value breakdown; this is a two-stage lock, not a single number. |
-| Minimum Balance (ongoing) | Equal to the currently-applicable Auto Liquidation Threshold (see below): 20% of the initial Live Deposit before the first withdrawal, or 100% of the initial Live Deposit after it. Equity at or below this level triggers Auto Liquidation. |
-| Daily Loss Limit | Unconfirmed |
-| Max Contracts | Keyed to Live Deposit amount, not account size, see Contract Limits table below. |
-| Consistency Rule | Unconfirmed |
-| News Trading | Unconfirmed |
-| Inactivity Rule | Unconfirmed |
-| Max Active/Concurrent Accounts | Unconfirmed |
-| Profit Split | "Trader will receive 80% Performance Reward upon each withdrawal request" (the source's own words; it does not separately name a firm-side percentage or use the phrase "profit split"). |
+| Parameter                                  | Value                                                                                                                                                                                                                                                                                                                                 |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Live Deposit (starting live balance)       | 25% of Eligible Profit, capped at $50,000; any excess above the cap is added to the Reserve instead. Not a fixed tier: the dollar amount depends entirely on the trader's own Total Simulated Profit at selection (see How Simulated Profit Is Split, below).                                                                         |
+| Drawdown Type                              | Auto Liquidation Threshold: an EOD-checked equity floor ("The Auto Liquidation Limit follows a trailing end-of-day (EOD) system"), based on account equity including unrealized losses, not balance.                                                                                                                                  |
+| Drawdown Amount                            | Not expressed by the source as a fixed dollar loss amount; risk is expressed as a percentage of the initial Live Deposit instead. See Auto Liquidation Threshold row and How the Threshold Works below.                                                                                                                               |
+| Auto Liquidation Threshold (Drawdown Lock) | See "How the Auto Liquidation Threshold Works" below for the full trigger/locked-value breakdown; this is a two-stage lock, not a single number.                                                                                                                                                                                      |
+| Minimum Balance (ongoing)                  | Equal to the currently-applicable Auto Liquidation Threshold (see below): 20% of the initial Live Deposit before the first withdrawal, or 100% of the initial Live Deposit after it. Equity that falls below this level triggers Auto Liquidation (the source says "falls below"; it never states an inclusive at-or-below boundary). |
+| Daily Loss Limit                           | Unconfirmed                                                                                                                                                                                                                                                                                                                           |
+| Max Contracts                              | Keyed to Live Deposit amount, not account size, see Contract Limits table below.                                                                                                                                                                                                                                                      |
+| Consistency Rule                           | Unconfirmed                                                                                                                                                                                                                                                                                                                           |
+| News Trading                               | Unconfirmed                                                                                                                                                                                                                                                                                                                           |
+| Inactivity Rule                            | Unconfirmed                                                                                                                                                                                                                                                                                                                           |
+| Max Active/Concurrent Accounts             | Unconfirmed                                                                                                                                                                                                                                                                                                                           |
+| Profit Split                               | "Trader will receive 80% Performance Reward upon each withdrawal request" (the source's own words; it does not separately name a firm-side percentage, though its own section heading is titled "Profit Split").                                                                                                                      |
 
 ### Contract Limits
 
-| Live Deposit | Contract Limit |
-| --- | --- |
-| Below $15,000 | 2 E-mini / 6 Micro E-mini |
-| $15,000 to $30,000 | 3 E-mini / 9 Micro E-mini |
-| Above $30,000 | 5 E-mini / 15 Micro E-mini |
+| Live Deposit       | Contract Limit             |
+| ------------------ | -------------------------- |
+| Below $15,000      | 2 E-mini / 6 Micro E-mini  |
+| $15,000 to $30,000 | 3 E-mini / 9 Micro E-mini  |
+| Above $30,000      | 5 E-mini / 15 Micro E-mini |
 
 ## How Simulated Profit Is Split Into the Live Account
 
 - Eligible Profit = 80% of Total Simulated Profit.
-- Of Eligible Profit: 50% → Settlement Withdrawal (instant cash, "paid within 3-5 business days"); 25% → Live Deposit, used as the starting live balance, capped at $50,000 (excess above the cap goes to Reserve instead); the remaining amount → Reserve, uncapped, used to auto-refill the live account after withdrawals.
+- Of Eligible Profit: 50% → Settlement Withdrawal (instant cash, "Paid within 3–5 business days."); 25% → Live Deposit, used as the starting live balance, capped at $50,000 (excess above the cap goes to Reserve instead); the remaining amount → Reserve, uncapped, used to auto-refill the live account after withdrawals.
 - The source notes this distribution "is subject to change based on the trader's evaluation": i.e., the 50/25/remainder split is not stated as unconditionally fixed for every trader.
 
 ## How the Auto Liquidation Threshold Works
 
 The source states the threshold locks "in two scenarios," and these are two materially different events, not one number:
 
-**Trigger 1: equity trails to the 80% drawdown level.** Before any withdrawal, the threshold is "set at 20% of your initial Live Deposit," which the source frames as allowing "up to 80% drawdown from your starting balance" (examples given verbatim: $20,000 deposit → threshold $4,000; $40,000 deposit → threshold $8,000; $50,000 deposit → threshold $10,000). If equity ever falls to or below this 20%-of-deposit level, the source states the account "is automatically liquidated" and "permanently closed": so reaching this trigger does not leave an open account with a newly "locked" floor; it ends the account. The source does not state whether this 20%-of-deposit floor itself moves upward as the account's equity grows before this point (it only ever describes it as "20% of your initial Live Deposit," a fixed reference to the starting deposit, not to a running high-water mark): this is flagged below, not resolved.
+**Trigger 1: equity trails to the 80% drawdown level.** Before any withdrawal, the threshold is "set at 20% of your initial Live Deposit," which the source frames as allowing "up to 80% drawdown from your starting balance" (examples given verbatim: "$20,000 deposit → Threshold at $4,000", "$40,000 deposit → Threshold at $8,000", "$50,000 deposit → Threshold at $10,000"). If equity ever falls to or below this 20%-of-deposit level, the source states the account "is automatically liquidated" and "permanently closed": so reaching this trigger does not leave an open account with a newly "locked" floor; it ends the account. The source does not state whether this 20%-of-deposit floor itself moves upward as the account's equity grows before this point (it only ever describes it as "20% of your initial Live Deposit," a fixed reference to the starting deposit, not to a running high-water mark): this is flagged below, not resolved.
 
 **Trigger 2: the first withdrawal.** "After your first withdrawal, the threshold locks permanently at your initial Live Deposit amount" (100% of the deposit, not 20%) and "does not trail or increase, even if your account balance grows." Unlike a typical trailing drawdown, this lock event makes the floor stricter, not looser: it jumps from 20% of the deposit up to the full 100% of the deposit, and stays there for the life of the account regardless of subsequent growth or Reserve refills.
 
 ### Worked Example
 
-This example uses the Live account's literal dollar balance throughout, starting at the initial Live Deposit amount (not $0), the source's own framing states the Live Deposit is "used as your starting live trading balance." This is a different mechanic from FundedNext's newer live program (used by Flex, Rapid Pro, and Rapid Daily, documented in `live.md`), whose live account also opens at a nonzero fixed deposit but whose drawdown floor (not the balance itself) starts trailing from $0; the two programs are not directly comparable on this point since this Legacy program's Auto Liquidation Threshold is a percentage-of-deposit floor with no separate "trails from $0" framing in its own source. This example never switches balance conventions partway through, and reproduces the source's own fully-stated "Scenario 1: $50,000 Total Simulated Profit."
+This example uses the Live account's literal dollar balance throughout, starting at the initial Live Deposit amount (not $0), the source's own framing states the Live Deposit is "used as your starting live trading balance." This is a different mechanic from FundedNext's newer live program (used by Flex, Rapid Pro, and Rapid Daily, documented in `live.md`), whose own mechanics are documented with their own citations in [live.md](live.md); the two programs are not directly comparable on this point, since this Legacy program's Auto Liquidation Threshold is a percentage-of-deposit floor and its own source uses no "trails from $0" framing at all. This example never switches balance conventions partway through, and reproduces the source's own fully-stated "Scenario 1: $50,000 Total Simulated Profit."
 
 1. Total Simulated Profit = $50,000 (the source's own stated starting figure for this scenario).
 2. Eligible Profit = 80% × $50,000 = $40,000, matching the source.
@@ -81,15 +81,15 @@ The Reserve auto-refills the live account on every withdrawal, in two tiers by c
 
 ## Payouts
 
-| Parameter | Value |
-| --- | --- |
-| Profit Split | 80% Performance Reward to the trader per withdrawal request. |
-| Payout Frequency | Unconfirmed |
-| Buffer Requirement | Not a balance buffer; a rolling profit gate instead: "at least $500 in new closed profit between withdrawal requests," and this "applies to every withdrawal after the first one" (the first withdrawal is not subject to this gate, per the source's own wording). |
-| Minimum Payout Request | $100 per withdrawal request. |
-| Max Payout per Cycle | Unconfirmed |
-| Consistency on Payouts | Unconfirmed |
-| Maximum Total Payouts / Lifetime Cap | Unconfirmed. The account's lifecycle instead ends via Full Balance Withdrawal or Auto Liquidation (see below). |
+| Parameter                            | Value                                                                                                                                                                                                                                                               |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Profit Split                         | 80% Performance Reward to the trader per withdrawal request.                                                                                                                                                                                                        |
+| Payout Frequency                     | Unconfirmed                                                                                                                                                                                                                                                         |
+| Buffer Requirement                   | Not a balance buffer; a rolling profit gate instead: "at least $500 in new closed profit between withdrawal requests," and this "applies to every withdrawal after the first one" (the first withdrawal is not subject to this gate, per the source's own wording). |
+| Minimum Payout Request               | $100 per withdrawal request.                                                                                                                                                                                                                                        |
+| Max Payout per Cycle                 | Unconfirmed                                                                                                                                                                                                                                                         |
+| Consistency on Payouts               | Unconfirmed                                                                                                                                                                                                                                                         |
+| Maximum Total Payouts / Lifetime Cap | Unconfirmed. The account's lifecycle instead ends via Full Balance Withdrawal or Auto Liquidation (see below).                                                                                                                                                      |
 
 Additional confirmed payout mechanics: "The CME rules are applicable during the withdrawal requests." Withdrawals cannot be processed during an active trading session; the trading day must be concluded and the request submitted the following day. Processing takes approximately 2-5 business days because withdrawals are "handled directly by NinjaTrader Brokerage," and the source states explicitly that "the FundedNext Brand Promise will not be maintained for Live account withdrawals" as a result.
 
@@ -137,8 +137,8 @@ This file is itself the terminal live-account stage, entered from the Legacy Cha
 
 ---
 
-**Last Updated:** 2026-09-18
+**Last Updated:** 2026-09-19
 **Sources:**
 
-- https://helpfutures.fundednext.com/en/articles/14283903-road-to-live-trading-legacy-challenge-rapid-challenge-former (updated 2026-08-29)
-- https://helpfutures.fundednext.com/en/articles/14284453-what-are-the-data-fees-in-the-fundednext-live-trading-program (updated 2026-04-08)
+- <https://helpfutures.fundednext.com/en/articles/14283903-road-to-live-trading-legacy-challenge-rapid-challenge-former> (updated 2026-08-29)
+- <https://helpfutures.fundednext.com/en/articles/14284453-what-are-the-data-fees-in-the-fundednext-live-trading-program> (updated 2026-04-08)

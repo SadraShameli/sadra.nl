@@ -48,17 +48,19 @@ Re-derivation check: $10,000 unlocked + $40,000 Reserve = $50,000, exactly the c
 
 ## Live Account Parameters by Size
 
-| Parameter | $50K LFA | $100K LFA | $150K LFA |
-| --- | --- | --- | --- |
-| Starting Daily Loss Limit | $2,000 | $3,000 | $4,500 |
-| Starting Maximum Position Size | 5 | 10 | 15 |
-| Capital Expansion Profit Target (per 25% Reserve unlock) | $3,000 | $6,000 | $9,000 |
-| Discretionary Risk-Adjustment Net Equity ("may be considered," not automatic) | $10,000 | $15,000 | $20,000 |
-| Minimum Starting (Tradable) Balance | $10,000, same floor for every tier | $10,000 | $10,000 |
-| Reserve Split at Transfer | 20% tradable / 80% Reserve, same formula for every tier | same | same |
-| Auto-Liquidation Trigger | $1,000 tradable balance, same trigger for every tier (see dedicated section below) | same | same |
+| Parameter                                                                     | $50K LFA                                                                           | $100K LFA | $150K LFA |
+| ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | --------- | --------- |
+| Starting Daily Loss Limit                                                     | $2,000                                                                             | $3,000    | $4,500    |
+| Starting Maximum Position Size                                                | 5                                                                                  | 10        | 15        |
+| Capital Expansion Profit Target (per 25% Reserve unlock)                      | $3,000                                                                             | $6,000    | $9,000    |
+| Discretionary Risk-Adjustment Net Equity ("may be considered," not automatic) | $10,000                                                                            | $15,000   | $20,000   |
+| Minimum Starting (Tradable) Balance                                           | $10,000, same floor for every tier                                                 | $10,000   | $10,000   |
+| Reserve Split at Transfer                                                     | 20% tradable / 80% Reserve, same formula for every tier                            | same      | same      |
+| Auto-Liquidation Trigger                                                      | $1,000 tradable balance, same trigger for every tier (see dedicated section below) | same      | same      |
 
-The Maximum Loss Limit article states plainly that the LFA has no MLL of its own: "In the Live Funded Account: For the Live Funded Account, refer here." Do not read any DLL or Reserve figure above as an MLL analog; the LFA's only trailing-style floor is the flat $1,000 auto-liquidation threshold below, which does not trail or lock the way the Combine/XFA MLL does.
+**Capital Expansion mechanics** ("Live Funded Account Parameters"): it is "Reviewed every Monday morning" (the same article's FAQ says "reviewed weekly", a wording difference with no stated reconciliation), "Funds deposited within 1-2 business days", "Can be delayed or denied for excessive or reckless risk behavior", and "You cannot unlock multiple tiers with a single large win — each threshold requires net profit since the last expansion." A single outsized win therefore unlocks one increment, not several.
+
+The Maximum Loss Limit article states plainly that the LFA has no MLL of its own: the section headed "In the Live Funded Account", whose body reads "For the Live Funded Account, refer here." Do not read any DLL or Reserve figure above as an MLL analog; the LFA's only trailing-style floor is the flat $1,000 auto-liquidation threshold below, which does not trail or lock the way the Combine/XFA MLL does.
 
 ## Dynamic Live Risk Expansion (Profit-Triggered Growth)
 
@@ -73,15 +75,15 @@ Per "Dynamic Live Risk Expansion": "Your net profit determines your Tier. Spend 
 
 Expansion table (net profit in the LFA → Daily Loss Limit → Maximum Position Size), directly from the source's own "Expansion Table":
 
-| Net Profit in LFA | Daily Loss Limit | Maximum Position Size |
-| --- | --- | --- |
-| $15,000 | Up to $5,000 | unchanged (account-size max) |
-| $20,000 | Up to $5,500 | unchanged (account-size max) |
-| $50,000 | Up to $6,000 | unchanged (account-size max) |
-| $100,000 | Up to $10,000 | Up to 30 lots |
-| $200,000 | Up to $20,000 | Up to 50 lots |
-| $550,000 | Up to $50,000 | Up to 70 lots |
-| $1,000,000 | Up to $100,000 | Up to 100 lots |
+| Net Profit in LFA | Daily Loss Limit | Maximum Position Size        |
+| ----------------- | ---------------- | ---------------------------- |
+| $15,000           | Up to $5,000     | unchanged (account-size max) |
+| $20,000           | Up to $5,500     | unchanged (account-size max) |
+| $50,000           | Up to $6,000     | unchanged (account-size max) |
+| $100,000          | Up to $10,000    | Up to 30 lots                |
+| $200,000          | Up to $20,000    | Up to 50 lots                |
+| $550,000          | Up to $50,000    | Up to 70 lots                |
+| $1,000,000        | Up to $100,000   | Up to 100 lots               |
 
 Source's own note on the "unchanged" rows, verbatim (including its own duplicated "with"): "Position Limits remain at the max for each account size (5 lots for $50Ks, 10 lots for $100Ks, 15 lots for $150Ks) until the account reaches Tier 4 with with $100K in profit."
 
@@ -89,14 +91,48 @@ Source's own note on the "unchanged" rows, verbatim (including its own duplicate
 
 **Discretionary risk adjustments outside this path:** the Risk Team "may adjust your Daily Loss Limit and Maximum Position Size based on net equity — even if you haven't moved through the expansion tiers. These adjustments are not automatic and are made at Risk's discretion," considered at the net-equity thresholds in the table above ($10K/$15K/$20K for $50K/$100K/$150K accounts). This is genuinely discretionary, not a deterministic rule, and is correctly excluded from the simulator by the same logic that excludes Shoulder Tap review.
 
+## The Topstep Octagon (Monthly Bonus Competitions)
+
+Two monthly leaderboard competitions run in parallel, both "LFA Traders only", both with automatic enrollment ("All LFA Traders — automatically enrolled, no sign-up required"), both listed as "Starts August 2026". A trader can place in both in the same month; the pools are separate ("$250,000 every month, fixed ($200,000 allocated to Top PnL and $50,000 allocated to Longest Winning Streak)").
+
+**Qualifying:** "Finish the month net positive and rank in the top 100 for P&L, or rank in the top 5 for the longest winning streak." Finishing the month net positive is a hard gate, not just a ranking tiebreak. "Every account starts each month at a virtual $0. Prior account balance is retained but doesn't affect your monthly ranking." Cadence: "Resets at market open on the first day of each month", with the leaderboard updating "in real time throughout the month". Payment: "Added to your account balance the following month after rankings are finalized."
+
+**Top PnL Competition, per-rank payouts:**
+
+| Place      | Payout      |
+| ---------- | ----------- |
+| 1st        | $75,000     |
+| 2nd        | $25,000     |
+| 3rd        | $20,000     |
+| 4th        | $15,000     |
+| 5th        | $10,000     |
+| 6th-10th   | $5,000 each |
+| 11th-25th  | $750 each   |
+| 26th-50th  | $500 each   |
+| 51st-100th | $125 each   |
+
+**Longest Winning Streak, per-rank payouts** (qualifying streak is "consecutive days with more than $500 in profit"):
+
+| Place | Payout  |
+| ----- | ------- |
+| 1st   | $25,000 |
+| 2nd   | $15,000 |
+| 3rd   | $5,000  |
+| 4th   | $3,000  |
+| 5th   | $2,000  |
+
+**Ties are pooled, not duplicated:** "Combine the prize money for all positions included in the tie. Split the total equally among everyone tied. The next finisher receives the prize for the next available rank." The article's own example: a three-way tie for 1st in the streak competition pools $25,000 + $15,000 + $5,000 = $45,000, so "Each tied trader receives $15,000, and the next trader receives the 4th-place prize of $3,000."
+
+**Opting out costs eligibility.** A trader may opt out of the leaderboard or appear under an alias, but opting out forfeits bonus eligibility as well as the listing.
+
 ## Daily Loss Limit Safeguard (Balance-Triggered Downgrade)
 
-Distinct from the profit-triggered expansion above, this mechanic moves the DLL *down* when tradable balance falls, confirmed identically in both the LFA Parameters and Dynamic Live Risk Expansion articles:
+Distinct from the profit-triggered expansion above, this mechanic moves the DLL _down_ when tradable balance falls, confirmed identically in both the LFA Parameters and Dynamic Live Risk Expansion articles:
 
 | Tradable Balance | Daily Loss Limit | Maximum Position Size |
-| --- | --- | --- |
-| $10,000 or below | $2,000 | 5 |
-| $5,000 or below | $1,000 | 3 |
+| ---------------- | ---------------- | --------------------- |
+| $10,000 or below | $2,000           | 5                     |
+| $5,000 or below  | $1,000           | 3                     |
 
 "These limits update on Fridays and return to standard levels once your balance rises back above the thresholds." Worked example from the source: "If you have a 100K Live Funded Account and your end-of-day balance goes below $10,000, your Daily Loss Limit will be changed from $3,000 to $2,000 before the start of the next trading session. The DLL will return to $3,000 after the market closes on Friday if your balance is above $10,000."
 
@@ -106,7 +142,7 @@ This is a static bust threshold, not a trailing-and-locking MLL-style mechanic (
 
 **Trigger**, in the source's own language: "If your LFA balance drops below $1,000" (CALLOUT box), restated in the FAQ as "If your Live Funded Account balance drops below $1,000."
 
-**Consequence**, in the source's own language: the CALLOUT box says the account "may be immediately liquidated and closed at end of the trading day," while the FAQ, describing the same $1,000 trigger, says the account "will be liquidated immediately and closed at the end of the trading day." Both continue identically: "The remaining balance [would then be / will be] sent [as a final Payout / to you as a final payout] before the account is closed." Worked example, stated identically in both places: "Account drops to $800 = auto liquidation and account closure at the end of that day. The remaining $800 is sent as a final Payout. Unlocked reserve is forfeited."
+**Consequence**, in the source's own language: the CALLOUT box says the account "may be immediately liquidated and closed at end of the trading day," while the FAQ, describing the same $1,000 trigger, says the account "will be liquidated immediately and closed at the end of the trading day." The two differ in how far they carry the sentence: the callout stops at "The remaining balance would then be sent as a final Payout.", while the separate FAQ answer continues "...to you as a final payout before the account is closed." Worked example, stated identically in both places: "Account drops to $800 = auto liquidation and account closure at the end of that day. The remaining $800 is sent as a final Payout. Unlocked reserve is forfeited."
 
 **Two things this file does not silently resolve:**
 
@@ -122,15 +158,15 @@ Separate from the $1,000 floor above: per the firm-wide Program Overview's LFA O
 
 Per the firm-wide Program Overview, the LFA's stated payout eligibility objective is "5 Winning Days of $150 or more" (this exact figure is stated only in that one article; the LFA Parameters article does not restate it). Per the LFA Parameters FAQ: "Payout eligibility is not tied to capital expansion. You can take Payouts while still trading with partial account access." And: "Payouts can only be taken from your unlocked balance, not from your Live Funded Account Reserve... withdrawing the full balance will close your account. As you reach each profit target, additional funds are released from your Reserve into your unlocked balance. Once 100% of your balance has been unlocked, you may withdraw those funds as well." Payouts are unavailable during holiday hours firm-wide (Topstep Holiday Trading Hours article).
 
-| Parameter | Value |
-| --- | --- |
-| Profit Split | Unconfirmed (see Not Confirmed) |
-| Payout Frequency | Daily, per the LFA Parameters Overview: "unlimited growth potential and daily Payouts" |
-| Buffer Requirement | Unconfirmed (see Not Confirmed) |
-| Minimum Payout Request | Unconfirmed (see Not Confirmed) |
-| Max Payout per Cycle | Unconfirmed (see Not Confirmed) |
-| Consistency on Payouts | Not stated as a percentage for the LFA (see Not Confirmed) |
-| Maximum Total Payouts / Lifetime Cap | No Payout caps, per the LFA Parameters Overview: "no Payout caps, and unlimited growth potential" |
+| Parameter                            | Value                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Profit Split                         | Unconfirmed (see Not Confirmed)                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Payout Frequency                     | Gated by winning days, not daily from the start: "5 winning days of $150+ Net P&L per Payout cycle (not consecutive)", and "After you request a Payout, your winning day count restarts." Daily requests unlock only after 30 non-consecutive $150+ days on the LFA: "Once you've earned $150+ Net P&L on 30 non-consecutive days in your Live Funded Account, you unlock daily Payouts ... once per day (min $125). Winning days from the XFA do not count toward this total." (Topstep Payout Policy) |
+| Buffer Requirement                   | Unconfirmed (see Not Confirmed)                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Minimum Payout Request               | $125 ("Minimum Payout: $125", and "once per day (min $125)" for the post-30-day daily cadence, Topstep Payout Policy)                                                                                                                                                                                                                                                                                                                                                                                   |
+| Max Payout per Cycle                 | "Request up to 50% of your account balance with no dollar cap"; the XFA-style dollar caps do not apply, "Live Funded Account Payouts are not capped." (Topstep Payout Policy)                                                                                                                                                                                                                                                                                                                           |
+| Consistency on Payouts               | Not stated as a percentage for the LFA (see Not Confirmed)                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Maximum Total Payouts / Lifetime Cap | No Payout caps, per the LFA Parameters Overview: "no Payout caps, and unlimited growth potential"                                                                                                                                                                                                                                                                                                                                                                                                       |
 
 ## Eligibility, Call-Up, and Call-Down
 
@@ -148,12 +184,24 @@ The resulting account: "A single Shoulder Tap Express Funded Account... Balance 
 - **30-day inactivity:** "Live Funded Accounts with no trading activity for more than 30 days may be closed. Live Funded Accounts can't be put on hold."
 - **No automated trading on Live:** "The API Gateway is built for the simulated environment and isn't available on Live, so automated strategies are not possible at this time in the Live Funded Account."
 - **Concurrent Trading Combine allowed, XFA activation is not:** "You can have Trading Combines while actively trading a Live Funded Account. The restriction is only on activation — a passed Trading Combine cannot be activated into an Express Funded Account while your Live Funded Account is active. That option becomes available again if the Live Funded Account is lost."
-- **CME Protocol blended trade dates, LFA-only:** per the firm-wide Holiday Trading Hours article's own table, "Live Funded Account® | Yes; Trading Combine® | No; Express Funded Account® | No" for whether the account type follows the CME Holiday Protocol. On a blended trade date, "your DLL applies to the entire blended session — not each calendar day within it," so hitting the DLL during an abbreviated holiday session can lock trading into what feels like the next calendar day, for the LFA specifically; Trading Combine and XFA accounts treat each calendar day independently even across the same holiday. The full 2026 holiday date/close-time schedule itself is not reproduced here since it applies identically across Trading Combine, XFA, and LFA ("Applies to: Trading Combine®, Express Funded Account® (XFA), Live Funded Account® (LFA)") and belongs at the firm level, not duplicated per plan file; see the cited Holiday Trading Hours article directly. Payouts are unavailable during holiday hours firm-wide.
+- **CME Protocol blended trade dates, LFA-only:** per the firm-wide Holiday Trading Hours article's own table, a three-row table: "Live Funded Account® | Yes", "Trading Combine® | No", "Express Funded Account® | No" for whether the account type follows the CME Holiday Protocol. On a blended trade date, "your DLL applies to the entire blended session — not each calendar day within it," so hitting the DLL during an abbreviated holiday session can lock trading into what feels like the next calendar day, for the LFA specifically; Trading Combine and XFA accounts treat each calendar day independently even across the same holiday. The full 2026 holiday date/close-time schedule itself is not reproduced here since it applies identically across Trading Combine, XFA, and LFA ("Applies to: Trading Combine®, Express Funded Account® (XFA), Live Funded Account® (LFA)") and belongs at the firm level, not duplicated per plan file; see the cited Holiday Trading Hours article directly. Payouts are unavailable during holiday hours firm-wide.
 - **Topstep Octagon (replaces the old Live Performance Bonus):** the prior "TopstepX™ Live Performance Bonus" was formally retired: "This article references the old Live Performance Bonus, which was retired as of June 2026. Starting July 1, 2026, we've replaced this bonus structure with the Topstep Octagon." The Octagon is a monthly leaderboard competition, automatic enrollment for all LFA traders, two ways to win (Top PnL, ranked in the top 100; Longest Winning Streak, ranked in the top 5 for consecutive $500+ profit days), a fixed $250,000/month pool ($200,000 Top PnL / $50,000 Winning Streak), resetting to a virtual $0 ranking each month while the trader's real account balance is unaffected by that reset. This is a population-relative mechanic. Consistent with this engine's existing design note, the Octagon is deliberately not modeled and never will be under this simulator's single-account design; this is treated as settled, not re-litigated here.
-- **Live account costs:** unlike the Combine, LFA traders pay their own costs directly. CME Professional Market Data is billed per exchange at $133/exchange/month; Topstep covers one exchange by default ("Default: CME data covered"), so a trader needing all 4 exchanges (CME, NYMEX, COMEX, CBOT) pays $540/month total, or $399/month out of pocket with the one free exchange applied. Round-turn commissions on Live "are deducted directly from your brokerage account balance," unlike the Combine's simulated $3.70/lot fee. Platform license costs, which Topstep covers "for many supported platforms" in the Combine, are the trader's own responsibility on Live.
+- **Live account costs:** unlike the Combine, LFA traders pay their own costs directly. CME Professional Market Data is billed per exchange at $133/exchange/month; Topstep covers one exchange by default ("Default: CME data covered"), so a trader needing all 4 exchanges (CME, NYMEX, COMEX, CBOT) pays $540/month total, or $399/month out of pocket with the one free exchange applied. Round-turn commissions on Live "are deducted directly from your brokerage account balance," unlike the Combine’s simulated per-lot fee. The TopstepX Commissions article states costs per instrument rather than a single flat figure, giving a worked example of "Example using ES & MES | ES | MES", "NFA & Regulatory Fees | $0.02 | $0.02", "Exchange Fee | $2.76 | $0.70", "Commissions | $1.00 | $0.50", "Total | $3.78 | $1.22", and a range of "Exchange Fees: $2.46–$4.30 (set by exchange, vary by instrument)". Platform license costs, which Topstep covers "for many supported platforms" in the Combine, are the trader's own responsibility on Live.
 - **News trading:** per the firm-wide Economic Releases article, "Topstep doesn't require you to flatten positions during economic releases — in SIM or Funded Accounts," a firm-wide statement whose "Funded Accounts" category is read here as including the LFA (Live Funded Account is itself named a "Funded Account").
 - **Prohibited conduct, LFA-specific:** "Intentionally depleting a Live Funded Account® (LFA) balance to force a failure" is explicitly listed as behavior that puts an account at risk.
-- **Topstep Labs:** mentioned once in these sources, confirmed to affect LFA sizing math ("all Express Funded Accounts are averaged together, so new Topstep Labs accounts may affect your account size"). Neither bundle used for this file says anything else about what Topstep Labs is; do not assume it is limited-time, first-come-first-served, or an experimental product without its own citation (see Not Confirmed). It is explicitly out of scope for full documentation in this pass; no `labs.md` file was drafted.
+- **Topstep Labs:** a series of limited-availability, first-come-first-served experimental products, now fully documented in [labs.md](labs.md). Relevant here because its accounts factor into LFA size averaging: "all Express Funded Accounts are averaged together, so new Topstep Labs accounts may affect your account size" (see Starting Balance above).
+- **A call-up cannot be declined and takes time to land.** "No. Once the Risk Team determines you're ready, your options are to move to Live or close your Express Funded Account." Once called up, the LFA takes "7 to 10 business days" to become ready.
+- **A call-down comes without notice.** "No. There is no warning before being called down."
+- **Shoulder Tap accounts are capped and excluded from Back2Funded.** "No. You are limited to 1 Shoulder Tap Express Funded Account." and "No. Back2Funded Reactivation does not apply to Shoulder Tap accounts." Back2Funded separately excludes any account "associated with a Live Funded Account® (LFA), Pro Account, or Shoulder Tap XFA".
+- **Reckless trading can cost the capital itself.** "Warning: Reckless or undisciplined trading in a Live Funded Account may result in forfeiture of live capital." The Risk Team may also adjust an LFA's Daily Loss Limit and Maximum Loss Limit outside the normal expansion path.
+- **Micro-to-mini conversion is not available on the LFA.** "The Micro to Mini ratio functionality is available for the Trading Combine and Express Funded Account. It is not currently available for the Live Funded Account." The contract limits in the size table above are therefore literal on Live.
+- **Live has its own, tighter restricted-product limits.** The Risk Adjustments article gives the LFA a separate table from the Combine/XFA/Pro one (for example MCL at 3/6/9 on Live against 30/60/90 elsewhere, and MGC at 5/10/15 against 30/60/90). Check that article's LFA column before sizing a restricted product on Live.
+- **Data fees do not pro-rate, and bill on the 26th.** "Fees for additional exchanges still apply and are billed on the 26th of each month", and "the exchange does not pro-rate data fees (no partial months)", so the article advises starting an LFA on the 1st. Commissions and fees run $0.72 to $2.04 depending on product ("Commissions & Fees: $0.72–$2.04 (go to brokerages)"). The source states this as one component of the round-turn cost, not a per-side figure.
+- **Pause trading while a payout processes.** "Live Accounts: Please note that after submitting a Payout request, trading should be paused until the Payout has been fully processed and the funds have been deducted from the account." A copy-trading connection "is automatically disabled while a Payout processes" and must be manually re-enabled afterwards.
+
+- **Risk Lock is available on a Live Funded Account**: "Risk Lock — Once you’re in a Live Funded Account (LFA), you’re trading real firm-backed capital. If you want to protect an exceptio" nal run, Risk Lock is the mechanism.
+- **Opting out of the leaderboard forfeits bonuses**: "if you opt out, you won’t be eligible for bonuses and won’t appear on the leaderboard. Only Traders with Live Funded Account" s are eligible.
+- **Leaderboard bonuses pay the following month**: "Bonuses are paid the following month after leaderboard rankings are finalized. The bonus is added directly to your account balance" .
 
 ## Engine Cross-Check (`TopStepLive.ts`)
 
@@ -170,7 +218,7 @@ Read in full and checked line by line against both source bundles.
 
 **Confirmed correct (checked, not just assumed):**
 
-- `computeTopStepLiveStartingBalance`'s formula, `Math.max(MIN_STARTING_BALANCE, STARTING_BALANCE_SHARE * Math.min(cumulativeXfaBalance, accountSizeTier))` with `MIN_STARTING_BALANCE = 10_000` and `STARTING_BALANCE_SHARE = 0.2`, matches the source's own "20% of cumulative XFA balance, capped at Account Size, $10,000 minimum (Topstep supplements if short)" rule exactly, for the one tier ($50K) it is able to model.
+- `computeTopStepLiveStartingBalance`'s formula, `Math.max(MIN_STARTING_BALANCE, STARTING_BALANCE_SHARE * Math.min(cumulativeXfaBalance, accountSizeTier))` with `MIN_STARTING_BALANCE = 10_000` and `STARTING_BALANCE_SHARE = 0.2`, matches the source's own rule exactly: "Your starting balance is 20% of your cumulative XFA balance — but capped at your Account Size, with any excess forfeited (not banked into Reserve). If 20% of the capped amount doesn't reach $10,000, Topstep supplements from that same capped amount to meet the $10,000 minimum.", for the one tier ($50K) it is able to model.
 - `DLL_TIERS`' profit thresholds and values ($15K/$20K/$50K/$100K/$200K/$550K/$1M net profit → $5,000/$5,500/$6,000/$10,000/$20,000/$50,000/$100,000 DLL, with 30/50/70/100-lot caps at the four highest tiers, and the base tier at $2,000 DLL / 5 contracts / $0 profit) match the source's Expansion Table and the $50K "Starting Daily Loss Limit and Maximum Position Size" row exactly.
 - The 10-Active-Trading-Day hold-per-tier gate described in the source is not visible anywhere in `TopStepLive.ts` itself; it may be implemented in other engine code not covered by this file, and this file makes no claim either way about that.
 
@@ -178,18 +226,19 @@ Read in full and checked line by line against both source bundles.
 
 - **Profit Split (LFA)** — neither `bundle-live.txt` nor `bundle-firmwide.txt` states a profit-split percentage for the LFA anywhere. The engine hardcodes 90% (`TRADER_SHARE = 0.9`) with no citation. Do not assume the sim-funded-style 90/10 split carries over to LFA capital, which the source describes as "Topstep's prop firm capital," not a Sim Funded profit share.
 - **LFA payout consistency requirement and XFA-origin-path carryover** — the Program Overview article states the LFA's payout objective as "5 Winning Days of $150 or more" with no consistency percentage. Neither bundle states whether a trader who reached Live via the Consistency XFA path (40% best-day target) retains any consistency requirement once on the LFA, or whether every LFA trader follows the same single "5 Winning Days" objective regardless of origin path. Do not assume the 40% Consistency XFA rule carries into the LFA.
-- **Buffer Requirement, Minimum Payout Request, and Max Payout per Cycle (LFA)** — none of these three figures is stated anywhere in either bundle for the LFA specifically. Do not assume any figure documented for the Combine or an XFA in `standard.md` / `consistency.md` applies here without its own citation.
-- **$1,000 vs. $0 floor conflict, and "may be" vs. "will be" liquidated** — see "The $1,000 Auto-Liquidation Floor" above. Do not silently pick one figure or one wording as definitively correct; both are quoted from the firm's own live articles.
+- **Buffer Requirement (LFA)** — not stated anywhere in the sources read for this file. Do not assume any buffer figure documented for the Combine or an XFA in `standard.md` / `consistency.md` applies here without its own citation. (Minimum Payout Request and Max Payout per Cycle were resolved on 2026-09-19 from the dedicated Topstep Payout Policy article, which a re-audit found had never been cited by this file; see the table above.)
+- **$1,000 vs. $0 floor conflict, and "may be" vs. "will be" liquidated** — see "The $1,000 Auto-Liquidation Floor" above. Do not silently pick one figure or one wording as definitively correct; both are quoted from the firm's own live articles. A third data point, from the Topstep Payout Policy article: "Note: Requesting a full 100% Payout closes your LFA since the balance reaches the Maximum Loss Limit." That sentence implies the LFA's Maximum Loss Limit sits at the account's own starting balance rather than $1,000 below it, but it is a note about a payout consequence, not a statement of the floor, and it does not resolve the conflict.
+- **Trading platform, a conflict between two of Topstep's own articles** — "What are the costs in the Live Funded Account?" (8284229) refers to "many supported platforms" during the Combine, while the LFA platform article (8284199) states "TopstepX™ is the only available trading platform." Neither source reconciles the two. Do not assume either is definitive for the LFA.
 - **Whether the $1,000 check is real-time/intraday or end-of-day-only** — the source's own phrasing ("immediately liquidated... at end of the trading day") is internally ambiguous. Do not assume it works like the Combine/XFA MLL's confirmed real-time unrealized-P&L check without a clearer citation.
 - **Pro Account parameters** — the Eligibility article confirms the Pro Account exists as a distinct track for traders in LFA-ineligible countries, but no starting balance, MLL, DLL, or payout-cap figure for it appears anywhere in either bundle used for this file. Do not assume any LFA or XFA figure applies to the Pro Account; it is out of scope for this file entirely.
 - **`TOPSTEP_LIVE_DEFAULT_CUSHION_PERCENT` (engine's 5%/5% pre/post-lock cushion)** — no figure resembling this appears in either source bundle for the LFA. Do not treat it as firm-sourced without a citation.
-- **Topstep Labs, what it actually is** — mentioned exactly once in either bundle, in a single clause about LFA sizing math. Neither bundle states whether it is limited-time, first-come-first-served, experimental, or anything else about its own structure. Do not assume any characterization of Topstep Labs beyond "an XFA-like product whose accounts factor into LFA size averaging" without a dedicated citation.
 
 ---
 
 **Last Updated:** 2026-09-19
 **Sources:**
 
+- help.topstep.com, Article ID 8284233, "Topstep Payout Policy" (updated 2026-09-03). Source of the LFA payout cadence, the $125 minimum, the uncapped 50%-of-balance maximum, and the full-100%-payout note. Located by a 2026-09-19 re-audit; it had not previously been cited by this file.
 - help.topstep.com, Article ID 10657969, "Live Funded Account Parameters" (updated 2026-09-17)
 - help.topstep.com, Article ID 13747178, "Live Funded Account Call Up and Call Down Process" (updated 2026-08-11)
 - help.topstep.com, Article ID 11748475, "Dynamic Live Risk Expansion" (updated 2026-07-17)
@@ -202,3 +251,6 @@ Read in full and checked line by line against both source bundles.
 - help.topstep.com, Article ID 8284211, "Economic Releases" (updated 2026-09-10)
 - help.topstep.com, Article ID 13350348, "Topstep Holiday Trading Hours" (updated 2026-09-18)
 - help.topstep.com, Article ID 10290170, "Professional Behavior at Topstep" (updated 2026-06-10)
+- help.topstep.com, Article ID 13613539, "Risk Adjustments: High Risk/High Volatility" (updated 2026-09-17). Source of the LFA-specific restricted-product limits noted in Other Confirmed Rules. Located by a 2026-09-19 re-audit.
+- help.topstep.com, Article ID 12060405, "Back2Funded: Rules, Guidelines, and How It Works" (updated 2026-08-14). Source of the LFA/Pro/Shoulder Tap exclusion from Back2Funded. Located by a 2026-09-19 re-audit.
+- help.topstep.com, Article ID 8284223, "What is the Scaling Plan?" (updated 2026-07-16). Source of the statement that micro-to-mini conversion is unavailable on the LFA. Located by a 2026-09-19 re-audit.

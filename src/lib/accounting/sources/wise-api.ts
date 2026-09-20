@@ -17,9 +17,7 @@ class WiseApiSource extends ApiSourceBase {
         context: ApiSourceContext,
     ): Promise<RawTransaction[]> {
         const isSandbox =
-            typeof context.meta.sandbox === 'boolean'
-                ? context.meta.sandbox
-                : false;
+            typeof context.meta.sandbox === 'boolean' && context.meta.sandbox;
         const profileId =
             typeof context.meta.profileId === 'number'
                 ? context.meta.profileId

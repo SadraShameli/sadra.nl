@@ -367,9 +367,11 @@ export abstract class Plan {
             return payoutsIssued >= this.maxLifetimePayouts;
         }
         const ladder = this.payoutLadder;
-        return ladder === null || ladder.capsAtLastStep === true
-            ? false
-            : payoutsIssued >= ladder.steps.length;
+        return (
+            ladder !== null &&
+            ladder.capsAtLastStep !== true &&
+            payoutsIssued >= ladder.steps.length
+        );
     }
 
     isBust(state: AccountState, phase: TradingPhase): boolean {

@@ -1,8 +1,8 @@
 # E8 Futures Plans Reference
 
-**Firm website:** https://e8futures.com
-**Last Verified:** 2026-09-18
-**Last Updated:** 2026-09-18
+**Firm website:** <https://e8futures.com>
+**Last Verified:** 2026-09-19
+**Last Updated:** 2026-09-19
 **Source:** see each plan's own file for plan-specific claims; the Firm-Wide Rules below are drawn from help-center articles on `helpfutures.e8markets.com` that explicitly state a firm-wide or cross-product scope. All sources were fetched by the user from their own browser session (Cloudflare blocked every direct/automated fetch attempt this session) on 2026-09-18 and handed back as a combined JSON dump, then cleaned and split into one file per article. See SOURCES.md.
 
 ## Overview
@@ -22,16 +22,16 @@ Not applicable: no plan documented in this tree has a live or broker-funded stag
 
 ## Firm-Wide Rules
 
-Confirmed independently in both `signature.md` and `zero.md`'s own cited sources unless noted otherwise:
+Sourced from help-center articles whose own text states a firm-wide or cross-product scope, and documented here once rather than repeated per plan (both plan files' Overviews say exactly that). Some of these articles are not in either plan file's own Sources footer, so do not read the bullets below as facts each plan file independently corroborates:
 
-- **Inactivity: 7 consecutive days without a placed-and-closed trade closes a Futures account**, per "Is there any inactivity rule?" (confirmed identically in both plan files, and independently restated inside the Signature and Zero product articles themselves). The same source states a *different* 60-day figure applies to E8's Forex/Crypto accounts: do not use that figure for Futures.
+- **Inactivity: 7 consecutive days without a placed-and-closed trade closes a Futures account**, per "Is there any inactivity rule?" (confirmed identically in both plan files, and independently restated inside the Signature and Zero product articles themselves). The same source states a _different_ 60-day figure applies to E8's Forex/Crypto accounts: do not use that figure for Futures. Note an unresolved inconsistency in E8's own materials: the general "Refund policy" article restates a 60-day rule without scoping it away from Futures ("after 60 days of inactivity, the account is disabled and there is no entitlement to a refund"). This tree treats the dedicated inactivity article's 7-day/Futures split as authoritative and flags the refund article's wording rather than blending them.
 - **Bots, AI tools, and fully-or-semi-automated trading are prohibited outright** (not "allowed with conditions"), per "Trading Policies and Prohibited Trading Strategies." HFT is explicitly defined in the same article as more than 300 trades per day.
 - **Hedging across multiple accounts, even a trader's own multiple accounts, is strictly prohibited**, per the same Trading Policies article and "Available Trading platforms for Futures." Futures accounts run on a netting system (an opposing same-instrument position automatically cancels out, rather than being held open as an offsetting hedge), so this rule specifically targets cross-account hedging, not a same-account mechanic.
 - **Copy trading is allowed only across a single trader's own accounts** (Challenge, Performance, or personal): never with another user's accounts, no signal services, no team trading. Stated consistently across at least four separate articles ("Can I copy trades or trade as a team?," the Signature article, the Zero article, and the Trading Policies article).
 - **Tick Scalping rule: a minimum of 50% of all profits (not trade count) must come from trades held 10 seconds or longer**, per "Trading Policies and Prohibited Trading Strategies." This is a one-part, profit-only rule: do not confuse it with a two-part "50% of trades AND 50% of profit" shape used by some other firms.
 - **Front Month Contract requirement: traders must always trade the contract with the highest volume/liquidity**; trading the wrong month contract can result in account termination or profit deduction, per "Stop Trading the Wrong Contract Month," which also gives the full month-code table (H=March, M=June, N=July, Q=August, U=September, V=October, X=November, Z=December, F=January, G=February, J=April, K=May).
-- **Restricted countries (Futures-specific list, distinct from E8's Classic-Markets/Perpetuals list)**: a substantial named list spanning roughly 60 countries (Afghanistan, Albania, Algeria, Angola, Antarctica, Bahamas, Barbados, Belarus, Bosnia & Herzegovina, Botswana, Bulgaria, Burkina Faso, Myanmar, Burundi, Cambodia, Cameroon, Central African Republic, Chad, China, Congo, Côte d'Ivoire, Croatia, Cuba, Democratic Republic of Congo, Djibouti, Ethiopia, Ghana, Gibraltar, Guinea-Bissau, Haiti, Iceland, Indonesia, Iran, Iraq, Jamaica, Jordan, Kenya, Kosovo, Laos, Lebanon, Lesotho, Liberia, Libya, Macedonia, Malawi, Mali, Mauritius, Mongolia, Montenegro, Mozambique, Namibia, Nicaragua, Nigeria, North Korea, Pakistan, Palestine, Panama, Papua New Guinea, Philippines, Qatar, Romania, Russia, Rwanda, Senegal, Serbia, Sierra Leone, Slovenia, Somalia, South Africa, South Sudan, Sri Lanka, Sudan, Syria, Tajikistan, Tanzania, Timor-Leste, Trinidad and Tobago, Tunisia, Turkey, Uganda, Ukraine, United Arab Emirates, Venezuela, Vietnam, Yemen, Zambia, Zimbabwe, and Crimea), per "Accepted Countries." Country is determined by the document provided during KYC, not current physical location. Do not use E8's separate, shorter "Classic Markets + Perpetuals" list for a Futures context: the two lists differ.
-- **KYC is mandatory before any Challenge access or payout**, via third-party provider Veriff (automated, minutes), plus a manual secondary re-check within 24 hours after passing the Challenge, per "Is verification required?" All users must sign the ESPA (Educational Simulation Participant Agreement, replacing the older E8 Trader Agreement). Company/business-name accounts are not accepted: all accounts are personal; a KYB-style "Contractor" designation is selected only at payout time, via the payout processor, not by opening a separate business account.
+- **Restricted countries (Futures-specific list, distinct from E8's Classic-Markets/Perpetuals list)**: a substantial named list of 88 countries (Afghanistan, Albania, Algeria, Angola, Antarctica, Bahamas, Barbados, Belarus, Bosnia & Herzegovina, Botswana, Bulgaria, Burkina Faso, Myanmar, Burundi, Cambodia, Cameroon, Central African Republic, Chad, China, Congo, Côte d'Ivoire, Croatia, Cuba, Democratic Republic of Congo, Djibouti, Ethiopia, Ghana, Gibraltar, Guinea-Bissau, Haiti, Iceland, Indonesia, Iran, Iraq, Jamaica, Jordan, Kenya, Kosovo, Laos, Lebanon, Lesotho, Liberia, Libya, Macedonia, Malawi, Mali, Mauritius, Mongolia, Montenegro, Mozambique, Namibia, Nicaragua, Nigeria, North Korea, Pakistan, Palestine, Panama, Papua New Guinea, Philippines, Qatar, Romania, Russia, Rwanda, Senegal, Serbia, Sierra Leone, Slovenia, Somalia, South Africa, South Sudan, Sri Lanka, Sudan, Syria, Tajikistan, Tanzania, Timor-Leste, Trinidad and Tobago, Tunisia, Turkey, Uganda, Ukraine, United Arab Emirates, Venezuela, Vietnam, Yemen, Zambia, Zimbabwe, and Crimea), per "Accepted Countries." Country is determined by the document provided during KYC, not current physical location. Do not use E8's separate, shorter "Classic Markets + Perpetuals" list for a Futures context: the two lists differ.
+- **KYC is strongly recommended before purchase and required for full access**, via third-party provider Veriff (automated, minutes), plus a manual secondary re-check within 24 hours after passing the Challenge, per "Is verification required?" The article frames it as partial restrictions rather than an absolute gate: without it a trader "might not be able to: See all available products in checkout, See all trading platforms in checkout, Access your challenge credentials after your purchase, Receive the Performance account after passing your challenge, Use our Free Trial." All users must sign the ESPA (Educational Simulation Participant Agreement, replacing the older E8 Trader Agreement). Company/business-name accounts are not accepted: all accounts are personal; a KYB-style "Contractor" designation is selected only at payout time, via the payout processor, not by opening a separate business account.
 - **Single-user-profile policy**: one account holder may hold only one E8X profile; creating multiple profiles across different emails is a Terms violation, independent of, and in addition to, the per-plan Max Active/Concurrent Accounts limits. Stated identically across at least three articles.
 - **Account reset: after any failure, a 10% discount is available to restart from the Challenge phase at the same size and settings, valid for 7 days after the failure**, per "Account reset." (A separate, closed/legacy promotion, the "GIBBS" discount code, offered its own free-reset mechanic to traders who purchased with that code before April 20, 2026 and still purchase at least once every 30 days with it; that promotion is not open to new customers and is not a standing rule: see Documentation Scope.)
 - **Standing discount code "E8" is always available** at checkout, per "Are there currently any discounts?": the article does not restate a specific percentage in the source read this pass; do not assume any particular figure without re-confirming it directly (an engine code comment claims 25%/$160→$120, but that specific figure was not independently corroborated by any source read this pass).
@@ -43,83 +43,117 @@ Confirmed independently in both `signature.md` and `zero.md`'s own cited sources
 
 ### Approved Futures Instruments, Commissions, and Tick Sizes
 
-All trading hours below are Sunday-Friday except CBOT Agricultural futures (Monday-Friday), all in CT, per "Instrument list and trading hours." Permitted trading window firm-wide is 17:00-15:10 CT; all open positions are force-closed daily at 15:10 CT (no overnight holding on either Futures plan), per "Can I hold positions overnight?"
+All trading hours below are Sunday-Friday except the "CME Agricultural Futures" group (Live Cattle LE and Lean Hogs HE only), which the source lists Monday-Friday; the grain instruments sit under "CBOT Commodity Futures" and are Sunday-Friday. All in CT, per "Instrument list and trading hours." Permitted trading window firm-wide is 17:00-15:10 CT; all open positions are force-closed daily at 15:10 CT (no overnight holding on either Futures plan), per "Can I hold positions overnight?"
 
-| Symbol | Instrument | Commission (RT) | Tick Size | Profit/Tick |
-| --- | --- | --- | --- | --- |
-| EMD | E-mini S&P MidCap 400 | $2.58 + $0.52 + $0.38 | 0.1 | $10.00 |
-| ES | E-mini S&P 500 | $2.58 + $2.80 + $0.38 | 0.25 | $12.50 |
-| MES | Micro E-mini S&P | $0.78 + $0.74 + $0.38 | 0.25 | $1.25 |
-| NKD | Nikkei | $2.58 + $2.80 + $0.38 | 5 | $25.00 |
-| NQ | E-mini NASDAQ 100 | $2.58 + $2.80 + $0.38 | 0.25 | $5.00 |
-| MNQ | Micro E-mini NASDAQ 100 | $0.78 + $0.74 + $0.38 | 0.25 | $0.50 |
-| RTY | E-mini Russell 2000 | $2.58 + $2.80 + $0.38 | 0.1 | $5.00 |
-| M2K | Micro E-mini Russell 2000 | $0.78 + $0.74 + $0.38 | 0.1 | $0.50 |
-| MBT | Micro E-mini Bitcoin | $0.78 + $2.04 + $0.38 | 5 | $0.50 |
-| MET | Micro E-mini Ether | $0.78 + $2.04 + $0.38 | 0.05 | $0.50 |
-| 6A | Australian $ | $2.58 + $3.24 + $0.38 | 0.0001 | $10.00 |
-| M6A | Micro AUD/USD | $0.78 + $0.52 + $0.38 | 0.0001 | $1.00 |
-| 6B | British Pound | $2.58 + $3.24 + $0.38 | 0.0001 | $6.25 |
-| M6B | Micro British Pound | $0.78 + $0.52 + $0.38 | 0.0001 | $0.63 |
-| 6C | Canadian $ | $2.58 + $3.24 + $0.38 | Unconfirmed | Unconfirmed |
-| 6E | Euro FX | $2.58 + $3.24 + $0.38 | 0.0001 | $12.50 |
-| 7E | E-mini Euro FX | Unconfirmed | 0.0001 | $6.25 |
-| M6E | Micro Euro | $0.78 + $0.52 + $0.38 | 0.0001 | $1.25 |
-| MCD | Micro CAD/USD | Unconfirmed | 0.0001 | $1.00 |
-| 6J | Japanese Yen | $2.58 + $3.24 + $0.38 | 0.0000001 | $12.50 |
-| 6S | Swiss Franc | $2.58 + $3.24 + $0.38 | 0.0001 | $12.50 |
-| 6M | Mexican Peso | $2.58 + $3.24 + $0.38 | 0.00005 | $5.00 |
-| 6N | New Zealand $ | $2.58 + $3.24 + $0.38 | 0.0001 | $10.00 |
-| LE | Live Cattle | $2.58 + $4.24 + $0.38 | 0.025 | $10.00 |
-| HE | Lean Hogs | $2.58 + $4.24 + $0.38 | 0.025 | $10.00 |
-| GF | Feeder Cattle | Unconfirmed | Unconfirmed | Unconfirmed |
-| CL | Crude Oil | $2.58 + $3.04 + $0.38 | 0.01 | $10.00 |
-| MCL | Micro Crude Oil | $0.78 + $1.04 + $0.38 | 0.01 | $1.00 |
-| QM | E-mini Crude Oil | $2.58 + $2.44 + $0.38 | 0.025 | $12.50 |
-| NG | Natural Gas | $2.58 + $3.24 + $0.38 | 0.001 | $10.00 |
-| QG | E-mini Natural Gas | $2.58 + $1.04 + $0.38 | 0.005 | $12.50 |
-| RB | RBOB Gasoline | $2.58 + $3.04 + $0.38 | 0.0001 | $4.20 |
-| HO | Heating Oil | $2.58 + $4.24 + $0.38 | 0.0001 | $4.20 |
-| ZC | Corn | $2.58 + $4.24 + $0.38 | 0.25 | $12.50 |
-| ZW | Wheat | $2.58 + $4.24 + $0.38 | 0.25 | $12.50 |
-| ZS | Soybeans | $2.58 + $4.24 + $0.38 | 0.25 | $12.50 |
-| ZM | Soybean Meal | Unconfirmed | 0.1 | $10.00 |
-| ZL | Soybean Oil | $2.58 + $4.24 + $0.38 | 0.01 | $6.00 |
-| YM | Mini-DOW | $2.58 + $2.80 + $0.38 | 1 | $5.00 |
-| MYM | Micro Mini-DOW | $0.78 + $0.74 + $0.38 | 1 | $0.50 |
-| GC | Gold | $2.58 + $3.24 + $0.38 | 0.1 | $10.00 |
-| MGC | Micro Gold | $0.78 + $1.24 + $0.38 | 0.1 | $1.00 |
-| SI | Silver | $2.58 + $3.24 + $0.38 | 0.005 | $25.00 |
-| HG | Copper | $2.58 + $3.24 + $0.38 | 0.0005 | $12.50 |
-| PL | Platinum | $2.58 + $3.24 + $0.38 | 0.1 | $10.00 |
-| PA | Palladium | $2.58 + $3.24 + $0.38 | 0.1 | $10.00 |
-| ZT | 2-Year Note | Unconfirmed | Unconfirmed | Unconfirmed |
-| ZF | 5-Year Note | Unconfirmed | Unconfirmed | Unconfirmed |
-| ZN | 10-Year Note | Unconfirmed | Unconfirmed | Unconfirmed |
-| ZB | 30-Year Bond | Unconfirmed | Unconfirmed | Unconfirmed |
-| UB | Ultra-Bond | Unconfirmed | Unconfirmed | Unconfirmed |
-| TN | Ultra-Note | Unconfirmed | Unconfirmed | Unconfirmed |
-| ZQ | 30 Day Fed | Unconfirmed | Unconfirmed | Unconfirmed |
+| Symbol | Instrument                | Commission (RT)       | Tick Size   | Profit/Tick |
+| ------ | ------------------------- | --------------------- | ----------- | ----------- |
+| EMD    | E-mini S&P MidCap 400     | $2.58 + $0.52 + $0.38 | 0.1         | $10.00      |
+| ES     | E-mini S&P 500            | $2.58 + $2.80 + $0.38 | 0.25        | $12.50      |
+| MES    | Micro E-mini S&P          | $0.78 + $0.74 + $0.38 | 0.25        | $1.25       |
+| NKD    | Nikkei                    | $2.58 + $2.80 + $0.38 | 5           | $25.00      |
+| NQ     | E-mini NASDAQ 100         | $2.58 + $2.80 + $0.38 | 0.25        | $5.00       |
+| MNQ    | Micro E-mini NASDAQ 100   | $0.78 + $0.74 + $0.38 | 0.25        | $0.50       |
+| RTY    | E-mini Russell 2000       | $2.58 + $2.80 + $0.38 | 0.1         | $5.00       |
+| M2K    | Micro E-mini Russell 2000 | $0.78 + $0.74 + $0.38 | 0.1         | $0.50       |
+| MBT    | Micro E-mini Bitcoin      | $0.78 + $2.04 + $0.38 | 5           | $0.50       |
+| MET    | Micro E-mini Ether        | $0.78 + $2.04 + $0.38 | 0.05        | $0.50       |
+| 6A     | Australian $              | $2.58 + $3.24 + $0.38 | 0.0001      | $10.00      |
+| M6A    | Micro AUD/USD             | $0.78 + $0.52 + $0.38 | 0.0001      | $1.00       |
+| 6B     | British Pound             | $2.58 + $3.24 + $0.38 | 0.0001      | $6.25       |
+| M6B    | Micro British Pound       | $0.78 + $0.52 + $0.38 | 0.0001      | $0.63       |
+| 6C     | Canadian $                | $2.58 + $3.24 + $0.38 | 0.0001      | $10.00      |
+| 6E     | Euro FX                   | $2.58 + $3.24 + $0.38 | 0.0001      | $12.50      |
+| 7E     | E-mini Euro FX            | $2.58 + $1.74 + $0.38 | 0.0001      | $6.25       |
+| M6E    | Micro Euro                | $0.78 + $0.52 + $0.38 | 0.0001      | $1.25       |
+| MCD    | Micro CAD/USD             | $0.78 + $0.52 + $0.38 | 0.0001      | $1.00       |
+| 6J     | Japanese Yen              | $2.58 + $3.24 + $0.38 | 0.0000001   | $12.50      |
+| 6S     | Swiss Franc               | $2.58 + $3.24 + $0.38 | 0.0001      | $12.50      |
+| 6M     | Mexican Peso              | $2.58 + $3.24 + $0.38 | 0.00005     | $5.00       |
+| 6N     | New Zealand $             | $2.58 + $3.24 + $0.38 | 0.0001      | $10.00      |
+| LE     | Live Cattle               | $2.58 + $4.24 + $0.38 | 0.025       | $10.00      |
+| HE     | Lean Hogs                 | $2.58 + $4.24 + $0.38 | 0.025       | $10.00      |
+| GF     | Feeder Cattle             | Unconfirmed           | Unconfirmed | Unconfirmed |
+| CL     | Crude Oil                 | $2.58 + $3.04 + $0.38 | 0.01        | $10.00      |
+| MCL    | Micro Crude Oil           | $0.78 + $1.04 + $0.38 | 0.01        | $1.00       |
+| QM     | E-mini Crude Oil          | $2.58 + $2.44 + $0.38 | 0.025       | $12.50      |
+| NG     | Natural Gas               | $2.58 + $3.24 + $0.38 | 0.001       | $10.00      |
+| QG     | E-mini Natural Gas        | $2.58 + $1.04 + $0.38 | 0.005       | $12.50      |
+| RB     | RBOB Gasoline             | $2.58 + $3.04 + $0.38 | 0.0001      | $4.20       |
+| HO     | Heating Oil               | $2.58 + $4.24 + $0.38 | 0.0001      | $4.20       |
+| ZC     | Corn                      | $2.58 + $4.24 + $0.38 | 0.25        | $12.50      |
+| ZW     | Wheat                     | $2.58 + $4.24 + $0.38 | 0.25        | $12.50      |
+| ZS     | Soybeans                  | $2.58 + $4.24 + $0.38 | 0.25        | $12.50      |
+| ZM     | Soybean Meal              | $2.58 + $4.24 + $0.38 | 0.1         | $10.00      |
+| ZL     | Soybean Oil               | $2.58 + $4.24 + $0.38 | 0.01        | $6.00       |
+| YM     | Mini-DOW                  | $2.58 + $2.80 + $0.38 | 1           | $5.00       |
+| MYM    | Micro Mini-DOW            | $0.78 + $0.74 + $0.38 | 1           | $0.50       |
+| GC     | Gold                      | $2.58 + $3.24 + $0.38 | 0.1         | $10.00      |
+| MGC    | Micro Gold                | $0.78 + $1.24 + $0.38 | 0.1         | $1.00       |
+| SI     | Silver                    | $2.58 + $3.24 + $0.38 | 0.005       | $25.00      |
+| HG     | Copper                    | $2.58 + $3.24 + $0.38 | 0.0005      | $12.50      |
+| PL     | Platinum                  | $2.58 + $3.24 + $0.38 | 0.1         | $10.00      |
+| PA     | Palladium                 | $2.58 + $3.24 + $0.38 | 0.1         | $10.00      |
+| ZT     | 2-Year Note               | Unconfirmed           | Unconfirmed | Unconfirmed |
+| ZF     | 5-Year Note               | Unconfirmed           | Unconfirmed | Unconfirmed |
+| ZN     | 10-Year Note              | Unconfirmed           | Unconfirmed | Unconfirmed |
+| ZB     | 30-Year Bond              | Unconfirmed           | Unconfirmed | Unconfirmed |
+| UB     | Ultra-Bond                | Unconfirmed           | Unconfirmed | Unconfirmed |
+| TN     | Ultra-Note                | Unconfirmed           | Unconfirmed | Unconfirmed |
+| ZQ     | 30 Day Fed                | Unconfirmed           | Unconfirmed | Unconfirmed |
 
-Commission column is broken out as stated in the source: Commission (RT) + Exchange and NFA (RT) + Clearing (RT). "6C," "7E," "MCD," "GF," and "ZM" each had at least one figure missing from one of the two commission/tick-size source tables (the two tables do not list exactly the same instrument set): treat the missing cells as Unconfirmed, not zero.
+Commission column is broken out as stated in the source: Commission (RT) + Exchange and NFA (RT) + Clearing (RT). "GF" (Feeder Cattle) is the only instrument absent from both source tables; its row is Unconfirmed throughout. The two tables do not list exactly the same instrument set, so treat any Unconfirmed cell as missing data, not zero. A 2026-09-19 re-audit found that "6C," "7E," "MCD," and "ZM" had in fact been marked Unconfirmed in error: all four are stated in the source tables and are now filled in.
+
+### Prohibited trading practices (all stages)
+
+Per "Trading Policies and Prohibited Trading Strategies", the following are prohibited outright, and "Engaging in prohibited trading practices will result in termination from our program and a refund of the fee paid from the account where this rule was broken":
+
+- Semi- or fully-automated trading, "such as trading bots, AI tools, HFT trading (more than 300 trades per day)".
+- "Holding a position within 2% of a product's lock limit." A concrete numeric threshold, distinct from the general volatility guidance.
+- "Any strategies that exploit imperfections of the simulated market, such as Gapped, Illiquid Market Trading", and "Any strategies that create or exploit errors in the services, such as errors in the display of prices, delays in their updating".
+- "Irresponsible Trading and All-or-Nothing Trading: Executing large-volume trades without a coherent strategy."
+- "Not being compliant with CME Group Rules: All trading activities must adhere to CME Group's rules and regulations."
+- "Performing trades in conflict with the terms and conditions of E8 Markets."
+
+Two discretionary powers sit alongside that list: "Before receiving a simulated SimFi™ performance account, we will review your trading activities for compliance", and "E8 Markets reserves the right to de-risk your trading strategy." Extreme or all-or-nothing trading can trigger a risk-team review requiring extended demonstrated consistency, and "E8's risk team may request a brief interview with traders at any stage. This is not standard practice."
+
+### Risk, allocation, and account management
+
+- **No hard per-trade risk cap**: "There are no hard limits on maximum risk per trade idea. We know that every trader has a different edge, and we respect that." Responsible risk management is still what the SimFi environment measures.
+- **Allocation limits are per household, not per login**: "These allocation limits apply per household. Multiple users within the same residence/same IP must not exceed this collective maximum." During the Challenge stage "there are no limits on how many accounts you can purchase".
+- **Accounts are personally managed**: "Every account must be managed individually by the account holder", and "All accounts must be traded solely by their respective owners." Sharing emails or accounts between users "may lead to the temporary or permanent suspension of your active accounts and user profile".
+
+### Inactivity, in detail
+
+- The 7-day Futures inactivity rule "will also affect newly purchased accounts without any trading history", so a freshly-bought account starts its own clock.
+- Any trade counts: "There is no minimum lot size requirement to maintain your account. Even a micro-trade of 0.1 lots counts as a qualifying trade to prevent deactivation."
+- Travel has an exception, but it must be arranged in advance: a trader who knows the account will be inactive must contact support before travelling.
+
+### Payments and KYC
+
+- **Third-party cards are prohibited**: "It is not possible to use someone else's card for the purchase", the registered name must match the card, and "Using someone else's card or card chargebacks can lead to the termination of your personal account."
+- **Failing KYC ends eligibility**: "If verification is not accepted by our KYC partners for any reason, you are unfortunately ineligible to use our services." Payouts have their own gate: "If you can't undergo WorkMarket and Riseworks KYC, we cannot provide you with a payout payment."
+- **US traders using Aeropay at checkout** have an additional verification step stated in the verification article.
+- **No fee-refund bonus**: "At this moment, do not provide bonuses by refunding the fee with the first payout share", so the evaluation fee is not returned with the first payout.
+- **E8 may terminate for breach**: "E8 Markets has full authority to terminate contracts and deactivate your personal account if there's any breach."
+- **A separate product-restriction country list exists**: beyond the accepted-countries list, some countries "can purchase only E8 Pro and E8 Signature accounts", which is a product restriction rather than a full exclusion.
 
 ## Key Cross-Plan Differences
 
-| Aspect | E8 Signature Futures | E8 Zero |
-| --- | --- | --- |
-| Account Sizes | $25K / $50K / $100K / $150K | $50K / $100K / $200K |
-| Eval Fee | Unconfirmed | Unconfirmed |
-| Profit Target | $1,500 / $3,000 / $6,000 / $9,000 | $3,000 / $6,500 / $13,500 |
-| Eval Consistency | None (Challenge stage) | 40% Best Day Rule (Challenge stage only) |
-| Min Eval Days | Unconfirmed | None stated ("No minimum Trading days") |
-| Funded Drawdown Type | EOD Dynamic Drawdown, locks at Starting Balance on profit-trigger or first payout | EOD Dynamic Drawdown, same lock mechanic funded-side, but explicitly does **not** lock during the Challenge stage (a documented exception unique to Zero) |
-| DLL (Funded) | Daily Pause (soft): 2% of starting balance, fixed $ amount | None |
-| Sim Payout Split | 80% flat | 80% or 100%, selected at purchase |
-| Max Funded Accounts | 5 per household | 3 per household |
-| Inactivity Rule | 7 days | 7 days |
-| Lifetime Sim Payouts | 5 payouts, then free replacement Challenge | 5 payouts, then free replacement Challenge |
-| Consistency on Payouts | 35% Best Day Rule + 5 profitable days between payouts (not first) | None |
-| Live Transition | None: SimFi Performance is the final stage | None: SimFi Performance is the final stage |
+| Aspect                 | E8 Signature Futures                                                              | E8 Zero                                                                                                                                                   |
+| ---------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Account Sizes          | $25K / $50K / $100K / $150K                                                       | $50K / $100K / $200K                                                                                                                                      |
+| Eval Fee               | Unconfirmed                                                                       | Unconfirmed                                                                                                                                               |
+| Profit Target          | $1,500 / $3,000 / $6,000 / $9,000                                                 | $3,000 / $6,500 / $13,500                                                                                                                                 |
+| Eval Consistency       | None (Challenge stage)                                                            | 40% Best Day Rule (Challenge stage only)                                                                                                                  |
+| Min Eval Days          | Unconfirmed                                                                       | None stated ("No minimum Trading days")                                                                                                                   |
+| Funded Drawdown Type   | EOD Dynamic Drawdown, locks at Starting Balance on profit-trigger or first payout | EOD Dynamic Drawdown, same lock mechanic funded-side, but explicitly does **not** lock during the Challenge stage (a documented exception unique to Zero) |
+| DLL (Funded)           | Daily Pause (soft): 2% of starting balance, fixed $ amount                        | None                                                                                                                                                      |
+| Sim Payout Split       | 80% flat                                                                          | 80% or 100%, selected at purchase                                                                                                                         |
+| Max Funded Accounts    | 5 per household                                                                   | 3 per household                                                                                                                                           |
+| Inactivity Rule        | 7 days                                                                            | 7 days                                                                                                                                                    |
+| Lifetime Sim Payouts   | 5 payouts, then free replacement Challenge                                        | 5 payouts, then free replacement Challenge                                                                                                                |
+| Consistency on Payouts | 35% Best Day Rule + 5 profitable days between payouts (not first)                 | None                                                                                                                                                      |
+| Live Transition        | None: SimFi Performance is the final stage                                        | None: SimFi Performance is the final stage                                                                                                                |
 
 Every row traces back to the matching row in each plan's own file; where a plan file marks a figure Unconfirmed or computed, this table repeats that status rather than asserting a cleaner-looking number.
 

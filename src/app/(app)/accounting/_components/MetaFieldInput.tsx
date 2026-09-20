@@ -59,7 +59,7 @@ export function MetaFieldInput({
     }
 
     if (field.type === MetaFieldType.Boolean) {
-        const isChecked = typeof value === 'boolean' ? value : false;
+        const isChecked = typeof value === 'boolean' && value;
         return (
             <Card className="py-3">
                 <CardContent className="flex items-start justify-between gap-3 px-3">

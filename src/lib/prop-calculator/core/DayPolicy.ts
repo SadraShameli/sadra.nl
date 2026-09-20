@@ -86,7 +86,7 @@ export function flatDayPolicy(
 
 export function isFlatLadder(ladder: readonly number[]): boolean {
     const first = ladder[0];
-    return first === undefined ? true : ladder.every((rung) => rung === first);
+    return first === undefined || ladder.every((rung) => rung === first);
 }
 
 export function ladderSum(ladder: readonly number[]): number {

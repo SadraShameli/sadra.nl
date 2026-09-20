@@ -1,6 +1,6 @@
 # Topstep Labs
 
-**Source:** https://help.topstep.com/en/articles/15520357-topstep-labs (updated 2026-09-18)
+**Source:** <https://help.topstep.com/en/articles/15520357-topstep-labs> (updated 2026-09-18)
 
 **Last Verified:** 2026-09-19
 **Last Updated:** 2026-09-19
@@ -15,46 +15,47 @@ A three-phase product with a single, defined new mechanic: a non-trailing (stati
 
 ### Evaluation
 
-| Parameter | Value |
-| --- | --- |
-| Buying Power | $25,000 |
-| Profit Target | $2,000 |
-| Drawdown Type | Maximum Loss Limit (MLL), static (non-trailing) |
-| Drawdown Amount | $1,000 |
-| Daily Loss Limit | Mandatory $500 |
-| Max Contracts | 2 mini / 20 micro |
-| Consistency Target | 55% |
-| Funded Activation Fee | Free |
-| One-Time Fee | $75 (90-day expiration) |
-| Resets | Not available |
+| Parameter             | Value                                           |
+| --------------------- | ----------------------------------------------- |
+| Buying Power          | $25,000                                         |
+| Profit Target         | $2,000                                          |
+| Drawdown Type         | Maximum Loss Limit (MLL), static (non-trailing) |
+| Drawdown Amount       | $1,000                                          |
+| Daily Loss Limit      | Mandatory $500                                  |
+| Max Contracts         | 2 mini / 20 micro                               |
+| Consistency Target    | 55%                                             |
+| Funded Activation Fee | Free                                            |
+| One-Time Fee          | $75 (90-day expiration)                         |
+| Resets                | Not available                                   |
 
 ### Sim Funded
 
-| Parameter | Value |
-| --- | --- |
-| Path | Choose Standard or Consistency (at XFA activation) |
-| Starting Balance | $0 literal (buying power $25,000) |
-| Drawdown Type | Maximum Loss Limit (MLL), static (non-trailing) |
-| Drawdown Amount | $1,000 |
-| Drawdown Lock | Trigger: none stated for the static mechanic (it does not trail, so there is no natural lock trigger to state). Locked value: $0, forced after the first Payout. Source: "After first Payout, MLL sets to $0." |
-| Daily Loss Limit | Mandatory $500 |
-| Max Contracts | 2 mini / 20 micro (no scaling) |
-| Payout Cap | $4,000 |
+| Parameter        | Value                                                                                                                                                                                                          |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Path             | Choose Standard or Consistency (at XFA activation)                                                                                                                                                             |
+| Starting Balance | $0 literal (buying power $25,000), per the firm-wide XFA convention; the Labs article's own Phase 2 table states no Starting Balance row                                                                       |
+| Drawdown Type    | Maximum Loss Limit (MLL), static (non-trailing)                                                                                                                                                                |
+| Drawdown Amount  | $1,000                                                                                                                                                                                                         |
+| Drawdown Lock    | Trigger: none stated for the static mechanic (it does not trail, so there is no natural lock trigger to state). Locked value: $0, forced after the first Payout. Source: "After first Payout, MLL sets to $0." |
+| Daily Loss Limit | Mandatory $500                                                                                                                                                                                                 |
+| Max Contracts    | 2 mini / 20 micro (no scaling)                                                                                                                                                                                 |
+| Payout Cap       | $4,000                                                                                                                                                                                                         |
 
 ### Live Funded Account
 
-| Parameter | Value |
-| --- | --- |
-| Tier Size | $25,000 |
-| Starting Balance | $5,000 minimum |
-| Daily Loss Limit | Mandatory $500 |
-| Max Contracts | 2 mini / 2 micro |
+| Parameter        | Value            |
+| ---------------- | ---------------- |
+| Tier Size        | $25,000          |
+| Starting Balance | $5,000 minimum   |
+| Daily Loss Limit | Mandatory $500   |
+| Max Contracts    | 2 mini / 2 micro |
 
 ### How the Drawdown Works (Static MLL)
 
 The static Maximum Loss Limit is the defining distinction of Drop #001. Unlike Topstep's standard end-of-day trailing MLL (documented in [standard.md](standard.md) and [consistency.md](consistency.md)), the static MLL is fixed in place and does not move. Once set, it is the absolute lowest point your balance is allowed to reach; it never trails upward with profits and never trails downward with losses.
 
 Source example, verbatim: "a Trader starts with a $25,000 balance and a $1,000 Max Loss Limit, earns $1,000 in profit (balance hits $26,000), then loses $500 (balance ends at $25,500)."
+
 - **End-of-Day (EOD) Trailing (standard Topstep):** MLL moves to $24,500. Next day effective room: $1,000.
 - **Static (this Trading Combine):** MLL stays at $24,000. Next day effective room: $1,500.
 
@@ -75,12 +76,12 @@ Re-derived: $25,000 + $500 + $1,500 = $27,000. $27,000 − $25,000 = $2,000. Con
 
 Drop #001's own source states only the $4,000 Payout Cap in the Sim Funded table above. It does not itself state a Profit Split, Payout Eligibility day-count/consistency figure, Minimum Payout Request, or Max Payout per Cycle for either path. Because Drop #001 explicitly states the XFA path can be Standard or Consistency, the table below reproduces those figures from [standard.md](standard.md) and [consistency.md](consistency.md) instead, labeled as such, not as figures Drop #001's own source states:
 
-| Parameter | Standard Path (from standard.md) | Consistency Path (from consistency.md) |
-| --- | --- | --- |
-| Profit Split | 90/10 | 90/10 |
-| Payout Eligibility | 5 winning days of $150+ Net P&L | 3 trading days, 40% consistency target |
-| Minimum Payout Request | $125 | $125 |
-| Max Payout per Cycle | Not stated for Drop #001 (standard.md's own $2,000 figure is a $50K-XFA-size cap; Drop #001's own Payout Cap is the separately stated $4,000, above) | Not stated for Drop #001 (same caveat) |
+| Parameter              | Standard Path (from standard.md)                                                                                                                     | Consistency Path (from consistency.md) |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| Profit Split           | 90/10                                                                                                                                                | 90/10                                  |
+| Payout Eligibility     | 5 winning days of $150+ Net P&L                                                                                                                      | 3 trading days, 40% consistency target |
+| Minimum Payout Request | $125                                                                                                                                                 | $125                                   |
+| Max Payout per Cycle   | Not stated for Drop #001 (standard.md's own $2,000 figure is a $50K-XFA-size cap; Drop #001's own Payout Cap is the separately stated $4,000, above) | Not stated for Drop #001 (same caveat) |
 
 **Cross-reference note:** These sibling-file figures are assumed to carry over unchanged once a Drop #001 XFA is activated, since the source ties Drop #001's XFA explicitly to the same Standard/Consistency path choice, but Drop #001's own article never restates them itself. See Not Confirmed below.
 
@@ -90,56 +91,56 @@ A three-phase product using the standard end-of-day trailing Maximum Loss Limit 
 
 ### Evaluation
 
-| Parameter | Value |
-| --- | --- |
-| Buying Power | $250,000 |
-| Profit Target | $15,000 |
-| Drawdown Type | Maximum Loss Limit (MLL), EOD trailing |
-| Drawdown Amount | $10,000 |
-| Daily Loss Limit | Mandatory $5,000 |
-| Max Contracts | 25 mini / 250 micro |
-| Consistency Target | 55% |
-| Funded Activation Fee | Free |
-| One-Time Fee | $499 (90-day expiration) |
-| Purchase Limit | Up to 5 accounts ("For the $250K Re-release, you may purchase up to 5 accounts") |
-| Resets | Not available |
+| Parameter             | Value                                                                            |
+| --------------------- | -------------------------------------------------------------------------------- |
+| Buying Power          | $250,000                                                                         |
+| Profit Target         | $15,000                                                                          |
+| Drawdown Type         | Maximum Loss Limit (MLL), EOD trailing                                           |
+| Drawdown Amount       | $10,000                                                                          |
+| Daily Loss Limit      | Mandatory $5,000                                                                 |
+| Max Contracts         | 25 mini / 250 micro                                                              |
+| Consistency Target    | 55%                                                                              |
+| Funded Activation Fee | Free                                                                             |
+| One-Time Fee          | $499 (90-day expiration)                                                         |
+| Purchase Limit        | Up to 5 accounts ("For the $250K Re-release, you may purchase up to 5 accounts") |
+| Resets                | Not available                                                                    |
 
 ### Sim Funded
 
-| Parameter | Value |
-| --- | --- |
-| Path | Standard (not Consistency) |
-| Starting Balance | $0 literal (buying power $250,000) |
-| Drawdown Type | Maximum Loss Limit (MLL), EOD trailing |
-| Drawdown Amount | $10,000 |
-| Drawdown Lock | Trigger: none independently stated for Drop #002 beyond "After first Payout, MLL sets to $0." Locked value: $0, forced on the first Payout. Whether a natural EOD-trailing lock trigger (analogous to standard.md's own "profit reaches the MLL amount" mechanic) also applies to Drop #002 is not stated by this source; do not assume it does without a citation. |
-| Daily Loss Limit | Mandatory $5,000 |
-| Max Contracts | 25 mini / 250 micro |
-| Scaling Plan | Applies per balance (see table below) |
-| Payout Cap | $25,000 |
+| Parameter        | Value                                                                                                                                                                                                                                                                                                                                                               |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Path             | Standard (not Consistency)                                                                                                                                                                                                                                                                                                                                          |
+| Starting Balance | $0 literal (buying power $250,000), per the firm-wide XFA convention; the Labs article's own Phase 2 table states no Starting Balance row                                                                                                                                                                                                                           |
+| Drawdown Type    | Maximum Loss Limit (MLL), EOD trailing                                                                                                                                                                                                                                                                                                                              |
+| Drawdown Amount  | $10,000                                                                                                                                                                                                                                                                                                                                                             |
+| Drawdown Lock    | Trigger: none independently stated for Drop #002 beyond "After first Payout, MLL sets to $0." Locked value: $0, forced on the first Payout. Whether a natural EOD-trailing lock trigger (analogous to standard.md's own "profit reaches the MLL amount" mechanic) also applies to Drop #002 is not stated by this source; do not assume it does without a citation. |
+| Daily Loss Limit | Mandatory $5,000                                                                                                                                                                                                                                                                                                                                                    |
+| Max Contracts    | 25 mini / 250 micro                                                                                                                                                                                                                                                                                                                                                 |
+| Scaling Plan     | Applies per balance (see table below)                                                                                                                                                                                                                                                                                                                               |
+| Payout Cap       | $25,000                                                                                                                                                                                                                                                                                                                                                             |
 
 #### Scaling Plan (Drop #002 XFA)
 
-| Balance | Lots |
-| --- | --- |
-| Below $1,500 | 3 |
-| $1,500 to $2,000 | 4 |
-| $2,000 to $3,000 | 5 |
-| $3,000 to $4,500 | 10 |
-| $4,500 to $6,000 | 15 |
-| $6,000 to $8,000 | 20 |
-| Above $8,000 | 25 |
+| Balance          | Lots |
+| ---------------- | ---- |
+| Below $1,500     | 3    |
+| $1,500 to $2,000 | 4    |
+| $2,000 to $3,000 | 5    |
+| $3,000 to $4,500 | 10   |
+| $4,500 to $6,000 | 15   |
+| $6,000 to $8,000 | 20   |
+| Above $8,000     | 25   |
 
 ### Live Funded Account
 
-| Parameter | Value |
-| --- | --- |
-| Tier Size | $150,000 |
-| Starting Balance | $10,000 minimum |
+| Parameter        | Value            |
+| ---------------- | ---------------- |
+| Tier Size        | $150,000         |
+| Starting Balance | $10,000 minimum  |
 | Daily Loss Limit | Mandatory $5,000 |
-| Max Contracts | 15 mini |
+| Max Contracts    | 15 mini          |
 
-**Cross-reference note:** The source states, verbatim: "once moved to a Live Funded Account, the Live Funded Account will follow our standard Live Funded Account Parameters and be treated as a $150K." This implies the LFA will follow the parameters documented in [live.md](live.md) for a $150K tier. The source does not repeat the complete LFA parameter set here; see [live.md](live.md) for the full mechanics of Reserve splits, Dynamic Live Risk Expansion, Daily Loss Limit Safeguard, auto-liquidation, and Payout eligibility.
+**Cross-reference note:** The source states, verbatim: "once moved to a Live Funded Account, the Live Funded Account will follow our standard Live Funded Account Parameters and be treated as a $150K." This implies the LFA will follow the parameters documented in [live.md](live.md) for a $150K tier. The same article's own FAQ qualifies that, though: "The Live Funded Account will follow our standard Live Funded Account Parameters with a minimum starting balance of $10,000. Your account size will be based on the average of all active, eligible XFAs including any activated from the $250K Freedom Trading Combine(s)." So the $150K treatment is the standard XFA-averaging formula applied to this Drop, not a flat lock to $150K: a trader holding other, smaller XFAs averages below it. The source does not repeat the complete LFA parameter set here; see [live.md](live.md) for the full mechanics of Reserve splits, Dynamic Live Risk Expansion, Daily Loss Limit Safeguard, auto-liquidation, and Payout eligibility.
 
 ## Drop #003: $3K Challenge
 
@@ -147,20 +148,20 @@ A two-round fixed-payout Challenge with no progression to Live. A trader purchas
 
 ### Challenge and Payout Rounds
 
-| Parameter | Challenge Round | Payout Round |
-| --- | --- | --- |
-| Starting Balance | $0 | $0 |
-| Profit Target | $3,000 | $3,000 |
-| Drawdown Type | Maximum Loss Limit (MLL), static (non-trailing) | Maximum Loss Limit (MLL), static (non-trailing) |
-| Drawdown Amount | $1,000 | $1,000 |
-| Daily Loss Limit | None | None |
-| Max Contracts | 10 micro / 1 mini | 10 micro / 1 mini |
-| Consistency Target | None | None |
-| Activation Fee | N/A: applies to the Payout Round only | Free |
-| Path | N/A: applies to the Payout Round only | Standard only |
-| Payout | Passing advances to Payout Round | Fixed $3,000, paid one time. No 90/10 split. Account closes. |
-| Resets | None | None |
-| Purchase Limit | No limit on Challenge Round | Max 5 active Payout-Round accounts at once (firm-wide, separate from XFA 5-account limit) |
+| Parameter          | Challenge Round                                 | Payout Round                                                                              |
+| ------------------ | ----------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Starting Balance   | $0                                              | $0                                                                                        |
+| Profit Target      | $3,000                                          | $3,000                                                                                    |
+| Drawdown Type      | Maximum Loss Limit (MLL), static (non-trailing) | Maximum Loss Limit (MLL), static (non-trailing)                                           |
+| Drawdown Amount    | $1,000                                          | $1,000                                                                                    |
+| Daily Loss Limit   | None                                            | None                                                                                      |
+| Max Contracts      | 10 micro / 1 mini                               | 10 micro / 1 mini                                                                         |
+| Consistency Target | None                                            | None                                                                                      |
+| Activation Fee     | N/A: applies to the Payout Round only           | Free                                                                                      |
+| Path               | N/A: applies to the Payout Round only           | Standard only                                                                             |
+| Payout             | Passing advances to Payout Round                | Fixed $3,000, paid one time. No 90/10 split. Account closes.                              |
+| Resets             | None                                            | None                                                                                      |
+| Purchase Limit     | No limit on Challenge Round                     | Max 5 active Payout-Round accounts at once (firm-wide, separate from XFA 5-account limit) |
 
 ### Restrictions and Mechanics
 
@@ -181,20 +182,20 @@ A two-round fixed-payout Challenge. Similar structure to Drop #003 but with a $1
 
 ### Challenge and Payout Rounds
 
-| Parameter | Challenge Round | Payout Round |
-| --- | --- | --- |
-| Starting Balance | $0 | $0 |
-| Profit Target | $1,500 | $1,500 |
-| Drawdown Type | Maximum Loss Limit (MLL), static (non-trailing) | Maximum Loss Limit (MLL), static (non-trailing) |
-| Drawdown Amount | $500 | $500 |
-| Daily Loss Limit | None | None |
-| Max Contracts | 2 micro (no minis) | 2 micro (no minis) |
-| Consistency Target | None | None |
-| Activation Fee | N/A: applies to the Payout Round only | Free |
-| Path | N/A: applies to the Payout Round only | Standard only |
-| Payout | Passing advances to Payout Round | Fixed $1,500, paid one time. No 90/10 split. Account closes. |
-| Resets | None | None |
-| Purchase Limit | No limit per round | Max 5 per Trader, total (including closed accounts; closed accounts count toward the 5, so if one closes you cannot replace it) |
+| Parameter          | Challenge Round                                                                                                                                                                                                                             | Payout Round                                                                                |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Starting Balance   | $0                                                                                                                                                                                                                                          | $0                                                                                          |
+| Profit Target      | $1,500                                                                                                                                                                                                                                      | $1,500                                                                                      |
+| Drawdown Type      | Maximum Loss Limit (MLL), static (non-trailing)                                                                                                                                                                                             | Maximum Loss Limit (MLL), static (non-trailing)                                             |
+| Drawdown Amount    | $500                                                                                                                                                                                                                                        | $500                                                                                        |
+| Daily Loss Limit   | None                                                                                                                                                                                                                                        | None                                                                                        |
+| Max Contracts      | 2 micro (no minis)                                                                                                                                                                                                                          | 2 micro (no minis)                                                                          |
+| Consistency Target | None                                                                                                                                                                                                                                        | None                                                                                        |
+| Activation Fee     | N/A: applies to the Payout Round only                                                                                                                                                                                                       | Free                                                                                        |
+| Path               | N/A: applies to the Payout Round only                                                                                                                                                                                                       | Standard only                                                                               |
+| Payout             | Passing advances to Payout Round                                                                                                                                                                                                            | Fixed $1,500, paid one time. No 90/10 split. Account closes.                                |
+| Resets             | None                                                                                                                                                                                                                                        | None                                                                                        |
+| Purchase Limit     | Max 5 per Trader, total: "Purchase Limit \| 5 per Trader \| —" and "you can purchase up to 5 $1.5K Challenges per Trader. Once you reach that limit, you cannot buy additional $1.5K Challenges, even if some of your accounts have closed" | N/A: the 5-purchase cap above governs both rounds, no separate Payout-Round limit is stated |
 
 ### Restrictions and Mechanics
 
@@ -214,20 +215,20 @@ A two-round fixed-payout Challenge. Higher payout ($6,000) and higher price ($14
 
 ### Challenge and Payout Rounds
 
-| Parameter | Challenge Round | Payout Round |
-| --- | --- | --- |
-| Starting Balance | $0 | $0 |
-| Profit Target | $6,000 | $6,000 |
-| Drawdown Type | Maximum Loss Limit (MLL), static (non-trailing) | Maximum Loss Limit (MLL), static (non-trailing) |
-| Drawdown Amount | $2,000 | $2,000 |
-| Daily Loss Limit | None | None |
-| Max Contracts | 10 micro / 1 mini | 10 micro / 1 mini |
-| Consistency Target | None | None |
-| Activation Fee | N/A: applies to the Payout Round only | Free |
-| Path | N/A: applies to the Payout Round only | Standard only |
-| Payout | Passing advances to Payout Round | Fixed $6,000, paid one time. No 90/10 split. Account closes. |
-| Resets | None | None |
-| Purchase Limit | No limit per round | Max 5 per Trader, total (including closed accounts; closed accounts count, so if one closes you cannot replace it) |
+| Parameter          | Challenge Round                                                                                                                                                                                                         | Payout Round                                                                                |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Starting Balance   | $0                                                                                                                                                                                                                      | $0                                                                                          |
+| Profit Target      | $6,000                                                                                                                                                                                                                  | $6,000                                                                                      |
+| Drawdown Type      | Maximum Loss Limit (MLL), static (non-trailing)                                                                                                                                                                         | Maximum Loss Limit (MLL), static (non-trailing)                                             |
+| Drawdown Amount    | $2,000                                                                                                                                                                                                                  | $2,000                                                                                      |
+| Daily Loss Limit   | None                                                                                                                                                                                                                    | None                                                                                        |
+| Max Contracts      | 10 micro / 1 mini                                                                                                                                                                                                       | 10 micro / 1 mini                                                                           |
+| Consistency Target | None                                                                                                                                                                                                                    | None                                                                                        |
+| Activation Fee     | N/A: applies to the Payout Round only                                                                                                                                                                                   | Free                                                                                        |
+| Path               | N/A: applies to the Payout Round only                                                                                                                                                                                   | Standard only                                                                               |
+| Payout             | Passing advances to Payout Round                                                                                                                                                                                        | Fixed $6,000, paid one time. No 90/10 split. Account closes.                                |
+| Resets             | None                                                                                                                                                                                                                    | None                                                                                        |
+| Purchase Limit     | Max 5 per Trader, total: "Purchase Limit \| 5 per Trader \| —" and "You can buy up to 5 $6K Challenges per Trader. That count covers every $6K Challenge account you own, in either round. Closed accounts still count" | N/A: the 5-purchase cap above governs both rounds, no separate Payout-Round limit is stated |
 
 ### Restrictions and Mechanics
 
@@ -246,16 +247,36 @@ A single trader can own a maximum of 5 $6K Challenge accounts across both Challe
 
 All Labs offerings are subject to temporary volatility-driven position-limit adjustments and permanent per-product restrictions detailed in Topstep's [Risk Adjustments: High Risk/High Volatility](https://help.topstep.com/en/articles/13613539-risk-adjustments-high-risk-high-volatility) article. That article lists Labs-specific restricted-product limits for each Drop. This file does not reproduce every restricted-symbol table; instead, each Drop section above names the products that cannot be traded on that Drop (if a full ban) or their contract limits (if a partial restriction).
 
+The article's own Labs callout gives the per-Drop limits verbatim:
+
+- **Drop #001 ($25K Static):** "restricted products are set to a max contract size of 1 mini/10 micros."
+- **Drop #002 ($250K Freedom):** "restricted energies are set to a max contract size of 15 minis/150 micros. For SIL/MHG, 10 minis/100 micros. SI, HG, and PL are still 0."
+- **Drop #003 ($3K Challenge):** "you cannot trade MHG, MET, MBT, or SIL. Trading during CPI is also restricted to 0. Additionally, MGC and MCL is limited to 6 micros."
+- **Drop #004 ($1.5K Challenge):** "you cannot trade MHG, MET, MBT, or SIL. MGC/MCL are limited to 1. Trading during CPI is also restricted to 0."
+- **Drop #005 ($6K Challenge):** "you cannot trade MHG, SIL, HG, SL, CL, GC, HO, QM, PL, or RB. Trading during CPI is also restricted to 0. Additionally, MGC and MCL is limited to 6 micros."
+
+## How Labs Interacts With Live and Pro Accounts
+
+**Challenge performance does not earn a Live call-up.** "You can't be called up to Live solely as a result of trading Challenges. If you are called up to Live as a result of your performance in Express Funded Accounts, your Challenges and Payout Round stay open." A Challenge can therefore be held alongside an existing Live Funded Account or Pro Account without putting either at risk.
+
+**The Responsible Trading Discount does not extend to Labs.** For Drop #002: "$499 one-time fee. There is no subscription — you pay once. The Responsible Trading Discount does not apply even though a DLL is automatic."
+
 ## Refund Policy
 
-Labs offerings are one-time purchases with no monthly rebills. The standard Topstep Refund Policies apply, as stated in the refund article (updated 2026-09-11): refunds are generally not available once a purchase is made, with limited exceptions. The 14-day satisfaction guarantee applies only to a trader's first-ever Trading Combine purchase (not Labs products by name).
+Labs offerings are one-time purchases with no monthly rebills. The standard Topstep Refund Policies apply, as stated in the refund article (updated 2026-09-11): refunds are generally not available once a purchase is made, with limited exceptions. The 14-day satisfaction guarantee applies only to a trader's first-ever Trading Combine purchase (not Labs products by name), and even there it is narrower than "a refund": "If within your first 14 calendar days you decide it's not for you, we'll refund up to 1 monthly renewal payment for your Trading Combine® — as long as you haven't passed the evaluation." Labs products are one-time purchases with no monthly renewal payment to refund.
+
+## Other Confirmed Rules
+
+- **The $3K Challenge format and price**: "The $3K Challenge is a 2 round challenge for $49, one time."
+- **Labs Trading Combines expire**: "Please note, this Trading Combine expires 90 days after purchase. If you haven’t passed by then, it will close automatically."
+- **The 25K Drop tier’s own limits**: "25K | $20,000 | 1 | Blocked | Capped at 1 micro"
 
 ## Not Confirmed By This Source
 
 - **Profit Split, Payout Eligibility, and Minimum Payout Request for Drop #001 XFA** — Drop #001's own source states only the $4,000 Payout Cap; the 90/10 split, eligibility day-count/consistency figures, and $125 minimum request in the Payouts table above are carried over from [standard.md](standard.md) / [consistency.md](consistency.md), not independently confirmed by Drop #001's own article. Do not treat this file's own source as having independently confirmed those three rows.
 - **Max Payout per Cycle for Drop #001 XFA** — neither Drop #001's own source nor the sibling files state a Max Payout per Cycle distinct from the already-confirmed $4,000 Payout Cap. Do not assume the $2,000/$3,000/$5,000 (Standard) or $3,000/$4,000/$6,000 (Consistency) size-tiered caps in standard.md/consistency.md apply on top of Drop #001's own flat $4,000 cap.
-- **Scaling Plan formula "Account Balance" axis for Drop #002** — the Scaling Plan table above is read from the same chart image referenced in [standard.md](standard.md), stated to apply to the Drop #002 XFA by the source's own Scaling Plan section. The chart is keyed to "Account Balance," which for the standard $50K/$100K/$150K XFAs is numerically identical to profit (since they start at $0 balance). For the Drop #002 $250K account, the distinction is immaterial (it also starts at $0), but this source does not independently verify the axis label.
-- **Challenge Rounds' account mechanics post-pass, before Payout Round activation** — the source states, "There may be up to a 15 minute delay from the moment you pass a Challenge Round before the Payout Round account is ready to be activated," and the Challenge Round account status is "passed," but does not clarify whether the Challenge Round account remains open, can be re-traded, is locked, or is visible in the dashboard during this window.
+- **Scaling Plan formula "Account Balance" axis for Drop #002** — the Scaling Plan table above is read from the same chart image referenced in [standard.md](standard.md), stated to apply to the Drop #002 XFA by the source's own Scaling Plan section. The chart is keyed to "Account Balance," which for the standard $50K/$100K/$150K XFAs is numerically identical to profit (since they start at $0 balance). For the Drop #002 $250K account, the distinction is immaterial (it also starts at $0), but this source does not independently verify the axis label. Do not assume the axis is profit rather than Account Balance on the strength of the two being equal at a $0 starting balance.
+- **Challenge Rounds' account visibility post-pass, before Payout Round activation** — the source confirms the account is locked to further trading on passing: "Once hit, trading is locked for that account and the account status is 'passed'." What it does not state is whether that locked account stays visible in the dashboard during the "up to a 15 minute delay from the moment you pass a Challenge Round before the Payout Round account is ready to be activated," or exactly when within that window the lock takes effect. Do not assume the account can be re-traded after passing; it cannot.
 - **LFA mechanics for Drop #001 LFA and Drop #002 LFA specifics** — Drop #001 LFA states a Tier Size of $25,000 and Max Contracts of 2 mini / 2 micro; Drop #002 LFA will "follow our standard Live Funded Account Parameters and be treated as a $150K." Neither source provides the complete LFA parameter set (Reserve splits, Dynamic Live Risk Expansion profit thresholds, Daily Loss Limit Safeguard, auto-liquidation floor, Payout eligibility details) for these sizes. Do not assume the figures from [live.md](live.md) for $150K apply unchanged to Drop #002's stated $150K LFA without an independent re-check of live.md's own sourcing.
 - **Dollar figures for Challenge-stage parameters not stated by source** — Drop #003, #004, and #005 each state a Profit Target, Drawdown Amount, and Max Contracts, all of which are reproduced in the tables above. These are directly quoted. However, nothing in the source states a "Minimum Payout Request" or "Max Payout per Cycle" for any Challenge's Payout Round — only "fixed $X Payout, paid one time." Do not infer a minimum request or a per-cycle cap from the fixed-payout language.
 
@@ -263,7 +284,8 @@ Labs offerings are one-time purchases with no monthly rebills. The standard Tops
 
 **Sources:**
 
-- https://help.topstep.com/en/articles/15520357-topstep-labs (updated 2026-09-18): primary source for all five Labs Drops, their phases, parameters, pricing, payout mechanics, restricted products, and concurrent-account limits.
-- https://help.topstep.com/en/articles/8284117-topstep-refund-policies (updated 2026-09-11): refund policy general statement and 14-day satisfaction guarantee scope.
-- https://help.topstep.com/en/articles/13613539-risk-adjustments-high-risk-high-volatility (updated 2026-09-17): Labs-specific restricted-product and position-limit details.
-- https://help.topstep.com/en/articles/8284223-what-is-the-scaling-plan (updated 2026-07-16): Scaling Plan mechanic and chart, referenced for Drop #002 XFA Scaling Plan table.
+- <https://help.topstep.com/en/articles/8284215-express-funded-account-parameters> (updated 2026-08-05): the firm-wide XFA parameter article, cited for the $0-literal Starting Balance convention the Labs article's own Phase 2 tables do not restate.
+- <https://help.topstep.com/en/articles/15520357-topstep-labs> (updated 2026-09-18): primary source for all five Labs Drops, their phases, parameters, pricing, payout mechanics, restricted products, and concurrent-account limits.
+- <https://help.topstep.com/en/articles/8284117-topstep-refund-policies> (updated 2026-09-11): refund policy general statement and 14-day satisfaction guarantee scope.
+- <https://help.topstep.com/en/articles/13613539-risk-adjustments-high-risk-high-volatility> (updated 2026-09-17): Labs-specific restricted-product and position-limit details.
+- <https://help.topstep.com/en/articles/8284223-what-is-the-scaling-plan> (updated 2026-07-16): Scaling Plan mechanic and chart, referenced for Drop #002 XFA Scaling Plan table.

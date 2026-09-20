@@ -125,9 +125,7 @@ async function defaultAccountingTest(
 
     registerCredentialTest('wise', async (options) => {
         const isSandbox =
-            typeof options.meta.sandbox === 'boolean'
-                ? options.meta.sandbox
-                : false;
+            typeof options.meta.sandbox === 'boolean' && options.meta.sandbox;
         const client = new WiseClient(options.secret, {
             fetch: options.fetchImpl,
             sandbox: isSandbox,
@@ -138,9 +136,7 @@ async function defaultAccountingTest(
 
     registerFieldOptionsLoader('wise', 'profileId', async (options) => {
         const isSandbox =
-            typeof options.meta.sandbox === 'boolean'
-                ? options.meta.sandbox
-                : false;
+            typeof options.meta.sandbox === 'boolean' && options.meta.sandbox;
         const client = new WiseClient(options.secret, {
             fetch: options.fetchImpl,
             sandbox: isSandbox,

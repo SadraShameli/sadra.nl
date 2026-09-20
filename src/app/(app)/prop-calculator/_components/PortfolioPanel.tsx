@@ -119,7 +119,7 @@ export default function PortfolioPanel({
         },
         EMPTY_SIMMED,
     );
-    const isPending = portfolio.length === 0 ? false : computation.pending;
+    const isPending = portfolio.length > 0 && computation.pending;
     const simmed = portfolio.length === 0 ? EMPTY_SIMMED : computation.result;
 
     const totals = useMemo(() => {

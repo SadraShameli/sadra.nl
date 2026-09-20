@@ -127,7 +127,9 @@ describe('FundedNext FNL:003 50K Instant Account (Labs, no Challenge phase, 20% 
         expect(plan.contractLimits?.evalMicros).toBe(30);
         const funded = plan.contractLimits?.fundedMinis;
         if (funded?.kind !== ContractLimitKind.Flat) {
-            throw new Error('expected a flat funded contract limit for FNL:003');
+            throw new Error(
+                'expected a flat funded contract limit for FNL:003',
+            );
         }
         expect(funded.maxContracts).toBe(3);
     });
@@ -164,7 +166,7 @@ describe('FundedNext FNL:003 50K Instant Account (Labs, no Challenge phase, 20% 
         expect(plan.maxLifetimePayouts).toBe(5);
     });
 
-    it('caps concurrent accounts at its own 3-account limit, distinct from the other four plans\' shared 5-account allocation', () => {
+    it("caps concurrent accounts at its own 3-account limit, distinct from the other four plans' shared 5-account allocation", () => {
         expect(plan.maxFundedAccounts).toBe(3);
         const legacy = planFor(FundedNextVariant.Legacy);
         expect(legacy.maxFundedAccounts).toBe(5);

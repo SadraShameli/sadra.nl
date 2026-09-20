@@ -268,8 +268,7 @@ export function simulateLiveAccount(inputs: LiveSimInputs): LiveOutputs {
         ),
         expectedAnnualWithdrawalRate,
         liveBustProbability: bustedCount / totalTrials,
-        liveInactivityClosureProbability:
-            inactivityClosureCount / totalTrials,
+        liveInactivityClosureProbability: inactivityClosureCount / totalTrials,
         medianDaysToBust: median(daysToBustValues),
         medianDaysToFirstWithdrawal: median(daysToFirstWithdrawalValues),
     };

@@ -99,16 +99,16 @@ describe('LivePlan constructor invariants (mirroring Plan.ts)', () => {
     });
 
     it('throws when maxConsecutiveIdleDays is zero, negative, or non-integer', () => {
-        expect(() =>
-            new LivePlan(apexLikeInit({ maxConsecutiveIdleDays: 0 })),
+        expect(
+            () => new LivePlan(apexLikeInit({ maxConsecutiveIdleDays: 0 })),
         ).toThrow(
             'Test Live: maxConsecutiveIdleDays must be a positive integer or omitted, got 0',
         );
-        expect(() =>
-            new LivePlan(apexLikeInit({ maxConsecutiveIdleDays: -1 })),
+        expect(
+            () => new LivePlan(apexLikeInit({ maxConsecutiveIdleDays: -1 })),
         ).toThrow();
-        expect(() =>
-            new LivePlan(apexLikeInit({ maxConsecutiveIdleDays: 2.5 })),
+        expect(
+            () => new LivePlan(apexLikeInit({ maxConsecutiveIdleDays: 2.5 })),
         ).toThrow();
     });
 

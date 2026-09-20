@@ -84,15 +84,16 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
         const q = search.trim().toLowerCase();
         return exercises
             .filter((wex) => {
-                return exerciseFilter !== FILTER_ALL &&
-                    wex.id !== exerciseFilter
-                    ? false
-                    : !q || wex.exercise.name.toLowerCase().includes(q);
+                return (
+                    (exerciseFilter === FILTER_ALL ||
+                        wex.id === exerciseFilter) &&
+                    (!q || wex.exercise.name.toLowerCase().includes(q))
+                );
             })
             .map((wex) =>
                 prOnly ? { ...wex, sets: wex.sets.filter((s) => s.isPr) } : wex,
             )
-            .filter((wex) => (prOnly ? wex.sets.length > 0 : true));
+            .filter((wex) => !prOnly || wex.sets.length > 0);
     }, [exercises, exerciseFilter, search, prOnly]);
 
     const stats = useMemo(() => {

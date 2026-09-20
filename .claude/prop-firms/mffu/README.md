@@ -1,8 +1,8 @@
 # `MyFundedFutures` (MFF / MFFU) Plans Reference
 
 **Firm website:** `https://myfundedfutures.com`
-**Last Verified:** `2026-09-18`
-**Last Updated:** `2026-09-18`
+**Last Verified:** `2026-09-19`
+**Last Updated:** `2026-09-19`
 **Source:** see each plan's own file for plan-specific claims; Firm-Wide Rules below are drawn from a mix of two generic "Live Accounts" collection articles (used only where they themselves state a rule applies across account types) and roughly twenty articles under `help.myfundedfutures.com`'s "Welcome Aboard," "Trading Practices and Risk Management," "Funded Accounts," "Trading Platforms," "Payout Information," and "Traders Evaluation" collections. Most of the latter group was found only after running this skill's Discover & Extract stage against `help.myfundedfutures.com/sitemap.xml`, prompted by the user asking for the same sitemap-sweep treatment already applied to Lucid Trading. See Documentation Scope for the completeness methodology this established.
 
 ## Overview
@@ -30,20 +30,20 @@ Only rules stated by their own source as applying broadly across account types, 
 
 **Account structure and fees:**
 
-- **No activation fee on any documented plan**, confirmed independently in every plan's own file, and now a fifth time by a dedicated firm-wide article, "Does MyFundedFutures Charge Activation Fees?": "All MFFU plans, regardless of account size, come with $0 activation fee." Distinct from the *evaluation fee* itself, which is a real cost on the plans that state one.
+- **No activation fee on any documented plan**, confirmed in the plan files that state it (builder.md does not state it in its own text) and by a dedicated firm-wide article, "Does MyFundedFutures Charge Activation Fees?": "All MFFU plans, regardless of account size, come with $0 activation fee." Distinct from the _evaluation fee_ itself, which is a real cost on the plans that state one.
 - **Evaluation and Sim-Funded account-holding limits, now fully resolved, not just each plan's own figure kept in isolation.** Per "Moving from Evaluation to Sim-Funded Account" (a dedicated firm-wide article, found only via the sitemap sweep noted above): traders may hold up to 10 active Evaluation accounts firm-wide. For Sim-Funded accounts: up to 5, shared across every plan type, when holding only $25K/$50K sizes in any combination, UNLESS a plan-specific override applies (Rapid EOD 25K: 3; Rapid EOD 50K: 3; Builder 25K: 2; Builder 50K: 1, standard Rapid and Pro have no override at these sizes and use the shared 5); the instant any $100K or $150K Sim-Funded account is held, the cap drops to 3, shared across every plan type and every size, with worked examples given ("1 × $100K + 2 × $50K = Allowed," "1 × $100K + 4 × $50K = Not Allowed"). This resolves what earlier drafts of `rapid.md`, `rapid-eod.md`, and `pro.md` had each independently left as an unconfirmed or only-partially-resolved shared-bucket question.
-- **Account resets and renewals are distinct, plan-lifecycle-dependent mechanics**, per "Understanding the Difference Between Account Resets and Renewals": a *reset* is a manual, trader-initiated action restoring an account to its original state without extending its billing cycle; a *renewal* happens automatically every 30 days under a subscription-style billing model, extending access and, if the account is not breached at rebilling, granting a one-time reset credit for that first month. This describes a **subscription-based evaluation model that coexists with the newer "one-time payment model"** referenced elsewhere in this tree's inactivity-rule research; nothing in this tree's sources states which model any given documented plan's own already-confirmed dollar figures reflect. Treat "Reset Fee: None, buy a new evaluation" (confirmed for Rapid $50K and, by extension of its own FAQ, Builder) as describing the one-time-payment model specifically, not necessarily the subscription model's renewal-based mechanics.
+- **Account resets and renewals are distinct, plan-lifecycle-dependent mechanics**, per "Understanding the Difference Between Account Resets and Renewals": a _reset_ is a manual, trader-initiated action restoring an account to its original state without extending its billing cycle; a _renewal_ happens automatically every 30 days under a subscription-style billing model, extending access and, if the account is not breached at rebilling, granting a one-time reset credit for that first month. This describes a **subscription-based evaluation model that coexists with the newer "one-time payment model"** referenced elsewhere in this tree's inactivity-rule research; nothing in this tree's sources states which model any given documented plan's own already-confirmed dollar figures reflect. The inactivity-rule article for the one-time payment model settles one part of this directly: "Resets remain unaffected and continue to work the same way regardless of purchase date." Treat "Reset Fee: None, buy a new evaluation" (confirmed for Rapid $50K and, by extension of its own FAQ, Builder) as describing the one-time-payment model specifically, not necessarily the subscription model's renewal-based mechanics.
 - **KYC verification is mandatory before Sim Funded trading begins**, once per person, one verified profile per individual, per "KYC/AML Policies."
 - **Refunds**: a full refund is available only if no trades have been placed and the account is not breached, requested within 14 days of purchase; breached accounts are never refund-eligible; crypto purchases are non-refundable for AML compliance; disputes go to binding arbitration, per "Refund & Cancellation Policy."
 
 **Trading conduct (per "Fair Play and Prohibited Trading Practices," "Hedging - What You Should Know," "News Trading Policy," "Can someone else trade my account?," "Copy Trading at MyFundedFutures," and "Cross Instrument Policy," all firm-wide, all found via the sitemap sweep):**
 
-- **T1 (Tier 1) news trading**: prohibited on Rapid Sim Funded and Pro Sim Funded specifically; permitted on all Evaluations and on Builder Plans at every stage, per "News Trading Policy." T1 Data covers FOMC Meetings, FOMC Minutes, Employment Report, and CPI for all traders, plus EIA for energy traders and Agricultural Reports for agricultural traders. Where restricted, no position or order may be open 2 minutes before or after the release. Independent of the T1 restriction, two general rules apply to *all* news releases on every account: exploiting immediate news bursts with strategies like straddles/strangles is always prohibited, and masking a news trade as a standard-strategy trade is always prohibited.
+- **T1 (Tier 1) news trading**: prohibited on Rapid Sim Funded and Pro Sim Funded specifically; permitted on all Evaluations and on Builder Plans at every stage, per "News Trading Policy." T1 Data covers FOMC Meetings, FOMC Minutes, Employment Report, and CPI for all traders, plus EIA for energy traders and Agricultural Reports for agricultural traders. Independent of the T1 restriction, the article's "Standard Trading Protocols" section applies to every account on every news event, not only to T1-restricted accounts during T1 releases: "Ensuring no open positions or orders are active in the order book 2 minutes before and after any data release. These protocols apply to all news releases." Two further prohibitions are stated the same way, for all news releases: exploiting immediate news bursts with strategies like straddles or strangles, and masking a news trade as a standard-strategy trade.
 - **Hedging is prohibited in all forms**: defined as entering both buy and sell positions on the same underlying asset at the same time (e.g. holding E-mini NQ long and Micro NQ short simultaneously, since both share the NQ underlying). Traders must also abide by CME Rule 534. Hedging across genuinely different, unrelated underlying assets is explicitly permitted, though the source cautions that heavy reliance on hedging as a strategy, even across different assets, can itself obscure real trading skill.
 - **High-frequency trading (HFT) is not allowed on any MFF plan**, stated as an unconditional ban in "Fair Play and Prohibited Trading Practices." **A real, unresolved tension**: Pro's own dedicated consistency-policy article ("Balancing Freedom and Responsibility") frames HFT and dollar-cost averaging as things to "steer clear of... unless [they align] with your goals," a softer, discretionary discouragement rather than a stated prohibition. Both are genuinely MFF's own current sources; per this repo's standing rule to surface conflicts rather than blend them, the firm-wide unconditional ban is treated as controlling here, and the softer Pro-specific wording is flagged, not silently reconciled, in `pro.md`.
 - **Order-manipulation and market-conduct rules**: no stacking multiple limit orders at the same price to manipulate fills; no exploiting isolated fills in gapped/illiquid markets; no exploiting the simulated environment's lack of slippage with tight brackets; all trading must comply with CME Group rules; no collaborating with another trader to execute identical or opposite strategies across unconnected accounts.
-- **Account-sharing is prohibited**: only the account owner may trade an account once a phase is passed; using the same device (PC, phone, tablet) as another trader is strictly forbidden and can cause a breach for both traders, per "Can someone else trade my account?" and Fair Play's own Section 4.
-- **Copy-trading is allowed, but distinguish two different things.** Using a copier tool (Tradesyncer is MFF's named preferred partner; Tradovate's built-in group copier and external solutions are also permitted) to replicate your own trades across your own multiple accounts is explicitly allowed across all account types, with a standard liability disclaimer (MFF is not obligated to provide support or resets for copy-trading-caused issues). This is a different thing from copying *another trader's* positions or using their device, which Fair Play's Section 4 prohibits outright. Do not conflate the two.
+- **Account-sharing is prohibited**: only the account owner may trade an account once a phase is passed; using the same device (PC, phone, tablet) as another trader is strictly forbidden and, per Fair Play Section 4, can lead to "permanent restrictions from using our services", a full service ban rather than merely an account breach, per "Can someone else trade my account?" and Fair Play's own Section 4.
+- **Copy-trading is allowed, but distinguish two different things.** Using a copier tool (Tradesyncer is MFF's named preferred partner; Tradovate's built-in group copier and external solutions are also permitted) to replicate your own trades across your own multiple accounts is explicitly allowed across all account types, with a standard liability disclaimer (MFF is not obligated to provide support or resets for copy-trading-caused issues). This is a different thing from copying _another trader's_ positions or using their device, which Fair Play's Section 4 prohibits outright. Do not conflate the two.
 - **Enforcement for policy violations** (Fair Play's own Section 3): immediate agreement termination, confiscation of profits generated from the violation, and evaluation review, a passed evaluation can be denied funding, with no refund, if found to have relied on prohibited practices.
 - **Cross-instrument contract limits are alternative, not additive.** A stated contract limit like "5 mini / 50 micro" means 5 minis OR 50 micros OR any single-instrument amount up to that limit, not both simultaneously. Combining instruments to exceed the effective single-instrument cap (e.g. 2 minis AND 20 micros on a plan scaled to "2 minis or 20 micros") will technically execute but is not permitted and can breach the account, per "Cross Instrument Policy."
 
@@ -54,7 +54,7 @@ Only rules stated by their own source as applying broadly across account types, 
 - **Approved futures instruments and commissions**: a firm-wide list of tradeable contracts across CME (17 instruments), COMEX (6), CBOT (7), and NYMEX (7), each with its own tick size, tick value, and "Total Cost Round Trip" figure, from "Futures Instrument List." See the full table below. As of a "February 7th" volatility-driven restriction stated in that same article (year not given in the source), Silver (SI), Copper (HG), Platinum (PL), Natural Gas (NG), and E-Mini Natural Gas (QG) are temporarily restricted from trading entirely, current status as of this pass, not independently re-verified against a live announcement. Separately, since "April 17th" (year likewise not given), micro-contract metals trading is capped by account size regardless of a plan's own general Max Contracts figure: 3 micros at $25K, 5 at $50K, 10 at $100K, 15 at $150K; MBT (Micro Bitcoin) is treated as a mini contract for position-limit purposes due to volatility.
 - **Supported trading platforms**: NinjaTrader, Tradovate, TradingView, Quantower, Volumetrica, DeepChart/DeepDom, and ATAS, per "Overview of Supported Platforms at MFFU." A separate, multi-article Volumetrica tutorial series and individual platform login-instruction articles exist in the help center but are not documented here, see Documentation Scope.
 - **Payout processor**: Riseworks, with Plaid/ACH available specifically for US traders, per "Guide to Your First Payout." Per-plan minimum withdrawal amounts, independently corroborated across every plan's own file: Builder 25K $250, Builder 50K $500, all Rapid plans and tiers $500, all Pro tiers $1,000.
-- **Restricted countries**: traders who are citizens or residents of roughly 90 listed countries are ineligible for MFF's services, per "Restricted Countries Policy." Unlike a strict travel ban, the policy explicitly permits trading *from* a restricted country while traveling (with a recommendation to notify support), while still prohibiting new account purchases or resets during that stay. See SOURCES.md for the fetch record rather than duplicating roughly 90 country names here.
+- **Restricted countries**: traders who are citizens or residents of roughly 90 listed countries are ineligible for MFF's services, per "Restricted Countries Policy." Unlike a strict travel ban, the policy explicitly permits trading _from_ a restricted country while traveling (with a recommendation to notify support), while still prohibiting new account purchases or resets during that stay. See SOURCES.md for the fetch record rather than duplicating roughly 90 country names here.
 
 **Live-account-specific rules (per the two generic Live Accounts collection articles):**
 
@@ -65,24 +65,71 @@ Only rules stated by their own source as applying broadly across account types, 
 - **Live-trader-borne costs**: CME Professional Data Subscription, round-trip commissions/fees, and platform license/subscription, deducted directly from the Live account balance.
 - **Sim Funded account(s) go dormant, and multiple Sim Funded accounts merge into one Live account, on Live transition**, per the generic "Understanding Live Funded Account" article. Independently, the Rapid Live article's own transition-process section states the same dormancy behavior for the Rapid family specifically.
 
+### Payments, chargebacks, and account closure
+
+- **Card payment rules**: "The card's billing address and the provided address must match", "The name on the card must match the name registered with us", and "Forex cards and prepaid card payments are not accepted." Using someone else's card, even a family member's, is treated as fraud and terminates the account with no refund or payout eligibility, and breaching any of these guidelines voids the account "even if you are in the sim-funded stage and making profits".
+- **Chargebacks carry firm-wide consequences**: filing one triggers "Immediate account freeze. All accounts associated with your profile — including active evaluations and funded accounts — will be frozen without prior notice while the dispute is reviewed." Accounts tied to unresolved or fraudulent disputes lose eligibility for "evaluations, trading, or payout processing", a chargeback for delivered services leaves the trader "permanently barred from accessing their existing MFFU accounts", and a chargeback filed after the trading environment has been accessed "is treated as a fraudulent dispute rather than a billing error". By signing up, traders also "waive chargebacks and court actions".
+- **Cancelling an evaluation is one-way**: "Once an evaluation account is cancelled, it is no longer eligible to be reset even if the cancellation is a future date." The account "will remain active until the end of your current billing cycle". After termination, "Access to all MFFU dashboards and services ends immediately. Prior fees are non-refundable." Breaching the General Terms can mean "account deactivation, forfeiture of funds, and a ban".
+- **A recently-passed evaluation can be refunded instead of continued**: a trader who has just passed has "the option to request a refund for the evaluation fee" as an alternative to proceeding.
+
+### KYC and eligibility
+
+- **Proof-of-address documents expire**: KYC documents "cannot be older than 3 months".
+- **Age and jurisdiction**: "Customers must be of legal age to engage in trading activities in their respective jurisdictions." MFF also excludes "Countries with high fraud risk, such as those with significant credit card fraud, identity theft, and financial crimes."
+
+### Payout mechanics
+
+- **Processing time**: "All payouts are processed in 6-12 business hours excluding holidays." The plan-level pricing article puts it as "Most payouts are approved instantly. If a manual review is required, processing may take up to 6 to 12 business hours on weekdays."
+- **First payout requires signing agreements** via Riseworks; afterwards "your payout is transferred to your Riseworks account", from which funds are withdrawn by bank transfer.
+- **First day on a live account is not payout-eligible intraday**: "if this is your first day on the account, you will need to wait until the end of day to send a payout request. After the first day, you are free to request daily payouts on your live account."
+- **Requesting a payout suspends trading capacity**: available contracts drop to 0 until the request is approved and paid.
+
+### Live-account specifics
+
+- **A live call-up cannot be declined**: "No, rejecting the move to a Live Funded Account is not possible once you are selected."
+- **Multiple simultaneous live accounts** are not a standing entitlement but may be discussed with a risk manager for high performers.
+- **Limit reviews open after two weeks**: "Once you have been live for 2 weeks, feel free to ask your risk manager to review your limits if you wish."
+- **CME data subscription** is "automatically deducted on the first trading day of the month."
+- **News trading is allowed on live accounts**, with a discretion warning, unlike the T1 restrictions that apply at the Sim Funded stage on Rapid and Pro.
+- **A dormant Sim account is exempt while live**: "The inactivity rule does not apply to Sim Accounts in this case."
+- **Scaling is performance-based**: "Demonstrating consistent performance opens opportunities to increase your contract size."
+
+### Trading mechanics and limits
+
+- **Oversized orders are rejected, not just penalised**: "Orders exceeding the allowed contract size for a single instrument (e.g., more than 2 contracts on NQ) will be automatically rejected." Working around it is a breach: "Deliberate attempts to circumvent position scaling rules are considered a breach and will be treated accordingly."
+- **No trade-frequency limits**: "No, there are no limits to the maximum or minimum number of trades you can have per week or per day."
+- **Automated strategies are permitted** where they are the trader's own settings, per the Fair Play policy.
+- **Close before the bell**: "Failure to close the positions before the market closes will result in breaching of the account unless otherwise stated", and traders are warned not to "force a trade multiple times on the market after 4:10 PM EST".
+- **Price limits vary and have changed**: they "vary by product, contract month, and time of day (i.e., overnight price limits differ from the price limits used during business hours)", and "Equity Products ES, MES, NQ, MNQ, RTY, M2K, YM, and MYM overnight price limits have increased to 5%".
+- **Session hours are not uniform**: Lean Hogs, for example, trades "Monday - Friday 08:30 - 13:05 CT", materially narrower than the general Sunday-to-Friday window.
+- **Economic-release timing is the trader's responsibility**: "EIA reports are released every Wednesday at 10:30 am EST except for the holiday adjusted time frames", and "It is the trader's responsibility to monitor and remain up to date of ANY changes to the official date and time".
+
+### Evaluation and billing lifecycle
+
+- **No fixed evaluation length**: "Duration: Flexible, with no fixed max number of trading days."
+- **Upgrade can be immediate**: once the objectives are met a trader can "insta-upgrade to a sim-funded account", and "Barring an account needing to undergo a brief review (typically in less than 24 hours)" it happens the same day; "dxFeed accounts will receive sim funded credentials on same day of passing".
+- **Rebilling preserves progress, and revives a breach**: "Your evaluation progress remains intact, if the account is not in breached status. Gains and losses carry over", but "If the evaluation account is in breached status at the time of the billing, it will be automatically reactivated".
+- **The one-time payment model has no renewal cycle at all**: "there is no renewal cycle since the one-time payment model replaces recurring billing entirely."
+- **Vacations**: "Traders taking a vacation should notify the customer support team if they will not be trading for more than 7 days."
+
 ## Key Cross-Plan Differences (smallest common tier: $25K where offered, else $50K)
 
-| Aspect                | Rapid ($25K)                                       | Rapid EOD ($25K)                                    | Builder ($25K)                                          | Pro ($50K)                                                   |
-| ---------------------- | --------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------ | --------------------------------------------------------------- |
-| Account Sizes Offered  | $25K / $50K / $100K / $150K                          | $25K / $50K only                                     | $25K / $50K only                                        | $50K / $100K / $150K                                             |
-| Eval Cost              | Unconfirmed at 25K ($209/$125 confirmed at 50K only) | Unconfirmed at 25K ($209/$125 confirmed at 50K only) | Unconfirmed at 25K ($153/$125 confirmed at 50K only)    | Unconfirmed at every tier                                        |
-| Profit Target          | $1,500                                               | $1,500                                               | $1,500                                                  | $3,000                                                           |
-| Eval Consistency       | 50%                                                   | 30%                                                   | None                                                    | 50%                                                              |
-| Min Eval Days          | 2 days                                               | 4 days                                               | 1 day                                                   | 2 days                                                           |
-| Funded Drawdown Type   | Intraday trailing (Sim Funded stage)                 | EOD trailing                                         | EOD trailing                                            | EOD (fixed MLL stated; pre-lock trailing mechanism Unconfirmed) |
-| DLL (Funded)           | Unconfirmed at 25K (50K/100K/150K also Unconfirmed)  | None                                                  | None (genuinely absent at 25K, unlike 50K's $1,000)     | None                                                              |
-| News Trading, Eval     | Allowed (T1), firm-wide confirmed                     | Allowed (T1)                                          | Allowed, unrestricted                                   | Allowed (T1)                                                     |
-| News Trading, Funded   | Not Allowed (T1), firm-wide confirmed                 | Not Allowed (T1)                                      | Allowed, unrestricted                                   | Not Allowed (T1)                                                 |
-| Sim Payout Split       | 90/10 (trader/firm)                                   | 90/10 (trader/firm)                                   | 80/20 (trader/firm)                                      | 80/20 (trader/firm)                                              |
-| Max Funded Accounts    | 5, shared bucket, firm-wide confirmed                 | 3, plan-specific override, firm-wide confirmed        | 2, plan-specific override, firm-wide confirmed           | 5, shared bucket (at $50K; drops to 3 if any $100K/150K held)    |
-| Inactivity Rule (Sim Funded) | 7 days                                          | 7 days                                                | 7 Calendar Days                                          | Unconfirmed                                                      |
-| Lifetime Sim Payouts   | Unconfirmed (no cap language found; suggestive of none, not affirmed) | Unconfirmed (same)                          | 5 payouts (count-based cap)                             | $100,000 (dollar-based cap, not a payout count, different unit) |
-| Live Transition        | $10,000/day auto, or Risk Mgmt Team approval, shared `rapid-live.md` | Same as matching Rapid tier, shared `rapid-live.md` | After 5th approved sim payout, documented inline in `builder.md` | 3 consecutive payouts, or $100K-cap excess-transfer, or discretionary risk-team transition, documented inline in `pro.md` |
+| Aspect                       | Rapid ($25K)                                                          | Rapid EOD ($25K)                                    | Builder ($25K)                                                   | Pro ($50K)                                                                                                                |
+| ---------------------------- | --------------------------------------------------------------------- | --------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Account Sizes Offered        | $25K / $50K / $100K / $150K                                           | $25K / $50K only                                    | $25K / $50K only                                                 | $50K / $100K / $150K                                                                                                      |
+| Eval Cost                    | $145.00 regular / $87.00 with the CLUB promo                          | $145.00 regular / $87.00 with the CLUB promo        | $105.00 regular / $63.00 with the CLUB promo                     | $265.00 regular / $159.00 promo (50K)                                                                                     |
+| Profit Target                | $1,500                                                                | $1,500                                              | $1,500                                                           | $3,000                                                                                                                    |
+| Eval Consistency             | 50%                                                                   | 30%                                                 | None                                                             | 50%                                                                                                                       |
+| Min Eval Days                | 2 days                                                                | 4 days                                              | 1 day                                                            | 2 days                                                                                                                    |
+| Funded Drawdown Type         | Intraday trailing (Sim Funded stage)                                  | EOD trailing                                        | EOD trailing                                                     | EOD (fixed MLL stated; pre-lock trailing mechanism Unconfirmed)                                                           |
+| DLL (Funded)                 | Unconfirmed at 25K (50K/100K/150K also Unconfirmed)                   | None                                                | None (genuinely absent at 25K, unlike 50K's $1,000)              | None                                                                                                                      |
+| News Trading, Eval           | Allowed (T1), firm-wide confirmed                                     | Allowed (T1)                                        | Allowed, unrestricted                                            | Allowed (T1)                                                                                                              |
+| News Trading, Funded         | Not Allowed (T1), firm-wide confirmed                                 | Not Allowed (T1)                                    | Allowed, unrestricted                                            | Not Allowed (T1)                                                                                                          |
+| Sim Payout Split             | 90/10 (trader/firm)                                                   | 90/10 (trader/firm)                                 | 80/20 (trader/firm)                                              | 80/20 (trader/firm)                                                                                                       |
+| Max Funded Accounts          | 5, shared bucket, firm-wide confirmed                                 | 3, plan-specific override, firm-wide confirmed      | 2, plan-specific override, firm-wide confirmed                   | 5, shared bucket (at $50K; drops to 3 if any $100K/150K held)                                                             |
+| Inactivity Rule (Sim Funded) | 7 days                                                                | Unconfirmed at this tier (see rapid-eod.md)         | 7 Calendar Days                                                  | Unconfirmed                                                                                                               |
+| Lifetime Sim Payouts         | Unconfirmed (no cap language found; suggestive of none, not affirmed) | Unconfirmed (same)                                  | 5 payouts (count-based cap)                                      | $100,000 (dollar-based cap, not a payout count, different unit)                                                           |
+| Live Transition              | $10,000/day auto, or Risk Mgmt Team approval, shared `rapid-live.md`  | Same as matching Rapid tier, shared `rapid-live.md` | After 5th approved sim payout, documented inline in `builder.md` | 3 consecutive payouts, or $100K-cap excess-transfer, or discretionary risk-team transition, documented inline in `pro.md` |
 
 Every row above traces back to the matching row in each plan's own table; where a plan's own file marks a cell "Unconfirmed," this table repeats "Unconfirmed" rather than a guessed value. Rapid, Rapid EOD, and Builder's own files carry the full per-tier tables; this comparison uses each plan's smallest offered tier as a common reference point, not necessarily the tier most traders choose.
 
@@ -90,65 +137,65 @@ Every row above traces back to the matching row in each plan's own table; where 
 
 Per "Futures Instrument List," firm-wide, not plan-specific. "Total Cost Round Trip" is the source's own all-in per-round-trip figure (commission plus fees), not a per-side commission the way this repo's Lucid Trading tree presents it, do not treat the two firms' tables as directly comparable without converting units. Trading hours below are the source's own general market hours in Central Time, not MFF's own 6:00 PM–4:10 PM EST trading window (see Firm-Wide Rules).
 
-**CME**
+### CME
 
-| Instrument | Code | Tick Size | Tick Value | Total Cost Round Trip |
-| --- | --- | --- | --- | --- |
-| Australian Dollar | 6A | 0.00005 | $5.00 | $5.04 |
-| British Pound | 6B | 0.0001 | $6.25 | $5.12 |
-| Canadian Dollar | 6C | 0.00005 | $5.00 | $5.12 |
-| E-mini NASDAQ 100 | NQ | 0.25 | $5 | $4.68 |
-| E-mini Russell 2000 | RTY | 0.10 | $5.00 | $4.68 |
-| E-mini S&P 500 | ES | 0.25 | $12.50 | $4.68 |
-| Euro FX | 6E | 0.00005 | $6.25 | $5.12 |
-| Japanese Yen | 6J | 0.0000005 | $6.25 | $5.12 |
-| Lean Hog | HE | 0.00025 | $10.00 | $6.12 |
-| Live Cattle | LE | 0.00025 | $10.00 | $6.12 |
-| Micro AUD/USD | M6A | 0.0001 | $1.00 | $1.44 |
-| Micro Bitcoin | MBT | 5.00 | $0.50 | $3.50 |
-| Micro E-mini Nasdaq-100 | MNQ | 0.25 | $0.50 | $1.90 |
-| Micro E-mini Russell 2000 | M2K | 0.10 | $0.50 | $1.90 |
-| Micro E-mini S&P 500 | MES | 0.25 | $1.25 | $1.90 |
-| Micro EUR/USD | M6E | 0.0001 | $1.25 | $1.44 |
-| Micro Ethereum | MET | 0.50 | $0.05 | $1.16 |
-| New Zealand Dollar | 6N | 0.00005 | $5.00 | $5.12 |
-| Nikkei/USD | NKD | 5.00 | $25.00 | $6.22 |
-| Swiss Franc | 6S | 0.00005 | $6.25 | $5.12 |
+| Instrument                | Code | Tick Size | Tick Value | Total Cost Round Trip |
+| ------------------------- | ---- | --------- | ---------- | --------------------- |
+| Australian Dollar         | 6A   | 0.00005   | $5.00      | $5.04                 |
+| British Pound             | 6B   | 0.0001    | $6.25      | $5.12                 |
+| Canadian Dollar           | 6C   | 0.00005   | $5.00      | $5.12                 |
+| E-mini NASDAQ 100         | NQ   | 0.25      | $5         | $4.68                 |
+| E-mini Russell 2000       | RTY  | 0.10      | $5.00      | $4.68                 |
+| E-mini S&P 500            | ES   | 0.25      | $12.50     | $4.68                 |
+| Euro FX                   | 6E   | 0.00005   | $6.25      | $5.12                 |
+| Japanese Yen              | 6J   | 0.0000005 | $6.25      | $5.12                 |
+| Lean Hog                  | HE   | 0.00025   | $10.00     | $6.12                 |
+| Live Cattle               | LE   | 0.00025   | $10.00     | $6.12                 |
+| Micro AUD/USD             | M6A  | 0.0001    | $1.00      | $1.44                 |
+| Micro Bitcoin             | MBT  | 5.00      | $0.50      | $3.50                 |
+| Micro E-mini Nasdaq-100   | MNQ  | 0.25      | $0.50      | $1.90                 |
+| Micro E-mini Russell 2000 | M2K  | 0.10      | $0.50      | $1.90                 |
+| Micro E-mini S&P 500      | MES  | 0.25      | $1.25      | $1.90                 |
+| Micro EUR/USD             | M6E  | 0.0001    | $1.25      | $1.44                 |
+| Micro Ethereum            | MET  | 0.50      | $0.05      | $1.16                 |
+| New Zealand Dollar        | 6N   | 0.00005   | $5.00      | $5.12                 |
+| Nikkei/USD                | NKD  | 5.00      | $25.00     | $6.22                 |
+| Swiss Franc               | 6S   | 0.00005   | $6.25      | $5.12                 |
 
 **COMEX** (Silver, Copper, and Platinum are currently restricted, see Firm-Wide Rules)
 
-| Instrument | Code | Tick Size | Tick Value | Total Cost Round Trip |
-| --- | --- | --- | --- | --- |
-| Copper | HG | 0.0005 | $12.50 | $5.12 |
-| Gold | GC | 0.10 | $10.00 | $5.12 |
-| Micro Gold | MGC | 0.10 | $1.00 | $2.20 |
-| Platinum | PL | 0.10 | $10.00 | $4.12 |
-| Silver | SI | 0.005 | $25.00 | $5.12 |
-| Micro Silver | SIL | 0.005 | $5.00 | $2.84 |
+| Instrument   | Code | Tick Size | Tick Value | Total Cost Round Trip |
+| ------------ | ---- | --------- | ---------- | --------------------- |
+| Copper       | HG   | 0.0005    | $12.50     | $5.12                 |
+| Gold         | GC   | 0.10      | $10.00     | $5.12                 |
+| Micro Gold   | MGC  | 0.10      | $1.00      | $2.20                 |
+| Platinum     | PL   | 0.10      | $10.00     | $4.12                 |
+| Silver       | SI   | 0.005     | $25.00     | $5.12                 |
+| Micro Silver | SIL  | 0.005     | $5.00      | $2.84                 |
 
-**CBOT**
+### CBOT
 
-| Instrument | Code | Tick Size | Tick Value | Total Cost Round Trip |
-| --- | --- | --- | --- | --- |
-| Corn | ZC | 0.0025 | $12.50 | $6.12 |
-| E-mini Dow Jones | YM | 1.00 | $5.00 | $5.76 |
-| Micro E-mini Dow Jones | MYM | 1.00 | $0.50 | $1.90 |
-| Soybean | ZS | 0.0025 | $12.50 | $6.12 |
-| Soybean Meal | ZM | 0.10 | $10.00 | $6.12 |
-| Soybean Oil | ZL | 0.0001 | $6.00 | $6.12 |
-| Wheat | ZW | 0.0025 | $12.50 | $6.12 |
+| Instrument             | Code | Tick Size | Tick Value | Total Cost Round Trip |
+| ---------------------- | ---- | --------- | ---------- | --------------------- |
+| Corn                   | ZC   | 0.0025    | $12.50     | $6.12                 |
+| E-mini Dow Jones       | YM   | 1.00      | $5.00      | $5.76                 |
+| Micro E-mini Dow Jones | MYM  | 1.00      | $0.50      | $1.90                 |
+| Soybean                | ZS   | 0.0025    | $12.50     | $6.12                 |
+| Soybean Meal           | ZM   | 0.10      | $10.00     | $6.12                 |
+| Soybean Oil            | ZL   | 0.0001    | $6.00      | $6.12                 |
+| Wheat                  | ZW   | 0.0025    | $12.50     | $6.12                 |
 
 **NYMEX** (Natural Gas and E-Mini Natural Gas are currently restricted, see Firm-Wide Rules)
 
-| Instrument | Code | Tick Size | Tick Value | Total Cost Round Trip |
-| --- | --- | --- | --- | --- |
-| Crude Oil | CL | 0.01 | $10.00 | $4.92 |
-| E-mini Crude Oil | QM | 0.025 | $12.50 | $4.32 |
-| Heating Oil | HO | 0.0001 | $4.20 | $4.92 |
-| Micro Crude Oil | MCL | 0.01 | $1.00 | $1.16 |
-| Natural Gas | NG | 0.00025 | $2.50 | $5.12 |
-| RBOB Gasoline | RB | 0.0001 | $4.20 | $6.00 |
-| E-Mini Natural Gas | QG | 0.005 | $12.50 | $2.92 |
+| Instrument         | Code | Tick Size | Tick Value | Total Cost Round Trip |
+| ------------------ | ---- | --------- | ---------- | --------------------- |
+| Crude Oil          | CL   | 0.01      | $10.00     | $4.92                 |
+| E-mini Crude Oil   | QM   | 0.025     | $12.50     | $4.32                 |
+| Heating Oil        | HO   | 0.0001    | $4.20      | $4.92                 |
+| Micro Crude Oil    | MCL  | 0.01      | $1.00      | $1.16                 |
+| Natural Gas        | NG   | 0.00025   | $2.50      | $5.12                 |
+| RBOB Gasoline      | RB   | 0.0001    | $4.20      | $6.00                 |
+| E-Mini Natural Gas | QG   | 0.005     | $12.50     | $2.92                 |
 
 Directly quoted, full table, 37 instruments across 4 exchanges. This is the first source in this tree stating which specific products are tradeable at all; every plan file's own "Max Contracts" figures describe position-size limits, not which products those limits apply to.
 
@@ -156,13 +203,13 @@ Directly quoted, full table, 37 instruments across 4 exchanges. This is the firs
 
 - **The Flex Plan, genuinely discontinued, not merely legacy-labeled.** Flex was offered at $25K and $50K, each with its own "comprehensive guide" article, plus two further "(Legacy)" articles describing even earlier versions of the plan (confirming at least three generations of Flex's own rules over time). The $25K guide's own text states: "Important update: Effective August 5th, at 10 pm est the Flex plan will be discontinued." That article's own sitemap `lastmod` timestamp is 2026-08-05, the same day, meaning the notice was added on the discontinuation date itself. Today's date is 2026-09-18, 44 days after that cutoff. **A genuine, unresolved ambiguity**: the $50K guide (dated May 14, 2026, `lastmod` never updated afterward) contains no discontinuation notice of any kind, so it is not established whether the 50K size was discontinued alongside 25K, discontinued separately without an equivalent notice ever being added to its own article, or is still active. Given CONVENTIONS.md's rule that discontinued/legacy plans are not documented unless the user asks, and given the ambiguity itself, no `flex.md` file was built; both current-generation guides and both explicitly-"(Legacy)" articles are recorded in SOURCES.md if this product is ever brought into scope.
 - **MyFundedClub**, a free loyalty/referral program (points, evaluation discounts, merchandise), confirmed via its own dedicated article to be membership-and-rewards content, not a trading plan or a source of trading rules. Not documented here, consistent with how this doc tree excludes Lucid Trading's affiliate program.
-- **Volumetrica tutorial series and individual platform login-instruction articles** (NinjaTrader, Tradovate, DeepChart, Quantower, ATAS logins; TradingView how-to), 11 articles total in the sitemap, confirmed to be step-by-step platform tutorials, not trading rules. The platforms themselves are named in the Firm-Wide Rules "Supported trading platforms" bullet; the tutorials are out of scope for this rules-focused doc tree.
+- **Volumetrica tutorial series and individual platform login-instruction articles** (NinjaTrader, Tradovate, DeepChart, Quantower, ATAS logins; TradingView how-to), 15 articles total in the sitemap per `SOURCES.md`'s own itemisation (9 platform login/connection how-tos plus 6 Volumetrica tutorials), confirmed to be step-by-step platform tutorials, not trading rules. The platforms themselves are named in the Firm-Wide Rules "Supported trading platforms" bullet; the tutorials are out of scope for this rules-focused doc tree.
 - **"Core Plan" and "Scale Plan"**, referenced by name in the generic "Comprehensive FAQ - Live Accounts" article as links to their own dedicated articles, but neither `core-plan` nor `scale-plan` appears anywhere in the current 71-article help-center sitemap. Either genuinely discontinued/renamed, or the FAQ's own internal links are stale, the same dead-link pattern already confirmed once in this tree (the original 11972075 inactivity-rule URL). Not documented here; do not assume their rules resemble Rapid, Rapid EOD, Builder, or Pro.
 - **Pro's standard Evaluation-stage rules**, Pro's own "Sim-Funded and Live Account Highlights" article explicitly links out to a separate "Traders Evaluation Simplified" article for evaluation rules rather than stating them itself. Most of Pro's Evaluation table pricing (fees) is genuinely Unconfirmed by any source read for this tree, not an oversight.
 - **Pro's 1-Day Addon**, a limited-time promotional evaluation variant for the Pro $50K plan specifically ($4,000 profit target, no consistency rule, no daily loss limit, pass in one day). Documented as a clearly-scoped aside in `pro.md`, not folded into Pro's baseline Evaluation table.
-- **The generic Live Accounts FAQ's "$140 minimum balance" / "$5,000 account → $4,860 max drawdown" example**, this figure does not match any documented plan's own live-drawdown numbers (Rapid Live's floor is $0; Builder's live MLL locks at starting-balance+$100; Pro's own "$140" figure is a different mechanic, the point at which the *initial live allocation itself* becomes withdrawable, not a drawdown floor). Not assigned to any plan in this tree.
+- **The generic Live Accounts FAQ's "$140 minimum balance" / "$5,000 account → $4,860 max drawdown" example**, this figure does not match any documented plan's own live-drawdown numbers (Rapid Live's floor is $0; Builder's live MLL locks at starting-balance+$100; Pro's own "$140" figure is a different mechanic, the point at which the _initial live allocation itself_ becomes withdrawable, not a drawdown floor). Not assigned to any plan in this tree.
 - **Non-25K/50K pricing across Rapid, Rapid EOD, and Builder**, no live pricing page was fetched for any 100K/150K tier, or for either plan's own 25K tier, in this pass. Only the already-confirmed 50K figures (and Builder's two 50K variants) carry a dollar figure; do not assume linear scaling.
 - **Builder and Pro's live-stage news trading policy**, and **Pro's live-stage inactivity rule**, each plan's own source is silent on these specific points for the live stage; the firm-wide "News Trading Policy" article's own Restricted/Unrestricted framing never names a Live stage for any plan either. See each plan's own Not Confirmed section rather than assuming a sibling plan's rule or a generic claim applies.
 - **"No daily loss limits on Builder, Rapid or Pro plans" (Payout Policy Overview), confirmed inaccurate for most of the plans it names.** Wrong for 50K Builder (its own FAQ confirms a $1,000 soft-pause DLL at all three stages) and wrong for Pro's live stage (a confirmed Daily Loss Limit Range scaling by tier). Accidentally correct for 25K Builder specifically (genuinely no DLL there) and for Rapid's and Pro's own Evaluation/Sim-Funded stages. Not treated as reliable anywhere in this tree that it hasn't been independently confirmed.
 - **Engine cross-check (full pass, 2026-09-18)**, `src/lib/prop-calculator/firms/mffu/MyFundedFutures.ts` and `MffuRapidLive.ts` carry their own extensive, separately-researched `notes[]` history. This sitemap-driven pass did not re-run a full line-by-line re-comparison against the engine (the prior pass's comparison, summarized below, was not invalidated by anything newly found): the simulator models only the Builder Default variant (not Add-On, and not the 25K size at all) and only Pro's $50K tier, a modeling-scope gap, not a documentation error, now wider than previously noted since this tree has since added Rapid's 100K/150K/25K tiers, Rapid EOD's 25K tier, and Builder's 25K tier, none of which the engine models. Values that were already cross-validated (Rapid $50K eval/reset fee, Builder eval fee, Pro's lifetime cap and live-transition triggers, Rapid Live's $0-floor lock and 90/10 split, Rapid/Rapid EOD/Pro's consistency scopes) remain unaffected by this pass's new findings. A prior process concern (several engine notes used `propfirmmatch.com`, a third-party site, as a tiebreaker) also remains unresolved and is not this documentation pass's to fix.
-- **Completeness methodology: sitemap-verified, not just search-driven.** This tree's original research relied entirely on user-pasted articles plus a handful of live-fetched pricing pages, a genuinely thorough pass by pasted-source standards, but one that could not by itself confirm nothing else existed in MFF's help center. `help.myfundedfutures.com/sitemap.xml` was fetched directly (HTTP 200, 83 `<url>` entries: 12 collection pages plus 71 articles) and diffed against every article already used. This surfaced roughly 35 previously-unused, in-scope articles, including five dedicated per-tier plan articles this tree had never had (Rapid 25K/100K/150K, Rapid EOD 25K, Builder 25K), a full account-limits article that definitively resolved three separate previously-unconfirmed "shared bucket" questions across three different plan files at once, a full News Trading Policy that resolved News Trading everywhere it had been Unconfirmed, and an entire Flex Plan product line this tree had never documented at all (previously known only as unread related-article titles), whose own most-current source turned out to announce its own discontinuation. Not every one of the 71 articles was read individually: 11 platform-tutorial/login-instruction articles and 2 MyFundedClub articles were confirmed out of scope by their titles and a spot-check of their content (see above), rather than read in full line by line, since this tree documents trading rules, not platform how-tos or a loyalty program. This is the completeness bar future re-verification passes for this firm should match: a sitemap diff, not just whatever sources happen to be pasted or searched for.
+- **Completeness methodology: sitemap-verified, not just search-driven.** This tree's original research relied entirely on user-pasted articles plus a handful of live-fetched pricing pages, a genuinely thorough pass by pasted-source standards, but one that could not by itself confirm nothing else existed in MFF's help center. `help.myfundedfutures.com/sitemap.xml` was fetched directly (HTTP 200, 83 `<url>` entries: 12 collection pages plus 71 articles) and diffed against every article already used. This surfaced roughly 35 previously-unused, in-scope articles, including five dedicated per-tier plan articles this tree had never had (Rapid 25K/100K/150K, Rapid EOD 25K, Builder 25K), a full account-limits article that definitively resolved three separate previously-unconfirmed "shared bucket" questions across three different plan files at once, a full News Trading Policy that resolved News Trading everywhere it had been Unconfirmed, and an entire Flex Plan product line this tree had never documented at all (previously known only as unread related-article titles), whose own most-current source turned out to announce its own discontinuation. A later 2026-09-19 re-audit closed the one gap this paragraph originally admitted: at that point 13 articles (11 platform-tutorial/login-instruction and 2 MyFundedClub) had been judged out of scope from their titles and a content spot-check rather than read end to end. The re-audit re-fetched the sitemap (still 71 articles, no drift) and read all 21 then-uncited articles in full, so no article in this tree is now excluded on title alone. See `SOURCES.md`. The original wording follows for the record: those articles were confirmed out of scope by their titles and a spot-check of their content (see above), rather than read in full line by line, since this tree documents trading rules, not platform how-tos or a loyalty program. This is the completeness bar future re-verification passes for this firm should match: a sitemap diff, not just whatever sources happen to be pasted or searched for.
