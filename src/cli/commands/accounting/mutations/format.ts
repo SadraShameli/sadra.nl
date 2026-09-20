@@ -1,14 +1,21 @@
 import type { CreateMutationRequestPayload } from '~/lib/accounting/providers/eboekhouden/schemas';
-import type { MutationResponse } from '~/lib/accounting/providers/eboekhouden/schemas';
+import type {
+    ProviderLedger,
+    ProviderMutation,
+} from '~/lib/accounting/providers/provider';
 
 import {
     MUTATION_TYPE_LABEL,
     type MutationType,
 } from '~/lib/accounting/providers/eboekhouden/enums';
 
-export function formatMutationDetail(mutation: MutationResponse): string[] {
+export function formatLedger(ledger: ProviderLedger): string {
+    return `${ledger.externalId}  ${ledger.code}  ${ledger.description}  (${ledger.category})`;
+}
+
+export function formatMutationDetail(mutation: ProviderMutation): string[] {
     const lines = [
-        `id: ${mutation.id}`,
+        `id: ${mutation.externalId}`,
         `date: ${mutation.date}`,
         `type: ${typeLabel(mutation.type)}`,
         `ledger: ${mutation.ledgerId}`,
@@ -51,10 +58,10 @@ export function formatMutationPayload(
     return lines;
 }
 
-export function formatMutationSummary(mutation: MutationResponse): string {
+export function formatMutationSummary(mutation: ProviderMutation): string {
     const total = mutation.rows.reduce((sum, row) => sum + row.amount, 0);
     return [
-        `[${mutation.id}] ${mutation.date}`,
+        `[${mutation.externalId}] ${mutation.date}`,
         typeLabel(mutation.type),
         `ledger=${mutation.ledgerId}`,
         formatEur(total),

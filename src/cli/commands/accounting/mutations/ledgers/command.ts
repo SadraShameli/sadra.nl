@@ -1,14 +1,14 @@
 import { defineCommand } from 'citty';
 
-import { EboekhoudenCredentialResolver } from '~/cli/commands/accounting/EboekhoudenCredentialResolver';
+import { AccountingProviderResolver } from '~/cli/commands/accounting/AccountingProviderResolver';
+import { formatLedger } from '~/cli/commands/accounting/mutations/format';
 import { ui } from '~/cli/ui';
-import { LedgersResource } from '~/lib/accounting/providers/eboekhouden/resources';
 import { endDb } from '~/server/db';
 
 export default defineCommand({
     args: {
         credential: {
-            description: 'eBoekhouden credential id or label to use',
+            description: 'Accounting credential id or label to use',
             type: 'string',
         },
         search: {
@@ -18,25 +18,24 @@ export default defineCommand({
         },
     },
     meta: {
-        description: 'List eBoekhouden ledgers (grootboekrekeningen)',
+        description: 'List ledgers from your accounting provider',
         name: 'ledgers',
     },
     async run(context) {
         try {
-            const credentialRow = await EboekhoudenCredentialResolver.resolveRow(
+            const resolved = await AccountingProviderResolver.openSession(
                 context.args.credential,
             );
-            if (!credentialRow) {
+            if (!resolved) {
                 process.exitCode = 1;
                 return;
             }
-
-            const client =
-                await EboekhoudenCredentialResolver.openClient(credentialRow);
+            const { label, session } = resolved;
             try {
-                const ledgersApi = new LedgersResource(client);
-                const spinner = ui.spinner('Fetching ledgers').start();
-                const ledgers = await ledgersApi.list({ limit: 500 });
+                const spinner = ui
+                    .spinner(`Fetching ledgers from ${label}`)
+                    .start();
+                const ledgers = await session.listLedgers();
                 spinner.succeed(`${ledgers.length} ledger(s) fetched`);
 
                 const search = context.args.search?.toLowerCase();
@@ -48,15 +47,11 @@ export default defineCommand({
                       )
                     : ledgers;
 
-                for (const ledger of filtered) {
-                    ui.note(
-                        `${ledger.id}  ${ledger.code}  ${ledger.description}  (${ledger.category})`,
-                    );
-                }
+                for (const ledger of filtered) ui.note(formatLedger(ledger));
                 if (filtered.length === 0) ui.warn('No matching ledgers.');
             } finally {
                 try {
-                    await client.closeSession();
+                    await session.close();
                 } catch {}
             }
         } finally {

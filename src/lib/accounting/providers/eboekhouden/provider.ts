@@ -31,7 +31,7 @@ import {
     ProviderSessionBase,
 } from '~/lib/accounting/providers/provider';
 
-const adaptLedger = (ledger: LedgerResponse): ProviderLedger => ({
+export const adaptLedger = (ledger: LedgerResponse): ProviderLedger => ({
     category: ledger.category,
     code: ledger.code,
     description: ledger.description,
@@ -39,7 +39,7 @@ const adaptLedger = (ledger: LedgerResponse): ProviderLedger => ({
     group: ledger.group ?? null,
 });
 
-const adaptMutation = (m: MutationResponse): ProviderMutation => ({
+export const adaptMutation = (m: MutationResponse): ProviderMutation => ({
     date: m.date,
     description: m.description ?? null,
     externalId: m.id,

@@ -4,6 +4,7 @@ import { EboekhoudenCredentialResolver } from '~/cli/commands/accounting/Eboekho
 import { formatMutationDetail } from '~/cli/commands/accounting/mutations/format';
 import { ui } from '~/cli/ui';
 import { ExternalId } from '~/lib/accounting/core/ids';
+import { adaptMutation } from '~/lib/accounting/providers/eboekhouden/provider';
 import { MutationsResource } from '~/lib/accounting/providers/eboekhouden/resources';
 import { endDb } from '~/server/db';
 
@@ -42,7 +43,8 @@ export default defineCommand({
                     ExternalId(context.args.id),
                 );
                 spinner.succeed('Mutation fetched');
-                for (const line of formatMutationDetail(mutation)) {
+                const lines = formatMutationDetail(adaptMutation(mutation));
+                for (const line of lines) {
                     ui.note(line);
                 }
             } finally {
