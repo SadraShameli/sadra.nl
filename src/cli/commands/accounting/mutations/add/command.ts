@@ -23,7 +23,8 @@ function enumHelp(labels: Record<string, string>): string {
 export default defineCommand({
     args: {
         amount: {
-            description: 'Row amount (including VAT unless --in-ex-vat=EX)',
+            description:
+                'Row amount (including VAT unless --in-ex-vat=EX); negative to reverse a prior mutation of the same type',
             required: true,
             type: 'string',
         },

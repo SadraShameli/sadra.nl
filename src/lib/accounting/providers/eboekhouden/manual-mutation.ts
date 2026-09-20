@@ -13,7 +13,7 @@ import {
 const DESCRIPTION_MAX_LENGTH = 50;
 
 export const manualMutationInputSchema = z.object({
-    amount: z.coerce.number().positive(),
+    amount: z.coerce.number().refine((n) => n !== 0, 'Amount cannot be zero'),
     date: isoDateSchema,
     description: z.string().max(DESCRIPTION_MAX_LENGTH).optional(),
     inExVat: z.enum(InExVat).optional(),

@@ -28,11 +28,19 @@ describe('manualMutationInputSchema', () => {
         expect(parsed.rowLedger).toBe(4200);
     });
 
-    it('rejects a non-positive amount', () => {
+    it('rejects a zero amount', () => {
         expect(
             manualMutationInputSchema.safeParse({ ...baseInput, amount: '0' })
                 .success,
         ).toBe(false);
+    });
+
+    it('accepts a negative amount, for reversing a prior mutation', () => {
+        const parsed = manualMutationInputSchema.parse({
+            ...baseInput,
+            amount: '-610.84',
+        });
+        expect(parsed.amount).toBe(-610.84);
     });
 
     it('rejects an invalid date format', () => {

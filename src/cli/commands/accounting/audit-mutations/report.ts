@@ -4,6 +4,7 @@ import type { AuditReport, IssueType, VendorBreakdownRow } from './audit';
 
 const ISSUE_LABEL: Record<IssueType, string> = {
     'invalid-vat-code': 'Invalid VAT codes',
+    'possible-duplicate': 'Possible duplicate bookings',
     'rule-drift': 'Bookings that drifted from their matching rule',
     'unexpected-bank-ledger': 'Mutations on an unexpected bank ledger',
     'unknown-ledger': 'References to ledgers that no longer exist',
@@ -15,6 +16,7 @@ const ISSUE_ORDER: IssueType[] = [
     'invalid-vat-code',
     'unknown-ledger',
     'unknown-mutation-type',
+    'possible-duplicate',
     'vendor-conflict',
     'rule-drift',
     'unexpected-bank-ledger',

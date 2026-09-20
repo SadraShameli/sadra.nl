@@ -62,6 +62,7 @@ export interface AuditReport {
 
 export type IssueType =
     | 'invalid-vat-code'
+    | 'possible-duplicate'
     | 'rule-drift'
     | 'unexpected-bank-ledger'
     | 'unknown-ledger'
@@ -229,6 +230,8 @@ export function auditMutations(input: {
         issues.push(conflict);
     }
 
+    issues.push(...findDuplicateCandidates(mutations));
+
     return {
         issues,
         matchedByRule,
@@ -271,6 +274,30 @@ export function buildVendorBreakdown(
         });
     }
     return rows.toSorted((a, b) => b.total - a.total);
+}
+
+export function findDuplicateCandidates(
+    mutations: MutationResponse[],
+): AuditIssue[] {
+    const withVendor = mutations.filter((m) => m.description);
+    const groups = groupBy(withVendor, duplicateKey);
+    const issues: AuditIssue[] = [];
+    for (const group of groups.values()) {
+        if (group.length < 2) continue;
+        const first = group[0];
+        if (!first) continue;
+        const ids = group
+            .map((m) => m.id)
+            .toSorted((a, b) => Number(a) - Number(b));
+        issues.push({
+            codes: ids,
+            message: `${group.length} mutation(s) on ${first.date} share the exact same description "${first.description}" and amount €${rowsTotal(first).toFixed(2)}: ${ids.map((id) => `#${id}`).join(', ')} — check for a duplicate booking.`,
+            mutationIds: ids,
+            severity: 'warning',
+            type: 'possible-duplicate',
+        });
+    }
+    return issues;
 }
 
 function classifyMutations(
@@ -339,6 +366,11 @@ function describeCombo(
     return `${ledgerLabel} / ${vatCode}`;
 }
 
+function duplicateKey(m: MutationResponse): string {
+    const description = (m.description ?? '').trim().toLowerCase();
+    return `${m.date}::${rowsTotal(m).toFixed(2)}::${description}`;
+}
+
 function groupBy<T, K>(
     items: readonly T[],
     keyFunction: (item: T) => K,
@@ -352,6 +384,10 @@ function ledgerCode(
 ): string {
     const ledger = ledgerById.get(id);
     return ledger ? `${ledger.code} ${ledger.description}` : id;
+}
+
+function rowsTotal(m: MutationResponse): number {
+    return m.rows.reduce((sum, r) => sum + r.amount, 0);
 }
 
 function significantWords(text: string): string[] {
