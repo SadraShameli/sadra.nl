@@ -34,7 +34,7 @@ Rapid Live accounts begin at $0 balance and operate under an end-of-day calculat
 
 ### Worked Example
 
-Starting Rapid Live at $0 (matching the source's own "Initial Balance | $0"), consider the Rapid 50k tier with a $2,000 Max Loss Limit. The floor at any point is min($0, peak EOD profit so far − $2,000), per the source's own "Drawdown Floor: Max Loss threshold stops at $0" — every step below re-derives from this formula and from the previous step's own numbers.
+Starting Rapid Live at $0 (matching the source's own "Initial Balance | $0"), consider the Rapid 50k tier with a $2,000 Max Loss Limit. The floor at any point is min($0, peak EOD profit so far − $2,000), per the source's own "Drawdown Floor | Max Loss threshold stops at $0" — every step below re-derives from this formula and from the previous step's own numbers.
 
 Day 1: EOD balance closes at +$1,500 (a new peak profit). Since peak profit ($1,500) is still below the $2,000 Max Loss Limit, the floor is $1,500 − $2,000 = −$500. The account can close as low as −$500 the next day without breaching.
 
@@ -66,6 +66,7 @@ Upon Rapid Sim Funded account transition to Live:
 - All simulated trading accounts and additional purchases are suspended during Live account operation.
 - Up to $5,000 of Sim Funded profits are allocated to Reserve Program balance.
 - Traders now operate a Live account, managing actual capital on behalf of My Funded Futures.
+- **Setup turnaround**: it typically takes 2-4 business days or less for a Live account to be fully set up; wait times may be extended if additional documents are required, per the generic Live Accounts FAQ.
 
 ## Reserve Program and Performance Bonus Structure
 
@@ -102,6 +103,8 @@ Following Live account closure due to Maximum Loss breach, a 21-day cooldown per
 
 - **During Cooldown (21 calendar days):** All Sim Funded account trading is prohibited. New Evaluation purchases, account resets, or additional account acquisitions are prohibited.
 - **Post-Cooldown (after 21 calendar days):** Cooldown restrictions are lifted. Traders can continue from active Sim Funded account (if applicable) and/or purchase new Evaluations or accounts, unless communicated otherwise by the team.
+
+**A discretionary "Path Back to Live" program exists.** A trader who loses their Live account can share feedback and inquire about options for returning to Live; in some cases a "Path Back to Live" plan may be offered, based on the trader's own trading history, to shorten that journey. Not a standing entitlement, per the generic Live Accounts FAQ.
 
 ## Other Confirmed Rules
 

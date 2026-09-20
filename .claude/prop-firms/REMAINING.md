@@ -9,21 +9,22 @@ and record the result in that firm's own `SOURCES.md`, not in this file.
 
 ## Status per firm
 
-| Firm | Plan files | Help-center sources | Main-site sources | Legal docs read | Not Confirmed bullets | Line-by-line audit |
-| ------------ | ---------- | ------------------- | ----------------- | --------------- | --------------------- | ------------------ |
-| alphafutures | 5          | 37                  | 13                | 3               | 71                    | Done 2026-09-20    |
-| apex         | 4          | 0 (main-site dump)  | yes               | 0               | 62                    | Not run            |
-| e8futures    | 2          | 62                  | 0                 | 0               | 18                    | Not run            |
-| fundednext   | 8          | 63                  | 0                 | 0               | 79                    | Not run            |
-| lucid        | 6          | 60                  | 0                 | 0               | 44                    | Not run            |
-| mffu         | 5          | 52                  | 4                 | 0               | 39                    | Not run            |
-| topstep      | 6          | 41                  | 0                 | 0               | 48                    | Not run            |
-| tpt          | 2          | 43                  | 0                 | 0               | 32                    | Not run            |
-| tradeify     | 5          | 58                  | 3                 | 1               | 41                    | Not run            |
+| Firm | Plan files | Help-center sources | Main-site sources | Legal docs read | Line-by-line audit |
+| ------------ | ---------- | ------------------- | ----------------- | --------------- | ------------------- |
+| alphafutures | 5          | 37                  | 13                | 3               | Done 2026-09-20      |
+| apex         | 4          | 129 (main-site dump)| yes               | 0               | Done 2026-09-20      |
+| e8futures    | 2          | 61 (repaired cache) | 16                | 0               | Done 2026-09-20      |
+| fundednext   | 8          | 63                  | 0                 | 0               | Done 2026-09-20      |
+| lucid        | 6          | 60                  | 173               | 0               | Done 2026-09-20      |
+| mffu         | 5          | 52                  | 4                 | 0               | Done 2026-09-20      |
+| topstep      | 6          | 41                  | 0                 | 0               | Done 2026-09-20      |
+| tpt          | 2          | 87 (repaired cache) | 71                | 0               | Done 2026-09-20      |
+| tradeify     | 5          | 76 (repaired cache) | 3                 | 1               | Done 2026-09-20      |
 
-All eight non-apex firms have had the bulk adversarial verifier pass (853
-findings raised, 847 applied). Only Alpha Futures has had the per-file
-two-direction audit described in item 2.
+All nine firms have had the bulk adversarial verifier pass and the per-file
+two-direction line-by-line audit described in item 2. Apex's src-to-doc
+direction (76 findings: 71 MISSING_RULE, 5 CONTRADICTED, heaviest in
+`legacy.md` at 37) was the last piece to close, all applied 2026-09-20.
 
 ## 1. Legal and main-site sweep, 6 firms
 
@@ -81,9 +82,11 @@ findings, two entire clusters were rejected on inspection:
 Marketing pages go stale. The help center and the product pages outrank them.
 Where they conflict, record the conflict and keep the higher-authority figure.
 
-## 2. Per-file line-by-line audit, 7 firms
+## 2. Per-file line-by-line audit: done, all 9 firms
 
-Every firm except Alpha Futures still needs the two-direction audit:
+**Done 2026-09-20.** Every firm has had the two-direction audit described
+below. Shape for reference, and for any future re-audit after a firm's
+sources are refreshed:
 
 - **doc to source**, one agent per plan file: every dollar figure, percentage,
   day count, contract count, fee and named rule must trace to a verbatim phrase
@@ -133,25 +136,44 @@ A fresh browser dump on 2026-09-20 confirmed the set a third time (85 URLs, 76 a
 
 Lesson worth keeping: a `SOURCES.md` can contradict itself across passes. Read the whole completeness section before trusting any one sentence in it.
 
-## 5. Apex, deferred by request
+## 5. Apex: no longer deferred, resolved
 
-Deferred on 2026-09-20, not cancelled. Outstanding:
+Was deferred earlier on 2026-09-20; resumed and finished the same day.
 
 - ~~62 Not Confirmed bullets, 15 lacking a closing clause~~ **Done
   2026-09-20.** All 15 closers written. The tree is now at 435 of 435 bullets
   carrying a closing clause, apex included.
-- **No help-center sources in the ledger at all.** Apex's rows come from a
-  main-site browser dump. `apex-sources/fetch-script-1-support.js` was written
-  for `support.apextraderfunding.com` and has never been run. It needs a
-  logged-in browser.
-- Apex was excluded from every scan and workflow in the 2026-09-20 pass, so it
-  has had neither the main-site line read nor the per-file audit.
+- ~~Apex excluded from every scan and workflow~~ **Done 2026-09-20.** Apex
+  ran both directions of the per-file audit against its 129-file main-site
+  dump (`apex-sources/main`): doc-to-source found 2 minor findings, both
+  applied; source-to-doc found 76 (71 MISSING_RULE, 5 CONTRADICTED), all
+  applied across `README.md` (22), `legacy.md` (37), `eod.md` (8),
+  `intraday.md` (8), `live.md` (1). `legacy.md` was missing entire named
+  rule mechanics (5:1 Risk-Reward, MAE, Hedging, One-Direction, DCA, Scaling
+  violation consequences) that were only ever cited, never stated in body
+  text — now consolidated into a dedicated "Legacy-Specific Trading Rules"
+  section, plus a new "Billing, Cancellation, and Reset Mechanics" section
+  for the recurring-subscription mechanics (72-hour grace period, 48-hour
+  refund window, auto-reset-on-renewal, and related deadlines) that Legacy's
+  billing model needs and the current-generation products don't.
+- **Still open, not part of this pass:** `support.apextraderfunding.com`
+  (Zendesk) was never fetched — it returned HTTP 403 to every direct curl
+  attempt, and its own "How to Contact" article states that helpdesk was
+  discontinued. Whether any of its content contradicts the current
+  `apextraderfunding.com` help center is unresolved. No help-center sources
+  proper are in Apex's ledger at all; every row traces to the main-site
+  browser dump instead.
 
 ## 6. Open Not Confirmed bullets
 
-**372 outside apex, 435 tree-wide.** Largest first: fundednext 79,
-alphafutures 71, topstep 48, lucid 44, tradeify 41, mffu 39, tpt 32,
-e8futures 18.
+**448 tree-wide, recounted 2026-09-20 after Apex's src-to-doc pass.**
+Largest first: fundednext 83, alphafutures 71, apex 62, topstep 51, lucid
+45, tradeify 42, mffu 40, tpt 33, e8futures 20. The count moved from the
+previously-tracked 435 because this pass both resolved several bullets
+(moving them into confirmed tables) and added new ones (source-vs-source
+conflicts a fresh reading surfaced, mostly in `apex/eod.md`,
+`apex/intraday.md`, and `apex/legacy.md`) — a net change, not a sign either
+direction of work is unfinished.
 
 Many are genuinely unresolvable because the firm does not publish the figure,
 and those should stay flagged. A subset would close with a targeted fetch, and

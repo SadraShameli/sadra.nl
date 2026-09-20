@@ -55,7 +55,6 @@ Per "Approved Instruments & Permitted Products List." No EUREX products; no plai
 | 6N     | New Zealand Dollar Futures                              | CME      |
 | 6S     | Swiss Franc Futures                                     | CME      |
 | CL     | Crude Oil Futures                                       | NYMEX    |
-| E7     | E-mini Euro FX Futures                                  | CME      |
 | ES     | E-mini S&P 500 Futures                                  | CME      |
 | GC     | Gold Futures                                            | COMEX    |
 | HG     | Copper Futures                                          | COMEX    |
@@ -72,9 +71,6 @@ Per "Approved Instruments & Permitted Products List." No EUREX products; no plai
 | MYM    | Micro E-mini Dow Jones Industrial Average Index Futures | CBOT     |
 | NG     | Henry Hub Natural Gas Futures                           | NYMEX    |
 | NQ     | E-mini Nasdaq-100 Futures                               | CME      |
-| QI     | E-mini Silver Futures                                   | COMEX    |
-| QM     | E-mini Crude Oil Futures                                | NYMEX    |
-| QO     | E-mini Gold Futures                                     | COMEX    |
 | RTY    | E-mini Russell 2000 Index Futures                       | CME      |
 | SI     | Silver Futures                                          | COMEX    |
 | UB     | Ultra U.S. Treasury Bond Futures                        | CBOT     |
@@ -96,6 +92,18 @@ Per "Approved Instruments & Permitted Products List." No EUREX products; no plai
 - **Independent trade execution**: a trader may not "Open or operate multiple accounts under separate identities for the purpose of distributing materially similar high-risk trades across accounts." Enforcement is not on a fixed schedule: "Actions are determined based on severity and frequency of violations and may occur before, during, or after a payout review."
 - **Passing more tests than you can activate**: the multiple-accounts article's own worked example shows only 5 of 7 passed tests being activatable, because "This particular eligibility is contingent on the presence of either one or none of the PRO accounts being active at that given moment."
 - **The POA form follows a passed test**: "Upon successful completion of your trading test, you will have to sign your PRO trader contract. Additionally, we kindly request your prompt completion of the Power of Attorney (POA) form."
+
+- **Level 2 market data is a paid add-on, Rithmic-only**: "You can get market data level 2 for free for one exchange. Every additional exchange will be $15 a month each. This is only for Rithmic accounts. We don’t offer market depth for CQG accounts at this moment."
+- **Test accounts trade concurrently with everything else**: "Tests are separate from this limit and can be traded alongside your funded accounts." Traders can also run as many Test accounts simultaneously as they want.
+- **Disruptive-trading violations (CME Rule 575) can mean CFTC referral**: "Violations may result in immediate termination of the Trader’s account and referral to CME Market Regulation or the CFTC."
+- **A wash/counter-trading violation escalates beyond a single account**: "Consequences may include: Automatic liquidation and closure of affected accounts, Forfeiture of profits, Restrictions or permanent bans depending on severity." The detection basis includes CME Rule 432, alongside the already-documented 531/533/534/539.
+- **Coordinated or synchronized trading has its own enforcement ladder**: "If coordinated or synchronized trading activity is detected, actions may include: Account review, Profit forfeiture, Account reset, Account liquidation, Permanent ban in cases of severe or repeated violations" ("Independent Trade Execution Policy").
+- **Trade-copier violations have a four-item enforcement list**: "Violations may result in: Profit forfeiture, Account reset or liquidation, Account closure, Permanent ban from TakeProfitTrader."
+- **Copiers cannot be used for pass or payout services**: prohibited uses include to "Participate in pass services, payout services, or coordinated trading schemes" ("Trade Copier Policy").
+- **A product’s own early market close can force liquidation**: "If the market for your product closes before 5 PM Eastern and you cannot exit before the deadline, the account will be liquidated," distinct from the 4:55 PM daily auto-close and the holiday-schedule liquidation rule.
+- **KYB verification is capped at 3 attempts**: "If KYB verification fails, you can try again. You can attempt KYB verification up to 3 times."
+- **A signed tax form gates every PRO withdrawal**: "all PRO Accounts users and affiliates must complete and sign the required tax form before any withdrawal can be processed."
+- **A year-end tax summary is issued automatically**: "After the end of each calendar year, you will receive a tax document that summarizes the total amount of money you earned from Take Profit Trader during that year."
 
 ## Key Cross-Plan Differences
 
@@ -120,7 +128,7 @@ Every row traces back to the matching row in each plan's own file; where a plan 
 
 **Explicitly out of scope, not documented in this tree:**
 
-- **Rewards/points program, Affiliate program** : business/loyalty mechanics (points per milestone, tier levels, affiliate commission structure, banner customization, referral tracking), not trading rules. Nine dedicated articles exist across "About Rewards" and "Affiliate FAQ's"; read in full to confirm they contain no trading-rule content.
+- **Rewards/points program, Affiliate program** : business/loyalty mechanics (points per milestone, tier levels, affiliate commission structure, banner customization, referral tracking), not trading rules. Nine dedicated articles exist across "About Rewards" and "Affiliate FAQ's"; read in full. One correction made 2026-09-20: this claim was not quite true. "Redeeming Reward Points for a Test Account" states a real trading-rule consequence buried in an otherwise loyalty-mechanics article — a Test account purchased with reward credits expires in 60 days and is ineligible for promotions — now documented in `test-pro.md`'s Not Confirmed section instead.
 - **Platform connection guides** (CQG/Rithmic data-feed activation, and 8 platform-specific connection walkthroughs: NinjaTrader 8, TradingView, BookMap, Quantower, MultiCharts, MotiveWave, Finamark) : pure setup instructions, no trading rules. Read in full.
 - **Control Center / dashboard navigation articles** (password/MFA management, subscription navigation, account-finding, wallet UI, log-file downloads, "How TPT Compares," "Understanding the Simulation") : UI/onboarding content, no trading rules. Read in full.
 - **Support logistics** (Live Chat hours: Sunday 4:00 PM ET – Friday 4:30 PM ET; 8 supported languages) : operational detail, not a trading rule.
@@ -128,3 +136,4 @@ Every row traces back to the matching row in each plan's own file; where a plan 
 - **"Withdrawing from the Buffer"** (a one-time, termination-only 50%/80% leftover-buffer-profit split, confirmed directly this pass) and the **$5,000 PRO+ profit-freeze mechanic** (confirmed directly this pass, new this pass) are both documented in full in `test-pro.md` and `pro-plus.md` respectively, but neither is modeled anywhere in this repository's simulator engine : reported per the `prop-firm-docs` skill's own scope, not fixed here.
 - **PRO+ Development** is documented in full in `pro-plus.md` but does not exist anywhere in this repository's engine (`TptLive.ts` has no Development branch at all) : a genuinely new, third account tier this pass discovered, not merely a missing detail on an existing one.
 - **Engine/doc mismatches found this pass, not fixed by this skill** (reported per its own instructions): `TptLive.ts`'s `buildTptLivePlan` hard-codes a single $50,000-origin size with a $2,000 drawdown and no freeze/loss-handling logic : a scope limitation, not a value error. Two engine/doc conflicts reported by an earlier pass were re-checked on 2026-09-19 against the actual source and do not exist: `TptLive.ts` sets `requiresLockForWithdrawal: false` and `LivePlan.withdrawableAmount()` honours that flag, so the engine does not gate a PRO+ withdrawal behind the drawdown lock and does not contradict "Advantages of PRO+"'s "No buffer zone requirement for withdrawal"; and `LivePlanInit` does have a `maxConsecutiveIdleDays` field, which `TptLive.ts` sets to 7, so the weekly-trading requirement is modeled. The remaining caveat there is the derivation, not a missing field: 7 days is carried over from PRO's own weekly requirement, and a calendar-week rule is not identical to a rolling 7-idle-day counter.
+- **Four symbols removed from the Approved Instruments table on 2026-09-20** — this file previously listed E7 (E-mini Euro FX), QI (E-mini Silver), QM (E-mini Crude Oil) and QO (E-mini Gold) as approved, matching `pro-plus.md`'s identical error found and fixed earlier the same day. None of the four appears anywhere in the "official list of all the futures instruments that are permitted and available for trading" article, which lists exactly 34 symbols. Removed rather than flagged, since listing an unapproved instrument as approved is the error most likely to breach an account. Do not restore them without a Take Profit Trader source that names them.
