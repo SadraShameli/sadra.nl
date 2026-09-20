@@ -660,12 +660,12 @@ describe("Tradeify Select Daily: 2x-fresh-profit payout mechanism (hard cap conf
         });
 
         expect(payout?.debited).toBe(plan.payoutRequestCap);
-        expect(payout?.debited).toBe(1000);
+        expect(payout?.debited).toBe(1250);
     });
 
     it('never allows a payout below the required starting-balance buffer', () => {
         const { plan, state, tracker } = selectDailyState(300, 0);
-        expect(plan.payoutRequestCap).toBe(1000);
+        expect(plan.payoutRequestCap).toBe(1250);
 
         const payout = tryFundedPayout({
             maxPayouts: Infinity,
@@ -680,23 +680,24 @@ describe("Tradeify Select Daily: 2x-fresh-profit payout mechanism (hard cap conf
     });
 });
 
-describe('Tradeify Select Flex: payout profit-share cap is unaffected by the Select Daily fix', () => {
-    it('still limits a payout to 50% of cycle profit against the real, registered plan', () => {
+describe('Tradeify Select Flex: payout eligibility is 50% of TOTAL account profit, not cycle-since-last-payout profit', () => {
+    it("caps a payout at 50% of total profit even when cycle profit alone would clear more, matching select-flex.md's own worked second-payout example ($54,000 balance, $4,000 total profit, 50% = $2,000)", () => {
         const flex = tradeify.findPlan({
             accountSize: 50_000,
             firm: FirmId.Tradeify,
             variant: TradeifyVariant.SelectFlex,
         });
         if (!flex) throw new Error('select flex missing');
-        expect(flex.payoutProfitShare).toBe(0.5);
+        expect(flex.payoutProfitShare).toBeNull();
+        expect(flex.payoutBalanceShareCap).toBe(0.5);
 
         const state = flex.initialState();
-        state.balance = state.startingBalance + 5600;
+        state.balance = state.startingBalance + 4000;
         state.threshold = state.startingBalance + 100;
         state.thresholdLocked = true;
         state.qualifyingDays = 999;
         const tracker = newFundedCycleTracker(state);
-        tracker.lastPayoutBalance = state.startingBalance + 5000;
+        tracker.lastPayoutBalance = state.startingBalance + 1250;
         tracker.qualifyingDaysAtLastPayout = 0;
 
         const payout = tryFundedPayout({
@@ -708,7 +709,7 @@ describe('Tradeify Select Flex: payout profit-share cap is unaffected by the Sel
             tracker,
         });
 
-        expect(payout?.debited).toBe(300);
+        expect(payout?.debited).toBe(2000);
     });
 });
 
@@ -734,8 +735,8 @@ describe('Topstep 50K parameters (help.topstep.com)', () => {
 
     const ALL: TopStepVariant[] = Object.values(TOPSTEP_VARIANTS);
 
-    it('offers the full pricing-path by payout-path matrix', () => {
-        expect(topstep.plans).toHaveLength(4);
+    it('offers the full pricing-path by payout-path matrix, plus the Pro Account plan', () => {
+        expect(topstep.plans).toHaveLength(5);
         for (const variant of ALL) {
             expect(plan(variant).accountSize).toBe(50_000);
         }

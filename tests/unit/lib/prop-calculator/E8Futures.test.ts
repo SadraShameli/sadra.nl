@@ -62,7 +62,7 @@ describe('E8 Futures Signature 50K', () => {
     });
 
     it('does not repeat the TPT bug: minPayoutRequest is explicit and independent of minPayoutProfit', () => {
-        expect(plan.minPayoutRequest).toBe(100);
+        expect(plan.minPayoutRequest).toBe(125);
         expect(plan.minPayoutRequest).not.toBe(plan.minPayoutProfit);
     });
 

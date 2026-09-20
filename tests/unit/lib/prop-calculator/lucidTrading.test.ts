@@ -203,14 +203,10 @@ describe("LucidPro/LucidFlex purchasable Daily Loss Limit toggle (live-verified 
         ).toStrictEqual({ kind: DailyLossLimitShape.None });
     });
 
-    it("ProNoDll still applies Pro's 60%-of-peak LucidScale DLL once the drawdown floor locks, unaffected by the eval DLL choice", () => {
+    it("ProNoDll has no funded DLL at all, even once the drawdown floor locks -- pro.md's own Sim Funded table states the Off configuration's Daily Loss Limit as 'Off: none' with no post-lock-scaling clause, unlike the On configuration which keeps Pro's 60%-of-peak LucidScale DLL", () => {
         expect(
             describeDailyLossLimit(proNoDll.fundedDailyLossLimit),
-        ).toStrictEqual({
-            after: { kind: DailyLossLimitShape.ShareOfPeak, share: 0.6 },
-            before: { kind: DailyLossLimitShape.None },
-            kind: DailyLossLimitShape.Staged,
-        });
+        ).toStrictEqual({ kind: DailyLossLimitShape.None });
         expect(
             resolveDailyLossLimit(proNoDll.fundedDailyLossLimit, {
                 isThresholdLocked: false,
@@ -224,7 +220,7 @@ describe("LucidPro/LucidFlex purchasable Daily Loss Limit toggle (live-verified 
                 peakDayCloseProfit: 4000,
                 profit: 4000,
             }),
-        ).toBe(2400);
+        ).toBeNull();
     });
 
     it('ProNoDll (DLL off) costs $20 more than Pro (DLL on) but shares every other rule', () => {
@@ -390,8 +386,12 @@ describe('LucidDirect (live-verified 2026-09-14 from lucidtrading.com plan-card 
 });
 
 describe('Every Lucid plan now carries the live-confirmed 4 mini / 40 micro contract limit', () => {
-    it('sets contractLimits on every registered Lucid plan, none left unrecorded', () => {
+    it('sets contractLimits on every registered Lucid plan except LucidMaxx, whose Max Contracts is genuinely unconfirmed by any source', () => {
         for (const plan of lucid.plans) {
+            if (plan.label.includes('LucidMaxx')) {
+                expect(plan.contractLimits).toBeNull();
+                continue;
+            }
             expect(plan.contractLimits).not.toBeNull();
         }
     });

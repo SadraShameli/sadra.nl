@@ -62,20 +62,22 @@ describe('LivePlan constructor invariants (mirroring Plan.ts)', () => {
         ).toThrow('Test Live: must set liveDrawdown or liveDailyLossLimit');
     });
 
-    it('throws when both liveDrawdown and liveDailyLossLimit are set', () => {
-        expect(
-            () =>
-                new LivePlan(
-                    apexLikeInit({
-                        liveDailyLossLimit: {
-                            amount: dollars(500),
-                            kind: DailyLossLimitKind.Flat,
-                        },
-                    }),
-                ),
-        ).toThrow(
-            'Test Live: set only one of liveDrawdown or liveDailyLossLimit',
+    it('allows both liveDrawdown and liveDailyLossLimit to be set together, for plans like TPT PRO+ Development that need an independent hard-breach drawdown and a soft-breach same-day-pause DLL simultaneously', () => {
+        const plan = new LivePlan(
+            apexLikeInit({
+                liveDailyLossLimit: {
+                    amount: dollars(500),
+                    kind: DailyLossLimitKind.Flat,
+                },
+            }),
         );
+
+        expect(plan.liveDrawdown).not.toBeNull();
+        expect(plan.liveDailyLossLimit).not.toBeNull();
+        expect(plan.isBust(stateAt({ balance: -3000, threshold: -3000 }))).toBe(
+            true,
+        );
+        expect(plan.isDayLockedOut(stateAt({ todayPnL: -500 }))).toBe(true);
     });
 
     it('throws when payoutTiers is empty', () => {
@@ -233,13 +235,27 @@ describe('LivePlan.withdrawableAmount', () => {
         ).toBe(0);
     });
 
-    it('is balance-minus-threshold for a drawdown-shaped plan once the threshold has locked', () => {
-        const plan = buildApexLivePlan();
+    it('is balance-minus-threshold for a drawdown-shaped plan once the threshold has locked, when no payoutFloor override is set', () => {
+        const plan = new LivePlan(apexLikeInit());
 
         expect(
             plan.withdrawableAmount(
                 stateAt({
                     balance: 250,
+                    threshold: 100,
+                    thresholdLocked: true,
+                }),
+            ),
+        ).toBe(150);
+    });
+
+    it('is balance-minus-payoutFloor, not balance-minus-threshold, once locked, when a payoutFloor override is set (Apex Live: the $3,100 safety net, not the $100 drawdown-lock floor)', () => {
+        const plan = buildApexLivePlan();
+
+        expect(
+            plan.withdrawableAmount(
+                stateAt({
+                    balance: 3250,
                     threshold: 100,
                     thresholdLocked: true,
                 }),

@@ -4,6 +4,7 @@ import { FirmId } from '~/lib/prop-calculator/core';
 import { findLivePlanBuilder } from '~/lib/prop-calculator/firms';
 
 const MODELED_LIVE_FIRMS = [
+    FirmId.AlphaFutures,
     FirmId.Apex,
     FirmId.FundedNext,
     FirmId.Mffu,

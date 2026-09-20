@@ -2,6 +2,7 @@ import { inArray } from 'drizzle-orm';
 
 import type { ProviderSession } from '~/lib/accounting/providers/provider';
 
+import '~/lib/accounting/providers/index';
 import { ui } from '~/cli/ui';
 import {
     CredentialRegistry,

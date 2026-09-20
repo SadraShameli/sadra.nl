@@ -21,11 +21,16 @@ describe('Plan.withMaxLifetimePayouts', () => {
             'confirms the real trap this method exists to close: clearing only ' +
             'maxLifetimePayouts is NOT enough to uncap the plan',
         () => {
-            expect(lucidDirect.maxLifetimePayouts).toBe(5);
+            expect(lucidDirect.maxLifetimePayouts).toBeNull();
             expect(lucidDirect.payoutLadder?.steps.length).toBe(5);
             expect(lucidDirect.payoutLadder?.capsAtLastStep).toBeUndefined();
 
-            const halfFixed = lucidDirect.withOverrides({
+            const withCap = lucidDirect.withOverrides({
+                maxLifetimePayouts: 5,
+            });
+            expect(withCap.maxLifetimePayouts).toBe(5);
+
+            const halfFixed = withCap.withOverrides({
                 maxLifetimePayouts: undefined,
             });
             expect(halfFixed.maxLifetimePayouts).toBeNull();

@@ -48,10 +48,14 @@ describe('PayoutFloorEffect is a single discriminant, not two booleans', () => {
         }
     });
 
-    it('TopStep releases the floor to its funded starting balance', () => {
+    it('TopStep releases the floor to its funded starting balance, except Pro Account, whose own post-first-payout floor rule pro-account.md explicitly declines to confirm', () => {
         const firm = findFirm(FirmId.TopStep);
         if (!firm) throw new Error('TopStep not registered');
         for (const plan of firm.plans) {
+            if (plan.label.includes('Pro Account')) {
+                expect(plan.payoutFloorEffect).toBe(PayoutFloorEffect.None);
+                continue;
+            }
             expect(plan.payoutFloorEffect).toBe(PayoutFloorEffect.ReleaseFloor);
         }
     });

@@ -139,7 +139,7 @@ describe('runLiveDay on Apex numbers ($0 start, $3,000 EOD trailing, 5% pre-lock
 });
 
 describe('runLiveHorizon on Apex numbers', () => {
-    it('a full ("withdraw everything") payout drains the account to exactly the locked $100 floor, which then busts the very next day purely because balance now equals -- not exceeds -- the fixed floor', () => {
+    it('a full ("withdraw everything") payout only ever drains the account down to the $3,100 payoutFloor safety net, not the $100 drawdown-lock threshold, so the account never busts from an ordinary full withdrawal', () => {
         const plan = buildApexLivePlan();
 
         const result = runLiveHorizon({
@@ -155,9 +155,9 @@ describe('runLiveHorizon on Apex numbers', () => {
         });
 
         expect(result.daysToFirstWithdrawal).toBe(21);
-        expect(result.totalWithdrawn).toBeCloseTo(3050 * 0.9, 8);
-        expect(result.busted).toBe(true);
-        expect(result.daysToBust).toBe(22);
+        expect(result.totalWithdrawn).toBeCloseTo(315, 8);
+        expect(result.busted).toBe(false);
+        expect(result.daysToBust).toBeNull();
     });
 
     it('a request size small enough for post-lock growth to outpace it never drains the cushion to the floor', () => {
@@ -180,7 +180,7 @@ describe('runLiveHorizon on Apex numbers', () => {
         expect(result.totalWithdrawn).toBeGreaterThan(0);
     });
 
-    it('a request size that outpaces post-lock growth still walks the cushion down to exactly the floor -- and then busts -- once the shrinking cushion can no longer fully satisfy it', () => {
+    it('a request size that outpaces post-lock growth still never busts the account, because withdrawals are capped at the $3,100 payoutFloor, well above the real $100 bust threshold', () => {
         const plan = buildApexLivePlan();
 
         const result = runLiveHorizon({
@@ -196,8 +196,9 @@ describe('runLiveHorizon on Apex numbers', () => {
         });
 
         expect(result.daysToFirstWithdrawal).toBe(21);
-        expect(result.busted).toBe(true);
-        expect(result.daysToBust).toBe(25);
+        expect(result.totalWithdrawn).toBeCloseTo(1125, 8);
+        expect(result.busted).toBe(false);
+        expect(result.daysToBust).toBeNull();
     });
 
     it('never busts over a long horizon of pure losses, because percent-of-cushion sizing with a sub-100% rate cannot drive the cushion to zero on its own', () => {
@@ -516,7 +517,7 @@ describe('simulateLiveAccount', () => {
             winrate: 1,
         });
 
-        const expectedWithdrawn = 3050 * 0.9;
+        const expectedWithdrawn = 315;
         expect(out.cumulativeWithdrawalsAtHorizon).toHaveLength(1);
         expect(out.cumulativeWithdrawalsAtHorizon[0]).toBeCloseTo(
             expectedWithdrawn,
@@ -525,8 +526,8 @@ describe('simulateLiveAccount', () => {
         expect(out.cumulativeWithdrawalsP5).toBeCloseTo(expectedWithdrawn, 8);
         expect(out.cumulativeWithdrawalsP50).toBeCloseTo(expectedWithdrawn, 8);
         expect(out.cumulativeWithdrawalsP95).toBeCloseTo(expectedWithdrawn, 8);
-        expect(out.liveBustProbability).toBe(1);
-        expect(out.medianDaysToBust).toBe(22);
+        expect(out.liveBustProbability).toBe(0);
+        expect(out.medianDaysToBust).toBe(0);
         expect(out.medianDaysToFirstWithdrawal).toBe(21);
         expect(out.expectedAnnualWithdrawalRate).toBeCloseTo(
             (expectedWithdrawn / 22) * TRADING_DAYS_PER_MONTH * 12,

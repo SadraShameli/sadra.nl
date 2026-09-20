@@ -20,9 +20,9 @@ function pro() {
 }
 
 describe('MFFU Pro 50K (live-verified 2026-09-14 against myfundedfutures.com/plans/pro raw page data)', () => {
-    it('caps eval contracts at 3, not the funded-only 5, resolving the prior two-source conflict via the raw maxPositionSize/maxPositionSizeFunded JSON fields', () => {
+    it('caps eval minis at 3 (funded-only 5) but scales micros at the standard 10:1 ratio (30, not 3), matching pro.md\'s directly-confirmed "3 mini / 30 micro" eval figure rather than the embedded JSON\'s bare "3" alone', () => {
         expect(pro().contractLimits?.evalMinis).toBe(3);
-        expect(pro().contractLimits?.evalMicros).toBe(3);
+        expect(pro().contractLimits?.evalMicros).toBe(30);
     });
 
     it('keeps funded contracts flat at 5, unchanged from before', () => {
