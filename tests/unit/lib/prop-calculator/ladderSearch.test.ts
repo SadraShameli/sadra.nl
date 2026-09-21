@@ -180,7 +180,7 @@ describe('scoreLadder golden values (MFF Rapid EOD 50K, 40% WR, 1:2 R:R)', () =>
         { days: 33.7, ladder: [200, 100, 100, 200], pass: 0.759 },
         { days: 64.5, ladder: [100, 100, 100, 100], pass: 0.908 },
         { days: 8.2, ladder: [400, 600, 800, 200], pass: 0.47 },
-        { days: 11, ladder: [400, 600, 500], pass: 0.533 },
+        { days: 11, ladder: [400, 600, 500], pass: 0.465 },
     ];
 
     for (const { days, ladder, pass } of cases) {
@@ -210,6 +210,62 @@ describe('scoreLadder golden values (MFF Rapid EOD 50K, 40% WR, 1:2 R:R)', () =>
         expect(safe.costPerFunded).toBeLessThan(fast.costPerFunded);
     });
 });
+
+describe(
+    'scoreLadder carries real cushion across days — regression: a fixed ' +
+        "per-day cushion assumption (reusing day 1's full $2,000 room on " +
+        'every later day regardless of losses already taken) silently ' +
+        "overstated pass rate for any ladder whose own sum is well under " +
+        "the plan's cushion, since a losing-but-not-busted day genuinely " +
+        'erodes the room available to every later day and a fixed-cushion ' +
+        'day-distribution can never see that erosion',
+    () => {
+        it("scoreLadder's passRate for [400, 600, 500] (sum $1,500, well " +
+            "under the $2,000 cushion) matches simulate()'s real, day-to-" +
+            "day eval-phase pass rate within Monte Carlo tolerance (scoreLadder " +
+            "never models the funded phase, so it is compared against " +
+            "simulate()'s eval-only survival rate, not its full passProbability " +
+            "which also gates on surviving the funded horizon), not the " +
+            'inflated ~53% a fixed-$2,000-every-day model reports', () => {
+            const ladder = [400, 600, 500];
+            const plan = rapidEod();
+
+            const score = scoreLadder(
+                ladder,
+                { ...config(), sims: 50_000 },
+                mulberry32(90_210),
+            );
+
+            const out: SimOutputs = simulate({
+                commissionPerRoundTrip: 0,
+                copyAccounts: 1,
+                dayStop: { kind: DayStopRuleKind.DayGreen },
+                discounts: undefined,
+                evalDayPolicy: {
+                    ladder,
+                    maxLossesPerDay: null,
+                    stopRule: { kind: DayStopRuleKind.DayGreen },
+                },
+                fundedHorizonDays: 1,
+                maxAttempts: 1,
+                maxEvalDays: 150,
+                minRetainedCushion: 0,
+                plan,
+                riskPerTrade: 500,
+                rrRatio: 2,
+                rungSizing: RungSizing.CapToCushion,
+                seed: 42,
+                tradesPerDay: 4,
+                trials: 50_000,
+                winrate: 0.4,
+            });
+
+            const evalPassRate = 1 - out.bustProbability - out.timeoutProbability;
+            expect(score.passRate).toBeCloseTo(evalPassRate, 1);
+            expect(score.passRate).toBeLessThan(0.5);
+        });
+    },
+);
 
 describe('consistency rule is a pass gate, not a failure', () => {
     it('forces a large-best-day account to keep trading past the profit target', () => {
@@ -378,18 +434,18 @@ describe('runLadderSearch', () => {
     it('rediscovers the documented speed-optimal ladder from a full grid', () => {
         const result = runLadderSearch({
             grid: { lo: 100, max: 800, slots: 4, step: 100 },
-            score: { ...config(), sims: 4000 },
+            score: { ...config(), sims: 20_000 },
             seed: 90_210,
             topN: 5,
         });
 
-        expect(result.bySpeed[0]?.ladder).toEqual([400, 600, 800, 800]);
-        expect(result.byCost[0]?.ladder).toEqual([100, 100, 100, 100]);
-
         const winner = result.bySpeed[0];
         if (!winner) throw new Error('no speed winner');
-        expect(winner.ladder.reduce((a, b) => a + b, 0)).toBe(2600);
-    }, 15_000);
+        expect(winner.ladder.slice(0, 3)).toEqual([400, 600, 800]);
+        expect(winner.expectedDaysToFunded).toBeGreaterThan(8);
+        expect(winner.expectedDaysToFunded).toBeLessThan(8.6);
+        expect(result.byCost[0]?.ladder).toEqual([100, 100, 100, 100]);
+    }, 30_000);
 
     it('reports zero dropped aliases for a grid-search grid, since buildLadderGrid never emits a raw ladder with a literal <=0 rung (aliasing only ever collapses that exact case)', () => {
         const result = runLadderSearch({

@@ -37,6 +37,7 @@ export interface LadderScore {
 
 export interface LadderScoreConfig {
     cushion: number;
+    cushionBucketDollars?: number;
     evalPrice: number;
     maxDays: number;
     plan: Plan;
@@ -49,6 +50,7 @@ export interface LadderScoreConfig {
 }
 
 const MIN_SCORABLE_PASS_RATE = 0.02;
+const DEFAULT_CUSHION_BUCKET_DOLLARS = 50;
 
 export interface LadderSearchOptions {
     grid: LadderGridConfig;
@@ -191,7 +193,7 @@ export function scoreLadder(
     rng: () => number,
 ): LadderScore {
     const {
-        cushion,
+        cushionBucketDollars = DEFAULT_CUSHION_BUCKET_DOLLARS,
         evalPrice,
         maxDays,
         plan,
@@ -201,13 +203,28 @@ export function scoreLadder(
         stopRule,
         winrate,
     } = config;
-    const distribution = enumerateDay({
-        cushion,
-        dayPolicy: { ladder, maxLossesPerDay: null, stopRule },
-        rrRatio,
-        rungSizing,
-        winrate,
-    });
+
+    const uncappedThreshold = ladder.reduce((sum, rung) => sum + rung, 0);
+    const distributionCache = new Map<number, DayDistribution>();
+    const distributionFor = (currentCushion: number): DayDistribution => {
+        const clamped = Math.max(0, currentCushion);
+        const bucket =
+            clamped >= uncappedThreshold
+                ? uncappedThreshold
+                : Math.floor(clamped / cushionBucketDollars) *
+                  cushionBucketDollars;
+        const cached = distributionCache.get(bucket);
+        if (cached !== undefined) return cached;
+        const computed = enumerateDay({
+            cushion: bucket,
+            dayPolicy: { ladder, maxLossesPerDay: null, stopRule },
+            rrRatio,
+            rungSizing,
+            winrate,
+        });
+        distributionCache.set(bucket, computed);
+        return computed;
+    };
 
     const start = plan.accountSize;
     const mll = plan.drawdown.amount;
@@ -226,7 +243,7 @@ export function scoreLadder(
     for (let sim = 0; sim < sims; sim++) {
         const attempt = runLadderAttempt({
             consistency,
-            distribution,
+            distributionFor,
             lockedFloor,
             lockTrigger,
             maxDays,
@@ -273,7 +290,7 @@ export function scoreLadder(
 
 function runLadderAttempt(options: {
     consistency: null | number;
-    distribution: DayDistribution;
+    distributionFor: (currentCushion: number) => DayDistribution;
     lockedFloor: number;
     lockTrigger: number;
     maxDays: number;
@@ -285,7 +302,7 @@ function runLadderAttempt(options: {
 }): { endDay: number; isPassed: boolean } {
     const {
         consistency,
-        distribution,
+        distributionFor,
         lockedFloor,
         lockTrigger,
         maxDays,
@@ -302,10 +319,10 @@ function runLadderAttempt(options: {
     let days = 0;
 
     for (let day = 1; day <= maxDays; day++) {
-        const draw = sampleDay(distribution, rng());
         const floor = isLocked
             ? lockedFloor
             : Math.min(peak, lockTrigger) - mll;
+        const draw = sampleDay(distributionFor(balance - floor), rng());
 
         if (balance + draw.worstPnL <= floor) {
             return { endDay: day, isPassed: false };
