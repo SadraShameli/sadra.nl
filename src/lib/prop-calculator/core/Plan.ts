@@ -73,6 +73,7 @@ export interface PlanInit {
     minPayoutProfitPerCycle?: Dollars;
     minPayoutRequest?: Dollars;
     minQualifyingDayProfit?: Dollars | null;
+    minRetainedCushionOverride?: Dollars;
     minTradingDays: number;
     payoutBalanceShareCap?: Fraction0to1;
     payoutBuffer?: PayoutBuffer;
@@ -451,7 +452,7 @@ export abstract class Plan {
     }
 
     defaultRetainedCushion(): number {
-        return this.fundedDrawdown.amount;
+        return this.init.minRetainedCushionOverride ?? this.fundedDrawdown.amount;
     }
 
     resolveRetainedCushion(requested: number | undefined): Dollars {
