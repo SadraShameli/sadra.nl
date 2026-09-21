@@ -735,8 +735,8 @@ describe('Topstep 50K parameters (help.topstep.com)', () => {
 
     const ALL: TopStepVariant[] = Object.values(TOPSTEP_VARIANTS);
 
-    it('offers the full pricing-path by payout-path matrix, plus the Pro Account plan', () => {
-        expect(topstep.plans).toHaveLength(5);
+    it('offers the full pricing-path by payout-path matrix (base and DLL-add-on variants), plus the Pro Account plan', () => {
+        expect(topstep.plans).toHaveLength(9);
         for (const variant of ALL) {
             expect(plan(variant).accountSize).toBe(50_000);
         }

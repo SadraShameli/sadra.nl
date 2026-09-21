@@ -50,10 +50,14 @@ export enum MffuVariant {
 
 export enum TopStepVariant {
     NoFeeConsistency = 'no-fee-consistency',
+    NoFeeConsistencyDll = 'no-fee-consistency-dll',
     NoFeeStandard = 'no-fee-standard',
+    NoFeeStandardDll = 'no-fee-standard-dll',
     ProAccount = 'pro-account',
     StandardConsistency = 'standard-consistency',
+    StandardConsistencyDll = 'standard-consistency-dll',
     StandardStandard = 'standard-standard',
+    StandardStandardDll = 'standard-standard-dll',
 }
 
 export enum TradeifyVariant {
