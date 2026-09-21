@@ -1,5 +1,9 @@
 import { deriveSubSeed, mulberry32 } from '../rng';
 import {
+    type DailyLossLimitConfig,
+    resolveDailyLossLimit,
+} from './DailyLossLimit';
+import {
     canonicaliseLadder,
     type DayPolicy,
     resolveTradeRisk,
@@ -7,6 +11,7 @@ import {
     shouldStopDay,
 } from './DayPolicy';
 import { type Plan } from './Plan';
+import { TradingPhase } from './TradingPhase';
 
 export interface DayDistribution {
     cumulative: readonly number[];
@@ -119,12 +124,14 @@ export function canonicaliseGrid(grid: readonly number[][]): number[][] {
 
 export function enumerateDay(options: {
     cushion: number;
+    dailyLossLimit: null | number;
     dayPolicy: DayPolicy;
     rrRatio: number;
     rungSizing: RungSizing;
     winrate: number;
 }): DayDistribution {
-    const { cushion, dayPolicy, rrRatio, rungSizing, winrate } = options;
+    const { cushion, dailyLossLimit, dayPolicy, rrRatio, rungSizing, winrate } =
+        options;
     const { ladder, maxLossesPerDay, stopRule } = dayPolicy;
     const outcomes: DayOutcome[] = [];
 
@@ -150,7 +157,11 @@ export function enumerateDay(options: {
             return;
         }
 
-        const risk = resolveTradeRisk(intended, remaining, rungSizing);
+        const affordable =
+            dailyLossLimit === null
+                ? remaining
+                : Math.min(remaining, dailyLossLimit + dayPnL);
+        const risk = resolveTradeRisk(intended, affordable, rungSizing);
         if (risk <= 0) {
             outcomes.push({ finalPnL: dayPnL, probability, worstPnL });
             return;
@@ -205,24 +216,30 @@ export function scoreLadder(
     } = config;
 
     const uncappedThreshold = ladder.reduce((sum, rung) => sum + rung, 0);
-    const distributionCache = new Map<number, DayDistribution>();
-    const distributionFor = (currentCushion: number): DayDistribution => {
+    const dailyLossLimitConfig = plan.dailyLossLimitFor(TradingPhase.Eval);
+    const distributionCache = new Map<string, DayDistribution>();
+    const distributionFor = (
+        currentCushion: number,
+        dailyLossLimit: null | number,
+    ): DayDistribution => {
         const clamped = Math.max(0, currentCushion);
         const bucket =
             clamped >= uncappedThreshold
                 ? uncappedThreshold
                 : Math.floor(clamped / cushionBucketDollars) *
                   cushionBucketDollars;
-        const cached = distributionCache.get(bucket);
+        const key = `${bucket}:${dailyLossLimit ?? 'none'}`;
+        const cached = distributionCache.get(key);
         if (cached !== undefined) return cached;
         const computed = enumerateDay({
             cushion: bucket,
+            dailyLossLimit,
             dayPolicy: { ladder, maxLossesPerDay: null, stopRule },
             rrRatio,
             rungSizing,
             winrate,
         });
-        distributionCache.set(bucket, computed);
+        distributionCache.set(key, computed);
         return computed;
     };
 
@@ -243,6 +260,7 @@ export function scoreLadder(
     for (let sim = 0; sim < sims; sim++) {
         const attempt = runLadderAttempt({
             consistency,
+            dailyLossLimitConfig,
             distributionFor,
             lockedFloor,
             lockTrigger,
@@ -290,7 +308,11 @@ export function scoreLadder(
 
 function runLadderAttempt(options: {
     consistency: null | number;
-    distributionFor: (currentCushion: number) => DayDistribution;
+    dailyLossLimitConfig: DailyLossLimitConfig;
+    distributionFor: (
+        currentCushion: number,
+        dailyLossLimit: null | number,
+    ) => DayDistribution;
     lockedFloor: number;
     lockTrigger: number;
     maxDays: number;
@@ -302,6 +324,7 @@ function runLadderAttempt(options: {
 }): { endDay: number; isPassed: boolean } {
     const {
         consistency,
+        dailyLossLimitConfig,
         distributionFor,
         lockedFloor,
         lockTrigger,
@@ -322,7 +345,15 @@ function runLadderAttempt(options: {
         const floor = isLocked
             ? lockedFloor
             : Math.min(peak, lockTrigger) - mll;
-        const draw = sampleDay(distributionFor(balance - floor), rng());
+        const dailyLossLimit = resolveDailyLossLimit(dailyLossLimitConfig, {
+            isThresholdLocked: isLocked,
+            peakDayCloseProfit: peak - start,
+            profit: balance - start,
+        });
+        const draw = sampleDay(
+            distributionFor(balance - floor, dailyLossLimit),
+            rng(),
+        );
 
         if (balance + draw.worstPnL <= floor) {
             return { endDay: day, isPassed: false };

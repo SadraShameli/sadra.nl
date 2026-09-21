@@ -1,4 +1,5 @@
 import { resetForNewDay } from '../core/AccountState';
+import { resolveDailyLossLimit } from '../core/DailyLossLimit';
 import {
     computedDayPolicy,
     type DayPolicy,
@@ -114,6 +115,14 @@ export function runDay(options: DayRunOptions): {
                 dayPolicy.ladder[index] ??
                 0;
             const cushion = state.balance - state.threshold;
+            const dailyLossLimit = resolveDailyLossLimit(
+                plan.dailyLossLimitFor(phase),
+                plan.dailyLossLimitContext(state),
+            );
+            const affordable =
+                dailyLossLimit === null
+                    ? cushion
+                    : Math.min(cushion, dailyLossLimit + state.todayPnL);
             const contractCappedRisk =
                 positionSizing === null
                     ? intendedRisk
@@ -130,7 +139,7 @@ export function runDay(options: DayRunOptions): {
                       );
             const risk = resolveTradeRisk(
                 contractCappedRisk,
-                cushion,
+                affordable,
                 rungSizing,
             );
             if (!Number.isFinite(risk)) {

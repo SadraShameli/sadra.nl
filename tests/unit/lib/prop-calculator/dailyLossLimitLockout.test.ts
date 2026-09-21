@@ -71,9 +71,32 @@ describe('a daily-loss-limit breach stops the day, it does not kill the account'
 
         expect(result.busted).toBe(false);
         expect(result.traded).toBe(true);
-        expect(state.todayPnL).toBe(-1200);
+        expect(state.todayPnL).toBe(-1000);
+        expect(state.balance).toBe(49_000);
         expect(stats.tradesTaken).toBe(3);
         expect(apexEod.isDayLockedOut(state, TradingPhase.Eval)).toBe(true);
+    });
+
+    it("caps the rung that would cross the limit to the remaining room, it doesn't let it lose in full", () => {
+        const state = apexEod.initialState();
+        const stats = freshStats(state.startingBalance);
+
+        runDay({
+            commission: dollars(0),
+            dayPolicy: fourLosingRungs(),
+            phase: TradingPhase.Eval,
+            plan: apexEod,
+            positionSizing: null,
+            rng: alwaysLoses,
+            rrRatio: 2,
+            rungSizing: RungSizing.CapToCushion,
+            state,
+            stats,
+            winrate: fraction(0),
+        });
+
+        expect(state.todayPnL).toBe(-1000);
+        expect(stats.totals.grossLosses).toBe(400 + 400 + 200);
     });
 
     it('lets the account keep trading on the following day', () => {
@@ -92,7 +115,7 @@ describe('a daily-loss-limit breach stops the day, it does not kill the account'
         };
 
         runDay({ ...base, dayPolicy: fourLosingRungs(), rng: alwaysLoses });
-        expect(state.balance).toBe(48_800);
+        expect(state.balance).toBe(49_000);
         expect(state.tradingDays).toBe(1);
         expect(stats.tradesTaken).toBe(3);
 
@@ -102,7 +125,7 @@ describe('a daily-loss-limit breach stops the day, it does not kill the account'
             rng: alwaysLoses,
         });
 
-        expect(stats.tradesTaken).toBeGreaterThan(3);
+        expect(stats.tradesTaken).toBe(6);
         expect(second.busted).toBe(true);
         expect(state.balance).toBe(state.threshold);
     });

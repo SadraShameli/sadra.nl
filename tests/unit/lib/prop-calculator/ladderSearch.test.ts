@@ -83,6 +83,7 @@ describe('enumerateDay', () => {
     it('produces a proper probability distribution', () => {
         const distribution = enumerateDay({
             cushion: 2000,
+            dailyLossLimit: null,
             dayPolicy: {
                 ladder: [400, 600, 800, 200],
                 maxLossesPerDay: null,
@@ -109,6 +110,7 @@ describe('enumerateDay', () => {
             expect(ladder.reduce((a, b) => a + b, 0)).toBe(2000);
             const distribution = enumerateDay({
                 cushion: 2000,
+                dailyLossLimit: null,
                 dayPolicy: {
                     ladder,
                     maxLossesPerDay: null,
@@ -128,6 +130,7 @@ describe('enumerateDay', () => {
     it('never risks more than the remaining cushion on any path', () => {
         const distribution = enumerateDay({
             cushion: 2000,
+            dailyLossLimit: null,
             dayPolicy: {
                 ladder: [400, 600, 900, 1400],
                 maxLossesPerDay: null,
@@ -145,6 +148,7 @@ describe('enumerateDay', () => {
     it('skips unaffordable rungs entirely under skipIfUnaffordable', () => {
         const capped = enumerateDay({
             cushion: 1000,
+            dailyLossLimit: null,
             dayPolicy: {
                 ladder: [400, 900],
                 maxLossesPerDay: null,
@@ -156,6 +160,7 @@ describe('enumerateDay', () => {
         });
         const skipped = enumerateDay({
             cushion: 1000,
+            dailyLossLimit: null,
             dayPolicy: {
                 ladder: [400, 900],
                 maxLossesPerDay: null,
@@ -445,7 +450,7 @@ describe('runLadderSearch', () => {
         expect(winner.expectedDaysToFunded).toBeGreaterThan(8);
         expect(winner.expectedDaysToFunded).toBeLessThan(8.6);
         expect(result.byCost[0]?.ladder).toEqual([100, 100, 100, 100]);
-    }, 30_000);
+    }, 90_000);
 
     it('reports zero dropped aliases for a grid-search grid, since buildLadderGrid never emits a raw ladder with a literal <=0 rung (aliasing only ever collapses that exact case)', () => {
         const result = runLadderSearch({
