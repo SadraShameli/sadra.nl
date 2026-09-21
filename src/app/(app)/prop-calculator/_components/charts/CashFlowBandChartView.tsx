@@ -90,14 +90,6 @@ export default function CashFlowBandChartView({ result }: Properties) {
                     strokeDasharray="4 4"
                     y={0}
                 />
-                {/* "Floating band" stacking technique: an invisible area up to
-                    the P10 line, then a visible area stacked on top of it
-                    spanning P10→P90 (`range = P90 - P10`). Unlike a plain
-                    two-area punch-through (which only reads correctly when
-                    every value sits on the same side of a shared zero
-                    baseline), this stays correct even where the band
-                    straddles zero — which cash flow always does early on,
-                    before any card has ever paid out. */}
                 <Area
                     dataKey="low"
                     fill="transparent"

@@ -452,7 +452,9 @@ export abstract class Plan {
     }
 
     defaultRetainedCushion(): number {
-        return this.init.minRetainedCushionOverride ?? this.fundedDrawdown.amount;
+        return (
+            this.init.minRetainedCushionOverride ?? this.fundedDrawdown.amount
+        );
     }
 
     resolveRetainedCushion(requested: number | undefined): Dollars {

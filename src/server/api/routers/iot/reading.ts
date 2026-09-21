@@ -1,4 +1,3 @@
-/* eslint-disable perfectionist/sort-modules */
 import { format } from 'date-fns';
 import { and, asc, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { z } from 'zod';
@@ -53,14 +52,6 @@ const readingsQueryInputSchema = z.union([
 const ALERT_COOLDOWN_MS = 10 * 60 * 1000;
 const lastAlertAt = new Map<number, number>();
 
-function shouldAlert(deviceId: number): boolean {
-    const now = Date.now();
-    const previous = lastAlertAt.get(deviceId);
-    if (previous && now - previous < ALERT_COOLDOWN_MS) return false;
-    lastAlertAt.set(deviceId, now);
-    return true;
-}
-
 async function getReading(
     input: z.infer<typeof readingProperties>,
     context: ContextType,
@@ -75,6 +66,14 @@ async function getReading(
               error: `Reading id ${input.id} not found`,
               status: 404,
           };
+}
+
+function shouldAlert(deviceId: number): boolean {
+    const now = Date.now();
+    const previous = lastAlertAt.get(deviceId);
+    if (previous && now - previous < ALERT_COOLDOWN_MS) return false;
+    lastAlertAt.set(deviceId, now);
+    return true;
 }
 
 const PERIOD_BY_GRANULARITY: Record<

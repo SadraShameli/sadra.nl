@@ -347,9 +347,7 @@ function duplicateKey(m: MutationResponse): string {
     return `${m.date}::${rowsTotal(m).toFixed(2)}::${description}`;
 }
 
-function findDuplicateCandidates(
-    mutations: MutationResponse[],
-): AuditIssue[] {
+function findDuplicateCandidates(mutations: MutationResponse[]): AuditIssue[] {
     const withVendor = mutations.filter((m) => m.description);
     const groups = groupBy(withVendor, duplicateKey);
     const issues: AuditIssue[] = [];

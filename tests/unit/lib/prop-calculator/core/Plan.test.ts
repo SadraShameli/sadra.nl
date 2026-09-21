@@ -22,7 +22,7 @@ describe('Plan.withMaxLifetimePayouts', () => {
             'maxLifetimePayouts is NOT enough to uncap the plan. LucidDirect used ' +
             'to be exactly this shape until capsAtLastStep: true was added to its ' +
             "own payoutLadder to match the firm's confirmed no-cap payout policy, " +
-            "so this test now builds the trap directly instead of riding a live " +
+            'so this test now builds the trap directly instead of riding a live ' +
             'plan that could get fixed out from under it again',
         () => {
             const trapped = lucidDirect.withOverrides({

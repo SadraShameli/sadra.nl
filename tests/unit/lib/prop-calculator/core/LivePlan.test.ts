@@ -192,7 +192,7 @@ describe('LivePlan constructor invariants (mirroring Plan.ts)', () => {
         expect(() => new LivePlan(lucidLikeInit())).not.toThrow();
     });
 
-    it('throws when payoutFloor and a non-None payoutFloorEffect are both set, because withdraw() would move the threshold to the effect\'s floor while withdrawableAmount() had already capped the withdrawal at the payoutFloor override, letting balance fall below the effect\'s floor', () => {
+    it("throws when payoutFloor and a non-None payoutFloorEffect are both set, because withdraw() would move the threshold to the effect's floor while withdrawableAmount() had already capped the withdrawal at the payoutFloor override, letting balance fall below the effect's floor", () => {
         expect(
             () => new LivePlan(lucidLikeInit({ payoutFloor: dollars(500) })),
         ).toThrow(
@@ -209,7 +209,7 @@ describe('LivePlan constructor invariants (mirroring Plan.ts)', () => {
         ).toThrow(/payoutFloor and a non-None payoutFloorEffect/);
     });
 
-    it('does not throw when payoutFloor is set alongside the default None payoutFloorEffect, matching Apex Live\'s own $3,100 safety-net configuration', () => {
+    it("does not throw when payoutFloor is set alongside the default None payoutFloorEffect, matching Apex Live's own $3,100 safety-net configuration", () => {
         expect(
             () => new LivePlan(apexLikeInit({ payoutFloor: dollars(3100) })),
         ).not.toThrow();
@@ -552,7 +552,9 @@ describe('LivePlan.withdraw', () => {
     ])(
         'never leaves balance below the resulting threshold after withdrawing exactly withdrawableAmount(state), for $name -- the invariant floorAfterWithdrawal exists to guarantee, since a violation here means a payout can push the account into an immediate bust',
         ({ effect }) => {
-            const plan = new LivePlan(lucidLikeInit({ payoutFloorEffect: effect }));
+            const plan = new LivePlan(
+                lucidLikeInit({ payoutFloorEffect: effect }),
+            );
             const state = stateAt({
                 balance: 1000,
                 threshold: -1900,

@@ -340,13 +340,14 @@ export function RecordingsPanel() {
                             <p className="text-xs text-muted-foreground">
                                 Playing: {row.original.file_name}
                             </p>
-                            {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
                             <audio
                                 className="w-full"
                                 controls
                                 preload="none"
                                 src={apiRoutes.recording(row.original.id)}
-                            />
+                            >
+                                <track kind="captions" />
+                            </audio>
                         </div>
                     )}
                     rowId={(r) => String(r.id)}
