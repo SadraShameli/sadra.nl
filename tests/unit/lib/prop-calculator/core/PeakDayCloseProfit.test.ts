@@ -134,21 +134,21 @@ describe('peak day-close profit', () => {
             dayPolicy: flatDayPolicy(2500, 1),
             rng: scriptedRng([0]),
         });
-        expect(state.balance).toBe(52_000);
+        expect(state.balance).toBe(51_200);
         expect(state.thresholdLocked).toBe(false);
-        expect(state.peakDayCloseProfit).toBe(2000);
+        expect(state.peakDayCloseProfit).toBe(1200);
 
         runDay({
             ...base,
-            dayPolicy: flatDayPolicy(200, 1),
+            dayPolicy: flatDayPolicy(2500, 1),
             rng: scriptedRng([0]),
         });
-        expect(state.balance).toBe(52_200);
+        expect(state.balance).toBe(52_400);
         expect(state.thresholdLocked).toBe(true);
-        expect(state.peakDayCloseProfit).toBe(2200);
+        expect(state.peakDayCloseProfit).toBe(2400);
 
-        expect(plan.profitFor(state)).toBe(2200);
-        expect(state.peakDayCloseProfit).toBe(2200);
+        expect(plan.profitFor(state)).toBe(2400);
+        expect(state.peakDayCloseProfit).toBe(2400);
     });
 
     it('does not shrink when a withdrawal reduces the balance', () => {

@@ -199,7 +199,7 @@ describe('Apex Intraday daily-loss-limit: lockout behavior differs by phase', ()
             winrate: fraction(0),
         });
         expect(fundedResult.busted).toBe(false);
-        expect(fundedState.todayPnL).toBe(-1500);
+        expect(fundedState.todayPnL).toBe(-1000);
         expect(fundedState.tradingDays).toBe(0);
     });
 });
