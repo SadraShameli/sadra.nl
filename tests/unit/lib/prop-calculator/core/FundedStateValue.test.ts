@@ -479,6 +479,7 @@ describe(
                     evalInitialValue: 0,
                     feePerAttempt: dollars(0),
                     maxActionMultiple: 3,
+                    minRetainedCushion: plan.fundedDrawdown.amount,
                     payoutRegimeCap: 0,
                     plan,
                     positionSizing: {
