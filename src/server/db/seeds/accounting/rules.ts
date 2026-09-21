@@ -87,7 +87,7 @@ const RULES: SeedRule[] = [
         display: 'Topstep',
         ledger: FUNDED,
         match: 'topstep',
-        vatCode: VatCode.BuEuInk,
+        vatCode: VatCode.HoogInk21,
     },
     {
         direction: 'OUT',
