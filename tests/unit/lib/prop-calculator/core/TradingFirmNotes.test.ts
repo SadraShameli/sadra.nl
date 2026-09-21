@@ -25,6 +25,7 @@ describe('TradingFirm.notes (live-verified 2026-09-10, MFFU only)', () => {
             FirmId.AlphaFutures,
             FirmId.Apex,
             FirmId.E8Futures,
+            FirmId.FtmoFutures,
             FirmId.FundedNext,
             FirmId.Lucid,
             FirmId.Mffu,

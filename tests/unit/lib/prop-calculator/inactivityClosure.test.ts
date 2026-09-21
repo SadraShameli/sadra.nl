@@ -108,8 +108,12 @@ describe('runDay: opt-in idle-day closure', () => {
     });
 
     it(
-        'is a true no-op for a plan without the rule, even with idleDayProbability set — ' +
-            'identical draw count and identical result with or without it',
+        'genuinely produces an idle day for a plan with no closure rule at all, since ' +
+            'idleDayProbability models the trader choosing not to trade that day, not ' +
+            "whether a firm's inactivity rule exists to punish it — a subscription-billed " +
+            "eval's elapsed-day cost must reflect a skipped day even when nothing can " +
+            'ever close the account for taking one (this used to be a true no-op, which ' +
+            'silently forced every such eval to trade every single day)',
         () => {
             const plan = alphaFuturesStandard();
             expect(plan.maxConsecutiveIdleDays).toBeNull();
@@ -142,9 +146,47 @@ describe('runDay: opt-in idle-day closure', () => {
             const withIdleSet = runOnce(1);
             const withoutIdleSet = runOnce(undefined);
 
-            expect(withIdleSet.draws).toBe(withoutIdleSet.draws);
-            expect(withIdleSet.result).toStrictEqual(withoutIdleSet.result);
-            expect(withIdleSet.state).toStrictEqual(withoutIdleSet.state);
+            expect(withIdleSet.result.traded).toBe(false);
+            expect(withIdleSet.state.consecutiveIdleDays).toBe(1);
+            expect(withoutIdleSet.result.traded).toBe(true);
+            expect(withoutIdleSet.state.consecutiveIdleDays).toBe(0);
+            expect(withIdleSet.result).not.toStrictEqual(withoutIdleSet.result);
+        },
+    );
+
+    it(
+        'never closes for inactivity on a plan with no closure rule, no matter how ' +
+            'many consecutive idle days accumulate, since there is no threshold to trip',
+        () => {
+            const plan = alphaFuturesStandard();
+            expect(plan.maxConsecutiveIdleDays).toBeNull();
+            const state = plan.initialState();
+            const { stats } = freshStats(state.startingBalance);
+
+            for (let day = 0; day < 50; day++) {
+                const result = runDay({
+                    commission: dollars(0),
+                    dayPolicy: {
+                        ladder: [2000],
+                        maxLossesPerDay: null,
+                        stopRule: { kind: DayStopRuleKind.None },
+                    },
+                    idleDayProbability: 1,
+                    phase: TradingPhase.Eval,
+                    plan,
+                    positionSizing: null,
+                    rng: () => 0,
+                    rrRatio: 2,
+                    rungSizing: RungSizing.CapToCushion,
+                    state,
+                    stats,
+                    winrate: fraction(0.4),
+                });
+                expect(result.traded).toBe(false);
+                expect(result.busted).toBe(false);
+                expect(result.closedForInactivity).toBe(false);
+            }
+            expect(state.consecutiveIdleDays).toBe(50);
         },
     );
 

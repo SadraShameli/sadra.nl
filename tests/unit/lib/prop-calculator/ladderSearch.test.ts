@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    DailyLossLimitBreachEffect,
     DailyLossLimitKind,
     DayStopRuleKind,
     dollars,
@@ -8,6 +9,7 @@ import {
     FirmId,
     flatDayPolicy,
     fraction,
+    FtmoFuturesVariant,
     ladderFrontier,
     MffuVariant,
     RungSizing,
@@ -22,6 +24,7 @@ import {
     runLadderSearch,
     scoreLadder,
 } from '~/lib/prop-calculator/core/LadderSearch';
+import { findFirm } from '~/lib/prop-calculator/firms';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 import { mulberry32 } from '~/lib/prop-calculator/rng';
 import { type SimOutputs } from '~/lib/prop-calculator/simulator';
@@ -220,55 +223,59 @@ describe(
     'scoreLadder carries real cushion across days — regression: a fixed ' +
         "per-day cushion assumption (reusing day 1's full $2,000 room on " +
         'every later day regardless of losses already taken) silently ' +
-        "overstated pass rate for any ladder whose own sum is well under " +
+        'overstated pass rate for any ladder whose own sum is well under ' +
         "the plan's cushion, since a losing-but-not-busted day genuinely " +
         'erodes the room available to every later day and a fixed-cushion ' +
         'day-distribution can never see that erosion',
     () => {
-        it("scoreLadder's passRate for [400, 600, 500] (sum $1,500, well " +
-            "under the $2,000 cushion) matches simulate()'s real, day-to-" +
-            "day eval-phase pass rate within Monte Carlo tolerance (scoreLadder " +
-            "never models the funded phase, so it is compared against " +
-            "simulate()'s eval-only survival rate, not its full passProbability " +
-            "which also gates on surviving the funded horizon), not the " +
-            'inflated ~53% a fixed-$2,000-every-day model reports', () => {
-            const ladder = [400, 600, 500];
-            const plan = rapidEod();
+        it(
+            "scoreLadder's passRate for [400, 600, 500] (sum $1,500, well " +
+                "under the $2,000 cushion) matches simulate()'s real, day-to-" +
+                'day eval-phase pass rate within Monte Carlo tolerance (scoreLadder ' +
+                'never models the funded phase, so it is compared against ' +
+                "simulate()'s eval-only survival rate, not its full passProbability " +
+                'which also gates on surviving the funded horizon), not the ' +
+                'inflated ~53% a fixed-$2,000-every-day model reports',
+            () => {
+                const ladder = [400, 600, 500];
+                const plan = rapidEod();
 
-            const score = scoreLadder(
-                ladder,
-                { ...config(), sims: 50_000 },
-                mulberry32(90_210),
-            );
-
-            const out: SimOutputs = simulate({
-                commissionPerRoundTrip: 0,
-                copyAccounts: 1,
-                dayStop: { kind: DayStopRuleKind.DayGreen },
-                discounts: undefined,
-                evalDayPolicy: {
+                const score = scoreLadder(
                     ladder,
-                    maxLossesPerDay: null,
-                    stopRule: { kind: DayStopRuleKind.DayGreen },
-                },
-                fundedHorizonDays: 1,
-                maxAttempts: 1,
-                maxEvalDays: 150,
-                minRetainedCushion: 0,
-                plan,
-                riskPerTrade: 500,
-                rrRatio: 2,
-                rungSizing: RungSizing.CapToCushion,
-                seed: 42,
-                tradesPerDay: 4,
-                trials: 50_000,
-                winrate: 0.4,
-            });
+                    { ...config(), sims: 50_000 },
+                    mulberry32(90_210),
+                );
 
-            const evalPassRate = 1 - out.bustProbability - out.timeoutProbability;
-            expect(score.passRate).toBeCloseTo(evalPassRate, 1);
-            expect(score.passRate).toBeLessThan(0.5);
-        });
+                const out: SimOutputs = simulate({
+                    commissionPerRoundTrip: 0,
+                    copyAccounts: 1,
+                    dayStop: { kind: DayStopRuleKind.DayGreen },
+                    discounts: undefined,
+                    evalDayPolicy: {
+                        ladder,
+                        maxLossesPerDay: null,
+                        stopRule: { kind: DayStopRuleKind.DayGreen },
+                    },
+                    fundedHorizonDays: 1,
+                    maxAttempts: 1,
+                    maxEvalDays: 150,
+                    minRetainedCushion: 0,
+                    plan,
+                    riskPerTrade: 500,
+                    rrRatio: 2,
+                    rungSizing: RungSizing.CapToCushion,
+                    seed: 42,
+                    tradesPerDay: 4,
+                    trials: 50_000,
+                    winrate: 0.4,
+                });
+
+                const evalPassRate =
+                    1 - out.bustProbability - out.timeoutProbability;
+                expect(score.passRate).toBeCloseTo(evalPassRate, 1);
+                expect(score.passRate).toBeLessThan(0.5);
+            },
+        );
     },
 );
 
@@ -548,4 +555,93 @@ describe('eval and funded day policies are independent', () => {
         const evalLadder = runPhaseSim({ evalDayPolicy: aggressiveLadder });
         expect(evalLadder.daysToPassP50).not.toBe(flat.daysToPassP50);
     });
+});
+
+describe('scoreLadder honours a terminating daily loss limit', () => {
+    const softPlan = rapidEod().withOverrides({
+        evalDailyLossLimit: {
+            amount: dollars(1000),
+            kind: DailyLossLimitKind.Flat,
+        },
+    });
+    const hardPlan = softPlan.withOverrides({
+        evalDailyLossLimitBreach: DailyLossLimitBreachEffect.Terminate,
+    });
+    const score = (plan: typeof softPlan, ladder: readonly number[]) =>
+        scoreLadder(
+            ladder,
+            { ...config(), plan, stopRule: { kind: DayStopRuleKind.None } },
+            mulberry32(90_210),
+        );
+
+    it(
+        'a ladder whose rungs sum past the limit scores strictly worse under a ' +
+            'hard limit than under an identical soft one, because reaching the ' +
+            'limit ends the account instead of ending the day — without this the ' +
+            'ladder optimizer would keep recommending account-killing ladders ' +
+            'that the simulator on the same screen reports as fatal',
+        () => {
+            const overLadder = [400, 400, 400];
+            const soft = score(softPlan, overLadder);
+            const hard = score(hardPlan, overLadder);
+            expect(soft.passRate).toBeGreaterThan(0);
+            expect(hard.passRate).toBeLessThan(soft.passRate);
+        },
+    );
+
+    it(
+        'a ladder that can never reach the limit scores identically under both, ' +
+            'so the new bust path is inert unless the trader actually risks into it',
+        () => {
+            const underLadder = [200, 200, 200];
+            expect(score(hardPlan, underLadder).passRate).toBe(
+                score(softPlan, underLadder).passRate,
+            );
+        },
+    );
+});
+
+describe('scoreLadder folds the monthly subscription into costPerFunded', () => {
+    it(
+        'is nonzero for a subscription-priced plan with $0 activation and ' +
+            "$0 one-time eval fee, using each ladder's own mean days-to-pass " +
+            'to size the number of subscription months charged',
+        () => {
+            const firmObject = findFirm(FirmId.FtmoFutures);
+            if (!firmObject)
+                throw new Error('FTMO Futures firm not registered');
+            const plan = firmObject.findPlan({
+                accountSize: 50_000,
+                firm: FirmId.FtmoFutures,
+                variant: FtmoFuturesVariant.Growth,
+            });
+            if (!plan) throw new Error('FTMO Growth 50K plan not found');
+            expect(plan.fees.activation).toBe(0);
+            expect(plan.fees.oneTimeEval).toBe(0);
+            expect(plan.fees.monthlySubscription).toBeGreaterThan(0);
+
+            const score = scoreLadder(
+                [500, 800, 700],
+                {
+                    cushion: plan.drawdown.amount,
+                    evalPrice: plan.fees.activation + plan.fees.oneTimeEval,
+                    maxDays: 150,
+                    plan,
+                    rrRatio: 2,
+                    rungSizing: RungSizing.CapToCushion,
+                    seedOffset: 0,
+                    sims: 20_000,
+                    stopRule: { kind: DayStopRuleKind.DayGreen },
+                    winrate: 0.4,
+                },
+                mulberry32(90_210),
+            );
+
+            expect(score.passRate).toBeGreaterThan(0);
+            expect(score.costPerFunded).toBeGreaterThan(0);
+            expect(score.costPerFunded).toBeGreaterThanOrEqual(
+                plan.fees.monthlySubscription,
+            );
+        },
+    );
 });

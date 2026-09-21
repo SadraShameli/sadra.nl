@@ -1,10 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
-import { FirmId } from '~/lib/prop-calculator/core';
+import {
+    DailyLossLimitBreachEffect,
+    DailyLossLimitKind,
+    dollars,
+    FirmId,
+    serializePlanId,
+    TradingPhase,
+} from '~/lib/prop-calculator/core';
 import {
     E8FuturesVariant,
     LucidVariant,
 } from '~/lib/prop-calculator/core/PlanId';
+import { ALL_FIRMS } from '~/lib/prop-calculator/firms';
 import { E8Futures } from '~/lib/prop-calculator/firms/e8futures/E8Futures';
 import { LucidTrading } from '~/lib/prop-calculator/firms/lucid/LucidTrading';
 
@@ -118,4 +126,111 @@ describe('Plan constructor: minTradingDays invariant', () => {
             lucidDirect.withOverrides({ minTradingDays: 0 }).minTradingDays,
         ).toBe(0);
     });
+});
+
+describe('Plan.isBust: hard vs soft daily loss limit', () => {
+    const softDll = lucidDirect.withOverrides({
+        evalDailyLossLimit: {
+            amount: dollars(1000),
+            kind: DailyLossLimitKind.Flat,
+        },
+        evalDailyLossLimitBreach: undefined,
+    });
+    const hardDll = softDll.withOverrides({
+        evalDailyLossLimitBreach: DailyLossLimitBreachEffect.Terminate,
+    });
+    const atLimit = () => ({ ...softDll.initialState(), todayPnL: -1000 });
+
+    it(
+        'a soft limit stops the day without killing the account, which is the ' +
+            'behaviour every firm modeled before hard limits existed and the ' +
+            'one FTMO Growth still relies on ("The account is not terminated")',
+        () => {
+            expect(softDll.isDayLockedOut(atLimit(), TradingPhase.Eval)).toBe(
+                true,
+            );
+            expect(softDll.isBust(atLimit(), TradingPhase.Eval)).toBe(false);
+        },
+    );
+
+    it(
+        'a hard limit kills the account on the same state, because FTMO counts ' +
+            'equity merely hitting the limit as a violation, not exceeding it',
+        () => {
+            expect(hardDll.isDayLockedOut(atLimit(), TradingPhase.Eval)).toBe(
+                true,
+            );
+            expect(hardDll.isBust(atLimit(), TradingPhase.Eval)).toBe(true);
+        },
+    );
+
+    it('one dollar short of a hard limit is neither locked out nor bust', () => {
+        const oneShort = { ...hardDll.initialState(), todayPnL: -999 };
+        expect(hardDll.isDayLockedOut(oneShort, TradingPhase.Eval)).toBe(false);
+        expect(hardDll.isBust(oneShort, TradingPhase.Eval)).toBe(false);
+    });
+
+    it(
+        'the drawdown breach still busts on its own, so the added daily-loss ' +
+            'clause composes with the drawdown check instead of replacing it',
+        () => {
+            const drawdownBreached = {
+                ...softDll.initialState(),
+                balance: softDll.initialState().threshold,
+            };
+            expect(softDll.isBust(drawdownBreached, TradingPhase.Eval)).toBe(
+                true,
+            );
+            expect(
+                softDll.isDayLockedOut(drawdownBreached, TradingPhase.Eval),
+            ).toBe(false);
+        },
+    );
+
+    it('the funded phase inherits the eval breach effect unless it sets its own, mirroring the existing fundedDailyLossLimit fallback', () => {
+        expect(hardDll.isDailyLossLimitTerminating(TradingPhase.Funded)).toBe(
+            true,
+        );
+        const softFunded = hardDll.withOverrides({
+            fundedDailyLossLimitBreach: DailyLossLimitBreachEffect.Lockout,
+        });
+        expect(softFunded.isDailyLossLimitTerminating(TradingPhase.Eval)).toBe(
+            true,
+        );
+        expect(
+            softFunded.isDailyLossLimitTerminating(TradingPhase.Funded),
+        ).toBe(false);
+    });
+
+    it('rejects a Terminate breach declared against a limit of None, since there is nothing to breach', () => {
+        expect(() =>
+            lucidDirect.withOverrides({
+                evalDailyLossLimit: { kind: DailyLossLimitKind.None },
+                evalDailyLossLimitBreach: DailyLossLimitBreachEffect.Terminate,
+                fundedDailyLossLimitBreach: DailyLossLimitBreachEffect.Lockout,
+            }),
+        ).toThrow(/nothing to breach/);
+    });
+
+    it(
+        'every plan of every registered firm keeps the Lockout default except ' +
+            'FTMO Pro, which is the guard that the new field changed nobody ' +
+            "else's modeled behaviour",
+        () => {
+            const terminating = ALL_FIRMS.flatMap((firm) =>
+                firm.plans
+                    .filter(
+                        (plan) =>
+                            plan.isDailyLossLimitTerminating(
+                                TradingPhase.Eval,
+                            ) ||
+                            plan.isDailyLossLimitTerminating(
+                                TradingPhase.Funded,
+                            ),
+                    )
+                    .map((plan) => serializePlanId(plan.id)),
+            );
+            expect(terminating).toStrictEqual(['ftmo-futures-50000-pro']);
+        },
+    );
 });

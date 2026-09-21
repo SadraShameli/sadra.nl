@@ -512,8 +512,12 @@ export const planArguments = {
     },
 } satisfies ArgsDef;
 
-export function describeDll(config: DailyLossLimitConfig): string {
-    return describeDllShape(describeDailyLossLimit(config));
+export function describeDll(
+    config: DailyLossLimitConfig,
+    isTerminating: boolean,
+): string {
+    const shape = describeDllShape(describeDailyLossLimit(config));
+    return isTerminating ? `${shape} (hard)` : shape;
 }
 
 export function describeFundedMinis(

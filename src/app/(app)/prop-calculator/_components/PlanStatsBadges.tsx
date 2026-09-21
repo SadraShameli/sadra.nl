@@ -7,6 +7,7 @@ import {
     describeDailyLossLimit,
     DrawdownKind,
     type Plan,
+    TradingPhase,
 } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
@@ -32,6 +33,9 @@ export default function PlanStatsBadges({ plan }: PlanStatsBadgesProperties) {
         ? (plan.consistency.maxBestDayShare * 100).toFixed(0)
         : null;
     const dailyLossLimitValue = dailyLossLimitLabel(plan.fundedDailyLossLimit);
+    const isDailyLossLimitHard = plan.isDailyLossLimitTerminating(
+        TradingPhase.Funded,
+    );
 
     return (
         <div
@@ -54,7 +58,17 @@ export default function PlanStatsBadges({ plan }: PlanStatsBadgesProperties) {
                 <Badge label="Consistency" value={`${consistencyPct}% rule`} />
             )}
             {dailyLossLimitValue !== null && (
-                <Badge label="Daily loss" value={dailyLossLimitValue} />
+                <Badge
+                    label="Daily loss"
+                    value={
+                        isDailyLossLimitHard
+                            ? `${dailyLossLimitValue} (hard, ends account)`
+                            : dailyLossLimitValue
+                    }
+                    valueClassName={
+                        isDailyLossLimitHard ? 'text-destructive' : undefined
+                    }
+                />
             )}
         </div>
     );

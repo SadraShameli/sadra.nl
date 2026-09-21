@@ -4,6 +4,7 @@ import {
     ApexVariant,
     DayStopRuleKind,
     FirmId,
+    FtmoFuturesVariant,
     MffuVariant,
     type Plan,
     type PlanId,
@@ -86,4 +87,42 @@ describe('costPerFundedAccount / costPerDrawdownDollar', () => {
         );
         expect(out.costPerFundedAccount).toBeGreaterThan(evalPrice);
     });
+});
+
+describe('costPerFundedAccount on a subscription-priced plan (no activation, no one-time eval fee)', () => {
+    it(
+        'is nonzero and reflects the monthly subscription cost, not the ' +
+            'old activation+oneTimeEval-only formula that silently priced ' +
+            'FTMO Futures and AlphaFutures at $0 per funded account',
+        () => {
+            const plan = planFor({
+                accountSize: 50_000,
+                firm: FirmId.FtmoFutures,
+                variant: FtmoFuturesVariant.Growth,
+            });
+            expect(plan.fees.activation).toBe(0);
+            expect(plan.fees.oneTimeEval).toBe(0);
+            expect(plan.fees.monthlySubscription).toBeGreaterThan(0);
+
+            const out = simulate({
+                dayStop: { kind: DayStopRuleKind.None },
+                fundedHorizonDays: 60,
+                maxEvalDays: 150,
+                plan,
+                riskPerTrade: 250,
+                rrRatio: 2,
+                seed: 1,
+                tradesPerDay: 4,
+                trials: 200,
+                winrate: 0.45,
+            });
+
+            expect(out.passProbability).toBeGreaterThan(0);
+            expect(out.costPerFundedAccount).toBeGreaterThan(0);
+            expect(out.costPerFundedAccount).toBeGreaterThanOrEqual(
+                plan.fees.monthlySubscription,
+            );
+            expect(out.costPerDrawdownDollar).toBeGreaterThan(0);
+        },
+    );
 });

@@ -100,8 +100,7 @@ export function runDay(options: DayRunOptions): {
 
     const idleChance = idleDayProbability ?? 0;
     const maxConsecutiveIdleDays = plan.maxConsecutiveIdleDaysFor(phase);
-    const isIdleToday =
-        idleChance > 0 && maxConsecutiveIdleDays !== null && rng() < idleChance;
+    const isIdleToday = idleChance > 0 && rng() < idleChance;
 
     if (!isIdleToday) {
         for (let index = 0; index < dayPolicy.ladder.length; index++) {

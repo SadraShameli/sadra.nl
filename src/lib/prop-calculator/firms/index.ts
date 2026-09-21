@@ -9,6 +9,7 @@ import { buildAlphaFuturesLivePlan } from './alphafutures/AlphaFuturesLive';
 import { buildApexLivePlan } from './apex/ApexLive';
 import { ApexTraderFunding } from './apex/ApexTraderFunding';
 import { E8Futures } from './e8futures/E8Futures';
+import { FtmoFutures } from './ftmo-futures/FtmoFutures';
 import { FundedNext } from './fundednext/FundedNext';
 import { buildFundedNextLivePlan } from './fundednext/FundedNextLive';
 import { buildLucidLivePlan } from './lucid/LucidLive';
@@ -32,6 +33,7 @@ export const ALL_FIRMS: readonly TradingFirm[] = [
     new FundedNext(),
     new AlphaFutures(),
     new E8Futures(),
+    new FtmoFutures(),
 ];
 
 export type LivePlanBuilder = (cushionPercent: LiveCushionPercent) => LivePlan;
@@ -68,6 +70,7 @@ export {
 } from './apex/ApexLive';
 export { ApexTraderFunding } from './apex/ApexTraderFunding';
 export { E8Futures } from './e8futures/E8Futures';
+export { FtmoFutures } from './ftmo-futures/FtmoFutures';
 export { FundedNext } from './fundednext/FundedNext';
 export {
     buildFundedNextLivePlan,

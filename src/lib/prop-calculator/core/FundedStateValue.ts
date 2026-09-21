@@ -883,6 +883,7 @@ export function isFundedDpEligible(plan: Plan): boolean {
         !hasPeakShareDependency(
             describeDailyLossLimit(plan.fundedDailyLossLimit),
         ) &&
+        !plan.isDailyLossLimitTerminating(TradingPhase.Funded) &&
         (plan.fundedDrawdown.lock !== undefined ||
             plan.payoutFloorEffect === PayoutFloorEffect.ReleaseFloor)
     );

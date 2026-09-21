@@ -259,21 +259,36 @@ export default class SeedAccountingRules extends DatabaseSeeder {
                 .onConflictDoNothing();
             await bankInsert;
 
-            const ruleRows = RULES.map((r) => ({
-                credentialId: cred.id,
-                direction: r.direction,
-                display: r.display,
-                ledgerId: r.ledger.id,
-                ledgerLabel: r.ledger.label,
-                match: r.match,
-                userId: cred.userId,
-                vatCode: r.vatCode,
-            }));
-            const ruleInsert = db
-                .insert(accountingRule)
-                .values(ruleRows)
-                .onConflictDoNothing();
-            await ruleInsert;
+            for (const r of RULES) {
+                const ruleUpsert = db
+                    .insert(accountingRule)
+                    .values({
+                        credentialId: cred.id,
+                        direction: r.direction,
+                        display: r.display,
+                        ledgerId: r.ledger.id,
+                        ledgerLabel: r.ledger.label,
+                        match: r.match,
+                        userId: cred.userId,
+                        vatCode: r.vatCode,
+                    })
+                    .onConflictDoUpdate({
+                        set: {
+                            display: r.display,
+                            ledgerId: r.ledger.id,
+                            ledgerLabel: r.ledger.label,
+                            updatedAt: new Date(),
+                            vatCode: r.vatCode,
+                        },
+                        target: [
+                            accountingRule.userId,
+                            accountingRule.credentialId,
+                            accountingRule.direction,
+                            accountingRule.match,
+                        ],
+                    });
+                await ruleUpsert;
+            }
         }
     }
 }

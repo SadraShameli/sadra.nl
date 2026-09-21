@@ -8,6 +8,7 @@ import {
     ContractLimitKind,
     contracts,
     createInitialState,
+    DailyLossLimitBreachEffect,
     DailyLossLimitKind,
     dollars,
     EodTrailingDrawdown,
@@ -582,6 +583,28 @@ describe(
 );
 
 describe('isFundedDpEligible scope cut', () => {
+    it(
+        'refuses a plan whose funded daily loss limit terminates the account, ' +
+            'because the DP builds every synthetic state with todayPnL 0 and so ' +
+            'cannot see a daily-loss breach at all — returning a value computed ' +
+            'under a rule it cannot model would understate the risk silently',
+        () => {
+            const soft = rapidEodPlan().withOverrides({
+                fundedDailyLossLimit: {
+                    amount: dollars(1000),
+                    kind: DailyLossLimitKind.Flat,
+                },
+            });
+            expect(isFundedDpEligible(soft)).toBe(true);
+
+            const hard = soft.withOverrides({
+                fundedDailyLossLimitBreach:
+                    DailyLossLimitBreachEffect.Terminate,
+            });
+            expect(isFundedDpEligible(hard)).toBe(false);
+        },
+    );
+
     it(
         'fails loud instead of silently computing a wrong policy for a ' +
             'plan whose funded daily loss limit depends on peak-day-close ' +

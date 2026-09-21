@@ -1,4 +1,5 @@
 import { deriveSubSeed, mulberry32 } from '../rng';
+import { TRADING_DAYS_PER_MONTH } from './constants';
 import {
     type DailyLossLimitConfig,
     resolveDailyLossLimit,
@@ -217,6 +218,9 @@ export function scoreLadder(
 
     const uncappedThreshold = ladder.reduce((sum, rung) => sum + rung, 0);
     const dailyLossLimitConfig = plan.dailyLossLimitFor(TradingPhase.Eval);
+    const isDailyLossLimitTerminating = plan.isDailyLossLimitTerminating(
+        TradingPhase.Eval,
+    );
     const distributionCache = new Map<string, DayDistribution>();
     const distributionFor = (
         currentCushion: number,
@@ -262,6 +266,7 @@ export function scoreLadder(
             consistency,
             dailyLossLimitConfig,
             distributionFor,
+            isDailyLossLimitTerminating,
             lockedFloor,
             lockTrigger,
             maxDays,
@@ -296,8 +301,14 @@ export function scoreLadder(
     }
 
     const attempts = 1 / passRate;
+    const subscriptionMonths = Math.max(
+        1,
+        Math.ceil(meanDaysOnPass / TRADING_DAYS_PER_MONTH),
+    );
+    const attemptCost =
+        evalPrice + plan.fees.monthlySubscription * subscriptionMonths;
     return {
-        costPerFunded: evalPrice * attempts,
+        costPerFunded: attemptCost * attempts,
         expectedDaysToFunded: meanDaysOnPass + (attempts - 1) * meanDaysOnFail,
         ladder,
         meanDaysOnFail,
@@ -313,6 +324,7 @@ function runLadderAttempt(options: {
         currentCushion: number,
         dailyLossLimit: null | number,
     ) => DayDistribution;
+    isDailyLossLimitTerminating: boolean;
     lockedFloor: number;
     lockTrigger: number;
     maxDays: number;
@@ -326,6 +338,7 @@ function runLadderAttempt(options: {
         consistency,
         dailyLossLimitConfig,
         distributionFor,
+        isDailyLossLimitTerminating,
         lockedFloor,
         lockTrigger,
         maxDays,
@@ -355,7 +368,11 @@ function runLadderAttempt(options: {
             rng(),
         );
 
-        if (balance + draw.worstPnL <= floor) {
+        const isDailyLossLimitBreached =
+            dailyLossLimit !== null &&
+            isDailyLossLimitTerminating &&
+            draw.worstPnL <= -dailyLossLimit;
+        if (isDailyLossLimitBreached || balance + draw.worstPnL <= floor) {
             return { endDay: day, isPassed: false };
         }
 

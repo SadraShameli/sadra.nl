@@ -10,8 +10,10 @@ import {
 } from './ConsistencyRule';
 import { ContractLimitKind, type ContractLimits } from './ContractLimits';
 import {
+    DailyLossLimitBreachEffect,
     type DailyLossLimitConfig,
     type DailyLossLimitContext,
+    DailyLossLimitKind,
     resolveDailyLossLimit,
 } from './DailyLossLimit';
 import { type DrawdownStrategy } from './DrawdownStrategy';
@@ -52,12 +54,14 @@ export interface PlanInit {
     contractLimits?: ContractLimits;
     drawdown: DrawdownStrategy;
     evalDailyLossLimit: DailyLossLimitConfig;
+    evalDailyLossLimitBreach?: DailyLossLimitBreachEffect;
     evalMaxConsecutiveIdleDays?: null | number;
     fees: FeeSchedule;
     fullWithdrawalHardBreach?: boolean;
     fundedConsistency?: ConsistencyOverride;
     fundedConsistencyLadder?: ConsistencyLadder;
     fundedDailyLossLimit?: DailyLossLimitConfig;
+    fundedDailyLossLimitBreach?: DailyLossLimitBreachEffect;
     fundedDrawdown?: DrawdownStrategy;
     id: PlanId;
     isInstantFunded?: boolean;
@@ -103,9 +107,13 @@ export abstract class Plan {
 
     readonly evalDailyLossLimit: DailyLossLimitConfig;
 
+    readonly evalDailyLossLimitBreach: DailyLossLimitBreachEffect;
+
     readonly fees: FeeSchedule;
 
     readonly fundedDailyLossLimit: DailyLossLimitConfig;
+
+    readonly fundedDailyLossLimitBreach: DailyLossLimitBreachEffect;
 
     readonly fundedDrawdown: DrawdownStrategy;
 
@@ -183,9 +191,36 @@ export abstract class Plan {
 
         this.drawdown = init.drawdown;
         this.evalDailyLossLimit = init.evalDailyLossLimit;
+        this.evalDailyLossLimitBreach =
+            init.evalDailyLossLimitBreach ?? DailyLossLimitBreachEffect.Lockout;
         this.fees = init.fees;
         this.fundedDailyLossLimit =
             init.fundedDailyLossLimit ?? init.evalDailyLossLimit;
+        this.fundedDailyLossLimitBreach =
+            init.fundedDailyLossLimitBreach ?? this.evalDailyLossLimitBreach;
+
+        for (const [phase, config, breach] of [
+            [
+                TradingPhase.Eval,
+                this.evalDailyLossLimit,
+                this.evalDailyLossLimitBreach,
+            ],
+            [
+                TradingPhase.Funded,
+                this.fundedDailyLossLimit,
+                this.fundedDailyLossLimitBreach,
+            ],
+        ] as const) {
+            if (
+                config.kind === DailyLossLimitKind.None &&
+                breach === DailyLossLimitBreachEffect.Terminate
+            ) {
+                throw new Error(
+                    `${init.label}: ${phase} daily loss limit breach is Terminate but the limit is None, so there is nothing to breach`,
+                );
+            }
+        }
+
         this.fundedDrawdown = init.fundedDrawdown ?? init.drawdown;
         this.fullWithdrawalHardBreach = init.fullWithdrawalHardBreach ?? false;
         this.id = init.id;
@@ -330,6 +365,19 @@ export abstract class Plan {
             : this.evalDailyLossLimit;
     }
 
+    dailyLossLimitBreachFor(phase: TradingPhase): DailyLossLimitBreachEffect {
+        return phase === TradingPhase.Funded
+            ? this.fundedDailyLossLimitBreach
+            : this.evalDailyLossLimitBreach;
+    }
+
+    isDailyLossLimitTerminating(phase: TradingPhase): boolean {
+        return (
+            this.dailyLossLimitBreachFor(phase) ===
+            DailyLossLimitBreachEffect.Terminate
+        );
+    }
+
     drawdownFor(phase: TradingPhase): DrawdownStrategy {
         return phase === TradingPhase.Funded
             ? this.fundedDrawdown
@@ -385,7 +433,11 @@ export abstract class Plan {
     }
 
     isBust(state: AccountState, phase: TradingPhase): boolean {
-        return this.drawdownFor(phase).isBreached(state);
+        return (
+            this.drawdownFor(phase).isBreached(state) ||
+            (this.isDailyLossLimitTerminating(phase) &&
+                this.isDayLockedOut(state, phase))
+        );
     }
 
     isDayLockedOut(state: AccountState, phase: TradingPhase): boolean {

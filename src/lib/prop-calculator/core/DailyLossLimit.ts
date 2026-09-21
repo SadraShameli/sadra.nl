@@ -6,6 +6,11 @@ import {
     type Fraction0to1,
 } from './lib/units';
 
+export enum DailyLossLimitBreachEffect {
+    Lockout = 'lockout',
+    Terminate = 'terminate',
+}
+
 export enum DailyLossLimitKind {
     AfterThresholdLock = 'after-threshold-lock',
     Flat = 'flat',

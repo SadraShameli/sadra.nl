@@ -205,7 +205,8 @@ export function simulate(inputs: SimInputs): SimOutputs {
     const replacement = replacementEconomics({
         evalPrice:
             costBreakdown.perAccountActivationFee +
-            costBreakdown.perAccountEvalFee,
+            costBreakdown.perAccountEvalFee +
+            costBreakdown.monthlySubsTotal,
         meanDaysOnFail,
         meanDaysOnPass: avgDaysForCost,
         passRate: passProbability,

@@ -10,7 +10,7 @@ import {
 } from '~/cli/commands/prop/shared';
 import { ui } from '~/cli/ui';
 import { formatCurrency, formatPercent } from '~/lib/format';
-import { findFirm, type FirmId } from '~/lib/prop-calculator';
+import { findFirm, type FirmId, TradingPhase } from '~/lib/prop-calculator';
 
 export default defineCommand({
     args: {
@@ -75,8 +75,8 @@ export default defineCommand({
                 );
                 ui.muted(
                     [
-                        `    eval DLL ${plan.isInstantFunded ? 'n/a' : describeDll(plan.evalDailyLossLimit)}`,
-                        `funded DLL ${describeDll(plan.fundedDailyLossLimit)}`,
+                        `    eval DLL ${plan.isInstantFunded ? 'n/a' : describeDll(plan.evalDailyLossLimit, plan.isDailyLossLimitTerminating(TradingPhase.Eval))}`,
+                        `funded DLL ${describeDll(plan.fundedDailyLossLimit, plan.isDailyLossLimitTerminating(TradingPhase.Funded))}`,
                         `consistency eval ${plan.isInstantFunded ? 'n/a' : describeShare(consistencyEval?.maxBestDayShare)}`,
                         `funded ${describeShare(consistencyFunded?.maxBestDayShare)}`,
                     ].join(' | '),

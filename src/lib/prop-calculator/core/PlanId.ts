@@ -19,6 +19,11 @@ export enum E8FuturesVariant {
     ZeroStarter100 = 'zero-starter-100',
 }
 
+export enum FtmoFuturesVariant {
+    Growth = 'growth',
+    Pro = 'pro',
+}
+
 export enum FundedNextVariant {
     Flex = 'flex',
     Fnl003 = 'fnl-003',
@@ -84,6 +89,11 @@ export type PlanId =
           readonly variant: E8FuturesVariant;
       }
     | {
+          readonly accountSize: FtmoFuturesAccountSize;
+          readonly firm: FirmId.FtmoFutures;
+          readonly variant: FtmoFuturesVariant;
+      }
+    | {
           readonly accountSize: FundedNextAccountSize;
           readonly firm: FirmId.FundedNext;
           readonly variant: FundedNextVariant;
@@ -113,6 +123,7 @@ export type PlanId =
 type AlphaFuturesAccountSize = 50_000;
 type ApexAccountSize = 50_000;
 type E8FuturesAccountSize = 50_000;
+type FtmoFuturesAccountSize = 50_000;
 type FundedNextAccountSize = 50_000;
 type LucidAccountSize = 50_000;
 type MffuAccountSize = 50_000;

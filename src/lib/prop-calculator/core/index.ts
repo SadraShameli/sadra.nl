@@ -20,6 +20,7 @@ export {
     minStopPoints,
 } from './ContractLimits';
 export {
+    DailyLossLimitBreachEffect,
     type DailyLossLimitConfig,
     type DailyLossLimitContext,
     type DailyLossLimitDescriptor,
@@ -157,6 +158,7 @@ export {
     ApexVariant,
     arePlanIdsEqual,
     E8FuturesVariant,
+    FtmoFuturesVariant,
     FundedNextVariant,
     LucidVariant,
     MffuVariant,
