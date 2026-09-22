@@ -1,12 +1,13 @@
-# Per-Firm Rules — validated against official help centers
+# Per-Firm Account Policy — validated against official help centers
 
-All figures for the **$50K** size unless noted. Re-verify before spending money; these change often.
+**Scope, deliberately narrowed 2026-09-22.** This file used to also carry per-plan trading parameters (drawdown amounts, consistency %, DLL, contract limits, payout structure, fees) — that was a real, unmanaged duplicate of the same facts already encoded in the actual engine (`src/lib/prop-calculator/firms/*.ts`), which drives real simulations and is the thing that actually gets fixed when a firm changes its rules. A hand-copied number here had no way to stay in sync with that. **For any plan's trading parameters, use `cli prop plans --firm <firm> --variant <variant>` directly** (per RULE #0 in `SKILL.md`) — its output already includes the live-source devlog notes behind each figure, which this file never had room for anyway.
 
-**Gap, stated plainly:** FTMO Futures, AlphaFutures, and E8 Futures were added to the prop-calculator registry after this file was originally written and have no section here yet — their rules exist in the engine (`cli prop plans --firm ftmo-futures`/`alphafutures`/`e8futures`) but have not been transcribed into this hand-curated reference doc. Do not assume they behave like any firm below; check the engine's own plan output (already validated against a live source per that plan's own devlog notes, visible in `cli prop plans`'s output) or the firm's live help center directly, per the rule immediately below.
+What's left here is account-level policy the engine genuinely does not model at all: how many accounts you can hold, reset/purchase limits, what happens when you're moved to live, and firm-identification/safety notes. None of that is a `simulate()` input, so there's no engine copy to go stale against — it only goes stale if the firm's own policy changes, which is exactly what re-verification is for.
+
+Re-verify before spending money; these change often.
 
 ## Contents
 
-- [Ranking](#ranking)
 - [MyFundedFutures](#myfundedfutures)
 - [Take Profit Trader](#take-profit-trader)
 - [Tradeify](#tradeify)
@@ -14,75 +15,21 @@ All figures for the **$50K** size unless noted. Re-verify before spending money;
 - [Apex Trader Funding](#apex-trader-funding)
 - [Lucid Trading](#lucid-trading)
 - [Topstep](#topstep)
+- [FTMO Futures, AlphaFutures, E8 Futures](#ftmo-futures-alphafutures-e8-futures)
 - [Account caps](#account-caps)
-- [Live triggers](#live-transition-triggers)
+- [Live transition triggers](#live-transition-triggers)
+- [Can you still buy/hold evals once moved to live?](#can-you-still-buyhold-evals-once-moved-to-live-verified-2026-09-14-primary-sources)
+- [Minimal-live ranking](#minimal-live-ranking-2026-09-14--for-a-stay-on-simfunded-as-long-as-possible-goal)
 
----
-
-## Ranking
-
-Net EV per account, after the real-time-breach correction. Assumes 40% WR / 1:2 / 4 trades-per-day / $250 funded risk / EV-maximizing payout policy.
-
-| # | Firm / Account | Net EV |
-| --- | --- | --- |
-| 1 | **MFF Rapid EOD** | $12,051 |
-| 2 | Take Profit Trader PRO | $8,682 |
-| 3 | Tradeify Select+Flex | $6,864 |
-| 4 | FundedNext Legacy | $6,781 |
-| 5 | Apex Intraday | ~$6,134 |
-| 6 | Apex EOD | $5,947 |
-| 7 | Tradeify Growth | $5,821 |
-| 8 | Lucid Pro | $5,817 |
-| 9 | Topstep XFA Consistency | $5,028 |
-| 10 | Topstep XFA Standard | $4,806 |
-| 11 | Lucid Flex | $4,553 |
-| 12 | FundedNext Rapid Pro | $2,783 |
-| 13 | Tradeify Select+Daily | $2,415 |
-
-**Adjust for account caps.** Total scalable EV = per-account EV × slots. MFF's 3-slot cap means TPT (5 slots) can beat it on total.
+For a live, current ranking of firms/plans by any real objective (fastest, most money, lowest bust), use `cli prop compare`, `cli prop optimize funded`, or `cli prop optimize dp` directly — see `SKILL.md`'s RULE #0. A static ranking table here would be exactly the kind of thing that silently drifts stale.
 
 ---
 
 ## MyFundedFutures
 
-Evaluations became **one-time payment** (no subscription) as of Aug 25 2026. Trade-off: 7-day inactivity rule with no billing to pause.
+Evaluations became **one-time payment** (no subscription) as of Aug 25 2026 — a pricing-model shift, trade-off is a 7-day inactivity rule with no billing to pause it against.
 
-### Rapid EOD 50K — $104.50 — THE RECOMMENDED PICK
-
-| | Eval | Funded |
-| --- | --- | --- |
-| Target | $3,000 | — |
-| Start balance | — | **$0** |
-| MLL | $2,000 **EOD** | $2,000 **EOD** |
-| Floor locks | — | at **+$100** (when balance touches $2,100) |
-| DLL | None | None |
-| Contracts | 3 mini / 30 micro | 3 mini / 30 micro |
-| Consistency | **30%** | None |
-| Min days | **4** | — |
-| T1 news | Yes | **No** |
-| Inactivity | 7 days | 7 days |
-
-**Eval execution (derived — see SKILL.md):** risk **$450**, daily cap **$900**, one win ends the day. Passes at ~$3,150 in ~12 days. Uncapped $900 risk instead needs $17,100 of profit over ~22 days.
-
-Payouts: **$2,100 buffer** before first; then **$500 net profit since last payout** unlocks each subsequent. Daily. $500 minimum. **No cap.** 90/10.
-**Max funded accounts: Three (3)** — stated in the Sim Funded parameter table.
-
-Only MFF plan with EOD drawdown at **both** stages. This is why it's the pick.
-
-### Rapid 50K — $104.50
-
-Eval identical to Rapid EOD except: 5 mini / 50 micro, **50% consistency**, **2 min days**.
-Looser consistency means a higher daily cap: `0.50 × 3,000 = $1,500`, so risk **$750** with a $1,500 cap. Bigger size than Rapid EOD allows — but the funded stage is intraday drawdown.
-**Funded drawdown is intraday** — checkout calls it "**RealTime**". Trails equity high-water mark during the session. Otherwise same buffer/payout/split as Rapid EOD.
-
-### Pro 50K — $132.50
-
-Eval: 3 mini, 50% consistency. Optional **$114 "One Day to Pass"** add-on (no consistency, $4,000 target).
-Funded: **EOD** drawdown, **5 mini** (steps up from 3).
-Payouts: **every 14 days**,**$1,000 min**, **80/20**, $2,100 buffer.
-Help center states a **$100,000 lifetime sim payout ceiling**, then forced live. Live review after 3 consecutive payouts or $20,000.
-
-*Pro beats Rapid (EOD drawdown), but Rapid EOD beats both (EOD + 90/10 + daily + $500 min + cheapest).*
+**Max funded accounts: Three (3)**, per the Sim Funded parameter table — see [Account caps](#account-caps) below. Whether that's per-plan or global across MFF's other plans is genuinely unresolved; see `references/open-questions.md`.
 
 ### Live
 
@@ -92,35 +39,21 @@ Multiple Rapid accounts **combine into ONE** live account with proportionally ra
 
 ## Take Profit Trader
 
-**Test (eval):** $3,000 target. EOD trailing, locks at starting balance (**$0 buffer**, not $100). No DLL. **50% consistency** — if exceeded the target *doubles* rather than failing. 5 min days. Monthly subscription.
+**Execution rules** (not simulated by the engine at all): no bots/algos (manual only), exit before CME price limits, **≥1 traded day per calendar week**, no counter positions across accounts, news blackouts (FOMC, NFP, CPI; plus crude inventories, bond auctions).
 
-**PRO (funded):** **Intraday trailing incl. unrealized gains.** Official worked example: unrealized profit of $1,000 raises the minimum balance immediately; closing for a $500 realized gain leaves the higher minimum in place. Enforced in real time — liquidation on touch. Buffer = drawdown amount. 5 min days. **80/20.** Withdrawals over $250 free; $250-or-less charged a $50 fee.
+**Purchase/reset limits:** max 5 PRO/PRO+ combined. 10 activations per 30 days. 3 resets per PRO account.
 
-Rules: no bots/algos (manual only), exit before CME price limits, **≥1 traded day per calendar week**, no counter positions across accounts, news blackouts (FOMC, NFP, CPI; plus crude inventories, bond auctions).
-
-**PRO+ (live):** $0 start, EOD drawdown, **90/10**, no buffer, daily payouts, no limits. Discretionary placement (~60 days of disciplined risk expected). $5,000 of PRO profit frozen as backstop, released on upgrade.
-
-Max 5 PRO/PRO+ combined. 10 activations per 30 days. 3 resets per PRO account.
+**PRO+ (live):** discretionary placement (~60 days of disciplined risk expected). $5,000 of PRO profit frozen as backstop, released on upgrade.
 
 ---
 
 ## Tradeify
 
-**Growth eval:** EOD, has a DLL (soft breach), **no consistency**, 1-day pass possible. Funded: 90/10, **35% consistency**.
-
-**Select eval:** $3,000 / $2,000 MLL / **no DLL** / **40% consistency** / **3 min days** / 4 mini. Locks at $50,100.
-After passing, choose ONE permanent path:
-
-- **Select Flex:** payouts every 5 winning days, cap **$3,000**, no DLL. *Best Tradeify option.*
-- **Select Daily:** daily, cap $1,000, has DLL, buffer required. *Worst option tested overall.*
-
-**Lightning:** instant funding, cannot be reset, escalating consistency 20/25/30%.
-
 **Resets: evaluations ONLY.** Official: "There is no reset option for Lightning Funded or Sim Funded accounts. If you fail these accounts, the failure is permanent." Cycling a funded account = buying a **new eval at full price**, not a discounted reset.
 
-Purchase limits: 15 Select evals / 30 days; 10 resets per eval / 30 days; 5 Growth activations/day.
+**Purchase limits:** 15 Select evals / 30 days; 10 resets per eval / 30 days; 5 Growth activations/day.
 
-**Elite Live:** eligible at **3 payouts on one account OR 10 total**. **Mandatory — cannot decline.** Each funded account with ≥1 payout becomes **its own** live account (up to 5). 80/20. Blown live = up to 4-week cooldown, then buy a new eval. Live/sim exclusivity extends to the **entire household**.
+**Elite Live:** eligible at **3 payouts on one account OR 10 total**. **Mandatory — cannot decline.** Each funded account with ≥1 payout becomes **its own** live account (up to 5). Blown live = up to 4-week cooldown, then buy a new eval. Live/sim exclusivity extends to the **entire household**.
 
 ---
 
@@ -129,16 +62,6 @@ Purchase limits: 15 Select evals / 30 days; 10 resets per eval / 30 days; 5 Grow
 Use `helpfutures.fundednext.com` — the **futures** help center, not the forex/CFD side.
 
 **Rapid and Bolt discontinued for new purchase/reset as of July 10 2026.** Current: Flex, Legacy, Rapid Pro, Rapid Daily.
-
-**Legacy:** 40% consistency during challenge, **none when funded**. EOD. **80/20**. Payouts: 50% of accumulated profit, capped **$6,000** (50K), after every 5 benchmark days. **Cap lifted entirely after 30 benchmark days.** Largest cap of any FundedNext product.
-
-**Flex:** $2,500 target, **$1,500 MLL** (25% less cushion than Legacy — this is why it underperforms). 40% challenge consistency. Concludes after 5 withdrawals.
-
-**Rapid Pro:** 1-day pass, EOD, **90%** share, rewards every 3 days, **40% consistency in the funded account only**, flat **$1,200** cap. The small cap is why it ranks near the bottom despite the better split.
-
-**Rapid Daily:** daily rewards, DLL + buffer, no consistency anywhere.
-
-MLL locks at **initial balance + $100**; auto-liquidation if balance touches the locked floor. **"If your floating loss reaches the maximum loss limit during an active trade, your account will be instantly breached."**
 
 **Live triggers:** Legacy = $100,000 Total Active Profit OR **5 withdrawals from a single account**. Flex/Rapid = **15 Performance Rewards**.
 
@@ -154,22 +77,13 @@ Legacy's live failure is meaningfully worse than Flex/Rapid's.
 
 Full product replacement ("Apex 4.0") March 1 2026. **Metals halted** (GC, SI, QI, QO, MGC, HG, PL, PA) with no announced return.
 
-**EOD Evaluation/PA:** level set once at 4:59:59 PM ET. **Breach enforced in real time** — "may never touch or cross the EOD Threshold level at any time."
-
-**Intraday Evaluation/PA:** real-time incl. unrealized P&L.
-
-**PA locks at start + $100** ($50,100 on a 50K) for BOTH EOD and Intraday.
-⚠️ The **$53,000/$55,000** figures in Apex's "Intraday Trailing Drawdown Explained" apply **only to the Evaluation stage on Rithmic/Wealthcharts** — NOT to Performance Accounts. On Tradovate, evals trail indefinitely. This was mis-scoped once and produced a badly wrong result.
-
-**PA payouts:** 5 qualifying days (EOD 50K = $250/day; Intraday 50K = $200/day), **50% consistency**, safety net = drawdown + $100, $500 min, **100% split**, **6-payout maximum** then the PA closes.
+⚠️ **Historical gotcha, worth keeping:** the **$53,000/$55,000** figures in Apex's "Intraday Trailing Drawdown Explained" apply **only to the Evaluation stage on Rithmic/Wealthcharts** — NOT to Performance Accounts. On Tradovate, evals trail indefinitely. This was mis-scoped once and produced a badly wrong result — a reminder to re-read which account TYPE a given Apex article is actually describing, not just trust the number.
 
 **No resets** — a failed eval means buying a new one. **30-calendar-day eval time limit.**
 
-**PA inactivity:** 2 trading days with **$50+ net profit** per rolling 30 days. "Trading alone does not prevent inactivity closure." Dormant at 15 days, permanently closed at 30, no reinstatement.
+**Live:** see the Apex section in `SKILL.md`. Live inactivity is *looser* than PA inactivity — just needs to be traded.
 
-**Live:** see the Apex section in SKILL.md. Live inactivity is *looser* — just needs to be traded.
-
-Restricted: US-only service; 84 countries blocked. Look-alike domains exist (`apexfundtraders.com`, `apexfundingtrader.com`) — the real one is `apextraderfunding.com`.
+**Restricted:** US-only service; 84 countries blocked. Look-alike domains exist (`apexfundtraders.com`, `apexfundingtrader.com`) — the real one is `apextraderfunding.com`.
 
 ---
 
@@ -177,15 +91,7 @@ Restricted: US-only service; 84 countries blocked. Look-alike domains exist (`ap
 
 Types: LucidFlex, LucidPro, LucidDirect, LucidDaily. LucidMaxx is invite-only.
 
-**LucidFlex:** $3,000 / $2,000 EOD. **50% eval consistency**, none funded. No DLL any stage. 90/10, $500 min. **5 payouts max per account**, then live review. Locks at $50,100.
-
-**LucidPro:** no eval consistency; **40% funded consistency** (35% for accounts before Nov 28 2025). DLL present. Buffer $52,100. Payout 1 max $2,000; payouts 2+ max $2,500.
-
-**LucidDirect:** instant funding, **20% consistency** (strictest).
-
-**LucidDaily** (launched July 2026): configurable EOD-or-intraday eval + DLL on/off at checkout, locked after purchase. **Funded is ALWAYS intraday.** No funded consistency. Daily, no per-request cap. **Red-folder US news is a hard breach on funded.**
-
-⚠️ **Lucid's docs do not state whether the EOD breach is enforced intraday or only at close.** Their pages describe only the end-of-day *calculation* and say "If your account balance reached the MLL, your account will be breached" — "reached" undefined. Every other firm has explicit language; Lucid doesn't. Third-party sources contradict each other. **Assume the conservative reading; ask support before relying on it.**
+⚠️ **Lucid's docs do not state whether the EOD breach is enforced intraday or only at close** — see `references/open-questions.md` for the full, re-verified-2026-09-22 status. Every other firm publishes explicit real-time language; Lucid doesn't. **Assume the conservative reading; ask support before relying on it.**
 
 **Live:** each funded account with ≥1 payout becomes its own live account (up to 5, per household). One-time Live Bonus equal to the starting live drawdown. Blown live = 2-week cooldown, then new eval. **If one household member is live, others may not trade sim.**
 
@@ -193,23 +99,25 @@ Types: LucidFlex, LucidPro, LucidDirect, LucidDaily. LucidMaxx is invite-only.
 
 ## Topstep
 
-**Trading Combine:** $3,000 target, trailing MLL, **50% consistency**. Pass in as few as 2 days. Unlimited Combines; 2 resets per account per day. Two pricing paths — at his speed the **No-Activation-Fee path is cheaper in expectation** (~$64 vs ~$182), which cuts against how Topstep frames it.
-
-**XFA:** balance starts at **$0**. Choose Standard (5 winning days ≥$150, cap $5,000) or Consistency (3 days + 40%, cap $6,000) — permanent at activation. MLL locks at $0 after first payout. **Both realized AND unrealized P&L count** toward breach, monitored in real time.
-
-Split: **90/10** default for anyone joining on/after Jan 12 2026. Before that, 100% of first $10,000 lifetime (grandfathered).
+**Reset policy:** Trading Combine has 2 resets per account per day, unlimited Combines. Two pricing paths exist at purchase — check `cli prop plans` for which is currently modeled as cheaper in expectation at your own sizing, rather than trusting a stale comparison here.
 
 **Live Funded Account:** **exactly ONE, ever.** Size = average of eligible XFAs rounded up to the next tier. **20% available immediately, 80% held in Reserve**, released in four 25% increments. Uncapped payouts. Blown LFA (balance <$1,000) = must pass a **new Trading Combine** — the cleanest officially-documented recovery of any firm, and confirmed as the *only* recovery — there's no skip-the-eval shortcut even off a full liquidation (*"You must pass a Trading Combine first"*).
 
 **Cannot decline the call-up** — *"Once the Risk Team determines you're ready, your options are to move to Live or close your Express Funded Account."* Same mandatory-transition pattern as Tradeify/FundedNext/MFF.
 
-**Uniquely permissive on eval purchasing while live is active and healthy** (verified 2026-09-14): unlike every other firm here, TopStep explicitly lets you keep buying and passing new Trading Combines the whole time an LFA is open — *"The restriction is only on activation — a passed Trading Combine cannot be activated into an Express Funded Account while your Live Funded Account is active. That option becomes available again if the Live Funded Account is lost."* So a passed Combine just queues, ready to activate the moment Live is lost — see the comparison table above.
+**Uniquely permissive on eval purchasing while live is active and healthy** (verified 2026-09-14): unlike every other firm here, TopStep explicitly lets you keep buying and passing new Trading Combines the whole time an LFA is open — *"The restriction is only on activation — a passed Trading Combine cannot be activated into an Express Funded Account while your Live Funded Account is active. That option becomes available again if the Live Funded Account is lost."* So a passed Combine just queues, ready to activate the moment Live is lost — see the comparison table below.
 
 **Live inactivity:** closes after 30 days with no trading activity — *"Live Funded Accounts can't be put on hold."*
 
-Disclosed stats: 16.8% of Combines pass; **0.71% of funded traders get called up to Live** — the lowest live-trigger risk of any firm, which is an *advantage* given his stay-on-sim goal.
+Disclosed stats: 16.8% of Combines pass; **0.71% of funded traders get called up to Live** — the lowest live-trigger risk of any firm, which is an *advantage* given a stay-on-sim goal.
 
-Back2Funded: up to 2 XFA reactivations if lost **before** first payout.
+**Back2Funded:** up to 2 XFA reactivations if lost **before** first payout.
+
+---
+
+## FTMO Futures, AlphaFutures, E8 Futures
+
+**No account-policy section exists here yet for any of these three** — they were added to the prop-calculator registry after this file's account-policy sections were originally written, and (unlike the trading-parameter tables this file used to carry) account-policy facts like reset limits and live-transition triggers were never transcribed for them at all, not even a stale copy. AlphaFutures and E8 Futures each have a row in the [Can you still buy/hold evals](#can-you-still-buyhold-evals-once-moved-to-live-verified-2026-09-14-primary-sources) table below; FTMO Futures has none. Check each firm's own live help center directly before relying on anything about their account limits, reset policy, or live transition.
 
 ---
 
@@ -218,7 +126,7 @@ Back2Funded: up to 2 XFA reactivations if lost **before** first payout.
 | Firm | Max funded | Scope |
 | --- | --- | --- |
 | **Apex** | **20 PAs** | combined across Legacy/EOD/Intraday, **per household** |
-| MFF | 5 (25K/50K only), **3** if any 100K/150K | global across plans; Rapid EOD table says **3** |
+| MFF | 5 (25K/50K only), **3** if any 100K/150K | global across plans; Rapid EOD table says **3** — scope vs. global unresolved, see `references/open-questions.md` |
 | TPT | 5 | PRO + PRO+ combined |
 | Tradeify | 5 | any combination, **per individual AND household** |
 | FundedNext | 5 | **per household/IP** |
@@ -300,7 +208,7 @@ firms' docs, not unchecked by us.
 - Tradeify ✅ <https://help.tradeify.co/en/articles/12969284-tradeify-elite-program> (confirmed live 2026-09-14, matches the earlier Wayback-sourced quote exactly)
 - Lucid ✅ <https://support.lucidtrading.com/en/articles/13425130-new-live-structure>
 - Lucid ✅ <https://support.lucidtrading.com/en/articles/11404617-maximum-number-of-accounts>
-- Apex ✅ <https://apextraderfunding.com/help-center/getting-started/apex-live-prop-trading-program-faq/> (confirmed live 2026-09-14, matches the earlier Wayback-sourced quote exactly)
+- Apex ✅ <https://apextraderfunding.com/help-center/getting-started/apex-live-prop-trading-program-faq/> (confirmed live 2026-09-14, matches the earlier Wayback-sourced quote exactly; returns HTTP 403 to plain automated fetches as of 2026-09-22, needs a logged-in browser session)
 - Apex ⚠️ <https://support.apextraderfunding.com/hc/en-us/articles/31519788944411-Performance-Account-PA-and-Live-Account-Rules> (renamed to "...-Performance-Account-PA-and-Compliance" at some point — current version no longer covers this topic; may have moved elsewhere — superseded by the confirmed-live URL above anyway)
 - MFF ✅ <https://help.myfundedfutures.com/en/articles/12109396-comprehensive-faq-live-accounts-at-myfunded-futures>
 - MFF ✅ <https://help.myfundedfutures.com/en/articles/10101257-understanding-live-funded-account-at-myfunded-futures>
@@ -331,7 +239,7 @@ Ranked by how avoidable (best first, given the stay-on-sim goal):
 | **FundedNext** | 15 rewards (Flex/Rapid), or $100k / 5 single-account withdrawals (Legacy) |
 | **Tradeify** | **3 on one account OR 10 total — hardest, and mandatory once selected** |
 
-**Conversion model matters enormously** — this is what cost him at Apex:
+**Conversion model matters enormously** — this is what cost Sadra at Apex:
 
 - **Collapse into ONE live account:** Apex, MFF, Topstep
 - **Each funded account → its own live account:** Tradeify, Lucid (up to 5)
@@ -340,7 +248,7 @@ Ranked by how avoidable (best first, given the stay-on-sim goal):
 
 ## Minimal-live ranking (2026-09-14) — for a "stay on sim/funded as long as possible" goal
 
-His stated priority: funded accounts can be copy-traded and failed repeatedly at low cost; live
+Sadra's stated priority: funded accounts can be copy-traded and failed repeatedly at low cost; live
 accounts are restrictive and often collapse/close everything else. So "best" here means hardest to
 get pushed into live, and least disruptive to the funded/copy-trading pipeline if it happens anyway
 — combining the trigger-difficulty table above with the eval-purchase-while-live table further up.
