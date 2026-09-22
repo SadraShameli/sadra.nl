@@ -573,6 +573,15 @@ function describeDllShape(descriptor: DailyLossLimitDescriptor): string {
 
 const MAX_PATH_GRANULARITY = 200;
 
+export function readLadder(raw: string | undefined): null | number[] {
+    if (raw === undefined || raw === '') return null;
+    const parts = raw.split(',').map((part) => Number(part.trim()));
+    if (parts.some((part) => !Number.isFinite(part) || part < 0)) {
+        throw new Error(`Invalid --ladder "${raw}"`);
+    }
+    return parts;
+}
+
 function readGranularityList(raw: string | undefined): number[] | undefined {
     if (raw === undefined || raw === '') return undefined;
     const parts = raw.split(',').map((part) => Number(part.trim()));
@@ -587,15 +596,6 @@ function readGranularityList(raw: string | undefined): number[] | undefined {
         throw new Error(
             `Invalid --path-granularity "${raw}": each value must be a positive integer up to ${MAX_PATH_GRANULARITY} (finer granularity makes path resolution time grow quadratically)`,
         );
-    }
-    return parts;
-}
-
-function readLadder(raw: string | undefined): null | number[] {
-    if (raw === undefined || raw === '') return null;
-    const parts = raw.split(',').map((part) => Number(part.trim()));
-    if (parts.some((part) => !Number.isFinite(part) || part < 0)) {
-        throw new Error(`Invalid --ladder "${raw}"`);
     }
     return parts;
 }

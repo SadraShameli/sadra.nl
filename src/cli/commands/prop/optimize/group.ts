@@ -6,6 +6,10 @@ export default defineCommand({
         name: 'optimize',
     },
     subCommands: {
+        dp: async () => {
+            const commandModule = await import('./dp/command');
+            return commandModule.default;
+        },
         funded: async () => {
             const commandModule = await import('./funded/command');
             return commandModule.default;

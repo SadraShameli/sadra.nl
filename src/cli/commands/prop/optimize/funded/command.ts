@@ -3,6 +3,7 @@ import { defineCommand } from 'citty';
 import {
     planArguments,
     planResolver,
+    readLadder,
     TablePrinter,
     tradingArguments,
     TradingInputs,
@@ -24,10 +25,14 @@ interface Candidate {
 
 interface ScoredCandidate {
     candidate: Candidate;
-    lifetimeNet: number;
+    lifetimeNet: null | number;
     out: SimOutputs;
     survivors: number;
 }
+
+type SortKey = 'cycle' | 'lifetime';
+
+const SORT_KEYS: readonly SortKey[] = ['lifetime', 'cycle'];
 
 export default defineCommand({
     args: {
@@ -38,16 +43,28 @@ export default defineCommand({
             description: 'Comma-separated flat $/trade funded-phase candidates',
             type: 'string',
         },
+        'funded-ladder': {
+            description:
+                'Funded-phase risk ladder to test as one extra candidate, comma separated (e.g. 400,600,800,200) -- unlike --ladder (eval-only), this sizes trade 1/2/3/4 of each funded-phase day instead of a flat $/trade or %-of-cushion amount. Omit to test only flat/percent, as before.',
+            type: 'string',
+        },
         percent: {
             default: '5,7.5,10,15',
             description:
                 'Comma-separated percent-of-cushion funded-phase candidates',
             type: 'string',
         },
+        sort: {
+            default: 'lifetime',
+            description:
+                'lifetime: renewal-adjusted, assumes unlimited repeat cycles over an unbounded time horizon. cycle: expected net from THIS ONE simulated run only (whatever --eval-days/--funded-days bound it to) -- use this for a short, fixed-horizon goal you do not intend to repeat indefinitely.',
+            options: [...SORT_KEYS],
+            type: 'enum',
+        },
     },
     meta: {
         description:
-            'Sweep flat-$ and percent-of-cushion funded-phase policies (--firm, --variant) and rank by renewal-adjusted lifetime expected cash extraction.',
+            'Sweep flat-$, percent-of-cushion, and (with --funded-ladder) a funded-phase ladder policy (--firm, --variant), and rank by lifetime (renewal-adjusted) or cycle (this-run-only) expected cash extraction.',
         name: 'funded',
     },
     run(context) {
@@ -56,6 +73,8 @@ export default defineCommand({
             const plan = planResolver.resolveOne(context.args);
             const inputs = TradingInputs.parse(context.args);
             const base = inputs.toSimInputs(plan);
+            const sort = context.args.sort;
+            const fundedLadder = readLadder(context.args['funded-ladder']);
 
             const candidates: Candidate[] = [
                 ...readCandidateList(context.args.flat, 'flat').map(
@@ -76,6 +95,22 @@ export default defineCommand({
                         },
                     }),
                 ),
+                ...(fundedLadder
+                    ? [
+                          {
+                              label: `ladder ${fundedLadder.join('/')}`,
+                              overrides: {
+                                  fundedCushionPercent: undefined,
+                                  fundedDayPolicy: {
+                                      ladder: fundedLadder,
+                                      maxLossesPerDay: null,
+                                      stopRule: inputs.dayStop,
+                                  },
+                                  fundedRiskPerTrade: undefined,
+                              },
+                          } satisfies Candidate,
+                      ]
+                    : []),
             ];
 
             spinner = ui
@@ -84,48 +119,63 @@ export default defineCommand({
                 )
                 .start();
 
-            const rows: ScoredCandidate[] = [];
-            const alwaysBusts: Candidate[] = [];
+            const allRows: ScoredCandidate[] = [];
+            const undefinedLifetime: Candidate[] = [];
             for (const candidate of candidates) {
                 const out = simulate({ ...base, ...candidate.overrides });
+                let lifetimeNet: null | number = null;
                 if (out.fundedBustProbability >= 1) {
-                    alwaysBusts.push(candidate);
-                    continue;
+                    undefinedLifetime.push(candidate);
+                } else {
+                    const costOfOneMoreAttempt = plan.feesUntilPass(
+                        out.expectedDaysToPass,
+                        base.discounts,
+                    );
+                    lifetimeNet = lifetimeExpectedNet({
+                        costOfOneMoreAttempt,
+                        expectedNet: out.expectedNet,
+                        fundedBustProbability: out.fundedBustProbability,
+                    });
                 }
-                const costOfOneMoreAttempt = plan.feesUntilPass(
-                    out.expectedDaysToPass,
-                    base.discounts,
-                );
-                const lifetimeNet = lifetimeExpectedNet({
-                    costOfOneMoreAttempt,
-                    expectedNet: out.expectedNet,
-                    fundedBustProbability: out.fundedBustProbability,
-                });
-                rows.push({
+                allRows.push({
                     candidate,
                     lifetimeNet,
                     out,
                     survivors: Math.round(out.passProbability * inputs.trials),
                 });
             }
-            rows.sort((a, b) => b.lifetimeNet - a.lifetimeNet);
+
+            const rows =
+                sort === 'lifetime'
+                    ? allRows.filter(
+                          (row): row is ScoredCandidate & { lifetimeNet: number } =>
+                              row.lifetimeNet !== null,
+                      )
+                    : allRows;
+            rows.sort((a, b) =>
+                sort === 'lifetime'
+                    ? (b.lifetimeNet ?? 0) - (a.lifetimeNet ?? 0)
+                    : b.out.expectedNet - a.out.expectedNet,
+            );
 
             spinner.succeed(
                 `${plan.label} · ${rows.length} funded policies`,
             );
 
-            if (alwaysBusts.length > 0) {
+            if (sort === 'lifetime' && undefinedLifetime.length > 0) {
                 ui.warn(
-                    `excluded ${alwaysBusts.length} candidate(s) that bust 100% of the time at ${inputs.trials} trials, so lifetimeExpectedNet is undefined (a policy with zero chance of ever surviving to renew has no meaningful steady-state extraction rate): ${alwaysBusts.map((candidate) => candidate.label).join(', ')}`,
+                    `excluded ${undefinedLifetime.length} candidate(s) that bust 100% of the time at ${inputs.trials} trials, so lifetimeExpectedNet is undefined (a policy with zero chance of ever surviving to renew has no meaningful steady-state extraction rate): ${undefinedLifetime.map((candidate) => candidate.label).join(', ')}`,
                 );
             }
 
             ui.heading(plan.label);
             ui.muted(
-                '  ranked by renewal-adjusted lifetime expected net (pure cash extraction, bust priced as +1 more eval attempt)\n',
+                sort === 'lifetime'
+                    ? '  ranked by renewal-adjusted lifetime expected net (pure cash extraction, bust priced as +1 more eval attempt, assumes unlimited repeat cycles)\n'
+                    : `  ranked by per-cycle expected net for THIS run only (${base.maxEvalDays}-day eval cap + ${base.fundedHorizonDays}-day funded horizon, no assumption you repeat this indefinitely)\n`,
             );
             ui.muted(
-                `  survivors = trials (out of ${inputs.trials}) that passed eval and finished the funded horizon without busting -- lifetime net for a row with very few survivors is driven by a small, noisy sample and should not be trusted at face value\n`,
+                `  survivors = trials (out of ${inputs.trials}) that passed eval and finished the funded horizon without busting -- a result backed by very few survivors is driven by a small, noisy sample and should not be trusted at face value\n`,
             );
 
             const table = new TablePrinter([
@@ -139,7 +189,9 @@ export default defineCommand({
             for (const row of rows) {
                 table.printRow([
                     row.candidate.label,
-                    formatCurrency(row.lifetimeNet),
+                    row.lifetimeNet === null
+                        ? 'n/a'
+                        : formatCurrency(row.lifetimeNet),
                     formatCurrency(row.out.expectedNet),
                     formatPercent(row.out.fundedBustProbability),
                     `${row.survivors}/${inputs.trials}`,
