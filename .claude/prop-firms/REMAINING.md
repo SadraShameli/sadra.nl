@@ -20,11 +20,22 @@ and record the result in that firm's own `SOURCES.md`, not in this file.
 | topstep      | 6          | 41                  | 0                 | 5               | Done 2026-09-20      |
 | tpt          | 2          | 87 (repaired cache) | 71                | 2               | Done 2026-09-20      |
 | tradeify     | 5          | 76 (repaired cache) | 3                 | 1 (re-read) + 3 | Done 2026-09-20      |
+| ftmo-futures | 3          | 73 (single sitemap, no separate help-center domain) | — | 1 (Global Evaluation T&C PDF) | Not run — see note below |
 
-All nine firms have had the bulk adversarial verifier pass and the per-file
-two-direction line-by-line audit described in item 2. Apex's src-to-doc
-direction (76 findings: 71 MISSING_RULE, 5 CONTRADICTED, heaviest in
-`legacy.md` at 37) was the last piece to close, all applied 2026-09-20.
+All nine firms above the `ftmo-futures` row have had the bulk adversarial
+verifier pass and the per-file two-direction line-by-line audit described in
+item 2. Apex's src-to-doc direction (76 findings: 71 MISSING_RULE, 5
+CONTRADICTED, heaviest in `legacy.md` at 37) was the last piece to close, all
+applied 2026-09-20.
+
+**`ftmo-futures` postdates this pass entirely** (built and self-dated
+2026-09-21, one day after this file's own 2026-09-20 stamp) and has not been
+through the bulk adversarial-verifier pass or the item-2 line-by-line audit —
+only its own build-time verification. Its numbers above come straight from
+its own `SOURCES.md`/`README.md`, not from re-deriving anything. Treat it as
+a tenth firm needing the same bulk-pass treatment as the other nine whenever
+that pass is next run, not as already covered by "all nine firms" language
+anywhere below in this file.
 
 **All 8 non-Alpha-Futures firms now have at least one legal document read**,
 closing item 1 below. 74 findings applied tree-wide (29 from a 5-firm
@@ -224,10 +235,13 @@ Was deferred earlier on 2026-09-20; resumed and finished the same day.
 
 ## 6. Open Not Confirmed bullets
 
-**448 tree-wide, recounted 2026-09-20 after Apex's src-to-doc pass.**
+**448 tree-wide as of the 2026-09-20 recount after Apex's src-to-doc pass,
+plus 36 more from `ftmo-futures` (built 2026-09-21, not part of that
+recount) — 484 tree-wide as of 2026-09-21.**
 Largest first: fundednext 83, alphafutures 71, apex 62, topstep 51, lucid
-45, tradeify 42, mffu 40, tpt 33, e8futures 20. The count moved from the
-previously-tracked 435 because this pass both resolved several bullets
+45, tradeify 42, mffu 40, ftmo-futures 36, tpt 33, e8futures 20. The
+2026-09-20 count moved from the previously-tracked 435 because that pass both
+resolved several bullets
 (moving them into confirmed tables) and added new ones (source-vs-source
 conflicts a fresh reading surfaced, mostly in `apex/eod.md`,
 `apex/intraday.md`, and `apex/legacy.md`) — a net change, not a sign either
@@ -241,7 +255,7 @@ only after 1 through 4.
 Do not resolve one of these by inference. If the firm does not state it, it
 stays flagged.
 
-## 7. Not documentation: 19 modified `src/` files
+## 7. Not documentation: 19 modified `src/` files — resolved
 
 `bun run lint` in this repo is `eslint . --fix`, so running it rewrites source
 files. A lint run during the 2026-09-20 documentation pass left **19 `src/`
@@ -249,11 +263,13 @@ files modified and staged**, every hunk a mechanical
 `unicorn/prefer-logical-operator-over-ternary` autofix plus reformatting. All
 were checked and are behaviour-preserving. None were authored deliberately.
 
-`package.json` and `bun.lock` are also modified, but those are dependency
-version bumps and unrelated to the lint run. Leave them.
+`package.json` and `bun.lock` were also modified by unrelated dependency
+version bumps from the same period.
 
-**Awaiting a decision:** `git restore` the 19 `src/` files to HEAD, or keep the
-autofixes. Nothing else in the tree depends on the answer.
+**Resolved: kept, not restored.** `git status` is now clean and every one of
+these files is committed in `HEAD` (this happened as part of ordinary engine
+work landing on `main` afterward, not a decision made specifically for this
+item) — there is nothing left to decide.
 
 Note for future passes: the repo rule is that a documentation pass does not edit
 `src/`. Since `lint` carries `--fix`, prefer `bun run typecheck` and

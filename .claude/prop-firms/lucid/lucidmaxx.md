@@ -1,4 +1,4 @@
-# LucidMaxx
+# LucidMaxx ($25K / $50K / $100K / $150K)
 
 **Sources:** `https://support.lucidtrading.com/en/articles/13891785-lucidmaxx-overview` ("LucidMaxx Overview"), `https://support.lucidtrading.com/en/articles/14315460-lucidmaxx-eval-rules` ("LucidMaxx Eval Rules"), `https://support.lucidtrading.com/en/articles/14315468-lucidmaxx-cooldown` ("LucidMaxx Cooldown"), `https://support.lucidtrading.com/en/articles/14316866-lucidmaxx-eval-pricing` ("LucidMaxx Eval Pricing"). All fetched directly via raw HTTP on 2026-09-19, none through an LLM summarization pass. See `live.md` for the shared drawdown mechanic this file cross-references rather than repeats.
 
@@ -41,13 +41,42 @@ LucidMaxx's own eval/reset price is not fixed per size; it moves with a trader's
 - **Blowing a live account without clearing drawdown**: the trader moves into a progressively higher pricing tier, as shown in the Evaluation table's own One-Time Eval Fee row above.
 - **No discounts, no promotions**: "No discounts are offered on LucidMaxx evaluations... The listed price is the final price paid... cannot be reduced through promotions" ("LucidMaxx Eval Pricing").
 
-## Live Transition
+## Sim Funded
 
-Passing the LucidMaxx evaluation moves the trader directly into a live account; there is no Sim Funded stage and no separate activation step described in the cited sources.
+LucidMaxx has no Sim Funded stage: passing the Evaluation moves the trader directly into a live account, per "LucidMaxx Eval Rules" and this file's own Overview above. The fixed row set below is included for structural consistency with every other plan file in this tree; every row is N/A for this reason, not because the underlying figure is unconfirmed.
 
-**Drawdown:** LucidMaxx's own source states its live drawdown mechanic directly: "The live account drawdown is the same as the standard Lucid live structure" ("LucidMaxx Eval Rules"). See `live.md`'s own Live Account table for the full mechanic; by size, this means a $1,000 / $2,000 / $3,000 / $4,500 Starting Live Drawdown, locking at a flat $100 once the account reaches that much live profit or the trader requests a payout, whichever comes first (per `live.md`'s own Drawdown Lock row). This file does not repeat that table.
+| Parameter                      | $25K                                                          | $50K                                                          | $100K                                                          | $150K                                                          |
+| ------------------------------- | -------------------------------------------------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Starting Balance                | N/A (LucidMaxx has no Sim Funded stage; it moves directly from Evaluation to Live) | N/A (same reason)                                             | N/A (same reason)                                              | N/A (same reason)                                              |
+| Drawdown Type                    | N/A (see How the Drawdown Works below for the live-stage mechanic this plan uses instead) | N/A (same reason)                                             | N/A (same reason)                                              | N/A (same reason)                                              |
+| Drawdown Amount                  | N/A (same reason)                                             | N/A (same reason)                                             | N/A (same reason)                                              | N/A (same reason)                                              |
+| Drawdown Lock (see below)        | N/A (same reason)                                             | N/A (same reason)                                             | N/A (same reason)                                              | N/A (same reason)                                              |
+| Minimum Balance (ongoing)        | N/A (same reason)                                             | N/A (same reason)                                             | N/A (same reason)                                              | N/A (same reason)                                              |
+| Daily Loss Limit                 | N/A (same reason)                                             | N/A (same reason)                                             | N/A (same reason)                                              | N/A (same reason)                                              |
+| Max Contracts                    | N/A (same reason; not independently stated for the live stage either, see Not Confirmed) | N/A (same reason)                                             | N/A (same reason)                                              | N/A (same reason)                                              |
+| Consistency Rule                 | N/A (same reason; see Not Confirmed for whether the 40% eval-stage figure carries over to live) | N/A (same reason)                                             | N/A (same reason)                                              | N/A (same reason)                                              |
+| News Trading                     | N/A (same reason)                                             | N/A (same reason)                                             | N/A (same reason)                                              | N/A (same reason)                                              |
+| Inactivity Rule                  | N/A (same reason)                                             | N/A (same reason)                                             | N/A (same reason)                                              | N/A (same reason)                                              |
+| Max Active/Concurrent Accounts    | N/A (same reason; see Live Transition below for the confirmed 5-simultaneous-account figure, which applies at the live stage this plan moves to directly) | N/A (same reason)                                             | N/A (same reason)                                              | N/A (same reason)                                              |
+| Profit Split                     | N/A (same reason; see Payouts below for the confirmed 90/10 split, which applies at the live stage this plan moves to directly) | N/A (same reason)                                             | N/A (same reason)                                              | N/A (same reason)                                              |
 
-**Payouts:** unlike the equivalence stated for drawdown, LucidMaxx's own source describes its payout structure directly rather than deferring to `live.md`, and states figures not confirmed identically there. Do not assume the two are the same without independent confirmation of `live.md`'s own payout terms:
+## How the Drawdown Works
+
+LucidMaxx has no drawdown mechanic of its own: "The live account drawdown is the same as the standard Lucid live structure" ("LucidMaxx Eval Rules"). The mechanic is the one documented in full in `live.md`'s own Live Account table: an End-of-Day trailing Max Loss Limit (MLL) starting at $0, trailing upward with live profit until that profit reaches the tier's own Starting Live Drawdown ($1,000 / $2,000 / $3,000 / $4,500 for 25K/50K/100K/150K, the same dollar figures as every other Lucid plan's own Sim Funded drawdown amount), at which point the MLL locks permanently at a flat $100 and stops trailing. Requesting a live payout before that profit level is reached also locks the MLL immediately, whichever trigger comes first (per `live.md`'s own Drawdown Lock row). This file does not repeat `live.md`'s full table; see it directly for the mechanic's own citations.
+
+### Worked Example
+
+This example uses the literal-$0-based convention for the $50,000 tier's live account: LucidMaxx has no Sim Funded stage to carry a nominal balance forward from, so live profit is tracked starting at a literal $0, exactly matching `live.md`'s own convention for every Lucid live account.
+
+1. The LucidMaxx evaluation is passed, and the trader is moved directly into a live account starting at $0 live profit, with a $2,000 Starting Live Drawdown (the 50K tier's own figure, per "LucidMaxx Eval Rules"' "same as the standard Lucid live structure" statement and `live.md`'s own table).
+2. The account's live profit reaches $1,000 (a new peak). The MLL has not locked yet, since profit has not yet reached the $2,000 Starting Live Drawdown.
+3. The account's live profit reaches $2,000 exactly, the Starting Live Drawdown. Per `live.md`'s own Drawdown Lock row, the MLL locks at a flat $100 and stops trailing.
+4. The account's live profit later grows to $5,000 (a new peak). The MLL does not move again: it stays fixed at $100.
+5. If the account's live profit ever fell to $100 or below at any point, it would breach the locked MLL and close.
+
+## Payouts
+
+Unlike the equivalence stated for drawdown, LucidMaxx's own source describes its payout structure directly rather than deferring to `live.md`, and states figures not confirmed identically there. Do not assume the two are the same without independent confirmation of `live.md`'s own payout terms:
 
 | Parameter                            | Value                                                                                                |
 | ------------------------------------ | ---------------------------------------------------------------------------------------------------- |
@@ -58,6 +87,10 @@ Passing the LucidMaxx evaluation moves the trader directly into a live account; 
 | Max Payout per Cycle                 | None: "No payout caps" ("LucidMaxx Overview")                                                        |
 | Consistency on Payouts               | Unconfirmed (see Not Confirmed)                                                                      |
 | Maximum Total Payouts / Lifetime Cap | Unconfirmed (see Not Confirmed)                                                                      |
+
+## Live Transition
+
+Passing the LucidMaxx evaluation moves the trader directly into a live account; there is no Sim Funded stage and no separate activation step described in the cited sources. See How the Drawdown Works and Payouts above for the live stage's own confirmed mechanics.
 
 **Live Bonus:** per `live.md`'s own confirmed source, traders holding LucidMaxx status are not eligible for the one-time Live Bonus other Lucid plans' traders receive on first live transition, regardless of how many times they have transitioned. This is stated in `live.md`'s source, not in LucidMaxx's own four articles, which never mention the Live Bonus at all.
 

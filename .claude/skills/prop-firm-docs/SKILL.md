@@ -93,8 +93,9 @@ of drafting the file, per CONVENTIONS.md §Verification protocol step 5.
       verbatim (strip HTML tags/scripts/styles; do not summarize or
       paraphrase at this stage).
     - **If a URL fails to fetch** (blocked, 403, persistent error) after one
-      retry and a Wayback Machine fallback attempt, do not silently mark it
-      Unconfirmed and move on. Collect every failed URL into a single list
+      retry, do not silently mark it Unconfirmed and move on. Never fall back
+      to the Wayback Machine — a standing constraint from
+      `.claude/prop-firms/REMAINING.md`. Collect every failed URL into a single list
       and give it to the user, asking them to open each one in their own
       logged-in browser and paste the content back, the same "give me links
       to dump" pattern already established in this repo's prop-firm

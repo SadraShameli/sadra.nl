@@ -1,4 +1,4 @@
-# Alpha Futures — Source Ledger
+# Alpha Futures: Source Ledger
 
 One row per primary-source document used anywhere in this firm's tree. Update this file every time a source is added, re-fetched, or re-verified; this is what makes a future re-verification pass possible without re-deriving which document said what.
 
@@ -72,11 +72,14 @@ Every `help.alpha-futures.com` article and every `alpha-futures.com` page below 
   - **Advanced Evaluation consistency, 50% claimed on 19 distinct main-site pages.** Rejected: the dedicated Consistency Rule article ("The Consistency Rule on Advanced Evaluations is 40%"), the Advanced Account Overview ("40% on Evaluation only") and the Terms and Conditions’ Schedule 1 notes ("The consistency rule on advanced accounts is 40%") all state 40%. The same Terms note assigns 50% to Standard, which is the figure those pages appear to have copied onto Advanced.
   - **Evaluation pricing and reset fees quoted lower on blog and resource pages** (Zero 50K at $119/month with a $109 reset, Advanced 50K at $139/month with a $139 reset). Rejected: Alpha Futures’ own product pages, fetched 2026-09-19, state Zero $139/month with a $119 reset, Advanced $209/month with a $189 reset and Standard $129/month with a $109 reset, matching the help center and this tree. The Terms’ Schedule 1 "Resets: starting at" figures ($79 Zero, $109 Standard, $189 Advanced) are each that plan’s smallest size and corroborate the same price list.
 
+## Known source conflicts, resolved 2026-09-22 (kept here for provenance, not fetch failures)
+
+- **Direct 50K maximum withdrawal**: $2,000 ("Payout Policy", "Direct Account Overview", `product/direct`) versus $1,500 ("Maximum Withdrawal Request", same 2026-07-27 update date). Resolved: Direct's own dedicated overview article outranks the firm-wide Maximum Withdrawal Request article on this plan's own figure; $2,000 is current, $1,500 is stale. Both quoted in `direct.md`.
+- **Advanced Qualified Account cap**: 3 ("Maximum Allocation") versus "up to 5 accounts" (`product/advanced` FAQ). Resolved: the dedicated help-center article outranks the marketing product page; 3 is current (matching the engine's `maxFundedAccounts: 3`), 5 is stale. Both quoted in `advanced.md`.
+- **Payout processing time**: "48 business hours or less" (`how-it-works`, "Performance Fee Rules Explained (2026)") versus "five business days or less" ("Payout Update: 5 Business Days or Less"). Resolved: every plan file uses the Payout Update figure (more recent) and flags the older one as superseded.
+- **Advanced activation fee**: "$149" ("Performance Fee Rules Explained (2026)") versus $0 for accounts purchased after July 8, 2026 ("Activation Fee", "Advanced Account Overview"). Resolved: `advanced.md` treats the help-center articles as authoritative (more recent, dedicated); $0 is current for new accounts.
+
 ## Known unresolved source conflicts (not fetch failures: do not re-attempt these URLs)
 
-- **Direct 50K maximum withdrawal**: $2,000 ("Payout Policy", "Direct Account Overview", `product/direct`) versus $1,500 ("Maximum Withdrawal Request", same 2026-07-27 update date). Table keeps $2,000; both quoted in `direct.md`.
-- **Advanced Qualified Account cap**: 3 ("Maximum Allocation") versus "up to 5 accounts" (`product/advanced` FAQ). Table keeps 3; both quoted in `advanced.md`.
-- **Payout processing time**: "48 business hours or less" (`how-it-works`, "Performance Fee Rules Explained (2026)") versus "five business days or less" ("Payout Update: 5 Business Days or Less"). Every plan file uses the Payout Update figure and flags the older one.
-- **Advanced activation fee**: "$149" ("Performance Fee Rules Explained (2026)") versus $0 for accounts purchased after July 8, 2026 ("Activation Fee", "Advanced Account Overview"). `advanced.md` treats the help-center articles as authoritative.
 - **Qualified Account delivery time after activation**: "24 hours or less" ("Activating your Qualified Account") versus "1-2 business days" ("Activation Fee"). Flagged in `README.md` Firm-Wide Rules, not resolved.
 - **Call-to-live trigger wording**: "5 performance fees on a single Qualified Account" ("Path To Live Structure") versus "+$40,000 in payable balance, or after 5 payout cycles" (`how-it-works` FAQ). Flagged in `live.md`, not resolved.

@@ -2,8 +2,8 @@
 
 **Sources:** two tier-specific articles: <https://help.myfundedfutures.com/en/articles/16727601-rapid-eod-25k-a-comprehensive-look> ("Updated over 2 weeks ago"), <https://help.myfundedfutures.com/en/articles/16158363-rapid-eod-50k-a-comprehensive-look> (updated August 24, 2026). Only $25K and $50K exist for Rapid EOD in MFF's own help-center sitemap, no `rapid-eod-100k` or `rapid-eod-150k` article is listed at all, unlike standard Rapid, which has all four tiers; see Not Confirmed for how this is treated. The 25K article was located and fetched by running this skill's Discover & Extract stage against `help.myfundedfutures.com/sitemap.xml`, prompted by the user asking for the same sitemap-sweep treatment already applied to Lucid Trading; see SOURCES.md.
 
-**Last Verified:** 2026-09-20
-**Last Updated:** 2026-09-20
+**Last Verified:** 2026-09-22
+**Last Updated:** 2026-09-22
 
 ## Overview
 
@@ -31,6 +31,8 @@ Rapid EOD is a streamlined evaluation plan for My Funded Futures traders seeking
 
 **There is no separate Evaluation-stage drawdown-lock section in either tier's own article** (unlike standard Rapid's 25K article, which does have one). Both Rapid EOD tiers' articles jump directly from the Evaluation parameter table to the Sim Funded section.
 
+**Evaluation Consistency Rule (30%), resolved 2026-09-22 over a conflicting generic source.** "Consistency Rule at My FundedFutures" states a blanket "50% for MyFunded Futures evaluations on the Rapid & Pro plans," but both of Rapid EOD's own dedicated tier articles independently and explicitly state 30% instead (the 25K article's own FAQ: "Yes, there is a 30% consistency rule in the evaluation phase of the Rapid EOD 25k Plan"). Per methodology rule 1, two independent dedicated tier-specific articles agreeing outrank one generic, firm-wide article on this plan family's own figures, so 30% is treated as controlling; the generic article's "50% for Rapid" wording is read as describing standard (intraday) Rapid without addressing Rapid EOD as a distinct sub-plan.
+
 ## Sim Funded
 
 | Parameter                      | $25K                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | $50K                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
@@ -53,6 +55,8 @@ Rapid EOD is a streamlined evaluation plan for My Funded Futures traders seeking
 Your Max Loss Limit (MLL) trails upward each time your account closes at a new end-of-day high, stated in both tiers' own articles; the explicit "It never moves down" sentence appears only in the 50K article. The distance between your account balance and the Max Loss Limit stays fixed at the tier's own drawdown amount while it is trailing. It does not move intraday, only at the close of each trading session. The Max Loss Limit never moves downward, only upward with new end-of-day highs.
 
 Once your trailing Max Loss Limit reaches $100, it locks at that value and stops trailing. From that point forward, it does not move again. You must always keep at least $100 in the account balance. If your balance drops below $100, the account is breached.
+
+**Resolved 2026-09-22, balance-based trigger vs. the site's own `moveMllToLockOnFirstPayout` field.** This plan page's own embedded pricing payload (`plans/rapid-eod.html`) carries `moveMllToLockOnFirstPayout: true` on both the 25K and 50K records, the same field, and the same tension, already found on Builder's plan page. Resolved the same way and for the same reason as builder.md: both tiers' own dedicated help-center articles state the balance/EOD-high-based trigger directly, and a dedicated, plan-specific help-center article outranks a marketing-page data field under this tree's sourcing hierarchy, so the balance-based reading above stands as the confirmed value.
 
 ### Worked Example
 
@@ -97,8 +101,6 @@ See [rapid-live.md](./rapid-live.md) (shared by Rapid and Rapid EOD) for full li
 - **Reset Fee, 50K**, Not stated in the cited source, and not stated on MFF's own live pricing page either (unlike Rapid's equivalent page, which explicitly says no reset exists, see the Pricing note above). Do not assume the reset cost matches the evaluation cost, or that Rapid EOD shares Rapid's "no reset" policy, without a separate citation.
 - **Maximum Total Payouts / Lifetime Cap, both tiers**, Not stated in either cited source. Do not assume Rapid EOD has a lifetime payout cap on the Sim Funded stage without a separate citation. A more thorough search found no evidence such a cap exists for Rapid EOD either: "Payout Policy Overview" explicitly covers "Rapid Plan Payouts (Intraday and EOD Plans)" together in one section, and that section has no lifetime/sim-cap language, unlike its dedicated Builder and Pro sections. Suggestive of no cap, matching standard Rapid's own finding, not affirmative confirmation of "None."
 - **Minimum Days After Passing Evaluation Before Payout Eligibility**, Still not explicitly stated for either tier. "Payout Policy Overview" confirms a _different_ waiting-period reference point, 24 hours after first trade, not after passing evaluation, already reflected in the Payouts table above. Any calendar-day requirement measured from the evaluation-pass date specifically remains unconfirmed. Do not assume there is no calendar-day waiting period after passing evaluation, or that the 24-hour-after-first-trade rule is the only gate.
-- **Evaluation Consistency Rule (30%) vs. a conflicting generic source, now further corroborated, not just researched once.** "Consistency Rule at My FundedFutures" states blanket "the consistency rule is 50% for MyFunded Futures evaluations on the Rapid & Pro plans," explicitly scoped to the evaluation stage. Both of Rapid EOD's own dedicated tier articles are equally explicit and equally evaluation-scoped in stating 30% instead, the 25K article's own FAQ: "Yes, there is a 30% consistency rule in the evaluation phase of the Rapid EOD 25k Plan." Having two independent tier-specific sources agree on 30% strengthens, rather than merely repeats, the conclusion that the generic article's "50% for Rapid" describes standard (intraday) Rapid without addressing Rapid EOD as a distinct sub-plan; 30% remains controlling here. Do not overwrite Rapid EOD’s 30% with the generic article’s 50%, and do not apply 30% back to standard intraday Rapid.
-- **Drawdown Lock trigger, same first-payout-vs-balance tension found in `builder.md`** — this file's tier-specific sources tie the $100 locked floor to the EOD balance high alone. But `plans/rapid-eod.html`'s own embedded pricing payload carries `moveMllToLockOnFirstPayout: true` on both the 25K and 50K records — the same field, with the same value, found on Builder's plan page and already flagged there as tying the lock to the first payout event rather than to balance alone. Not raised by the original audit pass for this file, found by directly checking the same JSON payload this file already cites for its pricing figures. Do not assume the floor locks purely from reaching the stated EOD-high balance without a payout having occurred.
 ---
 
 **Sources:**
@@ -112,4 +114,4 @@ See [rapid-live.md](./rapid-live.md) (shared by Rapid and Rapid EOD) for full li
 - <https://help.myfundedfutures.com/en/articles/8230009-news-trading-policy>, "News Trading Policy." Found via the sitemap sweep. Firm-wide, definitive source for the News Trading resolution at both tiers.
 - <https://help.myfundedfutures.com/en/articles/16498635-moving-from-evaluation-to-sim-funded-account>, "Moving from Evaluation to Sim-Funded Account." Found via the sitemap sweep. Independently confirms Rapid EOD's own "3" Max Active/Concurrent Accounts figure as a genuine, named plan-specific override, resolving what an earlier draft of this file had left as an unresolved apparent conflict.
 
-**Last Updated:** 2026-09-20
+**Last Updated:** 2026-09-22

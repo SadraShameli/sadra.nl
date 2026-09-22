@@ -1,4 +1,4 @@
-# Apex Trader Funding — Source Ledger
+# Apex Trader Funding: Source Ledger
 
 One row per primary-source document used anywhere in this firm's tree. Update this file every time a source is added, re-fetched, or re-verified; this is what makes a future re-verification pass possible without re-deriving which document said what.
 

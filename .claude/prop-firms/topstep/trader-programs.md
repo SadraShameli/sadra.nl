@@ -1,7 +1,11 @@
 # Behavioral Trading Programs: Focused Trader Program and Responsible Trading Program
 
-**Sources:**, <https://help.topstep.com/en/articles/10290170-professional-behavior-at-topstep> (Professional Behavior at Topstep, updated 2026-06-10), <https://help.topstep.com/en/articles/12060405-back2funded-rules-guidelines-and-how-it-works> (Back2Funded: Rules, Guidelines, and How It Works, updated 2026-08-14), <https://help.topstep.com/en/articles/8284117-topstep-refund-policies> (Topstep® Refund Policies, updated 2026-09-11), <https://help.topstep.com/en/articles/14289835-topstep-pricing-and-payment-questions> (Topstep Pricing and Payment Questions, updated 2026-07-20)
+**Sources:**
 
+- <https://help.topstep.com/en/articles/10290170-professional-behavior-at-topstep> (Professional Behavior at Topstep, updated 2026-06-10)
+- <https://help.topstep.com/en/articles/12060405-back2funded-rules-guidelines-and-how-it-works> (Back2Funded: Rules, Guidelines, and How It Works, updated 2026-08-14)
+- <https://help.topstep.com/en/articles/8284117-topstep-refund-policies> (Topstep® Refund Policies, updated 2026-09-11)
+- <https://help.topstep.com/en/articles/14289835-topstep-pricing-and-payment-questions> (Topstep Pricing and Payment Questions, updated 2026-07-20)
 - <https://help.topstep.com/en/articles/10551016-what-is-the-focused-trader-program> (updated 2026-08-10)
 - <https://help.topstep.com/en/articles/13620045-what-is-the-responsible-trading-program> (updated 2026-07-21)
 - <https://help.topstep.com/en/articles/10296582-prohibited-conduct> (updated 2026-09-11, supporting article)

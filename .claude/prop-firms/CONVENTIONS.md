@@ -18,6 +18,8 @@ hypothetical edge cases.
     SOURCES.md              -- ledger of every primary source used, by file
     <plan-slug>.md          -- one file per named plan (e.g. rapid.md, pro.md)
     <plan-slug>-live.md     -- live-account file, only if that plan has one
+    <topic-slug>.md         -- firm-wide policy/rules overlay, not tied to one
+                               plan or size (e.g. trading-rules.md); see below
 ```
 
 - `<firm-slug>` and `<plan-slug>` are lowercase-kebab, matching the engine's own
@@ -29,9 +31,36 @@ hypothetical edge cases.
 - Discontinued/legacy plans are not documented unless the user asks — note
   their existence in `README.md`'s scope note only.
 
+### `<topic-slug>.md` — firm-wide policy/rules overlay files
+
+For content that applies across plans and isn't itself a plan or a live
+stage (a firm-wide trading-conduct rulebook, a standalone product line that
+doesn't map to one plan/size, a behavioral-program overlay). Held to the
+same minimal bar as live-account files, not the fixed plan-file table
+structure:
+
+1. `# <Descriptive Title>` — no size suffix required; these aren't
+   size-scoped.
+2. The same three-line metadata block as every other file type
+   (`**Source(s):**`, `**Last Verified:**`, `**Last Updated:**`) — written as
+   three separate lines, never `**Sources:**,` followed by a run-on
+   comma-separated list on the same line.
+3. `## Overview` first.
+4. `## Not Confirmed By This Source` last, mandatory even when empty, same
+   format as everywhere else.
+
+Everything between is free-form, named for what the content actually covers.
+Link to it from the firm's `README.md` (its own section, not folded into
+`## Firm-Wide Rules`, since that section is reserved for rules confirmed
+identically across every documented plan per bug class #4 below).
+
 ## Required sections, in this exact order, per `<plan-slug>.md`
 
-1. `# <Plan Name> (<Size>)` — title.
+1. `# <Plan Name> (<Size>)` — title. Follow this exactly for any new plan file.
+   Known gap: most of the tree's *existing* plan files predate this being
+   spelled out explicitly and use a bare `# <Plan Name>` with no size (e.g.
+   `# LucidPro`, `# Pro`) — not yet retroactively fixed tree-wide; do not
+   assume spot-checking one compliant firm (`tradeify`) means the rest match.
 2. Metadata block, three lines:
     - `**Source:**` (or `**Sources:**` if more than one) — exact URL(s).
     - `**Last Verified:**` — the date this file was last checked against a live
@@ -70,6 +99,37 @@ Payouts / Lifetime Cap`.
    sourced from a different, uncited page), and what NOT to assume.
 10. Footer: `**Sources:**` bullet list — exact URL, and the update-date the
     source article itself states (not today's date).
+
+## Required sections for `<plan-slug>-live.md`
+
+Live-account files are **not** held to the fixed table-row structure above —
+live-account mechanics (eligibility, bonus/reward structures, breach and
+cooldown handling) genuinely differ enough firm to firm that forcing one
+fixed shape produces worse documentation, not more consistent documentation.
+Only three things are actually enforced, checked against every existing live
+file:
+
+1. `# <Title>` and the same three-line metadata block as a plan file
+   (`**Source(s):**`, `**Last Verified:**`, `**Last Updated:**`).
+2. `## Overview` first.
+3. `## Not Confirmed By This Source` last, mandatory even when empty, in the
+   exact format specified above under "The Unconfirmed-flag format" — this
+   and every "Known bug class" below still apply in full to live files; only
+   the middle section headings are free-form.
+
+Everything between Overview and Not Confirmed is firm-specific prose and
+tables named for what that firm's live stage actually does (e.g. a bonus
+vault, a reward-pool structure, a call-up/call-down process) — do not force a
+different firm's live-file headings onto a new one just for surface
+consistency; match the plan's own source material instead.
+
+**Known compliance gap, not yet closed:** the existing tree's live-file
+titles do not consistently follow the `<plan-slug>.md` title rule below
+either (most use a free-form descriptive title with no size, e.g. `# Live
+Account`, rather than `# <Plan Name> (<Size>)`) — this was not retroactively
+fixed as part of documenting this section, since it would mean rewriting
+titles across most of the tree's live files, a real content change outside
+the scope of a documentation-conventions fix.
 
 `README.md` follows the same metadata block, then: `## Overview`, `## Plans`
 (one bullet per plan, linking to its file), `## Live Accounts` (if

@@ -2,8 +2,8 @@
 
 **Sources:** Topstep Help Center, multiple articles (Trading Combine® Parameters, Express Funded Account® Parameters/Activation, Consistency at Topstep, Topstep Payout Policy, What is the Scaling Plan?, What is the Maximum Loss Limit?, plus firm-wide eligibility/prohibited-trading-strategies/risk-adjustment articles). Full list with exact URLs and each article's own stated update date is in the Sources section below.
 
-**Last Verified:** `2026-09-19`
-**Last Updated:** `2026-09-19`
+**Last Verified:** `2026-09-22`
+**Last Updated:** `2026-09-22`
 
 ## Overview
 
@@ -116,11 +116,11 @@ Topstep's stated path is: pass the Trading Combine, take Payouts and build a tra
 - **Maximum Total Payouts / Lifetime Cap (general Traders)** — not stated as a fixed lifetime figure for Consistency XFA holders outside the XFA-eligible/LFA-ineligible country group. The only lifetime cap figure in either bundle ($200,000) is stated specifically for that eligibility group. Do not assume $200,000 is a general lifetime cap that applies to every Consistency XFA holder.
 - **Buffer Requirement, engine behavior** — Topstep's own Payout Policy article does not list a profit-since-last-Payout requirement for the Consistency path (see Overview's Engine cross-check note). Whether TopStep.ts's shared `minPayoutProfitPerCycle` constant is a genuine extra restriction on this path or an inert value given the 40% ratio's own math is not stated by the source either way. Do not assume the engine is wrong just because the field is absent from the source's Consistency-specific list, and do not assume the source's silence proves the engine's behavior is intentional.
 - **Minimum Balance at Start, $100K/$150K** — the $48,000 figure for a $50K Combine is stated verbatim in the source's own worked example; the $97,000 and $145,500 figures for $100K/$150K are this file's own arithmetic (size minus that size's own confirmed MLL amount), not an independently stated dollar figure in either bundle. Do not treat $97,000/$145,500 as directly quoted source text.
-- **Whether the 55% Consistency Target is inclusive or exclusive, and what it measures against** — two Topstep articles state the same objective differently. "Consistency at Topstep" gives it as inclusive and measured against the target: "Your single best day of profit must stay at or below 55% of your Profit Target." The "Topstep Program Overview" article gives it as exclusive and measured against realised profit: "Consistency Target: best trading day must stay below 55% of total profits." A trader whose best day lands exactly on 55% passes under the first wording and fails under the second, and the denominator differs too. Nothing read this pass resolves either difference. Do not treat a best day at exactly 55% as safe, and do not assume the denominator is the Profit Target rather than total profit.
+- **Whether the 55% Consistency Target is inclusive or exclusive, and what it measures against** — a confirmed, live conflict between two of Topstep's own sources, not resolvable by authority ranking. The dedicated "Consistency at Topstep" article (updated 2026-09-17) states the rule two different ways within the same article: a formula, "Best Day Profit ÷ Total Profit = Best Day %", and a separate rule statement, "Your single best day of profit must stay at or below 55% of your Profit Target" (inclusive, against the Profit Target). The firm-wide "Topstep Program Overview" article (updated 2026-09-10) states it a third way: "Consistency Target: best trading day must stay below 55% of total profits" (exclusive, against total profit), matching the dedicated article's own formula wording rather than its own rule-statement wording. Because the higher-authority, more recently updated, dedicated article is itself internally inconsistent on this exact point, neither the dedication rule nor the recency rule can settle which of its two phrasings controls, so the conflict is kept open rather than resolved by picking one (re-checked 2026-09-22, nothing new resolves it). Do not assume a best day at exactly 55% is safe, and do not assume the denominator is the Profit Target rather than total profit.
 
 ---
 
-**Last Updated:** `2026-09-19`
+**Last Updated:** `2026-09-22`
 **Sources:**
 
 - `https://help.topstep.com/en/articles/8284121-trading-combine-subscriptions` (updated 2026-09-04)
