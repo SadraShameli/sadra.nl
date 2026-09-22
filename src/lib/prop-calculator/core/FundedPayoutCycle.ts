@@ -88,8 +88,23 @@ export class FundedCycleTracker {
             return null;
         }
 
+        const prospectiveThreshold =
+            plan.payoutFloorEffect === PayoutFloorEffect.LockAtPlanFloor &&
+            !state.thresholdLocked &&
+            plan.fundedDrawdown.lock
+                ? Math.max(
+                      state.threshold,
+                      plan.fundedDrawdown.lock.lockedThreshold(
+                          state.startingBalance,
+                      ),
+                  )
+                : state.threshold;
         const cushionRoom =
-            state.balance - plan.payoutBalanceFloor(state, minRetainedCushion);
+            state.balance -
+            plan.payoutBalanceFloor(
+                { ...state, threshold: prospectiveThreshold },
+                minRetainedCushion,
+            );
         const cap = plan.resolvedPayoutCap(state, this.payoutsIssued);
         const dollarCappedWithdrawable =
             cap.requestCap === null

@@ -206,7 +206,16 @@ describe("FundedNext Rapid Pro payout cadence (live-verified: 'every 3 days', di
         expect(payoutAfterQualifyingDays(2)).toBeNull();
     });
 
-    it('allows the payout once 3 qualifying days have passed', () => {
-        expect(payoutAfterQualifyingDays(3)?.debited).toBe(1000);
-    });
+    it(
+        'allows the payout once 3 qualifying days have passed, capped to $900 ' +
+            'rather than the full $1000 profit -- LockAtPlanFloor force-locks the ' +
+            'threshold to $50,100 (startingBalance + RAPID_LOCK_OFFSET) as a ' +
+            'result of this very payout, and the withdrawal must be sized ' +
+            'against that post-lock floor, not the pre-lock $48,000 threshold, ' +
+            'or the payout would land the account exactly on/below its own new ' +
+            'floor',
+        () => {
+            expect(payoutAfterQualifyingDays(3)?.debited).toBe(900);
+        },
+    );
 });

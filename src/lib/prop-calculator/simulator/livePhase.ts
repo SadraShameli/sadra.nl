@@ -65,10 +65,7 @@ export function runLiveDay(options: LiveDayRunOptions): {
     let isTraded = false;
 
     const idleChance = idleDayProbability ?? 0;
-    const isIdleToday =
-        idleChance > 0 &&
-        plan.maxConsecutiveIdleDays !== null &&
-        rng() < idleChance;
+    const isIdleToday = idleChance > 0 && rng() < idleChance;
 
     if (!isIdleToday) {
         for (let index = 0; index < tradesPerDay; index++) {

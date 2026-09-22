@@ -1,4 +1,8 @@
 export { resolveDayPolicy, runDay } from './day';
+export {
+    assertNoFundedDayPolicyConflict,
+    type FundedDayPolicyConflictInputs,
+} from './dayPolicyValidation';
 export { simulate, simulatePortfolio } from './engine';
 export { runEvalAttempt, runEvalWithRetries } from './evalPhase';
 export {

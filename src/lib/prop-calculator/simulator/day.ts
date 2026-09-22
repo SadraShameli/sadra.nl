@@ -19,6 +19,7 @@ import {
     simulateTradePath,
 } from '../core/TradePathSimulation';
 import { TradingPhase } from '../core/TradingPhase';
+import { assertNoFundedDayPolicyConflict } from './dayPolicyValidation';
 import { type DayRunOptions, type SimInputs } from './types';
 
 const MAX_INTRADAY_PATH_STEPS = 100_000;
@@ -27,6 +28,9 @@ export function resolveDayPolicy(
     inputs: SimInputs,
     phase: TradingPhase,
 ): DayPolicy {
+    if (phase === TradingPhase.Funded) {
+        assertNoFundedDayPolicyConflict(inputs);
+    }
     const declared =
         phase === TradingPhase.Eval
             ? inputs.evalDayPolicy
