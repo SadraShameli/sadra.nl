@@ -23,12 +23,12 @@ function variant(v: TopStepVariant): Plan {
 
 describe('TopStep DLL add-on variants (live-verified 2026-09-21 against help.topstep.com standard.md/consistency.md)', () => {
     it('the base (no-DLL) variants have no Daily Loss Limit at all, matching the firm default', () => {
-        expect(variant(TopStepVariant.NoFeeStandard).evalDailyLossLimit).toEqual(
-            { kind: DailyLossLimitKind.None },
-        );
-        expect(variant(TopStepVariant.StandardConsistency).evalDailyLossLimit).toEqual(
-            { kind: DailyLossLimitKind.None },
-        );
+        expect(
+            variant(TopStepVariant.NoFeeStandard).evalDailyLossLimit,
+        ).toEqual({ kind: DailyLossLimitKind.None });
+        expect(
+            variant(TopStepVariant.StandardConsistency).evalDailyLossLimit,
+        ).toEqual({ kind: DailyLossLimitKind.None });
     });
 
     it.each([
@@ -58,18 +58,18 @@ describe('TopStep DLL add-on variants (live-verified 2026-09-21 against help.top
     });
 
     it('the DLL add-on doubles the Consistency XFA payout request cap from $3,000 to $6,000', () => {
-        expect(variant(TopStepVariant.StandardConsistency).payoutRequestCap).toBe(
-            3000,
-        );
+        expect(
+            variant(TopStepVariant.StandardConsistency).payoutRequestCap,
+        ).toBe(3000);
         expect(
             variant(TopStepVariant.StandardConsistencyDll).payoutRequestCap,
         ).toBe(6000);
     });
 
     it('the Responsible Trading Discount ($10/month) applies only to the No-fee pricing path, not Standard', () => {
-        expect(variant(TopStepVariant.NoFeeStandard).fees.monthlySubscription).toBe(
-            95,
-        );
+        expect(
+            variant(TopStepVariant.NoFeeStandard).fees.monthlySubscription,
+        ).toBe(95);
         expect(
             variant(TopStepVariant.NoFeeStandardDll).fees.monthlySubscription,
         ).toBe(85);
@@ -77,7 +77,8 @@ describe('TopStep DLL add-on variants (live-verified 2026-09-21 against help.top
             variant(TopStepVariant.StandardStandard).fees.monthlySubscription,
         ).toBe(49);
         expect(
-            variant(TopStepVariant.StandardStandardDll).fees.monthlySubscription,
+            variant(TopStepVariant.StandardStandardDll).fees
+                .monthlySubscription,
         ).toBe(49);
     });
 

@@ -241,7 +241,7 @@ describe.each(ALL_PLANS)(
         'simulate(), because an all-idle run can never trade its way past ' +
         'eval to reach a funded-only rule -- idleDayProbability:1 from day ' +
         'one means the eval profit target is never hit, so simulate() ' +
-        "would time out during eval before a funded-only rule ever gets " +
+        'would time out during eval before a funded-only rule ever gets ' +
         'a chance to fire)',
     (plan) => {
         const idleDayPolicy: DayPolicy = {
@@ -285,9 +285,7 @@ describe.each(ALL_PLANS)(
                         plan.beginFundedPhase(state);
                     }
                     const stats = freshStats(state.startingBalance);
-                    let lastResult:
-                        | ReturnType<typeof runDay>
-                        | undefined;
+                    let lastResult: ReturnType<typeof runDay> | undefined;
                     for (let day = 1; day <= limit; day++) {
                         lastResult = runDay({
                             commission: dollars(0),
@@ -398,10 +396,8 @@ describe.each(ALL_PLANS)(
                 );
 
                 const { expectancyR: firstExpectancyR, ...firstRest } = first;
-                const {
-                    expectancyR: differentExpectancyR,
-                    ...differentRest
-                } = withDifferentScalars;
+                const { expectancyR: differentExpectancyR, ...differentRest } =
+                    withDifferentScalars;
                 expect(differentRest).toStrictEqual(firstRest);
                 expect(differentExpectancyR).toBeCloseTo(
                     (firstExpectancyR * 250) / 999,

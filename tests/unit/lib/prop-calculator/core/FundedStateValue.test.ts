@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { ALL_FIRMS } from '~/lib/prop-calculator';
 import {
     computeEvalStateValue,
     computeFundedStateValue,
@@ -12,6 +13,7 @@ import {
     DailyLossLimitKind,
     dollars,
     EodTrailingDrawdown,
+    findRegistryPlanId,
     FirmId,
     fraction,
     INSTRUMENTS,
@@ -23,6 +25,7 @@ import {
     type Plan,
     points,
     replacementEconomics,
+    warmFirmsRegistryCache,
 } from '~/lib/prop-calculator/core';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 import { TopStep } from '~/lib/prop-calculator/firms/topstep/TopStep';
@@ -931,4 +934,31 @@ describe('cycleBestDayProfit DP state dimension', () => {
             );
         },
     );
+});
+
+describe('findRegistryPlanId (worker-thread pool safety gate)', () => {
+    it(
+        'resolves every real registry plan back to its own id, under ' +
+            'whatever runtime is executing this test -- a regression for ' +
+            "the parallel path's registry lookup silently degrading to " +
+            'the sequential fallback forever if this ever stops resolving ' +
+            '(e.g. the firms module gets moved or renamed)',
+        async () => {
+            await warmFirmsRegistryCache();
+            for (const firm of ALL_FIRMS) {
+                for (const plan of firm.plans) {
+                    expect(findRegistryPlanId(plan)).toEqual(plan.id);
+                }
+            }
+        },
+    );
+
+    it('returns null for a plan not present in the static registry', async () => {
+        await warmFirmsRegistryCache();
+        const [firstFirm] = ALL_FIRMS;
+        const [firstPlan] = firstFirm?.plans ?? [];
+        if (firstPlan === undefined) throw new Error('no plans in registry');
+
+        expect(findRegistryPlanId(firstPlan.withOverrides({}))).toBeNull();
+    });
 });

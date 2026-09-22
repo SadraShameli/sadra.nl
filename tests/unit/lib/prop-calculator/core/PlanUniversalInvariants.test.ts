@@ -263,13 +263,13 @@ describe.each(
     ALL_PLANS.filter((plan) => plan.fundedDrawdown.lock !== undefined),
 )(
     '$label: the natural (onDayClose/onTrade) lock trigger always snaps the ' +
-        "threshold to exactly the documented locked value, even when the " +
+        'threshold to exactly the documented locked value, even when the ' +
         'same call’s ratchet already carried it higher -- confirmed against ' +
         "DrawdownTransitions.test.ts's own synthetic case " +
         "('locks at the documented floor even when the qualifying day " +
         "overshoots the trigger'); forceLock's separate never-lower guard " +
         'is a payout-specific safety measure (LockAtPlanFloor debits are ' +
-        "sized against the pre-lock floor, so forceLock must never drop " +
+        'sized against the pre-lock floor, so forceLock must never drop ' +
         'the floor below a balance already paid out against it) and is ' +
         'deliberately NOT the same contract as the natural lock',
     (plan) => {

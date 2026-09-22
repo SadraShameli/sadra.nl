@@ -1,4 +1,3 @@
-import { createRequire } from 'node:module';
 import { availableParallelism } from 'node:os';
 import {
     isMainThread,
@@ -6,6 +5,7 @@ import {
     Worker,
     workerData,
 } from 'node:worker_threads';
+import { require as tsxRequire } from 'tsx/cjs/api';
 
 import type * as FirmsModule from '../firms';
 
@@ -160,6 +160,28 @@ interface SerializableFundedConfig {
     readonly rungSizing?: RungSizing;
     readonly tradesPerDay?: number;
     readonly winrate: number;
+}
+
+const firmsRegistryCache: {
+    module: null | typeof FirmsModule;
+    warmPromise: null | Promise<void>;
+} = { module: null, warmPromise: null };
+
+export function findRegistryPlanId(plan: Plan): null | PlanId {
+    void warmFirmsRegistryCache();
+    if (firmsRegistryCache.module === null) return null;
+    const firm = firmsRegistryCache.module.findFirm(plan.id.firm);
+    if (firm === undefined) return null;
+    return firm.plans.includes(plan) ? plan.id : null;
+}
+
+export async function warmFirmsRegistryCache(): Promise<void> {
+    firmsRegistryCache.warmPromise ??= (async () => {
+        try {
+            firmsRegistryCache.module = await import('../firms');
+        } catch {}
+    })();
+    await firmsRegistryCache.warmPromise;
 }
 
 function bestActionAt(
@@ -641,13 +663,6 @@ function encodePolicyTables(
     }
 }
 
-function findRegistryPlanId(plan: Plan): null | PlanId {
-    const firmsModule = requireFirmsModule();
-    const firm = firmsModule.findFirm(plan.id.firm);
-    if (firm === undefined) return null;
-    return firm.plans.includes(plan) ? plan.id : null;
-}
-
 function lockedKey(
     context: FundedSolveContext,
     regime: number,
@@ -703,8 +718,7 @@ function reconstructPlanFromRegistry(planId: PlanId): Plan {
 }
 
 function requireFirmsModule(): typeof FirmsModule {
-    const requireFromHere = createRequire(import.meta.url);
-    return requireFromHere('../firms') as typeof FirmsModule;
+    return tsxRequire('../firms', import.meta.url) as typeof FirmsModule;
 }
 
 function runFundedWorkerBootstrap(): void {
@@ -1107,6 +1121,7 @@ class FundedWorkerPool {
                     workerIndex,
                 };
                 return new Worker(new URL(import.meta.url), {
+                    execArgv: ['--import', 'tsx'],
                     workerData: init,
                 });
             },
@@ -1663,7 +1678,9 @@ function tryCreateWorkerPool(
             1,
             Math.min(cores, MAX_WORKER_COUNT, totalPairs),
         );
-        return numberWorkers <= 1 ? null : new FundedWorkerPool(numberWorkers, config, planId, context);
+        return numberWorkers <= 1
+            ? null
+            : new FundedWorkerPool(numberWorkers, config, planId, context);
     } catch {
         return null;
     }

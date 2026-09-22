@@ -148,7 +148,9 @@ export default defineCommand({
             const rows =
                 sort === 'lifetime'
                     ? allRows.filter(
-                          (row): row is ScoredCandidate & { lifetimeNet: number } =>
+                          (
+                              row,
+                          ): row is ScoredCandidate & { lifetimeNet: number } =>
                               row.lifetimeNet !== null,
                       )
                     : allRows;
@@ -158,9 +160,7 @@ export default defineCommand({
                     : b.out.expectedNet - a.out.expectedNet,
             );
 
-            spinner.succeed(
-                `${plan.label} · ${rows.length} funded policies`,
-            );
+            spinner.succeed(`${plan.label} · ${rows.length} funded policies`);
 
             if (sort === 'lifetime' && undefinedLifetime.length > 0) {
                 ui.warn(

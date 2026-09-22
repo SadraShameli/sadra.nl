@@ -103,7 +103,11 @@ export default defineCommand({
                 'Max outer eval/funded fixed-point iterations (stops early on convergence). Each iteration is a full eval + funded DP solve, so this multiplies total runtime directly.',
             type: 'string',
         },
-        rr: { default: '2', description: 'Reward to risk ratio', type: 'string' },
+        rr: {
+            default: '2',
+            description: 'Reward to risk ratio',
+            type: 'string',
+        },
         seed: {
             default: '42',
             description: 'RNG seed for the empirical validation run',
@@ -114,7 +118,11 @@ export default defineCommand({
             description: 'Monte Carlo trials for the empirical validation run',
             type: 'string',
         },
-        winrate: { default: '0.4', description: 'Win rate (0-1)', type: 'string' },
+        winrate: {
+            default: '0.4',
+            description: 'Win rate (0-1)',
+            type: 'string',
+        },
     },
     meta: {
         description:
@@ -146,7 +154,10 @@ export default defineCommand({
 
             const winrate = readNumber(context.args.winrate, 'winrate');
             const rrRatio = readNumber(context.args.rr, 'rr');
-            const maxEvalDays = readNumber(context.args['eval-days'], 'eval-days');
+            const maxEvalDays = readNumber(
+                context.args['eval-days'],
+                'eval-days',
+            );
             const fundedHorizonDays = readNumber(
                 context.args['funded-days'],
                 'funded-days',
@@ -236,10 +247,20 @@ export default defineCommand({
                 '\n  sample risk at the very first day (this is NOT a fixed ladder -- it is one snapshot of a function that changes with balance/profit/day; re-run this command’s dashboard mentally as your account moves)\n',
             );
             ui.note(
-                `  eval, day 1, trade 1-${evalResult.dayPolicy.ladder.length}: ${sampleRisks(evalResult.dayPolicy, evalSampleState).map((r) => `$${r}`).join(' / ')}`,
+                `  eval, day 1, trade 1-${evalResult.dayPolicy.ladder.length}: ${sampleRisks(
+                    evalResult.dayPolicy,
+                    evalSampleState,
+                )
+                    .map((r) => `$${r}`)
+                    .join(' / ')}`,
             );
             ui.note(
-                `  funded, day 1, trade 1-${fundedResult.dayPolicy.ladder.length}: ${sampleRisks(fundedResult.dayPolicy, fundedSampleState).map((r) => `$${r}`).join(' / ')}`,
+                `  funded, day 1, trade 1-${fundedResult.dayPolicy.ladder.length}: ${sampleRisks(
+                    fundedResult.dayPolicy,
+                    fundedSampleState,
+                )
+                    .map((r) => `$${r}`)
+                    .join(' / ')}`,
             );
         } catch (error) {
             spinner?.fail();
