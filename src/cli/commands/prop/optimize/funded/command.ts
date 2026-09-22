@@ -13,12 +13,20 @@ import {
     fraction,
     lifetimeExpectedNet,
     type SimInputs,
+    type SimOutputs,
     simulate,
 } from '~/lib/prop-calculator';
 
 interface Candidate {
     label: string;
     overrides: Partial<SimInputs>;
+}
+
+interface ScoredCandidate {
+    candidate: Candidate;
+    lifetimeNet: number;
+    out: SimOutputs;
+    survivors: number;
 }
 
 export default defineCommand({
@@ -76,8 +84,14 @@ export default defineCommand({
                 )
                 .start();
 
-            const rows = candidates.map((candidate) => {
+            const rows: ScoredCandidate[] = [];
+            const alwaysBusts: Candidate[] = [];
+            for (const candidate of candidates) {
                 const out = simulate({ ...base, ...candidate.overrides });
+                if (out.fundedBustProbability >= 1) {
+                    alwaysBusts.push(candidate);
+                    continue;
+                }
                 const costOfOneMoreAttempt = plan.feesUntilPass(
                     out.expectedDaysToPass,
                     base.discounts,
@@ -87,17 +101,31 @@ export default defineCommand({
                     expectedNet: out.expectedNet,
                     fundedBustProbability: out.fundedBustProbability,
                 });
-                return { candidate, lifetimeNet, out };
-            });
+                rows.push({
+                    candidate,
+                    lifetimeNet,
+                    out,
+                    survivors: Math.round(out.passProbability * inputs.trials),
+                });
+            }
             rows.sort((a, b) => b.lifetimeNet - a.lifetimeNet);
 
             spinner.succeed(
-                `${plan.label} · ${candidates.length} funded policies`,
+                `${plan.label} · ${rows.length} funded policies`,
             );
+
+            if (alwaysBusts.length > 0) {
+                ui.warn(
+                    `excluded ${alwaysBusts.length} candidate(s) that bust 100% of the time at ${inputs.trials} trials, so lifetimeExpectedNet is undefined (a policy with zero chance of ever surviving to renew has no meaningful steady-state extraction rate): ${alwaysBusts.map((candidate) => candidate.label).join(', ')}`,
+                );
+            }
 
             ui.heading(plan.label);
             ui.muted(
                 '  ranked by renewal-adjusted lifetime expected net (pure cash extraction, bust priced as +1 more eval attempt)\n',
+            );
+            ui.muted(
+                `  survivors = trials (out of ${inputs.trials}) that passed eval and finished the funded horizon without busting -- lifetime net for a row with very few survivors is driven by a small, noisy sample and should not be trusted at face value\n`,
             );
 
             const table = new TablePrinter([
@@ -105,6 +133,7 @@ export default defineCommand({
                 { label: 'lifetime net', width: 14 },
                 { label: 'per-cycle net', width: 14 },
                 { label: 'bust when funded', width: 18 },
+                { label: 'survivors', width: 14 },
             ]);
             table.printHeader();
             for (const row of rows) {
@@ -113,6 +142,7 @@ export default defineCommand({
                     formatCurrency(row.lifetimeNet),
                     formatCurrency(row.out.expectedNet),
                     formatPercent(row.out.fundedBustProbability),
+                    `${row.survivors}/${inputs.trials}`,
                 ]);
             }
         } catch (error) {
