@@ -47,21 +47,14 @@ function solveJointFixedPoint(
 ): JointFixedPoint {
     const feePerAttempt = dollars(plan.fees.reset);
     let evalInitialValueGuess = 0;
-    let evalResult = computeEvalStateValue({
-        maxEvalDays,
-        plan,
-        rrRatio,
-        winrate: fraction(winrate),
-    });
-    let fundedResult = computeFundedStateValue({
-        evalInitialValue: evalInitialValueGuess,
-        feePerAttempt,
-        plan,
-        rrRatio,
-        winrate,
-    });
+    let evalResult: EvalStateValueResult | undefined;
+    let fundedResult: FundedStateValueResult | undefined;
     let iterationsUsed = 0;
-    for (let iteration = 0; iteration < maxIterations; iteration++) {
+    for (
+        let iteration = 0;
+        iteration < Math.max(1, maxIterations);
+        iteration++
+    ) {
         fundedResult = computeFundedStateValue({
             evalInitialValue: evalInitialValueGuess,
             feePerAttempt,
@@ -81,6 +74,11 @@ function solveJointFixedPoint(
         evalInitialValueGuess = evalResult.initialValue;
         if (delta < convergenceTolerance) break;
     }
+    if (!evalResult || !fundedResult) {
+        throw new Error(
+            `${plan.label}: joint DP fixed point never ran a single iteration`,
+        );
+    }
     return { evalResult, fundedResult, iterationsUsed };
 }
 
@@ -88,8 +86,9 @@ export default defineCommand({
     args: {
         ...planArguments,
         'eval-days': {
-            default: '150',
-            description: 'Maximum evaluation days before timeout',
+            default: '40',
+            description:
+                'Maximum evaluation days before timeout. The DP’s eval state space grows directly with this (one full day-dimension per value tracked), so raising it well past how long the plan realistically takes to pass will make the solve dramatically slower -- 150 (a normal --eval-days default elsewhere in this CLI) is impractically slow here even after the DP performance fix. Check cli prop ladder’s own expected-days-to-funded figure for this plan first and set this a bit above that.',
             type: 'string',
         },
         'funded-days': {
@@ -99,9 +98,9 @@ export default defineCommand({
             type: 'string',
         },
         iterations: {
-            default: '20',
+            default: '8',
             description:
-                'Max outer eval/funded fixed-point iterations (stops early on convergence)',
+                'Max outer eval/funded fixed-point iterations (stops early on convergence). Each iteration is a full eval + funded DP solve, so this multiplies total runtime directly.',
             type: 'string',
         },
         rr: { default: '2', description: 'Reward to risk ratio', type: 'string' },

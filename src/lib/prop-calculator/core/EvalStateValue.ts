@@ -143,8 +143,36 @@ export function computeEvalStateValue(
                   0,
               );
 
-    const memo = new Map<string, number>();
-    const policy = new Map<string, number[][]>();
+    const memo = new Map<number, number>();
+    const policy = new Map<number, number[][]>();
+
+    const cushionKeyRadix = cushionBucketCount + 1;
+    const profitLikeKeyRadix =
+        Math.ceil(maxTrackedProfitLike / profitStepDollars) + 2;
+    const idleKeyRadix =
+        (plan.maxConsecutiveIdleDaysFor(TradingPhase.Eval) ?? 0) + 1;
+    const tradingKeyRadix = plan.minTradingDays + 1;
+
+    function outerKey(state: OuterState): number {
+        const cushionIndex = Math.round(state.cushion / cushionStepDollars);
+        const offsetIndex = Math.round(
+            state.thresholdOffset / profitStepDollars,
+        );
+        const bestDayIndex = Math.round(state.bestDay / profitStepDollars);
+        return (
+            (((((state.day * cushionKeyRadix + cushionIndex) *
+                profitLikeKeyRadix +
+                offsetIndex) *
+                profitLikeKeyRadix +
+                bestDayIndex) *
+                idleKeyRadix +
+                state.idleDays) *
+                tradingKeyRadix +
+                state.tradingDays) *
+                2 +
+            (state.isLocked ? 1 : 0)
+        );
+    }
 
     function resolveThreshold(
         isLocked: boolean,
@@ -165,7 +193,7 @@ export function computeEvalStateValue(
             : capRiskToContractLimit(action, positionSizing, contractLimit);
     }
 
-    function candidateRisks(cushionNow: number): number[] {
+    function computeCandidateRisks(cushionNow: number): number[] {
         const risks = new Set<number>([0]);
         for (const action of actionGrid) {
             const capped = applyContractCap(action);
@@ -178,6 +206,17 @@ export function computeEvalStateValue(
     function cushionBucketIndex(cushion: number): number {
         const raw = Math.floor(cushion / cushionStepDollars);
         return Math.min(cushionBucketCount - 1, Math.max(0, raw));
+    }
+
+    const candidateRisksByCushionIndex: readonly (readonly number[])[] =
+        Array.from({ length: cushionBucketCount }, (_, index) =>
+            computeCandidateRisks(index * cushionStepDollars),
+        );
+
+    function candidateRisks(cushionNow: number): readonly number[] {
+        return (
+            candidateRisksByCushionIndex[cushionBucketIndex(cushionNow)] ?? [0]
+        );
     }
 
     function lookupGrid(
@@ -353,19 +392,22 @@ export function computeEvalStateValue(
         day: number,
         tradeIndex: number,
         nextTable: readonly number[],
+        stopValue: number,
     ): { bestAction: number; bestValue: number } {
         let bestValue = -Infinity;
         let bestAction = 0;
         for (const risk of candidateRisks(cushionNow)) {
             const value =
                 risk <= 0
-                    ? onDayComplete(
-                          cushionNow,
-                          pnlSoFarNow,
-                          dayStartState,
-                          day,
-                          tradeIndex === 0,
-                      )
+                    ? tradeIndex === 0
+                        ? onDayComplete(
+                              cushionNow,
+                              pnlSoFarNow,
+                              dayStartState,
+                              day,
+                              true,
+                          )
+                        : stopValue
                     : valueOfRisk(
                           risk,
                           cushionNow,
@@ -388,22 +430,22 @@ export function computeEvalStateValue(
         day: number,
         cushionAtDayStart: number,
     ): { policyTables: number[][]; value: number } {
-        let nextTable: number[] = Array.from(
+        const stopTable: number[] = Array.from(
             { length: cushionBucketCount },
-            () => 0,
+            (_, index) => {
+                const cushionEnd = index * cushionStepDollars;
+                const pnlEnd = cushionEnd - cushionAtDayStart;
+                return onDayComplete(
+                    cushionEnd,
+                    pnlEnd,
+                    dayStartState,
+                    day,
+                    false,
+                );
+            },
         );
-        for (let index = 0; index < cushionBucketCount; index++) {
-            const cushionEnd = index * cushionStepDollars;
-            const pnlEnd = cushionEnd - cushionAtDayStart;
-            nextTable[index] = onDayComplete(
-                cushionEnd,
-                pnlEnd,
-                dayStartState,
-                day,
-                false,
-            );
-        }
 
+        let nextTable: number[] = stopTable;
         const policyTables: number[][] = [];
         for (let tradeIndex = slots - 1; tradeIndex >= 0; tradeIndex--) {
             const currentTable: number[] = Array.from(
@@ -424,6 +466,7 @@ export function computeEvalStateValue(
                     day,
                     tradeIndex,
                     nextTable,
+                    stopTable[index] ?? 0,
                 );
                 currentTable[index] = bestValue;
                 currentPolicy[index] = bestAction;
@@ -566,8 +609,4 @@ function clampRange(value: number, max: number): number {
 
 function floorStep(value: number, step: number): number {
     return step <= 0 ? value : Math.floor(value / step) * step;
-}
-
-function outerKey(state: OuterState): string {
-    return `${state.day}|${state.cushion}|${state.thresholdOffset}|${state.bestDay}|${state.idleDays}|${state.isLocked ? 1 : 0}|${state.tradingDays}`;
 }

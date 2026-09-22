@@ -196,8 +196,74 @@ export function computeFundedStateValue(
         unlockedCushionBucketCount +
         Math.max(0, Math.ceil(maxDailySwingDollars / cushionStepDollars));
 
-    const value = new Map<string, number>();
-    const policy = new Map<string, CushionStartPolicyTables>();
+    const value = new Map<number, number>();
+    const policy = new Map<number, CushionStartPolicyTables>();
+
+    const regimeKeyRadix = payoutRegimeCap + 1;
+    const idleKeyRadix = idleDaysBucketCount;
+    const cycleBestDayKeyRadix = cycleBestDayBucketCount;
+
+    function lockedKey(
+        regime: number,
+        idleDays: number,
+        cycleBestDay: number,
+        cushionIndex: number,
+    ): number {
+        return (
+            (((regime * idleKeyRadix + idleDays) * cycleBestDayKeyRadix +
+                cycleBestDay) *
+                lockedCushionBucketCount +
+                cushionIndex) *
+            2
+        );
+    }
+
+    function lockedLevelKey(
+        regime: number,
+        idleDays: number,
+        cycleBestDay: number,
+    ): number {
+        return (
+            ((regime * idleKeyRadix + idleDays) * cycleBestDayKeyRadix +
+                cycleBestDay) *
+            2
+        );
+    }
+
+    function unlockedKey(
+        offsetIndex: number,
+        regime: number,
+        idleDays: number,
+        cycleBestDay: number,
+        cushionIndex: number,
+    ): number {
+        return (
+            ((((offsetIndex * regimeKeyRadix + regime) * idleKeyRadix +
+                idleDays) *
+                cycleBestDayKeyRadix +
+                cycleBestDay) *
+                unlockedCushionBucketCount +
+                cushionIndex) *
+                2 +
+            1
+        );
+    }
+
+    function unlockedLevelKey(
+        offsetIndex: number,
+        regime: number,
+        idleDays: number,
+        cycleBestDay: number,
+    ): number {
+        return (
+            (((offsetIndex * regimeKeyRadix + regime) * idleKeyRadix +
+                idleDays) *
+                cycleBestDayKeyRadix +
+                cycleBestDay) *
+                2 +
+            1
+        );
+    }
 
     function lockedThresholdDollars(): number {
         if (lock) return lock.lockedThreshold(startingBalance);
@@ -399,7 +465,12 @@ export function computeFundedStateValue(
         return nextRoundTable[index] ?? 0;
     }
 
-    function candidateRisks(
+    const candidateRisksCache = new Map<
+        number,
+        Map<number, Map<number, number[]>>
+    >();
+
+    function computeCandidateRisks(
         cushionNow: number,
         accountProfitNow: number,
         accountProfitAtDayStart: number,
@@ -429,6 +500,32 @@ export function computeFundedStateValue(
         }
         risks.add(0);
         return [...risks];
+    }
+
+    function candidateRisks(
+        cushionNow: number,
+        accountProfitNow: number,
+        accountProfitAtDayStart: number,
+    ): number[] {
+        let byProfitNow = candidateRisksCache.get(cushionNow);
+        if (byProfitNow === undefined) {
+            byProfitNow = new Map();
+            candidateRisksCache.set(cushionNow, byProfitNow);
+        }
+        let byProfitStart = byProfitNow.get(accountProfitNow);
+        if (byProfitStart === undefined) {
+            byProfitStart = new Map();
+            byProfitNow.set(accountProfitNow, byProfitStart);
+        }
+        const cached = byProfitStart.get(accountProfitAtDayStart);
+        if (cached !== undefined) return cached;
+        const computed = computeCandidateRisks(
+            cushionNow,
+            accountProfitNow,
+            accountProfitAtDayStart,
+        );
+        byProfitStart.set(accountProfitAtDayStart, computed);
+        return computed;
     }
 
     function valueOfRisk(
@@ -481,30 +578,26 @@ export function computeFundedStateValue(
         cushionBucketCount: number,
         cycleBestDayAtStart: number,
         cushionAtDayStart: number,
+        stopValue: number,
+        risksAtCushionNow: readonly number[],
     ): { bestAction: number; bestValue: number } {
-        const accountProfitNow =
-            thresholdDollars + cushionNow - startingBalance;
-        const accountProfitAtDayStart =
-            thresholdDollars + cushionAtDayStart - startingBalance;
         let bestValue = -Infinity;
         let bestAction = 0;
-        for (const risk of candidateRisks(
-            cushionNow,
-            accountProfitNow,
-            accountProfitAtDayStart,
-        )) {
+        for (const risk of risksAtCushionNow) {
             const value =
                 risk <= 0
-                    ? dayCloseValue(
-                          cushionNow,
-                          thresholdDollars,
-                          isLockedAtStart,
-                          regimeAtStart,
-                          tradeIndex === 0,
-                          idleDaysAtStart,
-                          cycleBestDayAtStart,
-                          cushionAtDayStart,
-                      )
+                    ? tradeIndex === 0
+                        ? dayCloseValue(
+                              cushionNow,
+                              thresholdDollars,
+                              isLockedAtStart,
+                              regimeAtStart,
+                              true,
+                              idleDaysAtStart,
+                              cycleBestDayAtStart,
+                              cushionAtDayStart,
+                          )
+                        : stopValue
                     : valueOfRisk(
                           risk,
                           cushionNow,
@@ -533,7 +626,7 @@ export function computeFundedStateValue(
         cushionAtDayStart: number,
         workingBucketCount: number,
     ): { finalTable: number[]; policyTables: number[][] } {
-        let nextRoundTable: number[] = Array.from(
+        const stopTable: number[] = Array.from(
             { length: workingBucketCount },
             (_, index) =>
                 dayCloseValue(
@@ -547,6 +640,20 @@ export function computeFundedStateValue(
                     cushionAtDayStart,
                 ),
         );
+        const accountProfitAtDayStart =
+            thresholdDollars + cushionAtDayStart - startingBalance;
+        const risksByIndex: number[][] = Array.from(
+            { length: workingBucketCount },
+            (_, index) => {
+                const cushionNow = index * cushionStepDollars;
+                return candidateRisks(
+                    cushionNow,
+                    thresholdDollars + cushionNow - startingBalance,
+                    accountProfitAtDayStart,
+                );
+            },
+        );
+        let nextRoundTable: number[] = stopTable;
         const policyTables: number[][] = [];
         for (let tradeIndex = slots - 1; tradeIndex >= 0; tradeIndex--) {
             const currentTable: number[] = Array.from({
@@ -568,6 +675,8 @@ export function computeFundedStateValue(
                     workingBucketCount,
                     cycleBestDayAtStart,
                     cushionAtDayStart,
+                    stopTable[index] ?? 0,
+                    risksByIndex[index] ?? [],
                 );
                 currentTable[index] = bestValue;
                 currentPolicy[index] = bestAction;
@@ -643,7 +752,7 @@ export function computeFundedStateValue(
             idleDays: number,
             cycleBestDay: number,
             cushionIndex: number,
-        ) => string,
+        ) => number,
     ): {
         maxDelta: number;
         policyTablesByIdleDaysByCycleBestDay: CushionStartPolicyTables[][];
@@ -715,7 +824,7 @@ export function computeFundedStateValue(
             idleDays: number,
             cycleBestDay: number,
             cushionIndex: number,
-        ) => string,
+        ) => number,
     ): CushionStartPolicyTables[][] {
         let policyTablesByIdleDaysByCycleBestDay: CushionStartPolicyTables[][] =
             [];
@@ -887,40 +996,4 @@ export function isFundedDpEligible(plan: Plan): boolean {
         (plan.fundedDrawdown.lock !== undefined ||
             plan.payoutFloorEffect === PayoutFloorEffect.ReleaseFloor)
     );
-}
-
-function lockedKey(
-    regime: number,
-    idleDays: number,
-    cycleBestDay: number,
-    cushionIndex: number,
-): string {
-    return `L|${regime}|${idleDays}|${cycleBestDay}|${cushionIndex}`;
-}
-
-function lockedLevelKey(
-    regime: number,
-    idleDays: number,
-    cycleBestDay: number,
-): string {
-    return `L|${regime}|${idleDays}|${cycleBestDay}`;
-}
-
-function unlockedKey(
-    offsetIndex: number,
-    regime: number,
-    idleDays: number,
-    cycleBestDay: number,
-    cushionIndex: number,
-): string {
-    return `U|${offsetIndex}|${regime}|${idleDays}|${cycleBestDay}|${cushionIndex}`;
-}
-
-function unlockedLevelKey(
-    offsetIndex: number,
-    regime: number,
-    idleDays: number,
-    cycleBestDay: number,
-): string {
-    return `U|${offsetIndex}|${regime}|${idleDays}|${cycleBestDay}`;
 }
