@@ -10,8 +10,8 @@ import SpainChurchImage from '~/assets/images/gallery/spain-church.jpg';
 import SpainPoolImage from '~/assets/images/gallery/spain-pool.jpg';
 import MinomarktImage from '~/assets/images/minomarkt.jpeg';
 import NobearsImage from '~/assets/images/nobears.jpg';
-import SadraImage from '~/assets/images/pictureBar.jpg';
 import ProjectAIImage from '~/assets/images/projectai.jpg';
+import SadraImage from '~/assets/images/sadra.jpg';
 import SensorHubImage from '~/assets/images/units.jpg';
 
 export type PortfolioSectionView = {
