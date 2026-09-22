@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import { ALL_FIRMS } from '~/lib/prop-calculator';
 import {
     computeEvalStateValue,
-    computeFundedStateValue,
     ConsistencyRule,
     ConsistencyScope,
     ContractLimitKind,
@@ -13,20 +12,23 @@ import {
     DailyLossLimitKind,
     dollars,
     EodTrailingDrawdown,
-    findRegistryPlanId,
     FirmId,
     fraction,
     INSTRUMENTS,
     InstrumentSymbol,
-    isFundedDpEligible,
     lifetimeExpectedNet,
     MffuVariant,
     PayoutFloorEffect,
     type Plan,
     points,
     replacementEconomics,
-    warmFirmsRegistryCache,
 } from '~/lib/prop-calculator/core';
+import {
+    computeFundedStateValue,
+    findRegistryPlanId,
+    isFundedDpEligible,
+    warmFirmsRegistryCache,
+} from '~/lib/prop-calculator/core/FundedStateValue';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 import { TopStep } from '~/lib/prop-calculator/firms/topstep/TopStep';
 import { simulate } from '~/lib/prop-calculator/simulator';

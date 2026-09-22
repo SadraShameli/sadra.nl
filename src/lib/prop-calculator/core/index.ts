@@ -76,14 +76,6 @@ export {
     tryFundedPayout,
 } from './FundedPayoutCycle';
 export {
-    computeFundedStateValue,
-    findRegistryPlanId,
-    type FundedStateValueConfig,
-    type FundedStateValueResult,
-    isFundedDpEligible,
-    warmFirmsRegistryCache,
-} from './FundedStateValue';
-export {
     ALL_INSTRUMENTS,
     INSTRUMENTS,
     type InstrumentSpec,

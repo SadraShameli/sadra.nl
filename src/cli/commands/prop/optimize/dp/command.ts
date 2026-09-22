@@ -10,19 +10,21 @@ import { formatCurrency, formatPercent } from '~/lib/format';
 import {
     type AccountState,
     computeEvalStateValue,
-    computeFundedStateValue,
     type DayPolicy,
     dollars,
     type EvalStateValueResult,
     fraction,
-    type FundedStateValueResult,
     isEvalDpEligible,
-    isFundedDpEligible,
     lifetimeExpectedNet,
     type Plan,
     type SimInputs,
     simulate,
 } from '~/lib/prop-calculator';
+import {
+    computeFundedStateValue,
+    type FundedStateValueResult,
+    isFundedDpEligible,
+} from '~/lib/prop-calculator/core/FundedStateValue';
 
 interface JointFixedPoint {
     evalResult: EvalStateValueResult;
@@ -237,6 +239,9 @@ export default defineCommand({
             );
             ui.note(
                 `  renewal-adjusted lifetime net (unlimited repeat cycles): ${empiricalLifetimeNet === null ? 'n/a (100% bust)' : formatCurrency(empiricalLifetimeNet)}`,
+            );
+            ui.note(
+                `  steady-state monthly net per account slot: ${formatCurrency(out.expectedMonthlyNet)}`,
             );
 
             const evalSampleState = plan.initialState();

@@ -30,9 +30,9 @@ interface ScoredCandidate {
     survivors: number;
 }
 
-type SortKey = 'cycle' | 'lifetime';
+type SortKey = 'cycle' | 'lifetime' | 'monthly';
 
-const SORT_KEYS: readonly SortKey[] = ['lifetime', 'cycle'];
+const SORT_KEYS: readonly SortKey[] = ['lifetime', 'cycle', 'monthly'];
 
 export default defineCommand({
     args: {
@@ -57,7 +57,7 @@ export default defineCommand({
         sort: {
             default: 'lifetime',
             description:
-                'lifetime: renewal-adjusted, assumes unlimited repeat cycles over an unbounded time horizon. cycle: expected net from THIS ONE simulated run only (whatever --eval-days/--funded-days bound it to) -- use this for a short, fixed-horizon goal you do not intend to repeat indefinitely.',
+                'lifetime: renewal-adjusted, assumes unlimited repeat cycles over an unbounded time horizon. cycle: expected net from THIS ONE simulated run only (whatever --eval-days/--funded-days bound it to) -- use this for a short, fixed-horizon goal you do not intend to repeat indefinitely. monthly: steady-state expected net per month for one account slot (per-run net divided by expected days per run, i.e. the slot is refilled after every failed eval, funded bust or horizon end) -- use this to compare speed of extraction across plans.',
             options: [...SORT_KEYS],
             type: 'enum',
         },
@@ -154,11 +154,21 @@ export default defineCommand({
                               row.lifetimeNet !== null,
                       )
                     : allRows;
-            rows.sort((a, b) =>
-                sort === 'lifetime'
-                    ? (b.lifetimeNet ?? 0) - (a.lifetimeNet ?? 0)
-                    : b.out.expectedNet - a.out.expectedNet,
-            );
+            rows.sort((a, b) => {
+                switch (sort) {
+                    case 'cycle': {
+                        return b.out.expectedNet - a.out.expectedNet;
+                    }
+                    case 'lifetime': {
+                        return (b.lifetimeNet ?? 0) - (a.lifetimeNet ?? 0);
+                    }
+                    case 'monthly': {
+                        return (
+                            b.out.expectedMonthlyNet - a.out.expectedMonthlyNet
+                        );
+                    }
+                }
+            });
 
             spinner.succeed(`${plan.label} · ${rows.length} funded policies`);
 
@@ -169,11 +179,7 @@ export default defineCommand({
             }
 
             ui.heading(plan.label);
-            ui.muted(
-                sort === 'lifetime'
-                    ? '  ranked by renewal-adjusted lifetime expected net (pure cash extraction, bust priced as +1 more eval attempt, assumes unlimited repeat cycles)\n'
-                    : `  ranked by per-cycle expected net for THIS run only (${base.maxEvalDays}-day eval cap + ${base.fundedHorizonDays}-day funded horizon, no assumption you repeat this indefinitely)\n`,
-            );
+            ui.muted(sortDescription(sort, base));
             ui.muted(
                 `  survivors = trials (out of ${inputs.trials}) that passed eval and finished the funded horizon without busting -- a result backed by very few survivors is driven by a small, noisy sample and should not be trusted at face value\n`,
             );
@@ -182,6 +188,7 @@ export default defineCommand({
                 { align: 'left', label: 'funded policy', width: 16 },
                 { label: 'lifetime net', width: 14 },
                 { label: 'per-cycle net', width: 14 },
+                { label: 'monthly net', width: 13 },
                 { label: 'bust when funded', width: 18 },
                 { label: 'survivors', width: 14 },
             ]);
@@ -193,6 +200,7 @@ export default defineCommand({
                         ? 'n/a'
                         : formatCurrency(row.lifetimeNet),
                     formatCurrency(row.out.expectedNet),
+                    formatCurrency(row.out.expectedMonthlyNet),
                     formatPercent(row.out.fundedBustProbability),
                     `${row.survivors}/${inputs.trials}`,
                 ]);
@@ -219,4 +227,18 @@ function readCandidateList(raw: string, name: string): number[] {
         throw new Error(`Invalid --${name} "${raw}"`);
     }
     return parts;
+}
+
+function sortDescription(sort: SortKey, base: SimInputs): string {
+    switch (sort) {
+        case 'cycle': {
+            return `  ranked by per-cycle expected net for THIS run only (${base.maxEvalDays}-day eval cap + ${base.fundedHorizonDays}-day funded horizon, no assumption you repeat this indefinitely)\n`;
+        }
+        case 'lifetime': {
+            return '  ranked by renewal-adjusted lifetime expected net (pure cash extraction, bust priced as +1 more eval attempt, assumes unlimited repeat cycles)\n';
+        }
+        case 'monthly': {
+            return `  ranked by steady-state expected net per month for one account slot (per-run net / expected days per run, slot refilled after every failed eval, funded bust or ${base.fundedHorizonDays}-day horizon end)\n`;
+        }
+    }
 }
