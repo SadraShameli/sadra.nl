@@ -49,6 +49,7 @@ export interface TradingArguments extends PlanSelectorArguments {
     'max-lifetime-payouts'?: string;
     'monthly-discount': string;
     'path-granularity'?: string;
+    'rebuy-lag-days': string;
     'request-size'?: string;
     'retain-cushion': string;
     risk: string;
@@ -82,6 +83,7 @@ export interface TradingInputsInit {
     minRetainedCushion: number;
     monthlySubscriptionDiscountPercent: number;
     payoutRequestSize: number | undefined;
+    rebuyLagDays: number;
     riskPerTrade: number;
     rrRatio: number;
     rungSizing: RungSizing;
@@ -229,6 +231,7 @@ export class TradingInputs {
                 requestSize === undefined
                     ? undefined
                     : readNumber(requestSize, 'request-size'),
+            rebuyLagDays: readRebuyLagDays(arguments_['rebuy-lag-days']),
             riskPerTrade: readNumber(arguments_.risk, 'risk'),
             rrRatio: readNumber(arguments_.rr, 'rr'),
             rungSizing: arguments_.unaffordable,
@@ -262,6 +265,7 @@ export class TradingInputs {
     readonly minRetainedCushion: number;
     readonly monthlySubscriptionDiscountPercent: number;
     readonly payoutRequestSize: number | undefined;
+    readonly rebuyLagDays: number;
     readonly riskPerTrade: number;
     readonly rrRatio: number;
     readonly rungSizing: RungSizing;
@@ -292,6 +296,7 @@ export class TradingInputs {
         this.monthlySubscriptionDiscountPercent =
             init.monthlySubscriptionDiscountPercent;
         this.payoutRequestSize = init.payoutRequestSize;
+        this.rebuyLagDays = init.rebuyLagDays;
         this.riskPerTrade = init.riskPerTrade;
         this.rrRatio = init.rrRatio;
         this.rungSizing = init.rungSizing;
@@ -348,6 +353,7 @@ export class TradingInputs {
             minRetainedCushion: this.minRetainedCushion,
             payoutRequestSize: this.payoutRequestSize,
             plan: resolvedPlan,
+            rebuyLagDays: this.rebuyLagDays,
             riskPerTrade: this.riskPerTrade,
             rrRatio: this.rrRatio,
             rungSizing: this.rungSizing,
@@ -391,6 +397,15 @@ export const commonSimArguments = {
         type: 'string',
     },
     winrate: { default: '0.4', description: 'Win rate (0-1)', type: 'string' },
+} satisfies ArgsDef;
+
+export const rebuyLagDaysArgument = {
+    'rebuy-lag-days': {
+        default: '0',
+        description:
+            'days an account slot sits empty per new eval attempt: rebuy, credential delivery, activation review',
+        type: 'string',
+    },
 } satisfies ArgsDef;
 
 export const tradingArguments = {
@@ -475,6 +490,7 @@ export const tradingArguments = {
             'Intraday path-walk resolution in steps per R for funded IntradayTrailingDrawdown trades, comma separated for a side-by-side comparison (e.g. 4,10,25); omit to resolve each trade with a single win/loss draw',
         type: 'string',
     },
+    ...rebuyLagDaysArgument,
     'retain-cushion': {
         default: '0',
         description:
@@ -547,6 +563,16 @@ export function readNumber(raw: unknown, name: string): number {
     const parsed = z.coerce.number().safeParse(raw);
     if (!parsed.success) {
         throw new TypeError(`--${name} must be a number, got "${String(raw)}"`);
+    }
+    return parsed.data;
+}
+
+export function readRebuyLagDays(raw: unknown): number {
+    const parsed = z.coerce.number().nonnegative().safeParse(raw);
+    if (!parsed.success) {
+        throw new TypeError(
+            `--rebuy-lag-days must be a finite number >= 0, got "${String(raw)}"`,
+        );
     }
     return parsed.data;
 }

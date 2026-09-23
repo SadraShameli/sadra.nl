@@ -20,7 +20,7 @@ export const kpiDescriptions = {
     maxLosingStreak:
         "Longest run of consecutive losing trades observed in simulations. P95 = worst-case streak you'll see in 1 of 20 evaluation attempts.",
     monthlyNet:
-        'Expected $ profit per month after all fees, averaged across passes and busts. = (avg gross payout − avg total cost) × 21 ÷ avg trial duration.',
+        'Expected $ profit per month after all fees, averaged across passes and busts, plus the withdrawable balance credited to accounts that survive to the funded horizon end. = (avg net + avg horizon credit) × 21 ÷ avg trial duration.',
     passProbability:
         'Share of simulated trials where you reached the profit target without busting the drawdown, daily-loss limit, or running out of allowed eval days.',
     profitFactor:

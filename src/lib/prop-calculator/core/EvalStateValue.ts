@@ -34,6 +34,7 @@ export interface EvalStateValueConfig {
     readonly actionStepDollars?: number;
     readonly commission?: Dollars;
     readonly cushionStepDollars?: number;
+    readonly dayCost?: (day: number) => number;
     readonly maxActionDollars?: number;
     readonly maxEvalDays: number;
     readonly plan: Plan;
@@ -101,6 +102,7 @@ export function computeEvalStateValue(
     const rrRatio = config.rrRatio;
     const winrate = config.winrate;
     const commission = config.commission ?? dollars(0);
+    const dayCost = config.dayCost ?? (() => 0);
     const rungSizing = config.rungSizing ?? DEFAULT_RUNG_SIZING;
     const slots = Math.max(
         1,
@@ -520,9 +522,10 @@ export function computeEvalStateValue(
             cushion,
         );
 
-        memo.set(key, value);
+        const charged = value - dayCost(day);
+        memo.set(key, charged);
         policy.set(key, policyTables);
-        return value;
+        return charged;
     }
 
     const initialState = plan.initialState();

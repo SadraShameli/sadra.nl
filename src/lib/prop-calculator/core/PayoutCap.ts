@@ -26,7 +26,7 @@ export interface QualifyingDaysMilestoneCapConfig {
 }
 
 export class PayoutCountTieredPayoutCap implements PayoutCapStrategy {
-    constructor(private readonly tiers: readonly PayoutCountCapTier[]) {
+    constructor(readonly tiers: readonly PayoutCountCapTier[]) {
         if (tiers.length === 0) {
             throw new Error(
                 'PayoutCountTieredPayoutCap: tiers must not be empty',

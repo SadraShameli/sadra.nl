@@ -19,6 +19,12 @@ export interface FundedPayoutResult {
     traderReceives: number;
 }
 
+export interface WithdrawableNowOptions {
+    minRetainedCushion: number;
+    plan: Plan;
+    state: AccountState;
+}
+
 type LadderStepLookup =
     | { amount: number; kind: 'step' }
     | { kind: 'exhausted' }
@@ -38,6 +44,50 @@ export class FundedCycleTracker {
     constructor(state: AccountState) {
         this.lastPayoutBalance = state.balance;
         this.qualifyingDaysAtLastPayout = state.qualifyingDays;
+    }
+
+    closeoutCredit(options: WithdrawableNowOptions): number {
+        const { plan } = options;
+        return (plan.maxLifetimePayouts !== null &&
+            this.payoutsIssued >= plan.maxLifetimePayouts) ||
+            (plan.maxLifetimePayoutDollars !== null &&
+                this.cumulativePayout >= plan.maxLifetimePayoutDollars) ||
+            ladderStepLookup(plan.payoutLadder, this.payoutsIssued).kind ===
+                'exhausted'
+            ? 0
+            : plan.payoutFromProfit(Math.max(0, this.withdrawableNow(options)));
+    }
+
+    withdrawableNow(options: WithdrawableNowOptions): number {
+        const { minRetainedCushion, plan, state } = options;
+        const prospectiveThreshold =
+            plan.payoutFloorEffect === PayoutFloorEffect.LockAtPlanFloor &&
+            !state.thresholdLocked &&
+            plan.fundedDrawdown.lock
+                ? Math.max(
+                      state.threshold,
+                      plan.fundedDrawdown.lock.lockedThreshold(
+                          state.startingBalance,
+                      ),
+                  )
+                : state.threshold;
+        const cushionRoom =
+            state.balance -
+            plan.payoutBalanceFloor(
+                { ...state, threshold: prospectiveThreshold },
+                minRetainedCushion,
+            );
+        const cap = plan.resolvedPayoutCap(state, this.payoutsIssued);
+        const dollarCappedWithdrawable =
+            cap.requestCap === null
+                ? cushionRoom
+                : Math.min(cushionRoom, cap.requestCap);
+        return cap.balanceShareCap === null
+            ? dollarCappedWithdrawable
+            : Math.min(
+                  dollarCappedWithdrawable,
+                  cap.balanceShareCap * Math.max(0, plan.accountProfit(state)),
+              );
     }
 
     tryPayout(
@@ -88,36 +138,11 @@ export class FundedCycleTracker {
             return null;
         }
 
-        const prospectiveThreshold =
-            plan.payoutFloorEffect === PayoutFloorEffect.LockAtPlanFloor &&
-            !state.thresholdLocked &&
-            plan.fundedDrawdown.lock
-                ? Math.max(
-                      state.threshold,
-                      plan.fundedDrawdown.lock.lockedThreshold(
-                          state.startingBalance,
-                      ),
-                  )
-                : state.threshold;
-        const cushionRoom =
-            state.balance -
-            plan.payoutBalanceFloor(
-                { ...state, threshold: prospectiveThreshold },
-                minRetainedCushion,
-            );
-        const cap = plan.resolvedPayoutCap(state, this.payoutsIssued);
-        const dollarCappedWithdrawable =
-            cap.requestCap === null
-                ? cushionRoom
-                : Math.min(cushionRoom, cap.requestCap);
-        const withdrawable =
-            cap.balanceShareCap === null
-                ? dollarCappedWithdrawable
-                : Math.min(
-                      dollarCappedWithdrawable,
-                      cap.balanceShareCap *
-                          Math.max(0, plan.accountProfit(state)),
-                  );
+        const withdrawable = this.withdrawableNow({
+            minRetainedCushion,
+            plan,
+            state,
+        });
         if (withdrawable <= 0) return null;
 
         const debited = resolveWithdrawal({

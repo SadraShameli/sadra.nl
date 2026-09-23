@@ -225,6 +225,232 @@ describe('minimum retained cushion', () => {
     });
 });
 
+describe('withdrawableNow', () => {
+    it('returns the cushion above payoutBalanceFloor, including a minRetainedCushion above the floor', () => {
+        const target = plan(MffuVariant.RapidEod);
+        const state = fundedState(3000, 50_100);
+        const tracker = newFundedCycleTracker(state);
+
+        expect(
+            tracker.withdrawableNow({
+                minRetainedCushion: 2000,
+                plan: target,
+                state,
+            }),
+        ).toBe(900);
+    });
+
+    it('returns a non-positive value once the cushion is already at the retained floor, with no scheduling gate applied', () => {
+        const target = plan(MffuVariant.RapidEod);
+        const state = fundedState(3000, 51_000);
+        const tracker = newFundedCycleTracker(state);
+
+        expect(
+            tracker.withdrawableNow({
+                minRetainedCushion: 2000,
+                plan: target,
+                state,
+            }),
+        ).toBe(0);
+    });
+
+    it('clamps to payoutRequestCap once the raw cushion exceeds it', () => {
+        const target = new TopStep().findPlan({
+            accountSize: 50_000,
+            firm: FirmId.TopStep,
+            variant: TopStepVariant.StandardStandard,
+        });
+        if (!target) throw new Error('topstep standard-standard missing');
+        const state = target.initialState();
+        state.balance = state.startingBalance + 40_000;
+        state.threshold = state.startingBalance;
+        state.thresholdLocked = true;
+        const tracker = newFundedCycleTracker(state);
+
+        expect(
+            tracker.withdrawableNow({
+                minRetainedCushion: 0,
+                plan: target,
+                state,
+            }),
+        ).toBe(2000);
+    });
+
+    it('clamps to payoutBalanceShareCap times accountProfit once that is tighter than the dollar cap', () => {
+        const target = new TopStep().findPlan({
+            accountSize: 50_000,
+            firm: FirmId.TopStep,
+            variant: TopStepVariant.StandardStandard,
+        });
+        if (!target) throw new Error('topstep standard-standard missing');
+        const state = target.initialState();
+        state.balance = state.startingBalance + 3000;
+        state.threshold = state.startingBalance;
+        state.thresholdLocked = true;
+        const tracker = newFundedCycleTracker(state);
+
+        expect(
+            tracker.withdrawableNow({
+                minRetainedCushion: 0,
+                plan: target,
+                state,
+            }),
+        ).toBe(1500);
+    });
+
+    it('uses the LockAtPlanFloor prospective threshold instead of the stale unlocked threshold', () => {
+        const flex = flexLikePlan();
+        const state = flex.initialState();
+        state.balance = state.startingBalance + 1000;
+        state.threshold = state.balance - 2000;
+        state.thresholdLocked = false;
+        const tracker = newFundedCycleTracker(state);
+
+        expect(
+            tracker.withdrawableNow({
+                minRetainedCushion: 0,
+                plan: flex,
+                state,
+            }),
+        ).toBe(900);
+    });
+
+    it('Rapid EOD (no payout floor effect) uses the raw unlocked threshold, not a prospective one', () => {
+        const rapidEod = plan(MffuVariant.RapidEod);
+        const state = rapidEod.initialState();
+        state.balance = state.startingBalance + 2200;
+        state.threshold = state.balance - 2000;
+        state.thresholdLocked = false;
+        const tracker = newFundedCycleTracker(state);
+
+        expect(
+            tracker.withdrawableNow({
+                minRetainedCushion: 0,
+                plan: rapidEod,
+                state,
+            }),
+        ).toBe(2000);
+    });
+});
+
+describe('closeoutCredit', () => {
+    it('equals payoutFromProfit of withdrawableNow, net of split and payout method fee', () => {
+        const target = plan(MffuVariant.RapidEod);
+        const state = fundedState(3000, 50_100);
+        const tracker = newFundedCycleTracker(state);
+
+        expect(
+            tracker.closeoutCredit({
+                minRetainedCushion: 2000,
+                plan: target,
+                state,
+            }),
+        ).toBeCloseTo(810, 6);
+    });
+
+    it('ignores minDaysAfterPassForPayout, the funded consistency rule, minPayoutProfit and minPayoutRequest', () => {
+        const target = plan(MffuVariant.RapidEod).withOverrides({
+            consistency: new ConsistencyRule(
+                ConsistencyScope.Funded,
+                fraction(0.01),
+            ),
+            minDaysAfterPassForPayout: 999_999,
+            minPayoutProfit: dollars(1_000_000),
+            minPayoutRequest: dollars(1_000_000),
+        });
+        const state = fundedState(3000, 50_100);
+        const tracker = newFundedCycleTracker(state);
+        tracker.cycleBestDayProfit = 2900;
+
+        expect(
+            tracker.closeoutCredit({
+                minRetainedCushion: 2000,
+                plan: target,
+                state,
+            }),
+        ).toBeCloseTo(810, 6);
+    });
+
+    it('returns 0 once payoutsIssued reaches maxLifetimePayouts', () => {
+        const target = plan(MffuVariant.Pro).withOverrides({
+            maxLifetimePayouts: 1,
+        });
+        const state = fundedState(3000, 50_100);
+        const tracker = newFundedCycleTracker(state);
+        tracker.payoutsIssued = 1;
+
+        expect(
+            tracker.closeoutCredit({
+                minRetainedCushion: 2000,
+                plan: target,
+                state,
+            }),
+        ).toBe(0);
+    });
+
+    it('returns 0 once cumulativePayout reaches maxLifetimePayoutDollars', () => {
+        const target = plan(MffuVariant.Pro);
+        expect(target.maxLifetimePayoutDollars).toBe(100_000);
+        const state = fundedState(3000, 50_100);
+        const tracker = newFundedCycleTracker(state);
+        tracker.cumulativePayout = 100_000;
+
+        expect(
+            tracker.closeoutCredit({
+                minRetainedCushion: 2000,
+                plan: target,
+                state,
+            }),
+        ).toBe(0);
+    });
+
+    it('returns 0 once the payout ladder is exhausted', () => {
+        const builder = plan(MffuVariant.Builder);
+        const ladder = builder.payoutLadder;
+        if (!ladder) throw new Error('builder ladder missing');
+        const state = fundedState(50_000, 50_100);
+        const tracker = newFundedCycleTracker(state);
+        tracker.payoutsIssued = ladder.steps.length;
+
+        expect(
+            tracker.closeoutCredit({
+                minRetainedCushion: 0,
+                plan: builder,
+                state,
+            }),
+        ).toBe(0);
+    });
+
+    it('never mutates state or tracker', () => {
+        const target = plan(MffuVariant.RapidEod);
+        const state = fundedState(3000, 50_100);
+        const tracker = newFundedCycleTracker(state);
+        const stateBefore = { ...state };
+        const trackerBefore = {
+            cumulativePayout: tracker.cumulativePayout,
+            cycleBestDayProfit: tracker.cycleBestDayProfit,
+            lastPayoutBalance: tracker.lastPayoutBalance,
+            payoutsIssued: tracker.payoutsIssued,
+            qualifyingDaysAtLastPayout: tracker.qualifyingDaysAtLastPayout,
+        };
+
+        tracker.closeoutCredit({
+            minRetainedCushion: 2000,
+            plan: target,
+            state,
+        });
+
+        expect(state).toStrictEqual(stateBefore);
+        expect({
+            cumulativePayout: tracker.cumulativePayout,
+            cycleBestDayProfit: tracker.cycleBestDayProfit,
+            lastPayoutBalance: tracker.lastPayoutBalance,
+            payoutsIssued: tracker.payoutsIssued,
+            qualifyingDaysAtLastPayout: tracker.qualifyingDaysAtLastPayout,
+        }).toStrictEqual(trackerBefore);
+    });
+});
+
 describe('ladder payouts', () => {
     it('pays the ladder step and stops once the steps run out', () => {
         const builder = plan(MffuVariant.Builder);

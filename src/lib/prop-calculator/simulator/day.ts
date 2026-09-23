@@ -77,6 +77,7 @@ export function runDay(options: DayRunOptions): {
         phase,
         plan,
         positionSizing,
+        qualifyingDaysSincePayout,
         rng,
         rrRatio,
         rungSizing,
@@ -114,6 +115,7 @@ export function runDay(options: DayRunOptions): {
                     index,
                     payoutsIssued,
                     cycleBestDayProfit,
+                    qualifyingDaysSincePayout,
                 ) ??
                 dayPolicy.ladder[index] ??
                 0;

@@ -4,32 +4,52 @@ import {
     planArguments,
     planResolver,
     readNumber,
+    readRebuyLagDays,
+    rebuyLagDaysArgument,
 } from '~/cli/commands/prop/shared';
 import { ui } from '~/cli/ui';
 import { formatCurrency, formatPercent } from '~/lib/format';
 import {
     type AccountState,
-    computeEvalStateValue,
     type DayPolicy,
-    dollars,
-    type EvalStateValueResult,
     fraction,
     isEvalDpEligible,
-    lifetimeExpectedNet,
     type Plan,
+    RenewalCycleObjective,
     type SimInputs,
     simulate,
 } from '~/lib/prop-calculator';
 import {
-    computeFundedStateValue,
-    type FundedStateValueResult,
-    isFundedDpEligible,
-} from '~/lib/prop-calculator/core/FundedStateValue';
+    RateSearchStatus,
+    solveAverageRewardPolicy,
+} from '~/lib/prop-calculator/core/AverageRewardSolver';
+import {
+    type FundedDpPayoutCapGap,
+    FundedDpPayoutCapGapKind,
+    fundedDpPayoutCapGaps,
+} from '~/lib/prop-calculator/core/FundedDpPayoutCapGaps';
+import { isFundedDpEligible } from '~/lib/prop-calculator/core/FundedStateValue';
 
-interface JointFixedPoint {
-    evalResult: EvalStateValueResult;
-    fundedResult: FundedStateValueResult;
-    iterationsUsed: number;
+export function fundedIneligibilityMessage(plan: Plan): string {
+    return `${plan.label}: funded phase is not DP-eligible (intraday-trailing drawdown, a terminating or peak-share-dependent funded daily loss limit, no drawdown lock / ReleaseFloor payout effect, or a payout cap keyed on cumulative qualifying days (QualifyingDaysMilestonePayoutCap)).`;
+}
+
+export function payoutCountRuleWarning(plan: Plan): null | string {
+    const gaps = fundedDpPayoutCapGaps(plan);
+    if (gaps.length === 0) return null;
+    const described = gaps.map(describeFundedDpPayoutCapGap).join('; ');
+    return `${plan.label}: ${described}.`;
+}
+
+function describeFundedDpPayoutCapGap(gap: FundedDpPayoutCapGap): string {
+    switch (gap.kind) {
+        case FundedDpPayoutCapGapKind.LifetimeDollarCapIgnored: {
+            return `has a lifetime payout-dollar cap of ${formatCurrency(gap.maxLifetimePayoutDollars)} (maxLifetimePayoutDollars) that this DP ignores entirely -- it never restores FundedCycleTracker.cumulativePayout from any state, so it is optimistic about payouts past that total`;
+        }
+        case FundedDpPayoutCapGapKind.PayoutCountTierBeyondRegimeCap: {
+            return `has a payout-count-tiered payout cap tier starting at payout #${gap.fromPayoutIndex + 1}, beyond this DP's payout-count regime cap of ${gap.payoutRegimeCap} -- payout counts past the cap saturate at the cap bucket inside it, so that tier is not modeled exactly`;
+        }
+    }
 }
 
 function sampleRisks(dayPolicy: DayPolicy, state: AccountState): number[] {
@@ -37,51 +57,6 @@ function sampleRisks(dayPolicy: DayPolicy, state: AccountState): number[] {
     return Array.from({ length: slots }, (_, index) =>
         Math.round(dayPolicy.computeRisk?.(state, index, 0, 0) ?? 0),
     );
-}
-
-function solveJointFixedPoint(
-    plan: Plan,
-    winrate: number,
-    rrRatio: number,
-    maxEvalDays: number,
-    maxIterations: number,
-    convergenceTolerance: number,
-): JointFixedPoint {
-    const feePerAttempt = dollars(plan.fees.reset);
-    let evalInitialValueGuess = 0;
-    let evalResult: EvalStateValueResult | undefined;
-    let fundedResult: FundedStateValueResult | undefined;
-    let iterationsUsed = 0;
-    for (
-        let iteration = 0;
-        iteration < Math.max(1, maxIterations);
-        iteration++
-    ) {
-        fundedResult = computeFundedStateValue({
-            evalInitialValue: evalInitialValueGuess,
-            feePerAttempt,
-            plan,
-            rrRatio,
-            winrate,
-        });
-        evalResult = computeEvalStateValue({
-            maxEvalDays,
-            plan,
-            rrRatio,
-            terminalValueAtPass: fundedResult.initialValue,
-            winrate: fraction(winrate),
-        });
-        iterationsUsed = iteration + 1;
-        const delta = Math.abs(evalResult.initialValue - evalInitialValueGuess);
-        evalInitialValueGuess = evalResult.initialValue;
-        if (delta < convergenceTolerance) break;
-    }
-    if (!evalResult || !fundedResult) {
-        throw new Error(
-            `${plan.label}: joint DP fixed point never ran a single iteration`,
-        );
-    }
-    return { evalResult, fundedResult, iterationsUsed };
 }
 
 export default defineCommand({
@@ -96,15 +71,16 @@ export default defineCommand({
         'funded-days': {
             default: '252',
             description:
-                'Funded-phase horizon for the empirical validation run',
+                'Funded-phase horizon for the empirical validation run. Also sets the DP’s mean horizon: the funded value function treats horizon end as a memoryless hazard of 1/this-many-days per funded day.',
             type: 'string',
         },
         iterations: {
             default: '8',
             description:
-                'Max outer eval/funded fixed-point iterations (stops early on convergence). Each iteration is a full eval + funded DP solve, so this multiplies total runtime directly.',
+                'Max rate-search solves (each is one eval plus one funded solve). Stops early once the average-reward rate converges.',
             type: 'string',
         },
+        ...rebuyLagDaysArgument,
         rr: {
             default: '2',
             description: 'Reward to risk ratio',
@@ -128,7 +104,7 @@ export default defineCommand({
     },
     meta: {
         description:
-            'Solve the joint eval+funded value-iteration DP for one plan (--firm, --variant): a state-dependent risk policy (risk depends on current balance/profit/day, not a fixed ladder), cross-checked against a real simulate() run.',
+            'Solve the average-reward eval+funded value-iteration DP for one plan (--firm, --variant): a state-dependent risk policy (risk depends on current balance/profit/day, not a fixed ladder) that maximizes expected net cash per month per account slot, replacement priced in via --rebuy-lag-days, cross-checked against a real simulate() run.',
         name: 'dp',
     },
     run(context) {
@@ -148,10 +124,12 @@ export default defineCommand({
                 return;
             }
             if (!isFundedDpEligible(plan)) {
-                ui.warn(
-                    `${plan.label}: funded phase is not DP-eligible (intraday-trailing drawdown, a terminating or peak-share-dependent funded daily loss limit, or no drawdown lock / ReleaseFloor payout effect).`,
-                );
+                ui.warn(fundedIneligibilityMessage(plan));
                 return;
+            }
+            const payoutWarning = payoutCountRuleWarning(plan);
+            if (payoutWarning !== null) {
+                ui.warn(payoutWarning);
             }
 
             const winrate = readNumber(context.args.winrate, 'winrate');
@@ -166,47 +144,65 @@ export default defineCommand({
             );
             const trials = readNumber(context.args.trials, 'trials');
             const seed = readNumber(context.args.seed, 'seed');
-            const maxIterations = readNumber(
-                context.args.iterations,
-                'iterations',
+            const maxSolves = readNumber(context.args.iterations, 'iterations');
+            const rebuyLagDays = readRebuyLagDays(
+                context.args['rebuy-lag-days'],
             );
 
-            spinner = ui.spinner(`solving joint DP for ${plan.label}`).start();
-            const started = performance.now();
-            const { evalResult, fundedResult, iterationsUsed } =
-                solveJointFixedPoint(
-                    plan,
-                    winrate,
-                    rrRatio,
-                    maxEvalDays,
-                    maxIterations,
-                    1,
-                );
-            const elapsed = (performance.now() - started) / 1000;
-            spinner.succeed(
-                `solved ${plan.label} in ${elapsed.toFixed(1)}s (${iterationsUsed} fixed-point iterations, ${evalResult.reachedStateCount + fundedResult.reachedStateCount} states)`,
-            );
-
-            const evalCost = plan.fees.oneTimeEval + plan.fees.activation;
-            const netEvalValue = evalResult.initialValue - evalCost;
-
-            ui.heading(plan.label);
-            ui.muted(
-                '  DP-predicted values (from the value-iteration solver itself -- known to run optimistic, see empirical run below)\n',
-            );
-            ui.note(
-                `  value of a fresh funded account: ${formatCurrency(fundedResult.initialValue)}`,
-            );
-            ui.note(
-                `  value of one eval attempt, net of its $${evalCost.toFixed(0)} cost: ${formatCurrency(netEvalValue)}`,
-            );
-
-            const simInputs: SimInputs = {
-                evalDayPolicy: evalResult.dayPolicy,
-                fundedDayPolicy: fundedResult.dayPolicy,
+            const objective = new RenewalCycleObjective({
                 fundedHorizonDays,
                 maxEvalDays,
                 plan,
+                rebuyLagDays,
+            });
+
+            spinner = ui
+                .spinner(`solving average-reward DP for ${plan.label}`)
+                .start();
+            const started = performance.now();
+            const solution = solveAverageRewardPolicy({
+                maxSolves,
+                objective,
+                rrRatio,
+                winrate: fraction(winrate),
+            });
+            const elapsed = (performance.now() - started) / 1000;
+            const solvesUsed = solution.trace.length;
+            const totalStates =
+                solution.evalResult.reachedStateCount +
+                solution.fundedResult.reachedStateCount;
+            spinner.succeed(
+                `solved ${plan.label} in ${elapsed.toFixed(1)}s (${solvesUsed} rate-search solves, ${totalStates} states)`,
+            );
+
+            const monthlyRate = objective.monthlyRate(solution.ratePerDay);
+
+            ui.heading(plan.label);
+            ui.muted(
+                '  DP-predicted average reward (from the value-iteration solver itself -- the geometric horizon hazard is an approximation, see empirical run below)\n',
+            );
+            ui.note(`  status: ${solution.status}`);
+            ui.note(
+                `  rate: ${formatCurrency(solution.ratePerDay, 2)}/day, ${formatCurrency(monthlyRate)}/month per account slot`,
+            );
+            ui.note(`  solves used: ${solvesUsed}`);
+            ui.muted(
+                '  rate-search trace (rate per day tried -> cycle value h at that rate):\n',
+            );
+            for (const point of solution.trace) {
+                ui.note(
+                    `    ${formatCurrency(point.ratePerDay, 2)}/day -> h = ${formatCurrency(point.cycleValue)}`,
+                );
+            }
+
+            const simInputs: SimInputs = {
+                evalDayPolicy: solution.evalResult.dayPolicy,
+                fundedDayPolicy: solution.fundedResult.dayPolicy,
+                fundedHorizonDays,
+                maxAttempts: 1,
+                maxEvalDays,
+                plan,
+                rebuyLagDays,
                 riskPerTrade: 1,
                 rrRatio,
                 seed,
@@ -215,17 +211,7 @@ export default defineCommand({
                 winrate,
             };
             const out = simulate(simInputs);
-            const costOfOneMoreAttempt = plan.feesUntilPass(
-                out.expectedDaysToPass,
-            );
-            let empiricalLifetimeNet: null | number = null;
-            if (out.fundedBustProbability < 1) {
-                empiricalLifetimeNet = lifetimeExpectedNet({
-                    costOfOneMoreAttempt,
-                    expectedNet: out.expectedNet,
-                    fundedBustProbability: out.fundedBustProbability,
-                });
-            }
+            const gap = out.expectedMonthlyNet - monthlyRate;
 
             ui.muted(
                 '\n  empirical (real simulate() run driven end-to-end by the DP’s own policy -- trust this over the predicted values above)\n',
@@ -235,13 +221,13 @@ export default defineCommand({
                 `  funded bust probability: ${formatPercent(out.fundedBustProbability)}`,
             );
             ui.note(
-                `  expected net over one ${fundedHorizonDays}-day funded cycle: ${formatCurrency(out.expectedNet)}`,
+                `  expected monthly net per account slot: ${formatCurrency(out.expectedMonthlyNet)}`,
             );
             ui.note(
-                `  renewal-adjusted lifetime net (unlimited repeat cycles): ${empiricalLifetimeNet === null ? 'n/a (100% bust)' : formatCurrency(empiricalLifetimeNet)}`,
+                `  expected horizon credit per cycle: ${formatCurrency(out.expectedHorizonCredit)}`,
             );
             ui.note(
-                `  steady-state monthly net per account slot: ${formatCurrency(out.expectedMonthlyNet)}`,
+                `  gap vs DP-predicted monthly rate: ${formatCurrency(gap)}`,
             );
 
             const evalSampleState = plan.initialState();
@@ -252,21 +238,31 @@ export default defineCommand({
                 '\n  sample risk at the very first day (this is NOT a fixed ladder -- it is one snapshot of a function that changes with balance/profit/day; re-run this command’s dashboard mentally as your account moves)\n',
             );
             ui.note(
-                `  eval, day 1, trade 1-${evalResult.dayPolicy.ladder.length}: ${sampleRisks(
-                    evalResult.dayPolicy,
+                `  eval, day 1, trade 1-${solution.evalResult.dayPolicy.ladder.length}: ${sampleRisks(
+                    solution.evalResult.dayPolicy,
                     evalSampleState,
                 )
                     .map((r) => `$${r}`)
                     .join(' / ')}`,
             );
             ui.note(
-                `  funded, day 1, trade 1-${fundedResult.dayPolicy.ladder.length}: ${sampleRisks(
-                    fundedResult.dayPolicy,
+                `  funded, day 1, trade 1-${solution.fundedResult.dayPolicy.ladder.length}: ${sampleRisks(
+                    solution.fundedResult.dayPolicy,
                     fundedSampleState,
                 )
                     .map((r) => `$${r}`)
                     .join(' / ')}`,
             );
+
+            if (
+                solution.status !== RateSearchStatus.Converged ||
+                solution.fundedResult.unconvergedLevelCount > 0
+            ) {
+                ui.warn(
+                    `${plan.label}: rate search did not converge (status=${solution.status}, unconverged funded levels=${solution.fundedResult.unconvergedLevelCount}) -- treat the numbers above as unreliable; consider raising --iterations.`,
+                );
+                process.exitCode = 1;
+            }
         } catch (error) {
             spinner?.fail();
             ui.fail(error instanceof Error ? error.message : String(error));

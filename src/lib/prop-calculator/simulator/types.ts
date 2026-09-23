@@ -48,6 +48,7 @@ export interface DayRunOptions {
     phase: TradingPhase;
     plan: Plan;
     positionSizing: null | PositionSizingConfig;
+    qualifyingDaysSincePayout?: number;
     rng: Rng;
     rrRatio: number;
     rungSizing: RungSizing;
@@ -106,6 +107,7 @@ export interface FinishTrialArguments {
     evalTradesAtPass: number;
     finalBalance: number;
     firstPayoutDay: null | number;
+    horizonCredit: number;
     outcome: TrialOutcome;
     payoutCount: number;
     plan: Plan;
@@ -152,6 +154,7 @@ export interface FundedHorizonResult {
     closedForInactivity: boolean;
     daysElapsed: number;
     firstPayoutDay: null | number;
+    horizonCredit: number;
     isBustedFunded: boolean;
     payoutCount: number;
     totalPayout: number;
@@ -236,6 +239,7 @@ export interface SimInputs {
     minRetainedCushion?: number;
     payoutRequestSize?: number;
     plan: Plan;
+    rebuyLagDays?: number;
     riskPerTrade: number;
     rrRatio: number;
     rungSizing?: RungSizing;
@@ -268,6 +272,7 @@ export interface SimOutputs {
     expectedFirstPayoutDay: number;
     expectedGrossPayout: number;
     expectedGrossSpend: number;
+    expectedHorizonCredit: number;
     expectedMonthlyNet: number;
     expectedNet: number;
     expectedPayoutCount: number;
@@ -337,6 +342,7 @@ export interface TrialResult {
     grossWins: number;
     had5LossStreak: boolean;
     had10LossStreak: boolean;
+    horizonCredit: number;
     maxDrawdown: number;
     maxLosingStreak: number;
     net: number;

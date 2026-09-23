@@ -52,6 +52,7 @@ export function simulate(inputs: SimInputs): SimOutputs {
             ? undefined
             : dollars(payoutRequestSize);
     const winrate = fraction(inputs.winrate);
+    const rebuyLagDays = resolveRebuyLagDays(inputs.rebuyLagDays);
     const evalDayPolicy = resolveDayPolicy(inputs, TradingPhase.Eval);
     const fundedDayPolicy = resolveDayPolicy(inputs, TradingPhase.Funded);
     const accountMultiplier = Math.max(1, Math.floor(copyAccounts));
@@ -94,6 +95,7 @@ export function simulate(inputs: SimInputs): SimOutputs {
         'timeout-eval': 0,
     };
     let netSum = 0;
+    let creditSum = 0;
     let costSum = 0;
     let payoutSum = 0;
     let payoutCountSum = 0;
@@ -124,6 +126,7 @@ export function simulate(inputs: SimInputs): SimOutputs {
     for (const r of trialResults) {
         counts[r.outcome] += 1;
         netSum += r.net;
+        creditSum += r.horizonCredit;
         costSum += r.totalCost;
         payoutSum += r.grossPayout;
         payoutCountSum += r.payoutCount;
@@ -166,13 +169,18 @@ export function simulate(inputs: SimInputs): SimOutputs {
     const reachedFundedCount = counts['pass-clean'] + counts['bust-funded'];
     const expectedDaysPerTrial = dayElapsedSum / totalTrials || 1;
     const expectedNet = netSum / totalTrials;
+    const expectedHorizonCredit = creditSum / totalTrials;
     const expectedTotalCost = costSum / totalTrials;
     const expectedGrossPayout = payoutSum / totalTrials;
     const expectedPayoutCount = payoutCountSum / totalTrials;
     const expectedPayoutPerFundedAccount =
         reachedFundedCount > 0 ? payoutSum / reachedFundedCount : 0;
-    const expectedMonthlyNet =
-        (expectedNet * TRADING_DAYS_PER_MONTH) / expectedDaysPerTrial;
+    const slotDaysPerTrial =
+        (dayElapsedSum + rebuyLagDays * attemptsSum) / totalTrials || 1;
+    const expectedMonthlyNet = monthlyNetPerSlot(
+        expectedNet + expectedHorizonCredit,
+        slotDaysPerTrial,
+    );
 
     const expectancyDollars =
         tradesTakenSum > 0
@@ -259,6 +267,7 @@ export function simulate(inputs: SimInputs): SimOutputs {
             firstPayoutCount > 0 ? firstPayoutSum / firstPayoutCount : 0,
         expectedGrossPayout: expectedGrossPayout * m,
         expectedGrossSpend: expectedGrossSpend * m,
+        expectedHorizonCredit: expectedHorizonCredit * m,
         expectedMonthlyNet: expectedMonthlyNet * m,
         expectedNet: expectedNet * m,
         expectedPayoutCount,
@@ -322,6 +331,7 @@ export function simulatePortfolio(
             ? undefined
             : dollars(payoutRequestSize);
     const winrate = fraction(winrateInput);
+    const rebuyLagDays = resolveRebuyLagDays(inputs.rebuyLagDays);
     const evalDayPolicy = resolveDayPolicy(inputs, TradingPhase.Eval);
     const fundedDayPolicy = resolveDayPolicy(inputs, TradingPhase.Funded);
     const positionSizing = resolvePositionSizing(instrument, stopPoints);
@@ -336,7 +346,9 @@ export function simulatePortfolio(
 
     const distribution = Array.from({ length: N + 1 }, () => 0);
     let netSum = 0;
+    let creditSum = 0;
     let dayElapsedSum = 0;
+    let attemptsSum = 0;
     let daysToPassSum = 0;
     let daysToPassCount = 0;
     let bustTrials = 0;
@@ -348,7 +360,9 @@ export function simulatePortfolio(
     for (let index = 0; index < trials; index++) {
         let trialPasses = 0;
         let trialNet = 0;
+        let trialCredit = 0;
         let trialDayElapsed = 0;
+        let trialAttempts = 0;
         let trialDaysToPassSum = 0;
         let trialDaysToPassCount = 0;
         let isAnyBust = false;
@@ -385,7 +399,9 @@ export function simulatePortfolio(
             if (r.outcome === 'bust-eval' || r.outcome === 'bust-funded')
                 isAnyBust = true;
             trialNet += r.net * size;
+            trialCredit += r.horizonCredit * size;
             trialDayElapsed += r.daysElapsed * size;
+            trialAttempts += r.attemptsUsed * size;
             if (r.daysToPass !== null) {
                 trialDaysToPassSum += r.daysToPass * size;
                 trialDaysToPassCount += size;
@@ -398,7 +414,9 @@ export function simulatePortfolio(
 
         distribution[trialPasses] = (distribution[trialPasses] ?? 0) + 1;
         netSum += trialNet;
+        creditSum += trialCredit;
         dayElapsedSum += trialDayElapsed;
+        attemptsSum += trialAttempts;
         daysToPassSum += trialDaysToPassSum;
         daysToPassCount += trialDaysToPassCount;
         if (isAnyBust) bustTrials += 1;
@@ -427,9 +445,13 @@ export function simulatePortfolio(
     }
 
     const expectedNet = netSum / totalTrials;
-    const expectedDaysPerTrial = dayElapsedSum / (totalTrials * N) || 1;
-    const expectedMonthlyNet =
-        (expectedNet * TRADING_DAYS_PER_MONTH) / expectedDaysPerTrial;
+    const expectedHorizonCredit = creditSum / totalTrials;
+    const slotDaysPerTrial =
+        (dayElapsedSum + rebuyLagDays * attemptsSum) / (totalTrials * N) || 1;
+    const expectedMonthlyNet = monthlyNetPerSlot(
+        expectedNet + expectedHorizonCredit,
+        slotDaysPerTrial,
+    );
     const expectedDaysToPass =
         daysToPassCount > 0 ? daysToPassSum / daysToPassCount : 0;
     const expectedMaxLossStreak = maxStreakSum / totalTrials;
@@ -479,4 +501,17 @@ function buildGroupSizes(N: number, groups: number): number[] {
     const out: number[] = [];
     for (let g = 0; g < G; g++) out.push(base + (g < extra ? 1 : 0));
     return out;
+}
+
+function monthlyNetPerSlot(cycleNet: number, slotDays: number): number {
+    return (cycleNet * TRADING_DAYS_PER_MONTH) / slotDays;
+}
+
+function resolveRebuyLagDays(rebuyLagDays = 0): number {
+    if (!Number.isFinite(rebuyLagDays) || rebuyLagDays < 0) {
+        throw new Error(
+            `rebuyLagDays must be a finite number >= 0, got ${rebuyLagDays}`,
+        );
+    }
+    return rebuyLagDays;
 }

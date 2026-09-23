@@ -171,6 +171,7 @@ describe.each(ALL_PLANS)(
             expect(out.finalBalances).toStrictEqual(base.finalBalances);
             expect(out.daysToPassValues).toStrictEqual(base.daysToPassValues);
             expect(out.expectedGrossPayout).toBe(base.expectedGrossPayout);
+            expect(out.expectedHorizonCredit).toBe(base.expectedHorizonCredit);
             expect(out.maxDrawdownP50).toBe(base.maxDrawdownP50);
             expect(out.maxDrawdownP95).toBe(base.maxDrawdownP95);
         });

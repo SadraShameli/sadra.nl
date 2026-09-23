@@ -654,3 +654,68 @@ describe('elapsedDays DP state dimension', () => {
         },
     );
 });
+
+describe('dayCost DP dimension', () => {
+    it(
+        'accountSize 1000 / drawdown 100 (cushion 100, threshold 900) / ' +
+            'profitTarget 50 / one slot / one day, with a constant dayCost ' +
+            'c charged once at the start of the only playable day: betting ' +
+            '$50 at 1:2 either passes (terminal value 1, no further day is ' +
+            'ever played, so no further charge) or loses to cushion 50 ' +
+            '(not a bust) and then times out at the 1-day cap, which is ' +
+            'the uncharged branch since no day beyond the cap is consumed. ' +
+            'So the raw grid value for day 0 is exactly the winrate, 0.5, ' +
+            'unaffected by c, and the single day-0 charge is subtracted ' +
+            'exactly once on top: V(initial) = 0.5 - c',
+        () => {
+            const c = 0.1;
+            const plan = toyPlan(50);
+
+            const result = computeEvalStateValue({
+                ...toyDpConfig(plan, 1, 50),
+                dayCost: () => c,
+            });
+
+            expect(result.initialValue).toBeCloseTo(0.5 - c, 10);
+        },
+    );
+
+    it(
+        'the same profitTarget-250, 2-day-cap toy that hand-derives to an ' +
+            'exact $50/$100 tie at V=0.25 with no dayCost: a constant ' +
+            'dayCost c breaks that tie in favor of $100, because a $100 ' +
+            'loss on day 1 lands cushion exactly at 0, an intraday bust ' +
+            'that returns raw 0 without ever playing (and paying for) day ' +
+            '2, while a $50 loss survives to cushion 50 and is forced to ' +
+            'play a second, separately-charged day that can never reach ' +
+            'the target from there. Both bet sizes still reach the same ' +
+            'day-2 win-branch value of 0.5 - c on a day-1 win (an all-in ' +
+            'day-2 bet either passes for terminal value 1 or busts ' +
+            'intraday for 0, so that branch is itself dayCost-invariant). ' +
+            'So the $50 raw grid value is 0.5*(0.5 - c) + 0.5*(-c) = ' +
+            '0.25 - c, while the $100 raw grid value is 0.5*(0.5 - c) + ' +
+            '0.5*0 = 0.25 - 0.5c, strictly higher for any c > 0. The DP ' +
+            'must pick $100 and the day-0 charge lands on top of that ' +
+            'higher raw value once more: V(initial) = ' +
+            '(0.25 - 0.5c) - c = 0.25 - 1.5c, strictly less than the no-' +
+            'cost 0.25, and computeRisk at the initial state flips from ' +
+            'the old tie-broken 50 to the now strictly-better 100. This ' +
+            'fails if intraday busts are left uncharged in a way that ' +
+            'keeps day 1 tied (0.25 - c, computeRisk still 50) or if a ' +
+            "day's cost is applied more than once for the same elapsed day",
+        () => {
+            const c = 0.1;
+            const plan = toyPlan(250);
+
+            const result = computeEvalStateValue({
+                ...toyDpConfig(plan, 2, 100),
+                dayCost: () => c,
+            });
+
+            expect(result.initialValue).toBeCloseTo(0.25 - 1.5 * c, 10);
+
+            const risk = result.dayPolicy.computeRisk?.(plan.initialState(), 0);
+            expect(risk).toBe(100);
+        },
+    );
+});

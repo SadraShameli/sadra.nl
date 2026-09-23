@@ -20,6 +20,7 @@ export interface DayPolicy {
         tradeIndexToday: number,
         payoutsIssued?: number,
         cycleBestDayProfit?: number,
+        qualifyingDaysSincePayout?: number,
     ) => number;
     readonly ladder: readonly number[];
     readonly maxLossesPerDay: null | number;
@@ -58,6 +59,7 @@ export function computedDayPolicy(
         tradeIndexToday: number,
         payoutsIssued?: number,
         cycleBestDayProfit?: number,
+        qualifyingDaysSincePayout?: number,
     ) => number,
     maxTrades: number,
     stopRule?: DayStopRule,

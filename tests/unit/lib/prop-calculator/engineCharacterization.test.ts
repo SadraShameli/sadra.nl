@@ -10,7 +10,12 @@ import {
     TopStepVariant,
 } from '~/lib/prop-calculator/core';
 import { findFirm } from '~/lib/prop-calculator/firms';
-import { type SimOutputs, simulate } from '~/lib/prop-calculator/simulator';
+import {
+    CorrelationMode,
+    type SimOutputs,
+    simulate,
+    simulatePortfolio,
+} from '~/lib/prop-calculator/simulator';
 
 interface Characterization {
     expected: Record<PinnedKey, number>;
@@ -25,6 +30,7 @@ type PinnedKey =
     | 'expectedDaysToPass'
     | 'expectedFirstPayoutDay'
     | 'expectedGrossPayout'
+    | 'expectedMonthlyNet'
     | 'expectedNet'
     | 'expectedTotalCost'
     | 'finalBalanceP50'
@@ -44,6 +50,7 @@ const CASES: readonly Characterization[] = [
             expectedDaysToPass: 12.122699386503067,
             expectedFirstPayoutDay: 0,
             expectedGrossPayout: 10_270.8,
+            expectedMonthlyNet: 5196.699458927693,
             expectedNet: 10_061.8,
             expectedTotalCost: 209,
             finalBalanceP50: 50_100,
@@ -69,6 +76,7 @@ const CASES: readonly Characterization[] = [
             expectedDaysToPass: 6.85,
             expectedFirstPayoutDay: 15.217054263565892,
             expectedGrossPayout: 8475,
+            expectedMonthlyNet: 3959.2182410423457,
             expectedNet: 7813.8,
             expectedTotalCost: 661.2,
             finalBalanceP50: 55_700,
@@ -94,6 +102,7 @@ const CASES: readonly Characterization[] = [
             expectedDaysToPass: 6.975,
             expectedFirstPayoutDay: 14.053571428571429,
             expectedGrossPayout: 30_206.7,
+            expectedMonthlyNet: 4343.868408772749,
             expectedNet: 30_038.5,
             expectedTotalCost: 168.2,
             finalBalanceP50: 80_200,
@@ -119,6 +128,7 @@ const CASES: readonly Characterization[] = [
             expectedDaysToPass: 6.771084337349397,
             expectedFirstPayoutDay: 0,
             expectedGrossPayout: 7932.8,
+            expectedMonthlyNet: 5055.917597106462,
             expectedNet: 7654.9,
             expectedTotalCost: 277.9,
             finalBalanceP50: 50_000,
@@ -168,5 +178,36 @@ describe.each(CASES)('engine characterization: $label', (characterization) => {
         })),
     )('pins $key', ({ key, value }) => {
         expect(out[key]).toBe(value);
+    });
+});
+
+describe('engine characterization: MFFU Rapid EOD portfolio (2 accounts, independent)', () => {
+    const out = simulatePortfolio({
+        accounts: 2,
+        correlation: CorrelationMode.Independent,
+        fundedHorizonDays: 252,
+        groups: 2,
+        maxEvalDays: 150,
+        minRetainedCushion: 2000,
+        plan: planFor({
+            accountSize: 50_000,
+            firm: FirmId.Mffu,
+            variant: MffuVariant.RapidEod,
+        }),
+        riskPerTrade: 400,
+        rrRatio: 2,
+        rungSizing: RungSizing.CapToCushion,
+        seed: 42,
+        tradesPerDay: 2,
+        trials: 200,
+        winrate: 0.5,
+    });
+
+    it('pins expectedMonthlyNet', () => {
+        expect(out.expectedMonthlyNet).toBe(10_765.30693069307);
+    });
+
+    it('pins expectedNet', () => {
+        expect(out.expectedNet).toBe(20_710.4);
     });
 });

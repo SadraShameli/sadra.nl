@@ -117,10 +117,6 @@ export {
     type ProfitShareMultiplier,
 } from './lib/units';
 export {
-    lifetimeExpectedNet,
-    type LifetimeExtractionCycle,
-} from './LifetimeExtraction';
-export {
     createInitialLiveAccountState,
     type LiveAccountState,
 } from './LiveAccountState';
@@ -167,6 +163,10 @@ export {
     resolveContractLimit,
     resolvePositionSizing,
 } from './PositionSizing';
+export {
+    RenewalCycleObjective,
+    type RenewalCycleObjectiveInit,
+} from './RenewalCycleObjective';
 export { replacementEconomics, type ReplacementEconomics } from './Replacement';
 export {
     annualisedRoiOnCost,

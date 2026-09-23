@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 
 import { ALL_FIRMS } from '~/lib/prop-calculator';
 import {
-    computeEvalStateValue,
     ConsistencyRule,
     ConsistencyScope,
     ContractLimitKind,
@@ -14,10 +13,11 @@ import {
     EodTrailingDrawdown,
     FirmId,
     fraction,
+    FundedNextVariant,
     INSTRUMENTS,
     InstrumentSymbol,
-    lifetimeExpectedNet,
     MffuVariant,
+    PayoutCountTieredPayoutCap,
     PayoutFloorEffect,
     type Plan,
     points,
@@ -25,17 +25,67 @@ import {
 } from '~/lib/prop-calculator/core';
 import {
     computeFundedStateValue,
+    defaultPayoutRegimeCap,
     findRegistryPlanId,
     isFundedDpEligible,
     warmFirmsRegistryCache,
 } from '~/lib/prop-calculator/core/FundedStateValue';
+import { FundedNext } from '~/lib/prop-calculator/firms/fundednext/FundedNext';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 import { TopStep } from '~/lib/prop-calculator/firms/topstep/TopStep';
 import { simulate } from '~/lib/prop-calculator/simulator';
 
+function bigLockedToyPlan(): Plan {
+    return rapidEodPlan().withOverrides({
+        accountSize: dollars(1_000_000),
+        consistency: null,
+        contractLimits: undefined,
+        drawdown: new EodTrailingDrawdown({ amount: dollars(100_000) }),
+        evalDailyLossLimit: { kind: DailyLossLimitKind.None },
+        fundedConsistency: { kind: 'set', rule: null },
+        fundedDailyLossLimit: { kind: DailyLossLimitKind.None },
+        fundedDrawdown: new EodTrailingDrawdown({
+            amount: dollars(100_000),
+            lock: {
+                atProfit: dollars(150_000),
+                lockedThreshold: () => 1_000_000,
+            },
+        }),
+        isInstantFunded: true,
+        maxLifetimePayouts: 1,
+        minDaysAfterPassForPayout: 0,
+        minPayoutProfit: dollars(1_000_000_000),
+        minPayoutProfitPerCycle: dollars(0),
+        minPayoutRequest: dollars(0),
+        minQualifyingDayProfit: null,
+        minTradingDays: 0,
+        payoutBalanceShareCap: undefined,
+        payoutRequestCap: undefined,
+        payoutTiers: [
+            { thresholdProfit: dollars(0), traderShare: fraction(1) },
+        ],
+    });
+}
+
 function consistencyToyPlan(rule: ConsistencyRule | null): Plan {
     return onePayoutToyPlan().withOverrides({
         fundedConsistency: { kind: 'set', rule },
+    });
+}
+
+function legacyPlan(): Plan {
+    const plan = new FundedNext().findPlan({
+        accountSize: 50_000,
+        firm: FirmId.FundedNext,
+        variant: FundedNextVariant.Legacy,
+    });
+    if (!plan) throw new Error('FundedNext Legacy 50K plan not found');
+    return plan;
+}
+
+function noPayoutToyPlan(): Plan {
+    return onePayoutToyPlan().withOverrides({
+        minPayoutProfit: dollars(1_000_000),
     });
 }
 
@@ -68,6 +118,12 @@ function onePayoutToyPlan(): Plan {
         payoutTiers: [
             { thresholdProfit: dollars(0), traderShare: fraction(1) },
         ],
+    });
+}
+
+function qualifyingDayGatedToyPlan(): Plan {
+    return onePayoutToyPlan().withOverrides({
+        minDaysAfterPassForPayout: 2,
     });
 }
 
@@ -308,151 +364,116 @@ describe(
 );
 
 describe(
-    'computeFundedStateValue vs Part K1 — the DP must never underperform ' +
-        "the best flat/percentage-of-cushion policy K1's own " +
-        'lifetimeExpectedNet sweep finds, since a state-aware policy is a ' +
-        'strict superset of a fixed policy (a fixed policy is a state-aware ' +
-        'one that happens to ignore state)',
+    'computeFundedStateValue vs FundedPayoutCycle.tryPayout — regression: ' +
+        'the funded DP must model minDaysAfterPassForPayout exactly as ' +
+        'tryFundedPayout enforces it, not bypass the gate with a fabricated ' +
+        'permanently-unlocked qualifyingDays (the D14 bug: buildState used ' +
+        'to hardcode a LARGE_QUALIFYING_DAYS constant and dayCloseValue ' +
+        'reset qualifyingDaysAtLastPayout to 0, so hasQualifyingDays was ' +
+        'trivially true on every day, letting the DP cash out a locked ' +
+        "profit on day 1 even when the plan's own minDaysAfterPassForPayout " +
+        'requires waiting). qualifyingDayGatedToyPlan is the one-payout toy ' +
+        'with minDaysAfterPassForPayout raised from 0 to 2 (every other ' +
+        'field, including the single $100 action/1:2 risk:reward/winrate ' +
+        '0.5 setup, is untouched, so this is a pure isolation of the gate): ' +
+        'day 1 either locks (win, profit $200 clears the $150 trigger, ' +
+        'cushion $200) or busts outright (loss drops the $100 cushion to ' +
+        'exactly $0). A locked day 1 cannot pay out (only 1 qualifying day ' +
+        'accrued, needs 2) and must continue to day 2 at cushion $200; day ' +
+        '2 either pays out $300 and concludes (win, cycleProfit $400, ' +
+        'capped by withdrawable $300 above the $1,100 floor) or is denied ' +
+        'for $0 withdrawable (loss, cycleProfit $100 but cushion is back ' +
+        'down to exactly the $100 floor headroom) and must continue to day ' +
+        '3 at cushion $100, where the gate is already permanently satisfied ' +
+        'and the account either pays out $200 and concludes (win) or busts ' +
+        '(loss, cushion $100 to $0 again). Hand-solving this three-level ' +
+        'chain backward — V(day3)=0.5*200=100, V(day2)=0.5*300+0.5*(0+' +
+        'V(day3))=200, V(day1)=0.5*V(day2)=100 — gives V(initial)=100. A DP ' +
+        'that bypasses the gate (as the pre-fix engine did) instead cashes ' +
+        'out immediately on the day-1 win (cycleProfit $200, withdrawable ' +
+        '$100, concludes for $100) and busts on the day-1 loss, giving the ' +
+        'materially different, provably wrong V(initial)=0.5*100=50',
     () => {
         it(
-            'MFF Rapid EOD 50K: the DP-driven funded policy (fed a ' +
-                "self-consistent evalInitialValue from L1's own eval DP, " +
-                "reusing L1's validated V_eval per the plan's sequencing " +
-                "note) beats K1's best flat-$/percent-of-cushion candidate " +
-                "by a wide margin, measured both by the DP's own predicted " +
-                "value AND by simulate()'s empirical, renewal-adjusted " +
-                'lifetime value driven by the exact same policy — this ' +
-                'double check (not trusting the DP math in isolation) is ' +
-                "the same discipline L1's own validation harness applied",
+            "computeFundedStateValue's V(initial) for the qualifying-day-" +
+                "gated toy is exactly 100, not the gate-bypassing engine's " +
+                '50 — the qualifying-day gate makes the DP wait for a ' +
+                'bigger, later cycleProfit instead of cashing out on day 1, ' +
+                'a real, hand-verified prediction change no unfixed engine ' +
+                'could produce for this plan',
             () => {
-                const plan = rapidEodPlan();
-                const rrRatio = 2;
-                const winrate = 0.4;
-                const tradesPerDay = 4;
-                const maxEvalDays = 30;
-                const feePerAttempt = plan.fees.reset;
+                const plan = qualifyingDayGatedToyPlan();
+                expect(isFundedDpEligible(plan)).toBe(true);
 
-                const flatCandidates = [200, 250, 300, 400];
-                const percentCandidates = [0.05, 0.075, 0.1, 0.15];
-                let bestK1 = -Infinity;
-                for (const dollarRisk of flatCandidates) {
-                    const out = simulate({
-                        fundedHorizonDays: 250,
-                        fundedRiskPerTrade: dollarRisk,
-                        maxEvalDays,
-                        plan,
-                        riskPerTrade: 250,
-                        rrRatio,
-                        seed: 42,
-                        tradesPerDay,
-                        trials: 8000,
-                        winrate,
-                    });
-                    const lifetimeNet = lifetimeExpectedNet({
-                        costOfOneMoreAttempt: plan.feesUntilPass(
-                            out.expectedDaysToPass,
-                        ),
-                        expectedNet: out.expectedNet,
-                        fundedBustProbability: out.fundedBustProbability,
-                    });
-                    bestK1 = Math.max(bestK1, lifetimeNet);
-                }
-                for (const percent of percentCandidates) {
-                    const out = simulate({
-                        fundedCushionPercent: fraction(percent),
-                        fundedHorizonDays: 250,
-                        maxEvalDays,
-                        plan,
-                        riskPerTrade: 250,
-                        rrRatio,
-                        seed: 42,
-                        tradesPerDay,
-                        trials: 8000,
-                        winrate,
-                    });
-                    const lifetimeNet = lifetimeExpectedNet({
-                        costOfOneMoreAttempt: plan.feesUntilPass(
-                            out.expectedDaysToPass,
-                        ),
-                        expectedNet: out.expectedNet,
-                        fundedBustProbability: out.fundedBustProbability,
-                    });
-                    bestK1 = Math.max(bestK1, lifetimeNet);
-                }
-
-                let guessEvalInitialValue = 0;
-                let fundedResult: ReturnType<typeof computeFundedStateValue> =
-                    computeFundedStateValue({
-                        actionStepMultiple: 0.1,
-                        evalInitialValue: 0,
-                        feePerAttempt,
-                        maxActionMultiple: 0.3,
-                        plan,
-                        rrRatio,
-                        tradesPerDay,
-                        winrate,
-                    });
-                let evalResult: ReturnType<typeof computeEvalStateValue> =
-                    computeEvalStateValue({
-                        actionStepDollars: 100,
-                        cushionStepDollars: 200,
-                        maxEvalDays,
-                        plan,
-                        profitStepDollars: 600,
-                        rrRatio,
-                        terminalValueAtPass: 0,
-                        tradesPerDay,
-                        winrate: fraction(winrate),
-                    });
-                for (let iteration = 0; iteration < 12; iteration++) {
-                    evalResult = computeEvalStateValue({
-                        actionStepDollars: 100,
-                        cushionStepDollars: 200,
-                        maxEvalDays,
-                        plan,
-                        profitStepDollars: 600,
-                        rrRatio,
-                        terminalValueAtPass: guessEvalInitialValue,
-                        tradesPerDay,
-                        winrate: fraction(winrate),
-                    });
-                    fundedResult = computeFundedStateValue({
-                        actionStepMultiple: 0.1,
-                        evalInitialValue: evalResult.initialValue,
-                        feePerAttempt,
-                        maxActionMultiple: 0.3,
-                        plan,
-                        rrRatio,
-                        tradesPerDay,
-                        winrate,
-                    });
-                    guessEvalInitialValue = fundedResult.initialValue;
-                }
-
-                expect(fundedResult.initialValue).toBeGreaterThan(bestK1);
-
-                const empiricalOut = simulate({
-                    evalDayPolicy: evalResult.dayPolicy,
-                    fundedDayPolicy: fundedResult.dayPolicy,
-                    fundedHorizonDays: 3000,
-                    maxEvalDays,
+                const result = computeFundedStateValue({
+                    actionStepMultiple: 1,
+                    cushionStepMultiple: 1,
+                    evalInitialValue: 0,
+                    feePerAttempt: dollars(0),
+                    maxActionMultiple: 1,
                     plan,
-                    riskPerTrade: 250,
-                    rrRatio,
-                    seed: 42,
-                    tradesPerDay,
-                    trials: 12_000,
-                    winrate,
-                });
-                const empiricalLifetimeNet = lifetimeExpectedNet({
-                    costOfOneMoreAttempt: feePerAttempt,
-                    expectedNet: empiricalOut.expectedNet,
-                    fundedBustProbability: empiricalOut.fundedBustProbability,
+                    rrRatio: 2,
+                    tradesPerDay: 1,
+                    winrate: 0.5,
                 });
 
-                expect(empiricalLifetimeNet).toBeGreaterThan(bestK1);
+                expect(result.initialValue).toBeCloseTo(100, 10);
+                expect(result.initialValue).not.toBeCloseTo(50, 5);
+                expect(result.bustTerminalValue).toBe(0);
+
+                const risk = result.dayPolicy.computeRisk?.(
+                    plan.initialState(),
+                    0,
+                );
+                expect(risk).toBe(100);
             },
-            2_700_000,
+        );
+
+        it(
+            "a real simulate() run driven end-to-end by the DP's own " +
+                'dayPolicy reproduces V(initial)=100 empirically: expected ' +
+                'gross payout plus bust-probability-weighted ' +
+                'bustTerminalValue matches the fixed-DP prediction within ' +
+                'Monte Carlo tolerance at 50,000 trials — simulate() always ' +
+                'enforced the real minDaysAfterPassForPayout gate through ' +
+                "FundedPayoutCycle's shared tryFundedPayout, so this also " +
+                "proves the DP's own newly gate-aware policy (unchanged " +
+                'here, since this toy only ever has one nonzero action) ' +
+                "matches reality once the DP's prediction does",
+            () => {
+                const plan = qualifyingDayGatedToyPlan();
+                const result = computeFundedStateValue({
+                    actionStepMultiple: 1,
+                    cushionStepMultiple: 1,
+                    evalInitialValue: 0,
+                    feePerAttempt: dollars(0),
+                    maxActionMultiple: 1,
+                    plan,
+                    rrRatio: 2,
+                    tradesPerDay: 1,
+                    winrate: 0.5,
+                });
+
+                const out = simulate({
+                    fundedDayPolicy: result.dayPolicy,
+                    fundedHorizonDays: 200,
+                    maxEvalDays: 1,
+                    plan,
+                    riskPerTrade: 100,
+                    rrRatio: 2,
+                    seed: 7,
+                    tradesPerDay: 1,
+                    trials: 50_000,
+                    winrate: 0.5,
+                });
+
+                const empiricalValue =
+                    out.expectedGrossPayout +
+                    out.fundedBustProbability * result.bustTerminalValue;
+
+                expect(empiricalValue).toBeCloseTo(result.initialValue, 0);
+            },
+            15_000,
         );
     },
 );
@@ -587,6 +608,41 @@ describe(
     },
 );
 
+describe('defaultPayoutRegimeCap', () => {
+    it('falls back to the default cap of 6 for a plan with neither maxLifetimePayouts nor a payoutLadder', () => {
+        const plan = rapidEodPlan();
+        expect(plan.maxLifetimePayouts).toBeNull();
+        expect(plan.payoutLadder).toBeNull();
+        expect(defaultPayoutRegimeCap(plan)).toBe(6);
+    });
+
+    it('raises the cap to maxLifetimePayouts when it exceeds the default of 6', () => {
+        const plan = rapidEodPlan().withOverrides({ maxLifetimePayouts: 9 });
+        expect(defaultPayoutRegimeCap(plan)).toBe(9);
+    });
+
+    it('raises the cap to the payout ladder step count when it exceeds the default of 6', () => {
+        const plan = rapidEodPlan().withOverrides({
+            payoutLadder: {
+                minRequestAmount: dollars(500),
+                steps: [1, 2, 3, 4, 5, 6, 7, 8],
+            },
+        });
+        expect(defaultPayoutRegimeCap(plan)).toBe(8);
+    });
+
+    it('takes the max across the default, maxLifetimePayouts, and the payout ladder step count', () => {
+        const plan = rapidEodPlan().withOverrides({
+            maxLifetimePayouts: 3,
+            payoutLadder: {
+                minRequestAmount: dollars(500),
+                steps: Array.from({ length: 10 }, () => 1),
+            },
+        });
+        expect(defaultPayoutRegimeCap(plan)).toBe(10);
+    });
+});
+
 describe('isFundedDpEligible scope cut', () => {
     it(
         'refuses a plan whose funded daily loss limit terminates the account, ' +
@@ -668,7 +724,345 @@ describe('isFundedDpEligible scope cut', () => {
             expect(isFundedDpEligible(noLockNoReleaseFloorPlan)).toBe(false);
         },
     );
+
+    it(
+        'refuses FundedNext Legacy: its payoutCapOverride is a ' +
+            'QualifyingDaysMilestonePayoutCap, keyed on state.qualifyingDays ' +
+            'as a lifetime cumulative count in Plan.resolvedPayoutCap. The ' +
+            'DP instead tracks qualifyingDays as a bounded, per-cycle ' +
+            "gate that resets on payout, so Legacy's post-30-day " +
+            'uncapped regime is unreachable inside it -- the DP would ' +
+            'silently value every payout under the capped, ' +
+            'before-milestone regime',
+        () => {
+            expect(isFundedDpEligible(legacyPlan())).toBe(false);
+            expect(() =>
+                computeFundedStateValue({
+                    evalInitialValue: 0,
+                    feePerAttempt: dollars(0),
+                    plan: legacyPlan(),
+                    rrRatio: 2,
+                    winrate: 0.4,
+                }),
+            ).toThrow(/not eligible/);
+        },
+    );
+
+    it(
+        'keeps a plan DP-eligible when its payoutCapOverride is a ' +
+            'PayoutCountTieredPayoutCap (keyed on payoutsIssued, not ' +
+            'cumulative qualifying days) -- only ' +
+            'QualifyingDaysMilestonePayoutCap is excluded, not every ' +
+            'payoutCapOverride',
+        () => {
+            const tieredCapPlan = rapidEodPlan().withOverrides({
+                payoutCapOverride: new PayoutCountTieredPayoutCap([
+                    {
+                        fromPayoutIndex: 0,
+                        regime: {
+                            balanceShareCap: null,
+                            requestCap: dollars(1250),
+                        },
+                    },
+                ]),
+            });
+            expect(isFundedDpEligible(tieredCapPlan)).toBe(true);
+        },
+    );
 });
+
+describe(
+    'FundedStateValueResult.unconvergedLevelCount — surfaces a level that ' +
+        'hit the maxIterationsPerLevel sweep cap without converging, which ' +
+        'was silently swallowed before this change',
+    () => {
+        it(
+            'a maxIterationsPerLevel of 1 leaves at least one level ' +
+                'unconverged on the one-payout toy, since value iteration ' +
+                'starting from 0 needs more than a single sweep to settle ' +
+                'within convergenceTolerance of the true V(initial)=50',
+            () => {
+                const plan = onePayoutToyPlan();
+                const result = computeFundedStateValue({
+                    actionStepMultiple: 1,
+                    cushionStepMultiple: 1,
+                    evalInitialValue: 0,
+                    feePerAttempt: dollars(0),
+                    maxActionMultiple: 1,
+                    maxIterationsPerLevel: 1,
+                    plan,
+                    rrRatio: 2,
+                    tradesPerDay: 1,
+                    winrate: 0.5,
+                });
+
+                expect(result.unconvergedLevelCount).toBeGreaterThan(0);
+            },
+        );
+
+        it(
+            'the default one-payout toy converges every level within the ' +
+                'default sweep cap, so unconvergedLevelCount is 0 and the ' +
+                'existing V(initial)=50 pin is unaffected',
+            () => {
+                const plan = onePayoutToyPlan();
+                const result = computeFundedStateValue({
+                    actionStepMultiple: 1,
+                    cushionStepMultiple: 1,
+                    evalInitialValue: 0,
+                    feePerAttempt: dollars(0),
+                    maxActionMultiple: 1,
+                    plan,
+                    rrRatio: 2,
+                    tradesPerDay: 1,
+                    winrate: 0.5,
+                });
+
+                expect(result.unconvergedLevelCount).toBe(0);
+                expect(result.initialValue).toBeCloseTo(50, 10);
+            },
+        );
+    },
+);
+
+describe(
+    'FundedStateValueConfig.dayCost / meanHorizonDays -- a geometric ' +
+        'end-of-horizon hazard q=1/meanHorizonDays and a per-day charge, ' +
+        "wired into the funded DP's day-settlement function the same way " +
+        "change 3's rebuyLagDays wired into the engine, and reusing " +
+        'FundedCycleTracker.closeoutCredit (T6) at the hazard branch',
+    () => {
+        it(
+            'meanHorizonDays: 1 makes the hazard q exactly 1, so every ' +
+                'continuing day resolves at the horizon with certainty and ' +
+                "the recursive continuation term's weight (1-q) is exactly " +
+                'zero: V(initial) collapses to the closed form -dayCost + ' +
+                'winrate * closeoutCredit(winState), independent of the ' +
+                'value map, on a no-payout toy (onePayoutToyPlan with ' +
+                'minPayoutProfit raised to $1,000,000 so the real, ' +
+                'scheduled tryFundedPayout on the winning day is blocked ' +
+                'by its own requiredProfit gate, forcing the account to ' +
+                "reach this change's new continuing-with-hazard branch " +
+                'instead of concluding immediately the way the unmodified ' +
+                'one-payout toy does). A $200 win locks the drawdown at ' +
+                '$1,000 (profit 200 clears the $150 lock trigger) and ' +
+                'closeoutCredit ignores minPayoutProfit entirely (D4), so ' +
+                'it is exactly payoutFromProfit(withdrawableNow) = ' +
+                'payoutFromProfit($100 cushion above the $1,100 payout ' +
+                "floor) = $100 at this plan's 100%-trader-share, no-fee " +
+                'payoutTiers. A $100 loss busts intraday for ' +
+                'bustTerminalValue=0 (evalInitialValue=feePerAttempt=0), ' +
+                'so V(initial) = -5 + 0.5*100 = 45',
+            () => {
+                const plan = noPayoutToyPlan();
+                const dayCost = 5;
+
+                const result = computeFundedStateValue({
+                    actionStepMultiple: 1,
+                    cushionStepMultiple: 1,
+                    dayCost,
+                    evalInitialValue: 0,
+                    feePerAttempt: dollars(0),
+                    maxActionMultiple: 1,
+                    meanHorizonDays: 1,
+                    plan,
+                    rrRatio: 2,
+                    tradesPerDay: 1,
+                    winrate: 0.5,
+                });
+
+                expect(result.initialValue).toBeCloseTo(45, 10);
+            },
+        );
+
+        it(
+            'worker parity: a real registry plan (findRegistryPlanId ' +
+                'resolves it, so tryCreateWorkerPool genuinely dispatches ' +
+                'to worker threads once the grid clears ' +
+                'MIN_PARALLEL_GRID_CELLS) and the identical plan taken out ' +
+                'of the registry via withOverrides({}) (which cannot ' +
+                'resolve back to its own id, so it runs single-threaded, ' +
+                "per this file's own findRegistryPlanId tests) produce the " +
+                'same initialValue with dayCost != 0 and a horizon, on ' +
+                'coarse grids -- proving dayCost/meanHorizonDays reach ' +
+                'workers through SerializableFundedConfig/' +
+                'toSerializableConfig/runFundedWorkerBootstrap correctly',
+            async () => {
+                await warmFirmsRegistryCache();
+                const firm = ALL_FIRMS.find(
+                    (candidate) => candidate.id === FirmId.TopStep,
+                );
+                if (!firm) throw new Error('TopStep firm not in the registry');
+                const registryPlan = firm.plans[0];
+                if (!registryPlan)
+                    throw new Error('No TopStep plan registered');
+                expect(findRegistryPlanId(registryPlan)).toEqual(
+                    registryPlan.id,
+                );
+
+                const offRegistryPlan = registryPlan.withOverrides({});
+                expect(findRegistryPlanId(offRegistryPlan)).toBeNull();
+
+                const coarseConfig = {
+                    actionStepMultiple: 1,
+                    cushionStepMultiple: 1,
+                    dayCost: 5,
+                    evalInitialValue: 0,
+                    feePerAttempt: dollars(0),
+                    maxActionMultiple: 1,
+                    meanHorizonDays: 100,
+                    payoutRegimeCap: 0,
+                    rrRatio: 2,
+                    tradesPerDay: 1,
+                    winrate: 0.4,
+                };
+
+                const workerResult = computeFundedStateValue({
+                    ...coarseConfig,
+                    plan: registryPlan,
+                });
+                const singleThreadedResult = computeFundedStateValue({
+                    ...coarseConfig,
+                    plan: offRegistryPlan,
+                });
+
+                expect(workerResult.initialValue).toBeCloseTo(
+                    singleThreadedResult.initialValue,
+                    6,
+                );
+            },
+            60_000,
+        );
+
+        it(
+            'dayCost != 0 without meanHorizonDays throws, since a policy ' +
+                'that never busts would have no terminal branch and the ' +
+                'day-cost fixed point would diverge',
+            () => {
+                const plan = onePayoutToyPlan();
+                expect(() =>
+                    computeFundedStateValue({
+                        actionStepMultiple: 1,
+                        cushionStepMultiple: 1,
+                        dayCost: 1,
+                        evalInitialValue: 0,
+                        feePerAttempt: dollars(0),
+                        maxActionMultiple: 1,
+                        plan,
+                        rrRatio: 2,
+                        tradesPerDay: 1,
+                        winrate: 0.5,
+                    }),
+                ).toThrow(/meanHorizonDays/);
+            },
+        );
+
+        it.each([0, 0.5, -1, Infinity, NaN])(
+            'meanHorizonDays=%s throws, since it must be finite and >= 1',
+            (meanHorizonDays) => {
+                const plan = onePayoutToyPlan();
+                expect(() =>
+                    computeFundedStateValue({
+                        actionStepMultiple: 1,
+                        cushionStepMultiple: 1,
+                        evalInitialValue: 0,
+                        feePerAttempt: dollars(0),
+                        maxActionMultiple: 1,
+                        meanHorizonDays,
+                        plan,
+                        rrRatio: 2,
+                        tradesPerDay: 1,
+                        winrate: 0.5,
+                    }),
+                ).toThrow(/meanHorizonDays/);
+            },
+        );
+
+        it(
+            'omitting both dayCost and meanHorizonDays leaves the existing ' +
+                'one-payout toy pin (V(initial)=50) byte-identical, since ' +
+                'dayCost defaults to 0 and horizonHazard defaults to 0 -- ' +
+                'a true no-op on both the finalTable subtraction and the ' +
+                'dayCloseValue continuing branch',
+            () => {
+                const plan = onePayoutToyPlan();
+                const result = computeFundedStateValue({
+                    actionStepMultiple: 1,
+                    cushionStepMultiple: 1,
+                    evalInitialValue: 0,
+                    feePerAttempt: dollars(0),
+                    maxActionMultiple: 1,
+                    plan,
+                    rrRatio: 2,
+                    tradesPerDay: 1,
+                    winrate: 0.5,
+                });
+
+                expect(result.initialValue).toBeCloseTo(50, 10);
+            },
+        );
+    },
+);
+
+describe(
+    'default maxIterationsPerLevel under a horizon hazard -- the per-level ' +
+        'sweep cap must scale with the hazard so a genuinely convergent ' +
+        'level is never mistaken for a non-convergent one just because it ' +
+        'needs more than the flat 200-sweep default that ignores ' +
+        'meanHorizonDays entirely',
+    () => {
+        it(
+            'a locked level whose optimal policy always trades a ' +
+                'guaranteed win (winrate 1, so a $100k risk at 1:2 R:R ' +
+                'clears the $150k lock trigger on day 1 and then clamps ' +
+                'at the top locked cushion bucket, self-referencing its ' +
+                'own not-yet-converged value every sweep after) is a ' +
+                'pure geometric approach to its fixed point at rate ' +
+                '(1 - 1/meanHorizonDays): at meanHorizonDays 252 and ' +
+                "this plan's dollar scale, that needs on the order of " +
+                '2000 sweeps (measured: unconverged through 1500, ' +
+                'converged by 2000), far past ' +
+                'DEFAULT_MAX_ITERATIONS_PER_LEVEL (200), so calling ' +
+                'computeFundedStateValue with default grid settings (no ' +
+                'maxIterationsPerLevel override) must still converge to ' +
+                'the same value an explicit high-iteration ground-truth ' +
+                'run reaches, not merely avoid throwing or silently ' +
+                'reporting a biased, under-converged initialValue the ' +
+                'way the unfixed 200-sweep default does',
+            () => {
+                const plan = bigLockedToyPlan();
+                const config = {
+                    actionStepMultiple: 1,
+                    cushionStepMultiple: 1,
+                    dayCost: 1,
+                    evalInitialValue: 0,
+                    feePerAttempt: dollars(0),
+                    maxActionMultiple: 1,
+                    meanHorizonDays: 252,
+                    payoutRegimeCap: 0,
+                    plan,
+                    rrRatio: 2,
+                    tradesPerDay: 1,
+                    winrate: 1,
+                };
+
+                const groundTruth = computeFundedStateValue({
+                    ...config,
+                    maxIterationsPerLevel: 5000,
+                });
+                expect(groundTruth.unconvergedLevelCount).toBe(0);
+
+                const defaultResult = computeFundedStateValue(config);
+
+                expect(defaultResult.unconvergedLevelCount).toBe(0);
+                expect(defaultResult.initialValue).toBeCloseTo(
+                    groundTruth.initialValue,
+                    6,
+                );
+            },
+        );
+    },
+);
 
 describe('idle-days DP state dimension', () => {
     it(
@@ -789,13 +1183,21 @@ describe('cycleBestDayProfit DP state dimension', () => {
             'directly against the pre-fix engine (git HEAD at the time of ' +
             'this change) by literally swapping in its FundedStateValue.ts, ' +
             'rerunning this exact config standalone, and pinning the real ' +
-            'observed output: initialValue=29505.52018082788, ' +
-            'reachedStateCount=19698, and the exported policy chooses ' +
-            'identical risk at every (tradeIndex, payoutsIssued) ' +
-            'combination checked below — because isViolated is never even ' +
-            'called when fundedConsistencyRule() is null (short-circuited ' +
-            'by `!consistency?.isViolated(...)`), the tracked ' +
-            'cycleBestDayProfit value can never influence this plan',
+            'observed output: initialValue=29505.52018082788, and the ' +
+            'exported policy chooses identical risk at every (tradeIndex, ' +
+            'payoutsIssued) combination checked below — because isViolated ' +
+            'is never even called when fundedConsistencyRule() is null ' +
+            '(short-circuited by `!consistency?.isViolated(...)`), the ' +
+            'tracked cycleBestDayProfit value can never influence this ' +
+            'plan. reachedStateCount is pinned at 39396, exactly 2x the ' +
+            "pre-D14 19698, since this plan's minDaysAfterPassForPayout=1 " +
+            'adds a real qualifyingDayKeyRadix=2 state dimension, but ' +
+            "initialValue and the policy are unaffected by D14's fix " +
+            'because a required count of 1 is already satisfied by the ' +
+            "very first traded day's own qualifying-day accrual (by the " +
+            'time tryFundedPayout runs on that same day-close), so the ' +
+            'gate was never actually binding for this plan even before ' +
+            'the fix',
         () => {
             const plan = rapidEodPlan();
             expect(plan.fundedConsistencyRule()).toBeNull();
@@ -812,7 +1214,7 @@ describe('cycleBestDayProfit DP state dimension', () => {
             });
 
             expect(result.initialValue).toBeCloseTo(29_505.52018082788, 6);
-            expect(result.reachedStateCount).toBe(19_698);
+            expect(result.reachedStateCount).toBe(39_396);
 
             const state = plan.initialState();
             const expectedRisksByPayoutsIssued = [
