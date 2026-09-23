@@ -13,7 +13,7 @@ and record the result in that firm's own `SOURCES.md`, not in this file.
 | ------------ | ---------- | ------------------- | ----------------- | --------------- | ------------------- |
 | alphafutures | 5          | 37                  | 13                | 3               | Done 2026-09-20      |
 | apex         | 4          | 129 (main-site dump)| yes               | 0               | Done 2026-09-20      |
-| e8futures    | 2          | 61 (repaired cache) | 16                | 4               | Done 2026-09-20      |
+| e8futures    | 2          | 61 (repaired cache) | 16, plus 10 main-site rows fetched 2026-09-23 | 4               | Done 2026-09-20; main-site re-check 2026-09-23 (help center HTTP 403 that day) |
 | fundednext   | 8          | 63                  | 0                 | 5               | Done 2026-09-20      |
 | lucid        | 6          | 60                  | 173               | 4 (5th, the Trader Agreement, blocked, see item 1) | Done 2026-09-20      |
 | mffu         | 5          | 52                  | 4                 | 3               | Done 2026-09-20      |
@@ -246,6 +246,8 @@ resolved several bullets
 conflicts a fresh reading surfaced, mostly in `apex/eod.md`,
 `apex/intraday.md`, and `apex/legacy.md`) — a net change, not a sign either
 direction of work is unfinished.
+
+**e8futures, 2026-09-23:** a main-site re-check (`e8futures.com` pages, embedded product config and pricing code) raised `signature.md` + `zero.md` from 15 to 23 Not Confirmed bullets. It resolved some items: Signature's list prices, Zero's 80%-share list prices, and the "$7.000" cap formatting. It added more: live discount-code conflicts between E8's own pages, the NinjaTrader banner, a Best Day Rule summary-line inconsistency, and engine mismatches (Signature micro cap, list-vs-discounted eval fees, $50K-only sizes). The tree-wide total above is not recounted.
 
 Many are genuinely unresolvable because the firm does not publish the figure,
 and those should stay flagged. A subset would close with a targeted fetch, and
