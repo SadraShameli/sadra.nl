@@ -1,9 +1,12 @@
-import { defineCommand } from 'citty';
+import { type ArgsDef, defineCommand } from 'citty';
 
 import {
     planArguments,
     planResolver,
-    readNumber,
+    readFraction,
+    readInteger,
+    readPositiveInteger,
+    readPositiveNumber,
     readRebuyLagDays,
     rebuyLagDaysArgument,
 } from '~/cli/commands/prop/shared';
@@ -12,11 +15,12 @@ import { formatCurrency, formatPercent } from '~/lib/format';
 import {
     type AccountState,
     type DayPolicy,
-    fraction,
+    type Fraction0to1,
     isEvalDpEligible,
     type Plan,
     RenewalCycleObjective,
     type SimInputs,
+    type SimOutputs,
     simulate,
 } from '~/lib/prop-calculator';
 import {
@@ -30,8 +34,44 @@ import {
 } from '~/lib/prop-calculator/core/FundedDpPayoutCapGaps';
 import { isFundedDpEligible } from '~/lib/prop-calculator/core/FundedStateValue';
 
+export interface DpArguments {
+    'eval-days': string;
+    'funded-days': string;
+    iterations: string;
+    'rebuy-lag-days': string;
+    rr: string;
+    seed: string;
+    trials: string;
+    winrate: string;
+}
+
+export interface DpInputs {
+    fundedHorizonDays: number;
+    maxEvalDays: number;
+    maxSolves: number;
+    rebuyLagDays: number;
+    rrRatio: number;
+    seed: number;
+    trials: number;
+    winrate: Fraction0to1;
+}
+
+export function empiricalSummaryLines(
+    out: SimOutputs,
+    predictedMonthlyRate: number,
+): string[] {
+    return [
+        `eval pass rate: ${formatPercent(out.evalPassProbability)}`,
+        `funded survive: ${formatPercent(out.fundedSurvivalProbability)}`,
+        `funded bust probability: ${formatPercent(out.fundedBustProbability)}`,
+        `expected monthly net per account slot: ${formatCurrency(out.expectedMonthlyNet)}`,
+        `expected horizon credit per cycle: ${formatCurrency(out.expectedHorizonCredit)}`,
+        `gap vs DP-predicted monthly rate: ${formatCurrency(out.expectedMonthlyNet - predictedMonthlyRate)}`,
+    ];
+}
+
 export function fundedIneligibilityMessage(plan: Plan): string {
-    return `${plan.label}: funded phase is not DP-eligible (intraday-trailing drawdown, a terminating or peak-share-dependent funded daily loss limit, no drawdown lock / ReleaseFloor payout effect, or a payout cap keyed on cumulative qualifying days (QualifyingDaysMilestonePayoutCap)).`;
+    return `${plan.label}: funded phase is not DP-eligible (intraday-trailing drawdown, a funded daily loss limit that scales continuously with peak-day-close profit (PeakProfitShare), no drawdown lock / ReleaseFloor payout effect, or a payout cap keyed on cumulative qualifying days (QualifyingDaysMilestonePayoutCap)).`;
 }
 
 export function payoutCountRuleWarning(plan: Plan): null | string {
@@ -41,6 +81,22 @@ export function payoutCountRuleWarning(plan: Plan): null | string {
     return `${plan.label}: ${described}.`;
 }
 
+export function readDpInputs(arguments_: DpArguments): DpInputs {
+    return {
+        fundedHorizonDays: readPositiveInteger(
+            arguments_['funded-days'],
+            'funded-days',
+        ),
+        maxEvalDays: readPositiveInteger(arguments_['eval-days'], 'eval-days'),
+        maxSolves: readPositiveInteger(arguments_.iterations, 'iterations'),
+        rebuyLagDays: readRebuyLagDays(arguments_['rebuy-lag-days']),
+        rrRatio: readPositiveNumber(arguments_.rr, 'rr'),
+        seed: readInteger(arguments_.seed, 'seed'),
+        trials: readPositiveInteger(arguments_.trials, 'trials'),
+        winrate: readFraction(arguments_.winrate, 'winrate'),
+    };
+}
+
 function describeFundedDpPayoutCapGap(gap: FundedDpPayoutCapGap): string {
     switch (gap.kind) {
         case FundedDpPayoutCapGapKind.LifetimeDollarCapIgnored: {
@@ -48,6 +104,9 @@ function describeFundedDpPayoutCapGap(gap: FundedDpPayoutCapGap): string {
         }
         case FundedDpPayoutCapGapKind.PayoutCountTierBeyondRegimeCap: {
             return `has a payout-count-tiered payout cap tier starting at payout #${gap.fromPayoutIndex + 1}, beyond this DP's payout-count regime cap of ${gap.payoutRegimeCap} -- payout counts past the cap saturate at the cap bucket inside it, so that tier is not modeled exactly`;
+        }
+        case FundedDpPayoutCapGapKind.PayoutTriggeredLockPreLockOffsetSaturates: {
+            return `locks its funded drawdown only on the first payout (no profit trigger), so its floor can trail without bound before that payout while this DP's pre-lock offset grid stops at a fixed multiple of the drawdown -- offsets past it saturate at the top bucket, so the DP understates the balance (and the first payout) in those rare high-profit states before the first payout, making it slightly pessimistic`;
         }
     }
 }
@@ -59,49 +118,51 @@ function sampleRisks(dayPolicy: DayPolicy, state: AccountState): number[] {
     );
 }
 
-export default defineCommand({
-    args: {
-        ...planArguments,
-        'eval-days': {
-            default: '40',
-            description:
-                'Maximum evaluation days before timeout. The DP’s eval state space grows directly with this (one full day-dimension per value tracked), so raising it well past how long the plan realistically takes to pass will make the solve dramatically slower -- 150 (a normal --eval-days default elsewhere in this CLI) is impractically slow here even after the DP performance fix. Check cli prop ladder’s own expected-days-to-funded figure for this plan first and set this a bit above that.',
-            type: 'string',
-        },
-        'funded-days': {
-            default: '252',
-            description:
-                'Funded-phase horizon for the empirical validation run. Also sets the DP’s mean horizon: the funded value function treats horizon end as a memoryless hazard of 1/this-many-days per funded day.',
-            type: 'string',
-        },
-        iterations: {
-            default: '8',
-            description:
-                'Max rate-search solves (each is one eval plus one funded solve). Stops early once the average-reward rate converges.',
-            type: 'string',
-        },
-        ...rebuyLagDaysArgument,
-        rr: {
-            default: '2',
-            description: 'Reward to risk ratio',
-            type: 'string',
-        },
-        seed: {
-            default: '42',
-            description: 'RNG seed for the empirical validation run',
-            type: 'string',
-        },
-        trials: {
-            default: '4000',
-            description: 'Monte Carlo trials for the empirical validation run',
-            type: 'string',
-        },
-        winrate: {
-            default: '0.4',
-            description: 'Win rate (0-1)',
-            type: 'string',
-        },
+export const dpArguments = {
+    ...planArguments,
+    'eval-days': {
+        default: '40',
+        description:
+            'Maximum evaluation days before timeout. The DP’s eval state space grows directly with this (one full day-dimension per value tracked), so raising it well past how long the plan realistically takes to pass will make the solve dramatically slower -- 150 (a normal --eval-days default elsewhere in this CLI) is impractically slow here even after the DP performance fix. Check cli prop ladder’s own expected-days-to-funded figure for this plan first and set this a bit above that.',
+        type: 'string',
     },
+    'funded-days': {
+        default: '252',
+        description:
+            'Funded-phase horizon for the empirical validation run. Also sets the DP’s mean horizon: the funded value function treats horizon end as a memoryless hazard of 1/this-many-days per funded day.',
+        type: 'string',
+    },
+    iterations: {
+        default: '8',
+        description:
+            'Max rate-search solves (each is one eval plus one funded solve). Stops early once the average-reward rate converges.',
+        type: 'string',
+    },
+    ...rebuyLagDaysArgument,
+    rr: {
+        default: '2',
+        description: 'Reward to risk ratio',
+        type: 'string',
+    },
+    seed: {
+        default: '42',
+        description: 'RNG seed for the empirical validation run',
+        type: 'string',
+    },
+    trials: {
+        default: '4000',
+        description: 'Monte Carlo trials for the empirical validation run',
+        type: 'string',
+    },
+    winrate: {
+        default: '0.4',
+        description: 'Win rate as a fraction 0-1 (e.g. 0.4)',
+        type: 'string',
+    },
+} satisfies ArgsDef;
+
+export default defineCommand({
+    args: dpArguments,
     meta: {
         description:
             'Solve the average-reward eval+funded value-iteration DP for one plan (--firm, --variant): a state-dependent risk policy (risk depends on current balance/profit/day, not a fixed ladder) that maximizes expected net cash per month per account slot, replacement priced in via --rebuy-lag-days, cross-checked against a real simulate() run.',
@@ -119,7 +180,7 @@ export default defineCommand({
             }
             if (!isEvalDpEligible(plan)) {
                 ui.warn(
-                    `${plan.label}: eval phase is not DP-eligible (intraday-trailing drawdown, or an eval daily loss limit that depends on peak-day-close profit).`,
+                    `${plan.label}: eval phase is not DP-eligible (intraday-trailing drawdown, or an eval daily loss limit that scales continuously with peak-day-close profit (PeakProfitShare)).`,
                 );
                 return;
             }
@@ -132,22 +193,16 @@ export default defineCommand({
                 ui.warn(payoutWarning);
             }
 
-            const winrate = readNumber(context.args.winrate, 'winrate');
-            const rrRatio = readNumber(context.args.rr, 'rr');
-            const maxEvalDays = readNumber(
-                context.args['eval-days'],
-                'eval-days',
-            );
-            const fundedHorizonDays = readNumber(
-                context.args['funded-days'],
-                'funded-days',
-            );
-            const trials = readNumber(context.args.trials, 'trials');
-            const seed = readNumber(context.args.seed, 'seed');
-            const maxSolves = readNumber(context.args.iterations, 'iterations');
-            const rebuyLagDays = readRebuyLagDays(
-                context.args['rebuy-lag-days'],
-            );
+            const {
+                fundedHorizonDays,
+                maxEvalDays,
+                maxSolves,
+                rebuyLagDays,
+                rrRatio,
+                seed,
+                trials,
+                winrate,
+            } = readDpInputs(context.args);
 
             const objective = new RenewalCycleObjective({
                 fundedHorizonDays,
@@ -164,7 +219,7 @@ export default defineCommand({
                 maxSolves,
                 objective,
                 rrRatio,
-                winrate: fraction(winrate),
+                winrate,
             });
             const elapsed = (performance.now() - started) / 1000;
             const solvesUsed = solution.trace.length;
@@ -211,24 +266,13 @@ export default defineCommand({
                 winrate,
             };
             const out = simulate(simInputs);
-            const gap = out.expectedMonthlyNet - monthlyRate;
 
             ui.muted(
                 '\n  empirical (real simulate() run driven end-to-end by the DP’s own policy -- trust this over the predicted values above)\n',
             );
-            ui.note(`  eval pass rate: ${formatPercent(out.passProbability)}`);
-            ui.note(
-                `  funded bust probability: ${formatPercent(out.fundedBustProbability)}`,
-            );
-            ui.note(
-                `  expected monthly net per account slot: ${formatCurrency(out.expectedMonthlyNet)}`,
-            );
-            ui.note(
-                `  expected horizon credit per cycle: ${formatCurrency(out.expectedHorizonCredit)}`,
-            );
-            ui.note(
-                `  gap vs DP-predicted monthly rate: ${formatCurrency(gap)}`,
-            );
+            for (const line of empiricalSummaryLines(out, monthlyRate)) {
+                ui.note(`  ${line}`);
+            }
 
             const evalSampleState = plan.initialState();
             const fundedSampleState = plan.initialState();

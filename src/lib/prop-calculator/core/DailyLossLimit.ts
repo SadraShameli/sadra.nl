@@ -5,6 +5,13 @@ import {
     fraction,
     type Fraction0to1,
 } from './lib/units';
+import {
+    selectTier,
+    TierBasis,
+    tierBreakpoints,
+    type TierProfitContext,
+    tierProfitFor,
+} from './TierBasis';
 
 export enum DailyLossLimitBreachEffect {
     Lockout = 'lockout',
@@ -34,21 +41,19 @@ export type DailyLossLimitConfig =
           readonly kind: DailyLossLimitKind.AfterThresholdLock;
       }
     | { readonly amount: Dollars; readonly kind: DailyLossLimitKind.Flat }
-    | {
-          readonly isEffectiveNextSession?: boolean;
-          readonly kind: DailyLossLimitKind.Tiered;
-          readonly tiers: readonly DllTier[];
-      }
     | { readonly kind: DailyLossLimitKind.None }
     | {
           readonly kind: DailyLossLimitKind.PeakProfitShare;
           readonly share: Fraction0to1;
+      }
+    | {
+          readonly kind: DailyLossLimitKind.Tiered;
+          readonly tierBasis?: TierBasis;
+          readonly tiers: readonly DllTier[];
       };
 
-export interface DailyLossLimitContext {
-    isThresholdLocked: boolean;
-    peakDayCloseProfit: number;
-    profit: number;
+export interface DailyLossLimitContext extends TierProfitContext {
+    readonly isThresholdLocked: boolean;
 }
 
 export type DailyLossLimitDescriptor =
@@ -72,6 +77,8 @@ abstract class DailyLossLimit {
     abstract describe(): DailyLossLimitDescriptor;
 
     abstract resolve(context: DailyLossLimitContext): null | number;
+
+    abstract tierBreakpoints(basis: TierBasis): readonly number[];
 }
 
 class AfterThresholdLockDailyLossLimit extends DailyLossLimit {
@@ -96,6 +103,13 @@ class AfterThresholdLockDailyLossLimit extends DailyLossLimit {
             : this.beforeLock;
         return active.resolve(context);
     }
+
+    tierBreakpoints(basis: TierBasis): readonly number[] {
+        return tierBreakpoints([
+            ...this.beforeLock.tierBreakpoints(basis),
+            ...this.afterLock.tierBreakpoints(basis),
+        ]);
+    }
 }
 
 class FlatDailyLossLimit extends DailyLossLimit {
@@ -110,6 +124,10 @@ class FlatDailyLossLimit extends DailyLossLimit {
     resolve(): null | number {
         return this.amount;
     }
+
+    tierBreakpoints(): readonly number[] {
+        return [];
+    }
 }
 
 class NoDailyLossLimit extends DailyLossLimit {
@@ -119,6 +137,10 @@ class NoDailyLossLimit extends DailyLossLimit {
 
     resolve(): null | number {
         return null;
+    }
+
+    tierBreakpoints(): readonly number[] {
+        return [];
     }
 }
 
@@ -134,34 +156,21 @@ class PeakProfitShareDailyLossLimit extends DailyLossLimit {
     resolve(context: DailyLossLimitContext): null | number {
         return this.share * context.peakDayCloseProfit;
     }
+
+    tierBreakpoints(): readonly number[] {
+        return [];
+    }
 }
 
 class TieredDailyLossLimit extends DailyLossLimit {
     constructor(
         private readonly tiers: readonly DllTier[],
-        private readonly isEffectiveNextSession: boolean,
+        private readonly tierBasis: TierBasis,
     ) {
         super();
         if (tiers.length === 0) {
             throw new Error('TieredDailyLossLimit: tiers must not be empty');
         }
-    }
-
-    private selectTier(profit: number): DllTier | undefined {
-        let lowest: DllTier | undefined;
-        let best: DllTier | undefined;
-        for (const tier of this.tiers) {
-            if (!lowest || tier.minProfit < lowest.minProfit) {
-                lowest = tier;
-            }
-            if (
-                profit >= tier.minProfit &&
-                (!best || tier.minProfit > best.minProfit)
-            ) {
-                best = tier;
-            }
-        }
-        return best ?? lowest;
     }
 
     describe(): DailyLossLimitDescriptor {
@@ -174,12 +183,27 @@ class TieredDailyLossLimit extends DailyLossLimit {
     }
 
     resolve(context: DailyLossLimitContext): null | number {
-        const profit = this.isEffectiveNextSession
-            ? context.peakDayCloseProfit
-            : context.profit;
-        const selected = this.selectTier(profit);
-        return selected ? selected.dailyLossLimit : null;
+        return (
+            selectTier(
+                this.tiers,
+                tierProfitFor(this.tierBasis, context),
+                (tier) => tier.minProfit,
+            )?.dailyLossLimit ?? null
+        );
     }
+
+    tierBreakpoints(basis: TierBasis): readonly number[] {
+        return basis === this.tierBasis
+            ? tierBreakpoints(this.tiers.map((tier) => tier.minProfit))
+            : [];
+    }
+}
+
+export function dailyLossLimitTierBreakpoints(
+    config: DailyLossLimitConfig,
+    basis: TierBasis,
+): readonly number[] {
+    return dailyLossLimitFor(config).tierBreakpoints(basis);
 }
 
 export function describeDailyLossLimit(
@@ -245,10 +269,10 @@ export function scaleDailyLossLimit(
         }
         case DailyLossLimitKind.Tiered: {
             return {
-                ...(config.isEffectiveNextSession !== undefined && {
-                    isEffectiveNextSession: config.isEffectiveNextSession,
-                }),
                 kind: DailyLossLimitKind.Tiered,
+                ...(config.tierBasis !== undefined && {
+                    tierBasis: config.tierBasis,
+                }),
                 tiers: config.tiers.map((tier) => ({
                     ...tier,
                     dailyLossLimit: dollars(tier.dailyLossLimit * factor),
@@ -280,7 +304,7 @@ function buildDailyLossLimit(config: DailyLossLimitConfig): DailyLossLimit {
         case DailyLossLimitKind.Tiered: {
             return new TieredDailyLossLimit(
                 config.tiers,
-                config.isEffectiveNextSession ?? false,
+                config.tierBasis ?? TierBasis.LiveProfit,
             );
         }
     }

@@ -70,6 +70,106 @@ describe("Tradeify's confirmed 5-account bulk discount", () => {
         expect(tradeifyPlan(TradeifyVariant.Lightning).bulkDiscount).toBeNull();
     });
 
+    it('is eligible only on the 50K Growth, Select Flex and Select Daily plans this engine models (100K, 150K and Lightning are excluded by Tradeify)', () => {
+        for (const plan of tradeify.plans) {
+            if (plan.bulkDiscount !== null) {
+                expect(plan.accountSize).toBe(50_000);
+            }
+        }
+    });
+});
+
+describe('R1-1: the bundle discount reaches every headline figure (Tradeify Growth 50K, live-confirmed)', () => {
+    const plan = tradeifyPlan(TradeifyVariant.Growth);
+    const evalFee = plan.fees.oneTimeEval;
+    const bundleFee = evalFee * 0.95;
+    const one = simulate(alwaysPassesInputs({ copyAccounts: 1, plan }));
+    const five = simulate(alwaysPassesInputs({ copyAccounts: 5, plan }));
+
+    it('prices the always-pass scenario at the plain eval fee with no activation or subscription', () => {
+        expect(plan.fees.activation).toBe(0);
+        expect(plan.fees.monthlySubscription).toBe(0);
+        expect(one.evalPassProbability).toBe(1);
+        expect(one.expectedTotalCost).toBeCloseTo(evalFee, 9);
+    });
+
+    it('discounts expectedTotalCost, gross spend, break-even and spend P90 at 5 copies', () => {
+        expect(five.expectedTotalCost).toBeCloseTo(5 * bundleFee, 6);
+        expect(five.expectedGrossSpend).toBeCloseTo(5 * bundleFee, 6);
+        expect(five.breakEvenFundedProfit).toBeCloseTo(5 * bundleFee, 6);
+        expect(five.expectedSpendP90).toBeCloseTo(5 * bundleFee, 6);
+    });
+
+    it('adds the bundle saving to expected net and moves ROI on cost', () => {
+        expect(five.expectedNet).toBeCloseTo(
+            5 * one.expectedNet + 5 * evalFee * 0.05,
+            6,
+        );
+        const fiveRoi = five.roiOnCost.value;
+        const oneRoi = one.roiOnCost.value;
+        if (fiveRoi === null || oneRoi === null) {
+            throw new Error('ROI unexpectedly n/a');
+        }
+        expect(fiveRoi).toBeCloseTo(five.expectedNet / (5 * bundleFee), 9);
+        expect(fiveRoi).not.toBeCloseTo(oneRoi, 6);
+    });
+
+    it('prices the per-account eval fee and the cost per funded account at the bundle price', () => {
+        expect(five.costBreakdown.perAccountEvalFee).toBeCloseTo(bundleFee, 6);
+        expect(five.costPerFundedAccount).toBeCloseTo(bundleFee, 6);
+        expect(one.costPerFundedAccount).toBeCloseTo(evalFee, 9);
+    });
+
+    it('keeps the cost breakdown summing to expectedTotalCost at 5 copies', () => {
+        const {
+            activationFee,
+            evalFee: evalTotal,
+            monthlySubsTotal,
+            resetFeesTotal,
+        } = five.costBreakdown;
+        expect(
+            activationFee + evalTotal + monthlySubsTotal + resetFeesTotal,
+        ).toBeCloseTo(five.expectedTotalCost, 6);
+    });
+
+    it('discounts only whole bundles of 5: 7 copies are one bundle plus 2 full-price accounts', () => {
+        const seven = simulate(alwaysPassesInputs({ copyAccounts: 7, plan }));
+        expect(seven.expectedTotalCost).toBeCloseTo(
+            5 * bundleFee + 2 * evalFee,
+            6,
+        );
+        const ten = simulate(alwaysPassesInputs({ copyAccounts: 10, plan }));
+        expect(ten.expectedTotalCost).toBeCloseTo(10 * bundleFee, 6);
+    });
+
+    it('leaves 4 copies and Lightning undiscounted', () => {
+        const four = simulate(alwaysPassesInputs({ copyAccounts: 4, plan }));
+        expect(four.expectedTotalCost).toBeCloseTo(4 * evalFee, 9);
+        const lightning = tradeifyPlan(TradeifyVariant.Lightning);
+        const lightningFive = simulate(
+            alwaysPassesInputs({ copyAccounts: 5, plan: lightning }),
+        );
+        expect(lightningFive.costBreakdown.perAccountEvalFee).toBe(
+            lightning.fees.oneTimeEval,
+        );
+    });
+
+    it('never discounts retries: always-bust resets at 5 copies are 5x the single-account resets', () => {
+        const bustOne = simulate(alwaysBustsInputs({ copyAccounts: 1, plan }));
+        const bustFive = simulate(alwaysBustsInputs({ copyAccounts: 5, plan }));
+        expect(bustOne.costBreakdown.resetFeesTotal).toBeGreaterThan(0);
+        expect(bustFive.costBreakdown.resetFeesTotal).toBeCloseTo(
+            5 * bustOne.costBreakdown.resetFeesTotal,
+            9,
+        );
+        expect(bustFive.expectedTotalCost).toBeCloseTo(
+            5 * bustOne.expectedTotalCost - 5 * evalFee * 0.05,
+            6,
+        );
+    });
+});
+
+describe('bundle discount on the cost breakdown lines', () => {
     it('cuts 5-copy aggregate eval+activation cost by exactly 5% versus 5x the single-account cost, since Tradeify discounts the account purchase itself, not the subscription/reset', () => {
         const basePlan = tradeifyPlan(TradeifyVariant.Growth);
         const plan = basePlan.withOverrides({
@@ -136,7 +236,7 @@ describe("Tradeify's confirmed 5-account bulk discount", () => {
         );
     });
 
-    it('leaves monthlySubsTotal and resetFeesTotal untouched by the discount at 5 copies -- Tradeify only discounts the account-purchase cost, never the subscription or reset fee', () => {
+    it('leaves monthlySubsTotal and resetFeesTotal untouched by the discount at 5 copies, and keeps monthlySubsTotal per funded account like costPerFundedAccount: Tradeify only discounts the account-purchase cost, never the subscription or reset fee', () => {
         const basePlan = tradeifyPlan(TradeifyVariant.Growth);
         const plan = basePlan.withOverrides({
             fees: { ...basePlan.fees, monthlySubscription: dollars(49) },
@@ -148,41 +248,21 @@ describe("Tradeify's confirmed 5-account bulk discount", () => {
         const fiveAccounts = simulate(
             alwaysBustsInputs({ copyAccounts: 5, plan }),
         );
-
-        expect(oneAccount.costBreakdown.resetFeesTotal).toBeGreaterThan(0);
-        expect(oneAccount.costBreakdown.monthlySubsTotal).toBeGreaterThan(0);
-        expect(fiveAccounts.costBreakdown.monthlySubsTotal).toBe(
-            oneAccount.costBreakdown.monthlySubsTotal * 5,
-        );
-        expect(fiveAccounts.costBreakdown.resetFeesTotal).toBe(
-            oneAccount.costBreakdown.resetFeesTotal * 5,
-        );
-    });
-
-    it('leaves perAccountActivationFee/perAccountEvalFee and costPerFundedAccount/costPerDrawdownDollar unaffected by the 5-copy bulk discount -- these describe a single account and its eval-retry economics, not the bulk-purchase aggregate', () => {
-        const plan = tradeifyPlan(TradeifyVariant.Growth);
-
-        const oneAccount = simulate(
+        const onePassing = simulate(
             alwaysPassesInputs({ copyAccounts: 1, plan }),
         );
-        const fiveAccounts = simulate(
+        const fivePassing = simulate(
             alwaysPassesInputs({ copyAccounts: 5, plan }),
         );
 
-        expect(oneAccount.passProbability).toBe(1);
-        expect(fiveAccounts.passProbability).toBe(1);
-
-        expect(fiveAccounts.costBreakdown.perAccountActivationFee).toBe(
-            oneAccount.costBreakdown.perAccountActivationFee,
+        expect(oneAccount.costBreakdown.resetFeesTotal).toBeGreaterThan(0);
+        expect(fiveAccounts.costBreakdown.resetFeesTotal).toBe(
+            oneAccount.costBreakdown.resetFeesTotal * 5,
         );
-        expect(fiveAccounts.costBreakdown.perAccountEvalFee).toBe(
-            oneAccount.costBreakdown.perAccountEvalFee,
-        );
-        expect(fiveAccounts.costPerFundedAccount).toBe(
-            oneAccount.costPerFundedAccount,
-        );
-        expect(fiveAccounts.costPerDrawdownDollar).toBe(
-            oneAccount.costPerDrawdownDollar,
+        expect(onePassing.costBreakdown.monthlySubsTotal).toBe(49);
+        expect(fivePassing.costBreakdown.monthlySubsTotal).toBe(49);
+        expect(fivePassing.costBreakdown.monthlySubsTotal).toBeLessThanOrEqual(
+            fivePassing.costPerFundedAccount,
         );
     });
 });

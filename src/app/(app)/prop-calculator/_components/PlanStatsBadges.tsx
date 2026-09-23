@@ -11,6 +11,7 @@ import {
 } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
+import { describeConsistencyBadge } from './consistencyBadge';
 import { ptddColor } from './metricColors';
 
 interface BadgeProperties {
@@ -25,13 +26,8 @@ interface PlanStatsBadgesProperties {
 
 export default function PlanStatsBadges({ plan }: PlanStatsBadgesProperties) {
     const ptdd = plan.profitTarget / plan.drawdown.amount;
-    const payoutPct = ((plan.payoutTiers[0]?.traderShare ?? 1) * 100).toFixed(
-        0,
-    );
-    const hasConsistency = plan.consistency !== null;
-    const consistencyPct = hasConsistency
-        ? (plan.consistency.maxBestDayShare * 100).toFixed(0)
-        : null;
+    const payoutLabel = payoutShareLabel(plan);
+    const consistencyLabel = describeConsistencyBadge(plan);
     const dailyLossLimitValue = dailyLossLimitLabel(plan.fundedDailyLossLimit);
     const isDailyLossLimitHard = plan.isDailyLossLimitTerminating(
         TradingPhase.Funded,
@@ -50,12 +46,12 @@ export default function PlanStatsBadges({ plan }: PlanStatsBadgesProperties) {
                 valueClassName={ptddColor(ptdd)}
             />
             <Badge label="Drawdown" value={drawdownLabel(plan.drawdown.kind)} />
-            <Badge label="Payout" value={`${payoutPct}%`} />
+            <Badge label="Payout" value={payoutLabel} />
             {plan.minTradingDays > 0 && (
                 <Badge label="Min days" value={String(plan.minTradingDays)} />
             )}
-            {consistencyPct !== null && (
-                <Badge label="Consistency" value={`${consistencyPct}% rule`} />
+            {consistencyLabel !== null && (
+                <Badge label="Consistency" value={consistencyLabel} />
             )}
             {dailyLossLimitValue !== null && (
                 <Badge
@@ -119,4 +115,13 @@ function drawdownLabel(kind: DrawdownKind): string {
     return kind === DrawdownKind.IntradayTrailing
         ? 'Intraday trailing'
         : 'Static';
+}
+
+function payoutShareLabel(plan: Plan): string {
+    const schedule = plan.payoutSplit.schedule;
+    const first = schedule[0]?.tiers[0]?.traderShare ?? 1;
+    const last = schedule.at(-1)?.tiers[0]?.traderShare ?? first;
+    const firstPct = (first * 100).toFixed(0);
+    const lastPct = (last * 100).toFixed(0);
+    return firstPct === lastPct ? `${firstPct}%` : `${firstPct}–${lastPct}%`;
 }

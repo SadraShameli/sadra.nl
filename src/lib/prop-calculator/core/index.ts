@@ -5,17 +5,21 @@ export {
 } from './AccountState';
 export {
     ConsistencyBasis,
+    ConsistencyBoundary,
+    ConsistencyNonPositiveProfit,
     ConsistencyRule,
     ConsistencyScope,
     ConsistencyViolationEffect,
 } from './ConsistencyRule';
-export { TRADING_DAYS_PER_MONTH } from './constants';
+export { TRADING_DAYS_PER_MONTH, TRADING_DAYS_PER_YEAR } from './constants';
 export {
     type ContractLimitConfig,
     ContractLimitKind,
     type ContractLimits,
     type ContractLimitTier,
+    contractLimitTierBreakpoints,
     isRungPlaceable,
+    type LiveContractLimits,
     maxContractsAt,
     minStopPoints,
 } from './ContractLimits';
@@ -26,6 +30,7 @@ export {
     type DailyLossLimitDescriptor,
     DailyLossLimitKind,
     DailyLossLimitShape,
+    dailyLossLimitTierBreakpoints,
     describeDailyLossLimit,
     type DllTier,
     hasPeakShareDependency,
@@ -41,12 +46,17 @@ export {
     DEFAULT_RUNG_SIZING,
     flatDayPolicy,
     isFlatLadder,
+    ladderRungSchema,
+    ladderRungsSchema,
     ladderSum,
     PNL_ONLY_STOP_RULE_KINDS,
+    resolveAffordableRisk,
     resolveFundedTradeRisk,
     resolveTradeRisk,
     RungSizing,
     shouldStopDay,
+    stopLossCountSchema,
+    stopTargetDollarsSchema,
 } from './DayPolicy';
 export {
     DrawdownKind,
@@ -64,9 +74,16 @@ export {
     isEvalDpEligible,
 } from './EvalStateValue';
 export {
+    activationFee,
     type CouponDiscounts,
     type FeeSchedule,
     feesUntilPass,
+    initialEvalFee,
+    rebuyFee,
+    retryFee,
+    RetryKind,
+    retryPath,
+    subscriptionFee,
     totalFees,
 } from './FeeSchedule';
 export { FirmId, parseFirmId } from './FirmId';
@@ -82,20 +99,35 @@ export {
     InstrumentSymbol,
 } from './Instruments';
 export {
+    LADDER_IGNORED_INPUT_REASONS,
+    LadderIgnoredInput,
+} from './LadderIgnoredInputs';
+export {
+    assertLadderGridSize,
     buildLadderGrid,
     canonicaliseGrid,
     type DayDistribution,
     type DayOutcome,
+    defaultLadderGridMax,
     enumerateDay,
     ladderFrontier,
     type LadderGridConfig,
+    ladderGridConfigSchema,
+    LadderGridError,
+    LadderGridFieldError,
+    type LadderGridLabels,
+    ladderGridSize,
+    LadderGridSizeError,
     type LadderScore,
     type LadderScoreConfig,
     type LadderSearchOptions,
     type LadderSearchProgress,
     type LadderSearchResult,
+    ladderTrialStreams,
+    MAX_LADDER_GRID_SIZE,
     runLadderSearch,
     scoreLadder,
+    validateLadderGrid,
 } from './LadderSearch';
 export {
     type ContractCount,
@@ -124,25 +156,39 @@ export {
     type LiveCushionPercent,
     LivePlan,
     type LivePlanInit,
+    type LiveWinningDayPayoutGate,
 } from './LivePlan';
 export { resolveLiveTradeRisk } from './LiveSizing';
 export { PayoutBuffer } from './PayoutBuffer';
 export {
+    FlatPayoutCap,
     type PayoutCapContext,
     type PayoutCapRegime,
+    type PayoutCapSchedule,
+    PayoutCapScheduleKind,
+    type PayoutCapScheduleStep,
     type PayoutCapStrategy,
     type PayoutCountCapTier,
     PayoutCountTieredPayoutCap,
+    PayoutProfitPool,
     type QualifyingDaysMilestoneCapConfig,
     QualifyingDaysMilestonePayoutCap,
 } from './PayoutCap';
 export { PayoutFloorEffect } from './PayoutFloorEffect';
 export {
+    type PayoutCountSplitTier,
+    PayoutCountTieredPayoutSplit,
     type PayoutLadder,
     type PayoutTier,
+    scalePayoutTiers,
     walkPayoutTiers,
 } from './PayoutTiers';
 export { Plan, type PlanInit } from './Plan';
+export {
+    PLAN_AVAILABILITY_LABEL,
+    PlanAvailability,
+    rankablePlans,
+} from './PlanAvailability';
 export {
     AlphaFuturesVariant,
     ApexVariant,
@@ -167,7 +213,11 @@ export {
     RenewalCycleObjective,
     type RenewalCycleObjectiveInit,
 } from './RenewalCycleObjective';
-export { replacementEconomics, type ReplacementEconomics } from './Replacement';
+export {
+    replacementEconomics,
+    type ReplacementEconomics,
+    type ReplacementInputs,
+} from './Replacement';
 export {
     annualisedRoiOnCost,
     type Roi,
@@ -176,9 +226,17 @@ export {
     totalRoiOnCost,
 } from './Roi';
 export {
+    selectTier,
+    TierBasis,
+    tierBreakpoints,
+    type TierProfitContext,
+    tierProfitFor,
+} from './TierBasis';
+export {
     calibrateStepProbability,
     simulateTradePath,
     type TradePathResult,
 } from './TradePathSimulation';
+export { applyTrade, closeTradingDay, recordBestDay } from './TradingDayLedger';
 export { TradingFirm } from './TradingFirm';
 export { TradingPhase } from './TradingPhase';

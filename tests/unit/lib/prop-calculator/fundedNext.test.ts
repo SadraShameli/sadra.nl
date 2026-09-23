@@ -4,6 +4,8 @@ import {
     ContractLimitKind,
     FirmId,
     FundedNextVariant,
+    newFundedCycleTracker,
+    tryFundedPayout,
 } from '~/lib/prop-calculator/core';
 import { TradingPhase } from '~/lib/prop-calculator/core/TradingPhase';
 import { FundedNext } from '~/lib/prop-calculator/firms/fundednext/FundedNext';
@@ -28,7 +30,7 @@ describe('FundedNext Flex 50K (live-verified 2026-09-14 from fundednext.com)', (
         expect(plan.drawdown.amount).toBe(1500);
         expect(plan.evalConsistencyRule()?.maxBestDayShare).toBe(0.4);
         expect(plan.fundedConsistencyRule()).toBeNull();
-        expect(plan.fees.oneTimeEval).toBe(69.99);
+        expect(plan.fees.oneTimeEval).toBe(133.99);
         expect(plan.fees.reset).toBe(77.99);
         expect(plan.minTradingDays).toBe(0);
         expect(plan.minDaysAfterPassForPayout).toBe(5);
@@ -37,7 +39,7 @@ describe('FundedNext Flex 50K (live-verified 2026-09-14 from fundednext.com)', (
     });
 
     it('has the highest trader profit share of any modeled plan (95%)', () => {
-        expect(plan.payoutFromProfit(10_000)).toBeCloseTo(9500, 5);
+        expect(plan.payoutFromProfit(10_000, 0)).toBeCloseTo(9500, 5);
     });
 
     it('has no eval or funded daily loss limit', () => {
@@ -178,5 +180,196 @@ describe('FundedNext FNL:003 50K Instant Account (Labs, no Challenge phase, 20% 
         expect(rule?.maxBestDayShare).toBe(0.2);
         expect(rule?.isPerpetual()).toBe(true);
         expect(plan.evalConsistencyRule()).toBeNull();
+    });
+});
+
+describe('FundedNext Legacy payout profit gates (article 14269280, live-fetched 2026-09-23)', () => {
+    const plan = planFor(FundedNextVariant.Legacy);
+
+    function postMilestoneState(cycleProfit: number) {
+        const state = plan.initialState();
+        state.balance = plan.accountSize + 400;
+        state.qualifyingDays = 31;
+        const tracker = newFundedCycleTracker(state);
+        tracker.lastPayoutBalance = state.balance - cycleProfit;
+        return { state, tracker };
+    }
+
+    function requestPayout(cycleProfit: number, payoutsIssued: number) {
+        const { state, tracker } = postMilestoneState(cycleProfit);
+        tracker.payoutsIssued = payoutsIssued;
+        tracker.qualifyingDaysAtLastPayout = payoutsIssued === 0 ? 0 : 26;
+        return tryFundedPayout({
+            maxPayouts: Infinity,
+            minRetainedCushion: 0,
+            payoutRequestSize: 300,
+            plan,
+            state,
+            tracker,
+        });
+    }
+
+    it('gates only the second and later withdrawals on $500 cycle profit, not the first', () => {
+        expect(plan.minPayoutProfit).toBe(0);
+        expect(plan.minPayoutProfitPerCycle).toBe(500);
+        expect(plan.minDaysAfterPassForPayout).toBe(5);
+        expect(plan.minQualifyingDayProfit).toBe(200);
+        expect(plan.minPayoutRequest).toBe(250);
+    });
+
+    it('pays a first withdrawal from $400 of cycle profit once the benchmark days are met', () => {
+        const { state } = postMilestoneState(400);
+        expect(state.threshold).toBe(48_000);
+        expect(state.thresholdLocked).toBe(false);
+
+        const result = requestPayout(400, 0);
+
+        expect(result).not.toBeNull();
+        expect(result?.debited).toBe(300);
+        expect(result?.traderReceives).toBeCloseTo(240, 5);
+        expect(result?.causesHardBreach).toBe(false);
+    });
+
+    it('still denies a second withdrawal with only $400 of cycle profit', () => {
+        expect(requestPayout(400, 1)).toBeNull();
+    });
+
+    it('pays a second withdrawal once cycle profit reaches $500', () => {
+        const result = requestPayout(500, 1);
+
+        expect(result).not.toBeNull();
+        expect(result?.debited).toBe(300);
+        expect(result?.causesHardBreach).toBe(false);
+    });
+});
+
+describe('FundedNext 50K fees are the no-code checkout price (api.fundednext.com checkout API, coupon null, live-called 2026-09-23)', () => {
+    const rapidPro = planFor(FundedNextVariant.RapidPro);
+    const rapidDaily = planFor(FundedNextVariant.RapidDaily);
+    const dllAddOn = planFor(FundedNextVariant.RapidProDllAddOn);
+    const flex = planFor(FundedNextVariant.Flex);
+
+    it('prices the Rapid Pro 50K eval at the $299.98 no-code checkout price and keeps its reset at $174.99', () => {
+        expect(rapidPro.fees.oneTimeEval).toBe(299.98);
+        expect(rapidPro.fees.reset).toBe(174.99);
+    });
+
+    it('prices the Rapid Daily 50K eval at the $299.98 no-code checkout price and keeps its reset at $189.99', () => {
+        expect(rapidDaily.fees.oneTimeEval).toBe(299.98);
+        expect(rapidDaily.fees.reset).toBe(189.99);
+    });
+
+    it('prices the Rapid Pro Daily Loss Limit Add-On 50K at $259.98 ($299.98 base minus the $40 add-on) with a $134.99 reset', () => {
+        expect(dllAddOn.fees.oneTimeEval).toBe(259.98);
+        expect(dllAddOn.fees.reset).toBe(134.99);
+        expect(dllAddOn.fees.oneTimeEval).toBeCloseTo(
+            rapidPro.fees.oneTimeEval - 40,
+            5,
+        );
+    });
+
+    it('prices the Flex 50K eval at the $133.99 no-code checkout price and keeps its reset at $77.99', () => {
+        expect(flex.fees.oneTimeEval).toBe(133.99);
+        expect(flex.fees.reset).toBe(77.99);
+    });
+
+    it('prices every coupon-affected 50K eval above every RAPID or FNFLEX code price recorded for that plan', () => {
+        const flexNoCodePrice = 133.99;
+        const codePricesByPlan = [
+            { codePrices: [159.99, 174.99], plan: rapidPro },
+            { codePrices: [169.99, 189.99], plan: rapidDaily },
+            { codePrices: [119.99, 134.99], plan: dllAddOn },
+            {
+                codePrices: [
+                    flexNoCodePrice * (1 - 0.47),
+                    flexNoCodePrice * (1 - 0.4),
+                ],
+                plan: flex,
+            },
+        ];
+        for (const { codePrices, plan } of codePricesByPlan) {
+            for (const codePrice of codePrices) {
+                expect(plan.fees.oneTimeEval).toBeGreaterThan(codePrice);
+            }
+        }
+    });
+
+    it('keeps a reset cheaper than a no-code re-buy for every coupon-affected 50K plan', () => {
+        for (const plan of [rapidPro, rapidDaily, dllAddOn, flex]) {
+            expect(plan.fees.oneTimeEval).toBeGreaterThan(plan.fees.reset);
+        }
+    });
+
+    it('leaves Legacy at $199.99 eval and $183.99 reset', () => {
+        const legacy = planFor(FundedNextVariant.Legacy);
+        expect(legacy.fees.oneTimeEval).toBe(199.99);
+        expect(legacy.fees.reset).toBe(183.99);
+    });
+});
+
+describe('FundedNext fee and coupon notes stay consistent with the no-code checkout prices', () => {
+    const notes = firm.notes;
+    const feeNote = notes.find((note) =>
+        note.includes('FundedNext 50K fees are the no-code checkout price'),
+    );
+    const couponNote = notes.find((note) =>
+        note.includes('RAPID and FNFLEX are typed coupon codes'),
+    );
+    const resetNote = notes.find((note) =>
+        note.includes('The FundedNext reset fee is not the eval fee'),
+    );
+
+    it('cites the checkout API, its no-coupon basis and the call date in the fee note', () => {
+        expect(feeNote).toBeDefined();
+        expect(feeNote).toContain('api.fundednext.com/api/new-checkout');
+        expect(feeNote).toContain('"coupon":null');
+        expect(feeNote).toContain('2026-09-23');
+        expect(feeNote).toContain('Rapid Pro 50K $299.98');
+        expect(feeNote).toContain('Rapid Daily 50K $299.98');
+        expect(feeNote).toContain('Flex 50K $133.99');
+        expect(feeNote).toContain('$259.98');
+    });
+
+    it('explains the reset price ambiguity in the fee note', () => {
+        expect(feeNote).toContain('14260538');
+        expect(feeNote).toContain('repeat-purchase price');
+        expect(feeNote).toContain('behind a login');
+    });
+
+    it("calls help article 15877643's $149.99 figure stale in the fee note", () => {
+        expect(feeNote).toContain('15877643');
+        expect(feeNote).toContain('$149.99');
+        expect(feeNote).toContain('stale');
+    });
+
+    it('describes RAPID and FNFLEX as typed codes modeled with --eval-discount, citing the offer articles', () => {
+        expect(couponNote).toBeDefined();
+        expect(couponNote).toContain('16295692');
+        expect(couponNote).toContain('first purchase $159.99');
+        expect(couponNote).toContain('repeat purchase $174.99');
+        expect(couponNote).toContain('15834431');
+        expect(couponNote).toContain('--eval-discount');
+    });
+
+    it('drops every claim that a coupon is already inside the modeled price', () => {
+        for (const note of notes) {
+            expect(note).not.toMatch(/already inside/);
+            expect(note).not.toContain('non-transactable');
+            expect(note).not.toContain('modeled $149.99');
+            expect(note).not.toContain('modeled at $149.99');
+            expect(note).not.toContain('$69.99 eval fee');
+            expect(note).not.toContain('Modeled as $139.99 eval');
+        }
+    });
+
+    it('discloses the automatic 5th and 10th purchase discounts as unmodeled', () => {
+        expect(feeNote).toContain('15% OFF');
+        expect(feeNote).toContain('30% OFF');
+        expect(feeNote).toContain('not modeled');
+    });
+
+    it('keeps dollar figures out of the reset-mechanism note so it cannot contradict the fee note', () => {
+        expect(resetNote).toBeDefined();
+        expect(resetNote).not.toMatch(/\$\d/);
     });
 });

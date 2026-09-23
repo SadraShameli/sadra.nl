@@ -9,8 +9,9 @@ import { require as tsxRequire } from 'tsx/cjs/api';
 
 import type * as FirmsModule from '../firms';
 
-import { type AccountState } from './AccountState';
+import { type AccountState, createInitialState } from './AccountState';
 import {
+    DailyLossLimitKind,
     describeDailyLossLimit,
     hasPeakShareDependency,
 } from './DailyLossLimit';
@@ -23,7 +24,8 @@ import {
     resolveTradeRisk,
     type RungSizing,
 } from './DayPolicy';
-import { isDrawdownDpEligible } from './EvalStateValue';
+import { isDrawdownDpEligible, PeakRatchet } from './EvalStateValue';
+import { FundedCycleBaselineGrid } from './FundedCycleBaselineGrid';
 import { newFundedCycleTracker, tryFundedPayout } from './FundedPayoutCycle';
 import { type ContractCount, dollars, type Dollars } from './lib/units';
 import { QualifyingDaysMilestonePayoutCap } from './PayoutCap';
@@ -35,6 +37,7 @@ import {
     type PositionSizingConfig,
     resolveContractLimit,
 } from './PositionSizing';
+import { TierBasis } from './TierBasis';
 import { TradingPhase } from './TradingPhase';
 
 export interface FundedStateValueConfig {
@@ -42,6 +45,7 @@ export interface FundedStateValueConfig {
     readonly commission?: Dollars;
     readonly convergenceTolerance?: number;
     readonly cushionStepMultiple?: number;
+    readonly cycleBaselineFineRangeMultiple?: number;
     readonly cycleBestDayBucketCount?: number;
     readonly dayCost?: number;
     readonly evalInitialValue: number;
@@ -70,8 +74,6 @@ export interface FundedStateValueResult {
     readonly unconvergedLevelCount: number;
 }
 
-type CushionStartPolicyTables = readonly (readonly number[][])[];
-
 const DEFAULT_ACTION_STEP_MULTIPLE = 0.05;
 const DEFAULT_MAX_ACTION_MULTIPLE = 1;
 const DEFAULT_CUSHION_STEP_MULTIPLE = 0.1;
@@ -82,20 +84,37 @@ const DEFAULT_TRADES_PER_DAY = 4;
 const DEFAULT_CONVERGENCE_TOLERANCE = 1;
 const DEFAULT_MAX_ITERATIONS_PER_LEVEL = 200;
 const DEFAULT_CYCLE_BEST_DAY_BUCKET_COUNT = 6;
+const DEFAULT_CYCLE_BASELINE_FINE_RANGE_MULTIPLE = 1;
 const BUCKET_EPSILON = 1e-9;
 const MAX_WORKER_COUNT = 8;
 const MIN_PARALLEL_GRID_CELLS = 8;
 const WORKER_DISPATCH_TIMEOUT_MS = 120_000;
 
+interface FundedDayStart extends FundedLevel, FundedPair {
+    readonly cushionAtDayStart: number;
+}
+
+interface FundedLevel {
+    readonly isLocked: boolean;
+    readonly regime: number;
+    readonly thresholdDollars: number;
+}
+
+interface FundedPair {
+    readonly cycleBaseline: number;
+    readonly cycleBestDay: number;
+    readonly idleDays: number;
+    readonly qualifyingDays: number;
+    readonly ratchet: number;
+}
+
 interface FundedSolveContext {
     readonly actionGrid: readonly number[];
     readonly bustTerminalValue: number;
-    readonly candidateRisksCache: Map<
-        number,
-        Map<number, Map<number, number[]>>
-    >;
+    readonly candidateRisksCache: Map<number, Map<number, number[]>>;
     readonly commission: Dollars;
     readonly cushionStepDollars: number;
+    readonly cycleBaselineGrid: FundedCycleBaselineGrid;
     readonly cycleBestDayKeyRadix: number;
     readonly cycleBestDayStepDollars: number;
     readonly dayCost: number;
@@ -104,10 +123,15 @@ interface FundedSolveContext {
     readonly idleKeyRadix: number;
     readonly initialThreshold: number;
     readonly isPerpetualFundedConsistency: boolean;
-    readonly isTrackingFundedConsistency: boolean;
+    readonly isSolvingPerDayStart: boolean;
+    readonly isUnlockedPostPayoutReachable: boolean;
     readonly lockedCushionBucketCount: number;
+    readonly lockedPayoutFloor: number;
+    readonly lockedThreshold: number;
     readonly offsetBucketCount: number;
+    readonly pairKeyRadix: number;
     readonly payoutRegimeCap: number;
+    readonly peakRatchet: PeakRatchet;
     readonly plan: Plan;
     readonly positionSizing: null | PositionSizingConfig;
     readonly qualifyingDayKeyRadix: number;
@@ -125,6 +149,7 @@ interface FundedSolveContext {
 
 interface FundedWorkerDispatch {
     readonly cushionBucketCount: number;
+    readonly cycleBaselineRadix: number;
     readonly isLockedAtStart: boolean;
     readonly pairIndices: readonly number[];
     readonly regimeAtStart: number;
@@ -136,12 +161,10 @@ interface FundedWorkerDispatch {
 interface FundedWorkerInit {
     readonly config: SerializableFundedConfig;
     readonly flagsSAB: SharedArrayBuffer;
-    readonly lockedPerPairSize: number;
     readonly lockedResultsSAB: SharedArrayBuffer;
     readonly role: 'funded-state-value-worker';
     readonly snapshotLength: number;
     readonly snapshotSAB: SharedArrayBuffer;
-    readonly unlockedPerPairSize: number;
     readonly unlockedResultsSAB: SharedArrayBuffer;
     readonly workerIndex: number;
 }
@@ -151,6 +174,7 @@ interface SerializableFundedConfig {
     readonly commission?: Dollars;
     readonly convergenceTolerance?: number;
     readonly cushionStepMultiple?: number;
+    readonly cycleBaselineFineRangeMultiple?: number;
     readonly cycleBestDayBucketCount?: number;
     readonly dayCost?: number;
     readonly evalInitialValue: number;
@@ -180,6 +204,7 @@ export function defaultPayoutRegimeCap(plan: Plan): number {
         DEFAULT_PAYOUT_REGIME_CAP,
         plan.maxLifetimePayouts ?? 0,
         plan.payoutLadder?.steps.length ?? 0,
+        plan.payoutSplit.stationaryFromPayoutIndex,
     );
 }
 
@@ -202,17 +227,11 @@ export async function warmFirmsRegistryCache(): Promise<void> {
 
 function bestActionAt(
     context: FundedSolveContext,
+    dayStart: FundedDayStart,
     cushionNow: number,
-    thresholdDollars: number,
-    isLockedAtStart: boolean,
-    regimeAtStart: number,
-    idleDaysAtStart: number,
     tradeIndex: number,
     nextRoundTable: readonly number[],
     cushionBucketCount: number,
-    cycleBestDayAtStart: number,
-    qualifyingDaysAtStart: number,
-    cushionAtDayStart: number,
     stopValue: number,
     risksAtCushionNow: readonly number[],
 ): { bestAction: number; bestValue: number } {
@@ -222,32 +241,15 @@ function bestActionAt(
         const value =
             risk <= 0
                 ? tradeIndex === 0
-                    ? dayCloseValue(
-                          context,
-                          cushionNow,
-                          thresholdDollars,
-                          isLockedAtStart,
-                          regimeAtStart,
-                          true,
-                          idleDaysAtStart,
-                          cycleBestDayAtStart,
-                          qualifyingDaysAtStart,
-                          cushionAtDayStart,
-                      )
+                    ? dayCloseValue(context, dayStart, cushionNow, true)
                     : stopValue
                 : valueOfRisk(
                       context,
+                      dayStart,
                       risk,
                       cushionNow,
-                      thresholdDollars,
-                      isLockedAtStart,
-                      regimeAtStart,
-                      idleDaysAtStart,
                       nextRoundTable,
                       cushionBucketCount,
-                      cycleBestDayAtStart,
-                      qualifyingDaysAtStart,
-                      cushionAtDayStart,
                   );
         if (value <= bestValue) continue;
         bestValue = value;
@@ -309,6 +311,17 @@ function buildFundedSolveContext(
             `${plan.label}: dayCost requires meanHorizonDays, since without a horizon a policy that never busts has no terminal branch and the day-cost fixed point would diverge`,
         );
     }
+    const cycleBaselineFineRangeMultiple =
+        config.cycleBaselineFineRangeMultiple ??
+        DEFAULT_CYCLE_BASELINE_FINE_RANGE_MULTIPLE;
+    if (
+        !Number.isFinite(cycleBaselineFineRangeMultiple) ||
+        cycleBaselineFineRangeMultiple < 0
+    ) {
+        throw new Error(
+            `${plan.label}: cycleBaselineFineRangeMultiple must be a finite number >= 0, got ${cycleBaselineFineRangeMultiple}`,
+        );
+    }
 
     const cushionStepMultiple =
         config.cushionStepMultiple ?? DEFAULT_CUSHION_STEP_MULTIPLE;
@@ -344,6 +357,28 @@ function buildFundedSolveContext(
             ? cycleBestDayRangeDollars / (cycleBestDayBucketCount - 1)
             : cycleBestDayRangeDollars;
 
+    const contractsAreMicro =
+        positionSizing === null ? null : positionSizing.instrument.isMicro;
+    const isSolvingPerDayStart =
+        isTrackingFundedConsistency ||
+        plan.minQualifyingDayProfit !== null ||
+        plan.fundedDailyLossLimit.kind !== DailyLossLimitKind.None ||
+        (contractsAreMicro !== null &&
+            [
+                TierBasis.SessionOpenProfit,
+                TierBasis.PeakSessionCloseProfit,
+            ].some(
+                (basis) =>
+                    plan.fundedContractTierBreakpoints(basis, contractsAreMicro)
+                        .length > 0,
+            ));
+    const peakRatchet = new PeakRatchet(
+        plan.peakSessionCloseBreakpoints(
+            TradingPhase.Funded,
+            contractsAreMicro,
+        ),
+    );
+
     const lockedCushionBucketCount =
         Math.max(
             1,
@@ -354,9 +389,11 @@ function buildFundedSolveContext(
     const unlockedCushionBucketCount =
         Math.max(1, Math.round(drawdownAmount / cushionStepDollars)) + 1;
 
-    const impliedOffsetMultiple = lock
-        ? lock.atProfit / drawdownAmount + cushionStepMultiple
-        : 0;
+    const lockTrigger = lock?.atProfit ?? null;
+    const impliedOffsetMultiple =
+        lockTrigger === null
+            ? 0
+            : lockTrigger / drawdownAmount + cushionStepMultiple;
     const maxPreLockOffsetMultiple = Math.max(
         config.maxPreLockOffsetMultiple ?? DEFAULT_MAX_PRE_LOCK_OFFSET_MULTIPLE,
         impliedOffsetMultiple,
@@ -393,9 +430,55 @@ function buildFundedSolveContext(
         unlockedCushionBucketCount +
         Math.max(0, Math.ceil(maxDailySwingDollars / cushionStepDollars));
 
+    const lockedThreshold = resolveLockedThreshold(plan, startingBalance);
+    const isUnlockedPostPayoutReachable = canWithdrawWhileUnlocked(
+        plan,
+        retainedCushion,
+    );
+    const lockedPayoutFloor = plan.payoutBalanceFloor(
+        thresholdState(startingBalance, lockedThreshold),
+        retainedCushion,
+    );
+    const isBaselineAlwaysTheFloor =
+        !plan.canLeaveBalanceAbovePayoutFloor() &&
+        lockedPayoutFloor >= startingBalance &&
+        !isUnlockedPostPayoutReachable;
+    const unlockedPayoutFloorGap =
+        plan.payoutBalanceFloor(
+            thresholdState(startingBalance, initialThreshold),
+            retainedCushion,
+        ) - lockedPayoutFloor;
+    const cycleBaselineMin = isUnlockedPostPayoutReachable
+        ? Math.min(
+              0,
+              Math.floor(unlockedPayoutFloorGap / cushionStepDollars) *
+                  cushionStepDollars,
+          )
+        : 0;
+    const cycleBaselineMax = isBaselineAlwaysTheFloor
+        ? cycleBaselineMin
+        : Math.max(
+              cycleBaselineMin,
+              maxCushionMultiple * drawdownAmount -
+                  (lockedPayoutFloor - lockedThreshold),
+          );
+    const cycleBaselineGrid = new FundedCycleBaselineGrid({
+        coarseStep: drawdownAmount,
+        fineEnd: cycleBaselineFineRangeMultiple * drawdownAmount,
+        fineStep: cushionStepDollars,
+        max: cycleBaselineMax,
+        min: cycleBaselineMin,
+    });
+
     const regimeKeyRadix = payoutRegimeCap + 1;
     const idleKeyRadix = idleDaysBucketCount;
     const cycleBestDayKeyRadix = cycleBestDayBucketCount;
+    const pairKeyRadix =
+        idleKeyRadix *
+        cycleBestDayKeyRadix *
+        qualifyingDayKeyRadix *
+        peakRatchet.radix *
+        cycleBaselineGrid.size;
 
     return {
         actionGrid,
@@ -403,6 +486,7 @@ function buildFundedSolveContext(
         candidateRisksCache: new Map(),
         commission,
         cushionStepDollars,
+        cycleBaselineGrid,
         cycleBestDayKeyRadix,
         cycleBestDayStepDollars,
         dayCost,
@@ -411,10 +495,15 @@ function buildFundedSolveContext(
         idleKeyRadix,
         initialThreshold,
         isPerpetualFundedConsistency,
-        isTrackingFundedConsistency,
+        isSolvingPerDayStart,
+        isUnlockedPostPayoutReachable,
         lockedCushionBucketCount,
+        lockedPayoutFloor,
+        lockedThreshold,
         offsetBucketCount,
+        pairKeyRadix,
         payoutRegimeCap,
+        peakRatchet,
         plan,
         positionSizing,
         qualifyingDayKeyRadix,
@@ -433,9 +522,9 @@ function buildFundedSolveContext(
 
 function buildState(
     context: FundedSolveContext,
+    dayStart: FundedDayStart,
     balance: number,
-    threshold: number,
-    isThresholdLocked: boolean,
+    todayPnL: number,
     qualifyingDays: number,
 ): AccountState {
     return {
@@ -443,68 +532,65 @@ function buildState(
         bestDayProfit: 0,
         consecutiveIdleDays: 0,
         elapsedDays: 0,
-        peakDayCloseProfit: 0,
+        peakDayCloseProfit: context.peakRatchet.peakAt(dayStart.ratchet),
         qualifyingDays,
         startingBalance: context.startingBalance,
-        threshold,
-        thresholdLocked: isThresholdLocked,
-        todayPnL: 0,
+        threshold: dayStart.thresholdDollars,
+        thresholdLocked: dayStart.isLocked,
+        todayPnL,
         tradingDays: 0,
     };
 }
 
 function candidateRisks(
     context: FundedSolveContext,
-    cushionNow: number,
-    accountProfitNow: number,
-    accountProfitAtDayStart: number,
+    riskBudget: number,
+    contractLimit: ContractCount | null,
 ): number[] {
-    let byProfitNow = context.candidateRisksCache.get(cushionNow);
-    if (byProfitNow === undefined) {
-        byProfitNow = new Map();
-        context.candidateRisksCache.set(cushionNow, byProfitNow);
+    let byContractLimit = context.candidateRisksCache.get(riskBudget);
+    if (byContractLimit === undefined) {
+        byContractLimit = new Map();
+        context.candidateRisksCache.set(riskBudget, byContractLimit);
     }
-    let byProfitStart = byProfitNow.get(accountProfitNow);
-    if (byProfitStart === undefined) {
-        byProfitStart = new Map();
-        byProfitNow.set(accountProfitNow, byProfitStart);
-    }
-    const cached = byProfitStart.get(accountProfitAtDayStart);
+    const contractLimitKey = contractLimit ?? -1;
+    const cached = byContractLimit.get(contractLimitKey);
     if (cached !== undefined) return cached;
-    const computed = computeCandidateRisks(
-        context,
-        cushionNow,
-        accountProfitNow,
-        accountProfitAtDayStart,
-    );
-    byProfitStart.set(accountProfitAtDayStart, computed);
+    const computed = computeCandidateRisks(context, riskBudget, contractLimit);
+    byContractLimit.set(contractLimitKey, computed);
     return computed;
+}
+
+function canWithdrawWhileUnlocked(
+    plan: Plan,
+    retainedCushion: number,
+): boolean {
+    switch (plan.payoutFloorEffect) {
+        case PayoutFloorEffect.LockAtPlanFloor:
+        case PayoutFloorEffect.MoveToLockedFloor:
+        case PayoutFloorEffect.ReleaseFloor: {
+            return false;
+        }
+        case PayoutFloorEffect.None: {
+            return plan.fundedDrawdown.allowsWithdrawalWhileUnlocked(
+                retainedCushion,
+            );
+        }
+    }
 }
 
 function computeCandidateRisks(
     context: FundedSolveContext,
-    cushionNow: number,
-    accountProfitNow: number,
-    accountProfitAtDayStart: number,
+    riskBudget: number,
+    contractLimit: ContractCount | null,
 ): number[] {
-    const { plan, positionSizing } = context;
+    const { positionSizing } = context;
     const risks = new Set<number>();
-    const contractLimit: ContractCount | null =
-        positionSizing === null
-            ? null
-            : resolveContractLimit(
-                  plan.contractLimits,
-                  TradingPhase.Funded,
-                  positionSizing.instrument.isMicro,
-                  accountProfitNow,
-                  accountProfitAtDayStart,
-              );
     for (const action of context.actionGrid) {
         const capped =
             positionSizing === null
                 ? action
                 : capRiskToContractLimit(action, positionSizing, contractLimit);
-        const risk = resolveTradeRisk(capped, cushionNow, context.rungSizing);
+        const risk = resolveTradeRisk(capped, riskBudget, context.rungSizing);
         risks.add(Math.max(0, risk));
     }
     risks.add(0);
@@ -513,53 +599,46 @@ function computeCandidateRisks(
 
 function continuationValue(
     context: FundedSolveContext,
-    balance: number,
-    threshold: number,
-    isThresholdLocked: boolean,
-    regimeCapped: number,
-    idleDays: number,
-    cycleBestDay: number,
-    qualifyingCycleDay: number,
+    state: AccountState,
+    regime: number,
+    pair: FundedPair,
 ): number {
-    const cushion = balance - threshold;
-    if (isThresholdLocked) {
-        const index = bucketIndex(
-            context,
-            cushion,
-            context.lockedCushionBucketCount,
-        );
-        return context.readValue(
-            lockedKey(
-                context,
-                regimeCapped,
-                idleDays,
-                cycleBestDay,
-                qualifyingCycleDay,
-                index,
-            ),
-        );
-    }
-    const offsetIndex = bucketIndex(
-        context,
-        threshold - context.initialThreshold,
-        context.offsetBucketCount,
-    );
-    const cushionIndex = bucketIndex(
-        context,
-        cushion,
-        context.unlockedCushionBucketCount,
-    );
+    const cushion = state.balance - state.threshold;
     return context.readValue(
-        unlockedKey(
-            context,
-            offsetIndex,
-            regimeCapped,
-            idleDays,
-            cycleBestDay,
-            qualifyingCycleDay,
-            cushionIndex,
-        ),
+        state.thresholdLocked
+            ? lockedKey(
+                  context,
+                  regime,
+                  pair,
+                  bucketIndex(
+                      context,
+                      cushion,
+                      context.lockedCushionBucketCount,
+                  ),
+              )
+            : unlockedKey(
+                  context,
+                  bucketIndex(
+                      context,
+                      state.threshold - context.initialThreshold,
+                      context.offsetBucketCount,
+                  ),
+                  regime,
+                  pair,
+                  bucketIndex(
+                      context,
+                      cushion,
+                      context.unlockedCushionBucketCount,
+                  ),
+              ),
     );
+}
+
+function cycleBaselineRadixAt(
+    context: FundedSolveContext,
+    regime: number,
+): number {
+    return regime === 0 ? 1 : context.cycleBaselineGrid.size;
 }
 
 function cycleBestDayIndex(
@@ -575,29 +654,23 @@ function cycleBestDayIndex(
 
 function dayCloseValue(
     context: FundedSolveContext,
+    dayStart: FundedDayStart,
     cushionAtEnd: number,
-    thresholdDollars: number,
-    isLockedAtStart: boolean,
-    regimeAtStart: number,
     wasIdleToday: boolean,
-    idleDaysAtStart: number,
-    cycleBestDayAtStart: number,
-    qualifyingDaysAtStart: number,
-    cushionAtDayStart: number,
 ): number {
     const { plan } = context;
-    const todayPnL = cushionAtEnd - cushionAtDayStart;
+    const todayPnL = todayPnLOf(context, dayStart, cushionAtEnd);
     const isEarnsQualifyingDay =
         !wasIdleToday && todayPnL >= (plan.minQualifyingDayProfit ?? -Infinity);
     const qualifyingDaysAtEnd = Math.min(
         context.qualifyingDayKeyRadix - 1,
-        qualifyingDaysAtStart + (isEarnsQualifyingDay ? 1 : 0),
+        dayStart.qualifyingDays + (isEarnsQualifyingDay ? 1 : 0),
     );
     const state = buildState(
         context,
-        thresholdDollars + cushionAtEnd,
-        thresholdDollars,
-        isLockedAtStart,
+        dayStart,
+        dayStart.thresholdDollars + cushionAtEnd,
+        todayPnL,
         qualifyingDaysAtEnd,
     );
     context.drawdown.onDayClose(state);
@@ -609,7 +682,7 @@ function dayCloseValue(
         plan.maxConsecutiveIdleDays === null
             ? 0
             : wasIdleToday
-              ? idleDaysAtStart + 1
+              ? dayStart.idleDays + 1
               : 0;
     if (
         plan.maxConsecutiveIdleDays !== null &&
@@ -619,7 +692,7 @@ function dayCloseValue(
     }
 
     const cycleBestDayAtStartDollars =
-        cycleBestDayAtStart * context.cycleBestDayStepDollars;
+        dayStart.cycleBestDay * context.cycleBestDayStepDollars;
     const cycleBestDayAtEndDollars = Math.max(
         cycleBestDayAtStartDollars,
         todayPnL,
@@ -630,11 +703,12 @@ function dayCloseValue(
     );
 
     const tracker = newFundedCycleTracker(state);
-    tracker.payoutsIssued = regimeAtStart;
+    tracker.payoutsIssued = dayStart.regime;
     tracker.lastPayoutBalance =
-        regimeAtStart === 0
+        dayStart.regime === 0
             ? context.startingBalance
-            : plan.payoutBalanceFloor(state, context.retainedCushion);
+            : context.lockedPayoutFloor +
+              context.cycleBaselineGrid.dollarsAt(dayStart.cycleBaseline);
     tracker.qualifyingDaysAtLastPayout = 0;
     tracker.cycleBestDayProfit = cycleBestDayAtEndDollars;
 
@@ -646,6 +720,15 @@ function dayCloseValue(
         state,
         tracker,
     });
+    if (
+        payout !== null &&
+        !state.thresholdLocked &&
+        !context.isUnlockedPostPayoutReachable
+    ) {
+        throw new Error(
+            `${plan.label}: FundedStateValue paid out while unlocked, a state its reachability proof (DrawdownStrategy.allowsWithdrawalWhileUnlocked with a retained cushion of ${context.retainedCushion}) ruled out, so the skipped unlocked post-payout levels would be read as zero`,
+        );
+    }
     const receivedCash = payout?.traderReceives ?? 0;
 
     if (payout?.causesHardBreach) return receivedCash;
@@ -654,22 +737,23 @@ function dayCloseValue(
     if (plan.isAccountConcluded(payoutsIssuedNow)) return receivedCash;
 
     const regimeNow = Math.min(payoutsIssuedNow, context.payoutRegimeCap);
-    const cycleBestDayForContinuation =
-        payout === null || context.isPerpetualFundedConsistency
-            ? cycleBestDayAtEndIndex
-            : 0;
-    const qualifyingDaysForContinuation =
-        payout === null ? qualifyingDaysAtEnd : 0;
-    const continuation = continuationValue(
-        context,
-        state.balance,
-        state.threshold,
-        state.thresholdLocked,
-        regimeNow,
-        idleDaysAtEnd,
-        cycleBestDayForContinuation,
-        qualifyingDaysForContinuation,
-    );
+    const continuation = continuationValue(context, state, regimeNow, {
+        cycleBaseline:
+            cycleBaselineRadixAt(context, regimeNow) === 1
+                ? 0
+                : payout === null
+                  ? dayStart.cycleBaseline
+                  : context.cycleBaselineGrid.indexAtOrAbove(
+                        state.balance - context.lockedPayoutFloor,
+                    ),
+        cycleBestDay:
+            payout === null || context.isPerpetualFundedConsistency
+                ? cycleBestDayAtEndIndex
+                : 0,
+        idleDays: idleDaysAtEnd,
+        qualifyingDays: payout === null ? qualifyingDaysAtEnd : 0,
+        ratchet: context.peakRatchet.bandOf(state.peakDayCloseProfit),
+    });
     if (context.horizonHazard === 0) return receivedCash + continuation;
 
     const horizonCredit = tracker.closeoutCredit({
@@ -684,51 +768,30 @@ function dayCloseValue(
     );
 }
 
-function decodePolicyTables(
-    source: Float64Array,
-    offset: number,
-    policyCushionStartCount: number,
-    slots: number,
-    workingBucketCount: number,
-): number[][][] {
-    const result: number[][][] = [];
-    let cursor = offset;
-    for (
-        let cushionStart = 0;
-        cushionStart < policyCushionStartCount;
-        cushionStart++
-    ) {
-        const policyTables: number[][] = [];
-        for (let tradeIndex = 0; tradeIndex < slots; tradeIndex++) {
-            const row: number[] = Array.from({ length: workingBucketCount });
-            for (let index = 0; index < workingBucketCount; index++) {
-                row[index] = source[cursor] ?? 0;
-                cursor++;
-            }
-            policyTables[tradeIndex] = row;
-        }
-        result.push(policyTables);
-    }
-    return result;
-}
-
-function encodePolicyTables(
-    policyTablesByCushionStart: CushionStartPolicyTables,
-    slots: number,
-    workingBucketCount: number,
-    out: Float64Array,
-    offset: number,
-): void {
-    let cursor = offset;
-    for (const policyTables of policyTablesByCushionStart) {
-        for (let tradeIndex = 0; tradeIndex < slots; tradeIndex++) {
-            const row = policyTables[tradeIndex] ?? [];
-            for (let index = 0; index < workingBucketCount; index++) {
-                out[cursor] = row[index] ?? 0;
-                cursor++;
-            }
-        }
-    }
+function decodePair(
+    context: FundedSolveContext,
+    pairIndex: number,
+    cycleBaselineRadix: number,
+): FundedPair {
+    const cycleBaseline = pairIndex % cycleBaselineRadix;
+    const withoutBaseline = Math.floor(pairIndex / cycleBaselineRadix);
+    const ratchet = withoutBaseline % context.peakRatchet.radix;
+    const withoutRatchet = Math.floor(
+        withoutBaseline / context.peakRatchet.radix,
+    );
+    const qualifyingDays = withoutRatchet % context.qualifyingDayKeyRadix;
+    const withoutQualifyingDays = Math.floor(
+        withoutRatchet / context.qualifyingDayKeyRadix,
+    );
+    return {
+        cycleBaseline,
+        cycleBestDay: withoutQualifyingDays % context.cycleBestDayKeyRadix,
+        idleDays: Math.floor(
+            withoutQualifyingDays / context.cycleBestDayKeyRadix,
+        ),
+        qualifyingDays,
+        ratchet,
+    };
 }
 
 function hazardConvergenceSweepCap(
@@ -753,49 +816,78 @@ function hazardConvergenceSweepCap(
     return 1 + Math.max(0, additionalSweepsToShrinkBelowTolerance);
 }
 
+function isLevelSkipped(
+    context: FundedSolveContext,
+    regime: number,
+    isLocked: boolean,
+): boolean {
+    return (
+        regime > 0 &&
+        (context.plan.isAccountConcluded(regime) ||
+            (!isLocked && !context.isUnlockedPostPayoutReachable))
+    );
+}
+
 function lockedKey(
     context: FundedSolveContext,
     regime: number,
-    idleDays: number,
-    cycleBestDay: number,
-    qualifyingCycleDay: number,
+    pair: FundedPair,
     cushionIndex: number,
 ): number {
-    const withIdleDays = regime * context.idleKeyRadix + idleDays;
-    const withCycleBestDay =
-        withIdleDays * context.cycleBestDayKeyRadix + cycleBestDay;
-    const withQualifyingDay =
-        withCycleBestDay * context.qualifyingDayKeyRadix + qualifyingCycleDay;
-    const withCushion =
-        withQualifyingDay * context.lockedCushionBucketCount + cushionIndex;
-    return withCushion * 2;
+    const withPair = regime * context.pairKeyRadix + pairOrdinal(context, pair);
+    return (withPair * context.lockedCushionBucketCount + cushionIndex) * 2;
 }
 
 function maxLockedKeyExclusive(context: FundedSolveContext): number {
     return (
-        lockedKey(
-            context,
-            context.payoutRegimeCap,
-            context.idleKeyRadix - 1,
-            context.cycleBestDayKeyRadix - 1,
-            context.qualifyingDayKeyRadix - 1,
-            context.lockedCushionBucketCount - 1,
-        ) + 1
+        (((context.payoutRegimeCap + 1) * context.pairKeyRadix - 1) *
+            context.lockedCushionBucketCount +
+            context.lockedCushionBucketCount -
+            1) *
+            2 +
+        1
+    );
+}
+
+function maxPairCount(context: FundedSolveContext): number {
+    return (
+        pairCountAt(context, 0) *
+        (context.payoutRegimeCap === 0 ? 1 : context.cycleBaselineGrid.size)
     );
 }
 
 function maxUnlockedKeyExclusive(context: FundedSolveContext): number {
     return (
-        unlockedKey(
-            context,
-            context.offsetBucketCount - 1,
-            context.payoutRegimeCap,
-            context.idleKeyRadix - 1,
-            context.cycleBestDayKeyRadix - 1,
-            context.qualifyingDayKeyRadix - 1,
-            context.unlockedCushionBucketCount - 1,
-        ) + 1
+        ((context.offsetBucketCount *
+            context.regimeKeyRadix *
+            context.pairKeyRadix -
+            1) *
+            context.unlockedCushionBucketCount +
+            context.unlockedCushionBucketCount -
+            1) *
+            2 +
+        2
     );
+}
+
+function pairCountAt(context: FundedSolveContext, regime: number): number {
+    return (
+        context.idleKeyRadix *
+        context.cycleBestDayKeyRadix *
+        context.qualifyingDayKeyRadix *
+        context.peakRatchet.radix *
+        cycleBaselineRadixAt(context, regime)
+    );
+}
+
+function pairOrdinal(context: FundedSolveContext, pair: FundedPair): number {
+    const withCycleBestDay =
+        pair.idleDays * context.cycleBestDayKeyRadix + pair.cycleBestDay;
+    const withQualifyingDays =
+        withCycleBestDay * context.qualifyingDayKeyRadix + pair.qualifyingDays;
+    const withRatchet =
+        withQualifyingDays * context.peakRatchet.radix + pair.ratchet;
+    return withRatchet * context.cycleBaselineGrid.size + pair.cycleBaseline;
 }
 
 function reconstructPlanFromRegistry(planId: PlanId): Plan {
@@ -814,58 +906,54 @@ function requireFirmsModule(): typeof FirmsModule {
     return tsxRequire('../firms', import.meta.url) as typeof FirmsModule;
 }
 
+function resolveLockedThreshold(plan: Plan, startingBalance: number): number {
+    const lock = plan.fundedDrawdown.lock;
+    if (lock) return lock.lockedThreshold(startingBalance);
+    if (plan.payoutFloorEffect === PayoutFloorEffect.ReleaseFloor) {
+        return startingBalance;
+    }
+    throw new Error(
+        `${plan.label}: a thresholdLocked funded state needs a drawdown lock config or a ReleaseFloor payout effect, and this plan has neither`,
+    );
+}
+
 function runFundedWorkerBootstrap(): void {
     const init = workerData as FundedWorkerInit;
     const plan = reconstructPlanFromRegistry(init.config.planId);
     const config: FundedStateValueConfig = { ...init.config, plan };
     const snapshot = new Float64Array(init.snapshotSAB, 0, init.snapshotLength);
-    const context = buildFundedSolveContext(
-        config,
-        (key) => snapshot[key] ?? 0,
-    );
+    const context = buildFundedSolveContext(config, (key) => {
+        if (key < 0 || key >= init.snapshotLength) {
+            throw new RangeError(
+                `FundedStateValue worker: value key ${key} is outside the shared snapshot (length ${init.snapshotLength})`,
+            );
+        }
+        return snapshot[key] ?? 0;
+    });
     const flags = new Int32Array(init.flagsSAB);
     const lockedResults = new Float64Array(init.lockedResultsSAB);
     const unlockedResults = new Float64Array(init.unlockedResultsSAB);
-    const innerPairRadix =
-        context.cycleBestDayKeyRadix * context.qualifyingDayKeyRadix;
 
     parentPort?.on('message', (dispatch: FundedWorkerDispatch) => {
         const results =
             dispatch.resultShape === 'locked' ? lockedResults : unlockedResults;
-        const perPairSize =
-            dispatch.resultShape === 'locked'
-                ? init.lockedPerPairSize
-                : init.unlockedPerPairSize;
+        const level: FundedLevel = {
+            isLocked: dispatch.isLockedAtStart,
+            regime: dispatch.regimeAtStart,
+            thresholdDollars: dispatch.thresholdDollars,
+        };
         for (const pairIndex of dispatch.pairIndices) {
-            const idleDays = Math.floor(pairIndex / innerPairRadix);
-            const innerRemainder = pairIndex % innerPairRadix;
-            const cycleBestDay = Math.floor(
-                innerRemainder / context.qualifyingDayKeyRadix,
-            );
-            const qualifyingCycleDay =
-                innerRemainder % context.qualifyingDayKeyRadix;
-            const { dayStartValues, policyTablesByCushionStart } = solveDayTree(
+            const dayStartValues = solveDayTree(
                 context,
-                dispatch.thresholdDollars,
-                dispatch.isLockedAtStart,
-                dispatch.regimeAtStart,
-                idleDays,
-                cycleBestDay,
-                qualifyingCycleDay,
+                level,
+                decodePair(context, pairIndex, dispatch.cycleBaselineRadix),
                 dispatch.cushionBucketCount,
                 dispatch.workingBucketCount,
             );
-            const baseOffset = pairIndex * perPairSize;
+            const baseOffset = pairIndex * dispatch.cushionBucketCount;
             for (let index = 0; index < dispatch.cushionBucketCount; index++) {
                 results[baseOffset + index] = dayStartValues[index] ?? 0;
             }
-            encodePolicyTables(
-                policyTablesByCushionStart,
-                context.slots,
-                dispatch.workingBucketCount,
-                results,
-                baseOffset + dispatch.cushionBucketCount,
-            );
         }
         Atomics.store(flags, init.workerIndex, 1);
         Atomics.notify(flags, init.workerIndex, 1);
@@ -874,103 +962,78 @@ function runFundedWorkerBootstrap(): void {
 
 function solveDayTree(
     context: FundedSolveContext,
-    thresholdDollars: number,
-    isLockedAtStart: boolean,
-    regimeAtStart: number,
-    idleDaysAtStart: number,
-    cycleBestDayAtStart: number,
-    qualifyingDaysAtStart: number,
+    level: FundedLevel,
+    pair: FundedPair,
     cushionBucketCount: number,
     workingBucketCount: number,
-): {
-    dayStartValues: number[];
-    policyTablesByCushionStart: CushionStartPolicyTables;
-} {
-    if (!context.isTrackingFundedConsistency) {
-        const { finalTable, policyTables } = solveDayTreeOnce(
+): number[] {
+    if (!context.isSolvingPerDayStart) {
+        return solveDayTreeOnce(
             context,
-            thresholdDollars,
-            isLockedAtStart,
-            regimeAtStart,
-            idleDaysAtStart,
-            0,
-            qualifyingDaysAtStart,
-            0,
+            { ...level, ...pair, cushionAtDayStart: 0 },
             workingBucketCount,
-        );
-        return {
-            dayStartValues: finalTable.slice(0, cushionBucketCount),
-            policyTablesByCushionStart: [policyTables],
-        };
+            false,
+        ).finalTable.slice(0, cushionBucketCount);
     }
-    const dayStartValues: number[] = Array.from({
-        length: cushionBucketCount,
-    });
-    const policyTablesByCushionStart: number[][][] = Array.from({
-        length: cushionBucketCount,
-    });
-    for (
-        let cushionStartIndex = 0;
-        cushionStartIndex < cushionBucketCount;
-        cushionStartIndex++
-    ) {
-        const cushionAtDayStart =
-            cushionStartIndex * context.cushionStepDollars;
-        const { finalTable, policyTables } = solveDayTreeOnce(
-            context,
-            thresholdDollars,
-            isLockedAtStart,
-            regimeAtStart,
-            idleDaysAtStart,
-            cycleBestDayAtStart,
-            qualifyingDaysAtStart,
-            cushionAtDayStart,
-            workingBucketCount,
-        );
-        dayStartValues[cushionStartIndex] = finalTable[cushionStartIndex] ?? 0;
-        policyTablesByCushionStart[cushionStartIndex] = policyTables;
-    }
-    return { dayStartValues, policyTablesByCushionStart };
+    return Array.from(
+        { length: cushionBucketCount },
+        (_, cushionStartIndex) =>
+            solveDayTreeOnce(
+                context,
+                {
+                    ...level,
+                    ...pair,
+                    cushionAtDayStart:
+                        cushionStartIndex * context.cushionStepDollars,
+                },
+                workingBucketCount,
+                false,
+            ).finalTable[cushionStartIndex] ?? 0,
+    );
 }
 
 function solveDayTreeOnce(
     context: FundedSolveContext,
-    thresholdDollars: number,
-    isLockedAtStart: boolean,
-    regimeAtStart: number,
-    idleDaysAtStart: number,
-    cycleBestDayAtStart: number,
-    qualifyingDaysAtStart: number,
-    cushionAtDayStart: number,
+    dayStart: FundedDayStart,
     workingBucketCount: number,
+    isRecordingPolicy: boolean,
 ): { finalTable: number[]; policyTables: number[][] } {
+    const { plan, positionSizing } = context;
     const stopTable: number[] = Array.from(
         { length: workingBucketCount },
         (_, index) =>
             dayCloseValue(
                 context,
+                dayStart,
                 index * context.cushionStepDollars,
-                thresholdDollars,
-                isLockedAtStart,
-                regimeAtStart,
                 false,
-                idleDaysAtStart,
-                cycleBestDayAtStart,
-                qualifyingDaysAtStart,
-                cushionAtDayStart,
             ),
     );
-    const accountProfitAtDayStart =
-        thresholdDollars + cushionAtDayStart - context.startingBalance;
     const risksByIndex: number[][] = Array.from(
         { length: workingBucketCount },
         (_, index) => {
             const cushionNow = index * context.cushionStepDollars;
+            const state = buildState(
+                context,
+                dayStart,
+                dayStart.thresholdDollars + cushionNow,
+                todayPnLOf(context, dayStart, cushionNow),
+                0,
+            );
+            const tierContext = plan.tierProfitContext(state);
             return candidateRisks(
                 context,
-                cushionNow,
-                thresholdDollars + cushionNow - context.startingBalance,
-                accountProfitAtDayStart,
+                plan.affordableRisk(state, TradingPhase.Funded),
+                positionSizing === null
+                    ? null
+                    : resolveContractLimit(
+                          plan.contractLimits,
+                          TradingPhase.Funded,
+                          positionSizing.instrument.isMicro,
+                          tierContext.profit,
+                          tierContext.sessionOpenProfit,
+                          tierContext.peakDayCloseProfit,
+                      ),
             );
         },
     );
@@ -980,29 +1043,22 @@ function solveDayTreeOnce(
         const currentTable: number[] = Array.from({
             length: workingBucketCount,
         });
-        const currentPolicy: number[] = Array.from({
-            length: workingBucketCount,
-        });
+        const currentPolicy: number[] = isRecordingPolicy
+            ? Array.from({ length: workingBucketCount })
+            : [];
         for (let index = 0; index < workingBucketCount; index++) {
-            const cushionNow = index * context.cushionStepDollars;
             const { bestAction, bestValue } = bestActionAt(
                 context,
-                cushionNow,
-                thresholdDollars,
-                isLockedAtStart,
-                regimeAtStart,
-                idleDaysAtStart,
+                dayStart,
+                index * context.cushionStepDollars,
                 tradeIndex,
                 nextRoundTable,
                 workingBucketCount,
-                cycleBestDayAtStart,
-                qualifyingDaysAtStart,
-                cushionAtDayStart,
                 stopTable[index] ?? 0,
                 risksByIndex[index] ?? [],
             );
             currentTable[index] = bestValue;
-            currentPolicy[index] = bestAction;
+            if (isRecordingPolicy) currentPolicy[index] = bestAction;
         }
         policyTables[tradeIndex] = currentPolicy;
         nextRoundTable = currentTable;
@@ -1014,6 +1070,25 @@ function solveDayTreeOnce(
     return { finalTable, policyTables };
 }
 
+function thresholdState(
+    startingBalance: number,
+    threshold: number,
+): AccountState {
+    const state = createInitialState(startingBalance, threshold);
+    state.balance = threshold;
+    return state;
+}
+
+function todayPnLOf(
+    context: FundedSolveContext,
+    dayStart: FundedDayStart,
+    cushionNow: number,
+): number {
+    return context.isSolvingPerDayStart
+        ? cushionNow - dayStart.cushionAtDayStart
+        : 0;
+}
+
 function toSerializableConfig(
     config: FundedStateValueConfig,
     planId: PlanId,
@@ -1023,6 +1098,7 @@ function toSerializableConfig(
         commission: config.commission,
         convergenceTolerance: config.convergenceTolerance,
         cushionStepMultiple: config.cushionStepMultiple,
+        cycleBaselineFineRangeMultiple: config.cycleBaselineFineRangeMultiple,
         cycleBestDayBucketCount: config.cycleBestDayBucketCount,
         dayCost: config.dayCost,
         evalInitialValue: config.evalInitialValue,
@@ -1047,105 +1123,65 @@ function unlockedKey(
     context: FundedSolveContext,
     offsetIndex: number,
     regime: number,
-    idleDays: number,
-    cycleBestDay: number,
-    qualifyingCycleDay: number,
+    pair: FundedPair,
     cushionIndex: number,
 ): number {
     const withRegime = offsetIndex * context.regimeKeyRadix + regime;
-    const withIdleDays = withRegime * context.idleKeyRadix + idleDays;
-    const withCycleBestDay =
-        withIdleDays * context.cycleBestDayKeyRadix + cycleBestDay;
-    const withQualifyingDay =
-        withCycleBestDay * context.qualifyingDayKeyRadix + qualifyingCycleDay;
-    const withCushion =
-        withQualifyingDay * context.unlockedCushionBucketCount + cushionIndex;
-    return withCushion * 2 + 1;
+    const withPair =
+        withRegime * context.pairKeyRadix + pairOrdinal(context, pair);
+    return (
+        (withPair * context.unlockedCushionBucketCount + cushionIndex) * 2 + 1
+    );
 }
 
 function valueOfRisk(
     context: FundedSolveContext,
+    dayStart: FundedDayStart,
     risk: number,
     cushionNow: number,
-    thresholdDollars: number,
-    isLockedAtStart: boolean,
-    regimeAtStart: number,
-    idleDaysAtStart: number,
     nextRoundTable: readonly number[],
     cushionBucketCount: number,
-    cycleBestDayAtStart: number,
-    qualifyingDaysAtStart: number,
-    cushionAtDayStart: number,
 ): number {
     const pnlWin = context.rrRatio * risk - context.commission;
     const valueWin = withinDayContinuation(
         context,
+        dayStart,
         cushionNow + pnlWin,
-        thresholdDollars,
-        isLockedAtStart,
-        regimeAtStart,
-        idleDaysAtStart,
         nextRoundTable,
         cushionBucketCount,
-        cycleBestDayAtStart,
-        qualifyingDaysAtStart,
-        cushionAtDayStart,
     );
     const pnlLose = -risk - context.commission;
     const valueLose = withinDayContinuation(
         context,
+        dayStart,
         cushionNow + pnlLose,
-        thresholdDollars,
-        isLockedAtStart,
-        regimeAtStart,
-        idleDaysAtStart,
         nextRoundTable,
         cushionBucketCount,
-        cycleBestDayAtStart,
-        qualifyingDaysAtStart,
-        cushionAtDayStart,
     );
     return context.winrate * valueWin + (1 - context.winrate) * valueLose;
 }
 
 function withinDayContinuation(
     context: FundedSolveContext,
+    dayStart: FundedDayStart,
     cushionAfter: number,
-    thresholdDollars: number,
-    isLockedAtStart: boolean,
-    regimeAtStart: number,
-    idleDaysAtStart: number,
     nextRoundTable: readonly number[],
     cushionBucketCount: number,
-    cycleBestDayAtStart: number,
-    qualifyingDaysAtStart: number,
-    cushionAtDayStart: number,
 ): number {
     if (cushionAfter <= 0) return context.bustTerminalValue;
     const { plan } = context;
     const state = buildState(
         context,
-        thresholdDollars + cushionAfter,
-        thresholdDollars,
-        isLockedAtStart,
+        dayStart,
+        dayStart.thresholdDollars + cushionAfter,
+        todayPnLOf(context, dayStart, cushionAfter),
         0,
     );
     context.drawdown.onTrade(state, 0);
     if (plan.isBust(state, TradingPhase.Funded))
         return context.bustTerminalValue;
     if (plan.isDayLockedOut(state, TradingPhase.Funded)) {
-        return dayCloseValue(
-            context,
-            cushionAfter,
-            thresholdDollars,
-            isLockedAtStart,
-            regimeAtStart,
-            false,
-            idleDaysAtStart,
-            cycleBestDayAtStart,
-            qualifyingDaysAtStart,
-            cushionAtDayStart,
-        );
+        return dayCloseValue(context, dayStart, cushionAfter, false);
     }
     const index = bucketIndex(context, cushionAfter, cushionBucketCount);
     return nextRoundTable[index] ?? 0;
@@ -1159,16 +1195,9 @@ if (!isMainThread) {
 }
 
 class FundedWorkerPool {
-    private readonly cycleBestDayKeyRadix: number;
     private readonly flags: Int32Array;
-    private readonly idleKeyRadix: number;
-    private readonly lockedPerPairSize: number;
     private readonly lockedResults: Float64Array;
-    private readonly qualifyingDayKeyRadix: number;
     private readonly snapshot: Float64Array;
-    private readonly slots: number;
-    private readonly totalPairs: number;
-    private readonly unlockedPerPairSize: number;
     private readonly unlockedResults: Float64Array;
     private readonly workers: Worker[];
 
@@ -1178,15 +1207,7 @@ class FundedWorkerPool {
         planId: PlanId,
         context: FundedSolveContext,
     ) {
-        this.slots = context.slots;
-        this.idleKeyRadix = context.idleKeyRadix;
-        this.cycleBestDayKeyRadix = context.cycleBestDayKeyRadix;
-        this.qualifyingDayKeyRadix = context.qualifyingDayKeyRadix;
-        this.totalPairs =
-            context.idleKeyRadix *
-            context.cycleBestDayKeyRadix *
-            context.qualifyingDayKeyRadix;
-
+        const totalPairs = maxPairCount(context);
         const snapshotLength = Math.max(
             maxUnlockedKeyExclusive(context),
             maxLockedKeyExclusive(context),
@@ -1194,30 +1215,11 @@ class FundedWorkerPool {
         const snapshotSAB = new SharedArrayBuffer(snapshotLength * 8);
         this.snapshot = new Float64Array(snapshotSAB);
 
-        const lockedPolicyCushionStartCount =
-            context.isTrackingFundedConsistency
-                ? context.lockedCushionBucketCount
-                : 1;
-        const unlockedPolicyCushionStartCount =
-            context.isTrackingFundedConsistency
-                ? context.unlockedCushionBucketCount
-                : 1;
-        this.lockedPerPairSize =
-            context.lockedCushionBucketCount +
-            lockedPolicyCushionStartCount *
-                context.slots *
-                context.lockedCushionBucketCount;
-        this.unlockedPerPairSize =
-            context.unlockedCushionBucketCount +
-            unlockedPolicyCushionStartCount *
-                context.slots *
-                context.unlockedWorkingBucketCount;
-
         const lockedResultsSAB = new SharedArrayBuffer(
-            this.totalPairs * this.lockedPerPairSize * 8,
+            totalPairs * context.lockedCushionBucketCount * 8,
         );
         const unlockedResultsSAB = new SharedArrayBuffer(
-            this.totalPairs * this.unlockedPerPairSize * 8,
+            totalPairs * context.unlockedCushionBucketCount * 8,
         );
         this.lockedResults = new Float64Array(lockedResultsSAB);
         this.unlockedResults = new Float64Array(unlockedResultsSAB);
@@ -1232,12 +1234,10 @@ class FundedWorkerPool {
                 const init: FundedWorkerInit = {
                     config: serializableConfig,
                     flagsSAB,
-                    lockedPerPairSize: this.lockedPerPairSize,
                     lockedResultsSAB,
                     role: 'funded-state-value-worker',
                     snapshotLength,
                     snapshotSAB,
-                    unlockedPerPairSize: this.unlockedPerPairSize,
                     unlockedResultsSAB,
                     workerIndex,
                 };
@@ -1251,33 +1251,26 @@ class FundedWorkerPool {
 
     runGrid(
         value: Map<number, number>,
-        thresholdDollars: number,
-        isLockedAtStart: boolean,
-        regimeAtStart: number,
+        level: FundedLevel,
+        pairCount: number,
+        cycleBaselineRadix: number,
         cushionBucketCount: number,
         workingBucketCount: number,
-        isTrackingFundedConsistency: boolean,
-    ): {
-        dayStartValuesByLevelState: number[][][][];
-        policyTablesByLevelState: CushionStartPolicyTables[][][];
-    } {
+    ): number[][] {
         for (const [key, value_] of value) {
             this.snapshot[key] = value_;
         }
 
-        const resultShape = isLockedAtStart ? 'locked' : 'unlocked';
-        const results = isLockedAtStart
+        const resultShape = level.isLocked ? 'locked' : 'unlocked';
+        const results = level.isLocked
             ? this.lockedResults
             : this.unlockedResults;
-        const perPairSize = isLockedAtStart
-            ? this.lockedPerPairSize
-            : this.unlockedPerPairSize;
 
         const perWorkerPairs: number[][] = Array.from(
             { length: this.workers.length },
             () => [],
         );
-        for (let pairIndex = 0; pairIndex < this.totalPairs; pairIndex++) {
+        for (let pairIndex = 0; pairIndex < pairCount; pairIndex++) {
             perWorkerPairs[pairIndex % this.workers.length]?.push(pairIndex);
         }
 
@@ -1300,11 +1293,12 @@ class FundedWorkerPool {
             }
             const dispatch: FundedWorkerDispatch = {
                 cushionBucketCount,
-                isLockedAtStart,
+                cycleBaselineRadix,
+                isLockedAtStart: level.isLocked,
                 pairIndices,
-                regimeAtStart,
+                regimeAtStart: level.regime,
                 resultShape,
-                thresholdDollars,
+                thresholdDollars: level.thresholdDollars,
                 workingBucketCount,
             };
             this.workers[workerIndex]?.postMessage(dispatch);
@@ -1327,57 +1321,13 @@ class FundedWorkerPool {
             }
         }
 
-        const policyCushionStartCount = isTrackingFundedConsistency
-            ? cushionBucketCount
-            : 1;
-        const innerPairRadix =
-            this.cycleBestDayKeyRadix * this.qualifyingDayKeyRadix;
-        const solvedByIdleDays = Array.from(
-            { length: this.idleKeyRadix },
-            (_, idleDays) =>
-                Array.from(
-                    { length: this.cycleBestDayKeyRadix },
-                    (_cycleBestDayPlaceholder, cycleBestDay) =>
-                        Array.from(
-                            { length: this.qualifyingDayKeyRadix },
-                            (_qualifyingDayPlaceholder, qualifyingCycleDay) => {
-                                const pairIndex =
-                                    idleDays * innerPairRadix +
-                                    cycleBestDay * this.qualifyingDayKeyRadix +
-                                    qualifyingCycleDay;
-                                const baseOffset = pairIndex * perPairSize;
-                                const dayStartValues: number[] = Array.from(
-                                    { length: cushionBucketCount },
-                                    (_valuePlaceholder, index) =>
-                                        results[baseOffset + index] ?? 0,
-                                );
-                                const policyTablesByCushionStart =
-                                    decodePolicyTables(
-                                        results,
-                                        baseOffset + cushionBucketCount,
-                                        policyCushionStartCount,
-                                        this.slots,
-                                        workingBucketCount,
-                                    );
-                                return {
-                                    dayStartValues,
-                                    policyTablesByCushionStart,
-                                };
-                            },
-                        ),
-                ),
+        return Array.from({ length: pairCount }, (_, pairIndex) =>
+            Array.from(
+                { length: cushionBucketCount },
+                (_valuePlaceholder, index) =>
+                    results[pairIndex * cushionBucketCount + index] ?? 0,
+            ),
         );
-
-        return {
-            dayStartValuesByLevelState: solvedByIdleDays.map((row) =>
-                row.map((cell) => cell.map((entry) => entry.dayStartValues)),
-            ),
-            policyTablesByLevelState: solvedByIdleDays.map((row) =>
-                row.map((cell) =>
-                    cell.map((entry) => entry.policyTablesByCushionStart),
-                ),
-            ),
-        };
     }
 
     terminate(): void {
@@ -1393,7 +1343,7 @@ export function computeFundedStateValue(
     const { plan } = config;
     if (!isFundedDpEligible(plan)) {
         throw new Error(
-            `${plan.label}: not eligible for FundedStateValue DP (call isFundedDpEligible first) -- its funded drawdown is intraday-trailing, its funded daily loss limit depends on peak-day-close profit, it has no funded drawdown lock and no ReleaseFloor payout floor effect, or its payoutCapOverride is a QualifyingDaysMilestonePayoutCap (keyed on cumulative qualifying days, which this DP cannot track exactly)`,
+            `${plan.label}: not eligible for FundedStateValue DP (call isFundedDpEligible first) -- its funded drawdown is intraday-trailing, its funded daily loss limit scales continuously with peak-day-close profit (PeakProfitShare), it has no funded drawdown lock and no ReleaseFloor payout floor effect, or its payoutCapOverride is a QualifyingDaysMilestonePayoutCap (keyed on cumulative qualifying days, which this DP cannot track exactly)`,
         );
     }
     const stopRule: DayStopRule = config.stopRule ?? {
@@ -1405,14 +1355,7 @@ export function computeFundedStateValue(
         );
     }
 
-    const drawdown = plan.fundedDrawdown;
-    const lock = drawdown.lock;
-    const startingBalance = plan.accountSize;
-    const initialThreshold = drawdown.initialThreshold(startingBalance);
-    const drawdownAmount = drawdown.amount;
-
     const value = new Map<number, number>();
-    const policy = new Map<number, CushionStartPolicyTables>();
     let unconvergedLevelCount = 0;
 
     const mainContext = buildFundedSolveContext(
@@ -1428,225 +1371,86 @@ export function computeFundedStateValue(
         config.maxIterationsPerLevel ?? DEFAULT_MAX_ITERATIONS_PER_LEVEL;
 
     const {
-        cycleBestDayKeyRadix,
-        idleKeyRadix,
+        cushionStepDollars,
+        drawdown,
+        initialThreshold,
         lockedCushionBucketCount,
+        lockedThreshold,
         offsetBucketCount,
         payoutRegimeCap,
-        qualifyingDayKeyRadix,
         unlockedCushionBucketCount,
         unlockedWorkingBucketCount,
     } = mainContext;
-
-    function lockedLevelKey(
-        regime: number,
-        idleDays: number,
-        cycleBestDay: number,
-        qualifyingCycleDay: number,
-    ): number {
-        return (
-            (((regime * idleKeyRadix + idleDays) * cycleBestDayKeyRadix +
-                cycleBestDay) *
-                qualifyingDayKeyRadix +
-                qualifyingCycleDay) *
-            2
-        );
-    }
-
-    function unlockedLevelKey(
-        offsetIndex: number,
-        regime: number,
-        idleDays: number,
-        cycleBestDay: number,
-        qualifyingCycleDay: number,
-    ): number {
-        return (
-            ((((offsetIndex * mainContext.regimeKeyRadix + regime) *
-                idleKeyRadix +
-                idleDays) *
-                cycleBestDayKeyRadix +
-                cycleBestDay) *
-                qualifyingDayKeyRadix +
-                qualifyingCycleDay) *
-                2 +
-            1
-        );
-    }
-
-    function lockedThresholdDollars(): number {
-        if (lock) return lock.lockedThreshold(startingBalance);
-        if (plan.payoutFloorEffect === PayoutFloorEffect.ReleaseFloor) {
-            return startingBalance;
-        }
-        throw new Error(
-            `${plan.label}: reached a thresholdLocked funded state with no drawdown lock config and no ReleaseFloor payout effect — this should be unreachable`,
-        );
-    }
 
     const workerPool = tryCreateWorkerPool(config, mainContext);
 
     try {
         function sweepLevel(
-            thresholdDollars: number,
-            isLockedAtStart: boolean,
-            regimeAtStart: number,
+            level: FundedLevel,
             cushionBucketCount: number,
             workingBucketCount: number,
-            keyFor: (
-                idleDays: number,
-                cycleBestDay: number,
-                qualifyingCycleDay: number,
-                cushionIndex: number,
-            ) => number,
-        ): {
-            maxDelta: number;
-            policyTablesByLevelState: CushionStartPolicyTables[][][];
-        } {
-            const totalPairs =
-                idleKeyRadix * cycleBestDayKeyRadix * qualifyingDayKeyRadix;
-            let dayStartValuesByLevelState: number[][][][];
-            let policyTablesByLevelState: CushionStartPolicyTables[][][];
-
-            if (workerPool !== null && totalPairs >= MIN_PARALLEL_GRID_CELLS) {
-                const parallelResult = workerPool.runGrid(
-                    value,
-                    thresholdDollars,
-                    isLockedAtStart,
-                    regimeAtStart,
-                    cushionBucketCount,
-                    workingBucketCount,
-                    mainContext.isTrackingFundedConsistency,
-                );
-                dayStartValuesByLevelState =
-                    parallelResult.dayStartValuesByLevelState;
-                policyTablesByLevelState =
-                    parallelResult.policyTablesByLevelState;
-            } else {
-                const solvedByIdleDays = Array.from(
-                    { length: idleKeyRadix },
-                    (_, idleDays) =>
-                        Array.from(
-                            { length: cycleBestDayKeyRadix },
-                            (_cycleBestDayPlaceholder, cycleBestDay) =>
-                                Array.from(
-                                    { length: qualifyingDayKeyRadix },
-                                    (
-                                        _qualifyingDayPlaceholder,
-                                        qualifyingCycleDay,
-                                    ) =>
-                                        solveDayTree(
-                                            mainContext,
-                                            thresholdDollars,
-                                            isLockedAtStart,
-                                            regimeAtStart,
-                                            idleDays,
-                                            cycleBestDay,
-                                            qualifyingCycleDay,
-                                            cushionBucketCount,
-                                            workingBucketCount,
-                                        ),
-                                ),
-                        ),
-                );
-                dayStartValuesByLevelState = solvedByIdleDays.map((row) =>
-                    row.map((cell) =>
-                        cell.map((solved) => solved.dayStartValues),
-                    ),
-                );
-                policyTablesByLevelState = solvedByIdleDays.map((row) =>
-                    row.map((cell) =>
-                        cell.map((solved) => solved.policyTablesByCushionStart),
-                    ),
-                );
-            }
+            keyFor: (pair: FundedPair, cushionIndex: number) => number,
+        ): number {
+            const cycleBaselineRadix = cycleBaselineRadixAt(
+                mainContext,
+                level.regime,
+            );
+            const pairCount = pairCountAt(mainContext, level.regime);
+            const dayStartValuesByPair =
+                workerPool !== null && pairCount >= MIN_PARALLEL_GRID_CELLS
+                    ? workerPool.runGrid(
+                          value,
+                          level,
+                          pairCount,
+                          cycleBaselineRadix,
+                          cushionBucketCount,
+                          workingBucketCount,
+                      )
+                    : Array.from({ length: pairCount }, (_, pairIndex) =>
+                          solveDayTree(
+                              mainContext,
+                              level,
+                              decodePair(
+                                  mainContext,
+                                  pairIndex,
+                                  cycleBaselineRadix,
+                              ),
+                              cushionBucketCount,
+                              workingBucketCount,
+                          ),
+                      );
 
             let maxDelta = 0;
-            for (let idleDays = 0; idleDays < idleKeyRadix; idleDays++) {
-                for (
-                    let cycleBestDay = 0;
-                    cycleBestDay < cycleBestDayKeyRadix;
-                    cycleBestDay++
-                ) {
-                    for (
-                        let qualifyingCycleDay = 0;
-                        qualifyingCycleDay < qualifyingDayKeyRadix;
-                        qualifyingCycleDay++
-                    ) {
-                        const dayStartValues =
-                            dayStartValuesByLevelState[idleDays]?.[
-                                cycleBestDay
-                            ]?.[qualifyingCycleDay] ?? [];
-                        for (
-                            let index = 0;
-                            index < cushionBucketCount;
-                            index++
-                        ) {
-                            const key = keyFor(
-                                idleDays,
-                                cycleBestDay,
-                                qualifyingCycleDay,
-                                index,
-                            );
-                            const old = value.get(key) ?? 0;
-                            const next = dayStartValues[index] ?? 0;
-                            maxDelta = Math.max(maxDelta, Math.abs(next - old));
-                        }
-                    }
+            const updates: [number, number][] = [];
+            for (let pairIndex = 0; pairIndex < pairCount; pairIndex++) {
+                const pair = decodePair(
+                    mainContext,
+                    pairIndex,
+                    cycleBaselineRadix,
+                );
+                const dayStartValues = dayStartValuesByPair[pairIndex] ?? [];
+                for (let index = 0; index < cushionBucketCount; index++) {
+                    const key = keyFor(pair, index);
+                    const next = dayStartValues[index] ?? 0;
+                    maxDelta = Math.max(
+                        maxDelta,
+                        Math.abs(next - (value.get(key) ?? 0)),
+                    );
+                    updates.push([key, next]);
                 }
             }
-            for (let idleDays = 0; idleDays < idleKeyRadix; idleDays++) {
-                for (
-                    let cycleBestDay = 0;
-                    cycleBestDay < cycleBestDayKeyRadix;
-                    cycleBestDay++
-                ) {
-                    for (
-                        let qualifyingCycleDay = 0;
-                        qualifyingCycleDay < qualifyingDayKeyRadix;
-                        qualifyingCycleDay++
-                    ) {
-                        const dayStartValues =
-                            dayStartValuesByLevelState[idleDays]?.[
-                                cycleBestDay
-                            ]?.[qualifyingCycleDay] ?? [];
-                        for (
-                            let index = 0;
-                            index < cushionBucketCount;
-                            index++
-                        ) {
-                            value.set(
-                                keyFor(
-                                    idleDays,
-                                    cycleBestDay,
-                                    qualifyingCycleDay,
-                                    index,
-                                ),
-                                dayStartValues[index] ?? 0,
-                            );
-                        }
-                    }
-                }
+            for (const [key, next] of updates) {
+                value.set(key, next);
             }
-            return {
-                maxDelta,
-                policyTablesByLevelState,
-            };
+            return maxDelta;
         }
 
         function solveLevelToConvergence(
-            thresholdDollars: number,
-            isLockedAtStart: boolean,
-            regimeAtStart: number,
+            level: FundedLevel,
             cushionBucketCount: number,
             workingBucketCount: number,
-            keyFor: (
-                idleDays: number,
-                cycleBestDay: number,
-                qualifyingCycleDay: number,
-                cushionIndex: number,
-            ) => number,
-        ): CushionStartPolicyTables[][][] {
-            let policyTablesByLevelState: CushionStartPolicyTables[][][] = [];
+            keyFor: (pair: FundedPair, cushionIndex: number) => number,
+        ): void {
             let lastMaxDelta = Infinity;
             let sweepCapForThisLevel = maxIterationsPerLevel;
             for (
@@ -1654,16 +1458,12 @@ export function computeFundedStateValue(
                 iteration < sweepCapForThisLevel;
                 iteration++
             ) {
-                const result = sweepLevel(
-                    thresholdDollars,
-                    isLockedAtStart,
-                    regimeAtStart,
+                lastMaxDelta = sweepLevel(
+                    level,
                     cushionBucketCount,
                     workingBucketCount,
                     keyFor,
                 );
-                policyTablesByLevelState = result.policyTablesByLevelState;
-                lastMaxDelta = result.maxDelta;
                 if (
                     iteration === 0 &&
                     !isMaxIterationsPerLevelExplicit &&
@@ -1672,60 +1472,25 @@ export function computeFundedStateValue(
                     sweepCapForThisLevel = Math.max(
                         sweepCapForThisLevel,
                         hazardConvergenceSweepCap(
-                            result.maxDelta,
+                            lastMaxDelta,
                             convergenceTolerance,
                             mainContext.horizonHazard,
                         ),
                     );
                 }
-                if (result.maxDelta < convergenceTolerance) break;
+                if (lastMaxDelta < convergenceTolerance) break;
             }
             if (lastMaxDelta >= convergenceTolerance) unconvergedLevelCount++;
-            return policyTablesByLevelState;
         }
 
         for (let regime = payoutRegimeCap; regime >= 0; regime--) {
-            const policyTablesByLevelState = solveLevelToConvergence(
-                lockedThresholdDollars(),
-                true,
-                regime,
+            if (isLevelSkipped(mainContext, regime, true)) continue;
+            solveLevelToConvergence(
+                { isLocked: true, regime, thresholdDollars: lockedThreshold },
                 lockedCushionBucketCount,
                 lockedCushionBucketCount,
-                (idleDays, cycleBestDay, qualifyingCycleDay, index) =>
-                    lockedKey(
-                        mainContext,
-                        regime,
-                        idleDays,
-                        cycleBestDay,
-                        qualifyingCycleDay,
-                        index,
-                    ),
+                (pair, index) => lockedKey(mainContext, regime, pair, index),
             );
-            for (let idleDays = 0; idleDays < idleKeyRadix; idleDays++) {
-                for (
-                    let cycleBestDay = 0;
-                    cycleBestDay < cycleBestDayKeyRadix;
-                    cycleBestDay++
-                ) {
-                    for (
-                        let qualifyingCycleDay = 0;
-                        qualifyingCycleDay < qualifyingDayKeyRadix;
-                        qualifyingCycleDay++
-                    ) {
-                        policy.set(
-                            lockedLevelKey(
-                                regime,
-                                idleDays,
-                                cycleBestDay,
-                                qualifyingCycleDay,
-                            ),
-                            policyTablesByLevelState[idleDays]?.[
-                                cycleBestDay
-                            ]?.[qualifyingCycleDay] ?? [],
-                        );
-                    }
-                }
-            }
         }
 
         for (
@@ -1734,66 +1499,66 @@ export function computeFundedStateValue(
             offsetIndex--
         ) {
             const thresholdDollars =
-                initialThreshold + offsetIndex * mainContext.cushionStepDollars;
+                initialThreshold + offsetIndex * cushionStepDollars;
             for (let regime = payoutRegimeCap; regime >= 0; regime--) {
-                const policyTablesByLevelState = solveLevelToConvergence(
-                    thresholdDollars,
-                    false,
-                    regime,
+                if (isLevelSkipped(mainContext, regime, false)) continue;
+                solveLevelToConvergence(
+                    { isLocked: false, regime, thresholdDollars },
                     unlockedCushionBucketCount,
                     unlockedWorkingBucketCount,
-                    (idleDays, cycleBestDay, qualifyingCycleDay, index) =>
+                    (pair, index) =>
                         unlockedKey(
                             mainContext,
                             offsetIndex,
                             regime,
-                            idleDays,
-                            cycleBestDay,
-                            qualifyingCycleDay,
+                            pair,
                             index,
                         ),
                 );
-                for (let idleDays = 0; idleDays < idleKeyRadix; idleDays++) {
-                    for (
-                        let cycleBestDay = 0;
-                        cycleBestDay < cycleBestDayKeyRadix;
-                        cycleBestDay++
-                    ) {
-                        for (
-                            let qualifyingCycleDay = 0;
-                            qualifyingCycleDay < qualifyingDayKeyRadix;
-                            qualifyingCycleDay++
-                        ) {
-                            policy.set(
-                                unlockedLevelKey(
-                                    offsetIndex,
-                                    regime,
-                                    idleDays,
-                                    cycleBestDay,
-                                    qualifyingCycleDay,
-                                ),
-                                policyTablesByLevelState[idleDays]?.[
-                                    cycleBestDay
-                                ]?.[qualifyingCycleDay] ?? [],
-                            );
-                        }
-                    }
-                }
             }
         }
     } finally {
         workerPool?.terminate();
     }
 
-    const initialCushionIndex = bucketIndex(
-        mainContext,
-        drawdownAmount,
-        unlockedCushionBucketCount,
-    );
+    const startingPair: FundedPair = {
+        cycleBaseline: 0,
+        cycleBestDay: 0,
+        idleDays: 0,
+        qualifyingDays: 0,
+        ratchet: 0,
+    };
     const initialValue =
         value.get(
-            unlockedKey(mainContext, 0, 0, 0, 0, 0, initialCushionIndex),
+            unlockedKey(
+                mainContext,
+                0,
+                0,
+                startingPair,
+                bucketIndex(
+                    mainContext,
+                    drawdown.amount,
+                    unlockedCushionBucketCount,
+                ),
+            ),
         ) ?? 0;
+
+    const policyCache = new Map<number, number[][]>();
+
+    function cycleBaselineIndexFor(
+        regime: number,
+        lastPayoutBalance: number | undefined,
+    ): number {
+        if (cycleBaselineRadixAt(mainContext, regime) === 1) return 0;
+        if (lastPayoutBalance === undefined) {
+            throw new Error(
+                `${plan.label}: FundedStateValue computeRisk needs lastPayoutBalance after a payout (regime ${regime}) to find the cycle baseline the policy was solved for`,
+            );
+        }
+        return mainContext.cycleBaselineGrid.indexAtOrAbove(
+            lastPayoutBalance - mainContext.lockedPayoutFloor,
+        );
+    }
 
     function computeRisk(
         state: AccountState,
@@ -1801,76 +1566,85 @@ export function computeFundedStateValue(
         payoutsIssued?: number,
         cycleBestDayProfit?: number,
         qualifyingDaysSincePayout?: number,
+        lastPayoutBalance?: number,
     ): number {
         const regime = Math.min(payoutsIssued ?? 0, payoutRegimeCap);
-        const idleDays = plan.clampedIdleDays(state, TradingPhase.Funded);
-        const cushionDollars = state.balance - state.threshold;
-        const cycleBestDay = cycleBestDayIndex(
-            mainContext,
-            cycleBestDayProfit ?? 0,
-        );
-        const qualifyingCycleDay = Math.min(
-            qualifyingDayKeyRadix - 1,
-            Math.max(0, Math.floor(qualifyingDaysSincePayout ?? 0)),
-        );
-        const cushionAtDayStartDollars = cushionDollars - state.todayPnL;
-        if (state.thresholdLocked) {
-            const index = bucketIndex(
-                mainContext,
-                cushionDollars,
-                lockedCushionBucketCount,
-            );
-            const cushionStartIndex = mainContext.isTrackingFundedConsistency
-                ? bucketIndex(
-                      mainContext,
-                      cushionAtDayStartDollars,
-                      lockedCushionBucketCount,
-                  )
-                : 0;
-            const policyTablesByCushionStart = policy.get(
-                lockedLevelKey(
-                    regime,
-                    idleDays,
-                    cycleBestDay,
-                    qualifyingCycleDay,
-                ),
-            );
-            return (
-                policyTablesByCushionStart?.[cushionStartIndex]?.[
-                    tradeIndexToday
-                ]?.[index] ?? 0
+        if (isLevelSkipped(mainContext, regime, state.thresholdLocked)) {
+            throw new Error(
+                `${plan.label}: FundedStateValue computeRisk was asked for a ${state.thresholdLocked ? 'locked' : 'unlocked'} state after ${regime} payout(s), which this plan can never reach (the account concludes there, or a payout always locks it), so no policy was solved for it`,
             );
         }
-        const offsetIndex = bucketIndex(
-            mainContext,
-            state.threshold - initialThreshold,
-            offsetBucketCount,
-        );
-        const cushionIndex = bucketIndex(
-            mainContext,
-            cushionDollars,
-            unlockedWorkingBucketCount,
-        );
-        const cushionStartIndex = mainContext.isTrackingFundedConsistency
+        const pair: FundedPair = {
+            cycleBaseline: cycleBaselineIndexFor(regime, lastPayoutBalance),
+            cycleBestDay: cycleBestDayIndex(
+                mainContext,
+                cycleBestDayProfit ?? 0,
+            ),
+            idleDays: plan.clampedIdleDays(state, TradingPhase.Funded),
+            qualifyingDays: Math.min(
+                mainContext.qualifyingDayKeyRadix - 1,
+                Math.max(0, Math.floor(qualifyingDaysSincePayout ?? 0)),
+            ),
+            ratchet: mainContext.peakRatchet.bandOf(state.peakDayCloseProfit),
+        };
+        const cushionDollars = state.balance - state.threshold;
+        const cushionAtDayStartDollars = cushionDollars - state.todayPnL;
+        const offsetIndex = state.thresholdLocked
+            ? 0
+            : bucketIndex(
+                  mainContext,
+                  state.threshold - initialThreshold,
+                  offsetBucketCount,
+              );
+        const cushionBucketCount = state.thresholdLocked
+            ? lockedCushionBucketCount
+            : unlockedCushionBucketCount;
+        const workingBucketCount = state.thresholdLocked
+            ? lockedCushionBucketCount
+            : unlockedWorkingBucketCount;
+        const cushionStartIndex = mainContext.isSolvingPerDayStart
             ? bucketIndex(
                   mainContext,
                   cushionAtDayStartDollars,
-                  unlockedCushionBucketCount,
+                  cushionBucketCount,
               )
             : 0;
-        const policyTablesByCushionStart = policy.get(
-            unlockedLevelKey(
-                offsetIndex,
-                regime,
-                idleDays,
-                cycleBestDay,
-                qualifyingCycleDay,
-            ),
-        );
+        const level: FundedLevel = state.thresholdLocked
+            ? { isLocked: true, regime, thresholdDollars: lockedThreshold }
+            : {
+                  isLocked: false,
+                  regime,
+                  thresholdDollars:
+                      initialThreshold + offsetIndex * cushionStepDollars,
+              };
+        const cacheKey = state.thresholdLocked
+            ? lockedKey(mainContext, regime, pair, cushionStartIndex)
+            : unlockedKey(
+                  mainContext,
+                  offsetIndex,
+                  regime,
+                  pair,
+                  cushionStartIndex,
+              );
+        let policyTables = policyCache.get(cacheKey);
+        if (policyTables === undefined) {
+            policyTables = solveDayTreeOnce(
+                mainContext,
+                {
+                    ...level,
+                    ...pair,
+                    cushionAtDayStart:
+                        cushionStartIndex * mainContext.cushionStepDollars,
+                },
+                workingBucketCount,
+                true,
+            ).policyTables;
+            policyCache.set(cacheKey, policyTables);
+        }
         return (
-            policyTablesByCushionStart?.[cushionStartIndex]?.[
-                tradeIndexToday
-            ]?.[cushionIndex] ?? 0
+            policyTables[tradeIndexToday]?.[
+                bucketIndex(mainContext, cushionDollars, workingBucketCount)
+            ] ?? 0
         );
     }
 
@@ -1895,7 +1669,6 @@ export function isFundedDpEligible(plan: Plan): boolean {
         !hasPeakShareDependency(
             describeDailyLossLimit(plan.fundedDailyLossLimit),
         ) &&
-        !plan.isDailyLossLimitTerminating(TradingPhase.Funded) &&
         (plan.fundedDrawdown.lock !== undefined ||
             plan.payoutFloorEffect === PayoutFloorEffect.ReleaseFloor) &&
         !(plan.payoutCapOverride instanceof QualifyingDaysMilestonePayoutCap)
@@ -1906,10 +1679,7 @@ function tryCreateWorkerPool(
     config: FundedStateValueConfig,
     context: FundedSolveContext,
 ): FundedWorkerPool | null {
-    const totalPairs =
-        context.idleKeyRadix *
-        context.cycleBestDayKeyRadix *
-        context.qualifyingDayKeyRadix;
+    const totalPairs = maxPairCount(context);
     if (totalPairs < MIN_PARALLEL_GRID_CELLS) return null;
 
     const cores = availableParallelism();

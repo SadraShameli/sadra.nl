@@ -1,5 +1,6 @@
 import { type AccountState } from './AccountState';
 import { dollars } from './lib/units';
+import { PayoutProfitPool } from './PayoutCap';
 import { PayoutFloorEffect } from './PayoutFloorEffect';
 import { type PayoutLadder } from './PayoutTiers';
 import { type Plan } from './Plan';
@@ -55,22 +56,15 @@ export class FundedCycleTracker {
             ladderStepLookup(plan.payoutLadder, this.payoutsIssued).kind ===
                 'exhausted'
             ? 0
-            : plan.payoutFromProfit(Math.max(0, this.withdrawableNow(options)));
+            : plan.payoutFromProfit(
+                  Math.max(0, this.withdrawableNow(options)),
+                  this.payoutsIssued,
+              );
     }
 
     withdrawableNow(options: WithdrawableNowOptions): number {
         const { minRetainedCushion, plan, state } = options;
-        const prospectiveThreshold =
-            plan.payoutFloorEffect === PayoutFloorEffect.LockAtPlanFloor &&
-            !state.thresholdLocked &&
-            plan.fundedDrawdown.lock
-                ? Math.max(
-                      state.threshold,
-                      plan.fundedDrawdown.lock.lockedThreshold(
-                          state.startingBalance,
-                      ),
-                  )
-                : state.threshold;
+        const prospectiveThreshold = payoutReferenceThreshold(plan, state);
         const cushionRoom =
             state.balance -
             plan.payoutBalanceFloor(
@@ -110,6 +104,7 @@ export class FundedCycleTracker {
 
         const ladder = plan.payoutLadder;
         const cycleProfit = state.balance - this.lastPayoutBalance;
+        const poolProfit = payoutPoolProfit(plan, state, cycleProfit);
         const requiredProfit =
             this.payoutsIssued === 0
                 ? plan.minPayoutProfit
@@ -133,7 +128,7 @@ export class FundedCycleTracker {
         if (
             !hasQualifyingDays ||
             !isConsistent ||
-            cycleProfit < requiredProfit
+            poolProfit < requiredProfit
         ) {
             return null;
         }
@@ -146,11 +141,11 @@ export class FundedCycleTracker {
         if (withdrawable <= 0) return null;
 
         const debited = resolveWithdrawal({
-            cycleProfit,
             deniesIfUnaffordable: ladder?.deniesIfUnaffordable ?? false,
             ladderStep: ladderStepLookup(ladder, this.payoutsIssued),
             minRequest: ladder?.minRequestAmount ?? plan.minPayoutRequest,
             payoutRequestSize,
+            poolLimit: poolProfit,
             profitShareCap:
                 plan.payoutProfitShare === null
                     ? undefined
@@ -158,7 +153,10 @@ export class FundedCycleTracker {
             withdrawable,
         });
         if (debited === null) return null;
-        const traderReceives = plan.payoutFromProfit(debited);
+        const traderReceives = plan.payoutFromProfit(
+            debited,
+            this.payoutsIssued,
+        );
         const isCausesHardBreach =
             plan.fullWithdrawalHardBreach &&
             debited >= plan.accountProfit(state);
@@ -167,6 +165,10 @@ export class FundedCycleTracker {
         switch (plan.payoutFloorEffect) {
             case PayoutFloorEffect.LockAtPlanFloor: {
                 plan.fundedDrawdown.forceLock(state);
+                break;
+            }
+            case PayoutFloorEffect.MoveToLockedFloor: {
+                plan.fundedDrawdown.moveToLock(state);
                 break;
             }
             case PayoutFloorEffect.None: {
@@ -218,21 +220,50 @@ function ladderStepLookup(
     return { kind: 'exhausted' };
 }
 
+function payoutPoolProfit(
+    plan: Plan,
+    state: AccountState,
+    cycleProfit: number,
+): number {
+    switch (plan.payoutProfitPool) {
+        case PayoutProfitPool.AccountProfit: {
+            return plan.accountProfit(state);
+        }
+        case PayoutProfitPool.CycleProfit: {
+            return cycleProfit;
+        }
+    }
+}
+
+function payoutReferenceThreshold(plan: Plan, state: AccountState): number {
+    const effect = plan.payoutFloorEffect;
+    switch (effect) {
+        case PayoutFloorEffect.LockAtPlanFloor:
+        case PayoutFloorEffect.MoveToLockedFloor: {
+            return plan.fundedDrawdown.prospectiveLockThreshold(state, effect);
+        }
+        case PayoutFloorEffect.None:
+        case PayoutFloorEffect.ReleaseFloor: {
+            return state.threshold;
+        }
+    }
+}
+
 function resolveWithdrawal(options: {
-    cycleProfit: number;
     deniesIfUnaffordable: boolean;
     ladderStep: LadderStepLookup;
     minRequest: number;
     payoutRequestSize: number | undefined;
+    poolLimit: number;
     profitShareCap: number | undefined;
     withdrawable: number;
 }): null | number {
     const {
-        cycleProfit,
         deniesIfUnaffordable,
         ladderStep,
         minRequest,
         payoutRequestSize,
+        poolLimit,
         profitShareCap,
         withdrawable,
     } = options;
@@ -248,7 +279,7 @@ function resolveWithdrawal(options: {
         case 'no-ladder': {
             const available =
                 profitShareCap === undefined
-                    ? Math.min(cycleProfit, ceiling)
+                    ? Math.min(poolLimit, ceiling)
                     : ceiling;
             const debited =
                 payoutRequestSize === undefined

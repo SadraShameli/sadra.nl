@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    type ContractLimitConfig,
     ContractLimitKind,
+    contractLimitTierBreakpoints,
     contracts,
     dollars,
     maxContractsAt,
+    TierBasis,
 } from '~/lib/prop-calculator/core';
 import { TopStep } from '~/lib/prop-calculator/firms/topstep/TopStep';
 
@@ -54,7 +57,7 @@ describe('maxContractsAt', () => {
     });
 });
 
-describe('maxContractsAt with a session-start-frozen tier (isEffectiveNextSession)', () => {
+describe('maxContractsAt with a session-start-frozen tier (SessionOpenProfit)', () => {
     const LIVE_TIERS = {
         kind: ContractLimitKind.Tiered,
         tiers: [
@@ -64,23 +67,23 @@ describe('maxContractsAt with a session-start-frozen tier (isEffectiveNextSessio
     } as const;
 
     const OPTED_OUT_TIERS = {
-        isEffectiveNextSession: false,
         kind: ContractLimitKind.Tiered,
+        tierBasis: TierBasis.LiveProfit,
         tiers: LIVE_TIERS.tiers,
     } as const;
 
     const FROZEN_TIERS = {
-        isEffectiveNextSession: true,
         kind: ContractLimitKind.Tiered,
+        tierBasis: TierBasis.SessionOpenProfit,
         tiers: LIVE_TIERS.tiers,
     } as const;
 
-    it('ignores profitAtSessionStart entirely when the flag is unset, so every firm that has not opted in still keys its tier on live intraday balance', () => {
+    it('ignores profitAtSessionStart entirely when the basis is unset, so every firm that has not opted in still keys its tier on live intraday balance', () => {
         expect(maxContractsAt(LIVE_TIERS, 2000, 0)).toBe(5);
         expect(maxContractsAt(LIVE_TIERS, 0, 2000)).toBe(2);
     });
 
-    it('treats an explicit isEffectiveNextSession: false exactly like an unset flag', () => {
+    it('treats an explicit LiveProfit basis exactly like an unset basis', () => {
         expect(maxContractsAt(OPTED_OUT_TIERS, 2000, 0)).toBe(5);
         expect(maxContractsAt(OPTED_OUT_TIERS, 0, 2000)).toBe(2);
     });
@@ -111,6 +114,95 @@ describe('maxContractsAt with a session-start-frozen tier (isEffectiveNextSessio
 
     it('still returns null for a null config regardless of profitAtSessionStart', () => {
         expect(maxContractsAt(null, 0, 2000)).toBeNull();
+    });
+});
+
+describe('maxContractsAt with a cumulative tier (PeakSessionCloseProfit)', () => {
+    const TIERS = [
+        { maxContracts: contracts(2), minBalance: dollars(0) },
+        { maxContracts: contracts(3), minBalance: dollars(1500) },
+        { maxContracts: contracts(4), minBalance: dollars(2000) },
+    ] as const;
+
+    const CUMULATIVE: ContractLimitConfig = {
+        kind: ContractLimitKind.Tiered,
+        tierBasis: TierBasis.PeakSessionCloseProfit,
+        tiers: TIERS,
+    };
+
+    const SESSION_OPEN: ContractLimitConfig = {
+        kind: ContractLimitKind.Tiered,
+        tierBasis: TierBasis.SessionOpenProfit,
+        tiers: TIERS,
+    };
+
+    it('keeps the top tier after a pullback because a prior session closed above it', () => {
+        expect(maxContractsAt(CUMULATIVE, 1200, 1200, 2100)).toBe(4);
+    });
+
+    it('keeps the middle tier when the best close only reached the middle breakpoint', () => {
+        expect(maxContractsAt(CUMULATIVE, 1200, 1200, 1700)).toBe(3);
+    });
+
+    it('does not raise the cap on an intraday crossing that no session close has confirmed', () => {
+        expect(maxContractsAt(CUMULATIVE, 2500, 1200, 1400)).toBe(2);
+    });
+
+    it('defaults the peak to the session-open profit when the fourth argument is omitted', () => {
+        expect(maxContractsAt(CUMULATIVE, 0, 1500)).toBe(3);
+    });
+
+    it('lets a SessionOpenProfit tier fall back after a pullback, ignoring the peak', () => {
+        expect(maxContractsAt(SESSION_OPEN, 1200, 1200, 2100)).toBe(2);
+    });
+});
+
+describe('contractLimitTierBreakpoints', () => {
+    const CUMULATIVE: ContractLimitConfig = {
+        kind: ContractLimitKind.Tiered,
+        tierBasis: TierBasis.PeakSessionCloseProfit,
+        tiers: [
+            { maxContracts: contracts(4), minBalance: dollars(2000) },
+            { maxContracts: contracts(2), minBalance: dollars(0) },
+        ],
+    };
+
+    it('returns the tier thresholds when the config uses the requested basis', () => {
+        expect(
+            contractLimitTierBreakpoints(
+                CUMULATIVE,
+                TierBasis.PeakSessionCloseProfit,
+            ),
+        ).toStrictEqual([0, 2000]);
+    });
+
+    it('returns no thresholds for a different basis, a flat cap or no config', () => {
+        expect(
+            contractLimitTierBreakpoints(CUMULATIVE, TierBasis.SessionOpenProfit),
+        ).toStrictEqual([]);
+        expect(
+            contractLimitTierBreakpoints(
+                { kind: ContractLimitKind.Flat, maxContracts: contracts(4) },
+                TierBasis.LiveProfit,
+            ),
+        ).toStrictEqual([]);
+        expect(
+            contractLimitTierBreakpoints(null, TierBasis.LiveProfit),
+        ).toStrictEqual([]);
+    });
+
+    it('treats an unset basis as LiveProfit', () => {
+        expect(
+            contractLimitTierBreakpoints(
+                {
+                    kind: ContractLimitKind.Tiered,
+                    tiers: [
+                        { maxContracts: contracts(2), minBalance: dollars(0) },
+                    ],
+                },
+                TierBasis.LiveProfit,
+            ),
+        ).toStrictEqual([0]);
     });
 });
 

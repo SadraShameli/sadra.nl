@@ -26,8 +26,12 @@ function baseInputs(overrides: Partial<SimInputs> = {}): SimInputs {
 describe('simulate', () => {
     it('returns probabilities in the [0,1] range', () => {
         const out = simulate(baseInputs());
-        expect(out.passProbability).toBeGreaterThanOrEqual(0);
-        expect(out.passProbability).toBeLessThanOrEqual(1);
+        expect(out.evalPassProbability).toBeGreaterThanOrEqual(0);
+        expect(out.evalPassProbability).toBeLessThanOrEqual(1);
+        expect(out.fundedSurvivalProbability).toBeGreaterThanOrEqual(0);
+        expect(out.fundedSurvivalProbability).toBeLessThanOrEqual(
+            out.evalPassProbability,
+        );
         expect(out.bustProbability).toBeGreaterThanOrEqual(0);
         expect(out.bustProbability).toBeLessThanOrEqual(1);
     });
@@ -35,7 +39,8 @@ describe('simulate', () => {
     it('is deterministic for the same seed', () => {
         const a = simulate(baseInputs({ seed: 42 }));
         const b = simulate(baseInputs({ seed: 42 }));
-        expect(a.passProbability).toBe(b.passProbability);
+        expect(a.evalPassProbability).toBe(b.evalPassProbability);
+        expect(a.fundedSurvivalProbability).toBe(b.fundedSurvivalProbability);
         expect(a.expectancyR).toBe(b.expectancyR);
     });
 
@@ -56,7 +61,7 @@ describe('simulate', () => {
         for (const [key, value] of Object.entries(out)) {
             if (typeof value !== 'number') continue;
             if (
-                out.passProbability === 0 &&
+                out.evalPassProbability === 0 &&
                 infiniteWhenNobodyEverPasses.has(key)
             ) {
                 expect(value, `${key} was ${value}`).toBe(Infinity);

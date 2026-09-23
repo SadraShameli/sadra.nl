@@ -1,12 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    dollars,
+    fraction,
     MffuVariant,
     percent,
+    RetryKind,
     TopStepVariant,
     TRADING_DAYS_PER_MONTH,
 } from '~/lib/prop-calculator/core';
-import { RenewalCycleObjective } from '~/lib/prop-calculator/core/RenewalCycleObjective';
+import {
+    RenewalCycleObjective,
+    type RenewalCycleObjectiveInit,
+} from '~/lib/prop-calculator/core/RenewalCycleObjective';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 import { TopStep } from '~/lib/prop-calculator/firms/topstep/TopStep';
 
@@ -241,4 +247,191 @@ describe('constructor validation', () => {
                 }),
         ).toThrow();
     });
+});
+
+function feeToyPlan(fees: {
+    activation: number;
+    monthlySubscription: number;
+    oneTimeEval: number;
+    reset: number;
+    retry?: RetryKind;
+}) {
+    return oneTimeFeePlan().withOverrides({
+        bulkDiscount: { minAccounts: 5, percent: fraction(0.1) },
+        fees: {
+            activation: dollars(fees.activation),
+            monthlySubscription: dollars(fees.monthlySubscription),
+            oneTimeEval: dollars(fees.oneTimeEval),
+            reset: dollars(fees.reset),
+            retry: fees.retry,
+        },
+    });
+}
+
+function toyObjective(
+    plan: ReturnType<typeof feeToyPlan>,
+    overrides: Partial<RenewalCycleObjectiveInit> = {},
+): RenewalCycleObjective {
+    return new RenewalCycleObjective({
+        fundedHorizonDays: 252,
+        maxEvalDays: 60,
+        plan,
+        rebuyLagDays: 3,
+        ...overrides,
+    });
+}
+
+describe('retryCost prices a failed eval at the D1 retry fee, not a fresh purchase', () => {
+    it('a reset cheaper than the eval: a retry costs the $120 reset while a fresh start costs the $200 eval', () => {
+        const objective = toyObjective(
+            feeToyPlan({
+                activation: 100,
+                monthlySubscription: 0,
+                oneTimeEval: 200,
+                reset: 120,
+            }),
+        );
+        expect(objective.retryCost(0)).toBe(120);
+        expect(objective.entryCost(0)).toBe(200);
+    });
+
+    it('retryCost carries the same rebuy lag as entryCost, so their gap does not depend on the rate', () => {
+        const objective = toyObjective(
+            feeToyPlan({
+                activation: 100,
+                monthlySubscription: 0,
+                oneTimeEval: 200,
+                reset: 120,
+            }),
+        );
+        expect(objective.retryCost(5)).toBeCloseTo(120 + 5 * 3, 9);
+        expect(objective.entryCost(5) - objective.retryCost(5)).toBeCloseTo(
+            80,
+            9,
+        );
+        expect(objective.entryCost(-2) - objective.retryCost(-2)).toBeCloseTo(
+            80,
+            9,
+        );
+    });
+
+    it('a reset dearer than the re-buy retries at the cheaper re-buy price', () => {
+        const objective = toyObjective(
+            feeToyPlan({
+                activation: 0,
+                monthlySubscription: 0,
+                oneTimeEval: 200,
+                reset: 300,
+            }),
+        );
+        expect(objective.retryCost(0)).toBe(200);
+    });
+
+    it('RetryKind.Rebuy retries at the full eval price even when its reset figure is lower, so retryCost equals entryCost', () => {
+        const objective = toyObjective(
+            feeToyPlan({
+                activation: 0,
+                monthlySubscription: 0,
+                oneTimeEval: 200,
+                reset: 50,
+                retry: RetryKind.Rebuy,
+            }),
+        );
+        expect(objective.retryCost(4)).toBe(objective.entryCost(4));
+    });
+
+    it('the reset coupon discounts the retry and the eval coupon discounts the fresh start', () => {
+        const objective = toyObjective(
+            feeToyPlan({
+                activation: 0,
+                monthlySubscription: 0,
+                oneTimeEval: 200,
+                reset: 120,
+            }),
+            {
+                discounts: {
+                    activationPercent: percent(0),
+                    evalPercent: percent(25),
+                    resetPercent: percent(50),
+                },
+            },
+        );
+        expect(objective.retryCost(0)).toBe(60);
+        expect(objective.entryCost(0)).toBe(150);
+    });
+
+    it('a subscription plan whose reset equals one month retries at that month, the same as a fresh start', () => {
+        const objective = toyObjective(
+            feeToyPlan({
+                activation: 149,
+                monthlySubscription: 49,
+                oneTimeEval: 0,
+                reset: 49,
+            }),
+        );
+        expect(objective.retryCost(2)).toBe(objective.entryCost(2));
+    });
+
+    describe.each([
+        ['one-time-fee plan (MFFU Rapid EOD)', oneTimeFeePlan],
+        [
+            'monthly-subscription plan (TopStep Standard-Standard)',
+            monthlySubscriptionPlan,
+        ],
+    ] as const)('%s', (_planLabel, planFactory) => {
+        it.each([
+            ['without discounts', undefined],
+            ['with discounts', WITH_DISCOUNTS],
+        ] as const)(
+            'retryCost(0) %s equals the shared Plan.retryFee',
+            (_discountLabel, discounts) => {
+                const plan = planFactory();
+                const objective = new RenewalCycleObjective({
+                    discounts,
+                    fundedHorizonDays: 252,
+                    maxEvalDays: 60,
+                    plan,
+                    rebuyLagDays: 0,
+                });
+                expect(objective.retryCost(0)).toBe(plan.retryFee(discounts));
+            },
+        );
+    });
+});
+
+describe('copyAccounts applies the bundle discount to each fresh purchase, as the simulator does', () => {
+    const fees = {
+        activation: 100,
+        monthlySubscription: 0,
+        oneTimeEval: 200,
+        reset: 120,
+    };
+
+    it('5 copies at a 10% bundle: the fresh eval costs $180 and activation $90, the retry stays at the $120 reset', () => {
+        const objective = toyObjective(feeToyPlan(fees), { copyAccounts: 5 });
+        expect(objective.entryCost(0)).toBeCloseTo(180, 9);
+        expect(objective.activationCost()).toBeCloseTo(90, 9);
+        expect(objective.retryCost(0)).toBe(120);
+    });
+
+    it('below the bundle minimum (4 copies) nothing is discounted', () => {
+        const objective = toyObjective(feeToyPlan(fees), { copyAccounts: 4 });
+        expect(objective.entryCost(0)).toBe(200);
+        expect(objective.activationCost()).toBe(100);
+    });
+
+    it('omitting copyAccounts prices a single account', () => {
+        const objective = toyObjective(feeToyPlan(fees));
+        expect(objective.entryCost(0)).toBe(200);
+        expect(objective.activationCost()).toBe(100);
+    });
+
+    it.each([0, -1, 1.5, NaN, Infinity])(
+        'throws on copyAccounts %s',
+        (copyAccounts) => {
+            expect(() =>
+                toyObjective(feeToyPlan(fees), { copyAccounts }),
+            ).toThrow(/copyAccounts/);
+        },
+    );
 });

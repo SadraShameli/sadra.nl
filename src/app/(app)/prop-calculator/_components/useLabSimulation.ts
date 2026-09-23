@@ -3,12 +3,12 @@
 import {
     CorrelationMode,
     type MultiAccountResult,
-    percent,
     type Plan,
     type RungSizing,
     simulatePortfolio,
 } from '~/lib/prop-calculator';
 
+import { toCouponDiscounts } from './couponDiscounts';
 import { gamblersRuinAsymmetric } from './lab/labMath';
 import { type LabScenario } from './types';
 import { useDebouncedComputation } from './useDebouncedSimulation';
@@ -92,18 +92,13 @@ export function useLabSimulation(arguments_: Arguments): {
                     commissionPerRoundTrip,
                     correlation: sc.correlation,
                     dayStop: sc.dayStop,
-                    discounts: {
-                        activationPercent: percent(
-                            linkActivationDiscount
-                                ? discountPercent
-                                : activationDiscountPercent,
-                        ),
-                        evalPercent: percent(discountPercent),
-                        monthlySubscriptionPercent: percent(
-                            monthlySubscriptionDiscountPercent,
-                        ),
-                        resetPercent: percent(resetDiscountPercent),
-                    },
+                    discounts: toCouponDiscounts({
+                        activationDiscountPercent,
+                        evalDiscountPercent: discountPercent,
+                        linkActivationDiscount,
+                        monthlySubscriptionDiscountPercent,
+                        resetDiscountPercent,
+                    }),
                     fundedHorizonDays,
                     groups: sc.groups,
                     instrument: sc.instrument ?? undefined,

@@ -41,8 +41,7 @@ describe('expectedPayoutPerFundedAccount vs expectedGrossPayout', () => {
             winrate: 0.5,
         });
 
-        const reachedFundedFraction =
-            out.passProbability + out.fundedBustProbability;
+        const reachedFundedFraction = out.evalPassProbability;
         expect(reachedFundedFraction).toBeGreaterThan(0);
         expect(out.expectedPayoutPerFundedAccount).toBeCloseTo(
             out.expectedGrossPayout / reachedFundedFraction,
@@ -67,7 +66,7 @@ describe('expectedPayoutPerFundedAccount vs expectedGrossPayout', () => {
             winrate: 0,
         });
 
-        expect(out.passProbability).toBe(0);
+        expect(out.evalPassProbability).toBe(0);
         expect(out.fundedBustProbability).toBe(0);
         expect(out.expectedGrossPayout).toBe(0);
         expect(out.expectedPayoutPerFundedAccount).toBe(0);

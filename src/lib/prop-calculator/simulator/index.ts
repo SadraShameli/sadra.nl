@@ -13,7 +13,12 @@ export {
     runFundedHorizon,
     stepFundedDay,
 } from './fundedPhase';
-export { runLiveDay, runLiveHorizon, simulateLiveAccount } from './livePhase';
+export {
+    oneOffLiveCredit,
+    runLiveDay,
+    runLiveHorizon,
+    simulateLiveAccount,
+} from './livePhase';
 export {
     DrawdownTracker,
     LossStreak,
@@ -21,7 +26,8 @@ export {
     PhaseStats,
     TradeTotals,
 } from './PhaseStats';
-export { isPassingOutcome } from './trial';
+export { resolveCopyAccounts, SIM_DEFAULTS } from './SimDefaults';
+export { hasPassedEval } from './trial';
 export {
     type AttemptOutcome,
     CorrelationMode,
@@ -41,3 +47,4 @@ export {
     type SimOutputs,
     type TrialOutcome,
 } from './types';
+export { assertPositiveSafeInteger } from './validation';

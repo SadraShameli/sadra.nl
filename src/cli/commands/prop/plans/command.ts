@@ -2,7 +2,7 @@ import { defineCommand } from 'citty';
 
 import {
     describeDll,
-    describeFundedMinis,
+    describeFundedContracts,
     describeShare,
     planArguments,
     planResolver,
@@ -10,7 +10,20 @@ import {
 } from '~/cli/commands/prop/shared';
 import { ui } from '~/cli/ui';
 import { formatCurrency, formatPercent } from '~/lib/format';
-import { findFirm, type FirmId, TradingPhase } from '~/lib/prop-calculator';
+import {
+    type ContractLimits,
+    type DrawdownStrategy,
+    findFirm,
+    type FirmId,
+    type PayoutCapRegime,
+    type PayoutCapSchedule,
+    PayoutCapScheduleKind,
+    type PayoutCountTieredPayoutSplit,
+    PayoutFloorEffect,
+    type Plan,
+    PLAN_AVAILABILITY_LABEL,
+    TradingPhase,
+} from '~/lib/prop-calculator';
 
 export default defineCommand({
     args: {
@@ -49,87 +62,9 @@ export default defineCommand({
                         ui.warn(note);
                     }
                 }
-                const consistencyEval = plan.evalConsistencyRule();
-                const consistencyFunded = plan.fundedConsistencyRule();
-                const limits = plan.contractLimits;
-                const displayedDrawdown = plan.isInstantFunded
-                    ? plan.fundedDrawdown
-                    : plan.drawdown;
-
-                ui.note(
-                    `${plan.label}  --firm ${plan.id.firm} --variant ${planVariant(plan)}`,
-                );
-                ui.muted(
-                    [
-                        plan.isInstantFunded
-                            ? '    instant-funded, no evaluation phase'
-                            : `    target ${formatCurrency(plan.profitTarget)}`,
-                        `drawdown ${formatCurrency(displayedDrawdown.amount)} ${displayedDrawdown.kind}`,
-                        displayedDrawdown.lock
-                            ? `locks at +${formatCurrency(displayedDrawdown.lock.atProfit)}`
-                            : 'no lock',
-                        plan.isInstantFunded
-                            ? `min days ${plan.minTradingDays} (unused)`
-                            : `min days ${plan.minTradingDays}`,
-                    ].join(' | '),
-                );
-                ui.muted(
-                    [
-                        `    eval DLL ${plan.isInstantFunded ? 'n/a' : describeDll(plan.evalDailyLossLimit, plan.isDailyLossLimitTerminating(TradingPhase.Eval))}`,
-                        `funded DLL ${describeDll(plan.fundedDailyLossLimit, plan.isDailyLossLimitTerminating(TradingPhase.Funded))}`,
-                        `consistency eval ${plan.isInstantFunded ? 'n/a' : describeShare(consistencyEval?.maxBestDayShare)}`,
-                        `funded ${describeShare(consistencyFunded?.maxBestDayShare)}`,
-                    ].join(' | '),
-                );
-                ui.muted(
-                    [
-                        `    contracts ${plan.isInstantFunded ? 'n/a' : limits ? `${limits.evalMinis} mini / ${limits.evalMicros ?? '?'} micro` : 'not recorded'}`,
-                        `funded ${describeFundedMinis(limits?.fundedMinis ?? null)}`,
-                    ].join(' | '),
-                );
-                ui.muted(
-                    [
-                        `    fees eval ${formatCurrency(plan.fees.oneTimeEval)}`,
-                        `activation ${formatCurrency(plan.fees.activation)}`,
-                        `monthly ${formatCurrency(plan.fees.monthlySubscription)}`,
-                        `reset ${formatCurrency(plan.fees.reset)}`,
-                    ].join(' | '),
-                );
-                ui.muted(
-                    [
-                        `    payout split ${formatPercent(plan.payoutTiers[0]?.traderShare ?? 0, 0)}`,
-                        `first ${formatCurrency(plan.minPayoutProfit)}`,
-                        `min request ${formatCurrency(plan.minPayoutRequest)}`,
-                        `qualifying days ${plan.minDaysAfterPassForPayout}`,
-                        plan.minQualifyingDayProfit === null
-                            ? 'any day counts'
-                            : `winning day >= ${formatCurrency(plan.minQualifyingDayProfit)}`,
-                    ].join(' | '),
-                );
-                if (plan.payoutBuffer !== null) {
-                    ui.muted(
-                        `    payout buffer: EOD balance must clear ${formatCurrency(
-                            plan.payoutBuffer.requiredBalance(
-                                plan.accountSize,
-                                plan.fundedDrawdown.amount,
-                            ),
-                        )}`,
-                    );
-                }
-                if (plan.payoutRequestCap !== null) {
-                    ui.muted(
-                        `    per-request cap ${formatCurrency(plan.payoutRequestCap)}`,
-                    );
-                }
-                if (plan.payoutLadder) {
-                    ui.muted(
-                        `    payout ladder [${plan.payoutLadder.steps.join(', ')}] min request ${formatCurrency(plan.payoutLadder.minRequestAmount)}`,
-                    );
-                }
-                if (plan.payoutProfitShare !== null) {
-                    ui.muted(
-                        `    per-request cap ${formatPercent(plan.payoutProfitShare, 0)} of cycle profit`,
-                    );
+                ui.note(planHeadline(plan));
+                for (const line of planRuleLines(plan)) {
+                    ui.muted(line);
                 }
             }
             ui.muted(`\n${plans.length} plan(s)`);
@@ -139,3 +74,203 @@ export default defineCommand({
         }
     },
 });
+
+export function describePayoutSplit(
+    split: PayoutCountTieredPayoutSplit,
+): string {
+    const steps = split.schedule;
+    if (steps.length === 1) {
+        return formatPercent(steps[0]?.tiers[0]?.traderShare ?? 0, 0);
+    }
+    return steps
+        .map((step, index) => {
+            const share = formatPercent(step.tiers[0]?.traderShare ?? 0, 0);
+            const first = step.fromPayoutIndex + 1;
+            const next = steps[index + 1];
+            if (next === undefined) return `${share} (payout ${first}+)`;
+            const last = next.fromPayoutIndex;
+            return first === last
+                ? `${share} (payout ${first})`
+                : `${share} (payouts ${first}-${last})`;
+        })
+        .join(', ');
+}
+
+export function planHeadline(plan: Plan): string {
+    const headline = `${plan.label}  --firm ${plan.id.firm} --variant ${planVariant(plan)}`;
+    return plan.isPurchasable
+        ? headline
+        : `${headline}  [${PLAN_AVAILABILITY_LABEL[plan.availability]}]`;
+}
+
+export function planRuleLines(plan: Plan): string[] {
+    const consistencyEval = plan.evalConsistencyRule();
+    const consistencyFunded = plan.fundedConsistencyRule();
+    const limits = plan.contractLimits;
+    const evalDrawdownText = describeDrawdown(
+        plan.drawdown,
+        plan.accountSize,
+        PayoutFloorEffect.None,
+    );
+    const fundedDrawdownText = describeDrawdown(
+        plan.fundedDrawdown,
+        plan.accountSize,
+        plan.payoutFloorEffect,
+    );
+    const hasSeparateFundedDrawdown =
+        !plan.isInstantFunded && evalDrawdownText !== fundedDrawdownText;
+    const drawdownSegment = plan.isInstantFunded
+        ? `drawdown ${fundedDrawdownText}`
+        : hasSeparateFundedDrawdown
+          ? `eval drawdown ${evalDrawdownText}`
+          : `drawdown ${evalDrawdownText}`;
+    const payoutCapLine = describePayoutCapSchedule(plan.payoutCapSchedule());
+
+    return [
+        [
+            plan.isInstantFunded
+                ? '    instant-funded, no evaluation phase'
+                : `    target ${formatCurrency(plan.profitTarget)}`,
+            drawdownSegment,
+            plan.isInstantFunded
+                ? `min days ${plan.minTradingDays} (unused)`
+                : `min days ${plan.minTradingDays}`,
+        ].join(' | '),
+        ...(hasSeparateFundedDrawdown
+            ? [`    funded drawdown ${fundedDrawdownText}`]
+            : []),
+        [
+            `    eval DLL ${plan.isInstantFunded ? 'n/a' : describeDll(plan.evalDailyLossLimit, plan.isDailyLossLimitTerminating(TradingPhase.Eval))}`,
+            `funded DLL ${describeDll(plan.fundedDailyLossLimit, plan.isDailyLossLimitTerminating(TradingPhase.Funded))}`,
+            `consistency eval ${plan.isInstantFunded ? 'n/a' : describeShare(consistencyEval?.maxBestDayShare)}`,
+            `funded ${describeShare(consistencyFunded?.maxBestDayShare)}`,
+        ].join(' | '),
+        [
+            `    contracts ${plan.isInstantFunded ? 'n/a' : limits ? `${limits.evalMinis} mini / ${limits.evalMicros ?? '?'} micro` : 'not recorded'}`,
+            `funded ${describeFundedLimits(limits)}`,
+        ].join(' | '),
+        [
+            `    fees eval ${formatCurrency(plan.fees.oneTimeEval)}`,
+            `activation ${formatCurrency(plan.fees.activation)}`,
+            `monthly ${formatCurrency(plan.fees.monthlySubscription)}`,
+            `reset ${formatCurrency(plan.fees.reset)}`,
+        ].join(' | '),
+        [
+            `    payout split ${describePayoutSplit(plan.payoutSplit)}`,
+            `first ${formatCurrency(plan.minPayoutProfit)}`,
+            ...(plan.minPayoutProfitPerCycle === null
+                ? []
+                : [
+                      `per cycle ${formatGateAmount(plan.minPayoutProfitPerCycle)}`,
+                  ]),
+            `min request ${formatCurrency(plan.minPayoutRequest)}`,
+            `qualifying days ${plan.minDaysAfterPassForPayout}`,
+            plan.minQualifyingDayProfit === null
+                ? 'any day counts'
+                : `winning day >= ${formatCurrency(plan.minQualifyingDayProfit)}`,
+        ].join(' | '),
+        ...(plan.payoutBuffer === null
+            ? []
+            : [
+                  `    payout buffer: EOD balance must clear ${formatCurrency(
+                      plan.payoutBuffer.requiredBalance(
+                          plan.accountSize,
+                          plan.fundedDrawdown.amount,
+                      ),
+                  )}`,
+              ]),
+        ...(payoutCapLine === null ? [] : [payoutCapLine]),
+        ...(plan.payoutLadder
+            ? [
+                  `    payout ladder [${plan.payoutLadder.steps.join(', ')}] min request ${formatCurrency(plan.payoutLadder.minRequestAmount)}`,
+              ]
+            : []),
+        ...(plan.payoutProfitShare === null
+            ? []
+            : [
+                  `    per-request cap ${formatPercent(plan.payoutProfitShare, 0)} of cycle profit`,
+              ]),
+    ];
+}
+
+function describeDrawdown(
+    drawdown: DrawdownStrategy,
+    startingBalance: number,
+    payoutFloorEffect: PayoutFloorEffect,
+): string {
+    const base = `${formatCurrency(drawdown.amount)} ${drawdown.kind}`;
+    const lock = drawdown.lock;
+    if (lock === undefined) {
+        return `${base}, no lock${describePayoutFloorEffect(payoutFloorEffect)}`;
+    }
+    const lockFloor = describeLockFloor(
+        lock.lockedThreshold(startingBalance) - startingBalance,
+    );
+    return lock.atProfit === null
+        ? `${base}, locks on first payout to ${lockFloor}`
+        : `${base}, locks at +${formatCurrency(lock.atProfit)} to ${lockFloor}${describePayoutFloorEffect(payoutFloorEffect)}`;
+}
+
+function describeFundedLimits(limits: ContractLimits | null): string {
+    return limits === null ||
+        (limits.fundedMinis === null && limits.fundedMicros === null)
+        ? 'unpublished'
+        : `${describeFundedContracts(limits.fundedMinis, 'mini')} / ${describeFundedContracts(limits.fundedMicros, 'micro')}`;
+}
+
+function describeLockFloor(offset: number): string {
+    if (offset === 0) return 'breakeven';
+    return offset > 0
+        ? `+${formatCurrency(offset)}`
+        : `-${formatCurrency(-offset)}`;
+}
+
+function describePayoutCapRegime(regime: PayoutCapRegime): string {
+    const parts = [
+        regime.balanceShareCap === null
+            ? null
+            : `${formatPercent(regime.balanceShareCap, 0)} of total profit`,
+        regime.requestCap === null
+            ? null
+            : `max ${formatCurrency(regime.requestCap)} per request`,
+    ].filter((part) => part !== null);
+    return parts.length === 0 ? 'uncapped' : parts.join(', ');
+}
+
+function describePayoutCapSchedule(schedule: PayoutCapSchedule): null | string {
+    switch (schedule.kind) {
+        case PayoutCapScheduleKind.ByPayoutCount: {
+            return `    payout cap by payout: ${schedule.steps.map((step) => `#${step.from + 1}+ ${describePayoutCapRegime(step.regime)}`).join(' | ')}`;
+        }
+        case PayoutCapScheduleKind.ByQualifyingDays: {
+            return `    payout cap by qualifying days: ${schedule.steps.map((step) => `day ${step.from}+ ${describePayoutCapRegime(step.regime)}`).join(' | ')}`;
+        }
+        case PayoutCapScheduleKind.Flat: {
+            return schedule.regime.balanceShareCap === null &&
+                schedule.regime.requestCap === null
+                ? null
+                : `    payout cap ${describePayoutCapRegime(schedule.regime)}`;
+        }
+    }
+}
+
+function describePayoutFloorEffect(effect: PayoutFloorEffect): string {
+    switch (effect) {
+        case PayoutFloorEffect.LockAtPlanFloor: {
+            return ' or on 1st payout';
+        }
+        case PayoutFloorEffect.MoveToLockedFloor: {
+            return ', moved there exactly on 1st payout';
+        }
+        case PayoutFloorEffect.None: {
+            return '';
+        }
+        case PayoutFloorEffect.ReleaseFloor: {
+            return ', floor reset to breakeven on each payout';
+        }
+    }
+}
+
+function formatGateAmount(amount: number): string {
+    return formatCurrency(amount, Number.isSafeInteger(amount) ? 0 : 2);
+}

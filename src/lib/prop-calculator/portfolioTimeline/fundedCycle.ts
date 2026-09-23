@@ -1,4 +1,5 @@
 import {
+    assertPositiveSafeInteger,
     newPhaseStats,
     type PayoutSink,
     runEvalWithRetries,
@@ -7,7 +8,6 @@ import {
 } from '../simulator';
 import {
     type CardResult,
-    DEFAULT_MAX_PAYOUTS_PER_CARD,
     type EvalToFundedCycleOptions,
     type PayoutEvent,
 } from './types';
@@ -33,7 +33,6 @@ export function runEvalToFundedCycle(
         idleDayProbability,
         maxEvalDays,
         maxFundedDays,
-        maxPayoutsPerCard = DEFAULT_MAX_PAYOUTS_PER_CARD,
         minRetainedCushion,
         payoutRequestSize,
         plan,
@@ -43,9 +42,8 @@ export function runEvalToFundedCycle(
         rungSizing,
         winrate,
     } = options;
-    const safeMaxEvalDays = Math.max(1, Math.floor(maxEvalDays));
+    assertPositiveSafeInteger(maxEvalDays, 'maxEvalDays');
     const safeMaxFundedDays = Math.max(0, Math.floor(maxFundedDays));
-    const payoutCap = Math.max(0, Math.floor(maxPayoutsPerCard));
 
     const totals = new TradeTotals();
     const retryResult = runEvalWithRetries({
@@ -54,7 +52,7 @@ export function runEvalToFundedCycle(
         discounts,
         idleDayProbability,
         maxAttempts: MAX_EVAL_ATTEMPTS_PER_CARD,
-        maxEvalDays: safeMaxEvalDays,
+        maxEvalDays,
         plan,
         positionSizing,
         rng,
@@ -95,7 +93,7 @@ export function runEvalToFundedCycle(
         equityCurve: null,
         idleDayProbability,
         maxDays: safeMaxFundedDays,
-        maxPayouts: payoutCap,
+        maxPayouts: Infinity,
         minRetainedCushion,
         payoutRequestSize,
         plan,

@@ -7,13 +7,16 @@ import { Card } from '~/components/ui/Card';
 import InfoPopover from '~/components/ui/InfoPopover';
 import { Input } from '~/components/ui/Input';
 import { formatCompactCurrency, formatPercent } from '~/lib/format';
-import { type SimInputs } from '~/lib/prop-calculator';
-import { clamp, median } from '~/lib/prop-calculator/stats';
+import { type SimInputs, TRADING_DAYS_PER_YEAR } from '~/lib/prop-calculator';
+import { median } from '~/lib/prop-calculator/stats';
 import { cn } from '~/lib/utilities';
 
+import { cashFlowRoiOnSpend } from './cashFlowRoi';
 import BreakevenMonthHistogramView from './charts/BreakevenMonthHistogramView';
 import CashFlowBandChartView from './charts/CashFlowBandChartView';
 import CashFlowPaybackChartView from './charts/CashFlowPaybackChartView';
+import { clampInt } from './clamp';
+import { KPI_ACCENT_TEXT_CLASS } from './kpiAccent';
 import StatCard from './StatCard';
 import {
     CASH_FLOW_MAX_TRADES_PER_DAY,
@@ -22,13 +25,15 @@ import {
 
 interface CashFlowPanelProperties {
     baseInputs: SimInputs;
+    firmDisplayName: string;
+    maxAccounts: number;
 }
 
 const HORIZON_OPTIONS = [
-    { days: 126, label: '6 months' },
-    { days: 252, label: '1 year' },
-    { days: 504, label: '2 years' },
-    { days: 756, label: '3 years' },
+    { days: TRADING_DAYS_PER_YEAR / 2, label: '6 months' },
+    { days: TRADING_DAYS_PER_YEAR, label: '1 year' },
+    { days: TRADING_DAYS_PER_YEAR * 2, label: '2 years' },
+    { days: TRADING_DAYS_PER_YEAR * 3, label: '3 years' },
 ] as const;
 
 const DEFAULT_ACCOUNTS = 5;
@@ -38,7 +43,11 @@ const DEFAULT_TRIALS = 150;
 const MAX_TRIALS = 300;
 const MIN_TRIALS = 25;
 
-export default function CashFlowPanel({ baseInputs }: CashFlowPanelProperties) {
+export default function CashFlowPanel({
+    baseInputs,
+    firmDisplayName,
+    maxAccounts,
+}: CashFlowPanelProperties) {
     const {
         commissionPerRoundTrip,
         dayStop,
@@ -60,10 +69,17 @@ export default function CashFlowPanel({ baseInputs }: CashFlowPanelProperties) {
     const [trials, setTrials] = useState(DEFAULT_TRIALS);
 
     const horizon = HORIZON_OPTIONS[horizonIndex] ?? HORIZON_OPTIONS[0];
+    const accountCap = Math.min(MAX_ACCOUNTS, maxAccounts);
+    const effectiveAccounts = clampInt(
+        accounts,
+        MIN_ACCOUNTS,
+        accountCap,
+        MIN_ACCOUNTS,
+    );
 
     const { effectiveTradesPerDay, isTradesPerDayCapped, pending, result } =
         useCashFlowSimulation({
-            accounts,
+            accounts: effectiveAccounts,
             commissionPerRoundTrip,
             dayBudget: horizon.days,
             dayStop,
@@ -91,7 +107,7 @@ export default function CashFlowPanel({ baseInputs }: CashFlowPanelProperties) {
         result && result.breakEvenMonthValues.length > 0
             ? median(result.breakEvenMonthValues)
             : null;
-    const roiOnSpend = finalSpend50 > 0 ? finalNet50 / finalSpend50 : 0;
+    const roiOnSpend = cashFlowRoiOnSpend(finalNet50, finalSpend50);
 
     return (
         <Card className={cn('app-prop-calculator__cash-flow', 'px-5 py-5')}>
@@ -106,10 +122,11 @@ export default function CashFlowPanel({ baseInputs }: CashFlowPanelProperties) {
                         resets), then — once funded — cycle through the payout
                         ladder with qualifying days, the safety net, and the
                         consistency rule all enforced, repeating for every new
-                        card bought after an account closes or busts. The shaded
-                        band shows the P10–P90 spread of cumulative net (payouts
-                        − spend) across simulated trials; the bold line is the
-                        median.
+                        card bought after an account closes or busts. It never
+                        holds more funded accounts at once than the firm allows
+                        on this plan. The shaded band shows the P10–P90 spread
+                        of cumulative net (payouts − spend) across simulated
+                        trials; the bold line is the median.
                     </InfoPopover>
                 </div>
                 <div className="flex gap-2">
@@ -137,25 +154,26 @@ export default function CashFlowPanel({ baseInputs }: CashFlowPanelProperties) {
                             className="mb-1 block text-[11px] text-muted-foreground"
                             htmlFor="cash-flow-accounts"
                         >
-                            Accounts (max {MAX_ACCOUNTS})
+                            Accounts (max {accountCap})
                         </label>
                         <Input
                             className="h-7 w-20 text-xs"
                             id="cash-flow-accounts"
-                            max={MAX_ACCOUNTS}
+                            max={accountCap}
                             min={MIN_ACCOUNTS}
                             onChange={(event) =>
                                 setAccounts(
-                                    clamp(
+                                    clampInt(
                                         Number(event.target.value),
                                         MIN_ACCOUNTS,
-                                        MAX_ACCOUNTS,
+                                        accountCap,
+                                        MIN_ACCOUNTS,
                                     ),
                                 )
                             }
                             step={1}
                             type="number"
-                            value={accounts}
+                            value={effectiveAccounts}
                         />
                     </div>
                     <div>
@@ -172,10 +190,11 @@ export default function CashFlowPanel({ baseInputs }: CashFlowPanelProperties) {
                             min={MIN_TRIALS}
                             onChange={(event) =>
                                 setTrials(
-                                    clamp(
+                                    clampInt(
                                         Number(event.target.value),
                                         MIN_TRIALS,
                                         MAX_TRIALS,
+                                        MIN_TRIALS,
                                     ),
                                 )
                             }
@@ -190,6 +209,13 @@ export default function CashFlowPanel({ baseInputs }: CashFlowPanelProperties) {
                             : 'independent of the global trial/account settings above'}
                     </span>
                 </div>
+
+                {maxAccounts < MAX_ACCOUNTS && (
+                    <p className="text-[11px] text-muted-foreground">
+                        {firmDisplayName} allows at most {maxAccounts} funded
+                        account(s) at once on this plan
+                    </p>
+                )}
 
                 {isTradesPerDayCapped && (
                     <p className="text-[11px] text-amber-400">
@@ -249,11 +275,9 @@ export default function CashFlowPanel({ baseInputs }: CashFlowPanelProperties) {
                     <StatCard
                         label="ROI on spend"
                         sub="median final net ÷ median spend"
-                        value={formatPercent(roiOnSpend)}
+                        value={roiOnSpend.text}
                         valueClassName={
-                            roiOnSpend >= 0
-                                ? 'text-emerald-400'
-                                : 'text-rose-400'
+                            KPI_ACCENT_TEXT_CLASS[roiOnSpend.accent]
                         }
                     />
                 </div>
@@ -262,9 +286,9 @@ export default function CashFlowPanel({ baseInputs }: CashFlowPanelProperties) {
                     <>
                         <CashFlowBandChartView result={result} />
                         <p className="text-[11px] text-muted-foreground">
-                            {trials} trials × {accounts} accounts ·{' '}
-                            {effectiveTradesPerDay} trades/day · shaded band:
-                            P10–P90 · bold line: median net
+                            {trials} trials × {result.accountsSimulated}{' '}
+                            accounts · {effectiveTradesPerDay} trades/day ·
+                            shaded band: P10–P90 · bold line: median net
                         </p>
 
                         <div className="grid gap-4 md:grid-cols-2">

@@ -45,7 +45,7 @@ describe('costPerFundedAccount / costPerDrawdownDollar', () => {
             winrate: 1,
         });
 
-        expect(out.passProbability).toBe(1);
+        expect(out.evalPassProbability).toBe(1);
         const evalPrice = plan.fees.activation + plan.fees.oneTimeEval;
         expect(out.costPerFundedAccount).toBeCloseTo(evalPrice, 10);
         expect(out.costPerDrawdownDollar).toBeCloseTo(
@@ -54,7 +54,7 @@ describe('costPerFundedAccount / costPerDrawdownDollar', () => {
         );
     });
 
-    it('matches evalPrice * (1/passRate) for a real registered plan with a partial pass rate', () => {
+    it('divides the eval fee by the eval pass rate and adds the activation fee once (D1), for a real plan with a partial pass rate', () => {
         const plan = planFor({
             accountSize: 50_000,
             firm: FirmId.Apex,
@@ -75,17 +75,25 @@ describe('costPerFundedAccount / costPerDrawdownDollar', () => {
             winrate: 0.5,
         });
 
-        expect(out.passProbability).toBeGreaterThan(0);
-        expect(out.passProbability).toBeLessThan(1);
+        expect(out.evalPassProbability).toBeGreaterThan(0);
+        expect(out.evalPassProbability).toBeLessThan(1);
+        expect(out.fundedSurvivalProbability).toBeLessThan(
+            out.evalPassProbability,
+        );
 
-        const evalPrice = plan.fees.activation + plan.fees.oneTimeEval;
-        const expectedCost = evalPrice * (1 / out.passProbability);
+        const expectedCost =
+            plan.fees.oneTimeEval / out.evalPassProbability +
+            plan.fees.activation;
         expect(out.costPerFundedAccount).toBeCloseTo(expectedCost, 6);
         expect(out.costPerDrawdownDollar).toBeCloseTo(
             expectedCost / plan.fundedDrawdown.amount,
             6,
         );
-        expect(out.costPerFundedAccount).toBeGreaterThan(evalPrice);
+        expect(out.costPerFundedAccount).not.toBeCloseTo(
+            (plan.fees.oneTimeEval + plan.fees.activation) /
+                out.fundedSurvivalProbability,
+            0,
+        );
     });
 });
 
@@ -117,7 +125,7 @@ describe('costPerFundedAccount on a subscription-priced plan (no activation, no 
                 winrate: 0.45,
             });
 
-            expect(out.passProbability).toBeGreaterThan(0);
+            expect(out.evalPassProbability).toBeGreaterThan(0);
             expect(out.costPerFundedAccount).toBeGreaterThan(0);
             expect(out.costPerFundedAccount).toBeGreaterThanOrEqual(
                 plan.fees.monthlySubscription,

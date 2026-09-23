@@ -15,6 +15,7 @@ import {
     MffuVariant,
     PayoutFloorEffect,
     profitShareMultiplier,
+    TierBasis,
     TopStepVariant,
     TradeifyVariant,
     TradingPhase,
@@ -981,8 +982,8 @@ describe('Topstep 50K parameters (help.topstep.com)', () => {
             expect(target.contractLimits?.evalMinis).toBe(5);
             expect(target.contractLimits?.evalMicros).toBe(50);
             expect(target.contractLimits?.fundedMinis).toStrictEqual({
-                isEffectiveNextSession: true,
                 kind: ContractLimitKind.Tiered,
+                tierBasis: TierBasis.SessionOpenProfit,
                 tiers: [
                     { maxContracts: 2, minBalance: 0 },
                     { maxContracts: 3, minBalance: 1500 },

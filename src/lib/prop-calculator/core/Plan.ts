@@ -8,36 +8,63 @@ import {
     ConsistencyScope,
     ConsistencyViolationEffect,
 } from './ConsistencyRule';
-import { ContractLimitKind, type ContractLimits } from './ContractLimits';
+import {
+    ContractLimitKind,
+    type ContractLimits,
+    contractLimitTierBreakpoints,
+} from './ContractLimits';
 import {
     DailyLossLimitBreachEffect,
     type DailyLossLimitConfig,
     type DailyLossLimitContext,
     DailyLossLimitKind,
+    dailyLossLimitTierBreakpoints,
     resolveDailyLossLimit,
 } from './DailyLossLimit';
+import { resolveAffordableRisk } from './DayPolicy';
 import { type DrawdownStrategy } from './DrawdownStrategy';
 import {
     type CouponDiscounts,
     type FeeSchedule,
     feesUntilPass,
+    retryFee,
     totalFees,
 } from './FeeSchedule';
 import {
     type Dollars,
     dollars,
     type Fraction0to1,
+    percent,
     type ProfitShareMultiplier,
 } from './lib/units';
 import { type PayoutBuffer } from './PayoutBuffer';
-import { type PayoutCapRegime, type PayoutCapStrategy } from './PayoutCap';
-import { PayoutFloorEffect } from './PayoutFloorEffect';
 import {
+    FlatPayoutCap,
+    type PayoutCapRegime,
+    type PayoutCapSchedule,
+    type PayoutCapStrategy,
+    PayoutProfitPool,
+} from './PayoutCap';
+import {
+    isPayoutLockEffect,
+    PayoutFloorEffect,
+    payoutFloorEffectName,
+} from './PayoutFloorEffect';
+import {
+    type PayoutCountSplitTier,
+    PayoutCountTieredPayoutSplit,
     type PayoutLadder,
     type PayoutTier,
+    scalePayoutTiers,
     walkPayoutTiers,
 } from './PayoutTiers';
+import { PlanAvailability } from './PlanAvailability';
 import { type PlanId } from './PlanId';
+import {
+    TierBasis,
+    tierBreakpoints,
+    type TierProfitContext,
+} from './TierBasis';
 import { TradingPhase } from './TradingPhase';
 
 export interface ConsistencyLadder {
@@ -49,6 +76,7 @@ export type ConsistencyOverride =
 
 export interface PlanInit {
     accountSize: Dollars;
+    availability?: PlanAvailability;
     bulkDiscount?: { minAccounts: number; percent: Fraction0to1 };
     consistency: ConsistencyRule | null;
     contractLimits?: ContractLimits;
@@ -85,14 +113,20 @@ export interface PlanInit {
     payoutFloorEffect?: PayoutFloorEffect;
     payoutLadder?: null | PayoutLadder;
     payoutMethodFee?: Dollars;
+    payoutProfitPool?: PayoutProfitPool;
     payoutProfitShare?: ProfitShareMultiplier;
     payoutRequestCap?: Dollars;
     payoutTiers: readonly PayoutTier[];
+    payoutTiersFromPayout?: readonly PayoutCountSplitTier[];
     profitTarget: Dollars;
 }
 
 export abstract class Plan {
+    private readonly payoutCap: PayoutCapStrategy;
+
     readonly accountSize: Dollars;
+
+    readonly availability: PlanAvailability;
 
     readonly bulkDiscount: null | {
         minAccounts: number;
@@ -161,9 +195,13 @@ export abstract class Plan {
 
     readonly payoutMethodFee: Dollars;
 
+    readonly payoutProfitPool: PayoutProfitPool;
+
     readonly payoutProfitShare: null | ProfitShareMultiplier;
 
     readonly payoutRequestCap: Dollars | null;
+
+    readonly payoutSplit: PayoutCountTieredPayoutSplit;
 
     readonly payoutTiers: readonly PayoutTier[];
 
@@ -171,6 +209,7 @@ export abstract class Plan {
 
     constructor(protected readonly init: PlanInit) {
         this.accountSize = init.accountSize;
+        this.availability = init.availability ?? PlanAvailability.Purchasable;
         this.bulkDiscount = init.bulkDiscount ?? null;
         this.consistency = init.consistency;
         this.contractLimits = init.contractLimits ?? null;
@@ -293,11 +332,29 @@ export abstract class Plan {
             init.payoutFloorEffect ?? PayoutFloorEffect.None;
 
         if (
-            this.payoutFloorEffect === PayoutFloorEffect.LockAtPlanFloor &&
+            isPayoutLockEffect(this.payoutFloorEffect) &&
             this.fundedDrawdown.lock === undefined
         ) {
             throw new Error(
-                `${this.label}: payoutFloorEffect is LockAtPlanFloor but fundedDrawdown has no lock config`,
+                `${this.label}: payoutFloorEffect is ${payoutFloorEffectName(this.payoutFloorEffect)} but fundedDrawdown has no lock config`,
+            );
+        }
+
+        if (
+            this.fundedDrawdown.lock?.atProfit === null &&
+            this.payoutFloorEffect !== PayoutFloorEffect.MoveToLockedFloor
+        ) {
+            throw new Error(
+                `${this.label}: fundedDrawdown lock has no profit trigger, so only payoutFloorEffect MoveToLockedFloor can ever fire it`,
+            );
+        }
+
+        if (
+            this.drawdown !== this.fundedDrawdown &&
+            this.drawdown.lock?.atProfit === null
+        ) {
+            throw new Error(
+                `${this.label}: evaluation drawdown lock has no profit trigger and can never fire, since no payout happens in evaluation`,
             );
         }
 
@@ -312,8 +369,25 @@ export abstract class Plan {
         }
 
         this.payoutMethodFee = init.payoutMethodFee ?? dollars(0);
+        this.payoutProfitPool =
+            init.payoutProfitPool ?? PayoutProfitPool.CycleProfit;
         this.payoutProfitShare = init.payoutProfitShare ?? null;
+
+        if (
+            this.payoutProfitPool === PayoutProfitPool.AccountProfit &&
+            this.payoutProfitShare !== null
+        ) {
+            throw new Error(
+                `${this.label}: payoutProfitShare makes payoutProfitPool AccountProfit dead; set only one`,
+            );
+        }
         this.payoutRequestCap = init.payoutRequestCap ?? null;
+        this.payoutCap =
+            this.payoutCapOverride ??
+            new FlatPayoutCap({
+                balanceShareCap: this.payoutBalanceShareCap,
+                requestCap: this.payoutRequestCap,
+            });
 
         if (
             this.payoutRequestCap !== null &&
@@ -328,21 +402,53 @@ export abstract class Plan {
         if (this.payoutTiers.length === 0) {
             throw new Error(`${this.label}: payoutTiers must not be empty`);
         }
+        assertDistinctThresholds(
+            this.payoutTiers,
+            `${this.label}: payoutTiers`,
+        );
 
-        const seenThresholds = new Set<number>();
-        for (const tier of this.payoutTiers) {
-            if (seenThresholds.has(tier.thresholdProfit)) {
+        if (init.payoutTiersFromPayout?.length === 0) {
+            throw new Error(
+                `${this.label}: payoutTiersFromPayout must not be empty`,
+            );
+        }
+        const laterSplits = init.payoutTiersFromPayout ?? [];
+        for (const entry of laterSplits) {
+            if (entry.fromPayoutIndex < 1) {
                 throw new Error(
-                    `${this.label}: payoutTiers has more than one tier at thresholdProfit ${tier.thresholdProfit}`,
+                    `${this.label}: payoutTiersFromPayout entries must start at payout index 1 or later (index 0 is payoutTiers), got ${entry.fromPayoutIndex}`,
                 );
             }
-            seenThresholds.add(tier.thresholdProfit);
+            const owner = `${this.label}: payoutTiersFromPayout entry at payout index ${entry.fromPayoutIndex}`;
+            if (entry.tiers.length === 0) {
+                throw new Error(`${owner} must not be empty`);
+            }
+            assertDistinctThresholds(entry.tiers, owner);
         }
+        this.payoutSplit = new PayoutCountTieredPayoutSplit([
+            { fromPayoutIndex: 0, tiers: this.payoutTiers },
+            ...laterSplits,
+        ]);
         this.profitTarget = init.profitTarget;
+    }
+
+    get isPurchasable(): boolean {
+        return this.availability === PlanAvailability.Purchasable;
     }
 
     accountProfit(state: AccountState): number {
         return state.balance - state.startingBalance;
+    }
+
+    affordableRisk(state: AccountState, phase: TradingPhase): number {
+        return resolveAffordableRisk(
+            state.balance - state.threshold,
+            resolveDailyLossLimit(
+                this.dailyLossLimitFor(phase),
+                this.dailyLossLimitContext(state),
+            ),
+            state.todayPnL,
+        );
     }
 
     beginFundedPhase(state: AccountState): void {
@@ -399,6 +505,30 @@ export abstract class Plan {
         return feesUntilPass(this.init.fees, daysToPass, discounts);
     }
 
+    purchaseDiscounts(
+        discounts: CouponDiscounts | undefined,
+        accountCount: number,
+    ): CouponDiscounts | undefined {
+        const bundle = this.bulkDiscount;
+        if (bundle === null || accountCount < bundle.minAccounts) {
+            return discounts;
+        }
+        const bundledAccounts =
+            bundle.minAccounts * Math.floor(accountCount / bundle.minAccounts);
+        return {
+            activationPercent: discounts?.activationPercent ?? percent(0),
+            evalPercent: discounts?.evalPercent ?? percent(0),
+            ...discounts,
+            bundlePercent: percent(
+                (bundle.percent * 100 * bundledAccounts) / accountCount,
+            ),
+        };
+    }
+
+    retryFee(discounts?: CouponDiscounts): number {
+        return retryFee(this.init.fees, discounts);
+    }
+
     initialState(): AccountState {
         return createInitialState(
             this.init.accountSize,
@@ -408,9 +538,54 @@ export abstract class Plan {
 
     dailyLossLimitContext(state: AccountState): DailyLossLimitContext {
         return {
+            ...this.tierProfitContext(state),
             isThresholdLocked: state.thresholdLocked,
+        };
+    }
+
+    fundedContractTierBreakpoints(
+        basis: TierBasis,
+        isMicro: boolean,
+    ): readonly number[] {
+        return contractLimitTierBreakpoints(
+            (isMicro
+                ? this.contractLimits?.fundedMicros
+                : this.contractLimits?.fundedMinis) ?? null,
+            basis,
+        );
+    }
+
+    fundedDailyLossLimitTierBreakpoints(basis: TierBasis): readonly number[] {
+        return dailyLossLimitTierBreakpoints(this.fundedDailyLossLimit, basis);
+    }
+
+    peakSessionCloseBreakpoints(
+        phase: TradingPhase,
+        contractsAreMicro: boolean | null,
+    ): readonly number[] {
+        const dailyLossLimitBreakpoints = dailyLossLimitTierBreakpoints(
+            this.dailyLossLimitFor(phase),
+            TierBasis.PeakSessionCloseProfit,
+        );
+        const contractBreakpoints =
+            contractsAreMicro !== null && phase === TradingPhase.Funded
+                ? this.fundedContractTierBreakpoints(
+                      TierBasis.PeakSessionCloseProfit,
+                      contractsAreMicro,
+                  )
+                : [];
+        return tierBreakpoints([
+            ...dailyLossLimitBreakpoints,
+            ...contractBreakpoints,
+        ]).filter((breakpoint) => breakpoint > 0);
+    }
+
+    tierProfitContext(state: AccountState): TierProfitContext {
+        const profit = this.profitFor(state);
+        return {
             peakDayCloseProfit: state.peakDayCloseProfit,
-            profit: this.profitFor(state),
+            profit,
+            sessionOpenProfit: profit - state.todayPnL,
         };
     }
 
@@ -514,6 +689,16 @@ export abstract class Plan {
         return dollars(Math.max(requested ?? floor, floor));
     }
 
+    canLeaveBalanceAbovePayoutFloor(): boolean {
+        return (
+            this.payoutLadder !== null ||
+            this.payoutRequestCap !== null ||
+            this.payoutBalanceShareCap !== null ||
+            this.payoutCapOverride !== null ||
+            this.payoutProfitShare !== null
+        );
+    }
+
     payoutBalanceFloor(
         state: AccountState,
         minRetainedCushion: number,
@@ -530,8 +715,15 @@ export abstract class Plan {
               );
     }
 
-    payoutFromProfit(fundedProfit: number): number {
-        const gross = walkPayoutTiers(this.init.payoutTiers, fundedProfit);
+    payoutCapSchedule(): PayoutCapSchedule {
+        return this.payoutCap.describe();
+    }
+
+    payoutFromProfit(fundedProfit: number, payoutIndex: number): number {
+        const gross = walkPayoutTiers(
+            this.payoutSplit.tiersFor(payoutIndex),
+            fundedProfit,
+        );
         return Math.max(0, gross - this.payoutMethodFee);
     }
 
@@ -539,15 +731,10 @@ export abstract class Plan {
         state: AccountState,
         payoutsIssued: number,
     ): PayoutCapRegime {
-        return this.payoutCapOverride === null
-            ? {
-                  balanceShareCap: this.payoutBalanceShareCap,
-                  requestCap: this.payoutRequestCap,
-              }
-            : this.payoutCapOverride.resolve({
-                  cumulativeQualifyingDays: state.qualifyingDays,
-                  payoutsIssued,
-              });
+        return this.payoutCap.resolve({
+            cumulativeQualifyingDays: state.qualifyingDays,
+            payoutsIssued,
+        });
     }
 
     evalDayCap(requestedDays: number): number {
@@ -558,6 +745,18 @@ export abstract class Plan {
 
     withOverrides(overrides: Partial<PlanInit>): Plan {
         return new VariantPlan({ ...this.init, ...overrides });
+    }
+
+    withScaledTraderShare(factor: Fraction0to1): Plan {
+        return this.withOverrides({
+            payoutTiers: scalePayoutTiers(this.init.payoutTiers, factor),
+            payoutTiersFromPayout: this.init.payoutTiersFromPayout?.map(
+                (entry) => ({
+                    ...entry,
+                    tiers: scalePayoutTiers(entry.tiers, factor),
+                }),
+            ),
+        });
     }
 
     withMaxLifetimePayouts(maxLifetimePayouts: null | number): Plan {
@@ -579,3 +778,18 @@ export abstract class Plan {
 }
 
 class VariantPlan extends Plan {}
+
+function assertDistinctThresholds(
+    tiers: readonly PayoutTier[],
+    owner: string,
+): void {
+    const seenThresholds = new Set<number>();
+    for (const tier of tiers) {
+        if (seenThresholds.has(tier.thresholdProfit)) {
+            throw new Error(
+                `${owner} has more than one tier at thresholdProfit ${tier.thresholdProfit}`,
+            );
+        }
+        seenThresholds.add(tier.thresholdProfit);
+    }
+}

@@ -1,5 +1,7 @@
 export type DeltaKind = 'currency' | 'days' | 'number' | 'percent' | 'r';
 
+export const NOT_APPLICABLE = 'n/a';
+
 export function formatCompactCurrency(n: number): string {
     const abs = Math.abs(n);
     const sign = n < 0 ? '-' : '';
@@ -56,6 +58,19 @@ export function formatDelta(
         }
     }
     return { positive: diff > 0, text };
+}
+
+export function formatFiniteCurrency(n: number, fractionDigits = 0): string {
+    return Number.isFinite(n)
+        ? formatCurrency(n, fractionDigits)
+        : NOT_APPLICABLE;
+}
+
+export function formatOptionalPercent(
+    p: null | number,
+    fractionDigits = 1,
+): string {
+    return p === null ? NOT_APPLICABLE : formatPercent(p, fractionDigits);
 }
 
 export function formatPercent(p: number, fractionDigits = 1): string {

@@ -1,8 +1,17 @@
+export interface Estimate {
+    standardError: number;
+    value: number;
+}
+
 export interface HistogramBin {
     binCenter: number;
     binEnd: number;
     binStart: number;
     count: number;
+}
+
+export function binomialStandardError(p: number, n: number): number {
+    return n <= 0 ? 0 : Math.sqrt((p * (1 - p)) / n);
 }
 
 export function clamp(x: number, lo: number, hi: number): number {
@@ -60,6 +69,16 @@ export function mean(xs: readonly number[]): number {
     return sum / xs.length;
 }
 
+export function meanStandardError(
+    sum: number,
+    squaredSum: number,
+    n: number,
+): number {
+    if (n < 2) return 0;
+    const variance = (squaredSum - (sum * sum) / n) / (n - 1);
+    return variance <= 0 ? 0 : Math.sqrt(variance / n);
+}
+
 export function median(xs: readonly number[]): number {
     if (xs.length === 0) return 0;
     const sorted = xs.toSorted((a, b) => a - b);
@@ -82,6 +101,30 @@ export function percentile(xs: readonly number[], p: number): number {
     const loValue = sorted[lo] ?? 0;
     const hiValue = sorted[hi] ?? 0;
     return loValue + (hiValue - loValue) * (rank - lo);
+}
+
+export function propagatedStandardError(
+    f: (values: readonly number[]) => number,
+    estimates: readonly Estimate[],
+): number {
+    const center = estimates.map((estimate) => estimate.value);
+    let variance = 0;
+    for (const [index, estimate] of estimates.entries()) {
+        const step = Math.min(
+            estimate.standardError,
+            Math.abs(estimate.value) / 2,
+        );
+        if (!(step > 0)) continue;
+        const shifted = (offset: number) =>
+            f(
+                center.map((value, position) =>
+                    position === index ? value + offset : value,
+                ),
+            );
+        const slope = (shifted(step) - shifted(-step)) / (2 * step);
+        variance += (slope * estimate.standardError) ** 2;
+    }
+    return Math.sqrt(variance);
 }
 
 export function standardDeviation(array: readonly number[]): number {

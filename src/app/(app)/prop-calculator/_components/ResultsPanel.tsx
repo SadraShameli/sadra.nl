@@ -11,12 +11,22 @@ import {
     formatCurrency,
     formatDays,
     formatDelta,
+    formatFiniteCurrency,
+    formatOptionalPercent,
     formatPercent,
     formatStreak,
 } from '~/lib/format';
 import { type Plan, type SimOutputs } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
+import { describeFirstPayoutGate } from './firstPayoutGate';
+import {
+    KPI_ACCENT_TEXT_CLASS,
+    KpiAccent,
+    probabilityAccent,
+    roiAccent,
+    signAccent,
+} from './kpiAccent';
 import { kpiDescriptions } from './kpiDescriptions';
 
 interface CostBreakdownBodyProperties {
@@ -30,7 +40,7 @@ interface DeltaChip {
 }
 
 interface KpiProperties {
-    accent?: 'negative' | 'neutral' | 'positive';
+    accent?: KpiAccent;
     delta?: DeltaChip | null;
     info: { body: React.ReactNode; title: string };
     label: string;
@@ -55,8 +65,19 @@ export default function ResultsPanel({
     plan,
     result,
 }: ResultsPanelProperties) {
-    const dPass = pinned
-        ? formatDelta(result.passProbability, pinned.passProbability, 'percent')
+    const dEvalPass = pinned
+        ? formatDelta(
+              result.evalPassProbability,
+              pinned.evalPassProbability,
+              'percent',
+          )
+        : null;
+    const dFundedSurvival = pinned
+        ? formatDelta(
+              result.fundedSurvivalProbability,
+              pinned.fundedSurvivalProbability,
+              'percent',
+          )
         : null;
     const dCost = pinned
         ? formatDelta(
@@ -91,25 +112,12 @@ export default function ResultsPanel({
               text: dDays.text,
           }
         : null;
-    const passAccent: KpiProperties['accent'] =
-        result.passProbability >= 0.6
-            ? 'positive'
-            : result.passProbability < 0.3
-              ? 'negative'
-              : 'neutral';
-    const netAccent: KpiProperties['accent'] =
-        result.expectedMonthlyNet > 0
-            ? 'positive'
-            : result.expectedMonthlyNet < 0
-              ? 'negative'
-              : 'neutral';
-
-    const roiAccent: KpiProperties['accent'] =
-        result.roiOnCost.value > 0
-            ? 'positive'
-            : result.roiOnCost.value < 0
-              ? 'negative'
-              : 'neutral';
+    const evalPassAccent = probabilityAccent(result.evalPassProbability);
+    const fundedSurvivalAccent = probabilityAccent(
+        result.fundedSurvivalProbability,
+    );
+    const netAccent = signAccent(result.expectedMonthlyNet);
+    const roiOnCostAccent = roiAccent(result.roiOnCost);
     const isShowCycleEconomics = result.expectedAttempts > 1.01;
 
     return (
@@ -158,15 +166,21 @@ export default function ResultsPanel({
                 </Eyebrow>
                 <div className="grid grid-cols-2 gap-3">
                     <Kpi
-                        accent={passAccent}
-                        delta={dPass}
+                        accent={evalPassAccent}
+                        delta={dEvalPass}
                         info={{
                             body: (
                                 <>
-                                    <p>{kpiDescriptions.passProbability}</p>
+                                    <p>{kpiDescriptions.evalPass}</p>
                                     <p className="mt-2 font-mono text-xs">
-                                        {formatPercent(result.passProbability)}{' '}
-                                        passed ·{' '}
+                                        {formatPercent(
+                                            result.evalPassProbability,
+                                        )}{' '}
+                                        eval pass ·{' '}
+                                        {formatPercent(
+                                            result.fundedSurvivalProbability,
+                                        )}{' '}
+                                        funded survive ·{' '}
                                         {formatPercent(
                                             result.fundedBustProbability,
                                         )}{' '}
@@ -180,19 +194,23 @@ export default function ResultsPanel({
                                     </p>
                                 </>
                             ),
-                            title: 'Pass probability',
+                            title: 'Eval pass',
                         }}
-                        label="Pass probability"
+                        label="Eval pass"
                         sub={`${formatPercent(result.bustProbability)} bust · ${formatPercent(result.timeoutProbability)} timeout`}
-                        value={formatPercent(result.passProbability)}
+                        value={formatPercent(result.evalPassProbability)}
                     />
                     <Kpi
+                        accent={fundedSurvivalAccent}
+                        delta={dFundedSurvival}
                         info={{
                             body: (
                                 <>
-                                    <p>{kpiDescriptions.reachedFunded}</p>
+                                    <p>{kpiDescriptions.fundedSurvival}</p>
                                     <p className="mt-2 font-mono text-xs">
-                                        {formatPercent(result.passProbability)}{' '}
+                                        {formatPercent(
+                                            result.fundedSurvivalProbability,
+                                        )}{' '}
                                         survived ·{' '}
                                         {formatPercent(
                                             result.fundedBustProbability,
@@ -201,14 +219,11 @@ export default function ResultsPanel({
                                     </p>
                                 </>
                             ),
-                            title: 'Reached funded',
+                            title: 'Funded survive',
                         }}
-                        label="Reached funded"
+                        label="Funded survive"
                         sub={`${formatPercent(result.fundedBustProbability)} busted after funding`}
-                        value={formatPercent(
-                            result.passProbability +
-                                result.fundedBustProbability,
-                        )}
+                        value={formatPercent(result.fundedSurvivalProbability)}
                     />
                     <Kpi
                         delta={dDaysInverted}
@@ -250,7 +265,7 @@ export default function ResultsPanel({
                             title: 'First payout',
                         }}
                         label="First payout"
-                        sub={`${plan.minDaysAfterPassForPayout}d min · ${formatCompactCurrency(plan.minPayoutProfit)} buffer`}
+                        sub={describeFirstPayoutGate(plan)}
                         value={
                             result.expectedFirstPayoutDay > 0
                                 ? `day ${result.expectedFirstPayoutDay.toFixed(0)}`
@@ -318,8 +333,8 @@ export default function ResultsPanel({
                     <Kpi
                         accent={
                             result.bustProbability > 0.4
-                                ? 'negative'
-                                : 'neutral'
+                                ? KpiAccent.Negative
+                                : KpiAccent.Neutral
                         }
                         info={{
                             body: <p>{kpiDescriptions.riskOfRuin}</p>,
@@ -332,8 +347,8 @@ export default function ResultsPanel({
                     <Kpi
                         accent={
                             result.risk5LossesPercent > 0.5
-                                ? 'negative'
-                                : 'neutral'
+                                ? KpiAccent.Negative
+                                : KpiAccent.Neutral
                         }
                         info={{
                             body: <p>{kpiDescriptions.risk5Losses}</p>,
@@ -348,14 +363,14 @@ export default function ResultsPanel({
                         value={formatPercent(result.risk5LossesPercent)}
                     />
                     <Kpi
-                        accent={roiAccent}
+                        accent={roiOnCostAccent}
                         info={{
                             body: <p>{kpiDescriptions.roiOnCost}</p>,
                             title: 'ROI on cost',
                         }}
                         label="ROI on cost"
                         sub={`net ${formatCurrency(result.expectedNet)} / cost`}
-                        value={formatPercent(result.roiOnCost.value)}
+                        value={formatOptionalPercent(result.roiOnCost.value)}
                     />
                     <Kpi
                         info={{
@@ -493,12 +508,6 @@ function CostBreakdownBody({ plan, result }: CostBreakdownBodyProperties) {
                     : formatCurrency(activationDiscounted),
         });
     }
-    if (callback.monthlySubsTotal > 0) {
-        rows.push({
-            label: 'Monthly subs',
-            value: formatCurrency(callback.monthlySubsTotal),
-        });
-    }
     if (callback.resetFeesTotal > 0) {
         rows.push({
             label: 'Reset fees',
@@ -525,6 +534,18 @@ function CostBreakdownBody({ plan, result }: CostBreakdownBodyProperties) {
                         <span>Total avg</span>
                         <span>{formatCurrency(result.expectedTotalCost)}</span>
                     </div>
+                    {callback.monthlySubsTotal > 0 && (
+                        <div className="mt-0.5 flex items-center justify-between gap-3 border-t border-border/40 pt-1">
+                            <span className="text-muted-foreground">
+                                Monthly subs per funded acct
+                            </span>
+                            <span className="text-foreground">
+                                {formatFiniteCurrency(
+                                    callback.monthlySubsTotal,
+                                )}
+                            </span>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
         </div>
@@ -532,19 +553,14 @@ function CostBreakdownBody({ plan, result }: CostBreakdownBodyProperties) {
 }
 
 function Kpi({
-    accent = 'neutral',
+    accent = KpiAccent.Neutral,
     delta,
     info,
     label,
     sub,
     value,
 }: KpiProperties) {
-    const accentClass =
-        accent === 'positive'
-            ? 'text-emerald-400'
-            : accent === 'negative'
-              ? 'text-rose-400'
-              : 'text-foreground';
+    const accentClass = KPI_ACCENT_TEXT_CLASS[accent];
     const deltaClass =
         delta?.positive === true
             ? 'text-emerald-400'

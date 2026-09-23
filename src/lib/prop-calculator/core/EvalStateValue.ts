@@ -43,6 +43,7 @@ export interface EvalStateValueConfig {
     readonly rrRatio: number;
     readonly rungSizing?: RungSizing;
     readonly stopRule?: DayStopRule;
+    readonly terminalValueAtFail?: number;
     readonly terminalValueAtPass?: number;
     readonly tradesPerDay?: number;
     readonly winrate: Fraction0to1;
@@ -60,6 +61,7 @@ interface OuterState {
     readonly day: number;
     readonly idleDays: number;
     readonly isLocked: boolean;
+    readonly peakBand: number;
     readonly thresholdOffset: number;
     readonly tradingDays: number;
 }
@@ -67,8 +69,30 @@ interface OuterState {
 const DEFAULT_ACTION_STEP_DOLLARS = 50;
 const DEFAULT_CUSHION_STEP_DOLLARS = 100;
 const DEFAULT_PROFIT_STEP_DOLLARS = 300;
+const DEFAULT_TERMINAL_VALUE_AT_FAIL = 0;
 const DEFAULT_TERMINAL_VALUE_AT_PASS = 1;
 const DEFAULT_TRADES_PER_DAY = 4;
+const BUCKET_EPSILON = 1e-9;
+
+export class PeakRatchet {
+    readonly radix: number;
+
+    constructor(private readonly breakpoints: readonly number[]) {
+        this.radix = breakpoints.length + 1;
+    }
+
+    bandOf(peakDayCloseProfit: number): number {
+        let band = 0;
+        for (const breakpoint of this.breakpoints) {
+            if (breakpoint <= peakDayCloseProfit + BUCKET_EPSILON) band++;
+        }
+        return band;
+    }
+
+    peakAt(band: number): number {
+        return band === 0 ? 0 : (this.breakpoints[band - 1] ?? 0);
+    }
+}
 
 export function computeEvalStateValue(
     config: EvalStateValueConfig,
@@ -76,7 +100,7 @@ export function computeEvalStateValue(
     const { plan } = config;
     if (!isEvalDpEligible(plan)) {
         throw new Error(
-            `${plan.label}: not eligible for EvalStateValue DP (call isEvalDpEligible first) — either its eval drawdown is intraday-trailing or its eval daily loss limit depends on peak-day-close profit`,
+            `${plan.label}: not eligible for EvalStateValue DP (call isEvalDpEligible first): either its eval drawdown is intraday-trailing or its eval daily loss limit scales continuously with peak-day-close profit (PeakProfitShare)`,
         );
     }
 
@@ -108,6 +132,8 @@ export function computeEvalStateValue(
         1,
         Math.floor(config.tradesPerDay ?? DEFAULT_TRADES_PER_DAY),
     );
+    const terminalValueAtFail =
+        config.terminalValueAtFail ?? DEFAULT_TERMINAL_VALUE_AT_FAIL;
     const terminalValueAtPass =
         config.terminalValueAtPass ?? DEFAULT_TERMINAL_VALUE_AT_PASS;
     const positionSizing = config.positionSizing ?? null;
@@ -154,6 +180,9 @@ export function computeEvalStateValue(
     const idleKeyRadix =
         (plan.maxConsecutiveIdleDaysFor(TradingPhase.Eval) ?? 0) + 1;
     const tradingKeyRadix = plan.minTradingDays + 1;
+    const peakRatchet = new PeakRatchet(
+        plan.peakSessionCloseBreakpoints(TradingPhase.Eval, null),
+    );
 
     function outerKey(state: OuterState): number {
         const cushionIndex = Math.round(state.cushion / cushionStepDollars);
@@ -162,7 +191,7 @@ export function computeEvalStateValue(
         );
         const bestDayIndex = Math.round(state.bestDay / profitStepDollars);
         return (
-            (((((state.day * cushionKeyRadix + cushionIndex) *
+            ((((((state.day * cushionKeyRadix + cushionIndex) *
                 profitLikeKeyRadix +
                 offsetIndex) *
                 profitLikeKeyRadix +
@@ -171,6 +200,8 @@ export function computeEvalStateValue(
                 state.idleDays) *
                 tradingKeyRadix +
                 state.tradingDays) *
+                peakRatchet.radix +
+                state.peakBand) *
                 2 +
             (state.isLocked ? 1 : 0)
         );
@@ -195,14 +226,20 @@ export function computeEvalStateValue(
             : capRiskToContractLimit(action, positionSizing, contractLimit);
     }
 
-    function computeCandidateRisks(cushionNow: number): number[] {
+    const candidateRisksByBudget = new Map<number, readonly number[]>();
+
+    function candidateRisks(budget: number): readonly number[] {
+        const cached = candidateRisksByBudget.get(budget);
+        if (cached !== undefined) return cached;
         const risks = new Set<number>([0]);
         for (const action of actionGrid) {
             const capped = applyContractCap(action);
-            const risk = resolveTradeRisk(capped, cushionNow, rungSizing);
+            const risk = resolveTradeRisk(capped, budget, rungSizing);
             risks.add(Math.max(0, risk));
         }
-        return [...risks];
+        const computed = [...risks];
+        candidateRisksByBudget.set(budget, computed);
+        return computed;
     }
 
     function cushionBucketIndex(cushion: number): number {
@@ -210,14 +247,20 @@ export function computeEvalStateValue(
         return Math.min(cushionBucketCount - 1, Math.max(0, raw));
     }
 
-    const candidateRisksByCushionIndex: readonly (readonly number[])[] =
-        Array.from({ length: cushionBucketCount }, (_, index) =>
-            computeCandidateRisks(index * cushionStepDollars),
-        );
-
-    function candidateRisks(cushionNow: number): readonly number[] {
-        return (
-            candidateRisksByCushionIndex[cushionBucketIndex(cushionNow)] ?? [0]
+    function risksAt(
+        dayStartState: AccountState,
+        cushionNow: number,
+        pnlSoFarNow: number,
+    ): readonly number[] {
+        return candidateRisks(
+            plan.affordableRisk(
+                {
+                    ...dayStartState,
+                    balance: dayStartState.threshold + cushionNow,
+                    todayPnL: pnlSoFarNow,
+                },
+                TradingPhase.Eval,
+            ),
         );
     }
 
@@ -235,6 +278,7 @@ export function computeEvalStateValue(
         bestDay: number;
         cushion: number;
         idleDays: number;
+        peakBand: number;
         thresholdOffset: number;
         tradingDays: number;
     } {
@@ -250,6 +294,7 @@ export function computeEvalStateValue(
                 cushionStepDollars,
             ),
             idleDays: plan.clampedIdleDays(state, TradingPhase.Eval),
+            peakBand: peakRatchet.bandOf(state.peakDayCloseProfit),
             thresholdOffset: state.thresholdLocked
                 ? 0
                 : floorStep(
@@ -277,7 +322,7 @@ export function computeEvalStateValue(
         };
         drawdown.onDayClose(state);
         plan.recordDayClosePeak(state);
-        if (plan.isBust(state, TradingPhase.Eval)) return 0;
+        if (plan.isBust(state, TradingPhase.Eval)) return terminalValueAtFail;
 
         const idleDaysAtEnd = wasIdleToday
             ? dayStartState.consecutiveIdleDays + 1
@@ -289,7 +334,7 @@ export function computeEvalStateValue(
             maxConsecutiveIdleDays !== null &&
             idleDaysAtEnd >= maxConsecutiveIdleDays
         ) {
-            return 0;
+            return terminalValueAtFail;
         }
         state.consecutiveIdleDays = idleDaysAtEnd;
 
@@ -304,6 +349,7 @@ export function computeEvalStateValue(
             bestDay: bestDayNext,
             cushion: cushionNext,
             idleDays: idleDaysNext,
+            peakBand: peakBandNext,
             thresholdOffset: thresholdOffsetNext,
             tradingDays: tradingDaysNext,
         } = bucketOuterState(state, state.balance - state.threshold);
@@ -314,6 +360,7 @@ export function computeEvalStateValue(
             day: day + 1,
             idleDays: idleDaysNext,
             isLocked: state.thresholdLocked,
+            peakBand: peakBandNext,
             thresholdOffset: thresholdOffsetNext,
             tradingDays: tradingDaysNext,
         });
@@ -328,14 +375,14 @@ export function computeEvalStateValue(
         day: number,
         nextTable: readonly number[],
     ): number {
-        if (cushionExact <= 0) return 0;
+        if (cushionExact <= 0) return terminalValueAtFail;
         const state: AccountState = {
             ...dayStartState,
             balance: dayStartState.threshold + cushionExact,
             todayPnL: pnlSoFarExact,
         };
         drawdown.onTrade(state, pnlDelta);
-        if (plan.isBust(state, TradingPhase.Eval)) return 0;
+        if (plan.isBust(state, TradingPhase.Eval)) return terminalValueAtFail;
         if (plan.isDayLockedOut(state, TradingPhase.Eval)) {
             return onDayComplete(
                 cushionExact,
@@ -395,10 +442,11 @@ export function computeEvalStateValue(
         tradeIndex: number,
         nextTable: readonly number[],
         stopValue: number,
+        risksAtCushionNow: readonly number[],
     ): { bestAction: number; bestValue: number } {
         let bestValue = -Infinity;
         let bestAction = 0;
-        for (const risk of candidateRisks(cushionNow)) {
+        for (const risk of risksAtCushionNow) {
             const value =
                 risk <= 0
                     ? tradeIndex === 0
@@ -447,6 +495,18 @@ export function computeEvalStateValue(
             },
         );
 
+        const risksByIndex = Array.from(
+            { length: cushionBucketCount },
+            (_, index) => {
+                const cushionNow = index * cushionStepDollars;
+                return risksAt(
+                    dayStartState,
+                    cushionNow,
+                    cushionNow - cushionAtDayStart,
+                );
+            },
+        );
+
         let nextTable: number[] = stopTable;
         const policyTables: number[][] = [];
         for (let tradeIndex = slots - 1; tradeIndex >= 0; tradeIndex--) {
@@ -469,6 +529,7 @@ export function computeEvalStateValue(
                     tradeIndex,
                     nextTable,
                     stopTable[index] ?? 0,
+                    risksByIndex[index] ?? [0],
                 );
                 currentTable[index] = bestValue;
                 currentPolicy[index] = bestAction;
@@ -490,6 +551,7 @@ export function computeEvalStateValue(
             day,
             idleDays,
             isLocked,
+            peakBand,
             thresholdOffset,
             tradingDays,
         } = outerState;
@@ -497,8 +559,8 @@ export function computeEvalStateValue(
         const cached = memo.get(key);
         if (cached !== undefined) return cached;
         if (day >= dayCap) {
-            memo.set(key, 0);
-            return 0;
+            memo.set(key, terminalValueAtFail);
+            return terminalValueAtFail;
         }
 
         const threshold = resolveThreshold(isLocked, thresholdOffset);
@@ -507,7 +569,7 @@ export function computeEvalStateValue(
             bestDayProfit: bestDay,
             consecutiveIdleDays: idleDays,
             elapsedDays: day,
-            peakDayCloseProfit: 0,
+            peakDayCloseProfit: peakRatchet.peakAt(peakBand),
             qualifyingDays: 0,
             startingBalance: plan.accountSize,
             threshold,
@@ -539,6 +601,7 @@ export function computeEvalStateValue(
         day: 0,
         idleDays: 0,
         isLocked: false,
+        peakBand: 0,
         thresholdOffset: 0,
         tradingDays: 0,
     });
@@ -551,6 +614,7 @@ export function computeEvalStateValue(
             bestDay: bestDayBucket,
             cushion: cushionBucket,
             idleDays: idleDaysBucket,
+            peakBand: peakBandBucket,
             thresholdOffset: thresholdOffsetBucket,
             tradingDays: tradingDaysBucket,
         } = bucketOuterState(state, cushionAtDayStart);
@@ -560,6 +624,7 @@ export function computeEvalStateValue(
             day,
             idleDays: idleDaysBucket,
             isLocked: state.thresholdLocked,
+            peakBand: peakBandBucket,
             thresholdOffset: thresholdOffsetBucket,
             tradingDays: tradingDaysBucket,
         });

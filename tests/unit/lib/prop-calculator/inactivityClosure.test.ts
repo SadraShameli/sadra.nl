@@ -376,7 +376,7 @@ describe('simulate(): inactivity closure is visible as its own SimOutputs stat',
         expect(
             out.bustProbability +
                 out.timeoutProbability +
-                out.passProbability +
+                out.fundedSurvivalProbability +
                 out.fundedBustProbability,
         ).toBeCloseTo(1, 9);
     });

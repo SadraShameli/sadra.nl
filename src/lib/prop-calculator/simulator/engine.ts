@@ -1,17 +1,27 @@
 import { TRADING_DAYS_PER_MONTH } from '../core/constants';
 import { DEFAULT_RUNG_SIZING } from '../core/DayPolicy';
-import { type CouponDiscounts } from '../core/FeeSchedule';
+import {
+    activationFee,
+    type FeeSchedule,
+    initialEvalFee,
+    monthlySubscriptionFee,
+} from '../core/FeeSchedule';
 import { dollars, fraction } from '../core/lib/units';
 import { type Plan } from '../core/Plan';
 import { resolvePositionSizing } from '../core/PositionSizing';
-import { replacementEconomics } from '../core/Replacement';
+import {
+    replacementEconomics,
+    type ReplacementInputs,
+} from '../core/Replacement';
 import { totalRoiOnCost } from '../core/Roi';
 import { TradingPhase } from '../core/TradingPhase';
 import { deriveSubSeed, mulberry32 } from '../rng';
 import { percentile } from '../stats';
 import { resolveDayPolicy } from './day';
-import { isPassingOutcome, simulateTrial } from './trial';
+import { resolveCopyAccounts, SIM_DEFAULTS } from './SimDefaults';
+import { hasPassedEval, simulateTrial } from './trial';
 import {
+    type AtLeastProbabilities,
     CorrelationMode,
     type CostBreakdown,
     type MultiAccountResult,
@@ -21,30 +31,33 @@ import {
     type TrialOutcome,
     type TrialResult,
 } from './types';
+import { assertPositiveSafeInteger } from './validation';
 
 const SAMPLE_CURVE_COUNT = 50;
 
 export function simulate(inputs: SimInputs): SimOutputs {
     const {
-        commissionPerRoundTrip = 0,
-        copyAccounts = 1,
+        commissionPerRoundTrip = SIM_DEFAULTS.commissionPerRoundTrip,
+        copyAccounts,
         discounts,
         fundedHorizonDays,
         idleDayProbability,
         instrument,
         intradayPathStepsPerR,
-        maxAttempts = 1,
+        maxAttempts = SIM_DEFAULTS.maxAttempts,
         maxEvalDays,
         minRetainedCushion,
         payoutRequestSize,
         plan,
-        riskPerTrade,
         rrRatio,
         rungSizing = DEFAULT_RUNG_SIZING,
         seed,
         stopPoints,
         trials,
     } = inputs;
+    assertPositiveSafeInteger(trials, 'trials');
+    assertPositiveSafeInteger(maxEvalDays, 'maxEvalDays');
+    assertPositiveSafeInteger(maxAttempts, 'maxAttempts');
     const commission = dollars(commissionPerRoundTrip);
     const cushion = plan.resolveRetainedCushion(minRetainedCushion);
     const requestSize =
@@ -55,7 +68,11 @@ export function simulate(inputs: SimInputs): SimOutputs {
     const rebuyLagDays = resolveRebuyLagDays(inputs.rebuyLagDays);
     const evalDayPolicy = resolveDayPolicy(inputs, TradingPhase.Eval);
     const fundedDayPolicy = resolveDayPolicy(inputs, TradingPhase.Funded);
-    const accountMultiplier = Math.max(1, Math.floor(copyAccounts));
+    const accountMultiplier = resolveCopyAccounts(copyAccounts);
+    const purchaseDiscounts = plan.purchaseDiscounts(
+        discounts,
+        accountMultiplier,
+    );
     const positionSizing = resolvePositionSizing(instrument, stopPoints);
     const rng = mulberry32(seed);
 
@@ -66,14 +83,14 @@ export function simulate(inputs: SimInputs): SimOutputs {
         trialResults.push(
             simulateTrial({
                 commission,
-                discounts,
+                discounts: purchaseDiscounts,
                 evalDayPolicy,
                 fundedDayPolicy,
                 fundedHorizonDays,
                 fundedRrRatio: inputs.fundedRrRatio,
                 idleDayProbability,
                 intradayPathStepsPerR,
-                maxAttempts: Math.max(1, maxAttempts),
+                maxAttempts,
                 maxEvalDays,
                 minRetainedCushion: cushion,
                 payoutRequestSize: requestSize,
@@ -99,8 +116,7 @@ export function simulate(inputs: SimInputs): SimOutputs {
     let costSum = 0;
     let payoutSum = 0;
     let payoutCountSum = 0;
-    let failDaysSum = 0;
-    let failDaysCount = 0;
+    let failedAttemptDaysSum = 0;
     let dayElapsedSum = 0;
     let daysToPassSum = 0;
     let firstPayoutSum = 0;
@@ -110,6 +126,7 @@ export function simulate(inputs: SimInputs): SimOutputs {
     let passingTradesSum = 0;
     let passingTrialsCount = 0;
     let tradesTakenSum = 0;
+    let riskTakenSum = 0;
     let had5LossCount = 0;
     let had10LossCount = 0;
     let inactivityClosureCount = 0;
@@ -120,6 +137,7 @@ export function simulate(inputs: SimInputs): SimOutputs {
     const maxDrawdowns: number[] = [];
     const maxLosingStreaks: number[] = [];
     const daysToPassArray: number[] = [];
+    const failedAttemptDaysArray: number[] = [];
     const attemptsArray: number[] = [];
     const grossSpendArray: number[] = [];
 
@@ -131,16 +149,14 @@ export function simulate(inputs: SimInputs): SimOutputs {
         payoutSum += r.grossPayout;
         payoutCountSum += r.payoutCount;
         dayElapsedSum += r.daysElapsed;
-        if (r.outcome === 'bust-eval' || r.outcome === 'timeout-eval') {
-            failDaysSum += r.daysElapsed;
-            failDaysCount += 1;
-        }
+        failedAttemptDaysSum += r.evalDays - (r.daysToPass ?? 0);
         if (r.daysToPass !== null) {
             daysToPassSum += r.daysToPass;
             daysToPassArray.push(r.daysToPass);
         }
-        if (r.firstPayoutDay !== null && isPassingOutcome(r.outcome)) {
-            firstPayoutSum += r.firstPayoutDay;
+        if (r.firstPayoutDay !== null) {
+            firstPayoutSum +=
+                r.firstPayoutDay + rebuyLagDays * (r.attemptsUsed - 1);
             firstPayoutCount += 1;
         }
         if (r.equityCurve) sampleEquityCurves.push(r.equityCurve);
@@ -150,7 +166,8 @@ export function simulate(inputs: SimInputs): SimOutputs {
         grossWinsSum += r.grossWins;
         grossLossesSum += r.grossLosses;
         tradesTakenSum += r.tradesTaken;
-        if (isPassingOutcome(r.outcome)) {
+        riskTakenSum += r.riskTaken;
+        if (hasPassedEval(r.outcome)) {
             passingTradesSum += r.evalTradesAtPass;
             passingTrialsCount += 1;
         }
@@ -160,23 +177,22 @@ export function simulate(inputs: SimInputs): SimOutputs {
         attemptsSum += r.attemptsUsed;
         attemptsArray.push(r.attemptsUsed);
         resetFeesSum += r.resetFeesPaid;
+        failedAttemptDaysArray.push(...r.failedAttemptDays);
         grossSpendArray.push(r.totalCost);
     }
 
-    const passes = counts['pass-clean'];
-    const totalTrials = trials || 1;
-    const passProbability = passes / totalTrials;
     const reachedFundedCount = counts['pass-clean'] + counts['bust-funded'];
-    const expectedDaysPerTrial = dayElapsedSum / totalTrials || 1;
-    const expectedNet = netSum / totalTrials;
-    const expectedHorizonCredit = creditSum / totalTrials;
-    const expectedTotalCost = costSum / totalTrials;
-    const expectedGrossPayout = payoutSum / totalTrials;
-    const expectedPayoutCount = payoutCountSum / totalTrials;
+    const evalPassProbability = reachedFundedCount / trials;
+    const fundedSurvivalProbability = counts['pass-clean'] / trials;
+    const expectedNet = netSum / trials;
+    const expectedHorizonCredit = creditSum / trials;
+    const expectedTotalCost = costSum / trials;
+    const expectedGrossPayout = payoutSum / trials;
+    const expectedPayoutCount = payoutCountSum / trials;
     const expectedPayoutPerFundedAccount =
         reachedFundedCount > 0 ? payoutSum / reachedFundedCount : 0;
     const slotDaysPerTrial =
-        (dayElapsedSum + rebuyLagDays * attemptsSum) / totalTrials || 1;
+        (dayElapsedSum + rebuyLagDays * attemptsSum) / trials || 1;
     const expectedMonthlyNet = monthlyNetPerSlot(
         expectedNet + expectedHorizonCredit,
         slotDaysPerTrial,
@@ -186,7 +202,10 @@ export function simulate(inputs: SimInputs): SimOutputs {
         tradesTakenSum > 0
             ? (grossWinsSum - grossLossesSum) / tradesTakenSum
             : 0;
-    const expectancyR = riskPerTrade > 0 ? expectancyDollars / riskPerTrade : 0;
+    const averageRiskPerTrade =
+        tradesTakenSum > 0 ? riskTakenSum / tradesTakenSum : 0;
+    const expectancyR =
+        averageRiskPerTrade > 0 ? expectancyDollars / averageRiskPerTrade : 0;
     const profitFactor =
         grossLossesSum > 0
             ? grossWinsSum / grossLossesSum
@@ -197,51 +216,49 @@ export function simulate(inputs: SimInputs): SimOutputs {
         passingTrialsCount > 0 ? passingTradesSum / passingTrialsCount : 0;
     const roiOnCost = totalRoiOnCost(expectedNet, expectedTotalCost);
 
-    const avgDaysForCost =
-        daysToPassArray.length > 0
-            ? daysToPassSum / daysToPassArray.length
-            : expectedDaysPerTrial;
-    const avgResetFees = resetFeesSum / totalTrials;
+    const failedAttempts = attemptsSum - reachedFundedCount;
+    const replacementInputs: ReplacementInputs = {
+        attemptDays:
+            reachedFundedCount > 0
+                ? {
+                      failDays: failedAttemptDaysArray,
+                      passDays: daysToPassArray,
+                  }
+                : undefined,
+        discounts: purchaseDiscounts,
+        evalPassRate: attemptsSum > 0 ? reachedFundedCount / attemptsSum : 0,
+        fees: plan.fees,
+        meanDaysOnFail:
+            failedAttempts > 0 ? failedAttemptDaysSum / failedAttempts : 0,
+        meanDaysOnPass:
+            reachedFundedCount > 0 ? daysToPassSum / reachedFundedCount : 0,
+    };
+    const costPerFundedAccount =
+        replacementEconomics(replacementInputs).costPerFundedAccount;
     const costBreakdown = buildCostBreakdown(
         plan,
-        discounts,
-        avgDaysForCost,
-        avgResetFees,
+        replacementInputs,
+        resetFeesSum / trials,
     );
-
-    const meanDaysOnFail = failDaysCount > 0 ? failDaysSum / failDaysCount : 0;
-    const replacement = replacementEconomics({
-        evalPrice:
-            costBreakdown.perAccountActivationFee +
-            costBreakdown.perAccountEvalFee +
-            costBreakdown.monthlySubsTotal,
-        meanDaysOnFail,
-        meanDaysOnPass: avgDaysForCost,
-        passRate: passProbability,
-    });
-    const costPerFundedAccount = replacement.costPerFundedAccount;
     const costPerDrawdownDollar =
         costPerFundedAccount / plan.fundedDrawdown.amount;
 
-    const expectedAttempts = attemptsSum / totalTrials;
+    const expectedAttempts = attemptsSum / trials;
     const expectedAttemptsP90 = percentile(attemptsArray, 90);
     const expectedGrossSpend = expectedTotalCost;
     const expectedSpendP90 = percentile(grossSpendArray, 90);
     const breakEvenFundedProfit = expectedTotalCost;
 
     const m = accountMultiplier;
-    const bulkDiscountFactor =
-        plan.bulkDiscount && accountMultiplier >= plan.bulkDiscount.minAccounts
-            ? 1 - plan.bulkDiscount.percent
-            : 1;
     return {
         accountSize: plan.accountSize,
+        averageRiskPerTrade,
         breakEvenFundedProfit: breakEvenFundedProfit * m,
-        bustProbability: counts['bust-eval'] / totalTrials,
+        bustProbability: counts['bust-eval'] / trials,
         costBreakdown: {
-            activationFee: costBreakdown.activationFee * m * bulkDiscountFactor,
-            evalFee: costBreakdown.evalFee * m * bulkDiscountFactor,
-            monthlySubsTotal: costBreakdown.monthlySubsTotal * m,
+            activationFee: costBreakdown.activationFee * m,
+            evalFee: costBreakdown.evalFee * m,
+            monthlySubsTotal: costBreakdown.monthlySubsTotal,
             perAccountActivationFee: costBreakdown.perAccountActivationFee,
             perAccountEvalFee: costBreakdown.perAccountEvalFee,
             resetFeesTotal: costBreakdown.resetFeesTotal * m,
@@ -255,6 +272,7 @@ export function simulate(inputs: SimInputs): SimOutputs {
         daysToPassP95: percentile(daysToPassArray, 95),
         daysToPassValues: daysToPassArray,
         drawdownAmount: plan.drawdown.amount,
+        evalPassProbability,
         expectancyDollars,
         expectancyR,
         expectedAttempts,
@@ -280,21 +298,21 @@ export function simulate(inputs: SimInputs): SimOutputs {
         finalBalanceP75: percentile(finalBalances, 75),
         finalBalanceP95: percentile(finalBalances, 95),
         finalBalances,
-        fundedBustProbability: counts['bust-funded'] / totalTrials,
-        inactivityClosureProbability: inactivityClosureCount / totalTrials,
+        fundedBustProbability: counts['bust-funded'] / trials,
+        fundedSurvivalProbability,
+        inactivityClosureProbability: inactivityClosureCount / trials,
         initialThreshold: plan.drawdown.initialThreshold(plan.accountSize),
         maxDrawdownP50: percentile(maxDrawdowns, 50),
         maxDrawdownP95: percentile(maxDrawdowns, 95),
         maxLosingStreakP50: percentile(maxLosingStreaks, 50),
         maxLosingStreakP95: percentile(maxLosingStreaks, 95),
-        passProbability,
         profitFactor,
         profitTarget: plan.profitTarget,
-        risk5LossesPercent: had5LossCount / totalTrials,
-        risk10LossesPercent: had10LossCount / totalTrials,
+        risk5LossesPercent: had5LossCount / trials,
+        risk10LossesPercent: had10LossCount / trials,
         roiOnCost,
         sampleEquityCurves,
-        timeoutProbability: counts['timeout-eval'] / totalTrials,
+        timeoutProbability: counts['timeout-eval'] / trials,
         tradesPerSuccessfulAttempt,
     };
 }
@@ -304,7 +322,7 @@ export function simulatePortfolio(
 ): MultiAccountResult {
     const {
         accounts,
-        commissionPerRoundTrip = 0,
+        commissionPerRoundTrip = SIM_DEFAULTS.commissionPerRoundTrip,
         correlation,
         discounts,
         fundedHorizonDays,
@@ -312,7 +330,7 @@ export function simulatePortfolio(
         idleDayProbability,
         instrument,
         intradayPathStepsPerR,
-        maxAttempts = 1,
+        maxAttempts = SIM_DEFAULTS.maxAttempts,
         maxEvalDays,
         minRetainedCushion,
         payoutRequestSize,
@@ -324,6 +342,10 @@ export function simulatePortfolio(
         trials,
         winrate: winrateInput,
     } = inputs;
+    assertPositiveSafeInteger(trials, 'trials');
+    assertPositiveSafeInteger(accounts, 'accounts');
+    assertPositiveSafeInteger(maxEvalDays, 'maxEvalDays');
+    assertPositiveSafeInteger(maxAttempts, 'maxAttempts');
     const commission = dollars(commissionPerRoundTrip);
     const cushion = plan.resolveRetainedCushion(minRetainedCushion);
     const requestSize =
@@ -336,7 +358,8 @@ export function simulatePortfolio(
     const fundedDayPolicy = resolveDayPolicy(inputs, TradingPhase.Funded);
     const positionSizing = resolvePositionSizing(instrument, stopPoints);
 
-    const N = Math.max(1, Math.floor(accounts));
+    const N = accounts;
+    const purchaseDiscounts = plan.purchaseDiscounts(discounts, N);
     const groupSizes =
         correlation === CorrelationMode.Copy
             ? [N]
@@ -345,6 +368,7 @@ export function simulatePortfolio(
               : buildGroupSizes(N, groups);
 
     const distribution = Array.from({ length: N + 1 }, () => 0);
+    const survivalDistribution = Array.from({ length: N + 1 }, () => 0);
     let netSum = 0;
     let creditSum = 0;
     let dayElapsedSum = 0;
@@ -353,12 +377,14 @@ export function simulatePortfolio(
     let daysToPassCount = 0;
     let bustTrials = 0;
     let totalAccountPasses = 0;
+    let totalAccountSurvivals = 0;
     let tradesTakenSum = 0;
     let activeDaysSum = 0;
     let maxStreakSum = 0;
 
     for (let index = 0; index < trials; index++) {
         let trialPasses = 0;
+        let trialSurvivals = 0;
         let trialNet = 0;
         let trialCredit = 0;
         let trialDayElapsed = 0;
@@ -375,14 +401,14 @@ export function simulatePortfolio(
             const groupRng = mulberry32(deriveSubSeed(seed, index, g));
             const r = simulateTrial({
                 commission,
-                discounts,
+                discounts: purchaseDiscounts,
                 evalDayPolicy,
                 fundedDayPolicy,
                 fundedHorizonDays,
                 fundedRrRatio: inputs.fundedRrRatio,
                 idleDayProbability,
                 intradayPathStepsPerR,
-                maxAttempts: Math.max(1, maxAttempts),
+                maxAttempts,
                 maxEvalDays,
                 minRetainedCushion: cushion,
                 payoutRequestSize: requestSize,
@@ -394,8 +420,10 @@ export function simulatePortfolio(
                 shouldCaptureEquity: false,
                 winrate,
             });
-            const isPasses = isPassingOutcome(r.outcome);
-            if (isPasses) trialPasses += size;
+            if (hasPassedEval(r.outcome)) {
+                trialPasses += size;
+                if (r.outcome === 'pass-clean') trialSurvivals += size;
+            }
             if (r.outcome === 'bust-eval' || r.outcome === 'bust-funded')
                 isAnyBust = true;
             trialNet += r.net * size;
@@ -413,6 +441,8 @@ export function simulatePortfolio(
         }
 
         distribution[trialPasses] = (distribution[trialPasses] ?? 0) + 1;
+        survivalDistribution[trialSurvivals] =
+            (survivalDistribution[trialSurvivals] ?? 0) + 1;
         netSum += trialNet;
         creditSum += trialCredit;
         dayElapsedSum += trialDayElapsed;
@@ -421,40 +451,32 @@ export function simulatePortfolio(
         daysToPassCount += trialDaysToPassCount;
         if (isAnyBust) bustTrials += 1;
         totalAccountPasses += trialPasses;
+        totalAccountSurvivals += trialSurvivals;
         tradesTakenSum += trialTrades;
         activeDaysSum += trialActiveDays;
         maxStreakSum += trialMaxStreak;
     }
 
-    const totalTrials = Math.max(1, trials);
-    for (let k = 0; k <= N; k++)
-        distribution[k] = (distribution[k] ?? 0) / totalTrials;
-
-    const perAccountPass = totalAccountPasses / (totalTrials * N);
-    const expectedAccountsPass = totalAccountPasses / totalTrials;
-
-    let pAtLeast1 = 0;
-    let pAtLeastHalf = 0;
-    let pAll = 0;
-    const halfK = Math.ceil(N / 2);
     for (let k = 0; k <= N; k++) {
-        const pk = distribution[k] ?? 0;
-        if (k >= 1) pAtLeast1 += pk;
-        if (k >= halfK) pAtLeastHalf += pk;
-        if (k >= N) pAll += pk;
+        distribution[k] = (distribution[k] ?? 0) / trials;
+        survivalDistribution[k] = (survivalDistribution[k] ?? 0) / trials;
     }
 
-    const expectedNet = netSum / totalTrials;
-    const expectedHorizonCredit = creditSum / totalTrials;
+    const perAccountPass = totalAccountPasses / (trials * N);
+    const perAccountFundedSurvival = totalAccountSurvivals / (trials * N);
+    const expectedAccountsPass = totalAccountPasses / trials;
+
+    const expectedNet = netSum / trials;
+    const expectedHorizonCredit = creditSum / trials;
     const slotDaysPerTrial =
-        (dayElapsedSum + rebuyLagDays * attemptsSum) / (totalTrials * N) || 1;
+        (dayElapsedSum + rebuyLagDays * attemptsSum) / (trials * N) || 1;
     const expectedMonthlyNet = monthlyNetPerSlot(
         expectedNet + expectedHorizonCredit,
         slotDaysPerTrial,
     );
     const expectedDaysToPass =
         daysToPassCount > 0 ? daysToPassSum / daysToPassCount : 0;
-    const expectedMaxLossStreak = maxStreakSum / totalTrials;
+    const expectedMaxLossStreak = maxStreakSum / trials;
     const meanTradesPerDay =
         activeDaysSum > 0 ? tradesTakenSum / activeDaysSum : 0;
 
@@ -466,28 +488,43 @@ export function simulatePortfolio(
         expectedMonthlyNet,
         expectedNet,
         meanTradesPerDay,
-        pAtLeast: { k1: pAtLeast1, kAll: pAll, kHalf: pAtLeastHalf },
+        pAtLeast: atLeastProbabilities(distribution),
+        pAtLeastFundedSurvival: atLeastProbabilities(survivalDistribution),
+        perAccountFundedSurvival,
         perAccountPass,
-        pHitDDLimit: bustTrials / totalTrials,
+        pHitDDLimit: bustTrials / trials,
         theoreticalPassProb: 0,
     };
 }
 
+function atLeastProbabilities(
+    distribution: readonly number[],
+): AtLeastProbabilities {
+    const N = distribution.length - 1;
+    const halfK = Math.ceil(N / 2);
+    let k1 = 0;
+    let kHalf = 0;
+    let kAll = 0;
+    for (const [k, pk] of distribution.entries()) {
+        if (k >= 1) k1 += pk;
+        if (k >= halfK) kHalf += pk;
+        if (k >= N) kAll += pk;
+    }
+    return { k1, kAll, kHalf };
+}
+
 function buildCostBreakdown(
     plan: Plan,
-    discounts: CouponDiscounts | undefined,
-    avgDays: number,
+    replacementInputs: ReplacementInputs,
     avgResetFees: number,
 ): CostBreakdown {
-    const evalFactor = 1 - (discounts?.evalPercent ?? 0) / 100;
-    const activationFactor = 1 - (discounts?.activationPercent ?? 0) / 100;
-    const months = Math.max(1, Math.ceil(avgDays / TRADING_DAYS_PER_MONTH));
-    const perAccountEvalFee = plan.fees.oneTimeEval * evalFactor;
-    const perAccountActivationFee = plan.fees.activation * activationFactor;
+    const { discounts } = replacementInputs;
+    const perAccountEvalFee = initialEvalFee(plan.fees, discounts);
+    const perAccountActivationFee = activationFee(plan.fees, discounts);
     return {
         activationFee: perAccountActivationFee,
         evalFee: perAccountEvalFee,
-        monthlySubsTotal: plan.fees.monthlySubscription * months,
+        monthlySubsTotal: renewalChainSubscription(replacementInputs),
         perAccountActivationFee,
         perAccountEvalFee,
         resetFeesTotal: avgResetFees,
@@ -507,11 +544,30 @@ function monthlyNetPerSlot(cycleNet: number, slotDays: number): number {
     return (cycleNet * TRADING_DAYS_PER_MONTH) / slotDays;
 }
 
-function resolveRebuyLagDays(rebuyLagDays = 0): number {
+function renewalChainSubscription(inputs: ReplacementInputs): number {
+    if (monthlySubscriptionFee(inputs.fees, inputs.discounts) === 0) return 0;
+    return replacementEconomics({
+        ...inputs,
+        fees: subscriptionOnlyFees(inputs.fees),
+    }).costPerFundedAccount;
+}
+
+function resolveRebuyLagDays(
+    rebuyLagDays: number = SIM_DEFAULTS.rebuyLagDays,
+): number {
     if (!Number.isFinite(rebuyLagDays) || rebuyLagDays < 0) {
         throw new Error(
             `rebuyLagDays must be a finite number >= 0, got ${rebuyLagDays}`,
         );
     }
     return rebuyLagDays;
+}
+
+function subscriptionOnlyFees(fees: FeeSchedule): FeeSchedule {
+    return {
+        activation: dollars(0),
+        monthlySubscription: fees.monthlySubscription,
+        oneTimeEval: dollars(0),
+        reset: dollars(0),
+    };
 }

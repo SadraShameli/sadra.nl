@@ -27,6 +27,12 @@ export enum CorrelationMode {
     Independent = 'independent',
 }
 
+export interface AtLeastProbabilities {
+    k1: number;
+    kAll: number;
+    kHalf: number;
+}
+
 export type AttemptOutcome = 'busted' | 'passed' | 'timed-out';
 
 export interface CostBreakdown {
@@ -44,6 +50,7 @@ export interface DayRunOptions {
     dayPolicy: DayPolicy;
     idleDayProbability?: number;
     intradayPathStepsPerR?: number;
+    lastPayoutBalance?: number;
     payoutsIssued?: number;
     phase: TradingPhase;
     plan: Plan;
@@ -92,6 +99,7 @@ export interface EvalWithRetriesResult {
     attempt: EvalAttemptResult;
     attemptsUsed: number;
     daysElapsed: number;
+    failedAttemptDays: number[];
     resetFeesPaid: number;
     terminalOutcome: 'busted' | 'timed-out' | null;
 }
@@ -105,6 +113,7 @@ export interface FinishTrialArguments {
     equityCurve: null | number[];
     evalDays: number;
     evalTradesAtPass: number;
+    failedAttemptDays: number[];
     finalBalance: number;
     firstPayoutDay: null | number;
     horizonCredit: number;
@@ -191,6 +200,7 @@ export interface LiveSimInputs {
     instrument?: InstrumentSymbol;
     payoutRequestSize?: number;
     plan: LivePlan;
+    retainedCushion?: number;
     rrRatio: number;
     seed: number;
     stopPoints?: number;
@@ -207,7 +217,9 @@ export interface MultiAccountResult {
     expectedMonthlyNet: number;
     expectedNet: number;
     meanTradesPerDay: number;
-    pAtLeast: { k1: number; kAll: number; kHalf: number };
+    pAtLeast: AtLeastProbabilities;
+    pAtLeastFundedSurvival: AtLeastProbabilities;
+    perAccountFundedSurvival: number;
     perAccountPass: number;
     pHitDDLimit: number;
     theoreticalPassProb: number;
@@ -252,6 +264,7 @@ export interface SimInputs {
 
 export interface SimOutputs {
     accountSize: number;
+    averageRiskPerTrade: number;
     breakEvenFundedProfit: number;
     bustProbability: number;
     costBreakdown: CostBreakdown;
@@ -264,6 +277,7 @@ export interface SimOutputs {
     daysToPassP95: number;
     daysToPassValues: number[];
     drawdownAmount: number;
+    evalPassProbability: number;
     expectancyDollars: number;
     expectancyR: number;
     expectedAttempts: number;
@@ -286,13 +300,13 @@ export interface SimOutputs {
     finalBalanceP95: number;
     finalBalances: number[];
     fundedBustProbability: number;
+    fundedSurvivalProbability: number;
     inactivityClosureProbability: number;
     initialThreshold: number;
     maxDrawdownP50: number;
     maxDrawdownP95: number;
     maxLosingStreakP50: number;
     maxLosingStreakP95: number;
-    passProbability: number;
     profitFactor: number;
     profitTarget: number;
     risk5LossesPercent: number;
@@ -334,7 +348,9 @@ export interface TrialResult {
     daysElapsed: number;
     daysToPass: null | number;
     equityCurve: null | number[];
+    evalDays: number;
     evalTradesAtPass: number;
+    failedAttemptDays: number[];
     finalBalance: number;
     firstPayoutDay: null | number;
     grossLosses: number;
@@ -349,6 +365,7 @@ export interface TrialResult {
     outcome: TrialOutcome;
     payoutCount: number;
     resetFeesPaid: number;
+    riskTaken: number;
     totalCost: number;
     tradesTaken: number;
 }

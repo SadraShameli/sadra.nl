@@ -32,7 +32,13 @@ import {
 } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
+import { toCouponDiscounts } from './couponDiscounts';
 import DayStopRulePicker from './DayStopRulePicker';
+import {
+    describeResetFee,
+    describeRetryOnBust,
+    hasResetOption,
+} from './retryDescription';
 import { riskDollarsToPercent, riskPercentToDollars } from './riskConversion';
 import { SizingMode } from './types';
 
@@ -146,6 +152,17 @@ export default function TradingInputs({
     winrate,
 }: TradingInputsProperties) {
     const accountSize = plan.accountSize;
+    const retryNote = describeRetryOnBust(
+        plan.fees,
+        toCouponDiscounts({
+            activationDiscountPercent,
+            evalDiscountPercent,
+            linkActivationDiscount,
+            monthlySubscriptionDiscountPercent,
+            resetDiscountPercent,
+        }),
+        maxAttempts,
+    );
     const computedRisk =
         sizingMode === SizingMode.Dollar
             ? riskDollars
@@ -498,10 +515,9 @@ export default function TradingInputs({
                         type="number"
                         value={maxAttempts}
                     />
-                    {maxAttempts > 1 && plan.fees.reset > 0 && (
+                    {retryNote !== null && (
                         <p className="mt-1 text-xs text-muted-foreground">
-                            Up to {maxAttempts - 1} resets at{' '}
-                            {`$${plan.fees.reset.toFixed(0)}`} each on bust.
+                            {retryNote}
                         </p>
                     )}
                 </div>
@@ -863,24 +879,16 @@ export default function TradingInputs({
                                 Reset fee discount
                             </label>
                             <span className="font-mono text-xs text-muted-foreground tabular-nums">
-                                {plan.fees.reset > 0
-                                    ? resetDiscountPercent > 0
-                                        ? `${formatCompactCurrency(
-                                              plan.fees.reset,
-                                          )} → ${formatCompactCurrency(
-                                              plan.fees.reset *
-                                                  (1 -
-                                                      resetDiscountPercent /
-                                                          100),
-                                          )}`
-                                        : formatCompactCurrency(plan.fees.reset)
-                                    : 'no reset fee'}
+                                {describeResetFee(
+                                    plan.fees,
+                                    resetDiscountPercent,
+                                )}
                             </span>
                         </div>
                         <div className="relative">
                             <Input
                                 className="pr-7"
-                                disabled={plan.fees.reset === 0}
+                                disabled={!hasResetOption(plan.fees)}
                                 id="reset-discount"
                                 max={100}
                                 min={0}

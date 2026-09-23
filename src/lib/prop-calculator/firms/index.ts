@@ -1,4 +1,5 @@
 import {
+    type Dollars,
     FirmId,
     type LiveCushionPercent,
     type LivePlan,
@@ -12,7 +13,7 @@ import { E8Futures } from './e8futures/E8Futures';
 import { FtmoFutures } from './ftmo-futures/FtmoFutures';
 import { FundedNext } from './fundednext/FundedNext';
 import { buildFundedNextLivePlan } from './fundednext/FundedNextLive';
-import { buildLucidLivePlan } from './lucid/LucidLive';
+import { buildLucidDailyLivePlan, buildLucidLivePlan } from './lucid/LucidLive';
 import { LucidTrading } from './lucid/LucidTrading';
 import { buildMffuRapidLivePlan } from './mffu/MffuRapidLive';
 import { MyFundedFutures } from './mffu/MyFundedFutures';
@@ -38,6 +39,11 @@ export const ALL_FIRMS: readonly TradingFirm[] = [
 
 export type LivePlanBuilder = (cushionPercent: LiveCushionPercent) => LivePlan;
 
+export type LiveTransitionPlanBuilder = (
+    cushionPercent: LiveCushionPercent,
+    simProfitAboveBuffer: Dollars,
+) => LivePlan;
+
 export function findFirm(id: FirmId): TradingFirm | undefined {
     return ALL_FIRMS.find((f) => f.id === id);
 }
@@ -55,8 +61,19 @@ export const LIVE_PLAN_BUILDERS: ReadonlyMap<FirmId, LivePlanBuilder> = new Map(
     ],
 );
 
+export const LIVE_TRANSITION_PLAN_BUILDERS: ReadonlyMap<
+    FirmId,
+    LiveTransitionPlanBuilder
+> = new Map([[FirmId.Lucid, buildLucidDailyLivePlan]]);
+
 export function findLivePlanBuilder(id: FirmId): LivePlanBuilder | undefined {
     return LIVE_PLAN_BUILDERS.get(id);
+}
+
+export function findLiveTransitionPlanBuilder(
+    id: FirmId,
+): LiveTransitionPlanBuilder | undefined {
+    return LIVE_TRANSITION_PLAN_BUILDERS.get(id);
 }
 
 export { AlphaFutures } from './alphafutures/AlphaFutures';
@@ -79,6 +96,7 @@ export {
 export {
     buildLucidDailyLivePlan,
     buildLucidLivePlan,
+    LUCID_DAILY_LIVE_TRANSITION_PAYOUT_CAP,
     LUCID_LIVE_DEFAULT_CUSHION_PERCENT,
 } from './lucid/LucidLive';
 export { LucidTrading } from './lucid/LucidTrading';

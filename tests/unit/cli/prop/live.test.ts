@@ -1,0 +1,635 @@
+import type { ArgsDef } from 'citty';
+
+import { parseArgs } from 'citty';
+import { describe, expect, it } from 'vitest';
+
+import liveCommand, {
+    describeAnnualWithdrawalRate,
+    describeLiveWithdrawal,
+    describeSeedReserve,
+    liveArguments,
+    liveSummaryRows,
+    parseLiveSimInputs,
+    readLiveWithdrawal,
+    resolveLivePlanBuilder,
+} from '~/cli/commands/prop/live/command';
+import { tradingArguments } from '~/cli/commands/prop/shared';
+import { formatCurrency } from '~/lib/format';
+import {
+    buildApexLivePlan,
+    findLivePlanBuilder,
+    FirmId,
+    fraction,
+    INSTRUMENTS,
+    InstrumentSymbol,
+    type LivePlanBuilder,
+    type LiveSimInputs,
+    simulateLiveAccount,
+} from '~/lib/prop-calculator';
+import { TRADING_DAYS_PER_YEAR } from '~/lib/prop-calculator/core/constants';
+import { buildLucidDailyLivePlan } from '~/lib/prop-calculator/firms';
+
+const TOPSTEP_CUSHION = {
+    postLock: fraction(0.05),
+    preLock: fraction(0.05),
+};
+
+const HAND_COMPUTED_APEX_RUN = [
+    '--trials',
+    '1',
+    '--winrate',
+    '1',
+    '--rr',
+    '1',
+    '--tpd',
+    '1',
+];
+
+function apexBuilder(): LivePlanBuilder {
+    const builder = findLivePlanBuilder(FirmId.Apex);
+    if (!builder) throw new Error('Apex has no live plan builder');
+    return builder;
+}
+
+function mffuBuilder(): LivePlanBuilder {
+    const builder = findLivePlanBuilder(FirmId.Mffu);
+    if (!builder) throw new Error('MFFU has no live plan builder');
+    return builder;
+}
+
+function parseLive(
+    argv: string[],
+    builder: LivePlanBuilder = apexBuilder(),
+): LiveSimInputs {
+    return parseLiveSimInputs(
+        parseArgs<typeof liveArguments>(argv, liveArguments),
+        builder,
+    );
+}
+
+async function resolveCommandArguments(): Promise<ArgsDef> {
+    const resolvable = liveCommand.args;
+    if (!resolvable) throw new Error('live command has no args');
+    const resolved =
+        typeof resolvable === 'function' ? resolvable() : resolvable;
+    return resolved instanceof Promise ? resolved : resolved;
+}
+
+function topStepBuilder(): LivePlanBuilder {
+    const builder = findLivePlanBuilder(FirmId.TopStep);
+    if (!builder) throw new Error('TopStep has no live plan builder');
+    return builder;
+}
+
+describe('prop live declared arguments', () => {
+    it('runs the command on the exported liveArguments', async () => {
+        expect(await resolveCommandArguments()).toBe(liveArguments);
+    });
+
+    it('declares --idle-day-probability on the command with default 0', async () => {
+        const parsed = parseArgs([], await resolveCommandArguments());
+        expect(parsed['idle-day-probability']).toBe('0');
+    });
+
+    it('keeps a space-separated --idle-day-probability 0 as the string 0, not the boolean true', async () => {
+        const parsed = parseArgs(
+            ['--idle-day-probability', '0'],
+            await resolveCommandArguments(),
+        );
+        expect(parsed['idle-day-probability']).toBe('0');
+    });
+
+    it('declares --commission on the command with default 0', async () => {
+        const parsed = parseArgs([], await resolveCommandArguments());
+        expect(parsed.commission).toBe('0');
+    });
+
+    it('shares the idle-day-probability and commission definitions with the trading commands', () => {
+        expect(liveArguments['idle-day-probability']).toBe(
+            tradingArguments['idle-day-probability'],
+        );
+        expect(liveArguments.commission).toBe(tradingArguments.commission);
+    });
+});
+
+describe('parseLiveSimInputs --idle-day-probability', () => {
+    it('defaults to 0 when the flag is omitted', () => {
+        expect(parseLive([]).idleDayProbability).toBe(0);
+    });
+
+    it('parses a space-separated 0 as 0, not 1', () => {
+        expect(
+            parseLive(['--idle-day-probability', '0']).idleDayProbability,
+        ).toBe(0);
+    });
+
+    it('parses 0.25', () => {
+        expect(
+            parseLive(['--idle-day-probability', '0.25']).idleDayProbability,
+        ).toBe(0.25);
+    });
+
+    it.each(['1.5', '-0.1'])('rejects %s', (value) => {
+        expect(() => parseLive([`--idle-day-probability=${value}`])).toThrow(
+            /--idle-day-probability must be a fraction in \[0, 1\]/,
+        );
+    });
+});
+
+describe('parseLiveSimInputs --commission', () => {
+    it('defaults to 0 per round trip', () => {
+        expect(parseLive([]).commissionPerRoundTrip).toBe(0);
+    });
+
+    it('reaches commissionPerRoundTrip', () => {
+        expect(parseLive(['--commission', '10']).commissionPerRoundTrip).toBe(
+            10,
+        );
+    });
+
+    it('rejects a negative commission', () => {
+        expect(() => parseLive(['--commission=-1'])).toThrow(
+            /--commission must be a number >= 0/,
+        );
+    });
+});
+
+describe('parseLiveSimInputs cushion percents', () => {
+    it('converts 5 and 10 percent to fractions, not raw percents', () => {
+        const inputs = parseLive([
+            '--cushion-percent-pre-lock',
+            '5',
+            '--cushion-percent-post-lock',
+            '10',
+            '--trials',
+            '10',
+        ]);
+        expect(inputs.plan.cushionPercent).toStrictEqual({
+            postLock: 0.1,
+            preLock: 0.05,
+        });
+    });
+
+    it('converts 50 and 100 percent to 0.5 and 1', () => {
+        const inputs = parseLive([
+            '--cushion-percent-pre-lock',
+            '50',
+            '--cushion-percent-post-lock',
+            '100',
+        ]);
+        expect(inputs.plan.cushionPercent).toStrictEqual({
+            postLock: 1,
+            preLock: 0.5,
+        });
+    });
+
+    it('defaults to 5 percent pre-lock and 10 percent post-lock', () => {
+        expect(parseLive([]).plan.cushionPercent).toStrictEqual({
+            postLock: 0.1,
+            preLock: 0.05,
+        });
+    });
+
+    it('rejects a post-lock percent above 100', () => {
+        expect(() => parseLive(['--cushion-percent-post-lock', '150'])).toThrow(
+            /--cushion-percent-post-lock must be a percent in \[0, 100\]/,
+        );
+    });
+
+    it('rejects a negative pre-lock percent', () => {
+        expect(() => parseLive(['--cushion-percent-pre-lock=-1'])).toThrow(
+            /--cushion-percent-pre-lock must be a percent in \[0, 100\]/,
+        );
+    });
+});
+
+describe('parseLiveSimInputs bounded readers', () => {
+    it.each([
+        ['trials', '0', /--trials must be a whole number >= 1/],
+        ['trials', '1.5', /--trials must be a whole number >= 1/],
+        ['horizon-days', '0', /--horizon-days must be a whole number >= 1/],
+        ['tpd', '0', /--tpd must be a whole number >= 1/],
+        ['rr', '0', /--rr must be a number > 0/],
+        ['winrate', '40', /--winrate must be a fraction in \[0, 1\]/],
+        ['seed', '1.5', /--seed must be a whole number/],
+        [
+            'request-size',
+            '0',
+            /--request-size must be a positive amount or 'all'/,
+        ],
+        ['stop-points', '-2', /--stop-points must be a number > 0/],
+    ])('rejects --%s %s', (flag, value, message) => {
+        expect(() => parseLive([`--${flag}=${value}`])).toThrow(message);
+    });
+
+    it('maps every declared flag onto LiveSimInputs', () => {
+        const inputs = parseLive([
+            '--horizon-days',
+            '30',
+            '--rr',
+            '1.5',
+            '--seed',
+            '7',
+            '--tpd',
+            '3',
+            '--trials',
+            '20',
+            '--winrate',
+            '0.55',
+            '--request-size',
+            '500',
+            '--stop-points',
+            '12',
+            '--instrument',
+            InstrumentSymbol.MNQ,
+        ]);
+        expect(inputs).toMatchObject({
+            horizonDays: 30,
+            instrument: InstrumentSymbol.MNQ,
+            payoutRequestSize: 500,
+            rrRatio: 1.5,
+            seed: 7,
+            stopPoints: 12,
+            tradesPerDay: 3,
+            trials: 20,
+            winrate: 0.55,
+        });
+        expect(inputs.plan.label).toBe(buildApexLivePlan().label);
+    });
+
+    it('leaves the optional request size and stop distance unset when omitted', () => {
+        const inputs = parseLive([]);
+        expect(inputs.payoutRequestSize).toBeUndefined();
+        expect(inputs.stopPoints).toBeUndefined();
+    });
+});
+
+describe('readLiveWithdrawal (D4: keep one drawdown of cushion unless --request-size all)', () => {
+    it('leaves both fields unset when omitted, so the engine keeps its default cushion', () => {
+        expect(readLiveWithdrawal(undefined)).toStrictEqual({
+            payoutRequestSize: undefined,
+            retainedCushion: undefined,
+        });
+    });
+
+    it.each(['all', 'ALL', ' All '])(
+        'maps %j to a drain-to-floor withdrawal with no retained cushion',
+        (raw) => {
+            expect(readLiveWithdrawal(raw)).toStrictEqual({
+                payoutRequestSize: undefined,
+                retainedCushion: 0,
+            });
+        },
+    );
+
+    it('maps a dollar amount to a per-request size drawn from the excess above the default cushion', () => {
+        expect(readLiveWithdrawal('500')).toStrictEqual({
+            payoutRequestSize: 500,
+            retainedCushion: undefined,
+        });
+    });
+
+    it.each(['0', '-5', 'abc', '', 'allx'])('rejects %j', (raw) => {
+        expect(() => readLiveWithdrawal(raw)).toThrow(
+            /--request-size must be a positive amount or 'all'/,
+        );
+    });
+
+    it("routes '--request-size all' through parseLiveSimInputs as retainedCushion 0", () => {
+        const inputs = parseLive(['--request-size', 'all']);
+        expect(inputs.retainedCushion).toBe(0);
+        expect(inputs.payoutRequestSize).toBeUndefined();
+    });
+
+    it('keeps retainedCushion unset for a numeric --request-size', () => {
+        const inputs = parseLive(['--request-size', '500']);
+        expect(inputs.payoutRequestSize).toBe(500);
+        expect(inputs.retainedCushion).toBeUndefined();
+    });
+
+    it("documents the default policy and the 'all' option in the --request-size help text, without em dashes", () => {
+        const description = liveArguments['request-size'].description;
+        expect(description).toContain("'all'");
+        expect(description).toContain('one cent above the drawdown floor');
+        expect(description).toContain('one full drawdown of cushion');
+        expect(description).not.toContain('\u{2014}');
+    });
+
+    it('says in the --request-size help text that released seed Reserve is never withdrawn and that draining counts seed as income', () => {
+        const description = liveArguments['request-size'].description;
+        expect(description).toContain('released seed Reserve is never withdrawn');
+        expect(description).toContain(
+            'the annual rate counts that seed as income',
+        );
+    });
+});
+
+describe('describeLiveWithdrawal', () => {
+    it.each([
+        { argv: [], expected: 'withdraw: excess above $2,000 cushion' },
+        {
+            argv: ['--request-size', '500'],
+            expected: 'withdraw: $500/request above $2,000 cushion',
+        },
+        {
+            argv: ['--request-size', 'all'],
+            expected:
+                'withdraw: everything down to one cent above the floor (--request-size all)',
+        },
+    ])('describes $argv as "$expected"', ({ argv, expected }) => {
+        const inputs = parseLive(argv, mffuBuilder());
+        expect(describeLiveWithdrawal(inputs)).toBe(expected);
+    });
+});
+
+describe('describeLiveWithdrawal on a live plan with a seed Reserve (TopStep LFA)', () => {
+    it.each([
+        {
+            argv: [],
+            expected:
+                'withdraw: excess above $9,000 cushion; released seed Reserve is never withdrawn',
+        },
+        {
+            argv: ['--request-size', '500'],
+            expected:
+                'withdraw: $500/request above $9,000 cushion; released seed Reserve is never withdrawn',
+        },
+        {
+            argv: ['--request-size', 'all'],
+            expected:
+                'withdraw: everything down to one cent above the floor (--request-size all), seed included, which the annual rate counts as income; released seed Reserve is never withdrawn',
+        },
+    ])('describes $argv as "$expected"', ({ argv, expected }) => {
+        const inputs = parseLive(argv, topStepBuilder());
+        expect(describeLiveWithdrawal(inputs)).toBe(expected);
+    });
+});
+
+describe('describeSeedReserve', () => {
+    it('discloses the assumed TopStep Reserve and the transferred balance it implies', () => {
+        expect(describeSeedReserve(topStepBuilder()(TOPSTEP_CUSHION))).toBe(
+            'seed Reserve: $40,000 in 4 releases of $10,000, one per review every 5 sessions after $3,000 of net profit, landing 2 sessions later (assumes a $50,000 transferred balance, not an input)',
+        );
+    });
+
+    it('is null for a live plan with no seed Reserve', () => {
+        expect(describeSeedReserve(apexBuilder()(TOPSTEP_CUSHION))).toBeNull();
+    });
+});
+
+describe('prop live --firm apex Live levels and minimum payout request', () => {
+    it('sizes up to 100 micros and 10 minis at Level 1', () => {
+        const inputs = parseLive(['--instrument', 'MNQ', '--stop-points', '4']);
+        const state = inputs.plan.initialState();
+
+        expect(
+            inputs.plan.maxContractsFor(
+                state,
+                INSTRUMENTS[InstrumentSymbol.MNQ],
+            ),
+        ).toBe(100);
+        expect(
+            inputs.plan.maxContractsFor(
+                state,
+                INSTRUMENTS[InstrumentSymbol.NQ],
+            ),
+        ).toBe(10);
+    });
+
+    it('fails loud on --request-size 400 while parsing, naming the flag, since $400 is below the $500 Apex Live minimum and could never be paid', () => {
+        expect(() =>
+            parseLive([...HAND_COMPUTED_APEX_RUN, '--request-size', '400']),
+        ).toThrow(
+            '--request-size 400 is below the $500 minimum payout request of Apex Live, so it could never be paid',
+        );
+    });
+
+    it('accepts --request-size 500, exactly the Apex Live minimum', () => {
+        expect(
+            parseLive([...HAND_COMPUTED_APEX_RUN, '--request-size', '500'])
+                .payoutRequestSize,
+        ).toBe(500);
+    });
+
+    it('accepts --request-size 400 on MFFU Rapid Live, above its $250 live minimum', () => {
+        expect(
+            parseLive(
+                [...HAND_COMPUTED_APEX_RUN, '--request-size', '400'],
+                mffuBuilder(),
+            ).payoutRequestSize,
+        ).toBe(400);
+    });
+
+    it('fails loud on --request-size 200 on MFFU Rapid Live, below the firm-wide $250 minimum live withdrawal (N-41)', () => {
+        expect(() =>
+            parseLive(
+                [...HAND_COMPUTED_APEX_RUN, '--request-size', '200'],
+                mffuBuilder(),
+            ),
+        ).toThrow(
+            '--request-size 200 is below the $250 minimum payout request of MyFundedFutures Rapid Live, so it could never be paid',
+        );
+    });
+});
+
+describe('prop live end to end on the hand-computed Apex run', () => {
+    it('withdraws nothing by day 22, since the $50 and $355 excess over the $3,100 safety net are under the $500 minimum request', () => {
+        const out = simulateLiveAccount(
+            parseLive([...HAND_COMPUTED_APEX_RUN, '--horizon-days', '22']),
+        );
+        expect(out.cumulativeWithdrawalsP50).toBe(0);
+        expect(out.liveBustProbability).toBe(0);
+    });
+
+    it('withdraws $690.50 on day 23, paying $621.45, with no idle flag', () => {
+        const out = simulateLiveAccount(
+            parseLive([...HAND_COMPUTED_APEX_RUN, '--horizon-days', '23']),
+        );
+        expect(out.cumulativeWithdrawalsP50).toBeCloseTo(621.45, 8);
+        expect(out.medianDaysToFirstWithdrawal).toBe(23);
+        expect(out.liveBustProbability).toBe(0);
+    });
+
+    it('withdraws the same $621.45 with a space-separated --idle-day-probability 0', () => {
+        const out = simulateLiveAccount(
+            parseLive([
+                ...HAND_COMPUTED_APEX_RUN,
+                '--horizon-days',
+                '23',
+                '--idle-day-probability',
+                '0',
+            ]),
+        );
+        expect(out.cumulativeWithdrawalsP50).toBeCloseTo(621.45, 8);
+        expect(out.medianDaysToFirstWithdrawal).toBe(23);
+    });
+
+    it('charges --commission 10 per round trip: $678.78 by day 25 instead of $1,188.45', () => {
+        const out = simulateLiveAccount(
+            parseLive([
+                ...HAND_COMPUTED_APEX_RUN,
+                '--horizon-days',
+                '25',
+                '--commission',
+                '10',
+            ]),
+        );
+        expect(out.cumulativeWithdrawalsP50).toBeCloseTo(678.78, 8);
+        expect(out.medianDaysToFirstWithdrawal).toBe(25);
+        expect(out.liveBustProbability).toBe(0);
+    });
+});
+
+describe('prop live end to end on the hand-computed MFFU Rapid Live run', () => {
+    it('keeps one $2,000 drawdown of cushion by default: 0% bust and $3,780 over 40 days, first withdrawal on day 22 under the $250 live minimum', () => {
+        const out = simulateLiveAccount(
+            parseLive(
+                [...HAND_COMPUTED_APEX_RUN, '--horizon-days', '40'],
+                mffuBuilder(),
+            ),
+        );
+        expect(out.liveBustProbability).toBe(0);
+        expect(out.cumulativeWithdrawalsP50).toBeCloseTo(3780, 6);
+        expect(out.medianDaysToFirstWithdrawal).toBe(22);
+    });
+
+    it("drains to the $0 floor with '--request-size all': $3,163.995 from day 3, the first day the excess reaches the $250 live minimum, with no bust", () => {
+        const out = simulateLiveAccount(
+            parseLive(
+                [
+                    ...HAND_COMPUTED_APEX_RUN,
+                    '--horizon-days',
+                    '40',
+                    '--request-size',
+                    'all',
+                ],
+                mffuBuilder(),
+            ),
+        );
+        expect(out.liveBustProbability).toBe(0);
+        expect(out.cumulativeWithdrawalsP50).toBeCloseTo(3163.995, 6);
+        expect(out.medianDaysToFirstWithdrawal).toBe(3);
+    });
+});
+
+describe('describeAnnualWithdrawalRate (N-24)', () => {
+    it('labels a 252-day horizon as the expected annual withdrawal rate', () => {
+        expect(describeAnnualWithdrawalRate(252)).toBe(
+            'expected annual withdrawal rate',
+        );
+    });
+
+    it('says when the annual figure is scaled up from a shorter horizon', () => {
+        expect(describeAnnualWithdrawalRate(25)).toBe(
+            'annual rate (scaled from 25d)',
+        );
+    });
+});
+
+function rowsFor(argv: string[], builder: LivePlanBuilder) {
+    const inputs = parseLive(argv, builder);
+    const out = simulateLiveAccount(inputs);
+    return { out, rows: new Map(liveSummaryRows(inputs, out)) };
+}
+
+describe('prop live summary rows (N-46)', () => {
+    it('shows the LucidDaily transition credit on its own line and annualizes only the recurring withdrawals', () => {
+        const argv = [
+            ...HAND_COMPUTED_APEX_RUN,
+            '--horizon-days',
+            '25',
+            '--request-size',
+            'all',
+        ];
+        const { out, rows } = rowsFor(argv, buildLucidDailyLivePlan);
+        const recurring = out.cumulativeWithdrawalsP50 - 13_500;
+
+        expect(rows.get('one-off transition credit (not annualized)')).toBe(
+            '$13,500',
+        );
+        expect(rows.get('annual rate (scaled from 25d)')).toBe(
+            formatCurrency((recurring / 25) * TRADING_DAYS_PER_YEAR),
+        );
+    });
+
+    it('leaves the credit line out for a live plan without one', () => {
+        const { rows } = rowsFor(
+            [...HAND_COMPUTED_APEX_RUN, '--horizon-days', '25'],
+            apexBuilder(),
+        );
+
+        expect(rows.has('one-off transition credit (not annualized)')).toBe(
+            false,
+        );
+        expect(rows.get('annual rate (scaled from 25d)')).toBe(
+            formatCurrency((1188.45 / 25) * TRADING_DAYS_PER_YEAR),
+        );
+    });
+
+    it('defaults --horizon-days to one trading year', () => {
+        expect(parseLive([]).horizonDays).toBe(TRADING_DAYS_PER_YEAR);
+    });
+});
+
+describe('prop live --transition-profit maps the Lucid Daily live variant (N-54)', () => {
+    const argv = [...HAND_COMPUTED_APEX_RUN, '--horizon-days', '25'];
+
+    it('builds the Lucid live plan with the Daily transition credit: $14,000 of sim profit above the buffer pays $12,600 once', () => {
+        const { rows } = rowsFor(
+            argv,
+            resolveLivePlanBuilder(FirmId.Lucid, '14000'),
+        );
+
+        expect(rows.get('one-off transition credit (not annualized)')).toBe(
+            '$12,600',
+        );
+    });
+
+    it('caps the Daily transition credit at $15,000 of sim profit, paying $13,500', () => {
+        const { rows } = rowsFor(
+            argv,
+            resolveLivePlanBuilder(FirmId.Lucid, '40000'),
+        );
+
+        expect(rows.get('one-off transition credit (not annualized)')).toBe(
+            '$13,500',
+        );
+    });
+
+    it('keeps the standard Lucid live plan, with no credit line, when --transition-profit is omitted', () => {
+        const { rows } = rowsFor(
+            argv,
+            resolveLivePlanBuilder(FirmId.Lucid, undefined),
+        );
+
+        expect(rows.has('one-off transition credit (not annualized)')).toBe(
+            false,
+        );
+    });
+
+    it('fails loud on --transition-profit for a firm with no modeled live transition credit, naming the flag', () => {
+        expect(() => resolveLivePlanBuilder(FirmId.Apex, '1000')).toThrow(
+            '--transition-profit applies only to a firm with a modeled one-off live transition credit (lucid), not --firm apex',
+        );
+    });
+
+    it.each(['-1', 'abc', ''])('rejects --transition-profit %j', (raw) => {
+        expect(() => resolveLivePlanBuilder(FirmId.Lucid, raw)).toThrow(
+            /--transition-profit must be a number >= 0/,
+        );
+    });
+
+    it('fails loud for a firm with no modeled live account', () => {
+        expect(() =>
+            resolveLivePlanBuilder(FirmId.E8Futures, undefined),
+        ).toThrow(/--firm e8futures is not yet modeled for prop live/);
+    });
+
+    it('declares --transition-profit with help text naming Lucid Daily and its $15,000 cap, without em dashes', () => {
+        const description = liveArguments['transition-profit'].description;
+
+        expect(description).toContain('Lucid Daily');
+        expect(description).toContain('$15,000');
+        expect(description).not.toContain('\u{2014}');
+    });
+});

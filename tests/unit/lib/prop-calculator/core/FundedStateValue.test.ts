@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { ALL_FIRMS } from '~/lib/prop-calculator';
 import {
+    ApexVariant,
     ConsistencyRule,
     ConsistencyScope,
     ContractLimitKind,
@@ -13,6 +14,7 @@ import {
     EodTrailingDrawdown,
     FirmId,
     fraction,
+    FtmoFuturesVariant,
     FundedNextVariant,
     INSTRUMENTS,
     InstrumentSymbol,
@@ -22,6 +24,7 @@ import {
     type Plan,
     points,
     replacementEconomics,
+    TierBasis,
 } from '~/lib/prop-calculator/core';
 import {
     computeFundedStateValue,
@@ -30,6 +33,7 @@ import {
     isFundedDpEligible,
     warmFirmsRegistryCache,
 } from '~/lib/prop-calculator/core/FundedStateValue';
+import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFunding';
 import { FundedNext } from '~/lib/prop-calculator/firms/fundednext/FundedNext';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 import { TopStep } from '~/lib/prop-calculator/firms/topstep/TopStep';
@@ -80,6 +84,16 @@ function legacyPlan(): Plan {
         variant: FundedNextVariant.Legacy,
     });
     if (!plan) throw new Error('FundedNext Legacy 50K plan not found');
+    return plan;
+}
+
+function mffProPlan(): Plan {
+    const plan = new MyFundedFutures().findPlan({
+        accountSize: 50_000,
+        firm: FirmId.Mffu,
+        variant: MffuVariant.Pro,
+    });
+    if (!plan) throw new Error('MFF Pro 50K plan not found');
     return plan;
 }
 
@@ -147,7 +161,11 @@ function rapidPlan(): Plan {
     return plan;
 }
 
-function secondTradeRisk(plan: Plan, todayPnL: number): number {
+function secondTradeRisk(
+    plan: Plan,
+    todayPnL: number,
+    peakDayCloseProfit = 0,
+): number {
     const result = computeFundedStateValue({
         actionStepMultiple: 0.25,
         cushionStepMultiple: 1,
@@ -170,18 +188,19 @@ function secondTradeRisk(plan: Plan, todayPnL: number): number {
     state.threshold = plan.accountSize;
     state.thresholdLocked = true;
     state.todayPnL = todayPnL;
+    state.peakDayCloseProfit = peakDayCloseProfit;
     return result.dayPolicy.computeRisk?.(state, 1) ?? 0;
 }
 
-function tieredContractToyPlan(isEffectiveNextSession: boolean): Plan {
+function tieredContractToyPlan(tierBasis: TierBasis): Plan {
     return onePayoutToyPlan().withOverrides({
         contractLimits: {
             evalMicros: contracts(10),
             evalMinis: contracts(1),
             fundedMicros: null,
             fundedMinis: {
-                ...(isEffectiveNextSession && { isEffectiveNextSession }),
                 kind: ContractLimitKind.Tiered,
+                tierBasis,
                 tiers: [
                     { maxContracts: contracts(1), minBalance: dollars(0) },
                     { maxContracts: contracts(4), minBalance: dollars(300) },
@@ -239,10 +258,16 @@ describe(
                 );
 
                 const wrongDoubleCountedCost = replacementEconomics({
-                    evalPrice: feePerAttempt,
+                    discounts: undefined,
+                    evalPassRate: 0.4,
+                    fees: {
+                        activation: dollars(0),
+                        monthlySubscription: dollars(0),
+                        oneTimeEval: feePerAttempt,
+                        reset: feePerAttempt,
+                    },
                     meanDaysOnFail: 10,
                     meanDaysOnPass: 20,
-                    passRate: 0.4,
                 }).costPerFundedAccount;
 
                 expect(wrongDoubleCountedCost).toBeGreaterThan(feePerAttempt);
@@ -550,13 +575,14 @@ describe(
                 );
                 expect(topTierRisk ?? 0).toBeGreaterThan(0);
             },
+            120_000,
         );
     },
 );
 
 describe(
     'computeFundedStateValue vs a funded contract cap opted into the day-' +
-        "start-frozen tier (isEffectiveNextSession): the DP's own day tree " +
+        "start-frozen tier (SessionOpenProfit): the DP's own day tree " +
         'must size its second trade off the profit the day opened at, not ' +
         'the profit accrued so far within that same day. The toy carries a ' +
         'never-violated funded consistency rule (share 1.0) purely to put ' +
@@ -573,9 +599,12 @@ describe(
                 'the 4-contract tier, $100 of risk at $25/contract), ' +
                 'unchanged by the new day-start argument',
             () => {
-                expect(secondTradeRisk(tieredContractToyPlan(false), 150)).toBe(
-                    LIVE_TIER_RISK,
-                );
+                expect(
+                    secondTradeRisk(
+                        tieredContractToyPlan(TierBasis.LiveProfit),
+                        150,
+                    ),
+                ).toBe(LIVE_TIER_RISK);
             },
         );
 
@@ -586,7 +615,7 @@ describe(
                 'the 4-contract tier',
             () => {
                 const frozen = secondTradeRisk(
-                    tieredContractToyPlan(true),
+                    tieredContractToyPlan(TierBasis.SessionOpenProfit),
                     150,
                 );
                 expect(frozen).toBeLessThanOrEqual(DAY_START_TIER_RISK);
@@ -600,9 +629,12 @@ describe(
                 'day-start profit is the live profit and the 4-contract tier ' +
                 'applies again',
             () => {
-                expect(secondTradeRisk(tieredContractToyPlan(true), 0)).toBe(
-                    LIVE_TIER_RISK,
-                );
+                expect(
+                    secondTradeRisk(
+                        tieredContractToyPlan(TierBasis.SessionOpenProfit),
+                        0,
+                    ),
+                ).toBe(LIVE_TIER_RISK);
             },
         );
     },
@@ -631,6 +663,23 @@ describe('defaultPayoutRegimeCap', () => {
         expect(defaultPayoutRegimeCap(plan)).toBe(8);
     });
 
+    it('raises the cap to the last scheduled payout-split index when it exceeds the default of 6', () => {
+        const plan = rapidEodPlan().withOverrides({
+            payoutTiersFromPayout: [
+                {
+                    fromPayoutIndex: 9,
+                    tiers: [
+                        {
+                            thresholdProfit: dollars(0),
+                            traderShare: fraction(0.9),
+                        },
+                    ],
+                },
+            ],
+        });
+        expect(defaultPayoutRegimeCap(plan)).toBe(9);
+    });
+
     it('takes the max across the default, maxLifetimePayouts, and the payout ladder step count', () => {
         const plan = rapidEodPlan().withOverrides({
             maxLifetimePayouts: 3,
@@ -644,11 +693,19 @@ describe('defaultPayoutRegimeCap', () => {
 });
 
 describe('isFundedDpEligible scope cut', () => {
+    it('keeps MFF Pro 50K DP-eligible with its payout-triggered funded lock (R1-51)', () => {
+        const plan = mffProPlan();
+        expect(plan.fundedDrawdown.lock?.atProfit).toBeNull();
+        expect(plan.payoutFloorEffect).toBe(
+            PayoutFloorEffect.MoveToLockedFloor,
+        );
+        expect(isFundedDpEligible(plan)).toBe(true);
+    });
+
     it(
-        'refuses a plan whose funded daily loss limit terminates the account, ' +
-            'because the DP builds every synthetic state with todayPnL 0 and so ' +
-            'cannot see a daily-loss breach at all — returning a value computed ' +
-            'under a rule it cannot model would understate the risk silently',
+        'accepts a plan whose funded daily loss limit terminates the account, ' +
+            'now that the DP carries the real todayPnL into every within-day ' +
+            'state and so sees the breach exactly where the simulator does',
         () => {
             const soft = rapidEodPlan().withOverrides({
                 fundedDailyLossLimit: {
@@ -662,7 +719,7 @@ describe('isFundedDpEligible scope cut', () => {
                 fundedDailyLossLimitBreach:
                     DailyLossLimitBreachEffect.Terminate,
             });
-            expect(isFundedDpEligible(hard)).toBe(false);
+            expect(isFundedDpEligible(hard)).toBe(true);
         },
     );
 
@@ -935,6 +992,56 @@ describe(
         );
 
         it(
+            'worker parity across the peak ratchet and cycle-baseline pair ' +
+                'dimensions: with payoutRegimeCap 1 the regime-1 levels carry ' +
+                "TopStep's full cycle-baseline radix (its 50% balance-share " +
+                'cap can leave the balance above the payout floor), so the ' +
+                'workers decode, solve and read back every baseline pair from ' +
+                'a snapshot sized for it (an out-of-range read throws in the ' +
+                'worker) and agree with the single-threaded solve',
+            async () => {
+                await warmFirmsRegistryCache();
+                const firm = ALL_FIRMS.find(
+                    (candidate) => candidate.id === FirmId.TopStep,
+                );
+                const livePlan = firm?.plans[0];
+                if (!livePlan) throw new Error('TopStep firm not registered');
+                expect(findRegistryPlanId(livePlan)).toEqual(livePlan.id);
+                expect(livePlan.canLeaveBalanceAbovePayoutFloor()).toBe(true);
+
+                const coarseConfig = {
+                    actionStepMultiple: 1,
+                    cushionStepMultiple: 1,
+                    dayCost: 5,
+                    evalInitialValue: 0,
+                    feePerAttempt: dollars(0),
+                    maxActionMultiple: 1,
+                    meanHorizonDays: 100,
+                    payoutRegimeCap: 1,
+                    rrRatio: 2,
+                    tradesPerDay: 1,
+                    winrate: 0.4,
+                };
+                const workerResult = computeFundedStateValue({
+                    ...coarseConfig,
+                    plan: livePlan,
+                });
+                const singleThreadedResult = computeFundedStateValue({
+                    ...coarseConfig,
+                    plan: livePlan.withOverrides({}),
+                });
+                expect(workerResult.reachedStateCount).toBe(
+                    singleThreadedResult.reachedStateCount,
+                );
+                expect(workerResult.initialValue).toBeCloseTo(
+                    singleThreadedResult.initialValue,
+                    6,
+                );
+            },
+            120_000,
+        );
+
+        it(
             'dayCost != 0 without meanHorizonDays throws, since a policy ' +
                 'that never busts would have no terminal branch and the ' +
                 'day-cost fixed point would diverge',
@@ -1074,7 +1181,11 @@ describe('idle-days DP state dimension', () => {
             'hand-derived one-payout toy case above) — asserting those ' +
             'exact, previously-measured figures here pins the ' +
             'post-change engine to produce identical output for every ' +
-            'plan that never sets the field',
+            'plan that never sets the field. reachedStateCount is now 15, ' +
+            'not 105: the toy concludes on its one payout, so the six ' +
+            'regime-1+ locked levels and every unlocked regime-1+ level ' +
+            '(unreachable, since a payout always locks this plan) are no ' +
+            'longer solved; 105 was those 7 regimes x 15 states',
         () => {
             const plan = onePayoutToyPlan().withOverrides({
                 maxConsecutiveIdleDays: undefined,
@@ -1094,7 +1205,7 @@ describe('idle-days DP state dimension', () => {
             });
 
             expect(result.initialValue).toBeCloseTo(50, 10);
-            expect(result.reachedStateCount).toBe(105);
+            expect(result.reachedStateCount).toBe(15);
 
             const risk = result.dayPolicy.computeRisk?.(plan.initialState(), 0);
             expect(risk).toBe(100);
@@ -1189,7 +1300,7 @@ describe('cycleBestDayProfit DP state dimension', () => {
             'is never even called when fundedConsistencyRule() is null ' +
             '(short-circuited by `!consistency?.isViolated(...)`), the ' +
             'tracked cycleBestDayProfit value can never influence this ' +
-            'plan. reachedStateCount is pinned at 39396, exactly 2x the ' +
+            'plan. reachedStateCount was pinned at 39396, exactly 2x the ' +
             "pre-D14 19698, since this plan's minDaysAfterPassForPayout=1 " +
             'adds a real qualifyingDayKeyRadix=2 state dimension, but ' +
             "initialValue and the policy are unaffected by D14's fix " +
@@ -1197,7 +1308,18 @@ describe('cycleBestDayProfit DP state dimension', () => {
             "very first traded day's own qualifying-day accrual (by the " +
             'time tryFundedPayout runs on that same day-close), so the ' +
             'gate was never actually binding for this plan even before ' +
-            'the fix',
+            'the fix. It is now 10752: the 5978 locked states (7 regimes ' +
+            'x 7 idle x 2 qualifying x 61 cushion) plus only the 4774 ' +
+            'regime-0 unlocked states, since this plan retains a full ' +
+            '$2,000 drawdown of cushion, so an unlocked account can never ' +
+            'withdraw and the 6 x 4774 unlocked regime-1+ states are ' +
+            'unreachable and skipped; the cycle-baseline dimension ' +
+            'collapses to one value because every payout drains to the ' +
+            'payout floor. The unlocked state after 1 or 2 payouts that ' +
+            'this test used to pin at [200,0,0,0] is one of those ' +
+            'unreachable states, so computeRisk now fails loud there; the ' +
+            'reachable locked states after 0-2 payouts are pinned instead, ' +
+            'at the values the pre-change engine returned for them',
         () => {
             const plan = rapidEodPlan();
             expect(plan.fundedConsistencyRule()).toBeNull();
@@ -1214,32 +1336,44 @@ describe('cycleBestDayProfit DP state dimension', () => {
             });
 
             expect(result.initialValue).toBeCloseTo(29_505.52018082788, 6);
-            expect(result.reachedStateCount).toBe(39_396);
+            expect(result.reachedStateCount).toBe(10_752);
 
             const state = plan.initialState();
-            const expectedRisksByPayoutsIssued = [
-                [200, 0, 0, 0],
-                [200, 0, 0, 0],
-                [200, 0, 0, 0],
+            expect(
+                [0, 1, 2, 3].map((tradeIndex) =>
+                    result.dayPolicy.computeRisk?.(state, tradeIndex, 0),
+                ),
+            ).toStrictEqual([200, 0, 0, 0]);
+            for (const payoutsIssued of [1, 2]) {
+                expect(() =>
+                    result.dayPolicy.computeRisk?.(state, 0, payoutsIssued),
+                ).toThrow(/never reach/);
+            }
+
+            const lockedRisksByBalance: [number, number[]][] = [
+                [51_300, [200, 200, 200, 200]],
+                [52_600, [200, 0, 0, 0]],
+                [54_100, [600, 600, 600, 600]],
             ];
-            for (const [
-                payoutsIssued,
-                expectedRisks,
-            ] of expectedRisksByPayoutsIssued.entries()) {
-                for (const [
-                    tradeIndex,
-                    expectedRisk,
-                ] of expectedRisks.entries()) {
+            for (const [balance, expectedRisks] of lockedRisksByBalance) {
+                const locked = plan.initialState();
+                locked.balance = balance;
+                locked.threshold = 50_100;
+                locked.thresholdLocked = true;
+                for (const payoutsIssued of [0, 1, 2]) {
                     expect(
-                        result.dayPolicy.computeRisk?.(
-                            state,
-                            tradeIndex,
-                            payoutsIssued,
+                        [0, 1, 2, 3].map((tradeIndex) =>
+                            result.dayPolicy.computeRisk?.(
+                                locked,
+                                tradeIndex,
+                                payoutsIssued,
+                            ),
                         ),
-                    ).toBe(expectedRisk);
+                    ).toStrictEqual(expectedRisks);
                 }
             }
         },
+        60_000,
     );
 
     it(
@@ -1365,4 +1499,431 @@ describe('findRegistryPlanId (worker-thread pool safety gate)', () => {
 
         expect(findRegistryPlanId(firstPlan.withOverrides({}))).toBeNull();
     });
+});
+
+function flatShare(share: number) {
+    return [{ thresholdProfit: dollars(0), traderShare: fraction(share) }];
+}
+
+function initialValue(plan: Plan, payoutRegimeCap?: number): number {
+    return computeFundedStateValue({
+        actionStepMultiple: 0.5,
+        cushionStepMultiple: 0.5,
+        cycleBestDayBucketCount: 1,
+        evalInitialValue: 0,
+        feePerAttempt: dollars(0),
+        meanHorizonDays: 60,
+        payoutRegimeCap,
+        plan,
+        rrRatio: 2,
+        tradesPerDay: 1,
+        winrate: 0.5,
+    }).initialValue;
+}
+
+function multiPayoutToyPlan(): Plan {
+    return onePayoutToyPlan().withOverrides({
+        maxLifetimePayouts: undefined,
+    });
+}
+
+describe('computeFundedStateValue keys a payout-number split on its payout regime', () => {
+    const flatHigh = multiPayoutToyPlan().withOverrides({
+        payoutTiers: flatShare(0.9),
+    });
+    const flatLow = multiPayoutToyPlan().withOverrides({
+        payoutTiers: flatShare(0.7),
+    });
+    const tiered = multiPayoutToyPlan().withOverrides({
+        payoutTiers: flatShare(0.7),
+        payoutTiersFromPayout: [
+            { fromPayoutIndex: 2, tiers: flatShare(0.8) },
+            { fromPayoutIndex: 4, tiers: flatShare(0.9) },
+        ],
+    });
+
+    it('values the 70/80/90 schedule strictly between flat 90% and flat 70%', () => {
+        const high = initialValue(flatHigh);
+        const middle = initialValue(tiered);
+        const low = initialValue(flatLow);
+        expect(high).toBeGreaterThan(middle);
+        expect(middle).toBeGreaterThan(low);
+    });
+
+    it('collapses the schedule to its first-payout split when the regime cap is 0', () => {
+        expect(initialValue(tiered, 0)).toBeCloseTo(
+            initialValue(flatLow, 0),
+            9,
+        );
+    });
+});
+
+function apexEodSessionOpenRisk(sessionOpenProfit: number): number {
+    const plan = new ApexTraderFunding()
+        .findPlan({
+            accountSize: 50_000,
+            firm: FirmId.Apex,
+            variant: ApexVariant.Eod,
+        })
+        ?.withOverrides({
+            fundedConsistency: { kind: 'set', rule: null },
+            maxConsecutiveIdleDays: undefined,
+        });
+    if (!plan) throw new Error('Apex EOD 50K plan not found');
+    const result = computeFundedStateValue({
+        actionStepMultiple: 0.1,
+        cushionStepMultiple: 0.1,
+        evalInitialValue: 0,
+        feePerAttempt: dollars(0),
+        maxActionMultiple: 1,
+        payoutRegimeCap: 0,
+        plan,
+        rrRatio: 2,
+        tradesPerDay: 2,
+        winrate: 0.5,
+    });
+    const state = plan.initialState();
+    state.threshold = 50_100;
+    state.thresholdLocked = true;
+    state.todayPnL = -900;
+    state.balance = 50_000 + sessionOpenProfit - 900;
+    state.peakDayCloseProfit = sessionOpenProfit;
+    return result.dayPolicy.computeRisk?.(state, 1) ?? 0;
+}
+
+function dllHeadroomRisk(todayPnL: number): number {
+    const result = computeFundedStateValue({
+        actionStepMultiple: 0.25,
+        cushionStepMultiple: 0.25,
+        evalInitialValue: 0,
+        feePerAttempt: dollars(0),
+        maxActionMultiple: 1,
+        payoutRegimeCap: 0,
+        plan: flatDllToyPlan(60),
+        rrRatio: 2,
+        tradesPerDay: 2,
+        winrate: 0.5,
+    });
+    return (
+        result.dayPolicy.computeRisk?.(lockedStateAt(1275, todayPnL), 1) ?? 0
+    );
+}
+
+function dpAgainstSimulate(plan: Plan, trials: number) {
+    const result = computeFundedStateValue({
+        actionStepMultiple: 0.5,
+        cushionStepMultiple: 0.5,
+        evalInitialValue: 0,
+        feePerAttempt: dollars(0),
+        maxActionMultiple: 1,
+        plan,
+        rrRatio: 2,
+        tradesPerDay: 2,
+        winrate: 0.5,
+    });
+    const out = simulate({
+        fundedDayPolicy: result.dayPolicy,
+        fundedHorizonDays: 400,
+        maxEvalDays: 1,
+        plan,
+        riskPerTrade: 100,
+        rrRatio: 2,
+        seed: 7,
+        tradesPerDay: 2,
+        trials,
+        winrate: 0.5,
+    });
+    return {
+        empiricalValue:
+            out.expectedGrossPayout +
+            out.fundedBustProbability * result.bustTerminalValue,
+        result,
+    };
+}
+
+function flatDllToyPlan(amount: number): Plan {
+    return onePayoutToyPlan().withOverrides({
+        fundedDailyLossLimit: {
+            amount: dollars(amount),
+            kind: DailyLossLimitKind.Flat,
+        },
+    });
+}
+
+function lockedStateAt(
+    balance: number,
+    todayPnL: number,
+    peakDayCloseProfit = 0,
+): ReturnType<typeof createInitialState> {
+    const state = createInitialState(1000, 1000);
+    state.balance = balance;
+    state.threshold = 1000;
+    state.thresholdLocked = true;
+    state.todayPnL = todayPnL;
+    state.peakDayCloseProfit = peakDayCloseProfit;
+    return state;
+}
+
+function payoutRequestCapConfig(plan: Plan) {
+    return {
+        actionStepMultiple: 1,
+        cushionStepMultiple: 0.5,
+        evalInitialValue: 0,
+        feePerAttempt: dollars(0),
+        maxActionMultiple: 1,
+        plan,
+        rrRatio: 1,
+        tradesPerDay: 1,
+        winrate: 1,
+    };
+}
+
+function payoutRequestCapToyPlan(): Plan {
+    return onePayoutToyPlan().withOverrides({
+        maxConsecutiveIdleDays: undefined,
+        maxLifetimePayouts: 2,
+        minPayoutProfit: dollars(300),
+        minPayoutProfitPerCycle: dollars(0.01),
+        payoutRequestCap: dollars(150),
+    });
+}
+
+function qualifyingGateValue(minQualifyingDayProfit: number): number {
+    return computeFundedStateValue({
+        actionStepMultiple: 1,
+        cushionStepMultiple: 1,
+        evalInitialValue: 0,
+        feePerAttempt: dollars(0),
+        maxActionMultiple: 1,
+        plan: onePayoutToyPlan().withOverrides({
+            minDaysAfterPassForPayout: 1,
+            minQualifyingDayProfit: dollars(minQualifyingDayProfit),
+        }),
+        rrRatio: 2,
+        tradesPerDay: 1,
+        winrate: 0.5,
+    }).initialValue;
+}
+
+describe('computeFundedStateValue models the funded daily loss limit within the day (R1-6)', () => {
+    it('stops trading once today already breached the limit', () => {
+        expect(dllHeadroomRisk(-75)).toBe(0);
+    });
+
+    it('caps the next trade at the headroom left today', () => {
+        const nearTheLimit = dllHeadroomRisk(-25);
+        expect(nearTheLimit).toBeGreaterThan(0);
+        expect(nearTheLimit).toBeLessThanOrEqual(35 + 1e-9);
+        expect(dllHeadroomRisk(0)).toBeGreaterThan(35);
+    });
+
+    it('matches a real simulate() run under a lockout daily loss limit', () => {
+        const { empiricalValue, result } = dpAgainstSimulate(
+            flatDllToyPlan(50),
+            50_000,
+        );
+        expect(empiricalValue).toBeCloseTo(result.initialValue, 0);
+    }, 60_000);
+
+    it('values a terminating daily loss limit exactly like simulate() and strictly below the lockout variant', () => {
+        const lockout = flatDllToyPlan(50);
+        const terminate = lockout.withOverrides({
+            fundedDailyLossLimitBreach: DailyLossLimitBreachEffect.Terminate,
+        });
+        expect(isFundedDpEligible(terminate)).toBe(true);
+
+        const terminating = dpAgainstSimulate(terminate, 50_000);
+        expect(terminating.empiricalValue).toBeCloseTo(
+            terminating.result.initialValue,
+            0,
+        );
+        expect(terminating.result.initialValue).toBeLessThan(
+            dpAgainstSimulate(lockout, 1).result.initialValue,
+        );
+    }, 60_000);
+});
+
+describe('computeFundedStateValue solves per day start for every plan that reads the day-start P&L (R1-6, N-10)', () => {
+    it('counts a qualifying day from the day P&L, not the end-of-day cushion, without a funded consistency rule', () => {
+        expect(qualifyingGateValue(250)).toBeCloseTo(0, 10);
+        expect(qualifyingGateValue(150)).toBeCloseTo(50, 10);
+    });
+
+    it('sizes off the session-open contract tier without a funded consistency rule', () => {
+        const plan = tieredContractToyPlan(
+            TierBasis.SessionOpenProfit,
+        ).withOverrides({ fundedConsistency: { kind: 'set', rule: null } });
+        expect(plan.fundedConsistencyRule()).toBeNull();
+        expect(secondTradeRisk(plan, 0)).toBe(100);
+    });
+});
+
+describe('computeFundedStateValue tracks the peak session close for peak-based tiers (R1-43 and R1-54 DP half)', () => {
+    it('resolves a peak-session-close daily loss limit tier from the peak, not from zero', () => {
+        const plan = onePayoutToyPlan().withOverrides({
+            fundedDailyLossLimit: {
+                kind: DailyLossLimitKind.Tiered,
+                tierBasis: TierBasis.PeakSessionCloseProfit,
+                tiers: [
+                    {
+                        dailyLossLimit: dollars(30),
+                        maxContracts: contracts(1),
+                        minProfit: 0,
+                    },
+                    {
+                        dailyLossLimit: dollars(1000),
+                        maxContracts: contracts(1),
+                        minProfit: 300,
+                    },
+                ],
+            },
+        });
+        const result = computeFundedStateValue({
+            actionStepMultiple: 0.25,
+            cushionStepMultiple: 0.25,
+            evalInitialValue: 0,
+            feePerAttempt: dollars(0),
+            maxActionMultiple: 1,
+            payoutRegimeCap: 0,
+            plan,
+            rrRatio: 2,
+            tradesPerDay: 1,
+            winrate: 0.5,
+        });
+        const riskAtPeak = (peak: number) =>
+            result.dayPolicy.computeRisk?.(lockedStateAt(1250, 0, peak), 0) ??
+            0;
+        expect(riskAtPeak(250)).toBeLessThanOrEqual(30 + 1e-9);
+        expect(riskAtPeak(250)).toBeGreaterThan(0);
+        expect(riskAtPeak(400)).toBe(100);
+    });
+
+    it('keeps a cumulative contract tier once the peak session close reached it', () => {
+        const plan = tieredContractToyPlan(TierBasis.PeakSessionCloseProfit);
+        expect(secondTradeRisk(plan, 150, 350)).toBe(100);
+        expect(secondTradeRisk(plan, 150, 200)).toBeLessThanOrEqual(25);
+    });
+});
+
+describe('computeFundedStateValue measures cycle profit from the real post-payout balance (R1-7)', () => {
+    it('pays 150 then 100 on the payout-request-cap toy, not 150 then 150', () => {
+        const plan = payoutRequestCapToyPlan();
+        const result = computeFundedStateValue(payoutRequestCapConfig(plan));
+        expect(result.initialValue).toBeCloseTo(250, 10);
+    });
+
+    it('agrees with a real simulate() run driven by its own policy', () => {
+        const plan = payoutRequestCapToyPlan();
+        const result = computeFundedStateValue(payoutRequestCapConfig(plan));
+        const out = simulate({
+            fundedDayPolicy: result.dayPolicy,
+            fundedHorizonDays: 50,
+            maxEvalDays: 1,
+            plan,
+            riskPerTrade: 100,
+            rrRatio: 1,
+            seed: 7,
+            tradesPerDay: 1,
+            trials: 100,
+            winrate: 1,
+        });
+        expect(out.expectedGrossPayout).toBeCloseTo(250, 10);
+        expect(out.expectedGrossPayout).toBeCloseTo(result.initialValue, 10);
+    }, 15_000);
+
+    it('fails loud when a post-payout policy lookup is missing the last payout balance', () => {
+        const plan = payoutRequestCapToyPlan();
+        const result = computeFundedStateValue(payoutRequestCapConfig(plan));
+        const state = lockedStateAt(1150, 0);
+        expect(() => result.dayPolicy.computeRisk?.(state, 0, 1)).toThrow(
+            /lastPayoutBalance/,
+        );
+        expect(result.dayPolicy.computeRisk?.(state, 0, 1, 0, 0, 1150)).toBe(
+            100,
+        );
+    });
+
+    it('solves a plan that can withdraw while unlocked and still matches simulate()', () => {
+        const plan = onePayoutToyPlan().withOverrides({
+            maxLifetimePayouts: 2,
+            minPayoutProfitPerCycle: dollars(0.01),
+            minRetainedCushionOverride: dollars(50),
+            payoutFloorEffect: PayoutFloorEffect.None,
+        });
+        const config = {
+            actionStepMultiple: 0.5,
+            cushionStepMultiple: 0.5,
+            evalInitialValue: 0,
+            feePerAttempt: dollars(0),
+            maxActionMultiple: 1,
+            plan,
+            rrRatio: 2,
+            tradesPerDay: 1,
+            winrate: 0.5,
+        };
+        const result = computeFundedStateValue(config);
+        const out = simulate({
+            fundedDayPolicy: result.dayPolicy,
+            fundedHorizonDays: 400,
+            maxEvalDays: 1,
+            plan,
+            riskPerTrade: 100,
+            rrRatio: 2,
+            seed: 7,
+            tradesPerDay: 1,
+            trials: 50_000,
+            winrate: 0.5,
+        });
+        expect(out.expectedGrossPayout).toBeCloseTo(result.initialValue, 0);
+    }, 60_000);
+});
+
+describe('computeFundedStateValue enforces the Apex PA Level daily loss limit on the session-open basis', () => {
+    it('lets the second trade use the $1,100 left of the $2,000 Level 3 limit when the session opened at $3,100 profit, never more', () => {
+        const risk = apexEodSessionOpenRisk(3100);
+        expect(risk).toBeGreaterThan(100);
+        expect(risk).toBeLessThanOrEqual(1100);
+    }, 120_000);
+
+    it('caps the second trade at the $100 left of the $1,000 Level 2 limit when the session opened at $2,900 profit', () => {
+        expect(apexEodSessionOpenRisk(2900)).toBeLessThanOrEqual(100);
+    }, 120_000);
+});
+
+describe('cycleBaselineFineRangeMultiple sets how finely the post-payout baseline is gridded (T11)', () => {
+    async function ftmoGrowthCoarse(cycleBaselineFineRangeMultiple: number) {
+        await warmFirmsRegistryCache();
+        const plan = ALL_FIRMS.find(
+            (firm) => firm.id === FirmId.FtmoFutures,
+        )?.findPlan({
+            accountSize: 50_000,
+            firm: FirmId.FtmoFutures,
+            variant: FtmoFuturesVariant.Growth,
+        });
+        if (!plan) throw new Error('FTMO Futures Growth 50K plan not found');
+        return computeFundedStateValue({
+            actionStepMultiple: 0.25,
+            cushionStepMultiple: 0.25,
+            cycleBaselineFineRangeMultiple,
+            evalInitialValue: 0,
+            feePerAttempt: dollars(0),
+            maxActionMultiple: 1,
+            meanHorizonDays: 60,
+            payoutRegimeCap: 2,
+            plan,
+            rrRatio: 2,
+            tradesPerDay: 2,
+            winrate: 0.5,
+        });
+    }
+
+    it.each([0, 1, 6])(
+        'FTMO Futures Growth 50K converges at fine range multiple %s',
+        async (multiple) => {
+            const result = await ftmoGrowthCoarse(multiple);
+            expect(result.unconvergedLevelCount).toBe(0);
+            expect(result.initialValue).toBeGreaterThan(0);
+        },
+        600_000,
+    );
 });

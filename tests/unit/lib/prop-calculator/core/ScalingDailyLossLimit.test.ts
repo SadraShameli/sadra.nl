@@ -29,6 +29,7 @@ function fundedDll(
         isThresholdLocked: options.isThresholdLocked,
         peakDayCloseProfit: options.peak,
         profit: options.peak,
+        sessionOpenProfit: options.peak,
     });
 }
 

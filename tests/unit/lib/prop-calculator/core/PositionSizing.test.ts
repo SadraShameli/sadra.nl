@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    type AccountState,
     ContractLimitKind,
     type ContractLimits,
     contracts,
@@ -12,6 +13,7 @@ import {
     type Plan,
     points,
     RungSizing,
+    TierBasis,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
 import {
@@ -44,8 +46,19 @@ const FROZEN_TIER_LIMITS: ContractLimits = {
     evalMinis: contracts(7),
     fundedMicros: null,
     fundedMinis: {
-        isEffectiveNextSession: true,
         kind: ContractLimitKind.Tiered,
+        tierBasis: TierBasis.SessionOpenProfit,
+        tiers: SCALING_TIERS,
+    },
+};
+
+const CUMULATIVE_TIER_LIMITS: ContractLimits = {
+    evalMicros: contracts(70),
+    evalMinis: contracts(7),
+    fundedMicros: null,
+    fundedMinis: {
+        kind: ContractLimitKind.Tiered,
+        tierBasis: TierBasis.PeakSessionCloseProfit,
         tiers: SCALING_TIERS,
     },
 };
@@ -110,6 +123,30 @@ function runFundedDays(options: {
         });
     }
     return state.balance - state.startingBalance;
+}
+
+function runSingleTradeDay(
+    plan: Plan,
+    state: AccountState,
+    draw: number,
+): void {
+    runDay({
+        commission: dollars(0),
+        dayPolicy: {
+            ladder: [RUNG_RISK],
+            maxLossesPerDay: null,
+            stopRule: { kind: DayStopRuleKind.None },
+        },
+        phase: TradingPhase.Funded,
+        plan,
+        positionSizing: NQ,
+        rng: scriptedRng([draw]),
+        rrRatio: 2,
+        rungSizing: RungSizing.CapToCushion,
+        state,
+        stats: freshStats(state.startingBalance),
+        winrate: fraction(0.5),
+    });
 }
 
 function scriptedRng(draws: readonly number[]): Rng {
@@ -281,7 +318,7 @@ describe('runDay: position sizing actually caps a trade in the simulated day loo
     });
 });
 
-describe('resolveContractLimit with a day-start-frozen funded tier (isEffectiveNextSession)', () => {
+describe('resolveContractLimit with a day-start-frozen funded tier (SessionOpenProfit)', () => {
     it('ignores accountProfitAtSessionStart for a plan that has not opted in, keying the funded tier on live profit exactly as before', () => {
         expect(
             resolveContractLimit(
@@ -422,5 +459,63 @@ describe('runDay: an opted-in tiered funded cap is resolved once per calendar da
                 winrate: 1,
             }),
         ).toBe(4800);
+    });
+});
+
+describe('resolveContractLimit with a cumulative funded tier (PeakSessionCloseProfit)', () => {
+    it('keeps the higher tier a prior session close reached, even after the profit fell back below it', () => {
+        expect(
+            resolveContractLimit(
+                CUMULATIVE_TIER_LIMITS,
+                TradingPhase.Funded,
+                false,
+                0,
+                0,
+                500,
+            ),
+        ).toBe(5);
+    });
+
+    it('stays on the base tier when no session close has reached the next breakpoint', () => {
+        expect(
+            resolveContractLimit(
+                CUMULATIVE_TIER_LIMITS,
+                TradingPhase.Funded,
+                false,
+                0,
+                0,
+                200,
+            ),
+        ).toBe(1);
+    });
+
+    it('ignores the peak in the eval phase, which reads its flat cap directly', () => {
+        expect(
+            resolveContractLimit(
+                CUMULATIVE_TIER_LIMITS,
+                TradingPhase.Eval,
+                false,
+                0,
+                0,
+                999_999,
+            ),
+        ).toBe(7);
+    });
+});
+
+describe('runDay: a cumulative funded tier holds after a pullback', () => {
+    it('sizes the day after a withdrawal off the tier the prior session close reached (5 NQ contracts, a $1000 loss), not the 1-contract tier the lower opening profit would give', () => {
+        const plan = fundedTieredPlan(CUMULATIVE_TIER_LIMITS);
+        const state = plan.initialState();
+        plan.beginFundedPhase(state);
+
+        runSingleTradeDay(plan, state, 0.01);
+        expect(state.balance - state.startingBalance).toBe(400);
+        expect(state.peakDayCloseProfit).toBe(400);
+
+        state.balance -= 400;
+        runSingleTradeDay(plan, state, 0.99);
+
+        expect(state.balance - state.startingBalance).toBe(-1000);
     });
 });

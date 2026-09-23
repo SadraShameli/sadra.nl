@@ -6,6 +6,7 @@ import { type Plan } from './Plan';
 export enum FundedDpPayoutCapGapKind {
     LifetimeDollarCapIgnored = 'lifetime-dollar-cap-ignored',
     PayoutCountTierBeyondRegimeCap = 'payout-count-tier-beyond-regime-cap',
+    PayoutTriggeredLockPreLockOffsetSaturates = 'payout-triggered-lock-pre-lock-offset-saturates',
 }
 
 export type FundedDpPayoutCapGap =
@@ -17,6 +18,9 @@ export type FundedDpPayoutCapGap =
     | {
           readonly kind: FundedDpPayoutCapGapKind.LifetimeDollarCapIgnored;
           readonly maxLifetimePayoutDollars: Dollars;
+      }
+    | {
+          readonly kind: FundedDpPayoutCapGapKind.PayoutTriggeredLockPreLockOffsetSaturates;
       };
 
 export function fundedDpPayoutCapGaps(plan: Plan): FundedDpPayoutCapGap[] {
@@ -38,6 +42,11 @@ export function fundedDpPayoutCapGaps(plan: Plan): FundedDpPayoutCapGap[] {
                 });
             }
         }
+    }
+    if (plan.fundedDrawdown.lock?.atProfit === null) {
+        gaps.push({
+            kind: FundedDpPayoutCapGapKind.PayoutTriggeredLockPreLockOffsetSaturates,
+        });
     }
     return gaps;
 }

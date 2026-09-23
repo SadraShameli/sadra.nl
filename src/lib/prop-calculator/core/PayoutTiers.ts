@@ -1,4 +1,16 @@
-import { type Dollars, type Fraction0to1 } from './lib/units';
+import { type Dollars, fraction, type Fraction0to1 } from './lib/units';
+import {
+    assertPayoutCountSchedule,
+    resolvePayoutCountEntry,
+    sortByPayoutIndex,
+} from './PayoutCountSchedule';
+
+const PAYOUT_COUNT_SPLIT_OWNER = 'PayoutCountTieredPayoutSplit';
+
+export interface PayoutCountSplitTier {
+    readonly fromPayoutIndex: number;
+    readonly tiers: readonly PayoutTier[];
+}
 
 export interface PayoutLadder {
     capsAtLastStep?: boolean;
@@ -10,6 +22,37 @@ export interface PayoutLadder {
 export interface PayoutTier {
     thresholdProfit: Dollars;
     traderShare: Fraction0to1;
+}
+
+export class PayoutCountTieredPayoutSplit {
+    readonly schedule: readonly PayoutCountSplitTier[];
+
+    constructor(schedule: readonly PayoutCountSplitTier[]) {
+        assertPayoutCountSchedule(PAYOUT_COUNT_SPLIT_OWNER, schedule);
+        this.schedule = sortByPayoutIndex(schedule);
+    }
+
+    get stationaryFromPayoutIndex(): number {
+        return this.schedule.at(-1)?.fromPayoutIndex ?? 0;
+    }
+
+    tiersFor(payoutIndex: number): readonly PayoutTier[] {
+        return resolvePayoutCountEntry(
+            PAYOUT_COUNT_SPLIT_OWNER,
+            this.schedule,
+            payoutIndex,
+        ).tiers;
+    }
+}
+
+export function scalePayoutTiers(
+    tiers: readonly PayoutTier[],
+    factor: number,
+): PayoutTier[] {
+    return tiers.map((tier) => ({
+        ...tier,
+        traderShare: fraction(tier.traderShare * factor),
+    }));
 }
 
 export function walkPayoutTiers(

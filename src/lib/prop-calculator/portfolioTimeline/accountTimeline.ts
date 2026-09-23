@@ -5,12 +5,12 @@ import {
 } from '../core/DayPolicy';
 import { dollars, fraction } from '../core/lib/units';
 import { resolvePositionSizing } from '../core/PositionSizing';
+import { assertPositiveSafeInteger } from '../simulator';
 import { runEvalToFundedCycle } from './fundedCycle';
 import {
     type AccountTimelineInputs,
     type AccountTimelineResult,
     DEFAULT_DAY_BUDGET,
-    DEFAULT_MAX_PAYOUTS_PER_CARD,
 } from './types';
 
 const MAX_CARDS_PER_TIMELINE = 2000;
@@ -23,9 +23,9 @@ export function runAccountTimeline(
         dayBudget = DEFAULT_DAY_BUDGET,
         discounts,
         idleDayProbability,
+        initialPurchaseDiscounts = discounts,
         instrument,
         maxEvalDays,
-        maxPayoutsPerCard = DEFAULT_MAX_PAYOUTS_PER_CARD,
         minRetainedCushion,
         payoutRequestSize,
         plan,
@@ -51,32 +51,31 @@ export function runAccountTimeline(
     const evalDayPolicy = inputs.evalDayPolicy ?? flatPolicy;
     const fundedDayPolicy = inputs.fundedDayPolicy ?? flatPolicy;
 
-    const safeDayBudget = Math.max(1, Math.floor(dayBudget));
-    const safeMaxEvalDays = Math.max(1, Math.floor(maxEvalDays));
+    assertPositiveSafeInteger(dayBudget, 'dayBudget');
+    assertPositiveSafeInteger(maxEvalDays, 'maxEvalDays');
 
-    const cumulativeSpend = new Float64Array(safeDayBudget + 1);
-    const cumulativePayout = new Float64Array(safeDayBudget + 1);
-    const cumulativeNet = new Float64Array(safeDayBudget + 1);
+    const cumulativeSpend = new Float64Array(dayBudget + 1);
+    const cumulativePayout = new Float64Array(dayBudget + 1);
+    const cumulativeNet = new Float64Array(dayBudget + 1);
 
     let spendSoFar = 0;
     let payoutSoFar = 0;
     let currentDay = 0;
     let cardsRun = 0;
 
-    while (currentDay < safeDayBudget && cardsRun < MAX_CARDS_PER_TIMELINE) {
+    while (currentDay < dayBudget && cardsRun < MAX_CARDS_PER_TIMELINE) {
         cardsRun += 1;
         const cardStart = currentDay;
-        const remainingDays = safeDayBudget - cardStart;
+        const remainingDays = dayBudget - cardStart;
 
         const card = runEvalToFundedCycle({
             commission,
-            discounts,
+            discounts: cardsRun === 1 ? initialPurchaseDiscounts : discounts,
             evalDayPolicy,
             fundedDayPolicy,
             idleDayProbability,
-            maxEvalDays: safeMaxEvalDays,
+            maxEvalDays,
             maxFundedDays: remainingDays,
-            maxPayoutsPerCard,
             minRetainedCushion: cushion,
             payoutRequestSize: requestSize,
             plan,
@@ -92,7 +91,7 @@ export function runAccountTimeline(
 
         for (
             let d = 1;
-            d <= card.totalDays && cardStart + d <= safeDayBudget;
+            d <= card.totalDays && cardStart + d <= dayBudget;
             d++
         ) {
             spendSoFar =
@@ -114,10 +113,10 @@ export function runAccountTimeline(
             cumulativeNet[absoluteDay] = payoutSoFar - spendSoFar;
         }
 
-        currentDay = Math.min(safeDayBudget, cardStart + card.totalDays);
+        currentDay = Math.min(dayBudget, cardStart + card.totalDays);
     }
 
-    for (let d = currentDay + 1; d <= safeDayBudget; d++) {
+    for (let d = currentDay + 1; d <= dayBudget; d++) {
         cumulativeSpend[d] = spendSoFar;
         cumulativePayout[d] = payoutSoFar;
         cumulativeNet[d] = payoutSoFar - spendSoFar;

@@ -15,6 +15,12 @@ import { type SimInputs, type SimOutputs } from '~/lib/prop-calculator';
 import { standardDeviation } from '~/lib/prop-calculator/stats';
 import { cn } from '~/lib/utilities';
 
+import {
+    averageTradeSize,
+    type KellyIndex,
+    KellyIndexStatus,
+    kellySizing,
+} from './kellySizing';
 import { panelDescriptions } from './kpiDescriptions';
 import StatCard from './StatCard';
 
@@ -31,20 +37,21 @@ export default function StrategyAnalysis({
         copyAccounts = 1,
         fundedHorizonDays,
         plan,
-        riskPerTrade,
         rrRatio,
         winrate,
     } = baseInputs;
     const accounts = Math.max(1, Math.floor(copyAccounts));
+    const kelly = useMemo(
+        () => kellySizing(baseInputs, result),
+        [baseInputs, result],
+    );
+    const averageTrade = useMemo(
+        () => averageTradeSize(baseInputs, result),
+        [baseInputs, result],
+    );
     const edge = useMemo(() => {
         const breakEvenWR = 1 / (1 + rrRatio);
         const edgeMargin = winrate - breakEvenWR;
-        const fullKelly =
-            rrRatio > 0 ? (winrate * (rrRatio + 1) - 1) / rrRatio : 0;
-        const halfKelly = fullKelly / 2;
-        const currentRiskPct = (riskPerTrade / plan.accountSize) * 100;
-        const kellyIndex =
-            fullKelly > 0 ? currentRiskPct / (fullKelly * 100) : 0;
 
         const hasEdge = edgeMargin > 0;
         const N = result.tradesPerSuccessfulAttempt;
@@ -60,21 +67,11 @@ export default function StrategyAnalysis({
 
         return {
             breakEvenWR,
-            currentRiskPct,
             edgeMargin,
-            fullKelly,
-            halfKelly,
-            kellyIndex,
             minTrades,
             zScore,
         };
-    }, [
-        winrate,
-        rrRatio,
-        riskPerTrade,
-        plan.accountSize,
-        result.tradesPerSuccessfulAttempt,
-    ]);
+    }, [winrate, rrRatio, result.tradesPerSuccessfulAttempt]);
 
     const ratios = useMemo(() => {
         const {
@@ -176,8 +173,6 @@ export default function StrategyAnalysis({
         const wins = Math.round(tradesPerPass * winrate);
         const losses = tradesPerPass - wins;
         const sumR = result.expectancyR * tradesPerPass;
-        const avgWin = riskPerTrade * rrRatio;
-        const avgLoss = riskPerTrade;
 
         let minBal = Infinity;
         let maxBal = -Infinity;
@@ -189,8 +184,6 @@ export default function StrategyAnalysis({
         if (!Number.isFinite(maxBal)) maxBal = accountSize;
 
         return {
-            avgLoss,
-            avgWin,
             losses,
             maxBal,
             minBal,
@@ -210,8 +203,6 @@ export default function StrategyAnalysis({
         result.tradesPerSuccessfulAttempt,
         result.finalBalances,
         winrate,
-        rrRatio,
-        riskPerTrade,
         accounts,
     ]);
 
@@ -255,7 +246,16 @@ export default function StrategyAnalysis({
                         <Metric
                             label="Avg trade size"
                             sub={`${rrRatio.toFixed(2)}:1 reward-to-risk`}
-                            value={`+${formatCurrency(breakdown.avgWin)} / −${formatCurrency(breakdown.avgLoss)}`}
+                            value={
+                                averageTrade === null
+                                    ? 'n/a'
+                                    : `+${formatCurrency(averageTrade.win)} / −${formatCurrency(averageTrade.loss)}`
+                            }
+                            valueClass={
+                                averageTrade === null
+                                    ? 'text-muted-foreground'
+                                    : undefined
+                            }
                         />
                         <Metric
                             label="Trades per pass"
@@ -500,41 +500,30 @@ export default function StrategyAnalysis({
                             <Metric
                                 label="Full Kelly"
                                 value={
-                                    edge.fullKelly > 0
-                                        ? formatPercent(edge.fullKelly)
+                                    kelly.fullKelly > 0
+                                        ? formatPercent(kelly.fullKelly)
                                         : 'no edge'
                                 }
                             />
                             <Metric
                                 label="Half Kelly (rec.)"
                                 value={
-                                    edge.halfKelly > 0
-                                        ? formatPercent(edge.halfKelly)
+                                    kelly.halfKelly > 0
+                                        ? formatPercent(kelly.halfKelly)
                                         : 'no edge'
                                 }
                             />
                             <Metric
-                                label="Current risk"
-                                value={formatPercent(edge.currentRiskPct / 100)}
+                                label="Average risk"
+                                value={
+                                    kelly.currentRiskFraction === null
+                                        ? 'n/a'
+                                        : formatPercent(
+                                              kelly.currentRiskFraction,
+                                          )
+                                }
                             />
-                            {edge.fullKelly > 0 && (
-                                <div className="flex flex-col gap-0.5">
-                                    <span className="text-[11px] text-muted-foreground">
-                                        Kelly index
-                                    </span>
-                                    <span
-                                        className={cn(
-                                            'font-mono text-sm font-semibold tabular-nums',
-                                            kellyColor(edge.kellyIndex),
-                                        )}
-                                    >
-                                        {edge.kellyIndex.toFixed(2)}×{' '}
-                                        <span className="text-[11px] font-normal">
-                                            ({kellyLabel(edge.kellyIndex)})
-                                        </span>
-                                    </span>
-                                </div>
-                            )}
+                            <KellyIndexMetric index={kelly.kellyIndex} />
                         </div>
                     </div>
                 </section>
@@ -565,6 +554,43 @@ function kellyColor(index: number): string {
     if (index > 1) return 'text-rose-400';
     if (index > 0.75) return 'text-amber-400';
     return index >= 0.25 ? 'text-emerald-400' : 'text-amber-400';
+}
+
+function KellyIndexMetric({ index }: { index: KellyIndex }) {
+    switch (index.status) {
+        case KellyIndexStatus.NoEdge: {
+            return <Metric label="Kelly index" value="no edge" />;
+        }
+        case KellyIndexStatus.NotApplicable: {
+            return (
+                <Metric
+                    label="Kelly index"
+                    value="n/a"
+                    valueClass="text-muted-foreground"
+                />
+            );
+        }
+        case KellyIndexStatus.Sized: {
+            return (
+                <div className="flex flex-col gap-0.5">
+                    <span className="text-[11px] text-muted-foreground">
+                        Kelly index
+                    </span>
+                    <span
+                        className={cn(
+                            'font-mono text-sm font-semibold tabular-nums',
+                            kellyColor(index.value),
+                        )}
+                    >
+                        {index.value.toFixed(2)}×{' '}
+                        <span className="text-[11px] font-normal">
+                            ({kellyLabel(index.value)})
+                        </span>
+                    </span>
+                </div>
+            );
+        }
+    }
 }
 function kellyLabel(index: number): string {
     if (index > 1) return 'over-betting';

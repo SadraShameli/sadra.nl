@@ -7,10 +7,16 @@ import { Card } from '~/components/ui/Card';
 import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import { EmptyState } from '~/components/ui/EmptyState';
 import InfoPopover from '~/components/ui/InfoPopover';
-import { formatCurrency, formatDays, formatPercent } from '~/lib/format';
+import {
+    formatCurrency,
+    formatDays,
+    formatOptionalPercent,
+    formatPercent,
+} from '~/lib/format';
 import {
     type FirmId,
     type Plan,
+    rankablePlans,
     type SimInputs,
     type SimOutputs,
     simulate,
@@ -104,11 +110,18 @@ export default function FirmComparisonTable({
                 id: 'plan',
             },
             {
-                accessorFn: (r) => r.out.passProbability,
+                accessorFn: (r) => r.out.evalPassProbability,
                 cell: ({ row }) =>
-                    formatPercent(row.original.out.passProbability),
-                header: 'Pass%',
-                id: 'pass',
+                    formatPercent(row.original.out.evalPassProbability),
+                header: 'Eval pass',
+                id: 'evalPass',
+            },
+            {
+                accessorFn: (r) => r.out.fundedSurvivalProbability,
+                cell: ({ row }) =>
+                    formatPercent(row.original.out.fundedSurvivalProbability),
+                header: 'Funded survive',
+                id: 'fundedSurvive',
             },
             {
                 accessorFn: (r) => r.out.daysToPassP50,
@@ -131,11 +144,12 @@ export default function FirmComparisonTable({
                 id: 'monthlyNet',
             },
             {
-                accessorFn: (r) => r.out.roiOnCost.value,
+                accessorFn: (r) => r.out.roiOnCost.value ?? undefined,
                 cell: ({ row }) =>
-                    formatPercent(row.original.out.roiOnCost.value),
+                    formatOptionalPercent(row.original.out.roiOnCost.value),
                 header: 'ROI',
                 id: 'roi',
+                sortUndefined: 'last',
             },
             {
                 accessorFn: (r) => r.score,
@@ -207,7 +221,8 @@ function buildCacheKey(
 }
 
 function pickPlan(firm: TradingFirm, targetSize: number): null | Plan {
-    const sameSize = firm.plans.filter((p) => p.accountSize === targetSize);
+    const candidates = rankablePlans(firm.plans, false);
+    const sameSize = candidates.filter((p) => p.accountSize === targetSize);
     if (sameSize.length > 0) {
         return sameSize.reduce<null | Plan>((best, p) => {
             if (!best) return p;
@@ -216,7 +231,7 @@ function pickPlan(firm: TradingFirm, targetSize: number): null | Plan {
     }
     let closest: null | Plan = null;
     let closestDiff = Infinity;
-    for (const p of firm.plans) {
+    for (const p of candidates) {
         const diff = Math.abs(p.accountSize - targetSize);
         if (!(diff < closestDiff)) {
             continue;

@@ -1,10 +1,10 @@
 import { TRADING_DAYS_PER_MONTH } from '../core/constants';
 import { deriveSubSeed, mulberry32 } from '../rng';
+import { assertPositiveSafeInteger } from '../simulator';
 import { percentile } from '../stats';
 import { runAccountTimeline } from './accountTimeline';
 import {
     DEFAULT_DAY_BUDGET,
-    DEFAULT_MAX_PAYOUTS_PER_CARD,
     type PortfolioTimelineInputs,
     type PortfolioTimelineResult,
 } from './types';
@@ -25,7 +25,6 @@ export function simulatePortfolioTimeline(
         idleDayProbability,
         instrument,
         maxEvalDays,
-        maxPayoutsPerCard = DEFAULT_MAX_PAYOUTS_PER_CARD,
         minRetainedCushion,
         payoutRequestSize,
         plan,
@@ -39,9 +38,22 @@ export function simulatePortfolioTimeline(
         winrate,
     } = inputs;
 
-    const safeDayBudget = Math.max(1, Math.floor(dayBudget));
-    const safeTrials = Math.max(1, Math.floor(trials));
-    const N = Math.max(1, Math.floor(accounts));
+    if (
+        !Number.isSafeInteger(plan.maxFundedAccounts) ||
+        plan.maxFundedAccounts < 1
+    ) {
+        throw new Error(
+            `${plan.label}: maxFundedAccounts must be a positive integer, got ${plan.maxFundedAccounts}`,
+        );
+    }
+
+    assertPositiveSafeInteger(trials, 'trials');
+    assertPositiveSafeInteger(dayBudget, 'dayBudget');
+    assertPositiveSafeInteger(accounts, 'accounts');
+    assertPositiveSafeInteger(maxEvalDays, 'maxEvalDays');
+    const N = Math.min(accounts, plan.maxFundedAccounts);
+
+    const initialPurchaseDiscounts = plan.purchaseDiscounts(discounts, N);
 
     const perTrialSpend: Float64Array[] = [];
     const perTrialPayout: Float64Array[] = [];
@@ -49,24 +61,24 @@ export function simulatePortfolioTimeline(
     const breakEvenMonthValues: number[] = [];
     let everPositiveCount = 0;
 
-    for (let t = 0; t < safeTrials; t++) {
-        const combinedSpend = new Float64Array(safeDayBudget + 1);
-        const combinedPayout = new Float64Array(safeDayBudget + 1);
-        const combinedNet = new Float64Array(safeDayBudget + 1);
+    for (let t = 0; t < trials; t++) {
+        const combinedSpend = new Float64Array(dayBudget + 1);
+        const combinedPayout = new Float64Array(dayBudget + 1);
+        const combinedNet = new Float64Array(dayBudget + 1);
 
         for (let a = 0; a < N; a++) {
             const accountRng = mulberry32(deriveSubSeed(seed, t, a));
             const account = runAccountTimeline({
                 commissionPerRoundTrip,
-                dayBudget: safeDayBudget,
+                dayBudget,
                 dayStop,
                 discounts,
                 evalDayPolicy,
                 fundedDayPolicy,
                 idleDayProbability,
+                initialPurchaseDiscounts,
                 instrument,
                 maxEvalDays,
-                maxPayoutsPerCard,
                 minRetainedCushion,
                 payoutRequestSize,
                 plan,
@@ -79,7 +91,7 @@ export function simulatePortfolioTimeline(
                 winrate,
             });
 
-            for (let d = 0; d <= safeDayBudget; d++) {
+            for (let d = 0; d <= dayBudget; d++) {
                 combinedSpend[d] =
                     (combinedSpend[d] ?? 0) + (account.cumulativeSpend[d] ?? 0);
                 combinedPayout[d] =
@@ -104,9 +116,8 @@ export function simulatePortfolioTimeline(
     }
 
     const sampleIndices: number[] = [];
-    for (let d = 0; d <= safeDayBudget; d += STEP) sampleIndices.push(d);
-    if (sampleIndices.at(-1) !== safeDayBudget)
-        sampleIndices.push(safeDayBudget);
+    for (let d = 0; d <= dayBudget; d += STEP) sampleIndices.push(d);
+    if (sampleIndices.at(-1) !== dayBudget) sampleIndices.push(dayBudget);
 
     const days: number[] = [];
     const spendP10: number[] = [];
@@ -136,6 +147,7 @@ export function simulatePortfolioTimeline(
     }
 
     return {
+        accountsSimulated: N,
         breakEvenMonthValues,
         days,
         netP10,
@@ -144,7 +156,7 @@ export function simulatePortfolioTimeline(
         payoutP10,
         payoutP50,
         payoutP90,
-        pEverCashflowPositive: everPositiveCount / safeTrials,
+        pEverCashflowPositive: everPositiveCount / trials,
         spendP10,
         spendP50,
         spendP90,

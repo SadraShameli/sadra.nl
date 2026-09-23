@@ -57,7 +57,7 @@ describe.each(ALL_PLANS)(
             return;
         }
 
-        it('Terminate.passProbability <= Lockout.passProbability within Monte Carlo tolerance', () => {
+        it('Terminate.evalPassProbability <= Lockout.evalPassProbability within Monte Carlo tolerance', () => {
             const lockoutTwin = plan.withOverrides({
                 evalDailyLossLimitBreach: DailyLossLimitBreachEffect.Lockout,
             });
@@ -66,8 +66,8 @@ describe.each(ALL_PLANS)(
             });
             const lockoutOut = simulate(baseInputs(lockoutTwin));
             const terminateOut = simulate(baseInputs(terminateTwin));
-            expect(terminateOut.passProbability).toBeLessThanOrEqual(
-                lockoutOut.passProbability + MONTE_CARLO_TOLERANCE,
+            expect(terminateOut.evalPassProbability).toBeLessThanOrEqual(
+                lockoutOut.evalPassProbability + MONTE_CARLO_TOLERANCE,
             );
         });
     },
@@ -77,9 +77,9 @@ describe.each(ALL_PLANS)(
     '$label: every non-zero fee component moves costPerFundedAccount',
     (plan) => {
         const base = simulate(baseInputs(plan));
-        if (base.passProbability <= 0) {
-            it('never passes at these trading parameters, so cost-per-funded-account is Infinity for every candidate and there is nothing to compare', () => {
-                expect(base.passProbability).toBe(0);
+        if (base.evalPassProbability <= 0) {
+            it('never passes the eval at these trading parameters, so cost-per-funded-account is Infinity for every candidate and there is nothing to compare', () => {
+                expect(base.evalPassProbability).toBe(0);
                 expect(base.costPerFundedAccount).toBe(Infinity);
             });
             return;
@@ -164,7 +164,10 @@ describe.each(ALL_PLANS)(
                 },
             });
             const out = simulate(baseInputs(twin));
-            expect(out.passProbability).toBe(base.passProbability);
+            expect(out.evalPassProbability).toBe(base.evalPassProbability);
+            expect(out.fundedSurvivalProbability).toBe(
+                base.fundedSurvivalProbability,
+            );
             expect(out.bustProbability).toBe(base.bustProbability);
             expect(out.timeoutProbability).toBe(base.timeoutProbability);
             expect(out.fundedBustProbability).toBe(base.fundedBustProbability);
@@ -365,12 +368,9 @@ describe.each(ALL_PLANS)(
                 'are pinned separately -- both scalars are also the funded-phase ' +
                 'fallback default (day.ts:37,52), so leaving them unpinned would ' +
                 'let a real funded-side effect masquerade as an eval-side leak. ' +
-                'expectancyR is excluded from the byte-identical comparison and ' +
-                'checked separately below: engine.ts:181 computes it as ' +
-                'expectancyDollars / riskPerTrade unconditionally, phase- and ' +
-                'day-policy-agnostic, so it is a genuine, documented consumer of ' +
-                'the raw riskPerTrade scalar even once a ladder governs actual ' +
-                'position sizing -- this is not a leak',
+                'expectancyR is included: it divides by the realized average ' +
+                'risk of the trades actually taken, so the unused riskPerTrade ' +
+                'scalar has no path into it',
             () => {
                 const ladder: DayPolicy = {
                     ladder: [200, 300, 400, 100],
@@ -396,14 +396,7 @@ describe.each(ALL_PLANS)(
                     }),
                 );
 
-                const { expectancyR: firstExpectancyR, ...firstRest } = first;
-                const { expectancyR: differentExpectancyR, ...differentRest } =
-                    withDifferentScalars;
-                expect(differentRest).toStrictEqual(firstRest);
-                expect(differentExpectancyR).toBeCloseTo(
-                    (firstExpectancyR * 250) / 999,
-                    6,
-                );
+                expect(withDifferentScalars).toStrictEqual(first);
             },
         );
     },

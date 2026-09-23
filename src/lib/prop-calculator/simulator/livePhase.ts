@@ -1,6 +1,5 @@
 import { resetForNewDay } from '../core/AccountState';
-import { TRADING_DAYS_PER_MONTH } from '../core/constants';
-import { maxContractsAt } from '../core/ContractLimits';
+import { TRADING_DAYS_PER_YEAR } from '../core/constants';
 import {
     dollars,
     type Dollars,
@@ -16,12 +15,13 @@ import {
     resolvePositionSizing,
 } from '../core/PositionSizing';
 import { mulberry32, type Rng } from '../rng';
-import { mean, median, percentile } from '../stats';
+import { median, percentile } from '../stats';
 import {
     type LiveDayRunOptions,
     type LiveOutputs,
     type LiveSimInputs,
 } from './types';
+import { assertPositiveSafeInteger } from './validation';
 
 interface LiveHorizonOptions {
     commission: Dollars;
@@ -30,6 +30,7 @@ interface LiveHorizonOptions {
     payoutRequestSize: number | undefined;
     plan: LivePlan;
     positionSizing: null | PositionSizingConfig;
+    retainedCushion: Dollars;
     rng: Rng;
     rrRatio: number;
     tradesPerDay: number;
@@ -42,7 +43,12 @@ interface LiveHorizonResult {
     daysElapsed: number;
     daysToBust: null | number;
     daysToFirstWithdrawal: null | number;
+    recurringWithdrawn: number;
     totalWithdrawn: number;
+}
+
+export function oneOffLiveCredit(plan: LivePlan): number {
+    return plan.payoutFromProfit(plan.transitionPayout);
 }
 
 export function runLiveDay(options: LiveDayRunOptions): {
@@ -72,17 +78,16 @@ export function runLiveDay(options: LiveDayRunOptions): {
             const cushion = state.balance - state.threshold;
             const cushionPercent = plan.cushionPercentFor(state);
             const intendedRisk = resolveLiveTradeRisk(cushion, cushionPercent);
-            const maxContracts = maxContractsAt(
-                plan.contractLimit,
-                state.balance,
-            );
             const risk =
                 positionSizing === null
                     ? intendedRisk
                     : capRiskToContractLimit(
                           intendedRisk,
                           positionSizing,
-                          maxContracts,
+                          plan.maxContractsFor(
+                              state,
+                              positionSizing.instrument,
+                          ),
                       );
             if (risk <= 0) break;
 
@@ -115,6 +120,7 @@ export function runLiveDay(options: LiveDayRunOptions): {
     }
 
     plan.liveDrawdown?.onDayClose(state);
+    plan.recordDayClose(state, isTraded);
     if (plan.isBust(state)) {
         return { busted: true, closedForInactivity: false, traded: isTraded };
     }
@@ -129,17 +135,22 @@ export function runLiveHorizon(options: LiveHorizonOptions): LiveHorizonResult {
         commission,
         horizonDays,
         idleDayProbability,
-        payoutRequestSize,
+        payoutRequestSize: payoutRequestSizeInput,
         plan,
         positionSizing,
+        retainedCushion,
         rng,
         rrRatio,
         tradesPerDay,
         winrate,
     } = options;
+    const payoutRequestSize = plan.resolvePayoutRequestSize(
+        payoutRequestSizeInput,
+    );
     const state: LiveAccountState = plan.initialState();
+    const oneOffCredit = oneOffLiveCredit(plan);
     let cumulativeDebited: number = plan.transitionPayout;
-    let totalWithdrawn = plan.payoutFromProfit(cumulativeDebited);
+    let recurringWithdrawn = 0;
     let daysToFirstWithdrawal: null | number =
         plan.transitionPayout > 0 ? 0 : null;
 
@@ -164,22 +175,22 @@ export function runLiveHorizon(options: LiveHorizonOptions): LiveHorizonResult {
                 daysElapsed,
                 daysToBust: daysElapsed,
                 daysToFirstWithdrawal,
-                totalWithdrawn,
+                recurringWithdrawn,
+                totalWithdrawn: oneOffCredit + recurringWithdrawn,
             };
         }
 
-        const available = plan.withdrawableAmount(state);
-        if (available <= 0) continue;
-        const debited =
-            payoutRequestSize === undefined
-                ? available
-                : Math.min(payoutRequestSize, available);
+        const debited = plan.payoutRequestAmount(
+            state,
+            retainedCushion,
+            payoutRequestSize,
+        );
         if (debited <= 0) continue;
         plan.withdraw(state, debited);
         const grossPaidBefore = plan.payoutFromProfit(cumulativeDebited);
         cumulativeDebited += debited;
         const grossPaidAfter = plan.payoutFromProfit(cumulativeDebited);
-        totalWithdrawn += grossPaidAfter - grossPaidBefore;
+        recurringWithdrawn += grossPaidAfter - grossPaidBefore;
         daysToFirstWithdrawal ??= daysElapsed;
     }
 
@@ -189,7 +200,8 @@ export function runLiveHorizon(options: LiveHorizonOptions): LiveHorizonResult {
         daysElapsed: horizonDays,
         daysToBust: null,
         daysToFirstWithdrawal,
-        totalWithdrawn,
+        recurringWithdrawn,
+        totalWithdrawn: oneOffCredit + recurringWithdrawn,
     };
 }
 
@@ -199,8 +211,9 @@ export function simulateLiveAccount(inputs: LiveSimInputs): LiveOutputs {
         horizonDays,
         idleDayProbability,
         instrument,
-        payoutRequestSize,
+        payoutRequestSize: payoutRequestSizeInput,
         plan,
+        retainedCushion: retainedCushionInput,
         rrRatio,
         seed,
         stopPoints,
@@ -208,7 +221,13 @@ export function simulateLiveAccount(inputs: LiveSimInputs): LiveOutputs {
         trials,
         winrate: winrateInput,
     } = inputs;
+    assertPositiveSafeInteger(trials, 'trials');
+    assertPositiveSafeInteger(horizonDays, 'horizonDays');
     const commission = dollars(commissionPerRoundTrip);
+    const retainedCushion = plan.resolveRetainedCushion(retainedCushionInput);
+    const payoutRequestSize = plan.resolvePayoutRequestSize(
+        payoutRequestSizeInput,
+    );
     const winrate = fraction(winrateInput);
     const positionSizing = resolvePositionSizing(instrument, stopPoints);
     const rng = mulberry32(seed);
@@ -218,7 +237,7 @@ export function simulateLiveAccount(inputs: LiveSimInputs): LiveOutputs {
     const daysToBustValues: number[] = [];
     const daysToFirstWithdrawalValues: number[] = [];
     const cumulativeWithdrawalsAtHorizon: number[] = [];
-    let daysElapsedSum = 0;
+    let recurringWithdrawnSum = 0;
 
     for (let index = 0; index < trials; index++) {
         const result = runLiveHorizon({
@@ -228,6 +247,7 @@ export function simulateLiveAccount(inputs: LiveSimInputs): LiveOutputs {
             payoutRequestSize,
             plan,
             positionSizing,
+            retainedCushion,
             rng,
             rrRatio,
             tradesPerDay,
@@ -244,14 +264,11 @@ export function simulateLiveAccount(inputs: LiveSimInputs): LiveOutputs {
             daysToFirstWithdrawalValues.push(result.daysToFirstWithdrawal);
         }
         cumulativeWithdrawalsAtHorizon.push(result.totalWithdrawn);
-        daysElapsedSum += result.daysElapsed;
+        recurringWithdrawnSum += result.recurringWithdrawn;
     }
 
-    const totalTrials = trials || 1;
-    const meanWithdrawal = mean(cumulativeWithdrawalsAtHorizon);
-    const meanDaysElapsed = daysElapsedSum / totalTrials || 1;
     const expectedAnnualWithdrawalRate =
-        (meanWithdrawal / meanDaysElapsed) * TRADING_DAYS_PER_MONTH * 12;
+        (recurringWithdrawnSum / trials / horizonDays) * TRADING_DAYS_PER_YEAR;
 
     return {
         cumulativeWithdrawalsAtHorizon,
@@ -265,8 +282,8 @@ export function simulateLiveAccount(inputs: LiveSimInputs): LiveOutputs {
             95,
         ),
         expectedAnnualWithdrawalRate,
-        liveBustProbability: bustedCount / totalTrials,
-        liveInactivityClosureProbability: inactivityClosureCount / totalTrials,
+        liveBustProbability: bustedCount / trials,
+        liveInactivityClosureProbability: inactivityClosureCount / trials,
         medianDaysToBust: median(daysToBustValues),
         medianDaysToFirstWithdrawal: median(daysToFirstWithdrawalValues),
     };

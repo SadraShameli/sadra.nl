@@ -53,8 +53,8 @@ describe('funded-phase duration must not inflate a stopped-at-pass subscription'
             alwaysWinInputs({ fundedHorizonDays: 600, plan }),
         );
 
-        expect(short.passProbability).toBe(1);
-        expect(long.passProbability).toBe(1);
+        expect(short.fundedSurvivalProbability).toBe(1);
+        expect(long.fundedSurvivalProbability).toBe(1);
         expect(short.expectedTotalCost).toBe(long.expectedTotalCost);
     });
 
@@ -66,7 +66,7 @@ describe('funded-phase duration must not inflate a stopped-at-pass subscription'
         });
         const out = simulate(alwaysWinInputs({ fundedHorizonDays: 252, plan }));
 
-        expect(out.passProbability).toBe(1);
+        expect(out.fundedSurvivalProbability).toBe(1);
         expect(out.expectedDaysToPass).toBe(6);
         expect(out.expectedTotalCost).toBe(149 + 49 * 1);
     });
@@ -81,8 +81,8 @@ describe('funded-phase duration must not inflate a stopped-at-pass subscription'
             alwaysWinInputs({ fundedHorizonDays: 600, plan }),
         );
 
-        expect(short.passProbability).toBe(1);
-        expect(long.passProbability).toBe(1);
+        expect(short.fundedSurvivalProbability).toBe(1);
+        expect(long.fundedSurvivalProbability).toBe(1);
         expect(short.expectedTotalCost).toBe(long.expectedTotalCost);
     });
 
@@ -112,8 +112,8 @@ describe('funded-phase duration must not inflate a stopped-at-pass subscription'
             alwaysWinInputs({ fundedHorizonDays: 252, plan }),
         );
 
-        expect(short.passProbability).toBe(1);
-        expect(long.passProbability).toBe(1);
+        expect(short.fundedSurvivalProbability).toBe(1);
+        expect(long.fundedSurvivalProbability).toBe(1);
         expect(short.fundedBustProbability).toBe(0);
         expect(long.fundedBustProbability).toBe(0);
         expect(long.expectedGrossPayout).toBeGreaterThan(0);

@@ -8,8 +8,8 @@ import {
     type TrialResult,
 } from './types';
 
-export function isPassingOutcome(o: TrialOutcome): boolean {
-    return o === 'pass-clean';
+export function hasPassedEval(outcome: TrialOutcome): boolean {
+    return outcome === 'pass-clean' || outcome === 'bust-funded';
 }
 
 export function simulateTrial(options: TrialOptions): TrialResult {
@@ -53,7 +53,8 @@ export function simulateTrial(options: TrialOptions): TrialResult {
         totals,
         winrate,
     });
-    const { attempt, attemptsUsed, resetFeesPaid } = retryResult;
+    const { attempt, attemptsUsed, failedAttemptDays, resetFeesPaid } =
+        retryResult;
     let cumulativeDays = retryResult.daysElapsed;
     const billableEvalDays = retryResult.daysElapsed;
     const lastEquityCurve = attempt.equityCurve;
@@ -84,7 +85,7 @@ export function simulateTrial(options: TrialOptions): TrialResult {
         const firstPayoutDay =
             fundedHorizon.firstPayoutDay === null
                 ? null
-                : passDay + fundedHorizon.firstPayoutDay;
+                : billableEvalDays + fundedHorizon.firstPayoutDay;
 
         const outcome: TrialOutcome = isBustedFunded
             ? 'bust-funded'
@@ -99,6 +100,7 @@ export function simulateTrial(options: TrialOptions): TrialResult {
             equityCurve: lastEquityCurve,
             evalDays: billableEvalDays,
             evalTradesAtPass,
+            failedAttemptDays,
             finalBalance: attempt.state.balance,
             firstPayoutDay,
             horizonCredit: fundedHorizon.horizonCredit,
@@ -122,6 +124,7 @@ export function simulateTrial(options: TrialOptions): TrialResult {
         equityCurve: lastEquityCurve,
         evalDays: billableEvalDays,
         evalTradesAtPass: 0,
+        failedAttemptDays,
         finalBalance: attempt.state.balance,
         firstPayoutDay: null,
         horizonCredit: 0,
@@ -144,6 +147,7 @@ function finishTrial(arguments_: FinishTrialArguments): TrialResult {
         equityCurve,
         evalDays,
         evalTradesAtPass,
+        failedAttemptDays,
         finalBalance,
         firstPayoutDay,
         horizonCredit,
@@ -168,7 +172,9 @@ function finishTrial(arguments_: FinishTrialArguments): TrialResult {
         daysElapsed: cumulativeDays,
         daysToPass,
         equityCurve,
+        evalDays,
         evalTradesAtPass,
+        failedAttemptDays,
         finalBalance,
         firstPayoutDay,
         grossLosses: totals.grossLosses,
@@ -183,6 +189,7 @@ function finishTrial(arguments_: FinishTrialArguments): TrialResult {
         outcome,
         payoutCount,
         resetFeesPaid,
+        riskTaken: totals.risked,
         totalCost,
         tradesTaken: totals.tradesTaken,
     };

@@ -7,9 +7,15 @@ import { Card } from '~/components/ui/Card';
 import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import { EmptyState } from '~/components/ui/EmptyState';
 import InfoPopover from '~/components/ui/InfoPopover';
-import { formatCurrency, formatDays, formatPercent } from '~/lib/format';
+import {
+    formatCurrency,
+    formatDays,
+    formatOptionalPercent,
+    formatPercent,
+} from '~/lib/format';
 import {
     type Plan,
+    rankablePlans,
     type SimInputs,
     type SimOutputs,
     simulate,
@@ -51,7 +57,7 @@ export default function PlanComparisonTable({
         DEBOUNCE_MS,
         () => {
             const trials = Math.min(MAX_TRIALS, baseInputs.trials);
-            const partial = firm.plans.map((plan) => ({
+            const partial = rankablePlans(firm.plans, false).map((plan) => ({
                 out: simulate({ ...baseInputs, plan, trials }),
                 plan,
                 ptdd: plan.profitTarget / plan.drawdown.amount,
@@ -94,11 +100,18 @@ export default function PlanComparisonTable({
                 id: 'ptdd',
             },
             {
-                accessorFn: (r) => r.out.passProbability,
+                accessorFn: (r) => r.out.evalPassProbability,
                 cell: ({ row }) =>
-                    formatPercent(row.original.out.passProbability),
-                header: 'Pass%',
-                id: 'pass',
+                    formatPercent(row.original.out.evalPassProbability),
+                header: 'Eval pass',
+                id: 'evalPass',
+            },
+            {
+                accessorFn: (r) => r.out.fundedSurvivalProbability,
+                cell: ({ row }) =>
+                    formatPercent(row.original.out.fundedSurvivalProbability),
+                header: 'Funded survive',
+                id: 'fundedSurvive',
             },
             {
                 accessorFn: (r) => r.out.daysToPassP50,
@@ -121,11 +134,12 @@ export default function PlanComparisonTable({
                 id: 'monthlyNet',
             },
             {
-                accessorFn: (r) => r.out.roiOnCost.value,
+                accessorFn: (r) => r.out.roiOnCost.value ?? undefined,
                 cell: ({ row }) =>
-                    formatPercent(row.original.out.roiOnCost.value),
+                    formatOptionalPercent(row.original.out.roiOnCost.value),
                 header: 'ROI',
                 id: 'roi',
+                sortUndefined: 'last',
             },
             {
                 accessorFn: (r) => r.score,

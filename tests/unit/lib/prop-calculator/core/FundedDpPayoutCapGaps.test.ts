@@ -14,6 +14,7 @@ import {
     fundedDpPayoutCapGaps,
 } from '~/lib/prop-calculator/core/FundedDpPayoutCapGaps';
 import { PayoutCountTieredPayoutCap } from '~/lib/prop-calculator/core/PayoutCap';
+import { ALL_FIRMS } from '~/lib/prop-calculator/firms';
 import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFunding';
 import { E8Futures } from '~/lib/prop-calculator/firms/e8futures/E8Futures';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
@@ -102,12 +103,36 @@ describe('fundedDpPayoutCapGaps', () => {
         );
     });
 
-    it('flags MFF Pro 50K for its $100,000 maxLifetimePayoutDollars -- the DP never restores FundedCycleTracker.cumulativePayout from any state, so it always ignores this cap', () => {
+    it('flags MFF Pro 50K for its $100,000 maxLifetimePayoutDollars (the DP never restores FundedCycleTracker.cumulativePayout from any state, so it always ignores this cap) and for its payout-triggered lock, whose unbounded pre-lock trailing saturates the DP offset grid', () => {
         expect(fundedDpPayoutCapGaps(mffProPlan())).toStrictEqual([
             {
                 kind: FundedDpPayoutCapGapKind.LifetimeDollarCapIgnored,
                 maxLifetimePayoutDollars: dollars(100_000),
             },
+            {
+                kind: FundedDpPayoutCapGapKind.PayoutTriggeredLockPreLockOffsetSaturates,
+            },
+        ]);
+    });
+
+    it('flags the payout-triggered lock gap only on plans whose funded lock has no profit trigger', () => {
+        for (const firm of ALL_FIRMS) {
+            for (const plan of firm.plans) {
+                const hasGap = fundedDpPayoutCapGaps(plan).some(
+                    (gap) =>
+                        gap.kind ===
+                        FundedDpPayoutCapGapKind.PayoutTriggeredLockPreLockOffsetSaturates,
+                );
+                expect(hasGap, plan.label).toBe(
+                    plan.fundedDrawdown.lock?.atProfit === null,
+                );
+            }
+        }
+        const flagged = ALL_FIRMS.flatMap((firm) => firm.plans).filter(
+            (plan) => plan.fundedDrawdown.lock?.atProfit === null,
+        );
+        expect(flagged.map((plan) => plan.label)).toStrictEqual([
+            mffProPlan().label,
         ]);
     });
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    computeEvalStateValue,
     DailyLossLimitKind,
     dollars,
     EodTrailingDrawdown,
@@ -8,6 +9,8 @@ import {
     fraction,
     MffuVariant,
     type Plan,
+    replacementEconomics,
+    RetryKind,
 } from '~/lib/prop-calculator/core';
 import {
     type AverageRewardConfig,
@@ -39,6 +42,18 @@ const FUNDED_GRID = {
     tradesPerDay: 1,
 } as const;
 
+interface JointToyFees {
+    readonly activation: number;
+    readonly oneTimeEval: number;
+    readonly reset?: number;
+    readonly retry?: RetryKind;
+}
+
+interface JointToyOptions {
+    readonly evalDrawdownAmount?: number;
+    readonly maxConsecutiveIdleDays?: number;
+}
+
 function buildConfig(
     objective: RenewalCycleObjective,
     overrides: Partial<AverageRewardConfig> = {},
@@ -66,18 +81,24 @@ function buildObjective(
     });
 }
 
-function jointToyPlan(fees: { activation: number; oneTimeEval: number }): Plan {
+function jointToyPlan(fees: JointToyFees, options: JointToyOptions = {}): Plan {
     return rapidEodPlan().withOverrides({
         accountSize: dollars(1000),
         consistency: null,
         contractLimits: undefined,
-        drawdown: new EodTrailingDrawdown({ amount: dollars(100) }),
+        drawdown: new EodTrailingDrawdown({
+            amount: dollars(options.evalDrawdownAmount ?? 100),
+        }),
         evalDailyLossLimit: { kind: DailyLossLimitKind.None },
+        ...(options.maxConsecutiveIdleDays !== undefined && {
+            evalMaxConsecutiveIdleDays: options.maxConsecutiveIdleDays,
+        }),
         fees: {
             activation: dollars(fees.activation),
             monthlySubscription: dollars(0),
             oneTimeEval: dollars(fees.oneTimeEval),
-            reset: dollars(0),
+            reset: dollars(fees.reset ?? fees.oneTimeEval),
+            retry: fees.retry ?? RetryKind.Rebuy,
         },
         fundedConsistency: { kind: 'set', rule: null },
         fundedDailyLossLimit: { kind: DailyLossLimitKind.None },
@@ -119,7 +140,8 @@ describe(
     'solveAverageRewardPolicy: joint toy (rapid-EOD base plan with the ' +
         'eval-toy fields: target 50, 1-day cap, $50 action; the funded ' +
         'one-payout toy; isInstantFunded false; fees oneTimeEval=F, ' +
-        'monthlySubscription=0, activation=A): closed form rho* = ' +
+        'monthlySubscription=0, activation=A, every failed eval re-bought ' +
+        'at F via RetryKind.Rebuy): closed form rho* = ' +
         '(25 - 0.5A - F) / (1.5 + L), since a $50 eval bet either passes ' +
         '(profit 100 >= target 50) or times out on the 1-day cap without ' +
         'busting, a passed eval always reaches a funded day that either ' +
@@ -132,7 +154,7 @@ describe(
             [0, 10],
             [3, 15 / 4.5],
         ])(
-            'rebuyLagDays=%d converges to rho*=%p with F=10, A=0',
+            'rebuyLagDays=%d converges to rho*=%s with F=10, A=0',
             (rebuyLagDays, expectedRho) => {
                 const plan = jointToyPlan({ activation: 0, oneTimeEval: 10 });
                 const objective = buildObjective(plan, rebuyLagDays);
@@ -228,6 +250,185 @@ describe(
         );
     },
 );
+
+describe(
+    'solveAverageRewardPolicy prices a failed eval at the D1 retry fee ' +
+        '(N-12 and R1-2, DP half): the joint toy with a reset R cheaper ' +
+        'than the eval fee F. After a failed eval the next attempt costs R, ' +
+        'while a funded end is followed by a fresh purchase at F. Over one ' +
+        'funded account: 1/p = 2 attempts costing F + R (the D1 cost per ' +
+        'funded account), 2 * (1 + L) eval and lag days, 1 funded day and ' +
+        'an expected $50 payout, so rho* = (50 - F - R) / (3 + 2L) = ' +
+        '(25 - 0.5F - 0.5R) / (1.5 + L)',
+    () => {
+        const RETRY_FEES = {
+            activation: 0,
+            oneTimeEval: 10,
+            reset: 4,
+            retry: RetryKind.Reset,
+        } as const;
+
+        it.each([
+            [0, 12],
+            [3, 4],
+        ])(
+            'timeout failures: rebuyLagDays=%d converges to rho*=%s with F=10, R=4',
+            (rebuyLagDays, expectedRho) => {
+                const objective = buildObjective(
+                    jointToyPlan(RETRY_FEES),
+                    rebuyLagDays,
+                );
+
+                const solution = solveAverageRewardPolicy(
+                    buildConfig(objective),
+                );
+
+                expect(solution.status).toBe(RateSearchStatus.Converged);
+                expect(solution.ratePerDay).toBeCloseTo(expectedRho, 6);
+            },
+        );
+
+        it.each([0, 3])(
+            'rebuyLagDays=%d: the rate is strictly above the same toy re-bought at F after every failure',
+            (rebuyLagDays) => {
+                const retryPlan = jointToyPlan(RETRY_FEES);
+                const rebuyPlan = jointToyPlan({
+                    ...RETRY_FEES,
+                    retry: RetryKind.Rebuy,
+                });
+                const withRetry = solveAverageRewardPolicy(
+                    buildConfig(buildObjective(retryPlan, rebuyLagDays)),
+                );
+                const rebuyEveryCycle = solveAverageRewardPolicy(
+                    buildConfig(buildObjective(rebuyPlan, rebuyLagDays)),
+                );
+
+                expect(rebuyEveryCycle.ratePerDay).toBeCloseTo(
+                    15 / (1.5 + rebuyLagDays),
+                    6,
+                );
+                expect(withRetry.ratePerDay).toBeGreaterThan(
+                    rebuyEveryCycle.ratePerDay + 0.5,
+                );
+            },
+        );
+
+        it.each([0, 3])(
+            'rebuyLagDays=%d: the rate agrees with D1 replacementEconomics for the same toy',
+            (rebuyLagDays) => {
+                const plan = jointToyPlan(RETRY_FEES);
+                const d1 = replacementEconomics({
+                    discounts: undefined,
+                    evalPassRate: 0.5,
+                    fees: plan.fees,
+                    meanDaysOnFail: 1,
+                    meanDaysOnPass: 1,
+                });
+                const expectedPayoutPerFundedAccount = 0.5 * 100;
+                const fundedDays = 1;
+                const d1Rate =
+                    (expectedPayoutPerFundedAccount - d1.costPerFundedAccount) /
+                    (d1.daysPerFundedAccount +
+                        d1.attemptsPerFundedAccount * rebuyLagDays +
+                        fundedDays);
+
+                const solution = solveAverageRewardPolicy(
+                    buildConfig(buildObjective(plan, rebuyLagDays)),
+                );
+
+                expect(d1.costPerFundedAccount).toBe(14);
+                expect(solution.ratePerDay).toBeCloseTo(d1Rate, 6);
+            },
+        );
+
+        it.each([0, 3])(
+            'bust failures (an eval drawdown of 50 dollars, so a losing 50-dollar bet busts): rebuyLagDays=%d converges to the same rho*, and simulate() with retries on the solved policies agrees',
+            (rebuyLagDays) => {
+                const plan = jointToyPlan(RETRY_FEES, {
+                    evalDrawdownAmount: 50,
+                });
+                const objective = buildObjective(plan, rebuyLagDays);
+                const expectedRho = (25 - 5 - 2) / (1.5 + rebuyLagDays);
+
+                const solution = solveAverageRewardPolicy(
+                    buildConfig(objective),
+                );
+
+                expect(solution.status).toBe(RateSearchStatus.Converged);
+                expect(solution.ratePerDay).toBeCloseTo(expectedRho, 6);
+
+                const empirical = simulate({
+                    evalDayPolicy: solution.evalResult.dayPolicy,
+                    fundedDayPolicy: solution.fundedResult.dayPolicy,
+                    fundedHorizonDays: FUNDED_HORIZON_DAYS,
+                    maxAttempts: 1000,
+                    maxEvalDays: MAX_EVAL_DAYS,
+                    plan,
+                    rebuyLagDays,
+                    riskPerTrade: 50,
+                    rrRatio: RR_RATIO,
+                    seed: 42,
+                    tradesPerDay: 1,
+                    trials: 200_000,
+                    winrate: 0.5,
+                });
+
+                expect(empirical.expectedMonthlyNet).toBeCloseTo(
+                    objective.monthlyRate(expectedRho),
+                    -1,
+                );
+            },
+        );
+    },
+);
+
+describe('computeEvalStateValue terminalValueAtFail: the value of every eval failure terminal (default 0)', () => {
+    const TERMINAL_PASS = 1;
+
+    function evalValue(
+        plan: Plan,
+        maxEvalDays: number,
+        terminalValueAtFail?: number,
+    ): number {
+        return computeEvalStateValue({
+            ...EVAL_GRID,
+            maxEvalDays,
+            plan,
+            rrRatio: RR_RATIO,
+            terminalValueAtFail,
+            terminalValueAtPass: TERMINAL_PASS,
+            winrate: WINRATE,
+        }).initialValue;
+    }
+
+    it('omitted and an explicit 0 give the same value as before the field existed (0.5 on the timeout toy)', () => {
+        const plan = jointToyPlan({ activation: 0, oneTimeEval: 10 });
+        expect(evalValue(plan, MAX_EVAL_DAYS)).toBe(0.5);
+        expect(evalValue(plan, MAX_EVAL_DAYS, 0)).toBe(0.5);
+    });
+
+    it('an eval-day-cap timeout pays terminalValueAtFail: 0.5 * 1 + 0.5 * 0.2 = 0.6', () => {
+        const plan = jointToyPlan({ activation: 0, oneTimeEval: 10 });
+        expect(evalValue(plan, MAX_EVAL_DAYS, 0.2)).toBeCloseTo(0.6, 12);
+    });
+
+    it('an eval bust pays terminalValueAtFail: 0.5 * 1 + 0.5 * 0.2 = 0.6 (a timeout-only change would give 0.5)', () => {
+        const plan = jointToyPlan(
+            { activation: 0, oneTimeEval: 10 },
+            { evalDrawdownAmount: 50 },
+        );
+        expect(evalValue(plan, MAX_EVAL_DAYS, 0)).toBe(0.5);
+        expect(evalValue(plan, MAX_EVAL_DAYS, 0.2)).toBeCloseTo(0.6, 12);
+    });
+
+    it('an inactivity breach pays terminalValueAtFail: idling on day 0 with a 1-day idle limit is worth the full 10', () => {
+        const plan = jointToyPlan(
+            { activation: 0, oneTimeEval: 10 },
+            { maxConsecutiveIdleDays: 1 },
+        );
+        expect(evalValue(plan, 3, 10)).toBe(10);
+    });
+});
 
 describe(
     'solveAverageRewardPolicy vs the best flat/percent-of-cushion policy ' +

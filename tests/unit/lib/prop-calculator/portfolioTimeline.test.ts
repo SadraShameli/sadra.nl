@@ -1,12 +1,25 @@
 import { describe, expect, it } from 'vitest';
 
-import { ApexVariant, FirmId } from '~/lib/prop-calculator/core';
+import {
+    ApexVariant,
+    DayStopRuleKind,
+    dollars,
+    FirmId,
+    flatDayPolicy,
+    fraction,
+    RungSizing,
+    TRADING_DAYS_PER_YEAR,
+} from '~/lib/prop-calculator/core';
 import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFunding';
 import {
+    DEFAULT_DAY_BUDGET,
     type PortfolioTimelineInputs,
     type PortfolioTimelineResult,
+    runAccountTimeline,
+    runEvalToFundedCycle,
     simulatePortfolioTimeline,
 } from '~/lib/prop-calculator/portfolioTimeline';
+import { mulberry32 } from '~/lib/prop-calculator/rng';
 
 const firm = new ApexTraderFunding();
 
@@ -21,6 +34,8 @@ function findPlan(accountSize: 50_000, variant: ApexVariant) {
 const plan50kEod = findPlan(50_000, ApexVariant.Eod);
 
 function assertWellFormed(out: PortfolioTimelineResult): void {
+    expect(Number.isSafeInteger(out.accountsSimulated)).toBe(true);
+    expect(out.accountsSimulated).toBeGreaterThanOrEqual(1);
     expect(out.days.length).toBeGreaterThan(0);
     expect(out.netP10.length).toBe(out.days.length);
     expect(out.netP50.length).toBe(out.days.length);
@@ -142,13 +157,13 @@ describe('simulatePortfolioTimeline', () => {
         expect(out.days.at(-1)).toBe(252);
     });
 
-    it('TERMINATION GUARANTEE: a misconfigured 0-day eval window and 0-day budget are clamped, not left to spin forever', () => {
+    it('TERMINATION GUARANTEE: the shortest valid eval window with a near-zero winrate finishes quickly', () => {
         const start = performance.now();
 
         const out = simulatePortfolioTimeline({
             accounts: 5,
-            dayBudget: 0,
-            maxEvalDays: 0,
+            dayBudget: 1,
+            maxEvalDays: 1,
             plan: plan50kEod,
             riskPerTrade: 200,
             rrRatio: 1.5,
@@ -177,5 +192,131 @@ describe('simulatePortfolioTimeline', () => {
             out.breakEvenMonthValues.length / 30,
             6,
         );
+    });
+});
+
+describe('N-13: the portfolio timeline fails loud on a trial count, day budget, account count or eval window that is not a positive safe integer', () => {
+    const invalidCounts = [0, -5, 1.5, NaN, Infinity];
+
+    it.each(invalidCounts)(
+        'simulatePortfolioTimeline rejects trials %s instead of clamping it',
+        (trials) => {
+            expect(() =>
+                simulatePortfolioTimeline(baseInputs({ trials })),
+            ).toThrow(/trials must be a positive safe integer/);
+        },
+    );
+
+    it.each(invalidCounts)(
+        'simulatePortfolioTimeline rejects dayBudget %s instead of clamping it',
+        (dayBudget) => {
+            expect(() =>
+                simulatePortfolioTimeline(baseInputs({ dayBudget })),
+            ).toThrow(/dayBudget must be a positive safe integer/);
+        },
+    );
+
+    it.each(invalidCounts)(
+        'runAccountTimeline rejects dayBudget %s instead of clamping it',
+        (dayBudget) => {
+            expect(() =>
+                runAccountTimeline({
+                    dayBudget,
+                    maxEvalDays: 60,
+                    plan: plan50kEod,
+                    riskPerTrade: 300,
+                    rng: mulberry32(1),
+                    rrRatio: 2,
+                    tradesPerDay: 3,
+                    winrate: 0.5,
+                }),
+            ).toThrow(/dayBudget must be a positive safe integer/);
+        },
+    );
+
+    it.each(invalidCounts)(
+        'simulatePortfolioTimeline rejects accounts %s instead of clamping it',
+        (accounts) => {
+            expect(() =>
+                simulatePortfolioTimeline(baseInputs({ accounts })),
+            ).toThrow(/accounts must be a positive safe integer/);
+        },
+    );
+
+    it.each(invalidCounts)(
+        'simulatePortfolioTimeline rejects maxEvalDays %s instead of clamping it',
+        (maxEvalDays) => {
+            expect(() =>
+                simulatePortfolioTimeline(baseInputs({ maxEvalDays })),
+            ).toThrow(/maxEvalDays must be a positive safe integer/);
+        },
+    );
+
+    it.each(invalidCounts)(
+        'runAccountTimeline rejects maxEvalDays %s instead of clamping it',
+        (maxEvalDays) => {
+            expect(() =>
+                runAccountTimeline({
+                    dayBudget: 20,
+                    maxEvalDays,
+                    plan: plan50kEod,
+                    riskPerTrade: 300,
+                    rng: mulberry32(1),
+                    rrRatio: 2,
+                    tradesPerDay: 3,
+                    winrate: 0.5,
+                }),
+            ).toThrow(/maxEvalDays must be a positive safe integer/);
+        },
+    );
+
+    it.each(invalidCounts)(
+        'runEvalToFundedCycle rejects maxEvalDays %s instead of clamping it',
+        (maxEvalDays) => {
+            const policy = flatDayPolicy(300, 3, {
+                kind: DayStopRuleKind.None,
+            });
+            expect(() =>
+                runEvalToFundedCycle({
+                    commission: dollars(0),
+                    discounts: undefined,
+                    evalDayPolicy: policy,
+                    fundedDayPolicy: policy,
+                    maxEvalDays,
+                    maxFundedDays: 0,
+                    minRetainedCushion: dollars(0),
+                    payoutRequestSize: undefined,
+                    plan: plan50kEod,
+                    positionSizing: null,
+                    rng: mulberry32(1),
+                    rrRatio: 2,
+                    rungSizing: RungSizing.CapToCushion,
+                    winrate: fraction(0.5),
+                }),
+            ).toThrow(/maxEvalDays must be a positive safe integer/);
+        },
+    );
+
+    it('keeps the firm cap on accounts: asking for more than maxFundedAccounts simulates the cap', () => {
+        const out = simulatePortfolioTimeline(
+            baseInputs({
+                accounts: plan50kEod.maxFundedAccounts + 1,
+                dayBudget: 5,
+                trials: 1,
+            }),
+        );
+        expect(out.accountsSimulated).toBe(plan50kEod.maxFundedAccounts);
+    });
+
+    it('still runs one trial over a one-day budget', () => {
+        const out = simulatePortfolioTimeline(
+            baseInputs({ dayBudget: 1, trials: 1 }),
+        );
+        assertWellFormed(out);
+        expect(out.days.at(-1)).toBe(1);
+    });
+
+    it('defaults the day budget to one trading year', () => {
+        expect(DEFAULT_DAY_BUDGET).toBe(TRADING_DAYS_PER_YEAR);
     });
 });

@@ -1,18 +1,35 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    contracts,
+    createInitialState,
     DailyLossLimitBreachEffect,
     DailyLossLimitKind,
     dollars,
     FirmId,
+    fraction,
+    MffuVariant,
+    newFundedCycleTracker,
+    PayoutCapScheduleKind,
+    PayoutCountTieredPayoutCap,
+    PayoutProfitPool,
+    percent,
+    type Plan,
+    type PlanId,
+    profitShareMultiplier,
     serializePlanId,
     TradingPhase,
+    tryFundedPayout,
 } from '~/lib/prop-calculator/core';
 import {
+    AlphaFuturesVariant,
     E8FuturesVariant,
+    FtmoFuturesVariant,
+    FundedNextVariant,
     LucidVariant,
+    TradeifyVariant,
 } from '~/lib/prop-calculator/core/PlanId';
-import { ALL_FIRMS } from '~/lib/prop-calculator/firms';
+import { ALL_FIRMS, findFirm } from '~/lib/prop-calculator/firms';
 import { E8Futures } from '~/lib/prop-calculator/firms/e8futures/E8Futures';
 import { LucidTrading } from '~/lib/prop-calculator/firms/lucid/LucidTrading';
 
@@ -233,4 +250,340 @@ describe('Plan.isBust: hard vs soft daily loss limit', () => {
             expect(terminating).toStrictEqual(['ftmo-futures-50000-pro']);
         },
     );
+});
+
+function registeredPlan(planId: PlanId): Plan {
+    const plan = findFirm(planId.firm)?.findPlan(planId);
+    if (!plan) throw new Error(`plan not found: ${serializePlanId(planId)}`);
+    return plan;
+}
+
+const ftmoGrowth = registeredPlan({
+    accountSize: 50_000,
+    firm: FirmId.FtmoFutures,
+    variant: FtmoFuturesVariant.Growth,
+});
+const ftmoPro = registeredPlan({
+    accountSize: 50_000,
+    firm: FirmId.FtmoFutures,
+    variant: FtmoFuturesVariant.Pro,
+});
+
+describe('Plan.payoutCapSchedule', () => {
+    it('describes FTMO Growth as a flat 50% of profit, $2,500 per request cap', () => {
+        expect(ftmoGrowth.payoutCapSchedule()).toStrictEqual({
+            kind: PayoutCapScheduleKind.Flat,
+            regime: { balanceShareCap: 0.5, requestCap: 2500 },
+        });
+    });
+
+    it('describes FTMO Pro as a flat 100% of profit, $5,000 per request cap', () => {
+        expect(ftmoPro.payoutCapSchedule()).toStrictEqual({
+            kind: PayoutCapScheduleKind.Flat,
+            regime: { balanceShareCap: 1, requestCap: 5000 },
+        });
+    });
+
+    it('describes E8 Signature by payout count and FundedNext Legacy by qualifying days', () => {
+        expect(
+            registeredPlan({
+                accountSize: 50_000,
+                firm: FirmId.E8Futures,
+                variant: E8FuturesVariant.Signature,
+            }).payoutCapSchedule().kind,
+        ).toBe(PayoutCapScheduleKind.ByPayoutCount);
+        expect(
+            registeredPlan({
+                accountSize: 50_000,
+                firm: FirmId.FundedNext,
+                variant: FundedNextVariant.Legacy,
+            }).payoutCapSchedule().kind,
+        ).toBe(PayoutCapScheduleKind.ByQualifyingDays);
+    });
+
+    it('leaves resolvedPayoutCap unchanged for a flat-cap plan', () => {
+        expect(
+            ftmoGrowth.resolvedPayoutCap(ftmoGrowth.initialState(), 0),
+        ).toStrictEqual({ balanceShareCap: 0.5, requestCap: 2500 });
+    });
+});
+
+describe('Plan.payoutTiersFromPayout: the trader split keyed on payout number', () => {
+    const fullShare = [
+        { thresholdProfit: dollars(0), traderShare: fraction(1) },
+    ];
+    const halfShare = [
+        { thresholdProfit: dollars(0), traderShare: fraction(0.5) },
+    ];
+
+    it('rejects an empty schedule', () => {
+        expect(() =>
+            ftmoGrowth.withOverrides({ payoutTiersFromPayout: [] }),
+        ).toThrow(/payoutTiersFromPayout must not be empty/);
+    });
+
+    it('rejects an entry at payout index 0, which belongs to payoutTiers', () => {
+        expect(() =>
+            ftmoGrowth.withOverrides({
+                payoutTiersFromPayout: [
+                    { fromPayoutIndex: 0, tiers: halfShare },
+                ],
+            }),
+        ).toThrow(/payout index 1 or later/);
+    });
+
+    it('rejects an entry with no tiers', () => {
+        expect(() =>
+            ftmoGrowth.withOverrides({
+                payoutTiersFromPayout: [{ fromPayoutIndex: 1, tiers: [] }],
+            }),
+        ).toThrow(/must not be empty/);
+    });
+
+    it('rejects an entry with two tiers at the same threshold', () => {
+        expect(() =>
+            ftmoGrowth.withOverrides({
+                payoutTiersFromPayout: [
+                    {
+                        fromPayoutIndex: 1,
+                        tiers: [...halfShare, ...halfShare],
+                    },
+                ],
+            }),
+        ).toThrow(/more than one tier at thresholdProfit/);
+    });
+
+    it('pays the first payout on payoutTiers and later payouts on their scheduled split', () => {
+        const plan = ftmoGrowth.withOverrides({
+            payoutTiers: fullShare,
+            payoutTiersFromPayout: [{ fromPayoutIndex: 1, tiers: halfShare }],
+        });
+        expect(plan.payoutFromProfit(1000, 0)).toBe(1000);
+        expect(plan.payoutFromProfit(1000, 1)).toBe(500);
+        expect(plan.payoutFromProfit(1000, 9)).toBe(500);
+    });
+
+    it('withScaledTraderShare scales every payout index of the Alpha Futures Standard schedule', () => {
+        const standard = registeredPlan({
+            accountSize: 50_000,
+            firm: FirmId.AlphaFutures,
+            variant: AlphaFuturesVariant.Standard,
+        });
+        const scaled = standard.withScaledTraderShare(fraction(0.8));
+        const payouts = [0, 1, 2, 3, 4].map((index) =>
+            scaled.payoutFromProfit(1000, index),
+        );
+        expect(payouts[0]).toBeCloseTo(560, 6);
+        expect(payouts[1]).toBeCloseTo(560, 6);
+        expect(payouts[2]).toBeCloseTo(640, 6);
+        expect(payouts[3]).toBeCloseTo(640, 6);
+        expect(payouts[4]).toBeCloseTo(720, 6);
+    });
+});
+
+describe('Plan.payoutProfitPool AccountProfit invariants', () => {
+    const standard = registeredPlan({
+        accountSize: 50_000,
+        firm: FirmId.AlphaFutures,
+        variant: AlphaFuturesVariant.Standard,
+    });
+
+    it('rejects AccountProfit combined with payoutProfitShare, which would make the pool dead', () => {
+        expect(() =>
+            standard.withOverrides({
+                payoutProfitShare: profitShareMultiplier(0.5),
+            }),
+        ).toThrow(
+            /payoutProfitShare makes payoutProfitPool AccountProfit dead; set only one/,
+        );
+    });
+
+    it('never pays principal on an AccountProfit plan with no balance-share cap', () => {
+        const uncapped = standard.withOverrides({
+            payoutBalanceShareCap: undefined,
+            payoutRequestCap: undefined,
+        });
+        expect(uncapped.payoutProfitPool).toBe(PayoutProfitPool.AccountProfit);
+        const state = uncapped.initialState();
+        uncapped.beginFundedPhase(state);
+        state.balance = state.startingBalance + 1000;
+        state.qualifyingDays = 5;
+        const tracker = newFundedCycleTracker(state);
+        tracker.lastPayoutBalance = state.startingBalance;
+        tracker.qualifyingDaysAtLastPayout = 0;
+
+        const payout = tryFundedPayout({
+            maxPayouts: Infinity,
+            minRetainedCushion: 0,
+            payoutRequestSize: undefined,
+            plan: uncapped,
+            state,
+            tracker,
+        });
+
+        expect(state.threshold).toBeLessThan(state.startingBalance);
+        expect(payout?.debited).toBe(1000);
+    });
+});
+
+function tradeify(variant: TradeifyVariant): Plan {
+    const plan = findFirm(FirmId.Tradeify)?.findPlan({
+        accountSize: 50_000,
+        firm: FirmId.Tradeify,
+        variant,
+    });
+    if (!plan) throw new Error(`Tradeify ${variant} missing`);
+    return plan;
+}
+
+describe('Plan.purchaseDiscounts (R1-1 bundle discount)', () => {
+    it('adds the full 5% bundle at exactly 5 Growth copies', () => {
+        expect(
+            tradeify(TradeifyVariant.Growth).purchaseDiscounts(undefined, 5),
+        ).toStrictEqual({
+            activationPercent: percent(0),
+            bundlePercent: percent(5),
+            evalPercent: percent(0),
+        });
+    });
+
+    it('returns the discounts unchanged below one bundle and for a plan with no bundle', () => {
+        expect(
+            tradeify(TradeifyVariant.Growth).purchaseDiscounts(undefined, 4),
+        ).toBeUndefined();
+        expect(
+            tradeify(TradeifyVariant.Lightning).purchaseDiscounts(undefined, 5),
+        ).toBeUndefined();
+    });
+
+    it('keeps the coupon and averages the bundle over whole bundles of 5 only', () => {
+        const coupon = {
+            activationPercent: percent(0),
+            evalPercent: percent(30),
+        };
+        expect(
+            tradeify(TradeifyVariant.Growth).purchaseDiscounts(coupon, 5),
+        ).toStrictEqual({ ...coupon, bundlePercent: percent(5) });
+        expect(
+            tradeify(TradeifyVariant.Growth).purchaseDiscounts(coupon, 7)
+                ?.bundlePercent,
+        ).toBeCloseTo((5 * 5) / 7, 12);
+        expect(
+            tradeify(TradeifyVariant.Growth).purchaseDiscounts(coupon, 10)
+                ?.bundlePercent,
+        ).toBeCloseTo(5, 12);
+    });
+});
+
+function stateWith(cushion: number, todayPnL: number) {
+    const state = createInitialState(50_000, 48_000);
+    state.balance = 48_000 + cushion;
+    state.todayPnL = todayPnL;
+    return state;
+}
+
+describe('Plan.affordableRisk', () => {
+    const rapidEod = registeredPlan({
+        accountSize: 50_000,
+        firm: FirmId.Mffu,
+        variant: MffuVariant.RapidEod,
+    });
+
+    it('caps a flat funded daily loss limit at the headroom left today', () => {
+        const plan = rapidEod.withOverrides({
+            fundedDailyLossLimit: {
+                amount: dollars(1000),
+                kind: DailyLossLimitKind.Flat,
+            },
+        });
+        expect(
+            plan.affordableRisk(stateWith(2000, -300), TradingPhase.Funded),
+        ).toBe(700);
+        expect(
+            plan.affordableRisk(stateWith(500, 0), TradingPhase.Funded),
+        ).toBe(500);
+    });
+
+    it('returns the whole cushion when the phase has no daily loss limit', () => {
+        const plan = rapidEod.withOverrides({
+            fundedDailyLossLimit: { kind: DailyLossLimitKind.None },
+        });
+        expect(
+            plan.affordableRisk(stateWith(2000, -300), TradingPhase.Funded),
+        ).toBe(2000);
+    });
+
+    it('resolves a live-profit tiered limit from balance minus starting balance', () => {
+        const plan = rapidEod.withOverrides({
+            fundedDailyLossLimit: {
+                kind: DailyLossLimitKind.Tiered,
+                tiers: [
+                    {
+                        dailyLossLimit: dollars(300),
+                        maxContracts: contracts(1),
+                        minProfit: 0,
+                    },
+                    {
+                        dailyLossLimit: dollars(900),
+                        maxContracts: contracts(1),
+                        minProfit: 1000,
+                    },
+                ],
+            },
+        });
+        expect(
+            plan.affordableRisk(stateWith(2500, 0), TradingPhase.Funded),
+        ).toBe(300);
+        expect(
+            plan.affordableRisk(stateWith(3100, 0), TradingPhase.Funded),
+        ).toBe(900);
+    });
+});
+
+describe('Plan.canLeaveBalanceAbovePayoutFloor', () => {
+    const rapidEod = registeredPlan({
+        accountSize: 50_000,
+        firm: FirmId.Mffu,
+        variant: MffuVariant.RapidEod,
+    });
+
+    it('is false for MFF Rapid EOD, which drains every payout to the floor', () => {
+        expect(rapidEod.canLeaveBalanceAbovePayoutFloor()).toBe(false);
+    });
+
+    it.each([
+        [
+            'payoutLadder',
+            {
+                payoutLadder: {
+                    minRequestAmount: dollars(500),
+                    steps: [1000],
+                },
+            },
+        ],
+        ['payoutRequestCap', { payoutRequestCap: dollars(1000) }],
+        ['payoutBalanceShareCap', { payoutBalanceShareCap: fraction(0.5) }],
+        [
+            'payoutCapOverride',
+            {
+                payoutCapOverride: new PayoutCountTieredPayoutCap([
+                    {
+                        fromPayoutIndex: 0,
+                        regime: {
+                            balanceShareCap: null,
+                            requestCap: dollars(1250),
+                        },
+                    },
+                ]),
+            },
+        ],
+        [
+            'payoutProfitShare',
+            { payoutProfitShare: profitShareMultiplier(0.5) },
+        ],
+    ] as const)('is true when only %s is set', (_field, overrides) => {
+        expect(
+            rapidEod.withOverrides(overrides).canLeaveBalanceAbovePayoutFloor(),
+        ).toBe(true);
+    });
 });

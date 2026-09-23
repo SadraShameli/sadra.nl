@@ -1,6 +1,12 @@
 import { z } from 'zod';
 
-import { CorrelationMode, InstrumentSymbol } from '~/lib/prop-calculator';
+import {
+    CorrelationMode,
+    InstrumentSymbol,
+    ladderRungsSchema,
+    stopLossCountSchema,
+    stopTargetDollarsSchema,
+} from '~/lib/prop-calculator';
 import { DayStopRuleKind } from '~/lib/prop-calculator/core';
 
 export const PROFILE_TAB_VALUES = [
@@ -60,23 +66,23 @@ export const dayStopRuleSchema = z.discriminatedUnion('kind', [
     z.object({ kind: z.literal(DayStopRuleKind.FirstWin) }),
     z.object({ kind: z.literal(DayStopRuleKind.DayGreen) }),
     z.object({
-        k: z.number(),
+        k: stopLossCountSchema,
         kind: z.literal(DayStopRuleKind.AfterKLosses),
     }),
     z.object({
-        dollars: z.number(),
+        dollars: stopTargetDollarsSchema,
         kind: z.literal(DayStopRuleKind.AfterTarget),
     }),
 ]);
 
 export const dayPolicySchema = z.object({
-    ladder: z.array(z.number()),
-    maxLossesPerDay: z.number().nullable(),
+    ladder: ladderRungsSchema,
+    maxLossesPerDay: stopLossCountSchema.nullable(),
     stopRule: dayStopRuleSchema,
 });
 
 export const labScenarioSchema = z.object({
-    accounts: z.number(),
+    accounts: z.number().int().positive(),
     correlation: z.enum(CorrelationMode),
     dayStop: dayStopRuleSchema,
     groups: z.number(),
@@ -92,7 +98,7 @@ export const labScenarioSchema = z.object({
 
 export const portfolioEntrySchema = z.object({
     activationDiscountPercent: z.number(),
-    count: z.number(),
+    count: z.number().int().positive(),
     evalDiscountPercent: z.number(),
     firmId: z.string(),
     id: z.string(),

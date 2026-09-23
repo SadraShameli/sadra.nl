@@ -3,11 +3,19 @@ import { describe, expect, it } from 'vitest';
 import {
     ConsistencyScope,
     ContractLimitKind,
+    dollars,
     DrawdownKind,
     E8FuturesVariant,
     FirmId,
+    flatDayPolicy,
+    fraction,
+    INSTRUMENTS,
     maxContractsAt,
     PayoutFloorEffect,
+    points,
+    resolveContractLimit,
+    RungSizing,
+    serializePlanId,
 } from '~/lib/prop-calculator/core';
 import {
     newFundedCycleTracker,
@@ -16,6 +24,15 @@ import {
 import { TradingPhase } from '~/lib/prop-calculator/core/TradingPhase';
 import { ALL_FIRMS, findFirm } from '~/lib/prop-calculator/firms';
 import { E8Futures } from '~/lib/prop-calculator/firms/e8futures/E8Futures';
+import { type Rng } from '~/lib/prop-calculator/rng';
+import {
+    LossStreak,
+    newPhaseStats,
+    runDay,
+    TradeTotals,
+} from '~/lib/prop-calculator/simulator';
+
+const alwaysLoses: Rng = () => 0.99;
 
 function findE8ZeroPlan(variant: E8FuturesVariant) {
     const found = new E8Futures().findPlan({
@@ -25,6 +42,33 @@ function findE8ZeroPlan(variant: E8FuturesVariant) {
     });
     if (!found) throw new Error(`E8 Zero plan ${variant} not found`);
     return found;
+}
+
+function signatureEvalMnqLossBalance(risk: number): number {
+    const state = plan.initialState();
+    const totals = new TradeTotals();
+    const stats = newPhaseStats(
+        state.startingBalance,
+        totals,
+        new LossStreak(totals),
+    );
+    runDay({
+        commission: dollars(0),
+        dayPolicy: flatDayPolicy(risk, 1),
+        phase: TradingPhase.Eval,
+        plan,
+        positionSizing: {
+            instrument: INSTRUMENTS.MNQ,
+            stopPoints: points(20),
+        },
+        rng: alwaysLoses,
+        rrRatio: 1,
+        rungSizing: RungSizing.CapToCushion,
+        state,
+        stats,
+        winrate: fraction(0.5),
+    });
+    return state.balance;
 }
 
 const plan = (() => {
@@ -97,14 +141,49 @@ describe('E8 Futures Signature 50K', () => {
         },
     );
 
-    it("caps contracts flat at 4, both eval and funded (live-verified 2026-09-14 against helpfutures.e8markets.com's 'Max. available Contract Sizes')", () => {
+    it("caps contracts by the $40,000 margin allowance: 4 minis at $10,000 and 40 micros at $1,000, eval and funded (pasted 2026-09-23 from helpfutures.e8markets.com's 'Max. available Contract Sizes')", () => {
         expect(plan.contractLimits?.evalMinis).toBe(4);
-        expect(plan.contractLimits?.evalMicros).toBe(4);
-        const funded = plan.contractLimits?.fundedMinis;
-        if (funded?.kind !== ContractLimitKind.Flat) {
-            throw new Error('expected a flat funded contract limit');
-        }
-        expect(funded.maxContracts).toBe(4);
+        expect(plan.contractLimits?.evalMicros).toBe(40);
+        expect(plan.contractLimits?.fundedMinis).toStrictEqual({
+            kind: ContractLimitKind.Flat,
+            maxContracts: 4,
+        });
+        expect(plan.contractLimits?.fundedMicros).toStrictEqual({
+            kind: ContractLimitKind.Flat,
+            maxContracts: 40,
+        });
+        expect(
+            resolveContractLimit(
+                plan.contractLimits,
+                TradingPhase.Funded,
+                true,
+                0,
+            ),
+        ).toBe(40);
+        expect(
+            resolveContractLimit(
+                plan.contractLimits,
+                TradingPhase.Eval,
+                true,
+                0,
+            ),
+        ).toBe(40);
+        expect(
+            resolveContractLimit(
+                plan.contractLimits,
+                TradingPhase.Funded,
+                false,
+                0,
+            ),
+        ).toBe(4);
+    });
+
+    it('sizes a $250 MNQ loss on a 20-point stop at the full $250, not capped at 4 micros ($160)', () => {
+        expect(signatureEvalMnqLossBalance(250)).toBe(49_750);
+    });
+
+    it('still caps an MNQ trade at 40 micros: a $2,000 intent on a 20-point stop loses $1,600', () => {
+        expect(signatureEvalMnqLossBalance(2000)).toBe(48_400);
     });
 
     it(
@@ -262,19 +341,27 @@ describe('E8 Zero (MAX/Starter x 80%/100% payout) 50K', () => {
         expect(fundedState.threshold).toBe(fundedState.startingBalance);
     });
 
-    it('prices MAX above Starter, and 100% payout above 80%, at $50K', () => {
+    it('prices MAX above Starter, and 100% payout above 80%, at the $50K list price with no coupon (e8futures.com configurator, 2026-09-23)', () => {
         const maxEighty = findE8ZeroPlan(E8FuturesVariant.ZeroMax80);
         const maxHundred = findE8ZeroPlan(E8FuturesVariant.ZeroMax100);
         const starterEighty = findE8ZeroPlan(E8FuturesVariant.ZeroStarter80);
         const starterHundred = findE8ZeroPlan(E8FuturesVariant.ZeroStarter100);
 
-        expect(maxEighty.fees.oneTimeEval).toBe(214);
-        expect(maxHundred.fees.oneTimeEval).toBe(279);
-        expect(starterEighty.fees.oneTimeEval).toBe(116);
-        expect(starterHundred.fees.oneTimeEval).toBe(149);
+        expect(maxEighty.fees.oneTimeEval).toBe(328);
+        expect(maxHundred.fees.oneTimeEval).toBe(428);
+        expect(starterEighty.fees.oneTimeEval).toBe(178);
+        expect(starterHundred.fees.oneTimeEval).toBe(228);
+        for (const zero of [
+            maxEighty,
+            maxHundred,
+            starterEighty,
+            starterHundred,
+        ]) {
+            expect(zero.fees.reset).toBe(zero.fees.oneTimeEval);
+        }
 
-        expect(maxEighty.payoutFromProfit(1000)).toBeCloseTo(800, 6);
-        expect(maxHundred.payoutFromProfit(1000)).toBeCloseTo(1000, 6);
+        expect(maxEighty.payoutFromProfit(1000, 0)).toBeCloseTo(800, 6);
+        expect(maxHundred.payoutFromProfit(1000, 0)).toBeCloseTo(1000, 6);
 
         expect(maxEighty.payoutRequestCap).toBe(3000);
         expect(starterEighty.payoutRequestCap).toBe(1000);
@@ -292,7 +379,34 @@ describe('E8 Zero (MAX/Starter x 80%/100% payout) 50K', () => {
         expect(maxContractsAt(funded, 1499)).toBe(3);
         expect(maxContractsAt(funded, 1500)).toBe(5);
         expect(zero.contractLimits?.evalMinis).toBe(4);
-        expect(zero.contractLimits?.evalMicros).toBe(4);
+    });
+
+    it("caps micros by margin like minis: 40 in the challenge and 20 -> 30 -> 50 funded, at $1,000 per micro against the $40,000 and $20,000/$30,000/$50,000 allowances (pasted 2026-09-23 from 'Max. available Contract Sizes')", () => {
+        const zero = findE8ZeroPlan(E8FuturesVariant.ZeroStarter80);
+        expect(zero.contractLimits?.evalMicros).toBe(40);
+        expect(
+            resolveContractLimit(
+                zero.contractLimits,
+                TradingPhase.Eval,
+                true,
+                0,
+            ),
+        ).toBe(40);
+        const fundedMicros = zero.contractLimits?.fundedMicros ?? null;
+        expect(maxContractsAt(fundedMicros, 0)).toBe(20);
+        expect(maxContractsAt(fundedMicros, 749)).toBe(20);
+        expect(maxContractsAt(fundedMicros, 750)).toBe(30);
+        expect(maxContractsAt(fundedMicros, 1499)).toBe(30);
+        expect(maxContractsAt(fundedMicros, 1500)).toBe(50);
+        expect(
+            resolveContractLimit(
+                zero.contractLimits,
+                TradingPhase.Funded,
+                true,
+                1500,
+                0,
+            ),
+        ).toBe(20);
     });
 
     it('funds daily with a $100 floor and no qualifying-day gate, unlike Signature', () => {
@@ -329,5 +443,117 @@ describe('E8 Zero (MAX/Starter x 80%/100% payout) 50K', () => {
         expect(payout).not.toBeNull();
         expect(state.thresholdLocked).toBe(true);
         expect(state.threshold).toBe(state.startingBalance);
+    });
+});
+
+describe('E8 Futures fee basis across Signature and Zero', () => {
+    it('ranks all five plans by list eval fee: Signature 160 < Starter80 178 < Starter100 228 < Max80 328 < Max100 428', () => {
+        const ranked = new E8Futures().plans
+            .toSorted((a, b) => a.fees.oneTimeEval - b.fees.oneTimeEval)
+            .map((p) => [serializePlanId(p.id), p.fees.oneTimeEval]);
+        expect(ranked).toStrictEqual(
+            (
+                [
+                    [E8FuturesVariant.Signature, 160],
+                    [E8FuturesVariant.ZeroStarter80, 178],
+                    [E8FuturesVariant.ZeroStarter100, 228],
+                    [E8FuturesVariant.ZeroMax80, 328],
+                    [E8FuturesVariant.ZeroMax100, 428],
+                ] as const
+            ).map(([variant, fee]) => [
+                serializePlanId({
+                    accountSize: 50_000,
+                    firm: FirmId.E8Futures,
+                    variant,
+                }),
+                fee,
+            ]),
+        );
+    });
+});
+
+function fundedStates() {
+    const states = [];
+    for (let balance = 50_000; balance <= 56_000; balance += 250) {
+        for (const threshold of [balance - 2000, balance - 1000, 50_000]) {
+            for (const payoutsIssued of [0, 1, 3]) {
+                for (const cycleProfit of [0, 500, 2000, 4000]) {
+                    for (const minRetainedCushion of [0, 2000]) {
+                        states.push({
+                            balance,
+                            cycleProfit,
+                            minRetainedCushion,
+                            payoutsIssued,
+                            threshold,
+                        });
+                    }
+                }
+            }
+        }
+    }
+    return states;
+}
+
+describe('E8 Signature payout buffer: a buffer equal to the EOD drawdown can not be requested (11864618)', () => {
+    const withoutProfitGate = plan.withOverrides({
+        minPayoutProfit: dollars(0),
+    });
+    const bufferBalance = plan.accountSize + plan.fundedDrawdown.amount;
+
+    function payoutFor(
+        target: typeof plan,
+        scenario: ReturnType<typeof fundedStates>[number],
+    ) {
+        const state = target.initialState();
+        target.beginFundedPhase(state);
+        state.balance = scenario.balance;
+        state.threshold = scenario.threshold;
+        state.thresholdLocked = scenario.threshold === 50_000;
+        state.qualifyingDays = 10;
+        const tracker = newFundedCycleTracker(state);
+        tracker.payoutsIssued = scenario.payoutsIssued;
+        tracker.qualifyingDaysAtLastPayout = 0;
+        tracker.lastPayoutBalance =
+            scenario.payoutsIssued === 0
+                ? state.startingBalance
+                : scenario.balance - scenario.cycleProfit;
+        const payout = tryFundedPayout({
+            maxPayouts: Infinity,
+            minRetainedCushion: scenario.minRetainedCushion,
+            payoutRequestSize: undefined,
+            plan: target,
+            state,
+            tracker,
+        });
+        return { balanceAfter: state.balance, payout };
+    }
+
+    it('models the buffer as a $52,000 balance floor on every payout', () => {
+        expect(
+            plan.payoutBuffer?.requiredBalance(
+                plan.accountSize,
+                plan.fundedDrawdown.amount,
+            ),
+        ).toBe(52_000);
+        expect(bufferBalance).toBe(52_000);
+    });
+
+    it('never lets a payout take the balance below the $52,000 buffer', () => {
+        let paid = 0;
+        for (const scenario of fundedStates()) {
+            const { balanceAfter, payout } = payoutFor(plan, scenario);
+            if (payout === null) continue;
+            paid += 1;
+            expect(balanceAfter).toBeGreaterThanOrEqual(bufferBalance);
+        }
+        expect(paid).toBeGreaterThan(50);
+    });
+
+    it('makes the $2,000 first-payout profit gate redundant: removing it changes no payout', () => {
+        for (const scenario of fundedStates()) {
+            expect(payoutFor(withoutProfitGate, scenario).payout).toStrictEqual(
+                payoutFor(plan, scenario).payout,
+            );
+        }
     });
 });

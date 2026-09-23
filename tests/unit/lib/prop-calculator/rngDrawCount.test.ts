@@ -134,7 +134,7 @@ describe('rng draw counts', () => {
             tradesPerDay: 2,
             winrate: 0.5,
         });
-        expect(counted.draws()).toBe(261);
+        expect(counted.draws()).toBe(267);
     });
 
     it('pins the ladder-score draw count', () => {
@@ -142,10 +142,11 @@ describe('rng draw counts', () => {
         scoreLadder(
             [400, 600, 800, 200],
             {
+                commission: 0,
                 cushion: 2000,
-                evalPrice: 209,
                 maxDays: 60,
                 plan: rapidEod,
+                positionSizing: null,
                 rrRatio: 2,
                 rungSizing: RungSizing.CapToCushion,
                 seedOffset: 0,
@@ -153,7 +154,7 @@ describe('rng draw counts', () => {
                 stopRule: { kind: DayStopRuleKind.DayGreen },
                 winrate: 0.5,
             },
-            counted.rng,
+            () => counted.rng,
         );
         expect(counted.draws()).toBe(2090);
     });

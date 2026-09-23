@@ -1,4 +1,4 @@
-import { resetFactor } from '../core/FeeSchedule';
+import { recordBestDay } from '../core/TradingDayLedger';
 import { TradingPhase } from '../core/TradingPhase';
 import { runDay } from './day';
 import { LossStreak, newPhaseStats } from './PhaseStats';
@@ -68,9 +68,7 @@ export function runEvalAttempt(options: EvalAttemptOptions): EvalAttemptResult {
     for (let day = 0; day < dayCap; day++) {
         const { busted, closedForInactivity: idleClosure } = runDay(dayOptions);
         days += 1;
-        if (state.todayPnL > state.bestDayProfit) {
-            state.bestDayProfit = state.todayPnL;
-        }
+        recordBestDay(state);
         if (equityCurve) equityCurve.push(state.balance);
 
         if (busted) {
@@ -118,6 +116,7 @@ export function runEvalWithRetries(
     let daysElapsed = 0;
     let attemptsUsed = 0;
     let resetFeesPaid = 0;
+    const failedAttemptDays: number[] = [];
 
     for (;;) {
         attemptsUsed += 1;
@@ -143,13 +142,16 @@ export function runEvalWithRetries(
                 attempt,
                 attemptsUsed,
                 daysElapsed,
+                failedAttemptDays,
                 resetFeesPaid,
                 terminalOutcome: null,
             };
         }
 
+        failedAttemptDays.push(attempt.days);
+
         if (attempt.outcome === 'busted' && attemptsUsed < maxAttempts) {
-            resetFeesPaid += plan.fees.reset * resetFactor(discounts);
+            resetFeesPaid += plan.retryFee(discounts);
             continue;
         }
 
@@ -157,6 +159,7 @@ export function runEvalWithRetries(
             attempt,
             attemptsUsed,
             daysElapsed,
+            failedAttemptDays,
             resetFeesPaid,
             terminalOutcome:
                 attempt.outcome === 'busted' ? 'busted' : 'timed-out',

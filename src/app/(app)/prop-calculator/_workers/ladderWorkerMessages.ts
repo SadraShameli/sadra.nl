@@ -1,5 +1,7 @@
 import type {
+    CouponDiscounts,
     DayStopRule,
+    InstrumentSymbol,
     LadderScore,
     PlanId,
     RungSizing,
@@ -32,9 +34,11 @@ interface LadderWorkerFailure {
 }
 
 interface ScoreLaddersRequest {
+    commission: number;
     cushion: number;
-    evalPrice: number;
+    discounts: CouponDiscounts | undefined;
     firstIndex: number;
+    instrument: InstrumentSymbol | undefined;
     kind: LadderWorkerRequestKind.ScoreLadders;
     ladders: number[][];
     maxDays: number;
@@ -44,6 +48,7 @@ interface ScoreLaddersRequest {
     runId: number;
     seed: number;
     sims: number;
+    stopPoints: number | undefined;
     stopRule: DayStopRule;
     winrate: number;
 }

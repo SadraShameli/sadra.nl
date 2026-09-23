@@ -4,6 +4,7 @@ export interface LiveAccountState {
     consecutiveIdleDays: number;
     peakDayCloseProfit: number;
     qualifyingDays: number;
+    qualifyingDaysAtLastPayout: number;
     startingBalance: number;
     threshold: number;
     thresholdLocked: boolean;
@@ -21,6 +22,7 @@ export function createInitialLiveAccountState(
         consecutiveIdleDays: 0,
         peakDayCloseProfit: 0,
         qualifyingDays: 0,
+        qualifyingDaysAtLastPayout: 0,
         startingBalance,
         threshold: initialThreshold,
         thresholdLocked: false,

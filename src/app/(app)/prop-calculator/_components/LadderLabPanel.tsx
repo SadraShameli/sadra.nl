@@ -14,18 +14,24 @@ import {
     type DayPolicy,
     type DayStopRule,
     DayStopRuleKind,
+    defaultLadderGridMax,
     INSTRUMENTS,
     InstrumentSymbol,
     type LadderScore,
     ladderSum,
     minStopPoints,
+    resolveContractLimit,
+    resolvePositionSizing,
     RungSizing,
+    SIM_DEFAULTS,
     type SimInputs,
+    TradingPhase,
 } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
 import LadderFrontierChartView from './charts/LadderFrontierChartView';
 import DayStopRulePicker from './DayStopRulePicker';
+import { describeLadderIgnoredInputs } from './ladderIgnoredInputs';
 import { LadderRunPhase, useLadderSearch } from './useLadderSearch';
 
 interface LadderLabPanelProperties {
@@ -39,10 +45,30 @@ export default function LadderLabPanel({
     baseInputs,
     onApply,
 }: LadderLabPanelProperties) {
-    const { maxEvalDays, plan, rrRatio, seed, winrate } = baseInputs;
+    const {
+        commissionPerRoundTrip,
+        copyAccounts,
+        discounts,
+        idleDayProbability,
+        instrument: sizingInstrument,
+        maxAttempts,
+        maxEvalDays,
+        plan,
+        rebuyLagDays,
+        rrRatio,
+        seed,
+        stopPoints,
+        winrate,
+    } = baseInputs;
+    const ignoredInputsNote = describeLadderIgnoredInputs({
+        idleDayProbability,
+        maxAttempts,
+        rebuyLagDays,
+    });
     const cushion = plan.drawdown.amount;
+    const positionSizing = resolvePositionSizing(sizingInstrument, stopPoints);
     const [lo, setLo] = useState(100);
-    const [max, setMax] = useState(Math.round(cushion * 0.4));
+    const [max, setMax] = useState(defaultLadderGridMax(cushion));
     const [step, setStep] = useState(100);
     const [slots, setSlots] = useState(4);
     const [sims, setSims] = useState(4000);
@@ -57,11 +83,19 @@ export default function LadderLabPanel({
     );
     const { cancel, run, state } = useLadderSearch();
 
-    const aliasingFrom = Math.round(cushion * 0.4);
+    const aliasingFrom = defaultLadderGridMax(cushion);
     const isAliasingRisk = max > aliasingFrom;
-    const pointValue =
-        instrument === '' ? null : INSTRUMENTS[instrument].pointValue;
-    const contractCap = plan.contractLimits?.evalMinis ?? null;
+    const instrumentSpec = instrument === '' ? null : INSTRUMENTS[instrument];
+    const pointValue = instrumentSpec?.pointValue ?? null;
+    const contractCap =
+        instrumentSpec === null
+            ? null
+            : resolveContractLimit(
+                  plan.contractLimits,
+                  TradingPhase.Eval,
+                  instrumentSpec.isMicro,
+                  0,
+              );
 
     const succeeded = state.phase === LadderRunPhase.Succeeded ? state : null;
     const rows = useMemo(() => {
@@ -103,19 +137,42 @@ export default function LadderLabPanel({
             },
             {
                 accessorFn: (r) => r.passRate,
-                cell: ({ row }) => formatPercent(row.original.passRate),
-                header: 'Pass%',
+                cell: ({ row }) => (
+                    <WithStandardError
+                        standardError={formatPercent(
+                            row.original.passRateStandardError,
+                            2,
+                        )}
+                        value={formatPercent(row.original.passRate)}
+                    />
+                ),
+                header: 'Eval pass',
                 id: 'pass',
             },
             {
                 accessorFn: (r) => r.expectedDaysToFunded,
-                cell: ({ row }) => row.original.expectedDaysToFunded.toFixed(1),
+                cell: ({ row }) => (
+                    <WithStandardError
+                        standardError={row.original.expectedDaysToFundedStandardError.toFixed(
+                            2,
+                        )}
+                        value={row.original.expectedDaysToFunded.toFixed(1)}
+                    />
+                ),
                 header: 'Days to funded',
                 id: 'days',
             },
             {
                 accessorFn: (r) => r.costPerFunded,
-                cell: ({ row }) => formatCurrency(row.original.costPerFunded),
+                cell: ({ row }) => (
+                    <WithStandardError
+                        standardError={formatCurrency(
+                            row.original.costPerFundedStandardError,
+                            2,
+                        )}
+                        value={formatCurrency(row.original.costPerFunded)}
+                    />
+                ),
                 header: '$ / funded',
                 id: 'cost',
             },
@@ -192,11 +249,11 @@ export default function LadderLabPanel({
                     <InfoPopover title="Ladder Lab">
                         Searches every within-day risk ladder on a grid and
                         scores each one on three separate axes: expected days to
-                        funded, cost per funded account, and pass rate. They
-                        have different winners, so all three are shown rather
-                        than blended into one score. Each rung is capped to the
-                        cushion remaining before it, and ladders that clamp to
-                        the same effective strategy are de-duplicated.
+                        funded, cost per funded account, and eval pass rate.
+                        They have different winners, so all three are shown
+                        rather than blended into one score. Each rung is capped
+                        to the cushion remaining before it, and ladders that
+                        clamp to the same effective strategy are de-duplicated.
                     </InfoPopover>
                 </div>
                 <div className="flex items-center gap-2">
@@ -226,13 +283,22 @@ export default function LadderLabPanel({
                             className="h-7 px-2.5 text-xs"
                             onClick={() =>
                                 run({
+                                    commission:
+                                        commissionPerRoundTrip ??
+                                        SIM_DEFAULTS.commissionPerRoundTrip,
+                                    copyAccounts:
+                                        copyAccounts ??
+                                        SIM_DEFAULTS.copyAccounts,
+                                    discounts,
                                     grid: { lo, max, slots, step },
+                                    instrument: sizingInstrument,
                                     maxDays: maxEvalDays,
                                     plan,
                                     rrRatio,
                                     rungSizing,
                                     seed,
                                     sims,
+                                    stopPoints,
                                     stopRule,
                                     winrate,
                                 })
@@ -312,6 +378,18 @@ export default function LadderLabPanel({
                 </label>
             </div>
 
+            <p className="mt-3 text-xs text-muted-foreground">
+                {positionSizing === null
+                    ? 'Contract limits are not applied: set an instrument and a stop in the trading inputs to cap each rung at the eval contract limit.'
+                    : `Each rung is capped at the eval contract limit for ${positionSizing.instrument.symbol} with a ${positionSizing.stopPoints} pt stop, as in the simulation.`}
+            </p>
+
+            {ignoredInputsNote !== null && (
+                <p className="mt-3 text-xs text-amber-400">
+                    {ignoredInputsNote}
+                </p>
+            )}
+
             {isAliasingRisk && (
                 <p className="mt-3 text-xs text-amber-400">
                     A max rung above {formatCurrency(aliasingFrom)} is past the
@@ -332,7 +410,10 @@ export default function LadderLabPanel({
                         Scored {succeeded.result.laddersScored} distinct ladders
                         from a {succeeded.result.gridSize}-ladder grid (
                         {succeeded.result.droppedAliasCount} aliases removed) in{' '}
-                        {(succeeded.progress.elapsedMs / 1000).toFixed(1)}s.
+                        {(succeeded.progress.elapsedMs / 1000).toFixed(1)}s. The
+                        ± figures are one standard error of Monte Carlo noise;
+                        rows within about 2 SE of each other are statistically
+                        tied, so raise the sims per ladder to separate them.
                     </p>
 
                     <div>
@@ -392,5 +473,20 @@ function NumberField({
                 value={value}
             />
         </label>
+    );
+}
+
+function WithStandardError({
+    standardError,
+    value,
+}: {
+    standardError: string;
+    value: string;
+}) {
+    return (
+        <span>
+            {value}
+            <span className="text-muted-foreground"> ± {standardError}</span>
+        </span>
     );
 }

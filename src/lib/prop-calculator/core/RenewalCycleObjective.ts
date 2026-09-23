@@ -3,6 +3,7 @@ import { type CouponDiscounts } from './FeeSchedule';
 import { type Plan } from './Plan';
 
 export interface RenewalCycleObjectiveInit {
+    copyAccounts?: number;
     discounts?: CouponDiscounts;
     fundedHorizonDays: number;
     maxEvalDays: number;
@@ -11,6 +12,8 @@ export interface RenewalCycleObjectiveInit {
 }
 
 export class RenewalCycleObjective {
+    readonly copyAccounts: number;
+
     readonly discounts: CouponDiscounts | undefined;
 
     readonly fundedHorizonDays: number;
@@ -18,6 +21,8 @@ export class RenewalCycleObjective {
     readonly maxEvalDays: number;
 
     readonly plan: Plan;
+
+    readonly purchaseDiscounts: CouponDiscounts | undefined;
 
     readonly rebuyLagDays: number;
 
@@ -35,23 +40,34 @@ export class RenewalCycleObjective {
                 `RenewalCycleObjective requires rebuyLagDays >= 0 and finite, got ${init.rebuyLagDays}`,
             );
         }
+        const copyAccounts = init.copyAccounts ?? 1;
+        if (!Number.isSafeInteger(copyAccounts) || copyAccounts < 1) {
+            throw new Error(
+                `RenewalCycleObjective requires copyAccounts to be a positive integer, got ${copyAccounts}`,
+            );
+        }
+        this.copyAccounts = copyAccounts;
         this.discounts = init.discounts;
         this.fundedHorizonDays = init.fundedHorizonDays;
         this.maxEvalDays = init.maxEvalDays;
         this.plan = init.plan;
         this.rebuyLagDays = init.rebuyLagDays;
+        this.purchaseDiscounts = init.plan.purchaseDiscounts(
+            init.discounts,
+            copyAccounts,
+        );
     }
 
     activationCost(): number {
         return (
-            this.plan.totalCostThroughDay(0, this.discounts) -
-            this.plan.feesUntilPass(0, this.discounts)
+            this.plan.totalCostThroughDay(0, this.purchaseDiscounts) -
+            this.plan.feesUntilPass(0, this.purchaseDiscounts)
         );
     }
 
     entryCost(ratePerDay: number): number {
         return (
-            this.plan.feesUntilPass(0, this.discounts) +
+            this.plan.feesUntilPass(0, this.purchaseDiscounts) +
             ratePerDay * this.rebuyLagDays
         );
     }
@@ -82,5 +98,11 @@ export class RenewalCycleObjective {
 
     monthlyRate(ratePerDay: number): number {
         return ratePerDay * TRADING_DAYS_PER_MONTH;
+    }
+
+    retryCost(ratePerDay: number): number {
+        return (
+            this.plan.retryFee(this.discounts) + ratePerDay * this.rebuyLagDays
+        );
     }
 }

@@ -1,18 +1,49 @@
 import { defineCommand } from 'citty';
 
 import {
+    describeStopRule,
+    formatDaysToPass,
+    pathGranularityComparisonArgument,
     planArguments,
     planResolver,
+    type TableColumn,
     TablePrinter,
     tradingArguments,
     TradingInputs,
 } from '~/cli/commands/prop/shared';
 import { ui } from '~/cli/ui';
-import { formatCurrency, formatPercent } from '~/lib/format';
-import { simulate } from '~/lib/prop-calculator';
+import {
+    formatCurrency,
+    formatFiniteCurrency,
+    formatOptionalPercent,
+    formatPercent,
+} from '~/lib/format';
+import { type Plan, type SimOutputs, simulate } from '~/lib/prop-calculator';
+
+export interface GranularityRow {
+    out: SimOutputs;
+    stepsPerR: number;
+}
+
+type SummaryRow = readonly [label: string, value: string];
+
+export const GRANULARITY_TABLE_COLUMNS: readonly TableColumn[] = [
+    { label: 'steps/R', width: 8 },
+    { label: 'eval pass', width: 10 },
+    { label: 'funded survive', width: 15 },
+    { label: 'bust in eval', width: 13 },
+    { label: 'bust when funded', width: 17 },
+    { label: 'monthly net', width: 12 },
+];
+
+export const simArguments = {
+    ...planArguments,
+    ...tradingArguments,
+    ...pathGranularityComparisonArgument,
+};
 
 export default defineCommand({
-    args: { ...planArguments, ...tradingArguments },
+    args: simArguments,
     meta: {
         description:
             'Simulate one plan end to end (--firm, --variant). The ladder applies to the evaluation only; the funded phase uses flat risk.',
@@ -23,7 +54,6 @@ export default defineCommand({
         try {
             const plan = planResolver.resolveOne(context.args);
             const inputs = TradingInputs.parse(context.args);
-            const granularities = inputs.intradayPathStepsPerR;
             spinner = ui
                 .spinner(`${plan.label} · ${inputs.trials} trials`)
                 .start();
@@ -31,112 +61,31 @@ export default defineCommand({
             const out = simulate(inputs.toSimInputs(plan));
             spinner.succeed(`${plan.label} · ${inputs.trials} trials`);
 
-            const fundedRisk = inputs.fundedRiskPerTrade ?? inputs.riskPerTrade;
-            const fundedRr = inputs.fundedRrRatio ?? inputs.rrRatio;
-            const fundedTpd = inputs.fundedTradesPerDay ?? inputs.tradesPerDay;
-
             ui.heading(plan.label);
-            ui.muted(
-                `  eval risk ${inputs.ladder ? `ladder [${inputs.ladder.join(', ')}] stop ${inputs.dayStop.kind}` : `flat $${inputs.riskPerTrade} x${inputs.tradesPerDay}/day`} | funded flat $${fundedRisk} x${fundedTpd}/day 1:${fundedRr}`,
-            );
-            ui.muted(
-                `  ${(inputs.winrate * 100).toFixed(0)}% WR | eval 1:${inputs.rrRatio} | seed ${inputs.seed} | ${inputs.fundedHorizonDays} funded days\n`,
-            );
+            const [riskLine, runLine] = simHeaderLines(inputs);
+            ui.muted(riskLine);
+            ui.muted(`${runLine}\n`);
 
             const table = new TablePrinter([
                 { align: 'left', label: '', width: 22 },
                 { label: '', width: 0 },
             ]);
-            table.printRow(['pass rate', formatPercent(out.passProbability)]);
-            table.printRow([
-                'bust in eval',
-                formatPercent(out.bustProbability),
-            ]);
-            table.printRow([
-                'bust when funded',
-                formatPercent(out.fundedBustProbability),
-            ]);
-            table.printRow([
-                'inactivity closure',
-                formatPercent(out.inactivityClosureProbability),
-            ]);
-            table.printRow(['timeout', formatPercent(out.timeoutProbability)]);
-            table.printRow([
-                'days to pass (p50)',
-                out.daysToPassP50.toFixed(1),
-            ]);
-            table.printRow([
-                'days to pass (p95)',
-                out.daysToPassP95.toFixed(1),
-            ]);
-            table.printRow([
-                'expected attempts',
-                out.expectedAttempts.toFixed(2),
-            ]);
-            table.printRow([
-                'total cost',
-                formatCurrency(out.expectedTotalCost),
-            ]);
-            table.printRow([
-                'cost / funded acct',
-                formatCurrency(out.costPerFundedAccount),
-            ]);
-            table.printRow([
-                'cost / drawdown $',
-                out.costPerDrawdownDollar.toFixed(4),
-            ]);
-            table.printRow([
-                'gross payout',
-                formatCurrency(out.expectedGrossPayout),
-            ]);
-            table.printRow([
-                'payouts / account',
-                out.expectedPayoutCount.toFixed(2),
-            ]);
-            table.printRow([
-                'payout / funded acct',
-                formatCurrency(out.expectedPayoutPerFundedAccount),
-            ]);
-            table.printRow(['net', formatCurrency(out.expectedNet)]);
-            table.printRow([
-                'monthly net',
-                formatCurrency(out.expectedMonthlyNet),
-            ]);
-            table.printRow(['ROI on cost', formatPercent(out.roiOnCost.value)]);
-            table.printRow([
-                'expectancy per trade',
-                formatCurrency(out.expectancyDollars),
-            ]);
-            table.printRow([
-                'max drawdown (p95)',
-                formatCurrency(out.maxDrawdownP95),
-            ]);
-            table.printRow([
-                'loss streak (p95)',
-                out.maxLosingStreakP95.toFixed(0),
-            ]);
+            for (const row of simSummaryRows(out)) {
+                table.printRow(row);
+            }
 
-            if (granularities !== undefined && granularities.length > 1) {
+            const granularityRows = granularityComparison(inputs, plan, out);
+            if (granularityRows.length > 0) {
                 ui.heading('intraday path-walk granularity comparison');
-                const granularityTable = new TablePrinter([
-                    { label: 'steps/R', width: 8 },
-                    { label: 'bust when funded', width: 18 },
-                    { label: 'monthly net', width: 12 },
-                ]);
+                ui.muted(
+                    '  applies to every IntradayTrailingDrawdown trade, eval and funded',
+                );
+                const granularityTable = new TablePrinter(
+                    GRANULARITY_TABLE_COLUMNS,
+                );
                 granularityTable.printHeader();
-                for (const [index, stepsPerR] of granularities.entries()) {
-                    const granularityOut =
-                        index === 0
-                            ? out
-                            : simulate({
-                                  ...inputs.toSimInputs(plan),
-                                  intradayPathStepsPerR: stepsPerR,
-                              });
-                    granularityTable.printRow([
-                        String(stepsPerR),
-                        formatPercent(granularityOut.fundedBustProbability),
-                        formatCurrency(granularityOut.expectedMonthlyNet),
-                    ]);
+                for (const row of granularityRows) {
+                    granularityTable.printRow(granularityTableRow(row));
                 }
             }
         } catch (error) {
@@ -146,3 +95,83 @@ export default defineCommand({
         }
     },
 });
+
+export function granularityComparison(
+    inputs: TradingInputs,
+    plan: Plan,
+    primary: SimOutputs,
+): GranularityRow[] {
+    const granularities = inputs.intradayPathStepsPerR;
+    if (granularities === undefined || granularities.length <= 1) return [];
+    return granularities.map((stepsPerR, index) => ({
+        out:
+            index === 0
+                ? primary
+                : simulate({
+                      ...inputs.toSimInputs(plan),
+                      intradayPathStepsPerR: stepsPerR,
+                  }),
+        stepsPerR,
+    }));
+}
+
+export function granularityTableRow({
+    out,
+    stepsPerR,
+}: GranularityRow): readonly string[] {
+    return [
+        String(stepsPerR),
+        formatPercent(out.evalPassProbability),
+        formatPercent(out.fundedSurvivalProbability),
+        formatPercent(out.bustProbability),
+        formatPercent(out.fundedBustProbability),
+        formatCurrency(out.expectedMonthlyNet),
+    ];
+}
+
+export function simHeaderLines(
+    inputs: TradingInputs,
+): readonly [risk: string, run: string] {
+    const fundedRisk = inputs.fundedRiskPerTrade ?? inputs.riskPerTrade;
+    const fundedRr = inputs.fundedRrRatio ?? inputs.rrRatio;
+    const fundedTpd = inputs.fundedTradesPerDay ?? inputs.tradesPerDay;
+    const evalRisk = inputs.ladder
+        ? `ladder [${inputs.ladder.join(', ')}]`
+        : `flat $${inputs.riskPerTrade} x${inputs.tradesPerDay}/day`;
+    return [
+        `  eval risk ${evalRisk} stop ${describeStopRule(inputs.dayStop)} | funded flat $${fundedRisk} x${fundedTpd}/day 1:${fundedRr}`,
+        `  ${(inputs.winrate * 100).toFixed(0)}% WR | eval 1:${inputs.rrRatio} | max attempts ${inputs.maxAttempts} | seed ${inputs.seed} | ${inputs.fundedHorizonDays} funded days`,
+    ];
+}
+
+export function simSummaryRows(out: SimOutputs): readonly SummaryRow[] {
+    return [
+        ['eval pass', formatPercent(out.evalPassProbability)],
+        ['funded survive', formatPercent(out.fundedSurvivalProbability)],
+        ['bust in eval', formatPercent(out.bustProbability)],
+        ['bust when funded', formatPercent(out.fundedBustProbability)],
+        ['inactivity closure', formatPercent(out.inactivityClosureProbability)],
+        ['timeout', formatPercent(out.timeoutProbability)],
+        ['days to pass (p50)', formatDaysToPass(out, out.daysToPassP50, 1)],
+        ['days to pass (p95)', formatDaysToPass(out, out.daysToPassP95, 1)],
+        ['expected attempts', out.expectedAttempts.toFixed(2)],
+        ['total cost', formatCurrency(out.expectedTotalCost)],
+        ['cost / funded acct', formatFiniteCurrency(out.costPerFundedAccount)],
+        [
+            'cost / drawdown $',
+            formatFiniteCurrency(out.costPerDrawdownDollar, 4),
+        ],
+        ['gross payout', formatCurrency(out.expectedGrossPayout)],
+        ['payouts / account', out.expectedPayoutCount.toFixed(2)],
+        [
+            'payout / funded acct',
+            formatCurrency(out.expectedPayoutPerFundedAccount),
+        ],
+        ['net', formatCurrency(out.expectedNet)],
+        ['monthly net', formatCurrency(out.expectedMonthlyNet)],
+        ['ROI on cost', formatOptionalPercent(out.roiOnCost.value)],
+        ['expectancy per trade', formatCurrency(out.expectancyDollars)],
+        ['max drawdown (p95)', formatCurrency(out.maxDrawdownP95)],
+        ['loss streak (p95)', out.maxLosingStreakP95.toFixed(0)],
+    ];
+}

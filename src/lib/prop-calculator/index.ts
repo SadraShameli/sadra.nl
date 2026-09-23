@@ -19,12 +19,16 @@ export {
     TRADEIFY_LIVE_DEFAULT_CUSHION_PERCENT,
 } from './firms';
 export {
+    assertPositiveSafeInteger,
     CorrelationMode,
     type CostBreakdown,
     type LiveOutputs,
     type LiveSimInputs,
     type MultiAccountResult,
+    oneOffLiveCredit,
     type PortfolioSimInputs,
+    resolveCopyAccounts,
+    SIM_DEFAULTS,
     type SimInputs,
     type SimOutputs,
     simulate,

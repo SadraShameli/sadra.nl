@@ -45,18 +45,21 @@ describe('per-payout method fee', () => {
     });
 
     it('deducts the fee after the profit split, not before', () => {
-        expect(topStep.payoutFromProfit(1000)).toBeCloseTo(1000 * 0.9 - 30, 6);
+        expect(topStep.payoutFromProfit(1000, 0)).toBeCloseTo(
+            1000 * 0.9 - 30,
+            6,
+        );
     });
 
     it('never returns a negative payout when the fee exceeds the split', () => {
-        expect(topStep.payoutFromProfit(10)).toBe(0);
+        expect(topStep.payoutFromProfit(10, 0)).toBe(0);
     });
 
     it('leaves firms with no published fee untouched', () => {
         for (const plan of [apexEod, rapidEod]) {
             expect(plan.payoutMethodFee).toBe(0);
         }
-        expect(rapidEod.payoutFromProfit(1000)).toBeCloseTo(900, 6);
+        expect(rapidEod.payoutFromProfit(1000, 0)).toBeCloseTo(900, 6);
     });
 });
 
@@ -87,7 +90,7 @@ describe('evaluation access period', () => {
         });
 
         expect(out.timeoutProbability).toBe(1);
-        expect(out.passProbability).toBe(0);
+        expect(out.evalPassProbability).toBe(0);
     });
 
     it('passes the same evaluation when the daily gain fits the window', () => {
@@ -104,7 +107,7 @@ describe('evaluation access period', () => {
             winrate: 1,
         });
 
-        expect(out.passProbability).toBe(1);
+        expect(out.evalPassProbability).toBe(1);
         expect(out.daysToPassP50).toBeLessThanOrEqual(TRADING_DAYS_PER_MONTH);
     });
 });

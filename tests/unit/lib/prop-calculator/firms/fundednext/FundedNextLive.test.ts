@@ -59,6 +59,6 @@ describe('buildFundedNextLivePlan', () => {
     it('has no contract cap modeled -- no live-specific figure was confirmed for FundedNext Live', () => {
         const plan = buildFundedNextLivePlan();
 
-        expect(plan.contractLimit).toBeNull();
+        expect(plan.contractLimits).toBeNull();
     });
 });

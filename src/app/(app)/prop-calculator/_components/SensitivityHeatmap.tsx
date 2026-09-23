@@ -14,8 +14,9 @@ import { simInputsCacheKey, SimInputsKeyField } from './simInputsCacheKey';
 import { useDebouncedComputation } from './useDebouncedSimulation';
 
 enum SensitivityMetric {
+    EvalPass = 'eval-pass',
+    FundedSurvival = 'funded-survive',
     MonthlyNet = 'net',
-    Pass = 'pass',
 }
 
 interface HeatmapRow {
@@ -29,10 +30,22 @@ const DEBOUNCE_MS = 700;
 const MAX_TRIALS = 300;
 
 interface Cell {
+    evalPass: number;
+    fundedSurvival: number;
     monthlyNet: number;
-    pass: number;
     rr: number;
     winrate: number;
+}
+
+interface HeatmapCardProperties {
+    cells: Cell[];
+    currentRR: number;
+    currentWinrate: number;
+    description: string;
+    legend: string;
+    metric: SensitivityMetric;
+    pending: boolean;
+    title: string;
 }
 
 interface HeatmapCellsProperties {
@@ -62,62 +75,36 @@ export default function SensitivityHeatmap({
                 'grid grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]',
             )}
         >
-            <Card
-                className={cn(
-                    'app-prop-calculator__sensitivity-pass',
-                    'min-w-0 px-5 py-4',
-                )}
-            >
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-semibold">
-                            Pass% sensitivity
-                        </h3>
-                        <InfoPopover title="Pass% sensitivity">
-                            {panelDescriptions.sensitivityPass}
-                        </InfoPopover>
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                        {pending
-                            ? 'computing…'
-                            : 'red = unlikely, green = robust'}
-                    </span>
-                </div>
-                <HeatmapCells
-                    cells={cells}
-                    currentRR={currentRR}
-                    currentWinrate={currentWinrate}
-                    metric={SensitivityMetric.Pass}
-                />
-            </Card>
-            <Card
-                className={cn(
-                    'app-prop-calculator__sensitivity-net',
-                    'min-w-0 px-5 py-4',
-                )}
-            >
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-semibold">
-                            Monthly net sensitivity
-                        </h3>
-                        <InfoPopover title="Monthly net sensitivity">
-                            {panelDescriptions.sensitivityNet}
-                        </InfoPopover>
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                        {pending
-                            ? 'computing…'
-                            : 'red = losing $, green = profit'}
-                    </span>
-                </div>
-                <HeatmapCells
-                    cells={cells}
-                    currentRR={currentRR}
-                    currentWinrate={currentWinrate}
-                    metric={SensitivityMetric.MonthlyNet}
-                />
-            </Card>
+            <HeatmapCard
+                cells={cells}
+                currentRR={currentRR}
+                currentWinrate={currentWinrate}
+                description={panelDescriptions.sensitivityPass}
+                legend="red = unlikely, green = robust"
+                metric={SensitivityMetric.EvalPass}
+                pending={pending}
+                title="Eval pass sensitivity"
+            />
+            <HeatmapCard
+                cells={cells}
+                currentRR={currentRR}
+                currentWinrate={currentWinrate}
+                description={panelDescriptions.sensitivityFundedSurvival}
+                legend="red = unlikely, green = robust"
+                metric={SensitivityMetric.FundedSurvival}
+                pending={pending}
+                title="Funded survive sensitivity"
+            />
+            <HeatmapCard
+                cells={cells}
+                currentRR={currentRR}
+                currentWinrate={currentWinrate}
+                description={panelDescriptions.sensitivityNet}
+                legend="red = losing $, green = profit"
+                metric={SensitivityMetric.MonthlyNet}
+                pending={pending}
+                title="Monthly net sensitivity"
+            />
         </div>
     );
 }
@@ -126,6 +113,38 @@ function buildCacheKey(inputs: Omit<SimInputs, 'riskPerTrade'>): string {
     return simInputsCacheKey(inputs, {
         omit: [SimInputsKeyField.RrRatio, SimInputsKeyField.Winrate],
     });
+}
+
+function cellClassName(
+    cell: Cell,
+    metric: SensitivityMetric,
+    maxAbs: number,
+): string {
+    switch (metric) {
+        case SensitivityMetric.EvalPass: {
+            return colorForPass(cell.evalPass);
+        }
+        case SensitivityMetric.FundedSurvival: {
+            return colorForPass(cell.fundedSurvival);
+        }
+        case SensitivityMetric.MonthlyNet: {
+            return colorForNet(cell.monthlyNet, maxAbs);
+        }
+    }
+}
+
+function cellDisplay(cell: Cell, metric: SensitivityMetric): string {
+    switch (metric) {
+        case SensitivityMetric.EvalPass: {
+            return formatPercent(cell.evalPass, 0);
+        }
+        case SensitivityMetric.FundedSurvival: {
+            return formatPercent(cell.fundedSurvival, 0);
+        }
+        case SensitivityMetric.MonthlyNet: {
+            return formatCompactCurrency(cell.monthlyNet);
+        }
+    }
 }
 
 function colorForNet(net: number, maxAbs: number): string {
@@ -145,6 +164,42 @@ function colorForPass(pass: number): string {
     if (pass >= 0.5) return 'bg-yellow-500/45';
     if (pass >= 0.35) return 'bg-yellow-500/30';
     return pass >= 0.2 ? 'bg-rose-500/40' : 'bg-rose-500/60';
+}
+
+function HeatmapCard({
+    cells,
+    currentRR,
+    currentWinrate,
+    description,
+    legend,
+    metric,
+    pending,
+    title,
+}: HeatmapCardProperties) {
+    return (
+        <Card
+            className={cn(
+                `app-prop-calculator__sensitivity-${metric}`,
+                'min-w-0 px-5 py-4',
+            )}
+        >
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-semibold">{title}</h3>
+                    <InfoPopover title={title}>{description}</InfoPopover>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                    {pending ? 'computing…' : legend}
+                </span>
+            </div>
+            <HeatmapCells
+                cells={cells}
+                currentRR={currentRR}
+                currentWinrate={currentWinrate}
+                metric={metric}
+            />
+        </Card>
+    );
 }
 
 function HeatmapCells({
@@ -198,17 +253,11 @@ function HeatmapCells({
                         row.original.winrate === closestWinrate &&
                         rr === closestRR;
                     const colorClass = cell
-                        ? metric === SensitivityMetric.Pass
-                            ? colorForPass(cell.pass)
-                            : colorForNet(cell.monthlyNet, maxAbs)
+                        ? cellClassName(cell, metric, maxAbs)
                         : '';
-                    const display = cell
-                        ? metric === SensitivityMetric.Pass
-                            ? formatPercent(cell.pass, 0)
-                            : formatCompactCurrency(cell.monthlyNet)
-                        : '';
+                    const display = cell ? cellDisplay(cell, metric) : '';
                     const tooltip = cell
-                        ? `winrate ${formatPercent(row.original.winrate, 0)} · RR ${rr}:1\npass ${formatPercent(cell.pass)}\nmonthly net $${cell.monthlyNet.toFixed(0)}`
+                        ? `winrate ${formatPercent(row.original.winrate, 0)} · RR ${rr}:1\neval pass ${formatPercent(cell.evalPass)}\nfunded survive ${formatPercent(cell.fundedSurvival)}\nmonthly net $${cell.monthlyNet.toFixed(0)}`
                         : '';
                     return (
                         <span
@@ -270,8 +319,9 @@ function useSensitivityGrid(baseInputs: SimInputs): {
                         winrate,
                     });
                     out.push({
+                        evalPass: result.evalPassProbability,
+                        fundedSurvival: result.fundedSurvivalProbability,
                         monthlyNet: result.expectedMonthlyNet,
-                        pass: result.passProbability,
                         rr,
                         winrate,
                     });

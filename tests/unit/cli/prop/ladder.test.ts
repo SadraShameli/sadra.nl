@@ -1,0 +1,643 @@
+import type { ArgsDef } from 'citty';
+
+import { parseArgs, renderUsage } from 'citty';
+import { describe, expect, expectTypeOf, it } from 'vitest';
+
+import ladder, {
+    buildLadderSearchOptions,
+    describeEvalWindow,
+    describeInstantFundedPlan,
+    describeLadderSizing,
+    describeUnscorableLadders,
+    LADDER_EVAL_PASS_FLOOR,
+    LADDER_RANKINGS,
+    LADDER_TABLE_LABELS,
+    ladderArguments,
+    ladderTableRow,
+    ladderWorkWarning,
+    readLadderGrid,
+} from '~/cli/commands/prop/ladder/command';
+import {
+    planArguments,
+    planResolver,
+    singlePathGranularityArgument,
+    tradingArguments,
+} from '~/cli/commands/prop/shared';
+import { formatPercent, NOT_APPLICABLE } from '~/lib/format';
+import {
+    ApexVariant,
+    defaultLadderGridMax,
+    DrawdownKind,
+    FirmId,
+    INSTRUMENTS,
+    LADDER_IGNORED_INPUT_REASONS,
+    LadderIgnoredInput,
+    type LadderScore,
+    type LadderSearchResult,
+    ladderTrialStreams,
+    MffuVariant,
+    type Plan,
+    points,
+    scoreLadder,
+    TopStepVariant,
+} from '~/lib/prop-calculator';
+import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFunding';
+import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
+
+function apexEodPlan(): Plan {
+    const plan = new ApexTraderFunding().findPlan({
+        accountSize: 50_000,
+        firm: FirmId.Apex,
+        variant: ApexVariant.Eod,
+    });
+    if (!plan) throw new Error('Apex EOD 50K plan not found');
+    return plan;
+}
+
+function parseGrid(argv: string[]) {
+    return parseArgs<typeof ladderArguments>(argv, ladderArguments);
+}
+
+function rapidEodPlan(): Plan {
+    const plan = new MyFundedFutures().findPlan({
+        accountSize: 50_000,
+        firm: FirmId.Mffu,
+        variant: MffuVariant.RapidEod,
+    });
+    if (!plan) throw new Error('MFFU Rapid EOD 50K plan not found');
+    return plan;
+}
+
+describe('readLadderGrid maps the grid flags onto the engine grid config', () => {
+    it('defaults to a 100-800 step 100 x4 grid for Apex EOD 50K, max at 40% of the drawdown', () => {
+        const plan = apexEodPlan();
+        expect(Math.round(plan.drawdown.amount * 0.4)).toBe(800);
+        expect(
+            readLadderGrid(parseGrid([]), plan.drawdown.amount),
+        ).toStrictEqual({
+            grid: { lo: 100, max: 800, slots: 4, step: 100 },
+            gridSize: 4680,
+            maxGridSize: 1_000_000,
+            topN: 10,
+        });
+    });
+
+    it('takes the default --max from the shared engine default', () => {
+        expect(readLadderGrid(parseGrid([]), 1250).grid.max).toBe(
+            defaultLadderGridMax(1250),
+        );
+        expect(readLadderGrid(parseGrid([]), 3333).grid.max).toBe(
+            defaultLadderGridMax(3333),
+        );
+    });
+
+    it('maps explicit flags without swapping fields', () => {
+        const expected = {
+            grid: { lo: 150, max: 900, slots: 3, step: 50 },
+            gridSize: 16 + 16 ** 2 + 16 ** 3,
+            maxGridSize: 1_000_000,
+            topN: 7,
+        };
+        expect(
+            readLadderGrid(
+                {
+                    lo: '150',
+                    max: '900',
+                    'max-grid': '1000000',
+                    rungs: '3',
+                    step: '50',
+                    top: '7',
+                },
+                2000,
+            ),
+        ).toStrictEqual(expected);
+        expect(
+            readLadderGrid(
+                parseGrid([
+                    '--lo',
+                    '150',
+                    '--max',
+                    '900',
+                    '--step',
+                    '50',
+                    '--rungs',
+                    '3',
+                    '--top',
+                    '7',
+                ]),
+                2000,
+            ),
+        ).toStrictEqual(expected);
+    });
+
+    it.each([
+        [['--step', '0'], /--step must be a number > 0, got "0"/],
+        [['--step=-50'], /--step must be a number > 0, got "-50"/],
+        [['--step='], /--step must be a number > 0, got ""/],
+        [['--rungs', '0'], /--rungs must be a whole number >= 1, got "0"/],
+        [['--rungs', '2.5'], /--rungs must be a whole number >= 1, got "2.5"/],
+        [['--top', '0'], /--top must be a whole number >= 1, got "0"/],
+        [['--lo', '0'], /--lo must be a number > 0, got "0"/],
+        [['--max', '50', '--lo', '100'], /--max must be >= --lo, got "50"/],
+        [['--max-grid', '0'], /--max-grid must be a whole number >= 1/],
+    ])('rejects %o naming the flag', (argv, message) => {
+        expect(() => readLadderGrid(parseGrid(argv), 2000)).toThrow(message);
+    });
+
+    it('rejects a grid above the size limit before any search starts', () => {
+        expect(() =>
+            readLadderGrid(parseGrid(['--lo', '10', '--step', '10']), 2000),
+        ).toThrow(
+            'ladder grid has 41,478,480 ladders, above the 1,000,000 limit: raise --step, lower --rungs, narrow --lo/--max or raise --max-grid',
+        );
+    });
+
+    it('lets --max-grid raise the size limit', () => {
+        const selection = readLadderGrid(
+            parseGrid(['--step', '50', '--rungs', '5', '--max-grid', '900000']),
+            2000,
+        );
+        expect(selection.gridSize).toBe(813_615);
+        expect(selection.maxGridSize).toBe(900_000);
+        expect(() =>
+            readLadderGrid(
+                parseGrid([
+                    '--step',
+                    '50',
+                    '--rungs',
+                    '5',
+                    '--max-grid',
+                    '800000',
+                ]),
+                2000,
+            ),
+        ).toThrow(/above the 800,000 limit/);
+    });
+});
+
+describe('LADDER_RANKINGS pairs each table title with its result array', () => {
+    it('lists the three rankings in display order', () => {
+        expect(LADDER_RANKINGS.map((ranking) => ranking.title)).toStrictEqual([
+            'FASTEST TO FUNDED',
+            'CHEAPEST PER FUNDED ACCOUNT',
+            'HIGHEST EVAL PASS RATE',
+        ]);
+    });
+
+    it('selects bySpeed, byCost and byPassRate respectively', () => {
+        const bySpeed: LadderScore[] = [];
+        const byCost: LadderScore[] = [];
+        const byPassRate: LadderScore[] = [];
+        const result: LadderSearchResult = {
+            byCost,
+            byPassRate,
+            bySpeed,
+            droppedAliasCount: 0,
+            frontier: [],
+            gridSize: 0,
+            laddersScored: 0,
+            topN: 10,
+            unscorableCount: 0,
+        };
+        const [speed, cost, pass] = LADDER_RANKINGS;
+        expect(speed?.select(result)).toBe(bySpeed);
+        expect(cost?.select(result)).toBe(byCost);
+        expect(pass?.select(result)).toBe(byPassRate);
+    });
+});
+
+describe('ladderWorkWarning flags searches that will take a long time', () => {
+    it('stays quiet for the default grid', () => {
+        expect(ladderWorkWarning(4680, 4000)).toBeNull();
+    });
+
+    it('warns with the grid size and trial count for a huge search', () => {
+        const warning = ladderWorkWarning(813_615, 4000);
+        expect(warning).toContain('813,615');
+        expect(warning).toContain('4,000');
+    });
+});
+
+describe('describeEvalWindow shows the effective eval-day window', () => {
+    it('marks the Apex 21 day cap', () => {
+        expect(describeEvalWindow(apexEodPlan(), 150)).toBe(
+            'eval days 21 (plan cap)',
+        );
+    });
+
+    it('shows the requested window when it is inside the cap', () => {
+        expect(describeEvalWindow(apexEodPlan(), 15)).toBe('eval days 15');
+    });
+
+    it('shows the requested window for a plan without a cap', () => {
+        expect(describeEvalWindow(rapidEodPlan(), 150)).toBe('eval days 150');
+    });
+});
+
+function ladderScore(overrides: Partial<LadderScore> = {}): LadderScore {
+    return {
+        costPerFunded: 250,
+        costPerFundedStandardError: 3.4,
+        expectedDaysToFunded: 8.2,
+        expectedDaysToFundedStandardError: 0.12,
+        ladder: [400, 600],
+        meanDaysOnFail: 4,
+        meanDaysOnPass: 6,
+        passRate: 0.47,
+        passRateStandardError: 0.0035,
+        ...overrides,
+    };
+}
+
+describe('buildLadderSearchOptions maps the CLI flags onto the search', () => {
+    it('maps eval days, trials, seed and the grid without swapping fields', () => {
+        const options = buildLadderSearchOptions(
+            apexEodPlan(),
+            parseGrid([
+                '--eval-days',
+                '30',
+                '--trials',
+                '1234',
+                '--seed',
+                '9',
+                '--top',
+                '3',
+            ]),
+        );
+        expect(options.score.maxDays).toBe(30);
+        expect(options.score.sims).toBe(1234);
+        expect(options.seed).toBe(9);
+        expect(options.topN).toBe(3);
+        expect(options.grid).toStrictEqual({
+            lo: 100,
+            max: 800,
+            slots: 4,
+            step: 100,
+        });
+        expect(options.maxGridSize).toBe(1_000_000);
+    });
+
+    it('builds contract-limit sizing from --stop-points and --instrument', () => {
+        const options = buildLadderSearchOptions(
+            apexEodPlan(),
+            parseGrid(['--stop-points', '1', '--instrument', 'MNQ']),
+        );
+        expect(options.score.positionSizing).toStrictEqual({
+            instrument: INSTRUMENTS.MNQ,
+            stopPoints: 1,
+        });
+    });
+
+    it('leaves risk uncapped without --stop-points', () => {
+        expect(
+            buildLadderSearchOptions(apexEodPlan(), parseGrid([])).score
+                .positionSizing,
+        ).toBeNull();
+    });
+
+    it('passes the coupon discounts to the cost formula', () => {
+        const options = buildLadderSearchOptions(
+            apexEodPlan(),
+            parseGrid(['--eval-discount', '50', '--activation-discount', '10']),
+        );
+        expect(options.score.discounts).toStrictEqual({
+            activationPercent: 10,
+            evalPercent: 50,
+            monthlySubscriptionPercent: 0,
+        });
+        expect(options.score).not.toHaveProperty('evalPrice');
+    });
+
+    it('passes no discounts when no discount flag is set', () => {
+        expect(
+            buildLadderSearchOptions(apexEodPlan(), parseGrid([])).score
+                .discounts,
+        ).toBeUndefined();
+    });
+
+    it('rejects --path-granularity, which the ladder search cannot model', () => {
+        expect(() =>
+            buildLadderSearchOptions(
+                apexEodPlan(),
+                parseGrid(['--path-granularity', '10']),
+            ),
+        ).toThrow(/--path-granularity is not supported by prop ladder/);
+    });
+
+    it('does not advertise --path-granularity', () => {
+        expect(ladderArguments).not.toHaveProperty('path-granularity');
+    });
+
+    it('passes --commission to the ladder score', () => {
+        expect(
+            buildLadderSearchOptions(
+                apexEodPlan(),
+                parseGrid(['--commission', '4']),
+            ).score.commission,
+        ).toBe(4);
+        expect(
+            buildLadderSearchOptions(apexEodPlan(), parseGrid([])).score
+                .commission,
+        ).toBe(0);
+    });
+
+    it.each([
+        ['--funded-days', '100'],
+        ['--funded-risk', '300'],
+        ['--funded-rr', '3'],
+        ['--funded-tpd', '2'],
+        ['--idle-day-probability', '0.2'],
+        ['--ladder', '400,400'],
+        ['--max-attempts', '3'],
+        ['--max-lifetime-payouts', '2'],
+        ['--rebuy-lag-days', '2'],
+        ['--request-size', '1000'],
+        ['--retain-cushion', '500'],
+        ['--risk', '300'],
+        ['--tpd', '2'],
+    ])('rejects %s %s, which the ladder search would ignore', (flag, value) => {
+        expect(() =>
+            buildLadderSearchOptions(apexEodPlan(), parseGrid([flag, value])),
+        ).toThrow(new RegExp(`^${flag} is not supported by prop ladder: `));
+    });
+
+    it.each([
+        ['--idle-day-probability', LadderIgnoredInput.IdleDays],
+        ['--max-attempts', LadderIgnoredInput.MaxAttempts],
+        ['--rebuy-lag-days', LadderIgnoredInput.RebuyLag],
+        ['--path-granularity', LadderIgnoredInput.PathGranularity],
+        ['--funded-risk', LadderIgnoredInput.FundedPhase],
+        ['--risk', LadderIgnoredInput.OwnLadder],
+    ])('explains %s with the shared %s reason', (flag, input) => {
+        expect(() =>
+            buildLadderSearchOptions(apexEodPlan(), parseGrid([flag, '2'])),
+        ).toThrow(
+            `${flag} is not supported by prop ladder: the ladder search ${LADDER_IGNORED_INPUT_REASONS[input]}, so drop the flag or use prop sim`,
+        );
+    });
+
+    it.each([
+        ['--risk', '250'],
+        ['--tpd', '4'],
+        ['--max-attempts', '1'],
+        ['--idle-day-probability', '0'],
+        ['--rebuy-lag-days', '0'],
+    ])(
+        'rejects %s even at the value sim defaults it to, since ladder no longer declares it',
+        (flag, value) => {
+            expect(() =>
+                buildLadderSearchOptions(
+                    apexEodPlan(),
+                    parseGrid([flag, value]),
+                ),
+            ).toThrow(new RegExp(`^${flag} is not supported by prop ladder: `));
+        },
+    );
+});
+
+const TRADING_FLAGS = Object.keys({
+    ...planArguments,
+    ...tradingArguments,
+    ...singlePathGranularityArgument,
+});
+const LADDER_FLAGS = new Set(Object.keys(ladderArguments));
+const DROPPED_FLAGS = TRADING_FLAGS.filter((flag) => !LADDER_FLAGS.has(flag));
+const KEPT_FLAGS = TRADING_FLAGS.filter((flag) => LADDER_FLAGS.has(flag));
+
+function isAdvertised(usage: string, flag: string): boolean {
+    return new RegExp(String.raw`(?<![\w-])--${flag}(?![\w-])`).test(usage);
+}
+
+describe('prop ladder --help agrees with the parser (WP15 handoff)', () => {
+    it('drops exactly the trading flags the ladder search cannot model', () => {
+        expect(
+            DROPPED_FLAGS.toSorted((a, b) => a.localeCompare(b)),
+        ).toStrictEqual([
+            'funded-days',
+            'funded-risk',
+            'funded-rr',
+            'funded-tpd',
+            'idle-day-probability',
+            'ladder',
+            'max-attempts',
+            'max-lifetime-payouts',
+            'path-granularity',
+            'rebuy-lag-days',
+            'request-size',
+            'retain-cushion',
+            'risk',
+            'tpd',
+        ]);
+    });
+
+    it('reuses the shared definition object for every trading flag it keeps', () => {
+        const shared: Record<string, unknown> = {
+            ...planArguments,
+            ...tradingArguments,
+        };
+        const own: Record<string, unknown> = ladderArguments;
+        for (const flag of KEPT_FLAGS) {
+            expect(own[flag], flag).toBe(shared[flag]);
+        }
+    });
+
+    it('does not advertise any flag it rejects', async () => {
+        const usage = await renderUsage(ladder);
+        for (const flag of DROPPED_FLAGS) {
+            expect(isAdvertised(usage, flag), flag).toBe(false);
+        }
+    });
+
+    it('advertises every flag it declares', async () => {
+        const usage = await renderUsage(ladder);
+        for (const flag of LADDER_FLAGS) {
+            expect(isAdvertised(usage, flag), flag).toBe(true);
+        }
+    });
+
+    it.each(DROPPED_FLAGS)('rejects the undeclared --%s', (flag) => {
+        expect(() =>
+            buildLadderSearchOptions(
+                apexEodPlan(),
+                parseGrid([`--${flag}`, '1']),
+            ),
+        ).toThrow(new RegExp(`^--${flag} is not supported by prop ladder: `));
+    });
+
+    it('accepts every trading flag it declares at its default', () => {
+        const defaults: string[] = [];
+        const own: ArgsDef = ladderArguments;
+        for (const flag of KEPT_FLAGS) {
+            const fallback = own[flag]?.default;
+            if (fallback !== undefined) {
+                defaults.push(`--${flag}`, String(fallback));
+            }
+        }
+        expect(() =>
+            buildLadderSearchOptions(apexEodPlan(), parseGrid(defaults)),
+        ).not.toThrow();
+    });
+});
+
+describe('describeUnscorableLadders explains empty ladder tables (WP15 handoff)', () => {
+    it.each([
+        ['0.2275', false],
+        ['0.23', true],
+    ])(
+        'matches the floor the engine drops ladders by (winrate %s scorable: %s)',
+        (winrate, isScorable) => {
+            const options = buildLadderSearchOptions(
+                apexEodPlan(),
+                parseGrid(['--winrate', winrate, '--trials', '2000']),
+            );
+            const score = scoreLadder(
+                [300, 300],
+                options.score,
+                ladderTrialStreams(options.seed),
+            );
+            expect(
+                Math.abs(score.passRate - LADDER_EVAL_PASS_FLOOR),
+            ).toBeLessThan(0.0015);
+            expect(score.passRate >= LADDER_EVAL_PASS_FLOOR).toBe(isScorable);
+            expect(Number.isFinite(score.costPerFunded)).toBe(isScorable);
+        },
+    );
+
+    it('prints the floor it shares with the engine', () => {
+        const floor = formatPercent(LADDER_EVAL_PASS_FLOOR, 0);
+        for (const count of [5, 12]) {
+            expect(
+                describeUnscorableLadders({
+                    laddersScored: 12,
+                    unscorableCount: count,
+                }),
+            ).toContain(`under ${floor} of trials`);
+        }
+    });
+
+    it('explains why nothing is ranked when no ladder cleared the floor', () => {
+        expect(
+            describeUnscorableLadders({
+                laddersScored: 12,
+                unscorableCount: 12,
+            }),
+        ).toBe(
+            'all 12 ladders passed the eval in under 2% of trials, below the eval pass floor the search needs to rank a ladder, so there is nothing to rank: check --winrate, --rr, --stop-points and the grid bounds',
+        );
+    });
+
+    it('counts the ladders left out when only some fell below the floor', () => {
+        expect(
+            describeUnscorableLadders({
+                laddersScored: 12,
+                unscorableCount: 5,
+            }),
+        ).toBe(
+            '5 of 12 ladders passed the eval in under 2% of trials and are left out of every ranking',
+        );
+    });
+
+    it('says nothing when every ladder was scored', () => {
+        expect(
+            describeUnscorableLadders({
+                laddersScored: 12,
+                unscorableCount: 0,
+            }),
+        ).toBeNull();
+    });
+
+    it('never contains an em dash', () => {
+        for (const count of [5, 12]) {
+            expect(
+                describeUnscorableLadders({
+                    laddersScored: 12,
+                    unscorableCount: count,
+                }),
+            ).not.toContain('\u{2014}');
+        }
+    });
+});
+
+function instantFundedPlan(): Plan {
+    const plan = planResolver.resolveOne({
+        firm: FirmId.TopStep,
+        variant: TopStepVariant.ProAccount,
+    });
+    expect(plan.isInstantFunded).toBe(true);
+    return plan;
+}
+
+describe('describeInstantFundedPlan (WP15 handoff)', () => {
+    it('always returns a warning and a hint', () => {
+        expectTypeOf(describeInstantFundedPlan).returns.toEqualTypeOf<
+            readonly [warning: string, hint: string]
+        >();
+    });
+
+    it('names the plan and points to prop sim without an em dash', () => {
+        const plan = instantFundedPlan();
+        const lines = describeInstantFundedPlan(plan);
+        expect(lines).toStrictEqual([
+            `${plan.label} has no real evaluation phase: it funds instantly (profit target $0), so there is no eval to grid-search a ladder against.`,
+            '  Use `cli prop sim` instead: it applies flat funded sizing from day one for this plan.',
+        ]);
+        for (const line of lines) {
+            expect(line.replace(plan.label, '')).not.toContain('\u{2014}');
+        }
+    });
+});
+
+describe('describeLadderSizing shows the eval contract cap', () => {
+    it('names the instrument, stop and cap', () => {
+        expect(
+            describeLadderSizing(apexEodPlan(), {
+                instrument: INSTRUMENTS.MNQ,
+                stopPoints: points(1),
+            }),
+        ).toBe('sizing MNQ @ 1pt, eval cap 60 contracts ($120 max risk)');
+    });
+
+    it('says risk is uncapped without sizing', () => {
+        expect(describeLadderSizing(apexEodPlan(), null)).toBe(
+            'sizing uncapped (set --stop-points to apply contract limits)',
+        );
+    });
+
+    it('the plan drawdown kind is available for the header', () => {
+        expect(apexEodPlan().drawdown.kind).toBe(DrawdownKind.EodTrailing);
+    });
+});
+
+describe('ladderTableRow shows each estimate with its standard error', () => {
+    it('labels the columns with eval pass and the +/- columns', () => {
+        expect(LADDER_TABLE_LABELS).toStrictEqual([
+            'ladder',
+            'eval pass',
+            '+/- pass',
+            'days',
+            '+/- days',
+            '$/acct',
+            '+/- $',
+            'min stop',
+        ]);
+    });
+
+    it('fills the cells in column order', () => {
+        expect(ladderTableRow(ladderScore(), 6, 20)).toStrictEqual([
+            '400 / 600',
+            '47.0%',
+            '0.35%',
+            '8.2',
+            '0.12',
+            '$250',
+            '$3.40',
+            '5.0pt',
+        ]);
+    });
+
+    it('shows no minimum stop without a contract limit', () => {
+        expect(ladderTableRow(ladderScore(), null, 20).at(-1)).toBe(
+            NOT_APPLICABLE,
+        );
+    });
+});

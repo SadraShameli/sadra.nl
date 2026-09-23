@@ -4,8 +4,11 @@ import { parseArgs } from 'citty';
 import { describe, expect, it } from 'vitest';
 
 import optimizeDp, {
+    dpArguments,
+    empiricalSummaryLines,
     fundedIneligibilityMessage,
     payoutCountRuleWarning,
+    readDpInputs,
 } from '~/cli/commands/prop/optimize/dp/command';
 import {
     ApexVariant,
@@ -14,12 +17,20 @@ import {
     FirmId,
     MffuVariant,
     type Plan,
+    type SimOutputs,
+    simulate,
     TopStepVariant,
 } from '~/lib/prop-calculator';
-import { FundedNextVariant } from '~/lib/prop-calculator/core';
+import {
+    FtmoFuturesVariant,
+    FundedNextVariant,
+    TradingPhase,
+} from '~/lib/prop-calculator/core';
+import { isFundedDpEligible } from '~/lib/prop-calculator/core/FundedStateValue';
 import { PayoutCountTieredPayoutCap } from '~/lib/prop-calculator/core/PayoutCap';
 import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFunding';
 import { E8Futures } from '~/lib/prop-calculator/firms/e8futures/E8Futures';
+import { FtmoFutures } from '~/lib/prop-calculator/firms/ftmo-futures/FtmoFutures';
 import { FundedNext } from '~/lib/prop-calculator/firms/fundednext/FundedNext';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 import { TopStep } from '~/lib/prop-calculator/firms/topstep/TopStep';
@@ -100,6 +111,25 @@ describe('fundedIneligibilityMessage', () => {
         expect(message).toContain('QualifyingDaysMilestonePayoutCap');
         expect(message).toContain('cumulative qualifying days');
     });
+
+    it('no longer lists a terminating daily loss limit, only the continuously peak-scaled one', () => {
+        const message = fundedIneligibilityMessage(legacyPlan());
+        expect(message).not.toContain('terminating');
+        expect(message).toContain('PeakProfitShare');
+    });
+
+    it('FTMO Futures Pro 50K, whose funded daily loss limit terminates the account, is now DP-eligible', () => {
+        const plan = new FtmoFutures().findPlan({
+            accountSize: 50_000,
+            firm: FirmId.FtmoFutures,
+            variant: FtmoFuturesVariant.Pro,
+        });
+        if (!plan) throw new Error('FTMO Futures Pro 50K plan not found');
+        expect(plan.isDailyLossLimitTerminating(TradingPhase.Funded)).toBe(
+            true,
+        );
+        expect(isFundedDpEligible(plan)).toBe(true);
+    });
 });
 
 describe('payoutCountRuleWarning', () => {
@@ -130,6 +160,17 @@ describe('payoutCountRuleWarning', () => {
         expect(warning).toContain('maxLifetimePayoutDollars');
         expect(warning).toContain('ignores');
         expect(warning).toContain('cumulativePayout');
+    });
+
+    it('warns that MFF Pro’s payout-triggered lock lets the pre-lock floor trail past the DP offset grid', () => {
+        const warning = payoutCountRuleWarning(mffProPlan());
+        expect(warning).toContain(
+            'locks its funded drawdown only on the first payout',
+        );
+        expect(warning).toContain('saturate');
+        expect(warning).toContain('understates the balance');
+        expect(warning).toContain('pessimistic');
+        expect(warning).not.toContain('slightly optimistic');
     });
 
     it('warns about a PayoutCountTieredPayoutCap tier beyond the regime cap and says it saturates', () => {
@@ -182,5 +223,68 @@ describe('optimize dp arguments', () => {
         expect(arguments_.iterations).toBeDefined();
         const parsed = parseArgs([], arguments_);
         expect(parsed.iterations).toBe('8');
+    });
+});
+
+function parseDpInputs(argv: string[]) {
+    return readDpInputs(parseArgs<typeof dpArguments>(argv, dpArguments));
+}
+
+describe('optimize dp flag bounds', () => {
+    it.each([
+        ['winrate', '40', /--winrate must be a fraction in \[0, 1\]/],
+        ['trials', '0', /--trials must be a whole number >= 1/],
+        ['seed', '1.5', /--seed must be a whole number/],
+        ['rr', '0', /--rr must be a number > 0/],
+        ['eval-days', '0', /--eval-days must be a whole number >= 1/],
+        ['funded-days', '0', /--funded-days must be a whole number >= 1/],
+        ['iterations', '2.5', /--iterations must be a whole number >= 1/],
+    ])('rejects --%s %s, naming the flag', (flag, value, message) => {
+        expect(() => parseDpInputs([`--${flag}=${value}`])).toThrow(message);
+    });
+
+    it('reads the defaults', () => {
+        expect(parseDpInputs([])).toStrictEqual({
+            fundedHorizonDays: 252,
+            maxEvalDays: 40,
+            maxSolves: 8,
+            rebuyLagDays: 0,
+            rrRatio: 2,
+            seed: 42,
+            trials: 4000,
+            winrate: 0.4,
+        });
+    });
+});
+
+describe('optimize dp empirical summary (D2)', () => {
+    const base = simulate({
+        fundedHorizonDays: 20,
+        maxEvalDays: 30,
+        plan: apexEodPlan(),
+        riskPerTrade: 250,
+        rrRatio: 2,
+        seed: 1,
+        tradesPerDay: 4,
+        trials: 20,
+        winrate: 0.5,
+    });
+    const out: SimOutputs = {
+        ...base,
+        evalPassProbability: 0.8,
+        fundedSurvivalProbability: 0.1,
+    };
+    const lines = empiricalSummaryLines(out, out.expectedMonthlyNet);
+
+    it('labels the eval pass rate from evalPassProbability', () => {
+        expect(lines).toContain('eval pass rate: 80.0%');
+    });
+
+    it('adds the funded survive rate as its own line', () => {
+        expect(lines).toContain('funded survive: 10.0%');
+    });
+
+    it('reports a zero gap when the empirical monthly net equals the DP rate', () => {
+        expect(lines).toContain('gap vs DP-predicted monthly rate: $0');
     });
 });

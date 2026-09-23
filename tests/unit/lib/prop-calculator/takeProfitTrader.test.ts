@@ -43,7 +43,7 @@ describe('Take Profit Trader 50K', () => {
     });
 
     it('pays 80% with no qualifying-day requirement and no payout cap', () => {
-        expect(plan.payoutFromProfit(1000)).toBe(800);
+        expect(plan.payoutFromProfit(1000, 0)).toBe(800);
     });
 
     it('charges the subscription only while the evaluation runs', () => {

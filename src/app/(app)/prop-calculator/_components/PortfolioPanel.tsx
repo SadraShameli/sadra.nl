@@ -27,6 +27,7 @@ import {
     formatCompactCurrency,
     formatCurrency,
     formatDays,
+    formatOptionalPercent,
     formatPercent,
 } from '~/lib/format';
 import {
@@ -34,7 +35,6 @@ import {
     annualisedRoiOnCost,
     type InstrumentSymbol,
     parseFirmId,
-    percent,
     type Plan,
     type Roi,
     serializePlanId,
@@ -45,7 +45,9 @@ import {
 } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
+import { toCouponDiscounts } from './couponDiscounts';
 import { panelDescriptions } from './kpiDescriptions';
+import { describeResetFee, hasResetOption } from './retryDescription';
 import { type PortfolioEntry } from './types';
 import { useDebouncedComputation } from './useDebouncedSimulation';
 
@@ -96,18 +98,7 @@ export default function PortfolioPanel({
                 const out = simulate({
                     ...baseInputs,
                     copyAccounts: entry.count,
-                    discounts: {
-                        activationPercent: percent(
-                            entry.linkActivationDiscount
-                                ? entry.evalDiscountPercent
-                                : entry.activationDiscountPercent,
-                        ),
-                        evalPercent: percent(entry.evalDiscountPercent),
-                        monthlySubscriptionPercent: percent(
-                            entry.monthlySubscriptionDiscountPercent,
-                        ),
-                        resetPercent: percent(entry.resetDiscountPercent),
-                    },
+                    discounts: toCouponDiscounts(entry),
                     instrument: entry.instrument ?? baseInputs.instrument,
                     plan,
                     stopPoints: entry.stopPoints ?? baseInputs.stopPoints,
@@ -268,8 +259,11 @@ export default function PortfolioPanel({
                                     title: 'Annual ROI on fees',
                                 }}
                                 label="Annual ROI on fees"
-                                positive={totals.roi.value > 0}
-                                value={formatPercent(totals.roi.value)}
+                                positive={
+                                    totals.roi.value !== null &&
+                                    totals.roi.value > 0
+                                }
+                                value={formatOptionalPercent(totals.roi.value)}
                             />
                         </div>
                     )}
@@ -426,7 +420,6 @@ function CouponCell({
     const monthlySubscriptionAfter =
         plan.fees.monthlySubscription *
         (1 - entry.monthlySubscriptionDiscountPercent / 100);
-    const resetAfter = plan.fees.reset * (1 - entry.resetDiscountPercent / 100);
     return (
         <Popover>
             <PopoverTrigger asChild>
@@ -600,20 +593,17 @@ function CouponCell({
                             >
                                 Reset fee discount
                             </label>
-                            {plan.fees.reset > 0 && (
-                                <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
-                                    {entry.resetDiscountPercent > 0
-                                        ? `${formatCompactCurrency(plan.fees.reset)} → ${formatCompactCurrency(resetAfter)}`
-                                        : formatCompactCurrency(
-                                              plan.fees.reset,
-                                          )}
-                                </span>
-                            )}
+                            <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
+                                {describeResetFee(
+                                    plan.fees,
+                                    entry.resetDiscountPercent,
+                                )}
+                            </span>
                         </div>
                         <div className="relative">
                             <Input
                                 className="pr-7"
-                                disabled={plan.fees.reset === 0}
+                                disabled={!hasResetOption(plan.fees)}
                                 id={`reset-discount-${entry.id}`}
                                 max={100}
                                 min={0}
@@ -838,14 +828,24 @@ function PortfolioTable({
                 id: 'sizing',
             },
             {
-                accessorFn: (r) => r.sim?.out.passProbability ?? -1,
+                accessorFn: (r) => r.sim?.out.evalPassProbability ?? -1,
                 cell: ({ row }) => (
                     <ComputedCell pending={pending} sim={row.original.sim}>
-                        {(out) => formatPercent(out.passProbability)}
+                        {(out) => formatPercent(out.evalPassProbability)}
                     </ComputedCell>
                 ),
-                header: 'Pass%',
-                id: 'pass',
+                header: 'Eval pass',
+                id: 'evalPass',
+            },
+            {
+                accessorFn: (r) => r.sim?.out.fundedSurvivalProbability ?? -1,
+                cell: ({ row }) => (
+                    <ComputedCell pending={pending} sim={row.original.sim}>
+                        {(out) => formatPercent(out.fundedSurvivalProbability)}
+                    </ComputedCell>
+                ),
+                header: 'Funded survive',
+                id: 'fundedSurvive',
             },
             {
                 accessorFn: (r) => r.sim?.out.daysToPassP50 ?? Infinity,

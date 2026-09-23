@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 import { type AccountState } from './AccountState';
 import { type Fraction0to1 } from './lib/units';
 
@@ -15,13 +17,7 @@ export enum RungSizing {
 }
 
 export interface DayPolicy {
-    readonly computeRisk?: (
-        state: AccountState,
-        tradeIndexToday: number,
-        payoutsIssued?: number,
-        cycleBestDayProfit?: number,
-        qualifyingDaysSincePayout?: number,
-    ) => number;
+    readonly computeRisk?: ComputeRisk;
     readonly ladder: readonly number[];
     readonly maxLossesPerDay: null | number;
     readonly stopRule: DayStopRule;
@@ -34,7 +30,48 @@ export type DayStopRule =
     | { kind: DayStopRuleKind.FirstWin }
     | { kind: DayStopRuleKind.None };
 
+type ComputeRisk = (
+    state: AccountState,
+    tradeIndexToday: number,
+    payoutsIssued?: number,
+    cycleBestDayProfit?: number,
+    qualifyingDaysSincePayout?: number,
+    lastPayoutBalance?: number,
+) => number;
+
 export const DEFAULT_RUNG_SIZING: RungSizing = RungSizing.CapToCushion;
+
+export const stopLossCountSchema = z.number().int().positive();
+
+export const stopTargetDollarsSchema = z.number().positive();
+
+export const ladderRungSchema = z.number().nonnegative();
+
+export const ladderRungsSchema = z
+    .array(ladderRungSchema)
+    .min(1)
+    .superRefine((rungs, context) => {
+        if (rungs[0] === 0) {
+            context.addIssue({
+                code: 'custom',
+                message: 'the first rung must be > 0 (a $0 rung ends the day)',
+            });
+            return;
+        }
+        const firstZero = rungs.indexOf(0);
+        const revived =
+            firstZero === -1
+                ? -1
+                : rungs.findIndex(
+                      (rung, index) => index > firstZero && rung > 0,
+                  );
+        if (revived !== -1) {
+            context.addIssue({
+                code: 'custom',
+                message: `rung ${revived + 1} follows a $0 rung and would never trade`,
+            });
+        }
+    });
 
 export const PNL_ONLY_STOP_RULE_KINDS: Record<DayStopRuleKind, boolean> = {
     [DayStopRuleKind.AfterKLosses]: false,
@@ -54,13 +91,7 @@ export function canonicaliseLadder(ladder: readonly number[]): number[] {
 }
 
 export function computedDayPolicy(
-    computeRisk: (
-        state: AccountState,
-        tradeIndexToday: number,
-        payoutsIssued?: number,
-        cycleBestDayProfit?: number,
-        qualifyingDaysSincePayout?: number,
-    ) => number,
+    computeRisk: ComputeRisk,
     maxTrades: number,
     stopRule?: DayStopRule,
 ): DayPolicy {
@@ -98,6 +129,16 @@ export function ladderSum(ladder: readonly number[]): number {
         total += rung;
     }
     return total;
+}
+
+export function resolveAffordableRisk(
+    cushion: number,
+    dailyLossLimit: null | number,
+    todayPnL: number,
+): number {
+    return dailyLossLimit === null
+        ? cushion
+        : Math.min(cushion, dailyLossLimit + todayPnL);
 }
 
 export function resolveFundedTradeRisk(

@@ -118,7 +118,7 @@ export default function StrategyLabPanel({
         let best: null | { id: string; monthly: number; score: number } = null;
         for (const sc of scenarios) {
             const r = results.get(sc.id);
-            if (!r || r.pAtLeast.kHalf < 0.5) continue;
+            if (!r || r.pAtLeastFundedSurvival.kHalf < 0.5) continue;
             if (!best || r.expectedMonthlyNet > best.monthly) {
                 best = {
                     id: sc.id,
@@ -183,7 +183,12 @@ export default function StrategyLabPanel({
                             Theoretical P(pass) is the closed-form
                             gambler&apos;s ruin sanity check. Day-stop modifies
                             the per-day trade loop (stop after first win, after
-                            K losses, or after a $ target).
+                            K losses, or after a $ target). MC eval pass, P(≥k)
+                            and E[#pass] count accounts that passed the
+                            evaluation; MC survive counts accounts that also
+                            never busted the funded account. The verdict only
+                            recommends a scenario where at least half the
+                            accounts survive funded in 50% of runs.
                         </p>
                     </InfoPopover>
                     {pending && (
@@ -265,7 +270,7 @@ export default function StrategyLabPanel({
                 <Alert
                     className="mt-4"
                     variant={
-                        verdictResult.pAtLeast.kHalf >= 0.5
+                        verdictResult.pAtLeastFundedSurvival.kHalf >= 0.5
                             ? 'success'
                             : 'warning'
                     }
@@ -275,15 +280,15 @@ export default function StrategyLabPanel({
                         <strong>{verdictScenario.label}</strong> wins on
                         expected monthly net (
                         {formatCurrency(verdictResult.expectedMonthlyNet)}).{' '}
-                        {verdictResult.pAtLeast.kHalf >= 0.5
+                        {verdictResult.pAtLeastFundedSurvival.kHalf >= 0.5
                             ? `P(≥${Math.ceil(
                                   verdictScenario.accounts / 2,
-                              )} of ${verdictScenario.accounts} pass) = ${formatPercent(
-                                  verdictResult.pAtLeast.kHalf,
+                              )} of ${verdictScenario.accounts} survive funded) = ${formatPercent(
+                                  verdictResult.pAtLeastFundedSurvival.kHalf,
                               )}.`
-                            : `Warning: P(≥½ pass) only ${formatPercent(
-                                  verdictResult.pAtLeast.kHalf,
-                              )} — no scenario clears the 50% portfolio-survival bar.`}
+                            : `Warning: P(≥½ survive funded) only ${formatPercent(
+                                  verdictResult.pAtLeastFundedSurvival.kHalf,
+                              )}, so no scenario clears the 50% funded-survival bar.`}
                     </AlertDescription>
                 </Alert>
             )}
@@ -606,8 +611,20 @@ function StrategyLabTable({
                         {(v) => formatPercent(v)}
                     </ResultCell>
                 ),
-                header: 'MC pass',
+                header: 'MC eval pass',
                 id: 'mc-pass',
+            },
+            {
+                accessorFn: (r) => r.result?.perAccountFundedSurvival ?? -1,
+                cell: ({ row }) => (
+                    <ResultCell
+                        value={row.original.result?.perAccountFundedSurvival}
+                    >
+                        {(v) => formatPercent(v)}
+                    </ResultCell>
+                ),
+                header: 'MC survive',
+                id: 'mc-survive',
             },
             {
                 accessorFn: (r) => r.result?.theoreticalPassProb ?? -1,
@@ -651,6 +668,44 @@ function StrategyLabTable({
                 ),
                 header: 'P(all)',
                 id: 'pall',
+            },
+            {
+                accessorFn: (r) => r.result?.pAtLeastFundedSurvival.k1 ?? -1,
+                cell: ({ row }) => (
+                    <ResultCell
+                        value={row.original.result?.pAtLeastFundedSurvival.k1}
+                    >
+                        {(v) => formatPercent(v)}
+                    </ResultCell>
+                ),
+                header: 'P(≥1 survive)',
+                id: 'p1-survive',
+            },
+            {
+                accessorFn: (r) => r.result?.pAtLeastFundedSurvival.kHalf ?? -1,
+                cell: ({ row }) => (
+                    <ResultCell
+                        value={
+                            row.original.result?.pAtLeastFundedSurvival.kHalf
+                        }
+                    >
+                        {(v) => formatPercent(v)}
+                    </ResultCell>
+                ),
+                header: 'P(≥½ survive)',
+                id: 'phalf-survive',
+            },
+            {
+                accessorFn: (r) => r.result?.pAtLeastFundedSurvival.kAll ?? -1,
+                cell: ({ row }) => (
+                    <ResultCell
+                        value={row.original.result?.pAtLeastFundedSurvival.kAll}
+                    >
+                        {(v) => formatPercent(v)}
+                    </ResultCell>
+                ),
+                header: 'P(all survive)',
+                id: 'pall-survive',
             },
             {
                 accessorFn: (r) => r.result?.expectedAccountsPass ?? -1,

@@ -266,7 +266,11 @@ export default function CalculatorShell() {
                 data-section-label="Cash Flow"
                 id="cash-flow"
             >
-                <CashFlowPanel baseInputs={c.simInputs} />
+                <CashFlowPanel
+                    baseInputs={c.simInputs}
+                    firmDisplayName={c.state.firm.displayName}
+                    maxAccounts={c.state.firm.maxFundedAccounts(c.state.plan)}
+                />
             </div>
 
             <div

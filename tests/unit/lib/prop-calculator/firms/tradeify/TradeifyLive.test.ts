@@ -36,6 +36,6 @@ describe('buildTradeifyLivePlan', () => {
     it("has no contract cap modeled, unlike Apex's confirmed 10-mini live cap -- Tradeify Elite Live has no confirmed number for this", () => {
         const plan = buildTradeifyLivePlan();
 
-        expect(plan.contractLimit).toBeNull();
+        expect(plan.contractLimits).toBeNull();
     });
 });

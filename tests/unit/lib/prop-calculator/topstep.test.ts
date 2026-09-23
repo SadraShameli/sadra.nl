@@ -6,6 +6,7 @@ import {
     FirmId,
     newFundedCycleTracker,
     type Plan,
+    PlanAvailability,
     TopStepVariant,
     tryFundedPayout,
 } from '~/lib/prop-calculator/core';
@@ -123,5 +124,13 @@ describe('TopStep DLL add-on variants (live-verified 2026-09-21 against help.top
         expect(dll.payoutRequestCap).toBeGreaterThan(
             base.payoutRequestCap ?? 0,
         );
+    });
+});
+
+describe('TopStep Pro Account availability (R1-34, live-confirmed 2026-09-23 on help.topstep.com: Risk-team call-up only)', () => {
+    it('is call-up only and not purchasable', () => {
+        const plan = variant(TopStepVariant.ProAccount);
+        expect(plan.availability).toBe(PlanAvailability.CallUpOnly);
+        expect(plan.isPurchasable).toBe(false);
     });
 });

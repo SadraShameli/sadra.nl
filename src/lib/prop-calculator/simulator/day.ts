@@ -1,5 +1,4 @@
 import { resetForNewDay } from '../core/AccountState';
-import { resolveDailyLossLimit } from '../core/DailyLossLimit';
 import {
     computedDayPolicy,
     type DayPolicy,
@@ -18,6 +17,7 @@ import {
     calibrateStepProbability,
     simulateTradePath,
 } from '../core/TradePathSimulation';
+import { applyTrade, closeTradingDay } from '../core/TradingDayLedger';
 import { TradingPhase } from '../core/TradingPhase';
 import { assertNoFundedDayPolicyConflict } from './dayPolicyValidation';
 import { type DayRunOptions, type SimInputs } from './types';
@@ -73,6 +73,7 @@ export function runDay(options: DayRunOptions): {
         dayPolicy,
         idleDayProbability,
         intradayPathStepsPerR,
+        lastPayoutBalance,
         payoutsIssued,
         phase,
         plan,
@@ -86,7 +87,6 @@ export function runDay(options: DayRunOptions): {
         winrate,
     } = options;
     resetForNewDay(state);
-    const profitAtDayStart = plan.accountProfit(state);
     let isTraded = false;
     let lossesToday = 0;
     const drawdown = plan.drawdownFor(phase);
@@ -116,18 +116,12 @@ export function runDay(options: DayRunOptions): {
                     payoutsIssued,
                     cycleBestDayProfit,
                     qualifyingDaysSincePayout,
+                    lastPayoutBalance,
                 ) ??
                 dayPolicy.ladder[index] ??
                 0;
-            const cushion = state.balance - state.threshold;
-            const dailyLossLimit = resolveDailyLossLimit(
-                plan.dailyLossLimitFor(phase),
-                plan.dailyLossLimitContext(state),
-            );
-            const affordable =
-                dailyLossLimit === null
-                    ? cushion
-                    : Math.min(cushion, dailyLossLimit + state.todayPnL);
+            const affordable = plan.affordableRisk(state, phase);
+            const tierContext = plan.tierProfitContext(state);
             const contractCappedRisk =
                 positionSizing === null
                     ? intendedRisk
@@ -138,8 +132,9 @@ export function runDay(options: DayRunOptions): {
                               plan.contractLimits,
                               phase,
                               positionSizing.instrument.isMicro,
-                              plan.accountProfit(state),
-                              profitAtDayStart,
+                              tierContext.profit,
+                              tierContext.sessionOpenProfit,
+                              tierContext.peakDayCloseProfit,
                           ),
                       );
             const risk = resolveTradeRisk(
@@ -171,16 +166,10 @@ export function runDay(options: DayRunOptions): {
             }
             const tradeGross = isWon ? rrRatio * risk : -risk;
             const pnl = tradeGross - commission;
-            state.balance += pnl;
-            state.todayPnL += pnl;
+            applyTrade(plan, phase, state, pnl, peakPnL);
             isTraded = true;
-            stats.recordTrade(isWon, pnl, state.balance);
+            stats.recordTrade(isWon, pnl, state.balance, risk);
             if (!isWon) lossesToday += 1;
-            if (peakPnL === undefined) {
-                drawdown.onTrade(state, pnl);
-            } else {
-                drawdown.onTrade(state, pnl, peakPnL);
-            }
             if (plan.isBust(state, phase)) {
                 return {
                     busted: true,
@@ -204,22 +193,7 @@ export function runDay(options: DayRunOptions): {
         }
     }
 
-    if (phase === TradingPhase.Eval) {
-        state.elapsedDays = (state.elapsedDays ?? 0) + 1;
-    }
-    if (isTraded) {
-        if (phase === TradingPhase.Eval) {
-            state.tradingDays += 1;
-        }
-        state.consecutiveIdleDays = 0;
-        if (state.todayPnL >= (plan.minQualifyingDayProfit ?? -Infinity)) {
-            state.qualifyingDays += 1;
-        }
-    } else {
-        state.consecutiveIdleDays += 1;
-    }
-    drawdown.onDayClose(state);
-    plan.recordDayClosePeak(state);
+    closeTradingDay(plan, phase, state, isTraded);
     if (plan.isBust(state, phase)) {
         return { busted: true, closedForInactivity: false, traded: isTraded };
     }

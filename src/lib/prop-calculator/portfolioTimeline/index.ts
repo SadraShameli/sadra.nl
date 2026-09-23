@@ -6,7 +6,6 @@ export {
     type AccountTimelineResult,
     type CardResult,
     DEFAULT_DAY_BUDGET,
-    DEFAULT_MAX_PAYOUTS_PER_CARD,
     type EvalToFundedCycleOptions,
     type PayoutEvent,
     type PortfolioTimelineInputs,

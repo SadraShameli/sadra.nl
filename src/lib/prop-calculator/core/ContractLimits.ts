@@ -1,4 +1,10 @@
 import { type ContractCount, type Dollars } from './lib/units';
+import {
+    selectTier,
+    TierBasis,
+    tierBreakpoints,
+    tierProfitFor,
+} from './TierBasis';
 
 export enum ContractLimitKind {
     Flat = 'flat',
@@ -7,13 +13,13 @@ export enum ContractLimitKind {
 
 export type ContractLimitConfig =
     | {
-          readonly isEffectiveNextSession?: boolean;
-          readonly kind: ContractLimitKind.Tiered;
-          readonly tiers: readonly ContractLimitTier[];
-      }
-    | {
           readonly kind: ContractLimitKind.Flat;
           readonly maxContracts: ContractCount;
+      }
+    | {
+          readonly kind: ContractLimitKind.Tiered;
+          readonly tierBasis?: TierBasis;
+          readonly tiers: readonly ContractLimitTier[];
       };
 
 export interface ContractLimits {
@@ -26,6 +32,21 @@ export interface ContractLimits {
 export interface ContractLimitTier {
     readonly maxContracts: ContractCount;
     readonly minBalance: Dollars;
+}
+
+export interface LiveContractLimits {
+    readonly micros: ContractLimitConfig;
+    readonly minis: ContractLimitConfig;
+}
+
+export function contractLimitTierBreakpoints(
+    config: ContractLimitConfig | null,
+    basis: TierBasis,
+): readonly number[] {
+    return config?.kind === ContractLimitKind.Tiered &&
+        (config.tierBasis ?? TierBasis.LiveProfit) === basis
+        ? tierBreakpoints(config.tiers.map((tier) => tier.minBalance))
+        : [];
 }
 
 export function isRungPlaceable(options: {
@@ -44,28 +65,21 @@ export function isRungPlaceable(options: {
 
 export function maxContractsAt(
     config: ContractLimitConfig | null,
-    balance: number,
-    profitAtSessionStart: number = balance,
+    profit: number,
+    profitAtSessionStart: number = profit,
+    peakDayCloseProfit: number = profitAtSessionStart,
 ): ContractCount | null {
     if (config === null) return null;
     if (config.kind === ContractLimitKind.Flat) return config.maxContracts;
-    const effectiveBalance = config.isEffectiveNextSession
-        ? profitAtSessionStart
-        : balance;
-    let lowest: ContractLimitTier | undefined;
-    let best: ContractLimitTier | undefined;
-    for (const tier of config.tiers) {
-        if (!lowest || tier.minBalance < lowest.minBalance) {
-            lowest = tier;
-        }
-        if (
-            effectiveBalance >= tier.minBalance &&
-            (!best || tier.minBalance > best.minBalance)
-        ) {
-            best = tier;
-        }
-    }
-    return (best ?? lowest)?.maxContracts ?? null;
+    const tierProfit = tierProfitFor(config.tierBasis ?? TierBasis.LiveProfit, {
+        peakDayCloseProfit,
+        profit,
+        sessionOpenProfit: profitAtSessionStart,
+    });
+    return (
+        selectTier(config.tiers, tierProfit, (tier) => tier.minBalance)
+            ?.maxContracts ?? null
+    );
 }
 
 export function minStopPoints(

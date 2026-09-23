@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
+import { readLadder, readStopRule } from '~/cli/commands/prop/shared';
 import { InstrumentSymbol } from '~/lib/prop-calculator';
 import {
     authErrorSearchSchema,
+    dayPolicySchema,
     dayStopRuleSchema,
     forgotPasswordSearchSchema,
     labScenarioSchema,
@@ -159,6 +161,115 @@ const LEGACY_LAB_SCENARIO = {
     winrate: 0.5,
 };
 
+describe('dayStopRuleSchema bounds match the CLI --stop reader (N-20)', () => {
+    it.each([0, -1, 2.5])('rejects after-k-losses k %s', (k) => {
+        expect(
+            dayStopRuleSchema.safeParse({ k, kind: 'after-k-losses' }).success,
+        ).toBe(false);
+        expect(() => readStopRule(`after-k-losses:${k}`)).toThrow(/--stop/);
+    });
+
+    it.each([0, -500])('rejects after-target dollars %s', (dollars) => {
+        expect(
+            dayStopRuleSchema.safeParse({ dollars, kind: 'after-target' })
+                .success,
+        ).toBe(false);
+        expect(() => readStopRule(`after-target:${dollars}`)).toThrow(/--stop/);
+    });
+
+    it('accepts the smallest legal k and a fractional dollar target', () => {
+        expect(
+            dayStopRuleSchema.safeParse({ k: 1, kind: 'after-k-losses' })
+                .success,
+        ).toBe(true);
+        expect(
+            dayStopRuleSchema.safeParse({ dollars: 0.5, kind: 'after-target' })
+                .success,
+        ).toBe(true);
+    });
+});
+
+function policyWith(ladder: number[]) {
+    return {
+        ladder,
+        maxLossesPerDay: null,
+        stopRule: { kind: 'none' },
+    };
+}
+
+describe('dayPolicySchema maxLossesPerDay bounds', () => {
+    it.each([0, -1, 1.5])('rejects maxLossesPerDay %s', (maxLossesPerDay) => {
+        expect(
+            dayPolicySchema.safeParse({
+                ...policyWith([400]),
+                maxLossesPerDay,
+            }).success,
+        ).toBe(false);
+    });
+
+    it.each([null, 1, 3])('accepts maxLossesPerDay %s', (maxLossesPerDay) => {
+        expect(
+            dayPolicySchema.safeParse({
+                ...policyWith([400]),
+                maxLossesPerDay,
+            }).success,
+        ).toBe(true);
+    });
+});
+
+describe('dayPolicySchema ladder bounds match the CLI --ladder reader (N-20)', () => {
+    it.each<[number[]]>([[[0, 400]], [[400, 0, 600]], [[400, -1]], [[]]])(
+        'rejects the ladder %j',
+        (ladder) => {
+            expect(dayPolicySchema.safeParse(policyWith(ladder)).success).toBe(
+                false,
+            );
+        },
+    );
+
+    it.each<[number[]]>([[[0, 400]], [[400, 0, 600]], [[400, -1]]])(
+        'the CLI also rejects %j',
+        (ladder) => {
+            expect(() => readLadder(ladder.join(','))).toThrow(/--ladder/);
+        },
+    );
+
+    it.each<[number[]]>([[[400, 600]], [[400, 600, 0]]])(
+        'accepts the ladder %j like the CLI does',
+        (ladder) => {
+            expect(dayPolicySchema.safeParse(policyWith(ladder)).success).toBe(
+                true,
+            );
+            expect(readLadder(ladder.join(','))).toStrictEqual(ladder);
+        },
+    );
+
+    it('rejects a lab scenario whose stop rule the CLI rejects', () => {
+        expect(
+            labScenarioSchema.safeParse({
+                ...LEGACY_LAB_SCENARIO,
+                dayStop: { k: 0, kind: 'after-k-losses' },
+            }).success,
+        ).toBe(false);
+    });
+});
+
+describe('N-13: labScenarioSchema only accepts an account count the engine accepts', () => {
+    it.each([0, -3, 2.5, 2 ** 53])('rejects accounts %s', (accounts) => {
+        expect(
+            labScenarioSchema.safeParse({ ...LEGACY_LAB_SCENARIO, accounts })
+                .success,
+        ).toBe(false);
+    });
+
+    it.each([1, 20])('accepts accounts %s', (accounts) => {
+        expect(
+            labScenarioSchema.safeParse({ ...LEGACY_LAB_SCENARIO, accounts })
+                .success,
+        ).toBe(true);
+    });
+});
+
 describe('labScenarioSchema instrument/stopPoints (E15 extension to Strategy Lab)', () => {
     it('accepts a scenario carrying its own instrument + stopPoints', () => {
         const r = labScenarioSchema.safeParse({
@@ -197,6 +308,24 @@ const LEGACY_PORTFOLIO_ENTRY = {
     linkActivationDiscount: false,
     planId: 'apex-50000-eod',
 };
+
+describe('N-13: portfolioEntrySchema only accepts a copy count the engine accepts', () => {
+    it.each([0, -1, 1.5, 2 ** 53])('rejects count %s', (count) => {
+        expect(
+            portfolioEntrySchema.safeParse({ ...LEGACY_PORTFOLIO_ENTRY, count })
+                .success,
+        ).toBe(false);
+    });
+
+    it('accepts a whole positive count', () => {
+        expect(
+            portfolioEntrySchema.safeParse({
+                ...LEGACY_PORTFOLIO_ENTRY,
+                count: 3,
+            }).success,
+        ).toBe(true);
+    });
+});
 
 describe('portfolioEntrySchema instrument/stopPoints (E15 extension to Portfolio Panel)', () => {
     it('accepts an entry carrying its own instrument + stopPoints override', () => {

@@ -4,6 +4,7 @@ import {
     ApexVariant,
     computeEvalStateValue,
     contracts,
+    createInitialState,
     DailyLossLimitKind,
     type DayPolicy,
     DayStopRuleKind,
@@ -18,6 +19,7 @@ import {
     MffuVariant,
     type Plan,
     points,
+    TierBasis,
 } from '~/lib/prop-calculator/core';
 import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFunding';
 import { LucidTrading } from '~/lib/prop-calculator/firms/lucid/LucidTrading';
@@ -268,7 +270,7 @@ describe(
                     winrate,
                 });
 
-                expect(out.passProbability).toBeCloseTo(dp.initialValue, 1);
+                expect(out.evalPassProbability).toBeCloseTo(dp.initialValue, 1);
             },
             120_000,
         );
@@ -337,11 +339,14 @@ describe(
                     evalDayPolicy: dp.dayPolicy,
                 });
 
-                expect(dpOut.passProbability).toBeCloseTo(dp.initialValue, 1);
-                expect(ladderOut.passProbability).toBeCloseTo(0.429, 2);
-                expect(dpOut.passProbability).toBeCloseTo(0.588, 2);
+                expect(dpOut.evalPassProbability).toBeCloseTo(
+                    dp.initialValue,
+                    1,
+                );
+                expect(ladderOut.evalPassProbability).toBeCloseTo(0.429, 2);
+                expect(dpOut.evalPassProbability).toBeCloseTo(0.588, 2);
                 expect(
-                    dpOut.passProbability - ladderOut.passProbability,
+                    dpOut.evalPassProbability - ladderOut.evalPassProbability,
                 ).toBeGreaterThan(ADOPT_THRESHOLD_PP);
             },
             200_000,
@@ -718,4 +723,72 @@ describe('dayCost DP dimension', () => {
             expect(risk).toBe(100);
         },
     );
+});
+
+describe('computeEvalStateValue caps risk at the eval daily loss limit headroom (N-9)', () => {
+    it('never sizes the next trade above the headroom left today', () => {
+        const plan = toyPlan(150).withOverrides({
+            evalDailyLossLimit: {
+                amount: dollars(60),
+                kind: DailyLossLimitKind.Flat,
+            },
+        });
+        const result = computeEvalStateValue({
+            actionStepDollars: 25,
+            cushionStepDollars: 25,
+            maxActionDollars: 100,
+            maxEvalDays: 1,
+            plan,
+            profitStepDollars: 25,
+            rrRatio: 4,
+            tradesPerDay: 2,
+            winrate: fraction(0.5),
+        });
+        const state = plan.initialState();
+        state.balance = 975;
+        state.todayPnL = -25;
+        const risk = result.dayPolicy.computeRisk?.(state, 1) ?? 0;
+        expect(risk).toBeLessThanOrEqual(35 + 1e-9);
+    });
+});
+
+describe('computeEvalStateValue tracks the peak session close for a peak-based eval daily loss limit (N-8)', () => {
+    it('keeps the higher tier after a losing day instead of falling back to the lowest tier', () => {
+        const plan = toyPlan(150).withOverrides({
+            evalDailyLossLimit: {
+                kind: DailyLossLimitKind.Tiered,
+                tierBasis: TierBasis.PeakSessionCloseProfit,
+                tiers: [
+                    {
+                        dailyLossLimit: dollars(30),
+                        maxContracts: contracts(1),
+                        minProfit: 0,
+                    },
+                    {
+                        dailyLossLimit: dollars(1000),
+                        maxContracts: contracts(1),
+                        minProfit: 100,
+                    },
+                ],
+            },
+        });
+        expect(isEvalDpEligible(plan)).toBe(true);
+        const result = computeEvalStateValue({
+            actionStepDollars: 25,
+            cushionStepDollars: 25,
+            maxActionDollars: 100,
+            maxEvalDays: 4,
+            plan,
+            profitStepDollars: 25,
+            rrRatio: 2,
+            tradesPerDay: 1,
+            winrate: fraction(0.5),
+        });
+        const state = createInitialState(1000, 1000);
+        state.balance = 1050;
+        state.elapsedDays = 3;
+        state.peakDayCloseProfit = 100;
+        state.tradingDays = 3;
+        expect(result.dayPolicy.computeRisk?.(state, 0)).toBe(50);
+    });
 });

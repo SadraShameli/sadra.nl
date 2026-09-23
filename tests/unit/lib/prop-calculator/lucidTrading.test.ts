@@ -9,6 +9,7 @@ import {
     FirmId,
     LucidVariant,
     maxContractsAt,
+    PlanAvailability,
     resolveContractLimit,
     resolveDailyLossLimit,
     TradingPhase,
@@ -212,6 +213,7 @@ describe("LucidPro/LucidFlex purchasable Daily Loss Limit toggle (live-verified 
                 isThresholdLocked: false,
                 peakDayCloseProfit: 4000,
                 profit: 4000,
+                sessionOpenProfit: 4000,
             }),
         ).toBeNull();
         expect(
@@ -219,14 +221,16 @@ describe("LucidPro/LucidFlex purchasable Daily Loss Limit toggle (live-verified 
                 isThresholdLocked: true,
                 peakDayCloseProfit: 4000,
                 profit: 4000,
+                sessionOpenProfit: 4000,
             }),
         ).toBeNull();
     });
 
-    it('ProNoDll (DLL off) costs $20 more than Pro (DLL on) but shares every other rule', () => {
-        expect(pro.fees.oneTimeEval).toBe(172);
+    it('ProNoDll (DLL off, +$20 add-on) costs $25 more than Pro (DLL on, -$5 promo) on both eval and reset but shares every other rule', () => {
+        expect(pro.fees.oneTimeEval).toBe(167);
         expect(proNoDll.fees.oneTimeEval).toBe(192);
-        expect(proNoDll.fees.reset).toBe(pro.fees.reset);
+        expect(pro.fees.reset).toBe(115);
+        expect(proNoDll.fees.reset).toBe(140);
         expect(proNoDll.profitTarget).toBe(pro.profitTarget);
         expect(proNoDll.drawdown.amount).toBe(pro.drawdown.amount);
         expect(proNoDll.minDaysAfterPassForPayout).toBe(
@@ -250,10 +254,11 @@ describe("LucidPro/LucidFlex purchasable Daily Loss Limit toggle (live-verified 
         ).toStrictEqual({ amount: 1200, kind: DailyLossLimitShape.Fixed });
     });
 
-    it('FlexDll (DLL on) costs $10 less than Flex (DLL off) but shares every other rule', () => {
-        expect(flexDll.fees.oneTimeEval).toBe(136);
+    it('FlexDll (DLL on, -$5 promo) costs $15 less than Flex (DLL off, +$10 add-on) on both eval and reset but shares every other rule', () => {
+        expect(flexDll.fees.oneTimeEval).toBe(131);
         expect(flex.fees.oneTimeEval).toBe(146);
-        expect(flexDll.fees.reset).toBe(flex.fees.reset);
+        expect(flexDll.fees.reset).toBe(90);
+        expect(flex.fees.reset).toBe(105);
         expect(flexDll.profitTarget).toBe(flex.profitTarget);
         expect(flexDll.drawdown.amount).toBe(flex.drawdown.amount);
         expect(flexDll.minDaysAfterPassForPayout).toBe(
@@ -295,16 +300,16 @@ describe('LucidDaily (live-verified 2026-09-14 from lucidtrading.com plan-card m
         }
     });
 
-    it('EOD and Intraday are separately priced base products, and the DLL toggle costs $20 more when turned OFF', () => {
-        expect(dailyEodDll.fees.oneTimeEval).toBe(165);
-        expect(dailyEodDll.fees.reset).toBe(115);
+    it('EOD and Intraday are separately priced base products; the DLL ON promo takes $5 off and the OFF add-on adds $20, on eval and reset alike', () => {
+        expect(dailyEodDll.fees.oneTimeEval).toBe(160);
+        expect(dailyEodDll.fees.reset).toBe(110);
         expect(dailyEod.fees.oneTimeEval).toBe(185);
-        expect(dailyEod.fees.reset).toBe(115);
+        expect(dailyEod.fees.reset).toBe(135);
 
-        expect(dailyIntradayDll.fees.oneTimeEval).toBe(136);
-        expect(dailyIntradayDll.fees.reset).toBe(95);
+        expect(dailyIntradayDll.fees.oneTimeEval).toBe(131);
+        expect(dailyIntradayDll.fees.reset).toBe(90);
         expect(dailyIntraday.fees.oneTimeEval).toBe(156);
-        expect(dailyIntraday.fees.reset).toBe(95);
+        expect(dailyIntraday.fees.reset).toBe(115);
     });
 
     it('has a $0.01 recurring per-cycle profit floor and a $2,100-above-start payout buffer, matching LucidFlex and LucidPro rather than no floor at all', () => {
@@ -394,5 +399,22 @@ describe('Every Lucid plan now carries the live-confirmed 4 mini / 40 micro cont
             }
             expect(plan.contractLimits).not.toBeNull();
         }
+    });
+});
+
+describe('LucidMaxx availability (N-11, live-confirmed 2026-09-23 on support.lucidtrading.com LucidMaxx Overview: invited by the Lucid risk team, no public purchase option)', () => {
+    it('is call-up only and not purchasable', () => {
+        const plan = lucidPlan(LucidVariant.Maxx);
+        expect(plan.availability).toBe(PlanAvailability.CallUpOnly);
+        expect(plan.isPurchasable).toBe(false);
+    });
+
+    it('leaves every other Lucid plan purchasable', () => {
+        const others = lucid.plans.filter(
+            (plan) =>
+                'variant' in plan.id && plan.id.variant !== LucidVariant.Maxx,
+        );
+        expect(others.length).toBeGreaterThan(0);
+        expect(others.every((plan) => plan.isPurchasable)).toBe(true);
     });
 });

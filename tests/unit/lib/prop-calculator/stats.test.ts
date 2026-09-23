@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    binomialStandardError,
     clamp,
     histogram,
     mean,
+    meanStandardError,
     median,
     percentile,
+    propagatedStandardError,
     standardDeviation,
 } from '~/lib/prop-calculator/stats';
 
@@ -112,5 +115,92 @@ describe('histogram', () => {
         expect(total).toBe(10);
         expect(bins[0]?.binStart).toBe(0);
         expect(bins.at(-1)?.binEnd).toBe(9);
+    });
+});
+
+describe('binomialStandardError', () => {
+    it('is sqrt(p(1-p)/n)', () => {
+        expect(binomialStandardError(0.5, 10_000)).toBe(0.005);
+        expect(binomialStandardError(0.2, 100)).toBeCloseTo(0.04, 12);
+    });
+
+    it('is 0 at a certain outcome', () => {
+        expect(binomialStandardError(0, 100)).toBe(0);
+        expect(binomialStandardError(1, 100)).toBe(0);
+    });
+
+    it('is 0 without samples', () => {
+        expect(binomialStandardError(0.5, 0)).toBe(0);
+    });
+});
+
+describe('meanStandardError', () => {
+    it('uses the sample variance over n', () => {
+        expect(meanStandardError(10, 30, 4)).toBeCloseTo(
+            Math.sqrt(5 / 3 / 4),
+            12,
+        );
+    });
+
+    it('is 0 with fewer than two samples', () => {
+        expect(meanStandardError(0, 0, 0)).toBe(0);
+        expect(meanStandardError(7, 49, 1)).toBe(0);
+    });
+
+    it('is 0, never NaN, when rounding makes the variance slightly negative', () => {
+        expect(meanStandardError(0.3, 0.029999999999999995, 3)).toBe(0);
+    });
+});
+
+describe('propagatedStandardError', () => {
+    it('scales a linear function by its slope', () => {
+        expect(
+            propagatedStandardError(
+                (values) => 2 * (values[0] ?? 0),
+                [{ standardError: 0.1, value: 1 }],
+            ),
+        ).toBeCloseTo(0.2, 12);
+    });
+
+    it('adds independent errors in quadrature', () => {
+        expect(
+            propagatedStandardError(
+                (values) => (values[0] ?? 0) + (values[1] ?? 0),
+                [
+                    { standardError: 3, value: 10 },
+                    { standardError: 4, value: 20 },
+                ],
+            ),
+        ).toBeCloseTo(5, 12);
+    });
+
+    it('follows the local slope of a nonlinear function', () => {
+        expect(
+            propagatedStandardError(
+                (values) => 1 / (values[0] ?? 1),
+                [{ standardError: 0.01, value: 0.5 }],
+            ),
+        ).toBeCloseTo(0.04, 3);
+    });
+
+    it('is 0 when every input is exact', () => {
+        expect(
+            propagatedStandardError(
+                (values) => 1 / (values[0] ?? 1),
+                [{ standardError: 0, value: 0.5 }],
+            ),
+        ).toBe(0);
+    });
+
+    it('never steps an input across zero', () => {
+        const seen: number[] = [];
+        propagatedStandardError(
+            (values) => {
+                seen.push(values[0] ?? 0);
+                return 1 / (values[0] ?? 1);
+            },
+            [{ standardError: 1, value: 0.1 }],
+        );
+        expect(Math.min(...seen)).toBeGreaterThan(0);
     });
 });

@@ -167,9 +167,13 @@ describe.each(ALL_PLANS)(
 describe.each(ALL_PLANS)(
     '$label: payoutFromProfit is monotone non-decreasing and never exceeds its input',
     (plan) => {
-        const thresholds = plan.payoutTiers
-            .map((tier) => tier.thresholdProfit)
+        const thresholds = plan.payoutSplit.schedule
+            .flatMap((entry) => entry.tiers.map((tier) => tier.thresholdProfit))
             .toSorted((a, b) => a - b);
+        const payoutIndices = Array.from(
+            { length: plan.payoutSplit.stationaryFromPayoutIndex + 1 },
+            (_, index) => index,
+        );
         const grid = [
             0,
             ...thresholds.flatMap((t) => [
@@ -181,22 +185,26 @@ describe.each(ALL_PLANS)(
             plan.fundedDrawdown.amount * 20,
         ].toSorted((a, b) => a - b);
 
-        it('non-decreasing across every declared tier boundary', () => {
-            let previous = -Infinity;
-            for (const profit of grid) {
-                const payout = plan.payoutFromProfit(profit);
-                expect(payout).toBeGreaterThanOrEqual(previous - 1e-9);
-                expect(payout).toBeGreaterThanOrEqual(0);
-                previous = payout;
+        it('non-decreasing across every declared tier boundary at every payout index', () => {
+            for (const payoutIndex of payoutIndices) {
+                let previous = -Infinity;
+                for (const profit of grid) {
+                    const payout = plan.payoutFromProfit(profit, payoutIndex);
+                    expect(payout).toBeGreaterThanOrEqual(previous - 1e-9);
+                    expect(payout).toBeGreaterThanOrEqual(0);
+                    previous = payout;
+                }
             }
         });
 
-        it('never exceeds the profit passed in', () => {
-            for (const profit of grid) {
-                if (profit <= 0) continue;
-                expect(plan.payoutFromProfit(profit)).toBeLessThanOrEqual(
-                    profit + 1e-9,
-                );
+        it('never exceeds the profit passed in at any payout index', () => {
+            for (const payoutIndex of payoutIndices) {
+                for (const profit of grid) {
+                    if (profit <= 0) continue;
+                    expect(
+                        plan.payoutFromProfit(profit, payoutIndex),
+                    ).toBeLessThanOrEqual(profit + 1e-9);
+                }
             }
         });
     },
@@ -260,7 +268,9 @@ describe.each(ALL_PLANS)(
 );
 
 describe.each(
-    ALL_PLANS.filter((plan) => plan.fundedDrawdown.lock !== undefined),
+    ALL_PLANS.filter(
+        (plan) => (plan.fundedDrawdown.lock?.atProfit ?? null) !== null,
+    ),
 )(
     '$label: the natural (onDayClose/onTrade) lock trigger always snaps the ' +
         'threshold to exactly the documented locked value, even when the ' +
@@ -275,7 +285,8 @@ describe.each(
     (plan) => {
         it('locks at exactly lockedThreshold(accountSize), not at the higher ratcheted value', () => {
             const lock = plan.fundedDrawdown.lock;
-            if (!lock) return;
+            const trigger = lock?.atProfit ?? null;
+            if (!lock || trigger === null) return;
             const start = plan.accountSize;
             const amount = plan.fundedDrawdown.amount;
             const targetLockedThreshold = lock.lockedThreshold(start);
@@ -284,7 +295,7 @@ describe.each(
                 Math.abs(targetLockedThreshold - start) + amount + 1000;
             const overshootBalance =
                 Math.max(
-                    start + lock.atProfit,
+                    start + trigger,
                     targetLockedThreshold + amount,
                 ) + overshootMargin;
             const ratchetedThreshold = overshootBalance - amount;

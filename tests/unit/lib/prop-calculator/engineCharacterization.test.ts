@@ -26,6 +26,7 @@ interface Characterization {
 type PinnedKey =
     | 'bustProbability'
     | 'daysToPassP50'
+    | 'evalPassProbability'
     | 'expectancyDollars'
     | 'expectedDaysToPass'
     | 'expectedFirstPayoutDay'
@@ -35,9 +36,9 @@ type PinnedKey =
     | 'expectedTotalCost'
     | 'finalBalanceP50'
     | 'fundedBustProbability'
+    | 'fundedSurvivalProbability'
     | 'maxDrawdownP50'
     | 'maxLosingStreakP95'
-    | 'passProbability'
     | 'profitFactor'
     | 'timeoutProbability';
 
@@ -46,18 +47,19 @@ const CASES: readonly Characterization[] = [
         expected: {
             bustProbability: 0.185,
             daysToPassP50: 11,
+            evalPassProbability: 0.815,
             expectancyDollars: 197.3361417420394,
             expectedDaysToPass: 12.122699386503067,
-            expectedFirstPayoutDay: 0,
+            expectedFirstPayoutDay: 19.223076923076924,
             expectedGrossPayout: 10_270.8,
             expectedMonthlyNet: 5196.699458927693,
             expectedNet: 10_061.8,
             expectedTotalCost: 209,
             finalBalanceP50: 50_100,
             fundedBustProbability: 0.815,
+            fundedSurvivalProbability: 0,
             maxDrawdownP50: 3900,
             maxLosingStreakP95: 7,
-            passProbability: 0,
             profitFactor: 1.9827235145307582,
             timeoutProbability: 0,
         },
@@ -72,18 +74,19 @@ const CASES: readonly Characterization[] = [
         expected: {
             bustProbability: 0.2,
             daysToPassP50: 6,
+            evalPassProbability: 0.8,
             expectancyDollars: 197.5919651500484,
             expectedDaysToPass: 6.85,
-            expectedFirstPayoutDay: 15.217054263565892,
+            expectedFirstPayoutDay: 15.20863309352518,
             expectedGrossPayout: 8475,
-            expectedMonthlyNet: 3959.2182410423457,
-            expectedNet: 7813.8,
-            expectedTotalCost: 661.2,
+            expectedMonthlyNet: 3958.8128845457836,
+            expectedNet: 7813,
+            expectedTotalCost: 662,
             finalBalanceP50: 55_700,
             fundedBustProbability: 0.155,
+            fundedSurvivalProbability: 0.645,
             maxDrawdownP50: 3500,
             maxLosingStreakP95: 9,
-            passProbability: 0.645,
             profitFactor: 1.9844456502079941,
             timeoutProbability: 0,
         },
@@ -98,18 +101,19 @@ const CASES: readonly Characterization[] = [
         expected: {
             bustProbability: 0.2,
             daysToPassP50: 5.5,
+            evalPassProbability: 0.8,
             expectancyDollars: 196.76692858215304,
             expectedDaysToPass: 6.975,
-            expectedFirstPayoutDay: 14.053571428571429,
+            expectedFirstPayoutDay: 13.920634920634921,
             expectedGrossPayout: 30_206.7,
             expectedMonthlyNet: 4343.868408772749,
             expectedNet: 30_038.5,
             expectedTotalCost: 168.2,
             finalBalanceP50: 80_200,
             fundedBustProbability: 0.24,
+            fundedSurvivalProbability: 0.56,
             maxDrawdownP50: 4400,
             maxLosingStreakP95: 11,
-            passProbability: 0.56,
             profitFactor: 1.9785617097534265,
             timeoutProbability: 0,
         },
@@ -124,18 +128,19 @@ const CASES: readonly Characterization[] = [
         expected: {
             bustProbability: 0.17,
             daysToPassP50: 6,
+            evalPassProbability: 0.83,
             expectancyDollars: 200.52468399713808,
             expectedDaysToPass: 6.771084337349397,
-            expectedFirstPayoutDay: 0,
+            expectedFirstPayoutDay: 11.971014492753623,
             expectedGrossPayout: 7932.8,
             expectedMonthlyNet: 5055.917597106462,
             expectedNet: 7654.9,
             expectedTotalCost: 277.9,
             finalBalanceP50: 50_000,
             fundedBustProbability: 0.83,
+            fundedSurvivalProbability: 0,
             maxDrawdownP50: 3600,
             maxLosingStreakP95: 6,
-            passProbability: 0,
             profitFactor: 2.003500954805856,
             timeoutProbability: 0,
         },

@@ -34,6 +34,7 @@ export function resolveContractLimit(
     isMicro: boolean,
     accountProfit: number,
     accountProfitAtSessionStart: number = accountProfit,
+    peakDayCloseProfit: number = accountProfitAtSessionStart,
 ): ContractCount | null {
     if (limits === null) return null;
     switch (phase) {
@@ -45,6 +46,7 @@ export function resolveContractLimit(
                 isMicro ? limits.fundedMicros : limits.fundedMinis,
                 accountProfit,
                 accountProfitAtSessionStart,
+                peakDayCloseProfit,
             );
         }
     }

@@ -5,6 +5,8 @@ export const kpiDescriptions = {
         "Funded-account profit needed to recoup all eval/activation/reset spending. Below this you're net negative.",
     daysToPass:
         'Distribution of trading days needed to hit the profit target across passing trials. Tighter = consistent timing, wider = some trials grind for many days.',
+    evalPass:
+        'Share of simulated trials that reached the profit target and passed the evaluation without busting the drawdown or daily-loss limit or running out of allowed eval days, whether or not the funded account later busted.',
     expectancy:
         'Expected profit per trade. Positive = your system has a statistical edge. = winrate × avgWin − lossRate × avgLoss.',
     expectedAttempts:
@@ -14,29 +16,27 @@ export const kpiDescriptions = {
     finalBalance:
         'Distribution of account balances at the end of each simulation. Most-likely range vs tail outcomes.',
     firstPayout:
-        "Calendar day of the first eligible payout, counted from start of the eval. Requires the firm's minimum hold and safety buffer to be met.",
+        "Calendar day of the first eligible payout, counted from the start of the first eval attempt and averaged over every trial that received a payout, including accounts that later busted. Requires the firm's minimum hold and safety buffer to be met.",
+    fundedSurvival:
+        'Share of trials that passed the evaluation and never busted the funded account within the funded horizon. Equals eval pass minus the funded-bust rate: the two differ most for firms whose funded rules are stricter than their eval rules.',
     maxDrawdown:
         'Worst peak-to-trough $ drop observed within a trial path. P95 = the drawdown you should expect to face in 1 of 20 attempts.',
     maxLosingStreak:
         "Longest run of consecutive losing trades observed in simulations. P95 = worst-case streak you'll see in 1 of 20 evaluation attempts.",
     monthlyNet:
         'Expected $ profit per month after all fees, averaged across passes and busts, plus the withdrawable balance credited to accounts that survive to the funded horizon end. = (avg net + avg horizon credit) × 21 ÷ avg trial duration.',
-    passProbability:
-        'Share of simulated trials where you reached the profit target without busting the drawdown, daily-loss limit, or running out of allowed eval days.',
     profitFactor:
         'Total winnings divided by total losses across all trades. > 1.5 is healthy, < 1.0 is losing money.',
-    reachedFunded:
-        "Share of trials that passed the evaluation, whether or not the funded account later busted its drawdown or daily-loss limit. Equals pass probability plus the funded-bust rate — the two don't move together for firms whose funded rules are stricter than their eval rules.",
     risk5Losses:
         'Share of trials where your strategy produced at least one streak of 5 losing trades in a row. High % means streaks will happen — make sure your account size can survive them.',
     riskOfRuin:
         'Probability of busting the drawdown rule before hitting the profit target. Same number as bust% but framed as the risk you take on.',
     roiOnCost:
-        'Net profit divided by total fees paid, expressed as a percentage. = (avg net ÷ avg total cost) × 100. The dollar return on your fee outlay.',
+        'Net profit divided by total fees paid, expressed as a percentage. = (avg net ÷ avg total cost) × 100. The dollar return on your fee outlay. Shows n/a when the total cost is $0, since a return on no outlay has no ratio.',
     totalCost:
         'All-in fees paid per evaluation cycle, averaged across passes and busts. Includes resets when multi-attempt is on.',
     tradesPerPass:
-        'Mean number of trades you take in trials that pass. Lower = faster pass, higher = slower grind.',
+        'Mean number of eval trades you take in trials that pass the evaluation, including accounts that later busted funded. Lower = faster pass, higher = slower grind.',
 } as const;
 
 export const panelDescriptions = {
@@ -52,7 +52,7 @@ export const panelDescriptions = {
     optimalRiskSweep:
         'Runs the simulator at 10 different risk-per-trade levels (0.25% to 5%) holding all your other inputs constant. The current risk row is highlighted, and the row with the best monthly net is marked with a star.',
     'pass-rate':
-        'Cumulative share of trials that have hit the profit target by each day. Steepens early when most passes happen quickly; flattens late when the eval is dragging on. The asymptote = total pass probability.',
+        'Cumulative share of trials that have hit the profit target by each day. Steepens early when most passes happen quickly; flattens late when the eval is dragging on. The asymptote = total eval pass probability.',
     planComparison:
         'Compares every plan offered by the selected firm at your current trading inputs. PT:DD is the profit-target-to-drawdown ratio — a lower value means you need less profit relative to your downside risk to pass the evaluation. Green ≤ 1.0×, amber 1.5–2.0×, red > 2.0×. Exp. spend is the total expected outlay across all eval attempts (including resets) until you get funded. Use the table to find the account size with the most favourable challenge structure for your edge.',
     portfolio:
@@ -63,10 +63,12 @@ export const panelDescriptions = {
         'Decomposes the expected return into yearly, monthly, weekly, and per-trade rates so you can compare the strategy to other capital uses. Trade counts, sum of R-multiples per pass, and average trade size show what a typical funded month looks like in concrete terms. Balance range is min and max final balance across all simulated trials, including bust outcomes — the tail you should size around.',
     riskReturn:
         'Risk-adjusted performance metrics used by hedge funds to evaluate strategies independently of raw returns. Sharpe (annualized): mean monthly return / std dev of monthly return × √12 — computed from the full distribution of trial outcomes. Calmar: annualized return / median max drawdown — higher is more capital-efficient. Recovery factor: period net profit / median max drawdown — how many drawdown events does your profit cover? Omega: ratio of probability-weighted gains to losses across all outcomes. Profit factor: gross wins / gross losses per trade.',
+    sensitivityFundedSurvival:
+        'Funded survive probability (passed the evaluation and never busted the funded account within the funded horizon) across the same winrate × reward-to-risk grid. Compare it with the eval pass heatmap to see where the funded rules, not the eval, are the binding risk.',
     sensitivityNet:
-        "Expected monthly net dollars across the same winrate × reward-to-risk grid. Pairs with the pass% heatmap to spot the band that's both safe AND profitable.",
+        "Expected monthly net dollars across the same winrate × reward-to-risk grid. Pairs with the eval pass heatmap to spot the band that's both safe AND profitable.",
     sensitivityPass:
-        'Pass probability across a 7×7 grid of winrate × reward-to-risk values. Green = robust, red = unlikely. Your current cell is outlined. Use it to see how forgiving your edge is to estimation error.',
+        'Eval pass probability across a 7×7 grid of winrate × reward-to-risk values. Green = robust, red = unlikely. Your current cell is outlined. Use it to see how forgiving your edge is to estimation error.',
     strategyAnalysis:
         'Three quantitative views of your strategy in one place. Edge: how much you make per trade and how confident the simulation is that the edge is statistically real. Risk-adjusted returns: hedge-fund-grade ratios that compare profit to volatility (Sharpe), drawdown (Calmar), and downside (Omega). Returns breakdown: the same expected return decomposed across timeframes plus per-pass trade activity.',
     strategyDNA:

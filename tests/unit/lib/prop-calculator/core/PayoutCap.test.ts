@@ -3,8 +3,10 @@ import { describe, expect, it } from 'vitest';
 import {
     dollars,
     FirmId,
+    FlatPayoutCap,
     fraction,
     FundedNextVariant,
+    PayoutCapScheduleKind,
     percent,
 } from '~/lib/prop-calculator/core';
 import {
@@ -28,9 +30,18 @@ describe('QualifyingDaysMilestonePayoutCap.resolve', () => {
         milestoneQualifyingDays: 30,
     });
 
-    it('stays in the before-milestone regime at exactly the milestone count (boundary is strict >)', () => {
+    it('switches to the uncapped regime at exactly the milestone count (after 30 benchmark days includes the 30th)', () => {
         expect(
             cap.resolve({ cumulativeQualifyingDays: 30, payoutsIssued: 0 }),
+        ).toStrictEqual({
+            balanceShareCap: null,
+            requestCap: null,
+        });
+    });
+
+    it('stays capped one day before the milestone', () => {
+        expect(
+            cap.resolve({ cumulativeQualifyingDays: 29, payoutsIssued: 0 }),
         ).toStrictEqual({
             balanceShareCap: 0.5,
             requestCap: 6000,
@@ -53,6 +64,122 @@ describe('QualifyingDaysMilestonePayoutCap.resolve', () => {
             balanceShareCap: 0.5,
             requestCap: 6000,
         });
+    });
+});
+
+describe('QualifyingDaysMilestonePayoutCap.describe', () => {
+    const cap = new QualifyingDaysMilestonePayoutCap({
+        afterMilestone: { balanceShareCap: null, requestCap: null },
+        beforeMilestone: {
+            balanceShareCap: fraction(0.5),
+            requestCap: dollars(6000),
+        },
+        milestoneQualifyingDays: 30,
+    });
+
+    it('describes a two-step schedule keyed on qualifying days, starting at day 0', () => {
+        const schedule = cap.describe();
+        expect(schedule.kind).toBe(PayoutCapScheduleKind.ByQualifyingDays);
+        if (schedule.kind !== PayoutCapScheduleKind.ByQualifyingDays) return;
+        expect(schedule.steps).toHaveLength(2);
+        expect(schedule.steps[0]).toStrictEqual({
+            from: 0,
+            regime: { balanceShareCap: 0.5, requestCap: 6000 },
+        });
+        expect(schedule.steps[1]?.regime).toStrictEqual({
+            balanceShareCap: null,
+            requestCap: null,
+        });
+    });
+
+    it('keeps describe() and resolve() on the same boundary', () => {
+        const schedule = cap.describe();
+        if (schedule.kind !== PayoutCapScheduleKind.ByQualifyingDays) {
+            throw new Error('expected a qualifying-days schedule');
+        }
+        const boundary = schedule.steps[1]?.from ?? NaN;
+        expect(boundary).toBe(30);
+        expect(
+            cap.resolve({
+                cumulativeQualifyingDays: boundary,
+                payoutsIssued: 0,
+            }),
+        ).toStrictEqual(schedule.steps[1]?.regime);
+        expect(
+            cap.resolve({
+                cumulativeQualifyingDays: boundary - 1,
+                payoutsIssued: 0,
+            }),
+        ).toStrictEqual(schedule.steps[0]?.regime);
+    });
+});
+
+function flatCap() {
+    return new FlatPayoutCap({
+        balanceShareCap: fraction(0.5),
+        requestCap: dollars(2500),
+    });
+}
+
+describe('FlatPayoutCap', () => {
+    it('describes itself as a flat regime', () => {
+        expect(flatCap().describe()).toStrictEqual({
+            kind: PayoutCapScheduleKind.Flat,
+            regime: { balanceShareCap: 0.5, requestCap: 2500 },
+        });
+    });
+
+    it('resolves to the same regime at any payout count or qualifying-day count', () => {
+        for (const context of [
+            { cumulativeQualifyingDays: 0, payoutsIssued: 0 },
+            { cumulativeQualifyingDays: 45, payoutsIssued: 7 },
+        ]) {
+            expect(flatCap().resolve(context)).toStrictEqual({
+                balanceShareCap: 0.5,
+                requestCap: 2500,
+            });
+        }
+    });
+});
+
+describe('PayoutCountTieredPayoutCap.describe', () => {
+    const cap = new PayoutCountTieredPayoutCap([
+        {
+            fromPayoutIndex: 4,
+            regime: { balanceShareCap: null, requestCap: dollars(3250) },
+        },
+        {
+            fromPayoutIndex: 0,
+            regime: { balanceShareCap: null, requestCap: dollars(1250) },
+        },
+        {
+            fromPayoutIndex: 2,
+            regime: { balanceShareCap: null, requestCap: dollars(2250) },
+        },
+    ]);
+
+    it('lists the steps in ascending payout-index order', () => {
+        const schedule = cap.describe();
+        expect(schedule.kind).toBe(PayoutCapScheduleKind.ByPayoutCount);
+        if (schedule.kind !== PayoutCapScheduleKind.ByPayoutCount) return;
+        expect(schedule.steps.map((step) => step.from)).toStrictEqual([
+            0, 2, 4,
+        ]);
+    });
+
+    it('matches resolve() at every described step', () => {
+        const schedule = cap.describe();
+        if (schedule.kind !== PayoutCapScheduleKind.ByPayoutCount) {
+            throw new Error('expected a payout-count schedule');
+        }
+        for (const step of schedule.steps) {
+            expect(
+                cap.resolve({
+                    cumulativeQualifyingDays: 0,
+                    payoutsIssued: step.from,
+                }),
+            ).toBe(step.regime);
+        }
     });
 });
 
@@ -293,6 +420,36 @@ describe('FundedNext Legacy: two-regime payout cap (live-verified: 50% / $6,000 
         expect(payout?.debited).toBe(6000);
     });
 
+    function payoutAtQualifyingDays(qualifyingDays: number) {
+        const plan = legacyPlan();
+        const state = plan.initialState();
+        state.balance = state.startingBalance + 20_000;
+        state.threshold = state.startingBalance - 2000;
+        state.thresholdLocked = true;
+        state.qualifyingDays = qualifyingDays;
+
+        const tracker = newFundedCycleTracker(state);
+        tracker.lastPayoutBalance = state.startingBalance;
+        tracker.qualifyingDaysAtLastPayout = 0;
+
+        return tryFundedPayout({
+            maxPayouts: Infinity,
+            minRetainedCushion: 0,
+            payoutRequestSize: undefined,
+            plan,
+            state,
+            tracker,
+        });
+    }
+
+    it('lifts the cap on a payout requested at exactly 30 benchmark days', () => {
+        expect(payoutAtQualifyingDays(30)?.debited).toBe(20_000);
+    });
+
+    it('still caps a payout requested at 29 benchmark days at $6,000', () => {
+        expect(payoutAtQualifyingDays(29)?.debited).toBe(6000);
+    });
+
     it('removes the cap once cumulative qualifying days exceed 30', () => {
         const plan = legacyPlan();
         const state = plan.initialState();
@@ -358,12 +515,12 @@ describe('FundedNext Legacy: two-regime payout cap (live-verified: 50% / $6,000 
                 uncapped.fundedBustProbability,
                 6,
             );
-            expect(capped.passProbability).toBeCloseTo(
-                uncapped.passProbability,
+            expect(capped.fundedSurvivalProbability).toBeCloseTo(
+                uncapped.fundedSurvivalProbability,
                 6,
             );
             expect(capped.fundedBustProbability).toBeLessThan(0.5);
-            expect(capped.passProbability).toBeGreaterThan(0.5);
+            expect(capped.fundedSurvivalProbability).toBeGreaterThan(0.5);
         },
     );
 });

@@ -62,7 +62,7 @@ describe('MFF Rapid (no ladder, intraday-trailing drawdown): payout keeps growin
 
     it('never busts an always-winning trader', () => {
         const out = simulate(alwaysWinInputs({ fundedHorizonDays: 252, plan }));
-        expect(out.passProbability).toBe(1);
+        expect(out.fundedSurvivalProbability).toBe(1);
         expect(out.fundedBustProbability).toBe(0);
     });
 
@@ -83,7 +83,7 @@ describe('MFF Rapid (no ladder, intraday-trailing drawdown): payout keeps growin
         const out = simulate(
             alwaysWinInputs({ fundedHorizonDays: 120, plan, tradesPerDay: 3 }),
         );
-        expect(out.passProbability).toBe(1);
+        expect(out.fundedSurvivalProbability).toBe(1);
         expect(out.fundedBustProbability).toBe(0);
         expect(out.expectedGrossPayout).toBeGreaterThan(0);
     });
@@ -100,7 +100,7 @@ describe(
             const out = simulate(
                 alwaysWinInputs({ fundedHorizonDays: 252, plan }),
             );
-            expect(out.passProbability).toBe(1);
+            expect(out.fundedSurvivalProbability).toBe(1);
             expect(out.fundedBustProbability).toBe(0);
         });
 
@@ -111,8 +111,8 @@ describe(
             const long = simulate(
                 alwaysWinInputs({ fundedHorizonDays: 252, plan }),
             );
-            expect(mid.passProbability).toBe(1);
-            expect(long.passProbability).toBe(1);
+            expect(mid.fundedSurvivalProbability).toBe(1);
+            expect(long.fundedSurvivalProbability).toBe(1);
             expect(mid.expectedGrossPayout).toBeGreaterThan(0);
             expect(long.expectedGrossPayout).toBe(mid.expectedGrossPayout);
         });
@@ -124,7 +124,7 @@ describe('MFF Builder (pure ladder): plateaus once the ladder is exhausted, neve
 
     it('never busts an always-winning trader, even after the ladder runs out', () => {
         const out = simulate(alwaysWinInputs({ fundedHorizonDays: 252, plan }));
-        expect(out.passProbability).toBe(1);
+        expect(out.fundedSurvivalProbability).toBe(1);
         expect(out.fundedBustProbability).toBe(0);
     });
 
@@ -133,8 +133,8 @@ describe('MFF Builder (pure ladder): plateaus once the ladder is exhausted, neve
         const long = simulate(
             alwaysWinInputs({ fundedHorizonDays: 252, plan }),
         );
-        expect(mid.passProbability).toBe(1);
-        expect(long.passProbability).toBe(1);
+        expect(mid.fundedSurvivalProbability).toBe(1);
+        expect(long.fundedSurvivalProbability).toBe(1);
         expect(mid.expectedGrossPayout).toBeGreaterThan(0);
         expect(long.expectedGrossPayout).toBe(mid.expectedGrossPayout);
     });
@@ -145,7 +145,7 @@ describe('TPT (no ladder, uncapped payouts): payout keeps growing, never spuriou
         const plan = tpt.plans[0];
         if (!plan) throw new Error('TPT must expose a plan');
         const out = simulate(alwaysWinInputs({ fundedHorizonDays: 252, plan }));
-        expect(out.passProbability).toBe(1);
+        expect(out.fundedSurvivalProbability).toBe(1);
         expect(out.fundedBustProbability).toBe(0);
     });
 

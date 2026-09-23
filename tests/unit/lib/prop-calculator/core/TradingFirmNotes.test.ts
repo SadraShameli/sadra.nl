@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { FirmId, TradingFirm } from '~/lib/prop-calculator/core';
+import {
+    E8FuturesVariant,
+    FirmId,
+    TradingFirm,
+} from '~/lib/prop-calculator/core';
 import { findFirm } from '~/lib/prop-calculator/firms';
+import { E8Futures } from '~/lib/prop-calculator/firms/e8futures/E8Futures';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 
 class NotesLessFirm extends TradingFirm {
@@ -108,7 +113,7 @@ describe('TradingFirm.notes (live-verified 2026-09-10, MFFU only)', () => {
         ).toBe(true);
         expect(
             notes.some((note) =>
-                note.includes('reset fee is calculated off list price'),
+                note.includes('The FundedNext reset fee is not the eval fee'),
             ),
         ).toBe(true);
     });
@@ -179,11 +184,130 @@ describe('TradingFirm.notes (live-verified 2026-09-10, MFFU only)', () => {
         ).toBe(true);
     });
 
-    it('Lucid documents the unconfirmed standing-discount flag', () => {
+    it('Lucid documents the automatic DLL-ON promo and the no-DLL reset add-on as modeled, and the VAULT code as a typed code', () => {
         const notes = findFirm(FirmId.Lucid)?.notes ?? [];
+        expect(notes.some((note) => note.includes('addonPromos'))).toBe(true);
+        expect(notes.some((note) => note.includes('VAULT'))).toBe(true);
+        expect(
+            notes.some((note) =>
+                note.includes('resetFee is left unchanged for all three'),
+            ),
+        ).toBe(false);
         expect(
             notes.some((note) =>
                 note.includes('list-vs-discount price display'),
+            ),
+        ).toBe(false);
+    });
+
+    it('Lucid discloses that --eval-discount scales the combined checkout price, add-on and promo included, unlike the site', () => {
+        const notes = findFirm(FirmId.Lucid)?.notes ?? [];
+        expect(
+            notes.some((note) =>
+                note.includes('never the no-DLL add-on or a reset). Resets'),
+            ),
+        ).toBe(false);
+        expect(
+            notes.some((note) =>
+                note.includes(
+                    '--eval-discount scales the combined checkout price',
+                ),
+            ),
+        ).toBe(true);
+    });
+
+    it('TopStep notes state the published $95 No-fee reset, the LFA payout gate and the confirmed LFA 90/10 split', () => {
+        const notes = findFirm(FirmId.TopStep)?.notes ?? [];
+        expect(
+            notes.some((note) =>
+                note.includes(
+                    "this engine's own inference, not a directly quoted figure",
+                ),
+            ),
+        ).toBe(false);
+        expect(notes.some((note) => note.includes('Reset Pricing'))).toBe(true);
+        expect(
+            notes.some((note) => note.includes('30 non-consecutive days')),
+        ).toBe(true);
+        expect(
+            notes.some((note) =>
+                note.includes(
+                    'TRADER_SHARE = 0.9 (90/10 split) is an unconfirmed assumption',
+                ),
+            ),
+        ).toBe(false);
+    });
+
+    it('TopStep notes name only identifiers that still exist: the shared TOPSTEP_PAYOUT_POLICY, never the deleted TRADER_SHARE', () => {
+        const notes = findFirm(FirmId.TopStep)?.notes ?? [];
+        expect(notes.some((note) => note.includes('TRADER_SHARE'))).toBe(
+            false,
+        );
+        expect(
+            notes.some((note) =>
+                note.includes('TOPSTEP_PAYOUT_POLICY.traderShare'),
+            ),
+        ).toBe(true);
+    });
+
+    it('TopStep discloses that article 14289835 extends the Responsible Trading Discount to Express Funded Account Activations without a published amount', () => {
+        const notes = findFirm(FirmId.TopStep)?.notes ?? [];
+        expect(
+            notes.some((note) =>
+                note.includes(
+                    'the source states the discount only for No Activation Fee Combines',
+                ),
+            ),
+        ).toBe(false);
+        expect(
+            notes.some((note) =>
+                note.includes('Express Funded Account Activations'),
+            ),
+        ).toBe(true);
+    });
+
+    it('Tradeify notes match the code: the $109 Select reset, no deleted bulkDiscountFactor, and Apex and TopStep tiers on SessionOpenProfit', () => {
+        const notes = findFirm(FirmId.Tradeify)?.notes ?? [];
+        expect(notes.some((note) => note.includes('bulkDiscountFactor'))).toBe(
+            false,
+        );
+        expect(
+            notes.some((note) =>
+                note.includes('defaults to TierBasis.LiveProfit'),
+            ),
+        ).toBe(false);
+        expect(
+            notes.some((note) =>
+                note.includes("$99 remains the engine's modeled figure"),
+            ),
+        ).toBe(false);
+        expect(
+            notes.some((note) => note.includes("'Select 50K | $165 | $109'")),
+        ).toBe(true);
+    });
+
+    it('E8 Futures notes match the code: code E8 is not a site-wide 25%, Zero tiers name their TierBasis, and LadderSearch no longer reads plan.drawdown.lock', () => {
+        const notes = new E8Futures().notes;
+        expect(
+            notes.some((note) =>
+                note.includes('standing, site-wide 25% discount'),
+            ),
+        ).toBe(false);
+        expect(
+            notes.some((note) =>
+                note.includes(
+                    'ContractLimitKind.Tiered keyed on accountProfit',
+                ),
+            ),
+        ).toBe(false);
+        expect(
+            notes.some((note) =>
+                note.includes('reads plan.drawdown.lock directly'),
+            ),
+        ).toBe(false);
+        expect(
+            notes.some((note) =>
+                note.includes('based on locked profit at the end of the day'),
             ),
         ).toBe(true);
     });
@@ -196,6 +320,44 @@ describe('TradingFirm.notes (live-verified 2026-09-10, MFFU only)', () => {
         expect(notes.some((note) => note.includes('$160 -> $120'))).toBe(true);
         expect(
             notes.some((note) => note.includes('hard 5-payout lifetime cap')),
+        ).toBe(true);
+    });
+
+    it("E8 Futures states Signature's modeled minPayoutRequest as the $125 gross value, not the stale dollars(100)", () => {
+        const firm = new E8Futures();
+        const signature = firm.findPlan({
+            accountSize: 50_000,
+            firm: FirmId.E8Futures,
+            variant: E8FuturesVariant.Signature,
+        });
+        if (!signature) throw new Error('E8 Signature 50K plan not found');
+        expect(
+            firm.notes.some((note) =>
+                note.includes('Corrected 2026-09-18 to dollars(100)'),
+            ),
+        ).toBe(false);
+        const note = firm.notes.find((n) =>
+            n.startsWith("Signature's minPayoutRequest"),
+        );
+        expect(note).toContain(`dollars(${signature.minPayoutRequest})`);
+        expect(note).not.toContain('to dollars(100)');
+    });
+
+    it('E8 Futures notes describe margin-based micro caps and list-price Zero fees, without the superseded premises', () => {
+        const notes = new E8Futures().notes;
+        expect(
+            notes.some((note) =>
+                note.includes("doesn't distinguish mini vs micro"),
+            ),
+        ).toBe(false);
+        expect(
+            notes.some((note) => note.includes('MAX $214/$279 (80%/100%')),
+        ).toBe(false);
+        expect(
+            notes.some((note) => note.includes('$1,000 per micro contract')),
+        ).toBe(true);
+        expect(
+            notes.some((note) => note.includes('$328/$428 (80%/100% payout)')),
         ).toBe(true);
     });
 });

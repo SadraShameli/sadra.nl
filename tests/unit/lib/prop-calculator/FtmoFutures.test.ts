@@ -15,6 +15,7 @@ import {
     PayoutFloorEffect,
     type Plan,
     RungSizing,
+    TierBasis,
 } from '~/lib/prop-calculator/core';
 import {
     type FundedCycleTracker,
@@ -288,8 +289,8 @@ describe('FTMO Futures (Growth and Pro, 50K)', () => {
             ) {
                 throw new Error('expected tiered funded contract limits');
             }
-            expect(minis.isEffectiveNextSession).toBe(true);
-            expect(micros.isEffectiveNextSession).toBe(true);
+            expect(minis.tierBasis).toBe(TierBasis.SessionOpenProfit);
+            expect(micros.tierBasis).toBe(TierBasis.SessionOpenProfit);
             for (const [profit, expectedMinis, expectedMicros] of [
                 [0, 2, 20],
                 [999, 2, 20],
@@ -315,8 +316,8 @@ describe('FTMO Futures (Growth and Pro, 50K)', () => {
 
     it('pays 90% of the debited amount at every profit level (Payout Ratio 90/10), with no payout-method fee', () => {
         for (const plan of [growth, pro]) {
-            expect(plan.payoutFromProfit(2000)).toBeCloseTo(1800, 6);
-            expect(plan.payoutFromProfit(10_000)).toBeCloseTo(9000, 6);
+            expect(plan.payoutFromProfit(2000, 0)).toBeCloseTo(1800, 6);
+            expect(plan.payoutFromProfit(10_000, 0)).toBeCloseTo(9000, 6);
             expect(plan.payoutMethodFee).toBe(0);
         }
     });

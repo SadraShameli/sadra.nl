@@ -256,6 +256,7 @@ export function stepFundedDay(options: FundedDayStepOptions): {
         dayPolicy,
         idleDayProbability,
         intradayPathStepsPerR,
+        lastPayoutBalance: tracker.lastPayoutBalance,
         payoutsIssued: tracker.payoutsIssued,
         phase: TradingPhase.Funded,
         plan,

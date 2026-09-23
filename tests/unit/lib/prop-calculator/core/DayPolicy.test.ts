@@ -8,10 +8,15 @@ import {
     dollars,
     FirmId,
     fraction,
+    ladderRungSchema,
+    ladderRungsSchema,
     type Plan,
     type PlanId,
+    resolveAffordableRisk,
     resolveFundedTradeRisk,
     RungSizing,
+    stopLossCountSchema,
+    stopTargetDollarsSchema,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
 import { findFirm } from '~/lib/prop-calculator/firms';
@@ -123,5 +128,50 @@ describe('runDay when computeRisk is unset', () => {
         });
 
         expect(state.balance - state.startingBalance).toBe(300);
+    });
+});
+
+describe('the day policy input schemas live in the domain', () => {
+    it('accepts a ladder that ends on a $0 rung', () => {
+        expect(ladderRungsSchema.safeParse([400, 600, 0]).success).toBe(true);
+    });
+
+    it('rejects a $0 first rung', () => {
+        expect(ladderRungsSchema.safeParse([0, 400]).success).toBe(false);
+    });
+
+    it('rejects a positive rung after a $0 rung', () => {
+        const parsed = ladderRungsSchema.safeParse([400, 0, 600]);
+        expect(parsed.success).toBe(false);
+        expect(parsed.error?.issues[0]?.message).toBe(
+            'rung 3 follows a $0 rung and would never trade',
+        );
+    });
+
+    it('rejects an empty ladder and a negative rung', () => {
+        expect(ladderRungsSchema.safeParse([]).success).toBe(false);
+        expect(ladderRungSchema.safeParse(-1).success).toBe(false);
+    });
+
+    it('bounds the stop rule parameters', () => {
+        expect(stopLossCountSchema.safeParse(1).success).toBe(true);
+        expect(stopLossCountSchema.safeParse(0).success).toBe(false);
+        expect(stopLossCountSchema.safeParse(1.5).success).toBe(false);
+        expect(stopTargetDollarsSchema.safeParse(0.5).success).toBe(true);
+        expect(stopTargetDollarsSchema.safeParse(0).success).toBe(false);
+    });
+});
+
+describe('resolveAffordableRisk', () => {
+    it('returns the whole cushion when there is no daily loss limit', () => {
+        expect(resolveAffordableRisk(2000, null, -300)).toBe(2000);
+    });
+
+    it('caps at the daily loss limit headroom left today', () => {
+        expect(resolveAffordableRisk(2000, 1000, -300)).toBe(700);
+    });
+
+    it('caps at the cushion when the cushion is below the headroom', () => {
+        expect(resolveAffordableRisk(500, 1000, 0)).toBe(500);
     });
 });

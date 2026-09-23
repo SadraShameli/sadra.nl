@@ -8,7 +8,12 @@ import {
 import { dollars, fraction } from '~/lib/prop-calculator/core/lib/units';
 
 function context(profit: number, isThresholdLocked = false) {
-    return { isThresholdLocked, peakDayCloseProfit: profit, profit };
+    return {
+        isThresholdLocked,
+        peakDayCloseProfit: profit,
+        profit,
+        sessionOpenProfit: profit,
+    };
 }
 
 describe('the daily-loss-limit resolver cache does not leak across configs', () => {

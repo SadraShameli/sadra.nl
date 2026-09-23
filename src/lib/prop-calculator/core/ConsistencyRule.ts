@@ -5,6 +5,16 @@ export enum ConsistencyBasis {
     Perpetual = 'perpetual',
 }
 
+export enum ConsistencyBoundary {
+    Exclusive = 'exclusive',
+    Inclusive = 'inclusive',
+}
+
+export enum ConsistencyNonPositiveProfit {
+    Passes = 'passes',
+    Violates = 'violates',
+}
+
 export enum ConsistencyScope {
     Both = 'both',
     Eval = 'eval',
@@ -18,11 +28,17 @@ export enum ConsistencyViolationEffect {
 }
 
 export class ConsistencyRule {
+    static formatShare(share: number): string {
+        return `${Math.round(share * 10_000) / 100}%`;
+    }
+
     constructor(
         readonly scope: ConsistencyScope,
         readonly maxBestDayShare: Fraction0to1,
         readonly basis: ConsistencyBasis = ConsistencyBasis.Cycle,
         readonly violationEffect: ConsistencyViolationEffect = ConsistencyViolationEffect.Fail,
+        readonly boundary: ConsistencyBoundary = ConsistencyBoundary.Exclusive,
+        readonly nonPositiveProfit: ConsistencyNonPositiveProfit = ConsistencyNonPositiveProfit.Passes,
     ) {}
 
     appliesToEval(): boolean {
@@ -43,11 +59,36 @@ export class ConsistencyRule {
         return this.basis === ConsistencyBasis.Perpetual;
     }
 
+    shareLabel(): string {
+        const qualifiers = [
+            ...(this.boundary === ConsistencyBoundary.Inclusive
+                ? ['inclusive']
+                : []),
+            ...(this.nonPositiveProfit === ConsistencyNonPositiveProfit.Violates
+                ? ['fails on a net-losing cycle']
+                : []),
+        ];
+        const share = ConsistencyRule.formatShare(this.maxBestDayShare);
+        return qualifiers.length === 0
+            ? share
+            : `${share} (${qualifiers.join(', ')})`;
+    }
+
     isViolated(bestDayProfit: number, totalProfit: number): boolean {
-        return (
-            totalProfit > 0 &&
-            bestDayProfit > 0 &&
-            bestDayProfit / totalProfit > this.maxBestDayShare
-        );
+        if (totalProfit <= 0) {
+            return (
+                this.nonPositiveProfit === ConsistencyNonPositiveProfit.Violates
+            );
+        }
+        if (bestDayProfit <= 0) return false;
+        const bestDayShare = bestDayProfit / totalProfit;
+        switch (this.boundary) {
+            case ConsistencyBoundary.Exclusive: {
+                return bestDayShare > this.maxBestDayShare;
+            }
+            case ConsistencyBoundary.Inclusive: {
+                return bestDayShare >= this.maxBestDayShare;
+            }
+        }
     }
 }

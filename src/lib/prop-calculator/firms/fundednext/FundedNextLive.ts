@@ -16,6 +16,7 @@ export const FUNDEDNEXT_LIVE_DEFAULT_CUSHION_PERCENT: LiveCushionPercent = {
 const STARTING_BALANCE = dollars(2000);
 const LOCK_OFFSET = -1000;
 const FULL_SPLIT_WITHDRAWAL_CAP = dollars(5000);
+const MIN_PAYOUT_REQUEST = dollars(100);
 
 export function buildFundedNextLivePlan(
     cushionPercent: LiveCushionPercent = FUNDEDNEXT_LIVE_DEFAULT_CUSHION_PERCENT,
@@ -31,6 +32,7 @@ export function buildFundedNextLivePlan(
                 lockedThreshold: lockThresholdAt(LOCK_OFFSET),
             },
         }),
+        minPayoutRequest: MIN_PAYOUT_REQUEST,
         payoutTiers: [
             { thresholdProfit: dollars(0), traderShare: fraction(1) },
             {

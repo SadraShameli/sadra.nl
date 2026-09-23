@@ -10,8 +10,7 @@ import { type Plan } from '../core/Plan';
 import { type PositionSizingConfig } from '../core/PositionSizing';
 import { type Rng } from '../rng';
 
-export const DEFAULT_DAY_BUDGET = 252;
-export const DEFAULT_MAX_PAYOUTS_PER_CARD = 6;
+export { TRADING_DAYS_PER_YEAR as DEFAULT_DAY_BUDGET } from '../core/constants';
 
 export interface AccountTimelineInputs {
     commissionPerRoundTrip?: number;
@@ -21,9 +20,9 @@ export interface AccountTimelineInputs {
     evalDayPolicy?: DayPolicy;
     fundedDayPolicy?: DayPolicy;
     idleDayProbability?: number;
+    initialPurchaseDiscounts?: CouponDiscounts;
     instrument?: InstrumentSymbol;
     maxEvalDays: number;
-    maxPayoutsPerCard?: number;
     minRetainedCushion?: number;
     payoutRequestSize?: number;
     plan: Plan;
@@ -58,7 +57,6 @@ export interface EvalToFundedCycleOptions {
     idleDayProbability?: number;
     maxEvalDays: number;
     maxFundedDays: number;
-    maxPayoutsPerCard?: number;
     minRetainedCushion: Dollars;
     payoutRequestSize: Dollars | undefined;
     plan: Plan;
@@ -85,7 +83,6 @@ export interface PortfolioTimelineInputs {
     idleDayProbability?: number;
     instrument?: InstrumentSymbol;
     maxEvalDays: number;
-    maxPayoutsPerCard?: number;
     minRetainedCushion?: number;
     payoutRequestSize?: number;
     plan: Plan;
@@ -100,6 +97,7 @@ export interface PortfolioTimelineInputs {
 }
 
 export interface PortfolioTimelineResult {
+    accountsSimulated: number;
     breakEvenMonthValues: number[];
     days: number[];
     netP10: number[];

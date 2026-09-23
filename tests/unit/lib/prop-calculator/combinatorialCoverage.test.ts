@@ -370,7 +370,7 @@ describe(`combinatorial coverage: every ${COVERAGE_ARITY}-wise interaction of en
             const outcomeSum =
                 out.bustProbability +
                 out.timeoutProbability +
-                out.passProbability +
+                out.fundedSurvivalProbability +
                 out.fundedBustProbability;
             if (Math.abs(outcomeSum - 1) > 1e-6) {
                 failures.push(
@@ -380,9 +380,10 @@ describe(`combinatorial coverage: every ${COVERAGE_ARITY}-wise interaction of en
 
             const probabilityFields = Object.entries({
                 bustProbability: out.bustProbability,
+                evalPassProbability: out.evalPassProbability,
                 fundedBustProbability: out.fundedBustProbability,
+                fundedSurvivalProbability: out.fundedSurvivalProbability,
                 inactivityClosureProbability: out.inactivityClosureProbability,
-                passProbability: out.passProbability,
                 timeoutProbability: out.timeoutProbability,
             });
             for (const [key, value] of probabilityFields) {
@@ -440,16 +441,15 @@ describe(`combinatorial coverage: every ${COVERAGE_ARITY}-wise interaction of en
                     );
                 } else if (
                     !Number.isFinite(value) &&
-                    out.passProbability !== 0
+                    out.evalPassProbability !== 0
                 ) {
                     failures.push(
-                        `row ${index} (${describeRow(row)}): ${key}=${value} is infinite despite passProbability=${out.passProbability} (only allowed when passProbability is 0)`,
+                        `row ${index} (${describeRow(row)}): ${key}=${value} is infinite despite evalPassProbability=${out.evalPassProbability} (only allowed when evalPassProbability is 0)`,
                     );
                 }
             }
 
-            const reachedFundedProbability =
-                out.passProbability + out.fundedBustProbability;
+            const reachedFundedProbability = out.evalPassProbability;
             if (
                 out.expectedPayoutCount === 0 &&
                 reachedFundedProbability >= MEANINGFUL_FUNDED_FRACTION &&

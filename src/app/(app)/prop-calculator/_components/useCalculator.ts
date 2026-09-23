@@ -7,7 +7,6 @@ import {
     type DayPolicy,
     type DayStopRule,
     type InstrumentSymbol,
-    percent,
     type Plan,
     type RungSizing,
     type SimInputs,
@@ -22,6 +21,7 @@ import {
     calculatorReducer,
     defaultCalculatorState,
 } from './calculatorReducer';
+import { toCouponDiscounts } from './couponDiscounts';
 import { riskPercentToDollars } from './riskConversion';
 import {
     type CalculatorState,
@@ -145,23 +145,19 @@ export function useCalculator(): UseCalculatorReturn {
         [state.sizingMode, state.riskDollars, state.riskPercent, state.plan],
     );
 
-    const effectiveActivationDiscount: number = state.linkActivationDiscount
-        ? state.evalDiscountPercent
-        : state.activationDiscountPercent;
-
     const simInputs = useMemo(
         () => ({
             commissionPerRoundTrip: state.commissionPerRoundTrip,
             copyAccounts: state.copyAccounts,
             dayStop: state.dayStop,
-            discounts: {
-                activationPercent: percent(effectiveActivationDiscount),
-                evalPercent: percent(state.evalDiscountPercent),
-                monthlySubscriptionPercent: percent(
+            discounts: toCouponDiscounts({
+                activationDiscountPercent: state.activationDiscountPercent,
+                evalDiscountPercent: state.evalDiscountPercent,
+                linkActivationDiscount: state.linkActivationDiscount,
+                monthlySubscriptionDiscountPercent:
                     state.monthlySubscriptionDiscountPercent,
-                ),
-                resetPercent: percent(state.resetDiscountPercent),
-            },
+                resetDiscountPercent: state.resetDiscountPercent,
+            }),
             evalDayPolicy: state.evalDayPolicy ?? undefined,
             fundedHorizonDays: state.fundedHorizonDays,
             idleDayProbability: state.idleDayProbability,
@@ -191,7 +187,8 @@ export function useCalculator(): UseCalculatorReturn {
             state.trials,
             state.seed,
             state.evalDiscountPercent,
-            effectiveActivationDiscount,
+            state.activationDiscountPercent,
+            state.linkActivationDiscount,
             state.monthlySubscriptionDiscountPercent,
             state.resetDiscountPercent,
             state.commissionPerRoundTrip,

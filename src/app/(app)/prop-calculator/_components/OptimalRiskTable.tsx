@@ -10,6 +10,7 @@ import InfoPopover from '~/components/ui/InfoPopover';
 import {
     formatCurrency,
     formatDays,
+    formatOptionalPercent,
     formatPercent,
     formatStreak,
 } from '~/lib/format';
@@ -101,11 +102,18 @@ export default function OptimalRiskTable({
                 id: 'risk',
             },
             {
-                accessorFn: (r) => r.out.passProbability,
+                accessorFn: (r) => r.out.evalPassProbability,
                 cell: ({ row }) =>
-                    formatPercent(row.original.out.passProbability),
-                header: 'Pass%',
-                id: 'pass',
+                    formatPercent(row.original.out.evalPassProbability),
+                header: 'Eval pass',
+                id: 'evalPass',
+            },
+            {
+                accessorFn: (r) => r.out.fundedSurvivalProbability,
+                cell: ({ row }) =>
+                    formatPercent(row.original.out.fundedSurvivalProbability),
+                header: 'Funded survive',
+                id: 'fundedSurvive',
             },
             {
                 accessorFn: (r) => r.out.bustProbability,
@@ -128,11 +136,12 @@ export default function OptimalRiskTable({
                 id: 'monthlyNet',
             },
             {
-                accessorFn: (r) => r.out.roiOnCost.value,
+                accessorFn: (r) => r.out.roiOnCost.value ?? undefined,
                 cell: ({ row }) =>
-                    formatPercent(row.original.out.roiOnCost.value),
+                    formatOptionalPercent(row.original.out.roiOnCost.value),
                 header: 'ROI',
                 id: 'roi',
+                sortUndefined: 'last',
             },
             {
                 accessorFn: (r) => r.out.maxLosingStreakP95,

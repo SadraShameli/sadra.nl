@@ -124,6 +124,9 @@ export function solveAverageRewardPolicy(
             maxEvalDays: objective.maxEvalDays,
             plan: objective.plan,
             rrRatio: config.rrRatio,
+            terminalValueAtFail:
+                objective.entryCost(ratePerDay) -
+                objective.retryCost(ratePerDay),
             terminalValueAtPass:
                 fundedResult.initialValue - objective.activationCost(),
             winrate: config.winrate,

@@ -21,15 +21,22 @@ const MAX_CONSECUTIVE_IDLE_DAYS = 7;
 
 const DEVELOPMENT_DRAWDOWN_AMOUNT = dollars(1250);
 const DEVELOPMENT_DAILY_LOSS_LIMIT = dollars(1000);
-const DEVELOPMENT_MAX_CONTRACTS = contracts(2);
+const DEVELOPMENT_MAX_MINI_CONTRACTS = contracts(2);
+const DEVELOPMENT_MAX_MICRO_CONTRACTS = contracts(20);
 
 export function buildTptLiveDevelopmentPlan(
     cushionPercent: LiveCushionPercent = TPT_LIVE_DEFAULT_CUSHION_PERCENT,
 ): LivePlan {
     return new LivePlan({
-        contractLimit: {
-            kind: ContractLimitKind.Flat,
-            maxContracts: DEVELOPMENT_MAX_CONTRACTS,
+        contractLimits: {
+            micros: {
+                kind: ContractLimitKind.Flat,
+                maxContracts: DEVELOPMENT_MAX_MICRO_CONTRACTS,
+            },
+            minis: {
+                kind: ContractLimitKind.Flat,
+                maxContracts: DEVELOPMENT_MAX_MINI_CONTRACTS,
+            },
         },
         cushionPercent,
         label: 'Take Profit Trader PRO+ Development',
@@ -45,6 +52,7 @@ export function buildTptLiveDevelopmentPlan(
             },
         }),
         maxConsecutiveIdleDays: MAX_CONSECUTIVE_IDLE_DAYS,
+        payoutFloor: dollars(0),
         payoutTiers: [
             { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
         ],
@@ -67,6 +75,7 @@ export function buildTptLivePlan(
             },
         }),
         maxConsecutiveIdleDays: MAX_CONSECUTIVE_IDLE_DAYS,
+        payoutFloor: dollars(0),
         payoutTiers: [
             { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
         ],

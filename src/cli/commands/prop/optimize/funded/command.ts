@@ -1,9 +1,12 @@
 import { defineCommand } from 'citty';
+import { z } from 'zod';
 
 import {
     planArguments,
     planResolver,
     readLadder,
+    readNumberList,
+    singlePathGranularityArgument,
     TablePrinter,
     tradingArguments,
     TradingInputs,
@@ -11,15 +14,22 @@ import {
 import { ui } from '~/cli/ui';
 import { formatCurrency, formatPercent } from '~/lib/format';
 import {
+    type DayStopRule,
     fraction,
     type SimInputs,
     type SimOutputs,
     simulate,
 } from '~/lib/prop-calculator';
 
-interface Candidate {
+export interface Candidate {
     label: string;
     overrides: Partial<SimInputs>;
+}
+
+export interface FundedCandidateArguments {
+    flat: string;
+    'funded-ladder'?: string;
+    percent: string;
 }
 
 interface ScoredCandidate {
@@ -36,9 +46,11 @@ export default defineCommand({
     args: {
         ...planArguments,
         ...tradingArguments,
+        ...singlePathGranularityArgument,
         flat: {
             default: '150,200,250,300,400,500',
-            description: 'Comma-separated flat $/trade funded-phase candidates',
+            description:
+                "Comma-separated flat $/trade funded-phase candidates. Pass '' to skip flat candidates.",
             type: 'string',
         },
         'funded-ladder': {
@@ -49,7 +61,7 @@ export default defineCommand({
         percent: {
             default: '5,7.5,10,15',
             description:
-                'Comma-separated percent-of-cushion funded-phase candidates',
+                "Comma-separated percent-of-cushion funded-phase candidates. Pass '' to skip percent candidates.",
             type: 'string',
         },
         sort: {
@@ -72,44 +84,10 @@ export default defineCommand({
             const inputs = TradingInputs.parse(context.args);
             const base = inputs.toSimInputs(plan);
             const sort = context.args.sort;
-            const fundedLadder = readLadder(context.args['funded-ladder']);
-
-            const candidates: Candidate[] = [
-                ...readCandidateList(context.args.flat, 'flat').map(
-                    (dollar): Candidate => ({
-                        label: `flat $${dollar}`,
-                        overrides: {
-                            fundedCushionPercent: undefined,
-                            fundedRiskPerTrade: dollar,
-                        },
-                    }),
-                ),
-                ...readCandidateList(context.args.percent, 'percent').map(
-                    (pct): Candidate => ({
-                        label: `${pct}% cushion`,
-                        overrides: {
-                            fundedCushionPercent: fraction(pct / 100),
-                            fundedRiskPerTrade: undefined,
-                        },
-                    }),
-                ),
-                ...(fundedLadder
-                    ? [
-                          {
-                              label: `ladder ${fundedLadder.join('/')}`,
-                              overrides: {
-                                  fundedCushionPercent: undefined,
-                                  fundedDayPolicy: {
-                                      ladder: fundedLadder,
-                                      maxLossesPerDay: null,
-                                      stopRule: inputs.dayStop,
-                                  },
-                                  fundedRiskPerTrade: undefined,
-                              },
-                          } satisfies Candidate,
-                      ]
-                    : []),
-            ];
+            const candidates = readFundedCandidates(
+                context.args,
+                inputs.dayStop,
+            );
 
             spinner = ui
                 .spinner(
@@ -122,7 +100,7 @@ export default defineCommand({
                 return {
                     candidate,
                     out,
-                    survivors: Math.round(out.passProbability * inputs.trials),
+                    survivors: survivorCount(out, inputs.trials),
                 };
             });
 
@@ -172,6 +150,64 @@ export default defineCommand({
     },
 });
 
+export function readFundedCandidates(
+    arguments_: FundedCandidateArguments,
+    stopRule: DayStopRule,
+): Candidate[] {
+    const fundedLadder = readLadder(
+        arguments_['funded-ladder'],
+        'funded-ladder',
+    );
+    const candidates = [
+        ...readCandidateFamily(
+            arguments_.flat,
+            'flat',
+            z.number().positive(),
+            'a dollar amount > 0',
+        ).map((dollar): Candidate => ({
+            label: `flat $${dollar}`,
+            overrides: {
+                fundedCushionPercent: undefined,
+                fundedRiskPerTrade: dollar,
+            },
+        })),
+        ...readCandidateFamily(
+            arguments_.percent,
+            'percent',
+            z.number().positive().max(100),
+            'a percent in (0, 100]',
+        ).map((pct): Candidate => ({
+            label: `${pct}% cushion`,
+            overrides: {
+                fundedCushionPercent: fraction(pct / 100),
+                fundedRiskPerTrade: undefined,
+            },
+        })),
+        ...(fundedLadder
+            ? [
+                  {
+                      label: `ladder ${fundedLadder.join('/')}`,
+                      overrides: {
+                          fundedCushionPercent: undefined,
+                          fundedDayPolicy: {
+                              ladder: fundedLadder,
+                              maxLossesPerDay: null,
+                              stopRule,
+                          },
+                          fundedRiskPerTrade: undefined,
+                      },
+                  } satisfies Candidate,
+              ]
+            : []),
+    ];
+    if (candidates.length === 0) {
+        throw new Error(
+            'No funded policies to test: give at least one of --flat, --percent or --funded-ladder',
+        );
+    }
+    return candidates;
+}
+
 export function sortDescription(sort: SortKey, base: SimInputs): string {
     switch (sort) {
         case 'cycle': {
@@ -184,18 +220,20 @@ export function sortDescription(sort: SortKey, base: SimInputs): string {
     }
 }
 
-function readCandidateList(raw: string, name: string): number[] {
-    const parts = raw
-        .split(',')
-        .map((part) => part.trim())
-        .filter((part) => part.length > 0)
-        .map(Number);
-    const isOutOfRange =
-        name === 'percent'
-            ? (part: number) => part <= 0 || part > 100
-            : (part: number) => part <= 0;
-    if (parts.some((part) => !Number.isFinite(part) || isOutOfRange(part))) {
-        throw new Error(`Invalid --${name} "${raw}"`);
-    }
-    return parts;
+export function survivorCount(
+    out: Pick<SimOutputs, 'fundedSurvivalProbability'>,
+    trials: number,
+): number {
+    return Math.round(out.fundedSurvivalProbability * trials);
+}
+
+function readCandidateFamily(
+    raw: string,
+    name: string,
+    itemSchema: z.ZodType<number, number>,
+    expectation: string,
+): number[] {
+    return raw.trim() === ''
+        ? []
+        : readNumberList(raw, name, itemSchema, expectation);
 }

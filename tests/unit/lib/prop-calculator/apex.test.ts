@@ -11,7 +11,9 @@ import {
     flatDayPolicy,
     fraction,
     maxContractsAt,
+    percent,
     resolveDailyLossLimit,
+    RetryKind,
     RungSizing,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
@@ -33,7 +35,12 @@ function freshStats(startingBalance: number) {
 const firm = new ApexTraderFunding();
 
 function atProfit(profit: number): DailyLossLimitContext {
-    return { isThresholdLocked: false, peakDayCloseProfit: 0, profit };
+    return {
+        isThresholdLocked: false,
+        peakDayCloseProfit: 0,
+        profit,
+        sessionOpenProfit: profit,
+    };
 }
 
 function findPlan(accountSize: 50_000, variant: ApexVariant) {
@@ -64,7 +71,7 @@ describe('Apex payout ladder', () => {
         const justEnough = simulate({ ...base, fundedHorizonDays: 40 });
         const wayMore = simulate({ ...base, fundedHorizonDays: 400 });
 
-        expect(justEnough.passProbability).toBe(1);
+        expect(justEnough.fundedSurvivalProbability).toBe(1);
         expect(justEnough.fundedBustProbability).toBe(0);
         expect(justEnough.expectedGrossPayout).toBeCloseTo(LIFETIME_CAP, 6);
 
@@ -130,7 +137,7 @@ describe('Apex qualifying-day threshold', () => {
             winrate: 1,
         });
 
-        expect(out.passProbability).toBe(1);
+        expect(out.fundedSurvivalProbability).toBe(1);
         expect(out.expectedGrossPayout).toBe(0);
         expect(out.fundedBustProbability).toBe(0);
     });
@@ -266,7 +273,7 @@ describe('Apex eval reset fee', () => {
     it('charges the variant-specific eval price on reset, not the other variant’s price', () => {
         const eod = findPlan(50_000, ApexVariant.Eod);
         const intraday = findPlan(50_000, ApexVariant.Intraday);
-        expect(eod.fees.reset).toBe(550);
+        expect(eod.fees.reset).toBe(590);
         expect(intraday.fees.reset).toBe(249);
         expect(intraday.fees.reset).not.toBe(eod.fees.reset);
     });
@@ -290,6 +297,47 @@ describe('Apex eval reset fee', () => {
         expect(out.costBreakdown.resetFeesTotal).toBe(2 * intraday.fees.reset);
         expect(out.costBreakdown.resetFeesTotal).toBe(2 * 249);
     });
+});
+
+describe('Apex 50K fees match the homepage product picker (window.productPickerConfig, dateModified 2026-08-25, user-pasted 2026-09-23)', () => {
+    it('prices the EOD eval at $590 with a $90 PA activation, and re-buys at the $590 eval price', () => {
+        const eod = findPlan(50_000, ApexVariant.Eod);
+        expect(eod.fees.oneTimeEval).toBe(590);
+        expect(eod.fees.activation).toBe(90);
+        expect(eod.fees.reset).toBe(590);
+        expect(eod.fees.monthlySubscription).toBe(0);
+    });
+
+    it('leaves the Intraday eval at $249 with a $59 PA activation, re-buying at $249', () => {
+        const intraday = findPlan(50_000, ApexVariant.Intraday);
+        expect(intraday.fees.oneTimeEval).toBe(249);
+        expect(intraday.fees.activation).toBe(59);
+        expect(intraday.fees.reset).toBe(249);
+        expect(intraday.fees.monthlySubscription).toBe(0);
+    });
+});
+
+describe('Apex has no reset product (Evaluation Plan Fees and Access Explained: "There are no reset fees")', () => {
+    const resetOnlyCoupon = {
+        activationPercent: percent(0),
+        evalPercent: percent(0),
+        resetPercent: percent(50),
+    };
+
+    it.each([ApexVariant.Eod, ApexVariant.Intraday])(
+        'models the %s retry as a re-buy',
+        (variant) => {
+            expect(findPlan(50_000, variant).fees.retry).toBe(RetryKind.Rebuy);
+        },
+    );
+
+    it.each([ApexVariant.Eod, ApexVariant.Intraday])(
+        'keeps the %s retry at the full re-buy price under a reset-only coupon',
+        (variant) => {
+            const plan = findPlan(50_000, variant);
+            expect(plan.retryFee(resetOnlyCoupon)).toBe(plan.fees.oneTimeEval);
+        },
+    );
 });
 
 describe('Apex evaluation time limit', () => {
