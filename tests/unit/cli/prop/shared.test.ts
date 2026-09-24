@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
 import {
+    describeDll,
     describeFundedContracts,
     describeShare,
     describeStopRule,
@@ -36,12 +37,15 @@ import { NOT_APPLICABLE } from '~/lib/format';
 import {
     AlphaFuturesVariant,
     ApexVariant,
+    buildApexLivePlan,
     ConsistencyRule,
     ConsistencyScope,
     ContractLimitKind,
     contracts,
+    DailyLossLimitKind,
     type DayStopRule,
     DayStopRuleKind,
+    dollars,
     E8FuturesVariant,
     findFirm,
     FirmId,
@@ -644,5 +648,39 @@ describe("describeShare (N-43, N-45 display): the consistency cell reads the rul
     it('shows none when there is no rule', () => {
         expect(describeShare(null)).toBe('none');
         expect(describeShare(undefined)).toBe('none');
+    });
+});
+
+describe('describeDll prints a no-limit tier (WP22b)', () => {
+    it('shows the Apex Live Level 1 no-limit tier next to its $5000-$10000 range', () => {
+        const config = buildApexLivePlan().liveDailyLossLimit;
+        if (config === null) throw new Error('Apex Live has no DLL');
+
+        expect(describeDll(config, false)).toBe(
+            '$5000-$10000, none on some tiers',
+        );
+    });
+
+    it('shows a single limited tier beside an unlimited one', () => {
+        expect(
+            describeDll(
+                {
+                    kind: DailyLossLimitKind.Tiered,
+                    tiers: [
+                        {
+                            dailyLossLimit: null,
+                            maxContracts: contracts(5),
+                            minProfit: 0,
+                        },
+                        {
+                            dailyLossLimit: dollars(2000),
+                            maxContracts: contracts(10),
+                            minProfit: 5000,
+                        },
+                    ],
+                },
+                true,
+            ),
+        ).toBe('$2000, none on some tiers (hard)');
     });
 });

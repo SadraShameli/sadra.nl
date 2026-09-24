@@ -34,7 +34,6 @@ describe('requiredProfit no longer borrows the withdrawal-size minimum as a stan
         tracker.qualifyingDaysAtLastPayout = 0;
 
         const payout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: eod,

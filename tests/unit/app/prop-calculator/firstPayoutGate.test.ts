@@ -30,13 +30,15 @@ const mffPro = planFor({
 });
 
 describe('describeFirstPayoutGate', () => {
-    it('shows the qualifying days and the first-payout profit gate', () => {
-        expect(describeFirstPayoutGate(mffPro)).toBe('14d min · $2.1K buffer');
+    it("shows MFF Pro's calendar-day gate in its own unit and the first-payout profit gate (N-7)", () => {
+        expect(describeFirstPayoutGate(mffPro)).toBe(
+            '14 calendar days from first trade, restarting at each payout · $2.1K buffer',
+        );
     });
 
     it("shows FundedNext Legacy's $500 per-cycle gate, which a $0 first-payout gate alone hides (N-42)", () => {
         expect(describeFirstPayoutGate(legacy)).toBe(
-            '5d min · $0 buffer · $500/cycle',
+            '5 qualifying days · $0 buffer · $500/cycle',
         );
     });
 
@@ -46,7 +48,7 @@ describe('describeFirstPayoutGate', () => {
         });
 
         expect(describeFirstPayoutGate(centGate)).toBe(
-            '5d min · $0 buffer · $0.01/cycle',
+            '5 qualifying days · $0 buffer · $0.01/cycle',
         );
     });
 });

@@ -4,6 +4,7 @@ import {
     type AccountState,
     applyTrade,
     closeTradingDay,
+    contractLimitAt,
     ContractLimitKind,
     DailyLossLimitKind,
     DayStopRuleKind,
@@ -16,7 +17,6 @@ import {
     type Plan,
     points,
     resetForNewDay,
-    resolveContractLimit,
     resolveDailyLossLimit,
     RungSizing,
     TierBasis,
@@ -201,14 +201,11 @@ function selectFundedContracts(
     state: AccountState,
     isMicro: boolean,
 ): null | number {
-    const context = plan.tierProfitContext(state);
-    return resolveContractLimit(
+    return contractLimitAt(
         plan.contractLimits,
         TradingPhase.Funded,
         isMicro,
-        context.profit,
-        context.sessionOpenProfit,
-        context.peakDayCloseProfit,
+        plan.tierProfitContext(state),
     );
 }
 
@@ -313,7 +310,6 @@ function selectFlexStateAfterPayout(plan: Plan) {
         });
     }
     const payout = tryFundedPayout({
-        maxPayouts: Infinity,
         minRetainedCushion: 0,
         payoutRequestSize: undefined,
         plan,

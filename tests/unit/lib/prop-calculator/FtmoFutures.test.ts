@@ -16,6 +16,7 @@ import {
     type Plan,
     RungSizing,
     TierBasis,
+    tierContextFromProfits,
 } from '~/lib/prop-calculator/core';
 import {
     type FundedCycleTracker,
@@ -75,7 +76,6 @@ function requestMaxPayout(
     payoutRequestSize?: number,
 ) {
     return tryFundedPayout({
-        maxPayouts: Infinity,
         minRetainedCushion: 0,
         payoutRequestSize,
         plan,
@@ -302,15 +302,25 @@ describe('FTMO Futures (Growth and Pro, 50K)', () => {
                 [4500, 5, 50],
                 [10_000, 5, 50],
             ] as const) {
-                expect(maxContractsAt(minis, profit, profit)).toBe(
-                    expectedMinis,
-                );
-                expect(maxContractsAt(micros, profit, profit)).toBe(
-                    expectedMicros,
-                );
+                expect(
+                    maxContractsAt(
+                        minis,
+                        tierContextFromProfits(profit, profit),
+                    ),
+                ).toBe(expectedMinis);
+                expect(
+                    maxContractsAt(
+                        micros,
+                        tierContextFromProfits(profit, profit),
+                    ),
+                ).toBe(expectedMicros);
             }
-            expect(maxContractsAt(minis, 3000, 0)).toBe(2);
-            expect(maxContractsAt(minis, 0, 3000)).toBe(5);
+            expect(maxContractsAt(minis, tierContextFromProfits(3000, 0))).toBe(
+                2,
+            );
+            expect(maxContractsAt(minis, tierContextFromProfits(0, 3000))).toBe(
+                5,
+            );
         }
     });
 
@@ -470,7 +480,6 @@ describe('FTMO Futures (Growth and Pro, 50K)', () => {
             const { state, tracker } = lockedFundedAccount(pro, 3000);
             state.qualifyingDays = 5;
             const payout = tryFundedPayout({
-                maxPayouts: Infinity,
                 minRetainedCushion: pro.defaultRetainedCushion(),
                 payoutRequestSize: undefined,
                 plan: pro,

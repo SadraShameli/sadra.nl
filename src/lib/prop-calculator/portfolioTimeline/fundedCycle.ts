@@ -1,7 +1,4 @@
-import {
-    activationFee,
-    feesUntilPassAcrossAttempts,
-} from '../core/FeeSchedule';
+import { evalPhaseCost } from '../core/FeeSchedule';
 import {
     assertPositiveSafeInteger,
     newPhaseStats,
@@ -74,13 +71,13 @@ export function runEvalToFundedCycle(
         return {
             attemptsUsed,
             evalDays: billableEvalDays,
+            fundedResetCharges: [],
             payouts: [],
-            totalCost:
-                feesUntilPassAcrossAttempts(
-                    plan.fees,
-                    failedAttemptDays,
-                    discounts,
-                ) + resetFeesPaid,
+            totalCost: evalPhaseCost(
+                plan.fees,
+                { daysToPass: null, failedAttemptDays, resetFeesPaid },
+                discounts,
+            ),
             totalDays,
         };
     }
@@ -94,14 +91,14 @@ export function runEvalToFundedCycle(
     );
     const sink = new PayoutLog();
 
-    const { daysElapsed: fundedDays } = runFundedDays({
+    const { daysElapsed: fundedDays, fundedResets } = runFundedDays({
         commission,
         dayOffsetBase: totalDays,
         dayPolicy: fundedDayPolicy,
+        discounts,
         equityCurve: null,
         idleDayProbability,
         maxDays: safeMaxFundedDays,
-        maxPayouts: Infinity,
         minRetainedCushion,
         payoutRequestSize,
         plan,
@@ -120,15 +117,17 @@ export function runEvalToFundedCycle(
     return {
         attemptsUsed,
         evalDays: billableEvalDays,
+        fundedResetCharges: fundedResets,
         payouts: sink.events,
-        totalCost:
-            feesUntilPassAcrossAttempts(
-                plan.fees,
-                [...failedAttemptDays, retryResult.attempt.days],
-                discounts,
-            ) +
-            resetFeesPaid +
-            activationFee(plan.fees, discounts),
+        totalCost: evalPhaseCost(
+            plan.fees,
+            {
+                daysToPass: retryResult.attempt.days,
+                failedAttemptDays,
+                resetFeesPaid,
+            },
+            discounts,
+        ),
         totalDays,
     };
 }

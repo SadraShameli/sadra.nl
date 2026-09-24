@@ -1,7 +1,4 @@
-import {
-    activationFee,
-    feesUntilPassAcrossAttempts,
-} from '../core/FeeSchedule';
+import { evalPhaseCost } from '../core/FeeSchedule';
 import { runEvalWithRetries } from './evalPhase';
 import { runFundedHorizon } from './fundedPhase';
 import { TradeTotals } from './PhaseStats';
@@ -71,6 +68,7 @@ export function simulateTrial(options: TrialOptions): TrialResult {
             attempt,
             commission,
             dayPolicy: fundedDayPolicy,
+            discounts,
             fundedHorizonDays,
             idleDayProbability,
             intradayPathStepsPerR,
@@ -107,6 +105,8 @@ export function simulateTrial(options: TrialOptions): TrialResult {
             failedAttemptDays,
             finalBalance: attempt.state.balance,
             firstPayoutDay,
+            fundedResetFeesPaid: fundedHorizon.fundedResetFeesPaid,
+            fundedResetsUsed: fundedHorizon.fundedResetsUsed,
             horizonCredit: fundedHorizon.horizonCredit,
             outcome,
             payoutCount: fundedHorizon.payoutCount,
@@ -131,6 +131,8 @@ export function simulateTrial(options: TrialOptions): TrialResult {
         failedAttemptDays,
         finalBalance: attempt.state.balance,
         firstPayoutDay: null,
+        fundedResetFeesPaid: 0,
+        fundedResetsUsed: 0,
         horizonCredit: 0,
         outcome: finalOutcome,
         payoutCount: 0,
@@ -154,6 +156,8 @@ function finishTrial(arguments_: FinishTrialArguments): TrialResult {
         failedAttemptDays,
         finalBalance,
         firstPayoutDay,
+        fundedResetFeesPaid,
+        fundedResetsUsed,
         horizonCredit,
         outcome,
         payoutCount,
@@ -163,16 +167,12 @@ function finishTrial(arguments_: FinishTrialArguments): TrialResult {
         totals,
     } = arguments_;
     const grossPayout = totalPayout;
-    const attemptDays =
-        daysToPass === null
-            ? failedAttemptDays
-            : [...failedAttemptDays, daysToPass];
-    const evalPhaseCost =
-        feesUntilPassAcrossAttempts(plan.fees, attemptDays, discounts) +
-        resetFeesPaid;
-    const totalCost = hasPassedEval(outcome)
-        ? evalPhaseCost + activationFee(plan.fees, discounts)
-        : evalPhaseCost;
+    const totalCost =
+        evalPhaseCost(
+            plan.fees,
+            { daysToPass, failedAttemptDays, resetFeesPaid },
+            discounts,
+        ) + fundedResetFeesPaid;
     const net = grossPayout - totalCost;
     return {
         attemptsUsed,
@@ -185,6 +185,8 @@ function finishTrial(arguments_: FinishTrialArguments): TrialResult {
         failedAttemptDays,
         finalBalance,
         firstPayoutDay,
+        fundedResetFeesPaid,
+        fundedResetsUsed,
         grossLosses: totals.grossLosses,
         grossPayout,
         grossWins: totals.grossWins,

@@ -3,3 +3,7 @@ export const TRADING_DAYS_PER_MONTH = 21;
 export const TRADING_DAYS_PER_YEAR = TRADING_DAYS_PER_MONTH * 12;
 
 export const BUCKET_EPSILON = 1e-9;
+
+export const SESSION_DAYS_PER_CALENDAR_WEEK = 5;
+
+export const CALENDAR_DAYS_PER_WEEK = 7;

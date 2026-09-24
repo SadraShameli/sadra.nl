@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
     type AccountState,
+    contractLimitAt,
     ContractLimitKind,
     type ContractLimits,
     contracts,
@@ -14,6 +15,7 @@ import {
     points,
     RungSizing,
     TierBasis,
+    tierContextFromProfits,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
 import {
@@ -236,21 +238,64 @@ describe('resolveContractLimit', () => {
         ).toBe(limits.evalMinis);
     });
 
+    it('refuses to size a funded trade from positional profits, so a funded tier on the peak session close cannot silently fall back to the session-open profit', () => {
+        expect(() =>
+            resolveContractLimit(limits, TradingPhase.Funded, false, 0),
+        ).toThrow(/contractLimitAt/);
+        expect(() =>
+            resolveContractLimit(
+                CUMULATIVE_TIER_LIMITS,
+                TradingPhase.Funded,
+                false,
+                0,
+                0,
+            ),
+        ).toThrow(/contractLimitAt/);
+    });
+});
+
+describe('contractLimitAt with a TopStep funded tier', () => {
+    const topstep = new TopStep();
+    const plan = topstep.plans[0];
+    if (!plan) throw new Error('No TopStep plan registered');
+    const limits = plan.contractLimits;
+    if (!limits) throw new Error('TopStep plan has no contractLimits');
+
     it("resolves TopStep's funded tier by accountProfit (profit since funded), matching their $0-based XFA balance display", () => {
         expect(
-            resolveContractLimit(limits, TradingPhase.Funded, false, 0),
+            contractLimitAt(
+                limits,
+                TradingPhase.Funded,
+                false,
+                tierContextFromProfits(0),
+            ),
         ).toBe(2);
         expect(
-            resolveContractLimit(limits, TradingPhase.Funded, false, 1500),
+            contractLimitAt(
+                limits,
+                TradingPhase.Funded,
+                false,
+                tierContextFromProfits(1500),
+            ),
         ).toBe(3);
         expect(
-            resolveContractLimit(limits, TradingPhase.Funded, false, 2000),
+            contractLimitAt(
+                limits,
+                TradingPhase.Funded,
+                false,
+                tierContextFromProfits(2000),
+            ),
         ).toBe(5);
     });
 
     it('would silently put every fresh funded account in the top tier if raw state.balance (which starts at accountSize) were passed instead of accountProfit - callers must pass accountProfit(state)', () => {
         expect(
-            resolveContractLimit(limits, TradingPhase.Funded, false, 50_000),
+            contractLimitAt(
+                limits,
+                TradingPhase.Funded,
+                false,
+                tierContextFromProfits(50_000),
+            ),
         ).toBe(5);
     });
 });
@@ -318,67 +363,63 @@ describe('runDay: position sizing actually caps a trade in the simulated day loo
     });
 });
 
-describe('resolveContractLimit with a day-start-frozen funded tier (SessionOpenProfit)', () => {
+describe('contractLimitAt with a day-start-frozen funded tier (SessionOpenProfit)', () => {
     it('ignores accountProfitAtSessionStart for a plan that has not opted in, keying the funded tier on live profit exactly as before', () => {
         expect(
-            resolveContractLimit(
+            contractLimitAt(
                 LIVE_TIER_LIMITS,
                 TradingPhase.Funded,
                 false,
-                500,
-                0,
+                tierContextFromProfits(500, 0),
             ),
         ).toBe(5);
         expect(
-            resolveContractLimit(
+            contractLimitAt(
                 LIVE_TIER_LIMITS,
                 TradingPhase.Funded,
                 false,
-                0,
-                500,
+                tierContextFromProfits(0, 500),
             ),
         ).toBe(1);
     });
 
     it('caps an opted-in plan at the day-start tier when live profit has already crossed up into a higher one', () => {
         expect(
-            resolveContractLimit(
+            contractLimitAt(
                 FROZEN_TIER_LIMITS,
                 TradingPhase.Funded,
                 false,
-                500,
-                0,
+                tierContextFromProfits(500, 0),
             ),
         ).toBe(1);
     });
 
     it('keeps an opted-in plan on the day-start tier when live profit has fallen out of it, so a losing day does not shrink the cap mid-session', () => {
         expect(
-            resolveContractLimit(
+            contractLimitAt(
                 FROZEN_TIER_LIMITS,
                 TradingPhase.Funded,
                 false,
-                0,
-                500,
+                tierContextFromProfits(0, 500),
             ),
         ).toBe(5);
     });
 
-    it('falls back to live profit when the fifth argument is omitted, keeping every existing four-argument call site identical', () => {
+    it('falls back to live profit when the tier context omits the session-open profit', () => {
         expect(
-            resolveContractLimit(
+            contractLimitAt(
                 FROZEN_TIER_LIMITS,
                 TradingPhase.Funded,
                 false,
-                500,
+                tierContextFromProfits(500),
             ),
         ).toBe(5);
         expect(
-            resolveContractLimit(
+            contractLimitAt(
                 FROZEN_TIER_LIMITS,
                 TradingPhase.Funded,
                 false,
-                0,
+                tierContextFromProfits(0),
             ),
         ).toBe(1);
     });
@@ -462,29 +503,25 @@ describe('runDay: an opted-in tiered funded cap is resolved once per calendar da
     });
 });
 
-describe('resolveContractLimit with a cumulative funded tier (PeakSessionCloseProfit)', () => {
+describe('contractLimitAt with a cumulative funded tier (PeakSessionCloseProfit)', () => {
     it('keeps the higher tier a prior session close reached, even after the profit fell back below it', () => {
         expect(
-            resolveContractLimit(
+            contractLimitAt(
                 CUMULATIVE_TIER_LIMITS,
                 TradingPhase.Funded,
                 false,
-                0,
-                0,
-                500,
+                tierContextFromProfits(0, 0, 500),
             ),
         ).toBe(5);
     });
 
     it('stays on the base tier when no session close has reached the next breakpoint', () => {
         expect(
-            resolveContractLimit(
+            contractLimitAt(
                 CUMULATIVE_TIER_LIMITS,
                 TradingPhase.Funded,
                 false,
-                0,
-                0,
-                200,
+                tierContextFromProfits(0, 0, 200),
             ),
         ).toBe(1);
     });

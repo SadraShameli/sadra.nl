@@ -15,6 +15,7 @@ import {
     PayoutBuffer,
     type PlanInit,
     RetryKind,
+    sessionDaysForCalendarDays,
     TierBasis,
     TradingFirm,
 } from '~/lib/prop-calculator/core';
@@ -74,9 +75,8 @@ const SIZES = [
 const MIN_REQUEST_AMOUNT = 500;
 const MAX_LIFETIME_PAYOUTS = 6;
 const EVAL_ACCESS_CALENDAR_DAYS = 30;
-const TRADING_DAYS_PER_CALENDAR_WEEK = 5;
-const MAX_EVAL_TRADING_DAYS = Math.round(
-    (EVAL_ACCESS_CALENDAR_DAYS * TRADING_DAYS_PER_CALENDAR_WEEK) / 7,
+const MAX_EVAL_TRADING_DAYS = sessionDaysForCalendarDays(
+    EVAL_ACCESS_CALENDAR_DAYS,
 );
 const INACTIVITY_CLOSURE_DAYS = 30;
 

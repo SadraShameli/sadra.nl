@@ -34,6 +34,7 @@ import {
     type OneTimeEarlyWithdrawal,
     PayoutDayGateBasis,
 } from './FundedPayoutCycle';
+import { type FundedResetPolicy } from './FundedReset';
 import {
     type Dollars,
     dollars,
@@ -107,6 +108,7 @@ export interface PlanInit {
     fundedDailyLossLimit?: DailyLossLimitConfig;
     fundedDailyLossLimitBreach?: DailyLossLimitBreachEffect;
     fundedDrawdown?: DrawdownStrategy;
+    fundedReset?: FundedResetPolicy;
     id: PlanId;
     isInstantFunded?: boolean;
     label: string;
@@ -137,6 +139,7 @@ export interface PlanInit {
     payoutTiers: readonly PayoutTier[];
     payoutTiersFromPayout?: readonly PayoutCountSplitTier[];
     profitTarget: Dollars;
+    takesFundedReset?: boolean;
     takesOneTimeEarlyWithdrawal?: boolean;
 }
 
@@ -171,6 +174,8 @@ export abstract class Plan {
     readonly fundedDailyLossLimitBreach: DailyLossLimitBreachEffect;
 
     readonly fundedDrawdown: DrawdownStrategy;
+
+    readonly fundedReset: FundedResetPolicy | null;
 
     readonly fullWithdrawalHardBreach: boolean;
 
@@ -231,6 +236,8 @@ export abstract class Plan {
     readonly payoutTiers: readonly PayoutTier[];
 
     readonly profitTarget: Dollars;
+
+    readonly takesFundedReset: boolean;
 
     readonly takesOneTimeEarlyWithdrawal: boolean;
 
@@ -312,6 +319,29 @@ export abstract class Plan {
         }
 
         this.fundedDrawdown = init.fundedDrawdown ?? init.drawdown;
+        this.fundedReset = init.fundedReset ?? null;
+        this.takesFundedReset = init.takesFundedReset ?? false;
+
+        if (
+            this.fundedReset !== null &&
+            (!Number.isFinite(this.fundedReset.fee) ||
+                this.fundedReset.fee < 0 ||
+                !Number.isSafeInteger(this.fundedReset.maxPerAccount) ||
+                this.fundedReset.maxPerAccount <= 0 ||
+                !Number.isSafeInteger(this.fundedReset.windowCalendarDays) ||
+                this.fundedReset.windowCalendarDays <= 0)
+        ) {
+            throw new Error(
+                `${init.label}: fundedReset needs a finite, non-negative fee and a positive whole maxPerAccount and windowCalendarDays, got ${this.fundedReset.fee}, ${this.fundedReset.maxPerAccount} and ${this.fundedReset.windowCalendarDays}`,
+            );
+        }
+
+        if (this.takesFundedReset && this.fundedReset === null) {
+            throw new Error(
+                `${init.label}: takesFundedReset is set but the plan offers no fundedReset`,
+            );
+        }
+
         this.fullWithdrawalHardBreach = init.fullWithdrawalHardBreach ?? false;
         this.id = init.id;
         this.isInstantFunded = init.isInstantFunded ?? false;
@@ -772,7 +802,7 @@ export abstract class Plan {
         const profit = this.profitFor(state);
         return {
             peakDayCloseProfit: state.peakDayCloseProfit,
-            peakIntradayProfit: state.peakIntradayProfit,
+            peakIntradayProfit: state.peakIntradayProfit ?? null,
             profit,
             sessionOpenProfit: profit - state.todayPnL,
         };

@@ -4,6 +4,7 @@ import {
     type RungSizing,
 } from '../core/DayPolicy';
 import { type CouponDiscounts } from '../core/FeeSchedule';
+import { type FundedResetCharge } from '../core/FundedReset';
 import { type InstrumentSymbol } from '../core/Instruments';
 import { type Dollars, type Fraction0to1 } from '../core/lib/units';
 import { type Plan } from '../core/Plan';
@@ -44,6 +45,7 @@ export interface AccountTimelineResult {
 export interface CardResult {
     attemptsUsed: number;
     evalDays: number;
+    fundedResetCharges: readonly FundedResetCharge[];
     payouts: readonly PayoutEvent[];
     totalCost: number;
     totalDays: number;

@@ -70,6 +70,7 @@ export enum CalculatorActionType {
     SetSeed = 'set-seed',
     SetSizingMode = 'set-sizing-mode',
     SetStopPoints = 'set-stop-points',
+    SetTakesFundedReset = 'set-takes-funded-reset',
     SetTakesOneTimeEarlyWithdrawal = 'set-takes-one-time-early-withdrawal',
     SetTradesPerDay = 'set-trades-per-day',
     SetTrials = 'set-trials',
@@ -100,6 +101,10 @@ export type CalculatorAction =
     | {
           isLinked: boolean;
           type: CalculatorActionType.SetLinkActivationDiscount;
+      }
+    | {
+          isTaken: boolean;
+          type: CalculatorActionType.SetTakesFundedReset;
       }
     | {
           isTaken: boolean;
@@ -202,6 +207,109 @@ export function buildDefaultLabScenarios(): LabScenario[] {
 }
 
 export function calculatorReducer(
+    state: CalculatorState,
+    action: CalculatorAction,
+): CalculatorState {
+    return keepOptInsOnOfferingPlan(reduceCalculator(state, action));
+}
+
+export function defaultCalculatorState(): CalculatorState {
+    return {
+        activationDiscountPercent: 0,
+        commissionPerRoundTrip: 0,
+        copyAccounts: 1,
+        dayStop: { kind: DayStopRuleKind.None },
+        evalDayPolicy: null,
+        evalDiscountPercent: 0,
+        firm: DEFAULT_FIRM,
+        firmMemory: {},
+        fundedHorizonDays: 60,
+        idleDayProbability: 0,
+        instrument: null,
+        labScenarios: buildDefaultLabScenarios(),
+        linkActivationDiscount: false,
+        maxAttempts: 1,
+        maxEvalDays: 60,
+        monthlySubscriptionDiscountPercent: 0,
+        payoutRequestSize: null,
+        plan: DEFAULT_PLAN,
+        portfolio: [
+            {
+                activationDiscountPercent: 0,
+                count: 20,
+                evalDiscountPercent: 0,
+                firmId: FirmId.Apex,
+                id: 'default-apex-50k-eod',
+                instrument: null,
+                linkActivationDiscount: false,
+                monthlySubscriptionDiscountPercent: 0,
+                planId: {
+                    accountSize: 50_000,
+                    firm: FirmId.Apex,
+                    variant: ApexVariant.Eod,
+                },
+                resetDiscountPercent: 0,
+                stopPoints: null,
+            },
+        ],
+        resetDiscountPercent: 0,
+        retainedCushion: null,
+        riskDollars: 250,
+        riskPercent: 0.5,
+        rrRatio: 2,
+        rungSizing: DEFAULT_RUNG_SIZING,
+        seed: 42,
+        sizingMode: SizingMode.Dollar,
+        stopPoints: null,
+        takesFundedReset: false,
+        takesOneTimeEarlyWithdrawal: false,
+        tradesPerDay: 1,
+        trials: 2000,
+        winrate: 0.4,
+    };
+}
+
+function defaultLabScenario(): LabScenario {
+    return {
+        accounts: 10,
+        correlation: CorrelationMode.Copy,
+        dayStop: { kind: DayStopRuleKind.None },
+        groups: 1,
+        id: freshId(),
+        instrument: null,
+        label: 'New scenario',
+        riskPerTrade: 250,
+        rrRatio: 2,
+        stopPoints: null,
+        tradesPerDay: 1,
+        winrate: 0.4,
+    };
+}
+
+function freshId(): string {
+    return typeof crypto !== 'undefined' &&
+        typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `lab-${Math.random().toString(36).slice(2, 11)}`;
+}
+
+function keepOptInsOnOfferingPlan(state: CalculatorState): CalculatorState {
+    const isEarlyWithdrawalKept =
+        state.takesOneTimeEarlyWithdrawal &&
+        state.plan.oneTimeEarlyWithdrawal !== null;
+    const isFundedResetKept =
+        state.takesFundedReset && state.plan.fundedReset !== null;
+    return isEarlyWithdrawalKept === state.takesOneTimeEarlyWithdrawal &&
+        isFundedResetKept === state.takesFundedReset
+        ? state
+        : {
+              ...state,
+              takesFundedReset: isFundedResetKept,
+              takesOneTimeEarlyWithdrawal: isEarlyWithdrawalKept,
+          };
+}
+
+function reduceCalculator(
     state: CalculatorState,
     action: CalculatorAction,
 ): CalculatorState {
@@ -508,6 +616,9 @@ export function calculatorReducer(
                 ),
             };
         }
+        case CalculatorActionType.SetTakesFundedReset: {
+            return { ...state, takesFundedReset: action.isTaken };
+        }
         case CalculatorActionType.SetTakesOneTimeEarlyWithdrawal: {
             return { ...state, takesOneTimeEarlyWithdrawal: action.isTaken };
         }
@@ -553,83 +664,4 @@ export function calculatorReducer(
             };
         }
     }
-}
-
-export function defaultCalculatorState(): CalculatorState {
-    return {
-        activationDiscountPercent: 0,
-        commissionPerRoundTrip: 0,
-        copyAccounts: 1,
-        dayStop: { kind: DayStopRuleKind.None },
-        evalDayPolicy: null,
-        evalDiscountPercent: 0,
-        firm: DEFAULT_FIRM,
-        firmMemory: {},
-        fundedHorizonDays: 60,
-        idleDayProbability: 0,
-        instrument: null,
-        labScenarios: buildDefaultLabScenarios(),
-        linkActivationDiscount: false,
-        maxAttempts: 1,
-        maxEvalDays: 60,
-        monthlySubscriptionDiscountPercent: 0,
-        payoutRequestSize: null,
-        plan: DEFAULT_PLAN,
-        portfolio: [
-            {
-                activationDiscountPercent: 0,
-                count: 20,
-                evalDiscountPercent: 0,
-                firmId: FirmId.Apex,
-                id: 'default-apex-50k-eod',
-                instrument: null,
-                linkActivationDiscount: false,
-                monthlySubscriptionDiscountPercent: 0,
-                planId: {
-                    accountSize: 50_000,
-                    firm: FirmId.Apex,
-                    variant: ApexVariant.Eod,
-                },
-                resetDiscountPercent: 0,
-                stopPoints: null,
-            },
-        ],
-        resetDiscountPercent: 0,
-        retainedCushion: null,
-        riskDollars: 250,
-        riskPercent: 0.5,
-        rrRatio: 2,
-        rungSizing: DEFAULT_RUNG_SIZING,
-        seed: 42,
-        sizingMode: SizingMode.Dollar,
-        stopPoints: null,
-        takesOneTimeEarlyWithdrawal: false,
-        tradesPerDay: 1,
-        trials: 2000,
-        winrate: 0.4,
-    };
-}
-
-function defaultLabScenario(): LabScenario {
-    return {
-        accounts: 10,
-        correlation: CorrelationMode.Copy,
-        dayStop: { kind: DayStopRuleKind.None },
-        groups: 1,
-        id: freshId(),
-        instrument: null,
-        label: 'New scenario',
-        riskPerTrade: 250,
-        rrRatio: 2,
-        stopPoints: null,
-        tradesPerDay: 1,
-        winrate: 0.4,
-    };
-}
-
-function freshId(): string {
-    return typeof crypto !== 'undefined' &&
-        typeof crypto.randomUUID === 'function'
-        ? crypto.randomUUID()
-        : `lab-${Math.random().toString(36).slice(2, 11)}`;
 }

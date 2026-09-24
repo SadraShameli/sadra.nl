@@ -3,6 +3,7 @@ import {
     selectTier,
     TierBasis,
     tierBreakpoints,
+    type TierProfitContext,
     tierProfitFor,
 } from './TierBasis';
 
@@ -65,17 +66,14 @@ export function isRungPlaceable(options: {
 
 export function maxContractsAt(
     config: ContractLimitConfig | null,
-    profit: number,
-    profitAtSessionStart: number = profit,
-    peakDayCloseProfit: number = profitAtSessionStart,
+    context: TierProfitContext,
 ): ContractCount | null {
     if (config === null) return null;
     if (config.kind === ContractLimitKind.Flat) return config.maxContracts;
-    const tierProfit = tierProfitFor(config.tierBasis ?? TierBasis.LiveProfit, {
-        peakDayCloseProfit,
-        profit,
-        sessionOpenProfit: profitAtSessionStart,
-    });
+    const tierProfit = tierProfitFor(
+        config.tierBasis ?? TierBasis.LiveProfit,
+        context,
+    );
     return (
         selectTier(config.tiers, tierProfit, (tier) => tier.minBalance)
             ?.maxContracts ?? null

@@ -1,17 +1,19 @@
 import type { ArgsDef } from 'citty';
 
 import { parseArgs } from 'citty';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import optimizeDp, {
     dpArguments,
     EMPIRICAL_MAX_ATTEMPTS,
     empiricalSimInputs,
     empiricalSummaryLines,
+    fundedConsistencyGridNote,
     fundedIneligibilityMessage,
     payoutCountRuleWarning,
     readDpInputs,
     renewalObjective,
+    resolveDpPlan,
 } from '~/cli/commands/prop/optimize/dp/command';
 import {
     ApexVariant,
@@ -31,6 +33,7 @@ import {
     FundedNextVariant,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
+import { solveAverageRewardPolicy } from '~/lib/prop-calculator/core/AverageRewardSolver';
 import { isFundedDpEligible } from '~/lib/prop-calculator/core/FundedStateValue';
 import { PayoutCountTieredPayoutCap } from '~/lib/prop-calculator/core/PayoutCap';
 import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFunding';
@@ -39,6 +42,22 @@ import { FtmoFutures } from '~/lib/prop-calculator/firms/ftmo-futures/FtmoFuture
 import { FundedNext } from '~/lib/prop-calculator/firms/fundednext/FundedNext';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 import { TopStep } from '~/lib/prop-calculator/firms/topstep/TopStep';
+
+vi.mock(
+    import('~/lib/prop-calculator/core/AverageRewardSolver'),
+    async (importOriginal) => {
+        const actual = await importOriginal();
+        return {
+            ...actual,
+            solveAverageRewardPolicy: vi.fn(actual.solveAverageRewardPolicy),
+        };
+    },
+);
+
+vi.mock(import('~/lib/prop-calculator'), async (importOriginal) => {
+    const actual = await importOriginal();
+    return { ...actual, simulate: vi.fn(actual.simulate) };
+});
 
 function apexEodPlan(): Plan {
     const plan = new ApexTraderFunding().findPlan({
@@ -137,6 +156,34 @@ describe('fundedIneligibilityMessage', () => {
     });
 });
 
+describe('fundedConsistencyGridNote (N-65)', () => {
+    it('says nothing for a plan without a funded consistency rule', () => {
+        const plan = new FtmoFutures().findPlan({
+            accountSize: 50_000,
+            firm: FirmId.FtmoFutures,
+            variant: FtmoFuturesVariant.Growth,
+        });
+        if (!plan) throw new Error('FTMO Futures Growth 50K plan not found');
+        expect(plan.fundedConsistencyRule()).toBeNull();
+        expect(fundedConsistencyGridNote(plan)).toBeNull();
+        expect(
+            fundedConsistencyGridNote(topStepNoFeeStandardPlan()),
+        ).toBeNull();
+    });
+
+    it('discloses for MFF Builder that the 6 drawdown cushion grid truncates the balance a best-day rule makes the account build up, so the DP is pessimistic there, while the best day itself never lets a payout through that the real rule denies', () => {
+        const plan = mffBuilderPlan();
+        const note = fundedConsistencyGridNote(plan);
+        expect(note).not.toBeNull();
+        expect(note?.startsWith(`${plan.label}: `)).toBe(true);
+        expect(note).toContain('50%');
+        expect(note).toContain('6 drawdowns');
+        expect(note).toContain('understates');
+        expect(note).toContain('never allows a payout the real rule denies');
+        expect(note?.slice(plan.label.length)).not.toContain('\u{2014}');
+    });
+});
+
 describe('payoutCountRuleWarning', () => {
     it('returns null for Apex EOD: its payoutLadder (6 steps) and maxLifetimePayouts (6) both fit inside the DP payout-count regime cap of 6', () => {
         expect(payoutCountRuleWarning(apexEodPlan())).toBeNull();
@@ -231,6 +278,131 @@ describe('optimize dp arguments', () => {
     });
 });
 
+function resolvedDpPlan(argv: string[]): Plan {
+    return resolveDpPlan(parseArgs<typeof dpArguments>(argv, dpArguments));
+}
+
+describe('optimize dp takes the MFF Pro one-time early withdrawal opt-in (N-64, T30)', () => {
+    it('solves the opted-in rule when --early-withdrawal is passed', () => {
+        expect(
+            resolvedDpPlan([
+                '--firm',
+                'mffu',
+                '--variant',
+                'pro',
+                '--early-withdrawal',
+            ]).takesOneTimeEarlyWithdrawal,
+        ).toBe(true);
+    });
+
+    it('solves the default rule without the flag', () => {
+        expect(
+            resolvedDpPlan(['--firm', 'mffu', '--variant', 'pro'])
+                .takesOneTimeEarlyWithdrawal,
+        ).toBe(false);
+        expect(mffProPlan().takesOneTimeEarlyWithdrawal).toBe(false);
+    });
+
+    it('leaves a plan without the rule unchanged', () => {
+        const plan = resolvedDpPlan([
+            '--firm',
+            'mffu',
+            '--variant',
+            'builder',
+            '--early-withdrawal',
+        ]);
+
+        expect(plan.oneTimeEarlyWithdrawal).toBeNull();
+        expect(plan.takesOneTimeEarlyWithdrawal).toBe(false);
+    });
+});
+
+describe('optimize dp run() warms the firm registry before its first solve (N-63)', () => {
+    it('runs the very first funded solve on the worker pool instead of single-threaded', async () => {
+        const argv = [
+            '--firm',
+            'mffu',
+            '--variant',
+            'rapid-eod',
+            '--eval-days',
+            '2',
+            '--funded-days',
+            '2',
+            '--iterations',
+            '1',
+            '--trials',
+            '10',
+        ];
+        vi.mocked(solveAverageRewardPolicy).mockClear();
+        const exitCode = process.exitCode;
+        try {
+            await optimizeDp.run?.({
+                args: parseArgs<typeof dpArguments>(argv, dpArguments),
+                cmd: optimizeDp,
+                rawArgs: argv,
+            });
+        } finally {
+            process.exitCode = exitCode;
+        }
+
+        const [firstSolve] = vi.mocked(solveAverageRewardPolicy).mock.results;
+        expect(firstSolve?.type).toBe('return');
+        expect(
+            firstSolve?.type === 'return'
+                ? firstSolve.value.fundedResult.workerCount
+                : 0,
+        ).toBeGreaterThan(0);
+    }, 600_000);
+});
+
+describe('optimize dp run() hands the opted-in plan to both the DP objective and the empirical replay (N-64)', () => {
+    it('solves and replays the MFF Pro rule with the one-time early withdrawal taken when --early-withdrawal is passed', async () => {
+        const argv = [
+            '--firm',
+            'mffu',
+            '--variant',
+            'pro',
+            '--early-withdrawal',
+            '--eval-days',
+            '2',
+            '--funded-days',
+            '2',
+            '--iterations',
+            '1',
+            '--trials',
+            '10',
+        ];
+        vi.mocked(solveAverageRewardPolicy).mockClear();
+        vi.mocked(simulate).mockClear();
+        const exitCode = process.exitCode;
+        try {
+            await optimizeDp.run?.({
+                args: parseArgs<typeof dpArguments>(argv, dpArguments),
+                cmd: optimizeDp,
+                rawArgs: argv,
+            });
+        } finally {
+            process.exitCode = exitCode;
+        }
+
+        expect(
+            vi
+                .mocked(solveAverageRewardPolicy)
+                .mock.calls.map(
+                    ([config]) =>
+                        config.objective.plan.takesOneTimeEarlyWithdrawal,
+                ),
+        ).toStrictEqual([true]);
+        expect(
+            vi
+                .mocked(simulate)
+                .mock.calls.map(
+                    ([inputs]) => inputs.plan.takesOneTimeEarlyWithdrawal,
+                ),
+        ).toStrictEqual([true]);
+    }, 180_000);
+});
+
 function parseDpInputs(argv: string[]) {
     return readDpInputs(parseArgs<typeof dpArguments>(argv, dpArguments));
 }
@@ -285,8 +457,13 @@ describe('optimize dp empirical summary (D2)', () => {
     };
     const lines = empiricalSummaryLines(out, out.expectedMonthlyNet, 1);
 
-    it('labels the eval pass rate from evalPassProbability', () => {
-        expect(lines).toContain('eval pass rate: 80.0%');
+    it('labels evalPassProbability as the chance of eventually passing within the retry cap, not a per-attempt pass rate (N-62)', () => {
+        expect(lines).toContain(
+            `eventual eval pass within the ${EMPIRICAL_MAX_ATTEMPTS}-attempt retry cap: 80.0%`,
+        );
+        expect(lines.some((line) => line.startsWith('eval pass rate'))).toBe(
+            false,
+        );
     });
 
     it('adds the funded survive rate as its own line', () => {

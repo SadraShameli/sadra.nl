@@ -3,6 +3,7 @@ import { DEFAULT_RUNG_SIZING } from '../core/DayPolicy';
 import {
     activationFee,
     type CouponDiscounts,
+    evalAttemptDays,
     type FeeSchedule,
     feesUntilPassAcrossAttempts,
     initialEvalFee,
@@ -135,6 +136,8 @@ export function simulate(inputs: SimInputs): SimOutputs {
     let inactivityClosureCount = 0;
     let attemptsSum = 0;
     let resetFeesSum = 0;
+    let fundedResetFeesSum = 0;
+    let fundedResetsSum = 0;
     let subscriptionSum = 0;
     const sampleEquityCurves: number[][] = [];
     const finalBalances: number[] = [];
@@ -181,6 +184,8 @@ export function simulate(inputs: SimInputs): SimOutputs {
         attemptsSum += r.attemptsUsed;
         attemptsArray.push(r.attemptsUsed);
         resetFeesSum += r.resetFeesPaid;
+        fundedResetFeesSum += r.fundedResetFeesPaid;
+        fundedResetsSum += r.fundedResetsUsed;
         subscriptionSum += trialSubscription(plan.fees, r, purchaseDiscounts);
         failedAttemptDaysArray.push(...r.failedAttemptDays);
         grossSpendArray.push(r.totalCost);
@@ -238,12 +243,17 @@ export function simulate(inputs: SimInputs): SimOutputs {
         meanDaysOnPass:
             reachedFundedCount > 0 ? daysToPassSum / reachedFundedCount : 0,
     };
+    const fundedResetFeesPerFundedAccount =
+        reachedFundedCount > 0 ? fundedResetFeesSum / reachedFundedCount : 0;
     const costPerFundedAccount =
-        replacementEconomics(replacementInputs).costPerFundedAccount;
+        replacementEconomics(replacementInputs).costPerFundedAccount +
+        fundedResetFeesPerFundedAccount;
     const costBreakdown = buildCostBreakdown({
+        averageFundedResetFees: fundedResetFeesSum / trials,
         averageResetFees: resetFeesSum / trials,
         averageSubscription: subscriptionSum / trials,
         evalPassProbability,
+        fundedResetFeesPerFundedAccount,
         plan,
         replacementInputs,
     });
@@ -265,6 +275,9 @@ export function simulate(inputs: SimInputs): SimOutputs {
         costBreakdown: {
             activationFee: costBreakdown.activationFee * m,
             evalFee: costBreakdown.evalFee * m,
+            fundedResetFeesPerFundedAccount:
+                costBreakdown.fundedResetFeesPerFundedAccount,
+            fundedResetFeesTotal: costBreakdown.fundedResetFeesTotal * m,
             perAccountActivationFee: costBreakdown.perAccountActivationFee,
             perAccountEvalFee: costBreakdown.perAccountEvalFee,
             resetFeesTotal: costBreakdown.resetFeesTotal * m,
@@ -292,6 +305,7 @@ export function simulate(inputs: SimInputs): SimOutputs {
                 : 0,
         expectedFirstPayoutDay:
             firstPayoutCount > 0 ? firstPayoutSum / firstPayoutCount : 0,
+        expectedFundedResets: fundedResetsSum / trials,
         expectedGrossPayout: expectedGrossPayout * m,
         expectedGrossSpend: expectedGrossSpend * m,
         expectedHorizonCredit: expectedHorizonCredit * m,
@@ -524,9 +538,11 @@ function atLeastProbabilities(
 
 function buildCostBreakdown(arguments_: CostBreakdownArguments): CostBreakdown {
     const {
+        averageFundedResetFees,
         averageResetFees,
         averageSubscription,
         evalPassProbability,
+        fundedResetFeesPerFundedAccount,
         plan,
         replacementInputs,
     } = arguments_;
@@ -536,6 +552,8 @@ function buildCostBreakdown(arguments_: CostBreakdownArguments): CostBreakdown {
     return {
         activationFee: perAccountActivationFee * evalPassProbability,
         evalFee: perAccountEvalFee,
+        fundedResetFeesPerFundedAccount,
+        fundedResetFeesTotal: averageFundedResetFees,
         perAccountActivationFee,
         perAccountEvalFee,
         resetFeesTotal: averageResetFees,
@@ -595,12 +613,8 @@ function trialSubscription(
     result: TrialResult,
     discounts: CouponDiscounts | undefined,
 ): number {
-    const attemptDays =
-        result.daysToPass === null
-            ? result.failedAttemptDays
-            : [...result.failedAttemptDays, result.daysToPass];
     return (
-        feesUntilPassAcrossAttempts(fees, attemptDays, discounts) -
+        feesUntilPassAcrossAttempts(fees, evalAttemptDays(result), discounts) -
         initialEvalFee(fees, discounts)
     );
 }

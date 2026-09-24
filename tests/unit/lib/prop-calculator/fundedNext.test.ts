@@ -202,7 +202,6 @@ describe('FundedNext Legacy payout profit gates (article 14269280, live-fetched 
         tracker.payoutsIssued = payoutsIssued;
         tracker.qualifyingDaysAtLastPayout = payoutsIssued === 0 ? 0 : 26;
         return tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: 300,
             plan,

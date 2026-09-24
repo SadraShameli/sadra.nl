@@ -421,3 +421,26 @@ describe('planRuleLines: per-cycle payout profit gate (N-42)', () => {
         expect(payoutLineOf(alphaStandard)).not.toContain('per cycle');
     });
 });
+
+describe('planRuleLines: payout day gate in its own unit (N-7)', () => {
+    it('prints MFF Pro as calendar days from the first trade, without a qualifying-day qualifier', () => {
+        const line = payoutLineOf({
+            accountSize: 50_000,
+            firm: FirmId.Mffu,
+            variant: MffuVariant.Pro,
+        });
+
+        expect(line).toContain(
+            'day gate 14 calendar days from first trade, restarting at each payout',
+        );
+        expect(line).not.toContain('qualifying days');
+        expect(line).not.toContain('any day counts');
+        expect(line).not.toContain('winning day');
+    });
+
+    it('keeps the qualifying-day qualifier for a qualifying-day gate', () => {
+        expect(payoutLineOf(legacy)).toContain(
+            'day gate 5 qualifying days | winning day >= $200',
+        );
+    });
+});

@@ -18,7 +18,7 @@ export const kpiDescriptions = {
     firstPayout:
         "Calendar day of the first eligible payout, counted from the start of the first eval attempt and averaged over every trial that received a payout, including accounts that later busted. Requires the firm's minimum hold and safety buffer to be met.",
     fundedSurvival:
-        'Share of trials that passed the evaluation and never busted the funded account within the funded horizon. Equals eval pass minus the funded-bust rate: the two differ most for firms whose funded rules are stricter than their eval rules.',
+        'Share of trials that passed the evaluation and never busted the funded account within the funded horizon. A breach repaired by an opted-in funded reset does not count as a bust. Equals eval pass minus the funded-bust rate: the two differ most for firms whose funded rules are stricter than their eval rules.',
     maxDrawdown:
         'Worst peak-to-trough $ drop observed within a trial path. P95 = the drawdown you should expect to face in 1 of 20 attempts.',
     maxLosingStreak:

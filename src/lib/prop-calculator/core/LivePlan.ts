@@ -317,14 +317,11 @@ export class LivePlan {
         instrument: InstrumentSpec,
     ): ContractCount | null {
         if (this.contractLimits === null) return null;
-        const context = this.tierContextOf(state);
         return maxContractsAt(
             instrument.isMicro
                 ? this.contractLimits.micros
                 : this.contractLimits.minis,
-            context.profit,
-            context.sessionOpenProfit,
-            context.peakDayCloseProfit,
+            this.tierContextOf(state),
         );
     }
 
@@ -400,6 +397,7 @@ export class LivePlan {
         const profit = this.tierProfitOf(state);
         return {
             peakDayCloseProfit: state.peakDayCloseProfit,
+            peakIntradayProfit: null,
             profit,
             sessionOpenProfit: profit - state.todayPnL,
         };

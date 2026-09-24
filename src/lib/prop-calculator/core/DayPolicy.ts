@@ -38,9 +38,9 @@ export type DayStopRule =
 
 export interface FundedCycleSnapshot {
     readonly cycleBestDayProfit: number;
+    readonly dayGateProgress: number;
     readonly lastPayoutBalance: number;
     readonly payoutsIssued: number;
-    readonly qualifyingDaysSincePayout: number;
 }
 
 export const DEFAULT_RUNG_SIZING: RungSizing = RungSizing.CapToCushion;

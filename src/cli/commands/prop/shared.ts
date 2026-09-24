@@ -3,7 +3,7 @@ import type { ArgsDef } from 'citty';
 import { z } from 'zod';
 
 import { ui } from '~/cli/ui';
-import { NOT_APPLICABLE } from '~/lib/format';
+import { formatCurrency, NOT_APPLICABLE } from '~/lib/format';
 import {
     ALL_FIRMS,
     type ConsistencyRule,
@@ -17,11 +17,13 @@ import {
     type DayStopRule,
     DayStopRuleKind,
     describeDailyLossLimit,
+    describeFundedResetTerms,
     findFirm,
     FirmId,
     fraction,
     type Fraction0to1,
     fractionSchema,
+    FUNDED_RESET_MECHANICS,
     INSTRUMENTS,
     type InstrumentSpec,
     InstrumentSymbol,
@@ -32,6 +34,7 @@ import {
     type Plan,
     PLAN_AVAILABILITY_LABEL,
     PlanAvailability,
+    type PlanOptIns,
     rankablePlans,
     RungSizing,
     type SimInputs,
@@ -40,7 +43,7 @@ import {
     stopTargetDollarsSchema,
     TRADING_DAYS_PER_YEAR,
     type TradingFirm,
-    withOneTimeEarlyWithdrawalTaken,
+    withPlanOptIns,
 } from '~/lib/prop-calculator';
 
 export interface CouponDiscountArguments {
@@ -55,10 +58,6 @@ export interface CouponDiscountPercents {
     readonly monthlySubscriptionDiscountPercent: Percent0to100;
 }
 
-export interface EarlyWithdrawalArguments {
-    'early-withdrawal'?: boolean;
-}
-
 export interface TableColumn {
     align?: 'left' | 'right';
     label: string;
@@ -69,8 +68,10 @@ export interface TradingArguments
     extends CouponDiscountArguments, PlanSelectorArguments {
     commission: string;
     'copy-accounts': string;
+    'early-withdrawal'?: boolean;
     'eval-days': string;
     'funded-days': string;
+    'funded-reset'?: boolean;
     'funded-risk'?: string;
     'funded-rr'?: string;
     'funded-tpd'?: string;
@@ -120,6 +121,7 @@ export interface TradingInputsInit {
     rungSizing: RungSizing;
     seed: number;
     stopPoints: number | undefined;
+    takesFundedReset: boolean;
     takesOneTimeEarlyWithdrawal: boolean;
     tradesPerDay: number;
     trials: number;
@@ -217,9 +219,7 @@ export class TablePrinter {
 }
 
 export class TradingInputs {
-    static parse(
-        arguments_: EarlyWithdrawalArguments & TradingArguments,
-    ): TradingInputs {
+    static parse(arguments_: TradingArguments): TradingInputs {
         const requestSize = arguments_['request-size'];
         const stopPoints = arguments_['stop-points'];
         const fundedRisk = arguments_['funded-risk'];
@@ -289,6 +289,7 @@ export class TradingInputs {
                 stopPoints === undefined
                     ? undefined
                     : readPositiveNumber(stopPoints, 'stop-points'),
+            takesFundedReset: arguments_['funded-reset'] ?? false,
             takesOneTimeEarlyWithdrawal:
                 arguments_['early-withdrawal'] ?? false,
             tradesPerDay: readPositiveInteger(arguments_.tpd, 'tpd'),
@@ -322,6 +323,7 @@ export class TradingInputs {
     readonly rungSizing: RungSizing;
     readonly seed: number;
     readonly stopPoints: number | undefined;
+    readonly takesFundedReset: boolean;
     readonly takesOneTimeEarlyWithdrawal: boolean;
     readonly tradesPerDay: number;
     readonly trials: number;
@@ -354,6 +356,7 @@ export class TradingInputs {
         this.rungSizing = init.rungSizing;
         this.seed = init.seed;
         this.stopPoints = init.stopPoints;
+        this.takesFundedReset = init.takesFundedReset;
         this.takesOneTimeEarlyWithdrawal = init.takesOneTimeEarlyWithdrawal;
         this.tradesPerDay = init.tradesPerDay;
         this.trials = init.trials;
@@ -374,15 +377,19 @@ export class TradingInputs {
             : undefined;
     }
 
+    toPlanOptIns(): PlanOptIns {
+        return {
+            takesFundedReset: this.takesFundedReset,
+            takesOneTimeEarlyWithdrawal: this.takesOneTimeEarlyWithdrawal,
+        };
+    }
+
     toSimInputs(plan: Plan): SimInputs {
         const cappedPlan =
             this.maxLifetimePayoutsOverride === undefined
                 ? plan
                 : plan.withMaxLifetimePayouts(this.maxLifetimePayoutsOverride);
-        const resolvedPlan = withOneTimeEarlyWithdrawalTaken(
-            cappedPlan,
-            this.takesOneTimeEarlyWithdrawal,
-        );
+        const resolvedPlan = withPlanOptIns(cappedPlan, this.toPlanOptIns());
         return {
             commissionPerRoundTrip: this.commissionPerRoundTrip,
             copyAccounts: this.copyAccounts,
@@ -606,6 +613,13 @@ export const tradingArguments = {
         description: 'Funded-phase horizon in trading days',
         type: 'string',
     },
+    'funded-reset': {
+        default: false,
+        description: fundedResetFlagDescription(
+            ALL_FIRMS.flatMap((firm) => firm.plans),
+        ),
+        type: 'boolean',
+    },
     'funded-risk': {
         description:
             'Flat risk per trade in the funded phase (default: mirrors --risk)',
@@ -707,6 +721,17 @@ export function formatDaysToPass(
     fractionDigits: number,
 ): string {
     return hasEvalPass(out) ? days.toFixed(fractionDigits) : NOT_APPLICABLE;
+}
+
+export function fundedResetFlagDescription(plans: readonly Plan[]): string {
+    const offers = plans.flatMap((plan) =>
+        plan.fundedReset === null
+            ? []
+            : [
+                  `--firm ${plan.id.firm} --variant ${planVariant(plan)} at ${formatCurrency(plan.accountSize)} (${describeFundedResetTerms(plan.fundedReset)})`,
+              ],
+    );
+    return `Buy the funded reset on plans that offer it: ${offers.join('; ')}. ${FUNDED_RESET_MECHANICS} Off by default; plans without it ignore it`;
 }
 
 export function hasEvalPass(
@@ -832,6 +857,13 @@ function describeDllShape(descriptor: DailyLossLimitDescriptor): string {
         }
         case DailyLossLimitShape.Range: {
             return `$${descriptor.min}-$${descriptor.max}`;
+        }
+        case DailyLossLimitShape.RangeWithUnlimitedTier: {
+            const limited =
+                descriptor.max <= descriptor.min
+                    ? `$${descriptor.min}`
+                    : `$${descriptor.min}-$${descriptor.max}`;
+            return `${limited}, none on some tiers`;
         }
         case DailyLossLimitShape.ShareOfPeak: {
             return `${descriptor.share * 100}% peak`;

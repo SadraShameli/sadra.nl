@@ -14,6 +14,8 @@ import {
     readRebuyLagDays,
     rebuyLagDaysArgument,
     toCouponDiscounts,
+    type TradingArguments,
+    tradingArguments,
 } from '~/cli/commands/prop/shared';
 import { ui } from '~/cli/ui';
 import { formatCurrency, formatPercent } from '~/lib/format';
@@ -28,6 +30,7 @@ import {
     type SimInputs,
     type SimOutputs,
     simulate,
+    withPlanOptIns,
 } from '~/lib/prop-calculator';
 import {
     RateSearchStatus,
@@ -38,9 +41,16 @@ import {
     FundedDpPayoutCapGapKind,
     fundedDpPayoutCapGaps,
 } from '~/lib/prop-calculator/core/FundedDpPayoutCapGaps';
-import { isFundedDpEligible } from '~/lib/prop-calculator/core/FundedStateValue';
+import {
+    DEFAULT_MAX_CUSHION_MULTIPLE,
+    isFundedDpEligible,
+    warmFirmsRegistryCache,
+} from '~/lib/prop-calculator/core/FundedStateValue';
 
-export interface DpArguments extends CouponDiscountArguments {
+export interface DpArguments
+    extends
+        CouponDiscountArguments,
+        Pick<TradingArguments, 'early-withdrawal' | 'funded-reset'> {
     'copy-accounts': string;
     'eval-days': string;
     'funded-days': string;
@@ -103,13 +113,20 @@ export function empiricalSummaryLines(
 ): string[] {
     const monthlyNetPerSlot = out.expectedMonthlyNet / copyAccounts;
     return [
-        `eval pass rate: ${formatPercent(out.evalPassProbability)}`,
+        `eventual eval pass within the ${EMPIRICAL_MAX_ATTEMPTS}-attempt retry cap: ${formatPercent(out.evalPassProbability)}`,
         `funded survive: ${formatPercent(out.fundedSurvivalProbability)}`,
         `funded bust probability: ${formatPercent(out.fundedBustProbability)}`,
         `expected monthly net per account slot: ${formatCurrency(monthlyNetPerSlot)}`,
         `expected horizon credit per cycle: ${formatCurrency(out.expectedHorizonCredit / copyAccounts)}`,
         `gap vs DP-predicted monthly rate: ${formatCurrency(monthlyNetPerSlot - predictedMonthlyRate)}`,
     ];
+}
+
+export function fundedConsistencyGridNote(plan: Plan): null | string {
+    const rule = plan.fundedConsistencyRule();
+    return rule === null
+        ? null
+        : `${plan.label}: its funded best-day consistency rule (${rule.shareLabel()}) makes the account build up profit before each payout, but this DP's locked cushion grid stops at ${DEFAULT_MAX_CUSHION_MULTIPLE} drawdowns and truncates any balance above that. That understates payouts (conservative), so the empirical run below can come out above the DP-predicted rate. The best day itself is tracked on the cushion grid and rounded up between grid steps, so the DP never allows a payout the real rule denies.`;
 }
 
 export function fundedIneligibilityMessage(plan: Plan): string {
@@ -158,8 +175,21 @@ export function renewalObjective(
     });
 }
 
+export function resolveDpPlan(
+    arguments_: Parameters<typeof planResolver.resolveOne>[0] &
+        Pick<DpArguments, 'early-withdrawal' | 'funded-reset'>,
+): Plan {
+    return withPlanOptIns(planResolver.resolveOne(arguments_), {
+        takesFundedReset: arguments_['funded-reset'] ?? false,
+        takesOneTimeEarlyWithdrawal: arguments_['early-withdrawal'] ?? false,
+    });
+}
+
 function describeFundedDpPayoutCapGap(gap: FundedDpPayoutCapGap): string {
     switch (gap.kind) {
+        case FundedDpPayoutCapGapKind.FundedResetNotModeled: {
+            return `takes the funded reset (${formatCurrency(gap.fee)} each, up to ${gap.maxPerAccount} per account, only before any payout) that this DP does not model: a breach before the first payout is scored as account closure, so the DP understates both the value and the reset spend`;
+        }
         case FundedDpPayoutCapGapKind.LifetimeDollarCapIgnored: {
             return `has a lifetime payout-dollar cap of ${formatCurrency(gap.maxLifetimePayoutDollars)} (maxLifetimePayoutDollars) that this DP ignores entirely -- it never restores FundedCycleTracker.cumulativePayout from any state, so it is optimistic about payouts past that total`;
         }
@@ -183,6 +213,7 @@ export const dpArguments = {
     ...planArguments,
     ...couponDiscountArguments,
     ...copyAccountsArgument,
+    'early-withdrawal': tradingArguments['early-withdrawal'],
     'eval-days': {
         default: '40',
         description:
@@ -195,6 +226,7 @@ export const dpArguments = {
             'Funded-phase horizon for the empirical validation run. Also sets the DP’s mean horizon: the funded value function treats horizon end as a memoryless hazard of 1/this-many-days per funded day.',
         type: 'string',
     },
+    'funded-reset': tradingArguments['funded-reset'],
     iterations: {
         default: '8',
         description:
@@ -231,10 +263,11 @@ export default defineCommand({
             'Solve the average-reward eval+funded value-iteration DP for one plan (--firm, --variant): a state-dependent risk policy (risk depends on current balance/profit/day, not a fixed ladder) that maximizes expected net cash per month per account slot, replacement priced in via --rebuy-lag-days, cross-checked against a real simulate() run.',
         name: 'dp',
     },
-    run(context) {
+    async run(context) {
         let spinner: ReturnType<typeof ui.spinner> | undefined;
         try {
-            const plan = planResolver.resolveOne(context.args);
+            await warmFirmsRegistryCache();
+            const plan = resolveDpPlan(context.args);
             if (plan.isInstantFunded) {
                 ui.warn(
                     `${plan.label} is instant-funded -- there is no eval phase for the DP to solve. Use a fixed funded-phase policy sweep instead (cli prop optimize funded).`,
@@ -243,7 +276,7 @@ export default defineCommand({
             }
             if (!isEvalDpEligible(plan)) {
                 ui.warn(
-                    `${plan.label}: eval phase is not DP-eligible (intraday-trailing drawdown, or an eval daily loss limit that scales continuously with peak-day-close profit (PeakProfitShare)).`,
+                    `${plan.label}: eval phase is not DP-eligible (intraday-trailing drawdown, an eval daily loss limit that scales continuously with peak-day-close profit (PeakProfitShare), or an eval tier keyed on the intraday peak (TierBasis.PeakIntradayProfit), which the eval DP does not track).`,
                 );
                 return;
             }
@@ -254,6 +287,10 @@ export default defineCommand({
             const payoutWarning = payoutCountRuleWarning(plan);
             if (payoutWarning !== null) {
                 ui.warn(payoutWarning);
+            }
+            const consistencyNote = fundedConsistencyGridNote(plan);
+            if (consistencyNote !== null) {
+                ui.muted(`${consistencyNote}\n`);
             }
 
             const inputs = readDpInputs(context.args);

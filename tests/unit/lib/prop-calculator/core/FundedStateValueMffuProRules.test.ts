@@ -16,6 +16,7 @@ import {
     isFundedDpEligible,
 } from '~/lib/prop-calculator/core/FundedStateValue';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
+import { simulate } from '~/lib/prop-calculator/simulator';
 
 function calendarGatedToyPlan(): Plan {
     return onePayoutToyPlan().withOverrides({
@@ -130,4 +131,35 @@ describe('computeFundedStateValue on the MFF Pro payout rules (N-7, N-64)', () =
             expect(optedOut.initialValue).toBeCloseTo(72.5, 10);
         },
     );
+});
+
+describe('simulate() replaying the funded DP policy on a calendar-day gate (N-7)', () => {
+    it('looks the policy up on the same day-gate progress the DP solved, idle sessions included, so the replayed value matches the DP', () => {
+        const plan = calendarGatedToyPlan().withOverrides({
+            maxConsecutiveIdleDays: 3,
+        });
+        const result = computeFundedStateValue({
+            ...TOY_SOLVE,
+            plan,
+            winrate: 0.3,
+        });
+
+        const out = simulate({
+            fundedDayPolicy: result.dayPolicy,
+            fundedHorizonDays: 200,
+            maxEvalDays: 1,
+            plan,
+            riskPerTrade: 100,
+            rrRatio: 2,
+            seed: 11,
+            tradesPerDay: 1,
+            trials: 400_000,
+            winrate: 0.3,
+        });
+        const replayedValue =
+            out.expectedGrossPayout +
+            out.fundedBustProbability * result.bustTerminalValue;
+
+        expect(replayedValue).toBeCloseTo(result.initialValue, 0);
+    }, 30_000);
 });

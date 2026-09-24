@@ -18,11 +18,13 @@ import {
     fraction,
 } from '~/lib/prop-calculator/core/lib/units';
 import { TierBasis } from '~/lib/prop-calculator/core/TierBasis';
+import { buildApexLivePlan } from '~/lib/prop-calculator/firms';
 
 function atProfit(profit: number): DailyLossLimitContext {
     return {
         isThresholdLocked: false,
         peakDayCloseProfit: 0,
+        peakIntradayProfit: null,
         profit,
         sessionOpenProfit: profit,
     };
@@ -336,6 +338,7 @@ describe('tiered daily loss limit basis', () => {
             resolveDailyLossLimit(levelsOn(TierBasis.SessionOpenProfit), {
                 isThresholdLocked: true,
                 peakDayCloseProfit: 5000,
+                peakIntradayProfit: null,
                 profit: 0,
                 sessionOpenProfit: 3100,
             }),
@@ -347,6 +350,7 @@ describe('tiered daily loss limit basis', () => {
             resolveDailyLossLimit(levelsOn(TierBasis.SessionOpenProfit), {
                 isThresholdLocked: true,
                 peakDayCloseProfit: 5000,
+                peakIntradayProfit: null,
                 profit: 5000,
                 sessionOpenProfit: 100,
             }),
@@ -358,6 +362,7 @@ describe('tiered daily loss limit basis', () => {
             resolveDailyLossLimit(levelsOn(TierBasis.PeakSessionCloseProfit), {
                 isThresholdLocked: true,
                 peakDayCloseProfit: 3100,
+                peakIntradayProfit: null,
                 profit: 0,
                 sessionOpenProfit: 100,
             }),
@@ -369,6 +374,7 @@ describe('tiered daily loss limit basis', () => {
             resolveDailyLossLimit(levelsOn(), {
                 isThresholdLocked: true,
                 peakDayCloseProfit: 0,
+                peakIntradayProfit: null,
                 profit: 3050,
                 sessionOpenProfit: 2900,
             }),
@@ -387,6 +393,7 @@ describe('tiered daily loss limit basis', () => {
             resolveDailyLossLimit(scaled, {
                 isThresholdLocked: true,
                 peakDayCloseProfit: 0,
+                peakIntradayProfit: null,
                 profit: 0,
                 sessionOpenProfit: 3100,
             }),
@@ -523,10 +530,22 @@ describe('a tier with no daily loss limit (null)', () => {
         expect(resolveDailyLossLimit(config, atProfit(10_000))).toBe(5000);
     });
 
-    it('describes the limited tiers as a range and flags the unlimited one', () => {
+    it('describes the limited tiers as a range with an unlimited tier, its own shape so every describer must render it (WP22b)', () => {
         expect(describeDailyLossLimit(config)).toStrictEqual({
-            hasUnlimitedTier: true,
-            kind: DailyLossLimitShape.Range,
+            kind: DailyLossLimitShape.RangeWithUnlimitedTier,
+            max: dollars(10_000),
+            min: dollars(5000),
+        });
+        expect(hasPeakShareDependency(describeDailyLossLimit(config))).toBe(
+            false,
+        );
+    });
+
+    it('describes the real Apex Live Levels (Level 1 has no DLL) as a range with an unlimited tier', () => {
+        const live = buildApexLivePlan().liveDailyLossLimit;
+        if (live === null) throw new Error('Apex Live has no DLL');
+        expect(describeDailyLossLimit(live)).toStrictEqual({
+            kind: DailyLossLimitShape.RangeWithUnlimitedTier,
             max: dollars(10_000),
             min: dollars(5000),
         });

@@ -22,12 +22,11 @@ import {
     type Dollars,
     type Fraction0to1,
 } from './lib/units';
-import { PeakRatchet } from './PeakRatchet';
 import { type Plan } from './Plan';
 import {
     capRiskToContractLimit,
+    contractLimitAt,
     type PositionSizingConfig,
-    resolveContractLimit,
 } from './PositionSizing';
 import { TradingPhase } from './TradingPhase';
 
@@ -79,7 +78,7 @@ export function computeEvalStateValue(
     const { plan } = config;
     if (!isEvalDpEligible(plan)) {
         throw new Error(
-            `${plan.label}: not eligible for EvalStateValue DP (call isEvalDpEligible first): either its eval drawdown is intraday-trailing or its eval daily loss limit scales continuously with peak-day-close profit (PeakProfitShare)`,
+            `${plan.label}: not eligible for EvalStateValue DP (call isEvalDpEligible first): its eval drawdown is intraday-trailing, its eval daily loss limit scales continuously with peak-day-close profit (PeakProfitShare), or an eval tier is keyed on TierBasis.PeakIntradayProfit (the eval DP tracks no intraday reach)`,
         );
     }
 
@@ -143,11 +142,11 @@ export function computeEvalStateValue(
     const contractLimit: ContractCount | null =
         positionSizing === null
             ? null
-            : resolveContractLimit(
+            : contractLimitAt(
                   plan.contractLimits,
                   TradingPhase.Eval,
                   positionSizing.instrument.isMicro,
-                  0,
+                  plan.tierProfitContext(plan.initialState()),
               );
 
     const memo = new Map<number, number>();
@@ -159,9 +158,7 @@ export function computeEvalStateValue(
     const idleKeyRadix =
         (plan.maxConsecutiveIdleDaysFor(TradingPhase.Eval) ?? 0) + 1;
     const tradingKeyRadix = plan.minTradingDays + 1;
-    const peakRatchet = new PeakRatchet(
-        plan.peakSessionCloseBreakpoints(TradingPhase.Eval, null),
-    );
+    const peakRatchet = plan.peakRatchetFor(TradingPhase.Eval, null);
 
     function outerKey(state: OuterState): number {
         const cushionIndex = Math.round(state.cushion / cushionStepDollars);
@@ -554,7 +551,9 @@ export function computeEvalStateValue(
             bestDayProfit: bestDay,
             consecutiveIdleDays: idleDays,
             elapsedDays: day,
+            intradayHighProfit: peakRatchet.peakAt(peakBand),
             peakDayCloseProfit: peakRatchet.peakAt(peakBand),
+            peakIntradayProfit: peakRatchet.peakAt(peakBand),
             qualifyingDays: 0,
             startingBalance: plan.accountSize,
             threshold,
@@ -648,7 +647,10 @@ export function isEvalDpEligible(plan: Plan): boolean {
     const drawdown = plan.drawdownFor(TradingPhase.Eval);
     return (
         isDrawdownDpEligible(drawdown.kind) &&
-        !hasPeakShareDependency(describeDailyLossLimit(plan.evalDailyLossLimit))
+        !hasPeakShareDependency(
+            describeDailyLossLimit(plan.evalDailyLossLimit),
+        ) &&
+        plan.peakIntradayBreakpoints(TradingPhase.Eval, null).length === 0
     );
 }
 

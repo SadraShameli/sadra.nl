@@ -313,13 +313,103 @@ describe('both dynamic programs cap the first trade at the daily loss limit minu
     );
 });
 
+describe('both dynamic programs keep every later trade of the day inside the remaining daily loss limit minus the commission (N-56)', () => {
+    const DAILY_LOSS_LIMIT = 500;
+    const COMMISSION = 5;
+    const EVAL_FIRST_TRADE_RISKS = [45, 95, 145, 195, 245, 295, 345, 395];
+    const FUNDED_FIRST_TRADE_RISKS = [95, 195, 295, 395];
+    const flatLimit = {
+        amount: dollars(DAILY_LOSS_LIMIT),
+        kind: DailyLossLimitKind.Flat,
+    } as const;
+    const plan = apexEod.withOverrides({
+        evalDailyLossLimit: flatLimit,
+        fundedDailyLossLimit: flatLimit,
+    });
+
+    function afterFirstLoss(state: AccountState, firstRisk: number) {
+        const todayPnL = -(firstRisk + COMMISSION);
+        return { ...state, balance: state.balance + todayPnL, todayPnL };
+    }
+
+    function remainingAfterCommission(state: AccountState): number {
+        return DAILY_LOSS_LIMIT - COMMISSION + state.todayPnL;
+    }
+
+    it(
+        'the eval DP never sizes a second trade whose loss plus commission breaches the limit',
+        {
+            timeout: 60_000,
+        },
+        () => {
+            const result = computeEvalStateValue({
+                commission: dollars(COMMISSION),
+                cushionStepDollars: 50,
+                maxActionDollars: 800,
+                maxEvalDays: 6,
+                plan,
+                rrRatio: 3.2,
+                tradesPerDay: 2,
+                winrate: fraction(0.95),
+            });
+            const risks = EVAL_FIRST_TRADE_RISKS.map((firstRisk) => {
+                const state = afterFirstLoss(plan.initialState(), firstRisk);
+                const risk = result.dayPolicy.computeRisk?.(state, 1) ?? 0;
+                expect(risk).toBeLessThanOrEqual(
+                    remainingAfterCommission(state) + 1e-9,
+                );
+                return risk;
+            });
+
+            expect(risks.some((risk) => risk > 0)).toBe(true);
+        },
+    );
+
+    it(
+        'the funded DP never sizes a second trade whose loss plus commission breaches the limit',
+        {
+            timeout: 120_000,
+        },
+        () => {
+            const result = computeFundedStateValue({
+                actionStepMultiple: 0.25,
+                commission: dollars(COMMISSION),
+                cushionStepMultiple: 0.05,
+                cycleBestDayBucketCount: 1,
+                evalInitialValue: 0,
+                feePerAttempt: dollars(0),
+                maxActionMultiple: 0.5,
+                maxCushionMultiple: 1.5,
+                maxPreLockOffsetMultiple: 1,
+                payoutRegimeCap: 0,
+                plan,
+                rrRatio: 3,
+                tradesPerDay: 2,
+                winrate: 0.95,
+            });
+            const fundedStart = plan.initialState();
+            plan.beginFundedPhase(fundedStart);
+            const risks = FUNDED_FIRST_TRADE_RISKS.map((firstRisk) => {
+                const state = afterFirstLoss(fundedStart, firstRisk);
+                const risk = result.dayPolicy.computeRisk?.(state, 1) ?? 0;
+                expect(risk).toBeLessThanOrEqual(
+                    remainingAfterCommission(state) + 1e-9,
+                );
+                return risk;
+            });
+
+            expect(risks.some((risk) => risk > 0)).toBe(true);
+        },
+    );
+});
+
 describe('ComputeRisk takes the funded cycle as one named snapshot', () => {
     it('requires every funded cycle field, the last payout balance included, once a snapshot is passed', () => {
         expectTypeOf<FundedCycleSnapshot>().toEqualTypeOf<{
             readonly cycleBestDayProfit: number;
+            readonly dayGateProgress: number;
             readonly lastPayoutBalance: number;
             readonly payoutsIssued: number;
-            readonly qualifyingDaysSincePayout: number;
         }>();
         expectTypeOf<Parameters<ComputeRisk>>().toEqualTypeOf<
             [AccountState, number, FundedCycleSnapshot?]
@@ -330,9 +420,9 @@ describe('ComputeRisk takes the funded cycle as one named snapshot', () => {
         const state = apexEod.initialState();
         const fundedCycle: FundedCycleSnapshot = {
             cycleBestDayProfit: 400,
+            dayGateProgress: 3,
             lastPayoutBalance: 51_250,
             payoutsIssued: 2,
-            qualifyingDaysSincePayout: 3,
         };
         const received: (FundedCycleSnapshot | undefined)[] = [];
         runDay({

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    contractLimitAt,
     ContractLimitKind,
     DailyLossLimitKind,
     DailyLossLimitShape,
@@ -12,6 +13,7 @@ import {
     PlanAvailability,
     resolveContractLimit,
     resolveDailyLossLimit,
+    tierContextFromProfits,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
 import {
@@ -56,7 +58,6 @@ describe('LucidPro recurring per-cycle profit goal (support.lucidtrading.com Luc
         tracker.qualifyingDaysAtLastPayout = 0;
 
         const payout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: pro,
@@ -79,7 +80,6 @@ describe('LucidPro recurring per-cycle profit goal (support.lucidtrading.com Luc
         tracker.qualifyingDaysAtLastPayout = 0;
 
         const payout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: pro,
@@ -109,7 +109,6 @@ describe("LucidFlex net-positive profit requirement applies to every cycle, firs
         tracker.lastPayoutBalance = state.balance;
 
         const payout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: flex,
@@ -131,7 +130,6 @@ describe("LucidFlex net-positive profit requirement applies to every cycle, firs
         tracker.lastPayoutBalance = state.balance - 1200;
 
         const payout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: flex,
@@ -157,12 +155,12 @@ describe("LucidFlex funded contract limit scales with simulated profit, unlike t
                 'expected a tiered funded contract limit for LucidFlex',
             );
         }
-        expect(maxContractsAt(funded, 0)).toBe(2);
-        expect(maxContractsAt(funded, 999)).toBe(2);
-        expect(maxContractsAt(funded, 1000)).toBe(3);
-        expect(maxContractsAt(funded, 1999)).toBe(3);
-        expect(maxContractsAt(funded, 2000)).toBe(4);
-        expect(maxContractsAt(funded, 10_000)).toBe(4);
+        expect(maxContractsAt(funded, tierContextFromProfits(0))).toBe(2);
+        expect(maxContractsAt(funded, tierContextFromProfits(999))).toBe(2);
+        expect(maxContractsAt(funded, tierContextFromProfits(1000))).toBe(3);
+        expect(maxContractsAt(funded, tierContextFromProfits(1999))).toBe(3);
+        expect(maxContractsAt(funded, tierContextFromProfits(2000))).toBe(4);
+        expect(maxContractsAt(funded, tierContextFromProfits(10_000))).toBe(4);
 
         const fundedMicros = flex.contractLimits?.fundedMicros;
         if (fundedMicros?.kind !== ContractLimitKind.Tiered) {
@@ -170,17 +168,21 @@ describe("LucidFlex funded contract limit scales with simulated profit, unlike t
                 'expected a tiered funded micro contract limit for LucidFlex',
             );
         }
-        expect(maxContractsAt(fundedMicros, 0)).toBe(20);
-        expect(maxContractsAt(fundedMicros, 2000)).toBe(40);
+        expect(maxContractsAt(fundedMicros, tierContextFromProfits(0))).toBe(
+            20,
+        );
+        expect(maxContractsAt(fundedMicros, tierContextFromProfits(2000))).toBe(
+            40,
+        );
     });
 
     it('resolves via accountProfit (simulated profit), not raw balance, matching the TopStep tiered-limit convention', () => {
         expect(
-            resolveContractLimit(
+            contractLimitAt(
                 flex.contractLimits,
                 TradingPhase.Funded,
                 false,
-                1500,
+                tierContextFromProfits(1500),
             ),
         ).toBe(3);
         expect(
@@ -212,6 +214,7 @@ describe("LucidPro/LucidFlex purchasable Daily Loss Limit toggle (live-verified 
             resolveDailyLossLimit(proNoDll.fundedDailyLossLimit, {
                 isThresholdLocked: false,
                 peakDayCloseProfit: 4000,
+                peakIntradayProfit: null,
                 profit: 4000,
                 sessionOpenProfit: 4000,
             }),
@@ -220,6 +223,7 @@ describe("LucidPro/LucidFlex purchasable Daily Loss Limit toggle (live-verified 
             resolveDailyLossLimit(proNoDll.fundedDailyLossLimit, {
                 isThresholdLocked: true,
                 peakDayCloseProfit: 4000,
+                peakIntradayProfit: null,
                 profit: 4000,
                 sessionOpenProfit: 4000,
             }),

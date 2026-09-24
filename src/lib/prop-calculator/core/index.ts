@@ -78,10 +78,14 @@ export {
 export {
     activationFee,
     type CouponDiscounts,
+    evalAttemptDays,
+    type EvalPhaseBilling,
+    evalPhaseCost,
     type FeeSchedule,
     feesUntilPass,
     feesUntilPassAcrossAttempts,
     initialEvalFee,
+    monthlySubscriptionFee,
     rebuyAttemptSubscriptionFee,
     rebuyFee,
     resetFactor,
@@ -103,6 +107,18 @@ export {
     tryFundedPayout,
     withOneTimeEarlyWithdrawalTaken,
 } from './FundedPayoutCycle';
+export {
+    canTakeFundedReset,
+    describeFundedReset,
+    describeFundedResetTerms,
+    FUNDED_RESET_MECHANICS,
+    type FundedResetCharge,
+    type FundedResetContext,
+    FundedResetEligibility,
+    fundedResetFee,
+    type FundedResetPolicy,
+    withFundedResetTaken,
+} from './FundedReset';
 export {
     ALL_INSTRUMENTS,
     INSTRUMENTS,
@@ -232,8 +248,10 @@ export {
     TopStepVariant,
     TradeifyVariant,
 } from './PlanId';
+export { NO_PLAN_OPT_INS, type PlanOptIns, withPlanOptIns } from './PlanOptIns';
 export {
     capRiskToContractLimit,
+    contractLimitAt,
     type PositionSizingConfig,
     resolveContractLimit,
     resolvePositionSizing,
@@ -258,6 +276,7 @@ export {
     selectTier,
     TierBasis,
     tierBreakpoints,
+    tierContextFromProfits,
     type TierProfitContext,
     tierProfitFor,
 } from './TierBasis';

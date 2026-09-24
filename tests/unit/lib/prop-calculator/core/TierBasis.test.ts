@@ -1,14 +1,21 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import {
+    contractLimitAt,
     ContractLimitKind,
     contracts,
     dollars,
     FirmId,
+    flatDayPolicy,
+    fraction,
+    INSTRUMENTS,
+    InstrumentSymbol,
     maxContractsAt,
     PeakRatchet,
     type Plan,
+    points,
     resolveDailyLossLimit,
+    RungSizing,
     selectTier,
     TierBasis,
     tierBreakpoints,
@@ -19,12 +26,28 @@ import {
     TradingPhase,
 } from '~/lib/prop-calculator/core';
 import { ALL_FIRMS, findFirm } from '~/lib/prop-calculator/firms';
+import {
+    LossStreak,
+    newPhaseStats,
+    runDay,
+    TradeTotals,
+} from '~/lib/prop-calculator/simulator';
 
 const CROSSING: TierProfitContext = {
     peakDayCloseProfit: 3100,
+    peakIntradayProfit: null,
     profit: 3050,
     sessionOpenProfit: 2900,
 };
+
+const INTRADAY_CONTRACT_TIERS = {
+    kind: ContractLimitKind.Tiered,
+    tierBasis: TierBasis.PeakIntradayProfit,
+    tiers: [
+        { maxContracts: contracts(2), minBalance: dollars(0) },
+        { maxContracts: contracts(4), minBalance: dollars(1500) },
+    ],
+} as const;
 
 const OUT_OF_ORDER = [
     { label: 'top', minProfit: 2000 },
@@ -114,31 +137,30 @@ describe('tierProfitFor', () => {
         ).toThrow(/PeakIntradayProfit/);
     });
 
-    it('fails loud for a contract tier on PeakIntradayProfit, because maxContractsAt receives no intraday peak', () => {
-        expect(() =>
-            maxContractsAt(
-                {
-                    kind: ContractLimitKind.Tiered,
-                    tierBasis: TierBasis.PeakIntradayProfit,
-                    tiers: [
-                        { maxContracts: contracts(2), minBalance: dollars(0) },
-                        {
-                            maxContracts: contracts(4),
-                            minBalance: dollars(1500),
-                        },
-                    ],
-                },
-                1600,
-                1600,
-                1600,
-            ),
-        ).toThrow(/PeakIntradayProfit/);
+    it('sizes a contract tier on PeakIntradayProfit from the committed intraday peak in the full tier context', () => {
+        expect(
+            maxContractsAt(INTRADAY_CONTRACT_TIERS, {
+                peakDayCloseProfit: 0,
+                peakIntradayProfit: 1600,
+                profit: 0,
+                sessionOpenProfit: 0,
+            }),
+        ).toBe(4);
+        expect(
+            maxContractsAt(INTRADAY_CONTRACT_TIERS, {
+                peakDayCloseProfit: 0,
+                peakIntradayProfit: 1400,
+                profit: 1600,
+                sessionOpenProfit: 0,
+            }),
+        ).toBe(2);
     });
 
     it('never lets PeakSessionCloseProfit fall below the session-open profit when the recorded peak lags it', () => {
         expect(
             tierProfitFor(TierBasis.PeakSessionCloseProfit, {
                 peakDayCloseProfit: 1000,
+                peakIntradayProfit: null,
                 profit: 0,
                 sessionOpenProfit: 2900,
             }),
@@ -210,21 +232,33 @@ describe('Plan tier profit context', () => {
         expect(plan.tierProfitContext(state).peakIntradayProfit).toBe(2800);
     });
 
-    it('fails loud on the Tradeify scaling daily loss limit for a state that never tracked the intraday peak', () => {
+    it('passes an untracked intraday peak on as an explicit null, so the Tradeify scaling daily loss limit fails loud on it', () => {
         const plan = tradeifyGrowth();
         const untracked = plan.initialState();
         delete untracked.intradayHighProfit;
         delete untracked.peakIntradayProfit;
         untracked.balance = untracked.startingBalance + 3200;
 
-        expect(
-            plan.tierProfitContext(untracked).peakIntradayProfit,
-        ).toBeUndefined();
+        expect(plan.tierProfitContext(untracked).peakIntradayProfit).toBeNull();
         expect(() =>
             resolveDailyLossLimit(
                 plan.fundedDailyLossLimit,
                 plan.dailyLossLimitContext(untracked),
             ),
+        ).toThrow(/PeakIntradayProfit/);
+    });
+
+    it('fails loud on the Tradeify scaling daily loss limit for a context that declares it does not track the intraday peak', () => {
+        const plan = tradeifyGrowth();
+        const state = plan.initialState();
+        plan.beginFundedPhase(state);
+        state.balance = state.startingBalance + 3200;
+
+        expect(() =>
+            resolveDailyLossLimit(plan.fundedDailyLossLimit, {
+                ...plan.dailyLossLimitContext(state),
+                peakIntradayProfit: null,
+            }),
         ).toThrow(/PeakIntradayProfit/);
     });
 
@@ -384,5 +418,72 @@ describe('firm notes describe the TierBasis their configs use', () => {
         expect(note).toBeDefined();
         expect(note).not.toContain("prior day's confirmed EOD close");
         expect(note).toContain('highest intraday profit');
+    });
+});
+
+describe('the intraday peak is a required part of the tier context (N-15 follow-up)', () => {
+    it('makes every tier context say whether it tracks the intraday peak', () => {
+        expectTypeOf<TierProfitContext['peakIntradayProfit']>().toEqualTypeOf<
+            null | number
+        >();
+    });
+
+    it('resolves a funded contract tier on PeakIntradayProfit from the full tier context', () => {
+        const plan = tradeifyGrowth().withOverrides({
+            contractLimits: {
+                evalMicros: contracts(40),
+                evalMinis: contracts(4),
+                fundedMicros: null,
+                fundedMinis: INTRADAY_CONTRACT_TIERS,
+            },
+        });
+        const state = plan.initialState();
+        plan.beginFundedPhase(state);
+        state.peakIntradayProfit = 1600;
+        state.intradayHighProfit = 1600;
+
+        expect(
+            contractLimitAt(
+                plan.contractLimits,
+                TradingPhase.Funded,
+                false,
+                plan.tierProfitContext(state),
+            ),
+        ).toBe(4);
+    });
+
+    it('lets runDay size a funded trade from a contract tier on PeakIntradayProfit: 4 NQ contracts at a 10-point stop is $800, not the 2-contract $400', () => {
+        const plan = tradeifyGrowth().withOverrides({
+            contractLimits: {
+                evalMicros: contracts(40),
+                evalMinis: contracts(4),
+                fundedMicros: null,
+                fundedMinis: INTRADAY_CONTRACT_TIERS,
+            },
+        });
+        const state = plan.initialState();
+        plan.beginFundedPhase(state);
+        state.peakIntradayProfit = 1600;
+        state.intradayHighProfit = 1600;
+        const totals = new TradeTotals();
+
+        runDay({
+            commission: dollars(0),
+            dayPolicy: flatDayPolicy(1000, 1),
+            phase: TradingPhase.Funded,
+            plan,
+            positionSizing: {
+                instrument: INSTRUMENTS[InstrumentSymbol.NQ],
+                stopPoints: points(10),
+            },
+            rng: () => 0,
+            rrRatio: 1,
+            rungSizing: RungSizing.CapToCushion,
+            state,
+            stats: newPhaseStats(state.balance, totals, new LossStreak(totals)),
+            winrate: fraction(1),
+        });
+
+        expect(state.balance - state.startingBalance).toBe(800);
     });
 });

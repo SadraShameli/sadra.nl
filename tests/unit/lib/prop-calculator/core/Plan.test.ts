@@ -514,7 +514,6 @@ describe('Plan.payoutProfitPool AccountProfit invariants', () => {
         tracker.qualifyingDaysAtLastPayout = 0;
 
         const payout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: uncapped,

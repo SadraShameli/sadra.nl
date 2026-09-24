@@ -101,7 +101,6 @@ describe('MFFU Pro 50K funded drawdown locks on the first payout (R1-51, pro.md:
         tracker.sessionDaysSinceAnchor = 10;
 
         const payout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: plan.resolveRetainedCushion(undefined),
             payoutRequestSize: undefined,
             plan,
@@ -175,7 +174,6 @@ function runSessions(script: SessionScript) {
             script.tradedOn(session),
         );
         const payout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: plan.resolveRetainedCushion(undefined),
             payoutRequestSize: script.payoutRequestSize,
             plan,

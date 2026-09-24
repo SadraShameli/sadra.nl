@@ -21,6 +21,7 @@ import {
     planResolver,
     singlePathGranularityArgument,
     tradingArguments,
+    type TradingArguments,
 } from '~/cli/commands/prop/shared';
 import { formatPercent, NOT_APPLICABLE } from '~/lib/format';
 import {
@@ -421,7 +422,9 @@ describe('prop ladder --help agrees with the parser (WP15 handoff)', () => {
         expect(
             DROPPED_FLAGS.toSorted((a, b) => a.localeCompare(b)),
         ).toStrictEqual([
+            'early-withdrawal',
             'funded-days',
+            'funded-reset',
             'funded-risk',
             'funded-rr',
             'funded-tpd',
@@ -436,6 +439,34 @@ describe('prop ladder --help agrees with the parser (WP15 handoff)', () => {
             'risk',
             'tpd',
         ]);
+    });
+
+    it('types every declared trading flag, so the unsupported-flag table must name each one it drops (WP22b)', () => {
+        expectTypeOf<
+            Exclude<keyof typeof tradingArguments, keyof TradingArguments>
+        >().toEqualTypeOf<never>();
+    });
+
+    it('rejects --early-withdrawal as a funded-phase input the ladder search never runs (WP22b)', () => {
+        expect(() =>
+            buildLadderSearchOptions(
+                apexEodPlan(),
+                parseGrid(['--early-withdrawal']),
+            ),
+        ).toThrow(
+            `--early-withdrawal is not supported by prop ladder: the ladder search ${LADDER_IGNORED_INPUT_REASONS[LadderIgnoredInput.FundedPhase]}, so drop the flag or use prop sim`,
+        );
+    });
+
+    it('rejects --funded-reset as a funded-phase input the ladder search never runs (WP18k)', () => {
+        expect(() =>
+            buildLadderSearchOptions(
+                apexEodPlan(),
+                parseGrid(['--funded-reset']),
+            ),
+        ).toThrow(
+            `--funded-reset is not supported by prop ladder: the ladder search ${LADDER_IGNORED_INPUT_REASONS[LadderIgnoredInput.FundedPhase]}, so drop the flag or use prop sim`,
+        );
     });
 
     it('reuses the shared definition object for every trading flag it keeps', () => {

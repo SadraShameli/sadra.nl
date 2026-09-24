@@ -1,17 +1,10 @@
 'use client';
 
-import {
-    type DailyLossLimitConfig,
-    type DailyLossLimitDescriptor,
-    DailyLossLimitShape,
-    describeDailyLossLimit,
-    DrawdownKind,
-    type Plan,
-    TradingPhase,
-} from '~/lib/prop-calculator';
+import { DrawdownKind, type Plan, TradingPhase } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
 import { describeConsistencyBadge } from './consistencyBadge';
+import { dailyLossLimitLabel } from './dailyLossLimitLabel';
 import { ptddColor } from './metricColors';
 
 interface BadgeProperties {
@@ -79,35 +72,6 @@ function Badge({ label, value, valueClassName }: BadgeProperties) {
             </span>
         </span>
     );
-}
-
-function dailyLossLimitLabel(config: DailyLossLimitConfig): null | string {
-    return describeLabel(describeDailyLossLimit(config));
-}
-
-function describeLabel(descriptor: DailyLossLimitDescriptor): null | string {
-    switch (descriptor.kind) {
-        case DailyLossLimitShape.Fixed: {
-            return `$${descriptor.amount.toLocaleString()}`;
-        }
-        case DailyLossLimitShape.None: {
-            return null;
-        }
-        case DailyLossLimitShape.Range: {
-            return descriptor.max <= descriptor.min
-                ? `$${descriptor.min.toLocaleString()}`
-                : `$${descriptor.min.toLocaleString()}–$${descriptor.max.toLocaleString()} (scales)`;
-        }
-        case DailyLossLimitShape.ShareOfPeak: {
-            return `${(descriptor.share * 100).toFixed(0)}% of peak`;
-        }
-        case DailyLossLimitShape.Staged: {
-            const before = describeLabel(descriptor.before);
-            const after = describeLabel(descriptor.after);
-            if (before === null) return after;
-            return after === null ? before : `${before} → ${after}`;
-        }
-    }
 }
 
 function drawdownLabel(kind: DrawdownKind): string {

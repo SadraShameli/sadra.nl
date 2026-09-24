@@ -105,6 +105,7 @@ describe('rng draw counts', () => {
                 attempt: retry.attempt,
                 commission: dollars(0),
                 dayPolicy: DAY_POLICY,
+                discounts: undefined,
                 fundedHorizonDays: 60,
                 minRetainedCushion: dollars(2000),
                 payoutRequestSize: undefined,

@@ -64,6 +64,7 @@ function fallbackState(): CalculatorState {
         seed: 42,
         sizingMode: SizingMode.Dollar,
         stopPoints: null,
+        takesFundedReset: false,
         takesOneTimeEarlyWithdrawal: false,
         tradesPerDay: 1,
         trials: 2000,

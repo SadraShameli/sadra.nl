@@ -79,6 +79,7 @@ function context(options: {
     return {
         isThresholdLocked: options.locked ?? false,
         peakDayCloseProfit: options.peak ?? 0,
+        peakIntradayProfit: null,
         profit: options.profit ?? 0,
         sessionOpenProfit: options.profit ?? 0,
     };

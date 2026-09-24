@@ -13,15 +13,12 @@ import {
 import { Slider } from '~/components/ui/Slider';
 import { Toggle } from '~/components/ui/Toggle';
 import { ToggleGroup, ToggleGroupItem } from '~/components/ui/ToggleGroup';
-import {
-    formatCompactCurrency,
-    formatCurrency,
-    formatPercent,
-} from '~/lib/format';
+import { formatCurrency, formatPercent } from '~/lib/format';
 import {
     ALL_INSTRUMENTS,
     capRiskToContractLimit,
     type DayStopRule,
+    describeFundedReset,
     INSTRUMENTS,
     type InstrumentSymbol,
     type Plan,
@@ -32,11 +29,16 @@ import {
 } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
-import { toCouponDiscounts } from './couponDiscounts';
 import DayStopRulePicker from './DayStopRulePicker';
 import {
+    describeActivationFee,
+    describeEvalFee,
+    describeMonthlySubscriptionFee,
+    purchaseCouponDiscounts,
+} from './feePreview';
+import {
     describeResetFee,
-    describeRetryOnBust,
+    describeRetry,
     hasResetOption,
 } from './retryDescription';
 import { riskDollarsToPercent, riskPercentToDollars } from './riskConversion';
@@ -78,6 +80,7 @@ interface TradingInputsProperties {
     onSeedChange: (n: number) => void;
     onSizingModeChange: (m: SizingMode) => void;
     onStopPointsChange: (n: number) => void;
+    onTakesFundedResetChange: (isTaken: boolean) => void;
     onTakesOneTimeEarlyWithdrawalChange: (isTaken: boolean) => void;
     onTradesPerDayChange: (n: number) => void;
     onTrialsChange: (n: number) => void;
@@ -93,6 +96,7 @@ interface TradingInputsProperties {
     seed: number;
     sizingMode: SizingMode;
     stopPoints: null | number;
+    takesFundedReset: boolean;
     takesOneTimeEarlyWithdrawal: boolean;
     tradesPerDay: number;
     trials: number;
@@ -135,6 +139,7 @@ export default function TradingInputs({
     onSeedChange,
     onSizingModeChange,
     onStopPointsChange,
+    onTakesFundedResetChange,
     onTakesOneTimeEarlyWithdrawalChange,
     onTradesPerDayChange,
     onTrialsChange,
@@ -150,6 +155,7 @@ export default function TradingInputs({
     seed,
     sizingMode,
     stopPoints,
+    takesFundedReset,
     takesOneTimeEarlyWithdrawal,
     tradesPerDay,
     trials,
@@ -157,17 +163,19 @@ export default function TradingInputs({
 }: TradingInputsProperties) {
     const accountSize = plan.accountSize;
     const earlyWithdrawal = plan.oneTimeEarlyWithdrawal;
-    const retryNote = describeRetryOnBust(
-        plan.fees,
-        toCouponDiscounts({
+    const fundedReset = plan.fundedReset;
+    const purchaseDiscounts = purchaseCouponDiscounts(
+        plan,
+        {
             activationDiscountPercent,
             evalDiscountPercent,
             linkActivationDiscount,
             monthlySubscriptionDiscountPercent,
             resetDiscountPercent,
-        }),
-        maxAttempts,
+        },
+        copyAccounts,
     );
+    const retryNote = describeRetry(plan.fees, purchaseDiscounts, maxAttempts);
     const computedRisk =
         sizingMode === SizingMode.Dollar
             ? riskDollars
@@ -373,8 +381,7 @@ export default function TradingInputs({
                                     </Toggle>
                                     <p className="mt-1 text-xs text-muted-foreground">
                                         Once, after the payout day gate and
-                                        before the buffer clears, withdraw up
-                                        to{' '}
+                                        before the buffer clears, withdraw up to{' '}
                                         {formatPercent(
                                             earlyWithdrawal.maxProfitShare,
                                             0,
@@ -387,6 +394,30 @@ export default function TradingInputs({
                                         first payout, so the MLL moves to start
                                         + $100 and locks, which leaves a thin
                                         cushion. Off by default.
+                                    </p>
+                                </div>
+                            )}
+                            {fundedReset === null ? null : (
+                                <div>
+                                    <span className="mb-1 block text-xs font-medium text-muted-foreground">
+                                        {fundedReset.label}
+                                    </span>
+                                    <Toggle
+                                        className="text-xs whitespace-nowrap"
+                                        onPressedChange={
+                                            onTakesFundedResetChange
+                                        }
+                                        pressed={takesFundedReset}
+                                        size="sm"
+                                        variant="outline"
+                                    >
+                                        {takesFundedReset
+                                            ? 'Taken'
+                                            : 'Not taken'}
+                                    </Toggle>
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                        {describeFundedReset(fundedReset)} The
+                                        reset discount applies. Off by default.
                                     </p>
                                 </div>
                             )}
@@ -756,20 +787,7 @@ export default function TradingInputs({
                                 Eval fee discount
                             </label>
                             <span className="font-mono text-xs text-muted-foreground tabular-nums">
-                                {plan.fees.oneTimeEval > 0
-                                    ? evalDiscountPercent > 0
-                                        ? `${formatCompactCurrency(
-                                              plan.fees.oneTimeEval,
-                                          )} → ${formatCompactCurrency(
-                                              plan.fees.oneTimeEval *
-                                                  (1 -
-                                                      evalDiscountPercent /
-                                                          100),
-                                          )}`
-                                        : formatCompactCurrency(
-                                              plan.fees.oneTimeEval,
-                                          )
-                                    : 'no eval fee'}
+                                {describeEvalFee(plan.fees, purchaseDiscounts)}
                             </span>
                         </div>
                         <div className="relative">
@@ -802,26 +820,10 @@ export default function TradingInputs({
                                 Activation fee discount
                             </label>
                             <span className="font-mono text-xs text-muted-foreground tabular-nums">
-                                {plan.fees.activation > 0
-                                    ? (() => {
-                                          const effectiveDiscount =
-                                              linkActivationDiscount
-                                                  ? evalDiscountPercent
-                                                  : activationDiscountPercent;
-                                          return effectiveDiscount > 0
-                                              ? `${formatCompactCurrency(
-                                                    plan.fees.activation,
-                                                )} → ${formatCompactCurrency(
-                                                    plan.fees.activation *
-                                                        (1 -
-                                                            effectiveDiscount /
-                                                                100),
-                                                )}`
-                                              : formatCompactCurrency(
-                                                    plan.fees.activation,
-                                                );
-                                      })()
-                                    : 'no activation fee'}
+                                {describeActivationFee(
+                                    plan.fees,
+                                    purchaseDiscounts,
+                                )}
                             </span>
                         </div>
                         <div className="flex items-stretch gap-2">
@@ -874,20 +876,10 @@ export default function TradingInputs({
                                 Monthly subscription discount
                             </label>
                             <span className="font-mono text-xs text-muted-foreground tabular-nums">
-                                {plan.fees.monthlySubscription > 0
-                                    ? monthlySubscriptionDiscountPercent > 0
-                                        ? `${formatCompactCurrency(
-                                              plan.fees.monthlySubscription,
-                                          )} → ${formatCompactCurrency(
-                                              plan.fees.monthlySubscription *
-                                                  (1 -
-                                                      monthlySubscriptionDiscountPercent /
-                                                          100),
-                                          )}`
-                                        : formatCompactCurrency(
-                                              plan.fees.monthlySubscription,
-                                          )
-                                    : 'no monthly subscription'}
+                                {describeMonthlySubscriptionFee(
+                                    plan.fees,
+                                    purchaseDiscounts,
+                                )}
                             </span>
                         </div>
                         <div className="relative">
@@ -921,10 +913,7 @@ export default function TradingInputs({
                                 Reset fee discount
                             </label>
                             <span className="font-mono text-xs text-muted-foreground tabular-nums">
-                                {describeResetFee(
-                                    plan.fees,
-                                    resetDiscountPercent,
-                                )}
+                                {describeResetFee(plan.fees, purchaseDiscounts)}
                             </span>
                         </div>
                         <div className="relative">

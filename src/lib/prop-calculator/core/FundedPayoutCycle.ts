@@ -1,5 +1,9 @@
 import { type AccountState } from './AccountState';
 import { type ConsistencyRule } from './ConsistencyRule';
+import {
+    CALENDAR_DAYS_PER_WEEK,
+    SESSION_DAYS_PER_CALENDAR_WEEK,
+} from './constants';
 import { type FundedCycleSnapshot } from './DayPolicy';
 import { type Dollars, dollars, type Fraction0to1 } from './lib/units';
 import { PayoutProfitPool } from './PayoutCap';
@@ -13,7 +17,6 @@ export enum PayoutDayGateBasis {
 }
 
 export interface FundedPayoutOptions {
-    maxPayouts: number;
     minRetainedCushion: number;
     payoutRequestSize: number | undefined;
     plan: Plan;
@@ -37,9 +40,6 @@ export interface WithdrawableNowOptions {
     plan: Plan;
     state: AccountState;
 }
-
-const SESSION_DAYS_PER_CALENDAR_WEEK = 5;
-const CALENDAR_DAYS_PER_WEEK = 7;
 
 type LadderStepLookup =
     | { amount: number; kind: 'step' }
@@ -186,9 +186,9 @@ export class FundedCycleTracker {
     cycleSnapshot(plan: Plan, state: AccountState): FundedCycleSnapshot {
         return {
             cycleBestDayProfit: this.cycleBestDayProfit,
+            dayGateProgress: this.dayGateProgress(plan, state),
             lastPayoutBalance: this.lastPayoutBalance,
             payoutsIssued: this.payoutsIssued,
-            qualifyingDaysSincePayout: this.dayGateProgress(plan, state),
         };
     }
 
@@ -240,18 +240,11 @@ export class FundedCycleTracker {
     tryPayout(
         options: Omit<FundedPayoutOptions, 'tracker'>,
     ): FundedPayoutResult | null {
-        const {
-            maxPayouts,
-            minRetainedCushion,
-            payoutRequestSize,
-            plan,
-            state,
-        } = options;
+        const { minRetainedCushion, payoutRequestSize, plan, state } = options;
         this.closeSession(state);
         if (
-            this.payoutsIssued >= maxPayouts ||
-            (plan.maxLifetimePayoutDollars !== null &&
-                this.cumulativePayout >= plan.maxLifetimePayoutDollars)
+            plan.maxLifetimePayoutDollars !== null &&
+            this.cumulativePayout >= plan.maxLifetimePayoutDollars
         ) {
             return null;
         }
@@ -313,12 +306,18 @@ export class FundedCycleTracker {
 
 export function describePayoutDayGate(plan: Plan): string {
     const days = plan.minDaysAfterPassForPayout;
+    const perCycleDays = plan.minDaysAfterPassForPayoutPerCycle ?? days;
+    const hasDistinctPerCycle = perCycleDays !== days;
     switch (plan.payoutDayGateBasis) {
         case PayoutDayGateBasis.CalendarDaysSinceFirstTradeOrPayout: {
-            return `${days} calendar days from first trade`;
+            return hasDistinctPerCycle
+                ? `${days} calendar days from first trade, then ${perCycleDays} from each payout`
+                : `${days} calendar days from first trade, restarting at each payout`;
         }
         case PayoutDayGateBasis.QualifyingDaysSincePassOrPayout: {
-            return `${days} qualifying days`;
+            return hasDistinctPerCycle
+                ? `${days} qualifying days, then ${perCycleDays} per payout cycle`
+                : `${days} qualifying days`;
         }
     }
 }

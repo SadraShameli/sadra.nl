@@ -83,7 +83,9 @@ const LADDER_WORK_WARNING = 500_000_000;
 const UNSUPPORTED_LADDER_FLAGS: Readonly<
     Record<UnsupportedLadderFlag, LadderIgnoredInput>
 > = {
+    'early-withdrawal': LadderIgnoredInput.FundedPhase,
     'funded-days': LadderIgnoredInput.FundedPhase,
+    'funded-reset': LadderIgnoredInput.FundedPhase,
     'funded-risk': LadderIgnoredInput.FundedPhase,
     'funded-rr': LadderIgnoredInput.FundedPhase,
     'funded-tpd': LadderIgnoredInput.FundedPhase,

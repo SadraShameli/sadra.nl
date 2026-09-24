@@ -335,7 +335,6 @@ describe('PayoutCountTieredPayoutCap through tryFundedPayout: the cap raises exa
         const tracker = newFundedCycleTracker(state);
         tracker.lastPayoutBalance = state.startingBalance;
         const payout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan,
@@ -358,7 +357,6 @@ describe('PayoutCountTieredPayoutCap through tryFundedPayout: the cap raises exa
         tracker.lastPayoutBalance = state.startingBalance;
         expect(tracker.payoutsIssued).toBe(0);
         tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan,
@@ -369,7 +367,6 @@ describe('PayoutCountTieredPayoutCap through tryFundedPayout: the cap raises exa
 
         state.balance += 10_000;
         const secondPayout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan,
@@ -408,7 +405,6 @@ describe('FundedNext Legacy: two-regime payout cap (live-verified: 50% / $6,000 
         tracker.qualifyingDaysAtLastPayout = 0;
 
         const payout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan,
@@ -433,7 +429,6 @@ describe('FundedNext Legacy: two-regime payout cap (live-verified: 50% / $6,000 
         tracker.qualifyingDaysAtLastPayout = 0;
 
         return tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan,
@@ -463,7 +458,6 @@ describe('FundedNext Legacy: two-regime payout cap (live-verified: 50% / $6,000 
         tracker.qualifyingDaysAtLastPayout = 0;
 
         const payout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan,

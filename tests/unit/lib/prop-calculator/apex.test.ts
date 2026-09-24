@@ -15,6 +15,7 @@ import {
     resolveDailyLossLimit,
     RetryKind,
     RungSizing,
+    tierContextFromProfits,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
 import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFunding';
@@ -38,6 +39,7 @@ function atProfit(profit: number): DailyLossLimitContext {
     return {
         isThresholdLocked: false,
         peakDayCloseProfit: 0,
+        peakIntradayProfit: null,
         profit,
         sessionOpenProfit: profit,
     };
@@ -434,10 +436,16 @@ describe('Apex funded contract limits: scaled by profit tier, not flat', () => {
     it('starts a funded account at 2 minis / 20 micros, not the old flat 4/40 cap', () => {
         const plan = findPlan(50_000, ApexVariant.Eod);
         expect(
-            maxContractsAt(plan.contractLimits?.fundedMinis ?? null, 0),
+            maxContractsAt(
+                plan.contractLimits?.fundedMinis ?? null,
+                tierContextFromProfits(0),
+            ),
         ).toBe(2);
         expect(
-            maxContractsAt(plan.contractLimits?.fundedMicros ?? null, 0),
+            maxContractsAt(
+                plan.contractLimits?.fundedMicros ?? null,
+                tierContextFromProfits(0),
+            ),
         ).toBe(20);
     });
 
@@ -445,11 +453,11 @@ describe('Apex funded contract limits: scaled by profit tier, not flat', () => {
         const minis =
             findPlan(50_000, ApexVariant.Eod).contractLimits?.fundedMinis ??
             null;
-        expect(maxContractsAt(minis, 0)).toBe(2);
-        expect(maxContractsAt(minis, 1499)).toBe(2);
-        expect(maxContractsAt(minis, 1500)).toBe(3);
-        expect(maxContractsAt(minis, 2999)).toBe(3);
-        expect(maxContractsAt(minis, 3000)).toBe(4);
-        expect(maxContractsAt(minis, 6000)).toBe(4);
+        expect(maxContractsAt(minis, tierContextFromProfits(0))).toBe(2);
+        expect(maxContractsAt(minis, tierContextFromProfits(1499))).toBe(2);
+        expect(maxContractsAt(minis, tierContextFromProfits(1500))).toBe(3);
+        expect(maxContractsAt(minis, tierContextFromProfits(2999))).toBe(3);
+        expect(maxContractsAt(minis, tierContextFromProfits(3000))).toBe(4);
+        expect(maxContractsAt(minis, tierContextFromProfits(6000))).toBe(4);
     });
 });

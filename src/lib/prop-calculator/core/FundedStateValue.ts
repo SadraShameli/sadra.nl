@@ -49,8 +49,8 @@ import { type Plan } from './Plan';
 import { type PlanId } from './PlanId';
 import {
     capRiskToContractLimit,
+    contractLimitAt,
     type PositionSizingConfig,
-    resolveContractLimit,
 } from './PositionSizing';
 import { TierBasis } from './TierBasis';
 import { TradingPhase } from './TradingPhase';
@@ -93,17 +93,51 @@ export interface FundedStateValueResult {
 const DEFAULT_ACTION_STEP_MULTIPLE = 0.05;
 const DEFAULT_MAX_ACTION_MULTIPLE = 1;
 const DEFAULT_CUSHION_STEP_MULTIPLE = 0.1;
-const DEFAULT_MAX_CUSHION_MULTIPLE = 6;
+export const DEFAULT_MAX_CUSHION_MULTIPLE = 6;
 const DEFAULT_MAX_PRE_LOCK_OFFSET_MULTIPLE = 3;
 const DEFAULT_PAYOUT_REGIME_CAP = 6;
 const DEFAULT_TRADES_PER_DAY = 4;
 const DEFAULT_CONVERGENCE_TOLERANCE = 1;
 const DEFAULT_MAX_ITERATIONS_PER_LEVEL = 200;
-const DEFAULT_CYCLE_BEST_DAY_BUCKET_COUNT = 6;
 const DEFAULT_CYCLE_BASELINE_FINE_RANGE_MULTIPLE = 1;
 const MAX_WORKER_COUNT = 8;
 const MIN_PARALLEL_GRID_CELLS = 8;
 const WORKER_DISPATCH_TIMEOUT_MS = 120_000;
+const OUTCOME_BUST = -1;
+const OUTCOME_FIRST_LOCKOUT = -2;
+const TERMINAL_CONTINUATION_KEY = -1;
+const UNCOMPUTED_CONTINUATION_KEY = -2;
+const MAX_CACHED_DAY_CLOSE_CELLS = 4_000_000;
+
+interface FundedDayCloseOutcome {
+    readonly cash: number;
+    readonly continuationKey: number;
+    readonly horizonCredit: number;
+}
+
+interface FundedDayCloseTable {
+    readonly cash: Float64Array;
+    readonly credit: Float64Array;
+    readonly idle: Map<number, FundedDayCloseOutcome>;
+    readonly keys: Int32Array;
+    readonly lockouts: Map<number, FundedDayCloseOutcome>;
+}
+
+interface FundedDaySkeleton {
+    readonly closeTables: Map<string, FundedDayCloseTable>;
+    readonly lockoutIds: Map<string, number>;
+    readonly lockouts: FundedLockout[];
+    readonly reachCount: number;
+    readonly risksByIndex: (readonly number[] | undefined)[];
+    readonly rows: (FundedSkeletonRow | undefined)[];
+    readonly workingBucketCount: number;
+}
+
+interface FundedDaySkeletonCache {
+    closeCellCount: number;
+    levelKey: null | string;
+    readonly skeletons: Map<string, FundedDaySkeleton>;
+}
 
 interface FundedDayStart extends FundedLevel, FundedPair {
     readonly cushionAtDayStart: number;
@@ -131,12 +165,23 @@ interface FundedLevel {
     readonly thresholdDollars: number;
 }
 
+interface FundedLockout {
+    readonly cushionAfter: number;
+    readonly reachAfter: number;
+}
+
 interface FundedPair {
     readonly cycleBaseline: number;
     readonly cycleBestDay: number;
     readonly idleDays: number;
     readonly qualifyingDays: number;
     readonly ratchet: number;
+}
+
+interface FundedSkeletonRow {
+    readonly losses: Int32Array;
+    readonly risks: readonly number[];
+    readonly wins: Int32Array;
 }
 
 interface FundedSolveContext {
@@ -149,6 +194,7 @@ interface FundedSolveContext {
     readonly cycleBestDayKeyRadix: number;
     readonly cycleBestDayStepDollars: number;
     readonly dayCost: number;
+    readonly daySkeletons: FundedDaySkeletonCache;
     readonly drawdown: Plan['fundedDrawdown'];
     readonly horizonHazard: number;
     readonly idleKeyRadix: number;
@@ -235,41 +281,6 @@ export async function warmFirmsRegistryCache(): Promise<void> {
     await firmsRegistryCache.warmPromise;
 }
 
-function bestActionAt(
-    context: FundedSolveContext,
-    dayStart: FundedDayStart,
-    cushionNow: number,
-    tradeIndex: number,
-    nextRoundTables: readonly (readonly number[])[],
-    reach: number,
-    cushionBucketCount: number,
-    stopValue: number,
-    risksAtCushionNow: readonly number[],
-): { bestAction: number; bestValue: number } {
-    let bestValue = -Infinity;
-    let bestAction = 0;
-    for (const risk of risksAtCushionNow) {
-        const value =
-            risk <= 0
-                ? tradeIndex === 0
-                    ? dayCloseValue(context, dayStart, cushionNow, true, reach)
-                    : stopValue
-                : valueOfRisk(
-                      context,
-                      dayStart,
-                      risk,
-                      cushionNow,
-                      nextRoundTables,
-                      reach,
-                      cushionBucketCount,
-                  );
-        if (value <= bestValue) continue;
-        bestValue = value;
-        bestAction = risk;
-    }
-    return { bestAction, bestValue };
-}
-
 function bucketIndex(
     context: FundedSolveContext,
     dollarsValue: number,
@@ -351,18 +362,6 @@ function buildFundedSolveContext(
     const isTrackingFundedConsistency = fundedConsistencyRule !== null;
     const isPerpetualFundedConsistency =
         fundedConsistencyRule?.isPerpetual() === true;
-    const cycleBestDayBucketCount = isTrackingFundedConsistency
-        ? Math.max(
-              1,
-              config.cycleBestDayBucketCount ??
-                  DEFAULT_CYCLE_BEST_DAY_BUCKET_COUNT,
-          )
-        : 1;
-    const cycleBestDayRangeDollars = maxCushionMultiple * drawdownAmount;
-    const cycleBestDayStepDollars =
-        cycleBestDayBucketCount > 1
-            ? cycleBestDayRangeDollars / (cycleBestDayBucketCount - 1)
-            : cycleBestDayRangeDollars;
 
     const contractsAreMicro =
         positionSizing === null ? null : positionSizing.instrument.isMicro;
@@ -476,9 +475,50 @@ function buildFundedSolveContext(
         min: cycleBaselineMin,
     });
 
+    const maxWinDollars = rrRatio * maxActionDollars;
+    const maxDayCloseBalance = Math.max(
+        lockedThreshold +
+            (lockedCushionBucketCount - 1) * cushionStepDollars +
+            maxWinDollars,
+        initialThreshold +
+            (offsetBucketCount - 1 + unlockedWorkingBucketCount - 1) *
+                cushionStepDollars +
+            maxWinDollars,
+    );
+    const minCycleBaselineBalance = Math.min(
+        startingBalance,
+        lockedPayoutFloor + cycleBaselineGrid.dollarsAt(0),
+    );
+    const maxBestDayShare = Math.max(
+        0,
+        ...Array.from(
+            { length: payoutRegimeCap + 1 },
+            (_, regime) =>
+                plan.fundedConsistencyRule(regime)?.maxBestDayShare ?? 0,
+        ),
+    );
+    const cycleBestDayGrid = isTrackingFundedConsistency
+        ? resolveCycleBestDayGrid({
+              cushionStepDollars,
+              relevantBestDayDollars: Math.min(
+                  (Math.max(
+                      lockedCushionBucketCount,
+                      unlockedWorkingBucketCount,
+                  ) -
+                      1) *
+                      cushionStepDollars +
+                      maxWinDollars,
+                  maxBestDayShare *
+                      (maxDayCloseBalance - minCycleBaselineBalance),
+              ),
+              requestedBucketCount: config.cycleBestDayBucketCount,
+          })
+        : { keyRadix: 1, stepDollars: cushionStepDollars };
+
     const regimeKeyRadix = payoutRegimeCap + 1;
     const idleKeyRadix = idleDaysBucketCount;
-    const cycleBestDayKeyRadix = cycleBestDayBucketCount;
+    const cycleBestDayKeyRadix = cycleBestDayGrid.keyRadix;
+    const cycleBestDayStepDollars = cycleBestDayGrid.stepDollars;
     const keyLayout = buildKeyLayout({
         cycleBaselineGridSize: cycleBaselineGrid.size,
         isSkipped: (regime, isLocked) =>
@@ -509,6 +549,11 @@ function buildFundedSolveContext(
         cycleBestDayKeyRadix,
         cycleBestDayStepDollars,
         dayCost,
+        daySkeletons: {
+            closeCellCount: 0,
+            levelKey: null,
+            skeletons: new Map(),
+        },
         drawdown,
         horizonHazard,
         idleKeyRadix,
@@ -598,6 +643,48 @@ function buildState(
     };
 }
 
+function cachedStopValue(
+    context: FundedSolveContext,
+    dayStart: FundedDayStart,
+    workingBucketCount: number,
+    closeTable: FundedDayCloseTable | null,
+    cell: number,
+): number {
+    const reach = Math.floor(cell / workingBucketCount);
+    const computeOutcome = (): FundedDayCloseOutcome =>
+        dayCloseOutcome(
+            context,
+            dayStart,
+            (cell - reach * workingBucketCount) * context.cushionStepDollars,
+            false,
+            reach,
+        );
+    if (closeTable === null) {
+        const outcome = computeOutcome();
+        return dayCloseValue(
+            context,
+            outcome.cash,
+            outcome.continuationKey,
+            outcome.horizonCredit,
+        );
+    }
+    let continuationKeyValue =
+        closeTable.keys[cell] ?? UNCOMPUTED_CONTINUATION_KEY;
+    if (continuationKeyValue === UNCOMPUTED_CONTINUATION_KEY) {
+        const outcome = computeOutcome();
+        closeTable.cash[cell] = outcome.cash;
+        closeTable.credit[cell] = outcome.horizonCredit;
+        closeTable.keys[cell] = outcome.continuationKey;
+        continuationKeyValue = outcome.continuationKey;
+    }
+    return dayCloseValue(
+        context,
+        closeTable.cash[cell] ?? 0,
+        continuationKeyValue,
+        closeTable.credit[cell] ?? 0,
+    );
+}
+
 function candidateRisks(
     context: FundedSolveContext,
     riskBudget: number,
@@ -653,41 +740,31 @@ function computeCandidateRisks(
     return [...risks];
 }
 
-function continuationValue(
+function continuationKey(
     context: FundedSolveContext,
     state: AccountState,
     regime: number,
     pair: FundedPair,
 ): number {
     const cushion = state.balance - state.threshold;
-    return context.readValue(
-        state.thresholdLocked
-            ? lockedKey(
+    return state.thresholdLocked
+        ? lockedKey(
+              context,
+              regime,
+              pair,
+              bucketIndex(context, cushion, context.lockedCushionBucketCount),
+          )
+        : unlockedKey(
+              context,
+              bucketIndex(
                   context,
-                  regime,
-                  pair,
-                  bucketIndex(
-                      context,
-                      cushion,
-                      context.lockedCushionBucketCount,
-                  ),
-              )
-            : unlockedKey(
-                  context,
-                  bucketIndex(
-                      context,
-                      state.threshold - context.initialThreshold,
-                      context.offsetBucketCount,
-                  ),
-                  regime,
-                  pair,
-                  bucketIndex(
-                      context,
-                      cushion,
-                      context.unlockedCushionBucketCount,
-                  ),
+                  state.threshold - context.initialThreshold,
+                  context.offsetBucketCount,
               ),
-    );
+              regime,
+              pair,
+              bucketIndex(context, cushion, context.unlockedCushionBucketCount),
+          );
 }
 
 function createFundedWorkerSolver(
@@ -754,19 +831,19 @@ function cycleBestDayIndex(
     dollarsValue: number,
 ): number {
     if (context.cycleBestDayKeyRadix <= 1) return 0;
-    const raw = Math.floor(
-        (dollarsValue + BUCKET_EPSILON) / context.cycleBestDayStepDollars,
+    const raw = Math.ceil(
+        (dollarsValue - BUCKET_EPSILON) / context.cycleBestDayStepDollars,
     );
     return Math.min(context.cycleBestDayKeyRadix - 1, Math.max(0, raw));
 }
 
-function dayCloseValue(
+function dayCloseOutcome(
     context: FundedSolveContext,
     dayStart: FundedDayStart,
     cushionAtEnd: number,
     wasIdleToday: boolean,
     reach: number,
-): number {
+): FundedDayCloseOutcome {
     const { plan } = context;
     const todayPnL = todayPnLOf(context, dayStart, cushionAtEnd);
     const isEarnsQualifyingDay =
@@ -785,8 +862,9 @@ function dayCloseValue(
     );
     context.drawdown.onDayClose(state);
     plan.recordDayClosePeak(state);
-    if (plan.isBust(state, TradingPhase.Funded))
-        return context.bustTerminalValue;
+    if (plan.isBust(state, TradingPhase.Funded)) {
+        return terminalOutcome(context.bustTerminalValue);
+    }
 
     const idleDaysAtEnd =
         plan.maxConsecutiveIdleDays === null
@@ -798,7 +876,7 @@ function dayCloseValue(
         plan.maxConsecutiveIdleDays !== null &&
         idleDaysAtEnd >= plan.maxConsecutiveIdleDays
     ) {
-        return context.bustTerminalValue;
+        return terminalOutcome(context.bustTerminalValue);
     }
 
     const cycleBestDayAtStartDollars =
@@ -830,7 +908,6 @@ function dayCloseValue(
     }
 
     const payout = tryFundedPayout({
-        maxPayouts: Infinity,
         minRetainedCushion: context.retainedCushion,
         payoutRequestSize: undefined,
         plan,
@@ -848,13 +925,15 @@ function dayCloseValue(
     }
     const receivedCash = payout?.traderReceives ?? 0;
 
-    if (payout?.causesHardBreach) return receivedCash;
+    if (payout?.causesHardBreach) return terminalOutcome(receivedCash);
 
     const payoutsIssuedNow = tracker.payoutsIssued;
-    if (plan.isAccountConcluded(payoutsIssuedNow)) return receivedCash;
+    if (plan.isAccountConcluded(payoutsIssuedNow)) {
+        return terminalOutcome(receivedCash);
+    }
 
     const regimeNow = Math.min(payoutsIssuedNow, context.payoutRegimeCap);
-    const continuation = continuationValue(context, state, regimeNow, {
+    const nextKey = continuationKey(context, state, regimeNow, {
         cycleBaseline:
             cycleBaselineRadixAt(context, regimeNow) === 1
                 ? 0
@@ -874,18 +953,58 @@ function dayCloseValue(
         ),
         ratchet: context.peakRatchet.committedBandOf(state),
     });
-    if (context.horizonHazard === 0) return receivedCash + continuation;
+    return {
+        cash: receivedCash,
+        continuationKey: nextKey,
+        horizonCredit:
+            context.horizonHazard === 0
+                ? 0
+                : tracker.closeoutCredit({
+                      minRetainedCushion: context.retainedCushion,
+                      plan,
+                      state,
+                  }),
+    };
+}
 
-    const horizonCredit = tracker.closeoutCredit({
-        minRetainedCushion: context.retainedCushion,
-        plan,
-        state,
-    });
-    return (
-        receivedCash +
-        (1 - context.horizonHazard) * continuation +
-        context.horizonHazard * horizonCredit
-    );
+function dayCloseTableFor(
+    context: FundedSolveContext,
+    skeleton: FundedDaySkeleton,
+    dayStart: FundedDayStart,
+    cellCount: number,
+): FundedDayCloseTable | null {
+    const tableKey = `${dayStart.idleDays}:${dayStart.cycleBestDay}:${dayStart.qualifyingDays}:${dayStart.cycleBaseline}`;
+    const cached = skeleton.closeTables.get(tableKey);
+    if (cached !== undefined) return cached;
+    const cache = context.daySkeletons;
+    if (cache.closeCellCount + cellCount > MAX_CACHED_DAY_CLOSE_CELLS) {
+        return null;
+    }
+    cache.closeCellCount += cellCount;
+    const table: FundedDayCloseTable = {
+        cash: new Float64Array(cellCount),
+        credit: new Float64Array(cellCount),
+        idle: new Map(),
+        keys: new Int32Array(cellCount).fill(UNCOMPUTED_CONTINUATION_KEY),
+        lockouts: new Map(),
+    };
+    skeleton.closeTables.set(tableKey, table);
+    return table;
+}
+
+function dayCloseValue(
+    context: FundedSolveContext,
+    cash: number,
+    continuationKeyValue: number,
+    horizonCredit: number,
+): number {
+    if (continuationKeyValue === TERMINAL_CONTINUATION_KEY) return cash;
+    const continuation = context.readValue(continuationKeyValue);
+    return context.horizonHazard === 0
+        ? cash + continuation
+        : cash +
+              (1 - context.horizonHazard) * continuation +
+              context.horizonHazard * horizonCredit;
 }
 
 function dayGateKeyRadix(plan: Plan): number {
@@ -902,6 +1021,34 @@ function dayGateKeyRadix(plan: Plan): number {
             return requiredDaysCap + 1;
         }
     }
+}
+
+function daySkeletonFor(
+    context: FundedSolveContext,
+    dayStart: FundedDayStart,
+    workingBucketCount: number,
+): FundedDaySkeleton {
+    const cache = context.daySkeletons;
+    const levelKey = `${dayStart.isLocked}:${dayStart.thresholdDollars}:${dayStart.regime}:${workingBucketCount}`;
+    if (cache.levelKey !== levelKey) {
+        cache.skeletons.clear();
+        cache.levelKey = levelKey;
+        cache.closeCellCount = 0;
+    }
+    const skeletonKey = `${dayStart.ratchet}:${dayStart.cushionAtDayStart}`;
+    const cached = cache.skeletons.get(skeletonKey);
+    if (cached !== undefined) return cached;
+    const skeleton: FundedDaySkeleton = {
+        closeTables: new Map(),
+        lockoutIds: new Map(),
+        lockouts: [],
+        reachCount: reachCountAt(context, dayStart),
+        risksByIndex: [],
+        rows: [],
+        workingBucketCount,
+    };
+    cache.skeletons.set(skeletonKey, skeleton);
+    return skeleton;
 }
 
 function decodePair(
@@ -1017,6 +1164,25 @@ function maxPairCount(context: FundedSolveContext): number {
     );
 }
 
+function outcomeDayCloseValue(
+    context: FundedSolveContext,
+    store: Map<number, FundedDayCloseOutcome> | undefined,
+    outcomeId: number,
+    computeOutcome: () => FundedDayCloseOutcome,
+): number {
+    let outcome = store?.get(outcomeId);
+    if (outcome === undefined) {
+        outcome = computeOutcome();
+        store?.set(outcomeId, outcome);
+    }
+    return dayCloseValue(
+        context,
+        outcome.cash,
+        outcome.continuationKey,
+        outcome.horizonCredit,
+    );
+}
+
 function pairCountAt(context: FundedSolveContext, regime: number): number {
     return (
         context.idleKeyRadix *
@@ -1082,6 +1248,32 @@ function requireFirmsModule(): typeof FirmsModule {
     return tsxRequire('../firms', import.meta.url) as typeof FirmsModule;
 }
 
+function resolveCycleBestDayGrid(options: {
+    readonly cushionStepDollars: number;
+    readonly relevantBestDayDollars: number;
+    readonly requestedBucketCount: number | undefined;
+}): { keyRadix: number; stepDollars: number } {
+    const { cushionStepDollars, requestedBucketCount } = options;
+    const exactBucketCount =
+        Math.floor(
+            Math.max(0, options.relevantBestDayDollars) / cushionStepDollars +
+                BUCKET_EPSILON,
+        ) + 2;
+    if (requestedBucketCount === undefined) {
+        return { keyRadix: exactBucketCount, stepDollars: cushionStepDollars };
+    }
+    const keyRadix = Math.max(1, Math.floor(requestedBucketCount));
+    if (keyRadix === 1) {
+        return { keyRadix, stepDollars: cushionStepDollars };
+    }
+    return {
+        keyRadix,
+        stepDollars:
+            cushionStepDollars *
+            Math.max(1, Math.ceil((exactBucketCount - 1) / (keyRadix - 1))),
+    };
+}
+
 function resolveLockedThreshold(plan: Plan, startingBalance: number): number {
     const lock = plan.fundedDrawdown.lock;
     if (lock) return lock.lockedThreshold(startingBalance);
@@ -1105,6 +1297,77 @@ function runFundedWorkerBootstrap(): void {
     });
 }
 
+function skeletonRisks(
+    context: FundedSolveContext,
+    skeleton: FundedDaySkeleton,
+    dayStart: FundedDayStart,
+    index: number,
+): readonly number[] {
+    const cached = skeleton.risksByIndex[index];
+    if (cached !== undefined) return cached;
+    const { plan, positionSizing } = context;
+    const cushionNow = index * context.cushionStepDollars;
+    const state = buildState(
+        context,
+        dayStart,
+        dayStart.thresholdDollars + cushionNow,
+        todayPnLOf(context, dayStart, cushionNow),
+        0,
+    );
+    const risks = candidateRisks(
+        context,
+        plan.affordableRisk(state, TradingPhase.Funded, context.commission),
+        positionSizing === null
+            ? null
+            : contractLimitAt(
+                  plan.contractLimits,
+                  TradingPhase.Funded,
+                  positionSizing.instrument.isMicro,
+                  plan.tierProfitContext(state),
+              ),
+    );
+    skeleton.risksByIndex[index] = risks;
+    return risks;
+}
+
+function skeletonRow(
+    context: FundedSolveContext,
+    skeleton: FundedDaySkeleton,
+    dayStart: FundedDayStart,
+    reach: number,
+    index: number,
+): FundedSkeletonRow {
+    const cell = reach * skeleton.workingBucketCount + index;
+    const cached = skeleton.rows[cell];
+    if (cached !== undefined) return cached;
+    const cushionNow = index * context.cushionStepDollars;
+    const risks = skeletonRisks(context, skeleton, dayStart, index);
+    const wins = new Int32Array(risks.length);
+    const losses = new Int32Array(risks.length);
+    for (const [riskIndex, risk] of risks.entries()) {
+        if (risk <= 0) continue;
+        const pnlWin = context.rrRatio * risk - context.commission;
+        wins[riskIndex] = tradeOutcome(
+            context,
+            skeleton,
+            dayStart,
+            cushionNow + pnlWin,
+            reach,
+        );
+        const pnlLose = -risk - context.commission;
+        losses[riskIndex] = tradeOutcome(
+            context,
+            skeleton,
+            dayStart,
+            cushionNow + pnlLose,
+            reach,
+        );
+    }
+    const row: FundedSkeletonRow = { losses, risks, wins };
+    skeleton.rows[cell] = row;
+    return row;
+}
+
 function solveDayTree(
     context: FundedSolveContext,
     level: FundedLevel,
@@ -1113,12 +1376,14 @@ function solveDayTree(
     workingBucketCount: number,
 ): number[] {
     if (!context.isSolvingPerDayStart) {
-        return solveDayTreeOnce(
-            context,
-            { ...level, ...pair, cushionAtDayStart: 0 },
-            workingBucketCount,
-            false,
-        ).finalTable.slice(0, cushionBucketCount);
+        return Array.from(
+            solveDayTreeOnce(
+                context,
+                { ...level, ...pair, cushionAtDayStart: 0 },
+                workingBucketCount,
+                false,
+            ).finalTable.subarray(0, cushionBucketCount),
+        );
     }
     return Array.from(
         { length: cushionBucketCount },
@@ -1142,93 +1407,154 @@ function solveDayTreeOnce(
     dayStart: FundedDayStart,
     workingBucketCount: number,
     isRecordingPolicy: boolean,
-): { finalTable: number[]; policyTables: number[][][] } {
-    const { plan, positionSizing } = context;
-    const reachCount = reachCountAt(context, dayStart);
-    const stopTables: number[][] = Array.from(
-        { length: reachCount },
-        (_, reach) =>
-            Array.from({ length: workingBucketCount }, (_cell, index) =>
-                dayCloseValue(
+): { finalTable: Float64Array; policyTables: number[][][] } {
+    const skeleton = daySkeletonFor(context, dayStart, workingBucketCount);
+    const { cushionStepDollars, winrate } = context;
+    const { reachCount } = skeleton;
+    const cellCount = reachCount * workingBucketCount;
+    const closeTable = dayCloseTableFor(context, skeleton, dayStart, cellCount);
+    const stopValues = new Float64Array(cellCount).fill(NaN);
+    const lockoutValues: number[] = [];
+    const stopValueAt = (cell: number): number => {
+        if (cell >= cellCount) return 0;
+        const memo = stopValues[cell] ?? NaN;
+        if (!Number.isNaN(memo)) return memo;
+        const value = cachedStopValue(
+            context,
+            dayStart,
+            workingBucketCount,
+            closeTable,
+            cell,
+        );
+        stopValues[cell] = value;
+        return value;
+    };
+    const lockoutValueAt = (lockoutId: number): number => {
+        const memo = lockoutValues[lockoutId];
+        if (memo !== undefined) return memo;
+        const lockout = skeleton.lockouts[lockoutId];
+        const value =
+            lockout === undefined
+                ? 0
+                : outcomeDayCloseValue(
+                      context,
+                      closeTable?.lockouts,
+                      lockoutId,
+                      () =>
+                          dayCloseOutcome(
+                              context,
+                              dayStart,
+                              lockout.cushionAfter,
+                              false,
+                              lockout.reachAfter,
+                          ),
+                  );
+        lockoutValues[lockoutId] = value;
+        return value;
+    };
+    const idleValueAt = (reach: number, index: number): number =>
+        outcomeDayCloseValue(
+            context,
+            closeTable?.idle,
+            reach * workingBucketCount + index,
+            () =>
+                dayCloseOutcome(
                     context,
                     dayStart,
-                    index * context.cushionStepDollars,
-                    false,
+                    index * cushionStepDollars,
+                    true,
                     reach,
                 ),
-            ),
+        );
+
+    const isWindowed = context.isSolvingPerDayStart && !isRecordingPolicy;
+    const startIndex = Math.round(
+        dayStart.cushionAtDayStart / cushionStepDollars,
     );
-    const risksByIndex: number[][] = Array.from(
-        { length: workingBucketCount },
-        (_, index) => {
-            const cushionNow = index * context.cushionStepDollars;
-            const state = buildState(
-                context,
-                dayStart,
-                dayStart.thresholdDollars + cushionNow,
-                todayPnLOf(context, dayStart, cushionNow),
-                0,
-            );
-            const tierContext = plan.tierProfitContext(state);
-            return candidateRisks(
-                context,
-                plan.affordableRisk(
-                    state,
-                    TradingPhase.Funded,
-                    context.commission,
-                ),
-                positionSizing === null
-                    ? null
-                    : resolveContractLimit(
-                          plan.contractLimits,
-                          TradingPhase.Funded,
-                          positionSizing.instrument.isMicro,
-                          tierContext.profit,
-                          tierContext.sessionOpenProfit,
-                          tierContext.peakDayCloseProfit,
-                      ),
-            );
-        },
-    );
-    let nextRoundTables: number[][] = stopTables;
+    const maxRisk = Math.max(0, ...context.actionGrid);
+    const cellsUpPerTrade =
+        Math.ceil((context.rrRatio * maxRisk) / cushionStepDollars) + 1;
+    const cellsDownPerTrade =
+        Math.ceil((maxRisk + context.commission) / cushionStepDollars) + 1;
+
+    let nextTable: Float64Array | null = null;
     const policyTables: number[][][] = [];
     for (let tradeIndex = context.slots - 1; tradeIndex >= 0; tradeIndex--) {
-        const currentTables: number[][] = [];
+        const readNext = nextTable;
+        const outcomeValue = (outcome: number): number => {
+            if (outcome >= 0) {
+                return readNext === null
+                    ? stopValueAt(outcome)
+                    : (readNext[outcome] ?? 0);
+            }
+            return outcome === OUTCOME_BUST
+                ? context.bustTerminalValue
+                : lockoutValueAt(OUTCOME_FIRST_LOCKOUT - outcome);
+        };
+        const lowIndex = isWindowed
+            ? Math.max(0, startIndex - tradeIndex * cellsDownPerTrade)
+            : 0;
+        const highIndex = isWindowed
+            ? Math.min(
+                  workingBucketCount - 1,
+                  startIndex + tradeIndex * cellsUpPerTrade,
+              )
+            : workingBucketCount - 1;
+        const currentTable = new Float64Array(cellCount);
         const currentPolicies: number[][] = [];
         for (let reach = 0; reach < reachCount; reach++) {
-            const currentTable: number[] = Array.from({
-                length: workingBucketCount,
-            });
             const currentPolicy: number[] = isRecordingPolicy
                 ? Array.from({ length: workingBucketCount })
                 : [];
-            for (let index = 0; index < workingBucketCount; index++) {
-                const { bestAction, bestValue } = bestActionAt(
+            for (let index = lowIndex; index <= highIndex; index++) {
+                const cell = reach * workingBucketCount + index;
+                const row = skeletonRow(
                     context,
+                    skeleton,
                     dayStart,
-                    index * context.cushionStepDollars,
-                    tradeIndex,
-                    nextRoundTables,
                     reach,
-                    workingBucketCount,
-                    stopTables[reach]?.[index] ?? 0,
-                    risksByIndex[index] ?? [],
+                    index,
                 );
-                currentTable[index] = bestValue;
+                let bestValue = -Infinity;
+                let bestAction = 0;
+                for (const [riskIndex, risk] of row.risks.entries()) {
+                    const value =
+                        risk <= 0
+                            ? tradeIndex === 0
+                                ? idleValueAt(reach, index)
+                                : stopValueAt(cell)
+                            : winrate * outcomeValue(row.wins[riskIndex] ?? 0) +
+                              (1 - winrate) *
+                                  outcomeValue(row.losses[riskIndex] ?? 0);
+                    if (value <= bestValue) continue;
+                    bestValue = value;
+                    bestAction = risk;
+                }
+                currentTable[cell] = bestValue;
                 if (isRecordingPolicy) currentPolicy[index] = bestAction;
             }
-            currentTables.push(currentTable);
             currentPolicies.push(currentPolicy);
         }
         policyTables[tradeIndex] = currentPolicies;
-        nextRoundTables = currentTables;
+        nextTable = currentTable;
     }
-    const dayStartTable = nextRoundTables[0] ?? [];
+    const dayStartTable = (nextTable ?? new Float64Array(cellCount)).subarray(
+        0,
+        workingBucketCount,
+    );
     const finalTable =
         context.dayCost === 0
             ? dayStartTable
             : dayStartTable.map((entry) => entry - context.dayCost);
     return { finalTable, policyTables };
+}
+
+function terminalOutcome(cash: number): FundedDayCloseOutcome {
+    return {
+        cash,
+        continuationKey: TERMINAL_CONTINUATION_KEY,
+        horizonCredit: 0,
+    };
 }
 
 function thresholdState(
@@ -1255,6 +1581,41 @@ function toSerializableConfig(
 ): SerializableFundedConfig {
     const { plan, ...settings } = config;
     return { ...settings, planId: plan.id };
+}
+
+function tradeOutcome(
+    context: FundedSolveContext,
+    skeleton: FundedDaySkeleton,
+    dayStart: FundedDayStart,
+    cushionAfter: number,
+    reach: number,
+): number {
+    if (cushionAfter <= 0) return OUTCOME_BUST;
+    const { plan } = context;
+    const state = buildState(
+        context,
+        dayStart,
+        dayStart.thresholdDollars + cushionAfter,
+        todayPnLOf(context, dayStart, cushionAfter),
+        0,
+    );
+    context.drawdown.onTrade(state, 0);
+    if (plan.isBust(state, TradingPhase.Funded)) return OUTCOME_BUST;
+    const reachAfter = reachAfterTrade(context, dayStart, reach, state);
+    if (plan.isDayLockedOut(state, TradingPhase.Funded)) {
+        const lockoutKey = `${reachAfter}:${cushionAfter}`;
+        let lockoutId = skeleton.lockoutIds.get(lockoutKey);
+        if (lockoutId === undefined) {
+            lockoutId = skeleton.lockouts.length;
+            skeleton.lockouts.push({ cushionAfter, reachAfter });
+            skeleton.lockoutIds.set(lockoutKey, lockoutId);
+        }
+        return OUTCOME_FIRST_LOCKOUT - lockoutId;
+    }
+    return (
+        reachAfter * skeleton.workingBucketCount +
+        bucketIndex(context, cushionAfter, skeleton.workingBucketCount)
+    );
 }
 
 function tryCreateFundedWorkerSolver(
@@ -1287,70 +1648,6 @@ function unlockedKey(
             context.unlockedCushionBucketCount +
         cushionIndex
     );
-}
-
-function valueOfRisk(
-    context: FundedSolveContext,
-    dayStart: FundedDayStart,
-    risk: number,
-    cushionNow: number,
-    nextRoundTables: readonly (readonly number[])[],
-    reach: number,
-    cushionBucketCount: number,
-): number {
-    const pnlWin = context.rrRatio * risk - context.commission;
-    const valueWin = withinDayContinuation(
-        context,
-        dayStart,
-        cushionNow + pnlWin,
-        nextRoundTables,
-        reach,
-        cushionBucketCount,
-    );
-    const pnlLose = -risk - context.commission;
-    const valueLose = withinDayContinuation(
-        context,
-        dayStart,
-        cushionNow + pnlLose,
-        nextRoundTables,
-        reach,
-        cushionBucketCount,
-    );
-    return context.winrate * valueWin + (1 - context.winrate) * valueLose;
-}
-
-function withinDayContinuation(
-    context: FundedSolveContext,
-    dayStart: FundedDayStart,
-    cushionAfter: number,
-    nextRoundTables: readonly (readonly number[])[],
-    reach: number,
-    cushionBucketCount: number,
-): number {
-    if (cushionAfter <= 0) return context.bustTerminalValue;
-    const { plan } = context;
-    const state = buildState(
-        context,
-        dayStart,
-        dayStart.thresholdDollars + cushionAfter,
-        todayPnLOf(context, dayStart, cushionAfter),
-        0,
-    );
-    context.drawdown.onTrade(state, 0);
-    if (plan.isBust(state, TradingPhase.Funded))
-        return context.bustTerminalValue;
-    const reachAfter = reachAfterTrade(context, dayStart, reach, state);
-    if (plan.isDayLockedOut(state, TradingPhase.Funded)) {
-        return dayCloseValue(
-            context,
-            dayStart,
-            cushionAfter,
-            false,
-            reachAfter,
-        );
-    }
-    const index = bucketIndex(context, cushionAfter, cushionBucketCount);
-    return nextRoundTables[reachAfter]?.[index] ?? 0;
 }
 
 if (!isMainThread) {
@@ -1752,10 +2049,7 @@ export function computeFundedStateValue(
             idleDays: plan.clampedIdleDays(state, TradingPhase.Funded),
             qualifyingDays: Math.min(
                 mainContext.qualifyingDayKeyRadix - 1,
-                Math.max(
-                    0,
-                    Math.floor(fundedCycle?.qualifyingDaysSincePayout ?? 0),
-                ),
+                Math.max(0, Math.floor(fundedCycle?.dayGateProgress ?? 0)),
             ),
             ratchet: mainContext.peakRatchet.committedBandOf(state),
         };

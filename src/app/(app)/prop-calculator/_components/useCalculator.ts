@@ -8,12 +8,13 @@ import {
     type DayStopRule,
     type InstrumentSymbol,
     type Plan,
+    type PlanOptIns,
     type RungSizing,
     type SimInputs,
     type SimOutputs,
     simulate,
     type TradingFirm,
-    withOneTimeEarlyWithdrawalTaken,
+    withPlanOptIns,
 } from '~/lib/prop-calculator';
 
 import {
@@ -47,6 +48,7 @@ export interface UseCalculatorReturn {
     isPending: boolean;
     pinned: null | PinnedScenario;
     pinScenario: () => void;
+    planOptIns: PlanOptIns;
     removeLabScenario: (id: string) => void;
     reset: () => void;
     resetCoupon: () => void;
@@ -79,6 +81,7 @@ export interface UseCalculatorReturn {
     setSeed: (n: number) => void;
     setSizingMode: (m: SizingMode) => void;
     setStopPoints: (n: number) => void;
+    setTakesFundedReset: (isTaken: boolean) => void;
     setTakesOneTimeEarlyWithdrawal: (isTaken: boolean) => void;
     setTradesPerDay: (n: number) => void;
     setTrials: (n: number) => void;
@@ -147,6 +150,12 @@ export function useCalculator(): UseCalculatorReturn {
         [state.sizingMode, state.riskDollars, state.riskPercent, state.plan],
     );
 
+    const { takesFundedReset, takesOneTimeEarlyWithdrawal } = state;
+    const planOptIns = useMemo<PlanOptIns>(
+        () => ({ takesFundedReset, takesOneTimeEarlyWithdrawal }),
+        [takesFundedReset, takesOneTimeEarlyWithdrawal],
+    );
+
     const simInputs = useMemo(
         () => ({
             commissionPerRoundTrip: state.commissionPerRoundTrip,
@@ -168,10 +177,7 @@ export function useCalculator(): UseCalculatorReturn {
             maxEvalDays: state.maxEvalDays,
             minRetainedCushion: state.retainedCushion ?? undefined,
             payoutRequestSize: state.payoutRequestSize ?? undefined,
-            plan: withOneTimeEarlyWithdrawalTaken(
-                state.plan,
-                state.takesOneTimeEarlyWithdrawal,
-            ),
+            plan: withPlanOptIns(state.plan, planOptIns),
             riskPerTrade,
             rrRatio: state.rrRatio,
             rungSizing: state.rungSizing,
@@ -207,7 +213,7 @@ export function useCalculator(): UseCalculatorReturn {
             state.idleDayProbability,
             state.payoutRequestSize,
             state.rungSizing,
-            state.takesOneTimeEarlyWithdrawal,
+            planOptIns,
         ],
     );
 
@@ -226,6 +232,7 @@ export function useCalculator(): UseCalculatorReturn {
         isPending,
         pinned,
         pinScenario: () => setPinned({ result, state }),
+        planOptIns,
         removeLabScenario: (id) =>
             act({ id, type: CalculatorActionType.RemoveLabScenario }),
         reset: () => act({ type: CalculatorActionType.Reset }),
@@ -305,6 +312,11 @@ export function useCalculator(): UseCalculatorReturn {
             act({ mode, type: CalculatorActionType.SetSizingMode }),
         setStopPoints: (n) =>
             act({ type: CalculatorActionType.SetStopPoints, value: n }),
+        setTakesFundedReset: (isTaken) =>
+            act({
+                isTaken,
+                type: CalculatorActionType.SetTakesFundedReset,
+            }),
         setTakesOneTimeEarlyWithdrawal: (isTaken) =>
             act({
                 isTaken,

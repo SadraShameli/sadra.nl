@@ -11,7 +11,7 @@ import {
 import { IntradayTrailingDrawdown } from '../core/DrawdownStrategy';
 import {
     capRiskToContractLimit,
-    resolveContractLimit,
+    contractLimitAt,
 } from '../core/PositionSizing';
 import {
     calibrateStepProbability,
@@ -111,20 +111,17 @@ export function runDay(options: DayRunOptions): {
                 dayPolicy.ladder[index] ??
                 0;
             const affordable = plan.affordableRisk(state, phase, commission);
-            const tierContext = plan.tierProfitContext(state);
             const contractCappedRisk =
                 positionSizing === null
                     ? intendedRisk
                     : capRiskToContractLimit(
                           intendedRisk,
                           positionSizing,
-                          resolveContractLimit(
+                          contractLimitAt(
                               plan.contractLimits,
                               phase,
                               positionSizing.instrument.isMicro,
-                              tierContext.profit,
-                              tierContext.sessionOpenProfit,
-                              tierContext.peakDayCloseProfit,
+                              plan.tierProfitContext(state),
                           ),
                       );
             const risk = resolveTradeRisk(

@@ -73,6 +73,7 @@ describe('expectedPayoutCount', () => {
             attempt: retry.attempt,
             commission: dollars(0),
             dayPolicy,
+            discounts: undefined,
             fundedHorizonDays: 252,
             minRetainedCushion: dollars(plan.defaultRetainedCushion()),
             payoutRequestSize: undefined,

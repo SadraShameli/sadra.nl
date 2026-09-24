@@ -112,7 +112,6 @@ describe('non-ladder payouts', () => {
         tracker.qualifyingDaysAtLastPayout = 0;
 
         const payout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: target,
@@ -137,7 +136,6 @@ describe('non-ladder payouts', () => {
 
         expect(
             tryFundedPayout({
-                maxPayouts: Infinity,
                 minRetainedCushion: 0,
                 payoutRequestSize: undefined,
                 plan: target,
@@ -157,7 +155,6 @@ describe('non-ladder payouts', () => {
         tracker.qualifyingDaysAtLastPayout = 0;
 
         const payout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: 500,
             plan: target,
@@ -178,7 +175,6 @@ describe('non-ladder payouts', () => {
 
         expect(
             tryFundedPayout({
-                maxPayouts: Infinity,
                 minRetainedCushion: 0,
                 payoutRequestSize: 499,
                 plan: target,
@@ -198,7 +194,6 @@ describe('minimum retained cushion', () => {
         tracker.qualifyingDaysAtLastPayout = 0;
 
         const payout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 2000,
             payoutRequestSize: undefined,
             plan: target,
@@ -219,7 +214,6 @@ describe('minimum retained cushion', () => {
 
         expect(
             tryFundedPayout({
-                maxPayouts: Infinity,
                 minRetainedCushion: 2000,
                 payoutRequestSize: undefined,
                 plan: target,
@@ -474,7 +468,6 @@ describe('ladder payouts', () => {
         let issued = 0;
         for (let attempt = 0; attempt < 10; attempt++) {
             const payout = tryFundedPayout({
-                maxPayouts: Infinity,
                 minRetainedCushion: 0,
                 payoutRequestSize: undefined,
                 plan: builder,
@@ -509,7 +502,6 @@ describe('ladder payouts', () => {
         tracker.qualifyingDaysAtLastPayout = 0;
 
         const payout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: apexPlan,
@@ -540,7 +532,6 @@ describe('ladder payouts', () => {
         tracker.qualifyingDaysAtLastPayout = 0;
 
         const payout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: apexPlan,
@@ -569,7 +560,6 @@ describe('ladder payouts', () => {
         tracker.qualifyingDaysAtLastPayout = 0;
 
         const payout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: 600,
             plan: apexPlan,
@@ -593,7 +583,6 @@ describe('ladder payouts', () => {
         tracker.qualifyingDaysAtLastPayout = 0;
 
         const payout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: 600,
             plan: builder,
@@ -625,7 +614,6 @@ describe(
             tracker.qualifyingDaysAtLastPayout = 0;
 
             const payout = tryFundedPayout({
-                maxPayouts: Infinity,
                 minRetainedCushion: 0,
                 payoutRequestSize: undefined,
                 plan: flex,
@@ -650,7 +638,6 @@ describe(
             tracker.qualifyingDaysAtLastPayout = 0;
 
             const payout = tryFundedPayout({
-                maxPayouts: Infinity,
                 minRetainedCushion: 0,
                 payoutRequestSize: undefined,
                 plan: flex,
@@ -684,7 +671,6 @@ describe(
             tracker.qualifyingDaysAtLastPayout = 0;
 
             const payout = tryFundedPayout({
-                maxPayouts: Infinity,
                 minRetainedCushion: 0,
                 payoutRequestSize: undefined,
                 plan: flex,
@@ -712,7 +698,6 @@ describe(
             const thresholdBeforePayout = state.threshold;
 
             const payout = tryFundedPayout({
-                maxPayouts: Infinity,
                 minRetainedCushion: 0,
                 payoutRequestSize: undefined,
                 plan: rapidEod,
@@ -748,7 +733,6 @@ describe('payout ladder capped-at-last-step (help.myfundedfutures.com / support.
         const amounts: number[] = [];
         for (let attempt = 0; attempt < 5; attempt++) {
             const payout = tryFundedPayout({
-                maxPayouts: Infinity,
                 minRetainedCushion: 0,
                 payoutRequestSize: undefined,
                 plan: pro,
@@ -815,7 +799,6 @@ describe('funded consistency ladder (help.tradeify.co Lightning Funded)', () => 
         tracker.cycleBestDayProfit = 2200;
 
         const firstAttempt = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: lightning,
@@ -826,7 +809,6 @@ describe('funded consistency ladder (help.tradeify.co Lightning Funded)', () => 
 
         tracker.payoutsIssued = 1;
         const secondAttempt = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: lightning,
@@ -867,7 +849,6 @@ describe("Tradeify Select Daily: 2x-fresh-profit payout mechanism (hard cap conf
 
         const { state, tracker } = selectDailyState(300, 5000);
         const payout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan,
@@ -882,7 +863,6 @@ describe("Tradeify Select Daily: 2x-fresh-profit payout mechanism (hard cap conf
         const { plan, state, tracker } = selectDailyState(700, 5000);
 
         const payout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan,
@@ -899,7 +879,6 @@ describe("Tradeify Select Daily: 2x-fresh-profit payout mechanism (hard cap conf
         expect(plan.payoutRequestCap).toBe(1250);
 
         const payout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan,
@@ -932,7 +911,6 @@ describe('Tradeify Select Flex: payout eligibility is 50% of TOTAL account profi
         tracker.qualifyingDaysAtLastPayout = 0;
 
         const payout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: flex,
@@ -1089,7 +1067,6 @@ describe('Topstep 50K parameters (help.topstep.com)', () => {
             tracker.qualifyingDaysAtLastPayout = 0;
 
             const payout = tryFundedPayout({
-                maxPayouts: Infinity,
                 minRetainedCushion: 0,
                 payoutRequestSize: undefined,
                 plan: target,
@@ -1117,7 +1094,6 @@ describe('Topstep 50K parameters (help.topstep.com)', () => {
         tracker.qualifyingDaysAtLastPayout = 0;
 
         const payout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: target,
@@ -1141,7 +1117,6 @@ describe('Topstep 50K parameters (help.topstep.com)', () => {
         tracker.qualifyingDaysAtLastPayout = 0;
 
         const payout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: target,
@@ -1164,7 +1139,6 @@ describe('Topstep 50K parameters (help.topstep.com)', () => {
         tracker.qualifyingDaysAtLastPayout = 0;
 
         const firstPayout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: 500,
             plan: target,
@@ -1185,7 +1159,6 @@ describe('Topstep 50K parameters (help.topstep.com)', () => {
         state.qualifyingDays += 999;
 
         const secondPayout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: 150,
             plan: target,
@@ -1214,7 +1187,6 @@ describe('ConsistencyBasis.Perpetual (FundedNext FNL:003\'s "20% Perpetual Consi
         tracker.cycleBestDayProfit = 1000;
 
         const payout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: target,
@@ -1239,7 +1211,6 @@ describe('ConsistencyBasis.Perpetual (FundedNext FNL:003\'s "20% Perpetual Consi
         tracker.cycleBestDayProfit = 1000;
 
         const firstPayout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: target,
@@ -1252,7 +1223,6 @@ describe('ConsistencyBasis.Perpetual (FundedNext FNL:003\'s "20% Perpetual Consi
         state.qualifyingDays += 999;
 
         const secondPayout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: target,
@@ -1278,7 +1248,6 @@ describe('ConsistencyBasis.Perpetual (FundedNext FNL:003\'s "20% Perpetual Consi
         tracker.cycleBestDayProfit = 1000;
 
         const firstPayout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: target,
@@ -1292,7 +1261,6 @@ describe('ConsistencyBasis.Perpetual (FundedNext FNL:003\'s "20% Perpetual Consi
         state.qualifyingDays += 999;
 
         const secondPayout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: target,
@@ -1322,7 +1290,6 @@ describe('maxLifetimePayoutDollars', () => {
         tracker.qualifyingDaysAtLastPayout = 0;
 
         const firstPayout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: 1000,
             plan: target,
@@ -1342,7 +1309,6 @@ describe('maxLifetimePayoutDollars', () => {
         state.qualifyingDays += 99;
 
         const secondPayout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: 1000,
             plan: target,
@@ -1362,7 +1328,6 @@ describe('maxLifetimePayoutDollars', () => {
         state.qualifyingDays += 99;
 
         const thirdPayout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: 1000,
             plan: target,
@@ -1401,7 +1366,6 @@ function calendarGatedPayoutSessions(
             isTradedOn(session),
         );
         const payout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: target.resolveRetainedCushion(undefined),
             payoutRequestSize: undefined,
             plan: target,
@@ -1475,7 +1439,6 @@ describe('PayoutDayGateBasis.CalendarDaysSinceFirstTradeOrPayout (N-7)', () => {
             state.balance = 52_600;
             closeTradingDay(target, TradingPhase.Funded, state, session === 0);
             tryFundedPayout({
-                maxPayouts: Infinity,
                 minRetainedCushion: target.resolveRetainedCushion(undefined),
                 payoutRequestSize: undefined,
                 plan: target,
@@ -1490,9 +1453,9 @@ describe('PayoutDayGateBasis.CalendarDaysSinceFirstTradeOrPayout (N-7)', () => {
         );
         expect(tracker.cycleSnapshot(target, state)).toStrictEqual({
             cycleBestDayProfit: tracker.cycleBestDayProfit,
+            dayGateProgress: 4,
             lastPayoutBalance: tracker.lastPayoutBalance,
             payoutsIssued: 0,
-            qualifyingDaysSincePayout: 4,
         });
     });
 
@@ -1504,17 +1467,15 @@ describe('PayoutDayGateBasis.CalendarDaysSinceFirstTradeOrPayout (N-7)', () => {
         state.qualifyingDays = 7;
         tracker.qualifyingDaysAtLastPayout = 3;
 
-        expect(
-            tracker.cycleSnapshot(target, state).qualifyingDaysSincePayout,
-        ).toBe(4);
+        expect(tracker.cycleSnapshot(target, state).dayGateProgress).toBe(4);
     });
 
-    it('describes the payout day gate in its own unit, so MFF Pro reads as calendar days from the first trade, not qualifying days', () => {
+    it('describes the payout day gate in its own unit, so MFF Pro reads as calendar days from the first trade that restart at each payout, not qualifying days', () => {
         expect(describePayoutDayGate(plan(MffuVariant.Pro))).toBe(
-            '14 calendar days from first trade',
+            '14 calendar days from first trade, restarting at each payout',
         );
         expect(describePayoutDayGate(calendarGatedPlan())).toBe(
-            '7 calendar days from first trade',
+            '7 calendar days from first trade, then 14 from each payout',
         );
         expect(
             describePayoutDayGate(
@@ -1523,5 +1484,13 @@ describe('PayoutDayGateBasis.CalendarDaysSinceFirstTradeOrPayout (N-7)', () => {
                 }),
             ),
         ).toBe('5 qualifying days');
+        expect(
+            describePayoutDayGate(
+                plan(MffuVariant.RapidEod).withOverrides({
+                    minDaysAfterPassForPayout: 5,
+                    minDaysAfterPassForPayoutPerCycle: 3,
+                }),
+            ),
+        ).toBe('5 qualifying days, then 3 per payout cycle');
     });
 });

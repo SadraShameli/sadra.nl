@@ -1,8 +1,14 @@
+import { type CouponDiscounts } from '../core/FeeSchedule';
 import {
     type FundedCycleTracker,
     newFundedCycleTracker,
     tryFundedPayout,
 } from '../core/FundedPayoutCycle';
+import {
+    canTakeFundedReset,
+    type FundedResetCharge,
+    fundedResetFee,
+} from '../core/FundedReset';
 import { TradingPhase } from '../core/TradingPhase';
 import { runDay } from './day';
 import { newPhaseStats } from './PhaseStats';
@@ -16,7 +22,6 @@ export enum FundedStage {
     Busted = 'busted',
     Concluded = 'concluded',
     HorizonReached = 'horizon-reached',
-    PayoutBudgetSpent = 'payout-budget-spent',
 }
 
 export interface FundedDaysOptions extends Omit<
@@ -24,9 +29,9 @@ export interface FundedDaysOptions extends Omit<
     'tracker'
 > {
     dayOffsetBase: number;
+    discounts: CouponDiscounts | undefined;
     equityCurve: null | number[];
     maxDays: number;
-    maxPayouts: number;
     minRetainedCushion: number;
     payoutRequestSize: number | undefined;
     sink: PayoutSink;
@@ -35,6 +40,7 @@ export interface FundedDaysOptions extends Omit<
 export interface FundedDaysResult {
     closedForInactivity: boolean;
     daysElapsed: number;
+    fundedResets: FundedResetCharge[];
     stage: FundedStage;
     tracker: FundedCycleTracker;
 }
@@ -62,11 +68,11 @@ export function runFundedDays(options: FundedDaysOptions): FundedDaysResult {
         commission,
         dayOffsetBase,
         dayPolicy,
+        discounts,
         equityCurve,
         idleDayProbability,
         intradayPathStepsPerR,
         maxDays,
-        maxPayouts,
         minRetainedCushion,
         payoutRequestSize,
         plan,
@@ -79,9 +85,10 @@ export function runFundedDays(options: FundedDaysOptions): FundedDaysResult {
         stats,
         winrate,
     } = options;
-    const tracker = newFundedCycleTracker(state);
+    let tracker = newFundedCycleTracker(state);
     let daysElapsed = 0;
-    const dayOptions = {
+    const fundedResets: FundedResetCharge[] = [];
+    let dayOptions = {
         commission,
         dayPolicy,
         idleDayProbability,
@@ -105,16 +112,34 @@ export function runFundedDays(options: FundedDaysOptions): FundedDaysResult {
         }
 
         if (busted) {
+            const policy = plan.fundedReset;
+            if (
+                policy !== null &&
+                canTakeFundedReset(plan, {
+                    closedForInactivity,
+                    payoutsIssued: tracker.payoutsIssued,
+                    resetsUsed: fundedResets.length,
+                })
+            ) {
+                fundedResets.push({
+                    dayOffset: dayOffsetBase + daysElapsed,
+                    fee: fundedResetFee(policy, discounts),
+                });
+                plan.beginFundedPhase(state);
+                tracker = newFundedCycleTracker(state);
+                dayOptions = { ...dayOptions, tracker };
+                continue;
+            }
             return {
                 closedForInactivity,
                 daysElapsed,
+                fundedResets,
                 stage: FundedStage.Busted,
                 tracker,
             };
         }
 
         const payout = tryFundedPayout({
-            maxPayouts,
             minRetainedCushion,
             payoutRequestSize,
             plan,
@@ -129,19 +154,12 @@ export function runFundedDays(options: FundedDaysOptions): FundedDaysResult {
             return {
                 closedForInactivity: false,
                 daysElapsed,
+                fundedResets,
                 stage: FundedStage.Busted,
                 tracker,
             };
         }
 
-        if (tracker.payoutsIssued >= maxPayouts) {
-            return {
-                closedForInactivity: false,
-                daysElapsed,
-                stage: FundedStage.PayoutBudgetSpent,
-                tracker,
-            };
-        }
         if (
             plan.isAccountConcluded(
                 tracker.payoutsIssued,
@@ -151,6 +169,7 @@ export function runFundedDays(options: FundedDaysOptions): FundedDaysResult {
             return {
                 closedForInactivity: false,
                 daysElapsed,
+                fundedResets,
                 stage: FundedStage.Concluded,
                 tracker,
             };
@@ -160,6 +179,7 @@ export function runFundedDays(options: FundedDaysOptions): FundedDaysResult {
     return {
         closedForInactivity: false,
         daysElapsed,
+        fundedResets,
         stage: FundedStage.HorizonReached,
         tracker,
     };
@@ -172,6 +192,7 @@ export function runFundedHorizon(
         attempt,
         commission,
         dayPolicy,
+        discounts,
         fundedHorizonDays,
         idleDayProbability,
         intradayPathStepsPerR,
@@ -193,27 +214,28 @@ export function runFundedHorizon(
     );
     const sink = new PayoutTotals();
 
-    const { closedForInactivity, daysElapsed, stage, tracker } = runFundedDays({
-        commission,
-        dayOffsetBase: 0,
-        dayPolicy,
-        equityCurve: attempt.equityCurve,
-        idleDayProbability,
-        intradayPathStepsPerR,
-        maxDays: fundedHorizonDays,
-        maxPayouts: Infinity,
-        minRetainedCushion,
-        payoutRequestSize,
-        plan,
-        positionSizing,
-        rng,
-        rrRatio,
-        rungSizing,
-        sink,
-        state,
-        stats,
-        winrate,
-    });
+    const { closedForInactivity, daysElapsed, fundedResets, stage, tracker } =
+        runFundedDays({
+            commission,
+            dayOffsetBase: 0,
+            dayPolicy,
+            discounts,
+            equityCurve: attempt.equityCurve,
+            idleDayProbability,
+            intradayPathStepsPerR,
+            maxDays: fundedHorizonDays,
+            minRetainedCushion,
+            payoutRequestSize,
+            plan,
+            positionSizing,
+            rng,
+            rrRatio,
+            rungSizing,
+            sink,
+            state,
+            stats,
+            winrate,
+        });
 
     const horizonCredit =
         stage === FundedStage.HorizonReached
@@ -224,6 +246,11 @@ export function runFundedHorizon(
         closedForInactivity,
         daysElapsed,
         firstPayoutDay: sink.firstPayoutDay,
+        fundedResetFeesPaid: fundedResets.reduce(
+            (total, charge) => total + charge.fee,
+            0,
+        ),
+        fundedResetsUsed: fundedResets.length,
         horizonCredit,
         isBustedFunded: stage === FundedStage.Busted,
         payoutCount: sink.count,
@@ -253,13 +280,7 @@ export function stepFundedDay(options: FundedDayStepOptions): {
     const { busted, closedForInactivity } = runDay({
         commission,
         dayPolicy,
-        fundedCycle: {
-            cycleBestDayProfit: tracker.cycleBestDayProfit,
-            lastPayoutBalance: tracker.lastPayoutBalance,
-            payoutsIssued: tracker.payoutsIssued,
-            qualifyingDaysSincePayout:
-                state.qualifyingDays - tracker.qualifyingDaysAtLastPayout,
-        },
+        fundedCycle: tracker.cycleSnapshot(plan, state),
         idleDayProbability,
         intradayPathStepsPerR,
         phase: TradingPhase.Funded,

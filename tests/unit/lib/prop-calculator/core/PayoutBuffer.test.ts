@@ -35,7 +35,6 @@ function laterCyclePayout(balance: number) {
     tracker.qualifyingDaysAtLastPayout = 0;
     tracker.payoutsIssued = 1;
     return tryFundedPayout({
-        maxPayouts: Infinity,
         minRetainedCushion: 0,
         payoutRequestSize: undefined,
         plan,
@@ -71,7 +70,6 @@ function requestPayout(balance: number) {
     tracker.lastPayoutBalance = state.startingBalance;
     tracker.qualifyingDaysAtLastPayout = 0;
     return tryFundedPayout({
-        maxPayouts: Infinity,
         minRetainedCushion: 0,
         payoutRequestSize: undefined,
         plan,
@@ -106,7 +104,6 @@ describe('FundedNext Rapid Daily buffer', () => {
         tracker.qualifyingDaysAtLastPayout = 0;
 
         tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan,
@@ -188,7 +185,6 @@ function payoutAfterQualifyingDays(qualifyingDaysSincePayout: number) {
     tracker.lastPayoutBalance = state.startingBalance;
     tracker.qualifyingDaysAtLastPayout = 0;
     return tryFundedPayout({
-        maxPayouts: Infinity,
         minRetainedCushion: 0,
         payoutRequestSize: undefined,
         plan,

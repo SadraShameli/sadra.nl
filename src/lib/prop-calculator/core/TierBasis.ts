@@ -10,7 +10,7 @@ export type PeakTierBasis =
 
 export interface TierProfitContext {
     readonly peakDayCloseProfit: number;
-    readonly peakIntradayProfit?: number;
+    readonly peakIntradayProfit: null | number;
     readonly profit: number;
     readonly sessionOpenProfit: number;
 }
@@ -41,6 +41,19 @@ export function tierBreakpoints(values: readonly number[]): readonly number[] {
     return [...new Set(values)].toSorted((a, b) => a - b);
 }
 
+export function tierContextFromProfits(
+    profit: number,
+    sessionOpenProfit: number = profit,
+    peakDayCloseProfit: number = sessionOpenProfit,
+): TierProfitContext {
+    return {
+        peakDayCloseProfit,
+        peakIntradayProfit: null,
+        profit,
+        sessionOpenProfit,
+    };
+}
+
 export function tierProfitFor(
     basis: TierBasis,
     context: TierProfitContext,
@@ -50,7 +63,7 @@ export function tierProfitFor(
             return context.profit;
         }
         case TierBasis.PeakIntradayProfit: {
-            if (context.peakIntradayProfit === undefined) {
+            if (context.peakIntradayProfit === null) {
                 throw new Error(
                     'TierBasis.PeakIntradayProfit needs the committed intraday peak, and this tier profit context does not track it',
                 );

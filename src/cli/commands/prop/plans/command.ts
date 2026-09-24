@@ -16,6 +16,7 @@ import {
 } from '~/lib/format';
 import {
     type ContractLimits,
+    describePayoutDayGate,
     type DrawdownStrategy,
     findFirm,
     type FirmId,
@@ -23,6 +24,7 @@ import {
     type PayoutCapSchedule,
     PayoutCapScheduleKind,
     type PayoutCountTieredPayoutSplit,
+    PayoutDayGateBasis,
     PayoutFloorEffect,
     type Plan,
     PLAN_AVAILABILITY_LABEL,
@@ -168,10 +170,8 @@ export function planRuleLines(plan: Plan): string[] {
                       `per cycle ${formatGateCurrency(plan.minPayoutProfitPerCycle)}`,
                   ]),
             `min request ${formatCurrency(plan.minPayoutRequest)}`,
-            `qualifying days ${plan.minDaysAfterPassForPayout}`,
-            plan.minQualifyingDayProfit === null
-                ? 'any day counts'
-                : `winning day >= ${formatCurrency(plan.minQualifyingDayProfit)}`,
+            `day gate ${describePayoutDayGate(plan)}`,
+            ...qualifyingDayQualifier(plan),
         ].join(' | '),
         ...(plan.payoutBuffer === null
             ? []
@@ -271,6 +271,21 @@ function describePayoutFloorEffect(effect: PayoutFloorEffect): string {
         }
         case PayoutFloorEffect.ReleaseFloor: {
             return ', floor reset to breakeven on each payout';
+        }
+    }
+}
+
+function qualifyingDayQualifier(plan: Plan): string[] {
+    switch (plan.payoutDayGateBasis) {
+        case PayoutDayGateBasis.CalendarDaysSinceFirstTradeOrPayout: {
+            return [];
+        }
+        case PayoutDayGateBasis.QualifyingDaysSincePassOrPayout: {
+            return [
+                plan.minQualifyingDayProfit === null
+                    ? 'any day counts'
+                    : `winning day >= ${formatCurrency(plan.minQualifyingDayProfit)}`,
+            ];
         }
     }
 }

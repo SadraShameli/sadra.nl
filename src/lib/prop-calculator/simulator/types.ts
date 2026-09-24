@@ -40,6 +40,8 @@ export type AttemptOutcome = 'busted' | 'passed' | 'timed-out';
 export interface CostBreakdown {
     activationFee: number;
     evalFee: number;
+    fundedResetFeesPerFundedAccount: number;
+    fundedResetFeesTotal: number;
     perAccountActivationFee: number;
     perAccountEvalFee: number;
     resetFeesTotal: number;
@@ -48,9 +50,11 @@ export interface CostBreakdown {
 }
 
 export interface CostBreakdownArguments {
+    averageFundedResetFees: number;
     averageResetFees: number;
     averageSubscription: number;
     evalPassProbability: number;
+    fundedResetFeesPerFundedAccount: number;
     plan: Plan;
     replacementInputs: ReplacementInputs;
 }
@@ -124,6 +128,8 @@ export interface FinishTrialArguments {
     failedAttemptDays: number[];
     finalBalance: number;
     firstPayoutDay: null | number;
+    fundedResetFeesPaid: number;
+    fundedResetsUsed: number;
     horizonCredit: number;
     outcome: TrialOutcome;
     payoutCount: number;
@@ -153,7 +159,7 @@ export interface FundedHorizonOptions {
     attempt: EvalAttemptResult;
     commission: Dollars;
     dayPolicy: DayPolicy;
-
+    discounts: CouponDiscounts | undefined;
     fundedHorizonDays: number;
     idleDayProbability?: number;
     intradayPathStepsPerR?: number;
@@ -171,6 +177,8 @@ export interface FundedHorizonResult {
     closedForInactivity: boolean;
     daysElapsed: number;
     firstPayoutDay: null | number;
+    fundedResetFeesPaid: number;
+    fundedResetsUsed: number;
     horizonCredit: number;
     isBustedFunded: boolean;
     payoutCount: number;
@@ -294,6 +302,7 @@ export interface SimOutputs {
     expectedAttemptsP90: number;
     expectedDaysToPass: number;
     expectedFirstPayoutDay: number;
+    expectedFundedResets: number;
     expectedGrossPayout: number;
     expectedGrossSpend: number;
     expectedHorizonCredit: number;
@@ -363,6 +372,8 @@ export interface TrialResult {
     failedAttemptDays: number[];
     finalBalance: number;
     firstPayoutDay: null | number;
+    fundedResetFeesPaid: number;
+    fundedResetsUsed: number;
     grossLosses: number;
     grossPayout: number;
     grossWins: number;

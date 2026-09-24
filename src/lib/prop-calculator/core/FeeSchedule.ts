@@ -14,6 +14,12 @@ export interface CouponDiscounts {
     resetPercent?: Percent0to100;
 }
 
+export interface EvalPhaseBilling {
+    daysToPass: null | number;
+    failedAttemptDays: readonly number[];
+    resetFeesPaid: number;
+}
+
 export interface FeeSchedule {
     activation: Dollars;
     monthlySubscription: Dollars;
@@ -31,6 +37,27 @@ export function activationFee(
     return (
         fees.activation * activationFactor(discounts) * bundleFactor(discounts)
     );
+}
+
+export function evalAttemptDays(
+    billing: Pick<EvalPhaseBilling, 'daysToPass' | 'failedAttemptDays'>,
+): readonly number[] {
+    return billing.daysToPass === null
+        ? billing.failedAttemptDays
+        : [...billing.failedAttemptDays, billing.daysToPass];
+}
+
+export function evalPhaseCost(
+    fees: FeeSchedule,
+    billing: EvalPhaseBilling,
+    discounts: CouponDiscounts | undefined,
+): number {
+    const evalCost =
+        feesUntilPassAcrossAttempts(fees, evalAttemptDays(billing), discounts) +
+        billing.resetFeesPaid;
+    return billing.daysToPass === null
+        ? evalCost
+        : evalCost + activationFee(fees, discounts);
 }
 
 export function feesUntilPass(

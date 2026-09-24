@@ -60,7 +60,6 @@ describe('Alpha Futures payout split follows the General Service Agreement: 70% 
             state.balance += 2000;
             state.qualifyingDays += 5;
             const result = tryFundedPayout({
-                maxPayouts: Infinity,
                 minRetainedCushion: plan.resolveRetainedCushion(undefined),
                 payoutRequestSize: 1000,
                 plan,
@@ -99,7 +98,6 @@ function secondPayout(plan: Plan, profit: number) {
     tracker.qualifyingDaysAtLastPayout = 5;
     tracker.lastPayoutBalance = state.startingBalance;
     return tryFundedPayout({
-        maxPayouts: Infinity,
         minRetainedCushion: 0,
         payoutRequestSize: undefined,
         plan,
@@ -145,7 +143,6 @@ describe('Alpha Futures standing minimum withdrawal request ($200 Zero, $500 Sta
 
         expect(
             tryFundedPayout({
-                maxPayouts: Infinity,
                 minRetainedCushion: 0,
                 payoutRequestSize: undefined,
                 plan,
@@ -167,7 +164,6 @@ describe('Alpha Futures request cap is 50% of the profit in the account, not of 
         tracker.lastPayoutBalance = state.balance - 1000;
 
         const payout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan,
@@ -188,7 +184,6 @@ describe('Alpha Futures request cap is 50% of the profit in the account, not of 
         tracker.lastPayoutBalance = state.balance + 1000;
 
         const payout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: plan.resolveRetainedCushion(undefined),
             payoutRequestSize: undefined,
             plan,
@@ -210,7 +205,6 @@ describe('Alpha Futures request cap is 50% of the profit in the account, not of 
 
         expect(
             tryFundedPayout({
-                maxPayouts: Infinity,
                 minRetainedCushion: 0,
                 payoutRequestSize: undefined,
                 plan,
@@ -279,7 +273,6 @@ describe('Alpha Futures Qualified 40% consistency is measured on net profit sinc
         tracker.lastPayoutBalance = state.startingBalance + 4000;
         tracker.cycleBestDayProfit = cycleBestDayProfit;
         return tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan,

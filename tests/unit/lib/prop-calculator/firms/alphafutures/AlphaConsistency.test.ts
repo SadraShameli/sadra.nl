@@ -25,8 +25,9 @@ import {
     isFundedDpEligible,
 } from '~/lib/prop-calculator/core/FundedStateValue';
 import { AlphaFutures } from '~/lib/prop-calculator/firms/alphafutures/AlphaFutures';
-import { type Rng } from '~/lib/prop-calculator/rng';
 import { simulateTrial } from '~/lib/prop-calculator/simulator/trial';
+
+import { scriptedRng } from '../../scriptedRng';
 
 const firm = new AlphaFutures();
 
@@ -61,7 +62,6 @@ function secondRequest(
     tracker.lastPayoutBalance = state.balance - options.cycleProfit;
     tracker.cycleBestDayProfit = options.cycleBestDayProfit;
     return tryFundedPayout({
-        maxPayouts: Infinity,
         minRetainedCushion: 0,
         payoutRequestSize: undefined,
         plan,
@@ -159,15 +159,6 @@ describe('N-45 through the simulator: an Alpha Standard trial pays no request af
     ];
     const fundedDays = firstCycle.length + netLosingCycle.length;
 
-    function scriptedRng(draws: readonly number[]): Rng {
-        let index = 0;
-        return () => {
-            const draw = draws[index];
-            index += 1;
-            return draw ?? lossDraw;
-        };
-    }
-
     function runTrial(plan: Plan) {
         const policy = flatDayPolicy(400, 1, {
             kind: DayStopRuleKind.None,
@@ -184,7 +175,10 @@ describe('N-45 through the simulator: an Alpha Standard trial pays no request af
             payoutRequestSize: undefined,
             plan,
             positionSizing: null,
-            rng: scriptedRng([...evalDays, ...firstCycle, ...netLosingCycle]),
+            rng: scriptedRng(
+                [...evalDays, ...firstCycle, ...netLosingCycle],
+                lossDraw,
+            ),
             rrRatio: 3,
             rungSizing: RungSizing.CapToCushion,
             shouldCaptureEquity: false,
@@ -218,7 +212,53 @@ describe('N-45 through the simulator: an Alpha Standard trial pays no request af
     });
 });
 
-function dpAndSimulate(plan: Plan) {
+interface DpRun {
+    dp: number;
+    fundedBustProbability: number;
+    payoutCount: number;
+    simulated: number;
+}
+
+const dpRuns = new Map<ConsistencyRule, DpRun>();
+
+function alphaToy(rule: ConsistencyRule): Plan {
+    return alphaPlan(AlphaFuturesVariant.Standard).withOverrides({
+        accountSize: dollars(1000),
+        consistency: null,
+        contractLimits: undefined,
+        drawdown: new EodTrailingDrawdown({ amount: dollars(100) }),
+        evalDailyLossLimit: { kind: DailyLossLimitKind.None },
+        fundedConsistency: { kind: 'set', rule },
+        fundedDailyLossLimit: { kind: DailyLossLimitKind.None },
+        fundedDrawdown: new EodTrailingDrawdown({
+            amount: dollars(100),
+            lock: {
+                atProfit: dollars(150),
+                lockedThreshold: () => 1000,
+            },
+        }),
+        isInstantFunded: true,
+        maxLifetimePayouts: 3,
+        minDaysAfterPassForPayout: 0,
+        minPayoutRequest: dollars(0),
+        minQualifyingDayProfit: null,
+        minTradingDays: 0,
+        payoutRequestCap: undefined,
+        payoutTiers: [
+            { thresholdProfit: dollars(0), traderShare: fraction(1) },
+        ],
+        payoutTiersFromPayout: undefined,
+    });
+}
+
+function averageRequest(run: DpRun): number {
+    return run.simulated / run.payoutCount;
+}
+
+function dpAndSimulate(rule: ConsistencyRule): DpRun {
+    const cached = dpRuns.get(rule);
+    if (cached) return cached;
+    const plan = alphaToy(rule);
     const result = computeFundedStateValue({
         actionStepMultiple: 0.5,
         cushionStepMultiple: 0.25,
@@ -231,68 +271,76 @@ function dpAndSimulate(plan: Plan) {
         tradesPerDay: 2,
         winrate: 0.5,
     });
-    const out = simulate({
+    const simInputs = {
         fundedDayPolicy: result.dayPolicy,
         fundedHorizonDays: 400,
         maxEvalDays: 1,
-        plan,
         riskPerTrade: 100,
         rrRatio: 2,
         seed: 7,
         tradesPerDay: 2,
         trials: 20_000,
         winrate: 0.5,
-    });
+    };
+    const out = simulate({ ...simInputs, plan });
     expect(result.unconvergedLevelCount).toBe(0);
     expect(result.bustTerminalValue).toBe(0);
-    return { dp: result.initialValue, simulated: out.expectedGrossPayout };
+    const run = {
+        dp: result.initialValue,
+        fundedBustProbability: out.fundedBustProbability,
+        payoutCount: out.expectedPayoutCount,
+        simulated: out.expectedGrossPayout,
+    };
+    dpRuns.set(rule, run);
+    return run;
+}
+
+function qualifiedAlphaRule(): ConsistencyRule {
+    const rule = alphaPlan(AlphaFuturesVariant.Standard).fundedConsistencyRule(
+        1,
+    );
+    if (rule === null) {
+        throw new Error('Alpha Standard has no Qualified consistency rule');
+    }
+    return rule;
+}
+
+function simulateFlatToy(rule: ConsistencyRule, cap: null | number) {
+    return simulate({
+        fundedHorizonDays: 400,
+        maxEvalDays: 1,
+        plan: alphaToy(rule).withMaxLifetimePayouts(cap),
+        riskPerTrade: 25,
+        rrRatio: 2,
+        seed: 7,
+        tradesPerDay: 2,
+        trials: 20_000,
+        winrate: 0.5,
+    });
+}
+
+function withRule(
+    rule: ConsistencyRule,
+    changes: {
+        boundary?: ConsistencyBoundary;
+        nonPositiveProfit?: ConsistencyNonPositiveProfit;
+    },
+): ConsistencyRule {
+    return new ConsistencyRule(
+        ConsistencyScope.Funded,
+        rule.maxBestDayShare,
+        rule.basis,
+        rule.violationEffect,
+        changes.boundary ?? rule.boundary,
+        changes.nonPositiveProfit ?? rule.nonPositiveProfit,
+    );
 }
 
 describe('N-45 in the funded dynamic program: the net-losing cycle rule holds from the second request on', () => {
-    const standard = alphaPlan(AlphaFuturesVariant.Standard);
-    const qualifiedRule = standard.fundedConsistencyRule(1);
-    if (qualifiedRule === null) {
-        throw new Error('Alpha Standard has no Qualified consistency rule');
-    }
-
-    function alphaToy(rule: ConsistencyRule): Plan {
-        return standard.withOverrides({
-            accountSize: dollars(1000),
-            consistency: null,
-            contractLimits: undefined,
-            drawdown: new EodTrailingDrawdown({ amount: dollars(100) }),
-            evalDailyLossLimit: { kind: DailyLossLimitKind.None },
-            fundedConsistency: { kind: 'set', rule },
-            fundedDailyLossLimit: { kind: DailyLossLimitKind.None },
-            fundedDrawdown: new EodTrailingDrawdown({
-                amount: dollars(100),
-                lock: {
-                    atProfit: dollars(150),
-                    lockedThreshold: () => 1000,
-                },
-            }),
-            isInstantFunded: true,
-            maxLifetimePayouts: 3,
-            minDaysAfterPassForPayout: 0,
-            minPayoutRequest: dollars(0),
-            minQualifyingDayProfit: null,
-            minTradingDays: 0,
-            payoutRequestCap: undefined,
-            payoutTiers: [
-                { thresholdProfit: dollars(0), traderShare: fraction(1) },
-            ],
-            payoutTiersFromPayout: undefined,
-        });
-    }
-
-    const lossExemptRule = new ConsistencyRule(
-        ConsistencyScope.Funded,
-        qualifiedRule.maxBestDayShare,
-        qualifiedRule.basis,
-        qualifiedRule.violationEffect,
-        qualifiedRule.boundary,
-        ConsistencyNonPositiveProfit.Passes,
-    );
+    const qualifiedRule = qualifiedAlphaRule();
+    const lossExemptRule = withRule(qualifiedRule, {
+        nonPositiveProfit: ConsistencyNonPositiveProfit.Passes,
+    });
 
     it('uses the real Alpha Qualified rule: inclusive and failing on a net-losing cycle', () => {
         expect(qualifiedRule.boundary).toBe(ConsistencyBoundary.Inclusive);
@@ -303,8 +351,8 @@ describe('N-45 in the funded dynamic program: the net-losing cycle rule holds fr
     });
 
     it('separates the Alpha rule from a loss-exempt rule after the first request, in the same direction as simulated trials of its own policy', () => {
-        const alpha = dpAndSimulate(alphaToy(qualifiedRule));
-        const lossExempt = dpAndSimulate(alphaToy(lossExemptRule));
+        const alpha = dpAndSimulate(qualifiedRule);
+        const lossExempt = dpAndSimulate(lossExemptRule);
         expect(alpha.simulated - lossExempt.simulated).toBeGreaterThan(50);
         expect(alpha.dp - lossExempt.dp).toBeGreaterThan(50);
         for (const run of [alpha, lossExempt]) {
@@ -315,6 +363,102 @@ describe('N-45 in the funded dynamic program: the net-losing cycle rule holds fr
     }, 240_000);
 });
 
+describe('N-45 aggregate explanation: under a lifetime payout cap the loss-exempt rule spends a scarce payout slot on a small request after a losing day', () => {
+    const qualifiedRule = qualifiedAlphaRule();
+    const lossExemptRule = withRule(qualifiedRule, {
+        nonPositiveProfit: ConsistencyNonPositiveProfit.Passes,
+    });
+    const W = 0.1;
+    const L = 0.9;
+    const policy = flatDayPolicy(25, 1, { kind: DayStopRuleKind.None });
+
+    function runToy(plan: Plan) {
+        return simulateTrial({
+            commission: dollars(0),
+            discounts: undefined,
+            evalDayPolicy: policy,
+            fundedDayPolicy: policy,
+            fundedHorizonDays: 7,
+            maxAttempts: 1,
+            maxEvalDays: 1,
+            minRetainedCushion: plan.resolveRetainedCushion(undefined),
+            payoutRequestSize: undefined,
+            plan,
+            positionSizing: null,
+            rng: scriptedRng([W, W, W, L, W, W, W], L),
+            rrRatio: 4,
+            rungSizing: RungSizing.CapToCushion,
+            shouldCaptureEquity: false,
+            winrate: fraction(0.5),
+        });
+    }
+
+    it('with 2 lifetime payouts the loss-exempt rule pays 150 then 25 after the day-4 loss and concludes, while the strict rule waits and pays 150 then 212.5', () => {
+        const lossExempt = runToy(
+            alphaToy(lossExemptRule).withMaxLifetimePayouts(2),
+        );
+        const strict = runToy(
+            alphaToy(qualifiedRule).withMaxLifetimePayouts(2),
+        );
+
+        expect(lossExempt.payoutCount).toBe(2);
+        expect(lossExempt.grossPayout).toBe(175);
+        expect(lossExempt.daysElapsed).toBe(4);
+        expect(strict.payoutCount).toBe(2);
+        expect(strict.grossPayout).toBe(362.5);
+        expect(strict.daysElapsed).toBe(7);
+    });
+
+    it("control: without the cap the small request costs no slot, so the loss-exempt rule pays 375 and beats the strict rule's 362.5", () => {
+        const lossExempt = runToy(
+            alphaToy(lossExemptRule).withMaxLifetimePayouts(null),
+        );
+        const strict = runToy(
+            alphaToy(qualifiedRule).withMaxLifetimePayouts(null),
+        );
+
+        expect(lossExempt.payoutCount).toBe(3);
+        expect(lossExempt.grossPayout).toBe(375);
+        expect(strict.grossPayout).toBe(362.5);
+    });
+
+    it('aggregate: under their DP policies both rules bust about equally and stay well under the 3-payout cap, and the strict rule wins on larger requests', () => {
+        const strict = dpAndSimulate(qualifiedRule);
+        const lossExempt = dpAndSimulate(lossExemptRule);
+
+        expect(strict.payoutCount).toBeLessThan(2);
+        expect(lossExempt.payoutCount).toBeLessThan(2);
+        expect(
+            Math.abs(
+                strict.fundedBustProbability - lossExempt.fundedBustProbability,
+            ),
+        ).toBeLessThan(0.03);
+        expect(averageRequest(strict)).toBeGreaterThan(
+            1.15 * averageRequest(lossExempt),
+        );
+    }, 480_000);
+
+    it('aggregate under flat sizing: with the cap both rules take the same number of payouts and the strict rule takes larger ones, and removing the cap widens the gap, so the cap is not its cause', () => {
+        const cappedStrict = simulateFlatToy(qualifiedRule, 3);
+        const cappedLossExempt = simulateFlatToy(lossExemptRule, 3);
+        const cappedGap =
+            cappedStrict.expectedGrossPayout -
+            cappedLossExempt.expectedGrossPayout;
+        const uncappedGap =
+            simulateFlatToy(qualifiedRule, null).expectedGrossPayout -
+            simulateFlatToy(lossExemptRule, null).expectedGrossPayout;
+
+        expect(
+            Math.abs(
+                cappedStrict.expectedPayoutCount -
+                    cappedLossExempt.expectedPayoutCount,
+            ),
+        ).toBeLessThan(0.1);
+        expect(cappedGap).toBeGreaterThan(50);
+        expect(uncappedGap).toBeGreaterThan(cappedGap);
+    }, 120_000);
+});
+
 interface FundedCycleProbe {
     balance: number;
     cycleBestDayProfit: number;
@@ -322,57 +466,10 @@ interface FundedCycleProbe {
 }
 
 describe('N-45 at single funded DP states: a negative-edge policy trades only while the Alpha rule blocks the day-close payout', () => {
-    const standard = alphaPlan(AlphaFuturesVariant.Standard);
-    const qualifiedRule = standard.fundedConsistencyRule(1);
-    if (qualifiedRule === null) {
-        throw new Error('Alpha Standard has no Qualified consistency rule');
-    }
-
-    function withRule(
-        rule: ConsistencyRule,
-        changes: {
-            boundary?: ConsistencyBoundary;
-            nonPositiveProfit?: ConsistencyNonPositiveProfit;
-        },
-    ): ConsistencyRule {
-        return new ConsistencyRule(
-            ConsistencyScope.Funded,
-            rule.maxBestDayShare,
-            rule.basis,
-            rule.violationEffect,
-            changes.boundary ?? rule.boundary,
-            changes.nonPositiveProfit ?? rule.nonPositiveProfit,
-        );
-    }
+    const qualifiedRule = qualifiedAlphaRule();
 
     function toyPlan(rule: ConsistencyRule): Plan {
-        return standard.withOverrides({
-            accountSize: dollars(1000),
-            consistency: null,
-            contractLimits: undefined,
-            drawdown: new EodTrailingDrawdown({ amount: dollars(100) }),
-            evalDailyLossLimit: { kind: DailyLossLimitKind.None },
-            fundedConsistency: { kind: 'set', rule },
-            fundedDailyLossLimit: { kind: DailyLossLimitKind.None },
-            fundedDrawdown: new EodTrailingDrawdown({
-                amount: dollars(100),
-                lock: {
-                    atProfit: dollars(150),
-                    lockedThreshold: () => 1000,
-                },
-            }),
-            isInstantFunded: true,
-            maxLifetimePayouts: 2,
-            minDaysAfterPassForPayout: 0,
-            minPayoutRequest: dollars(0),
-            minQualifyingDayProfit: null,
-            minTradingDays: 0,
-            payoutRequestCap: undefined,
-            payoutTiers: [
-                { thresholdProfit: dollars(0), traderShare: fraction(1) },
-            ],
-            payoutTiersFromPayout: undefined,
-        });
+        return alphaToy(rule).withMaxLifetimePayouts(2);
     }
 
     const solvedPolicies = new Map<
@@ -413,9 +510,9 @@ describe('N-45 at single funded DP states: a negative-edge policy trades only wh
             return (
                 result.dayPolicy.computeRisk?.(state, 0, {
                     cycleBestDayProfit,
+                    dayGateProgress: 10,
                     lastPayoutBalance,
                     payoutsIssued: 1,
-                    qualifyingDaysSincePayout: 10,
                 }) ?? NaN
             );
         };
@@ -510,7 +607,7 @@ describe('no other firm changes consistency behavior', () => {
     );
 });
 
-describe('N-34 notes: Alpha typed coupon codes and the unmodeled Qualified Reset', () => {
+describe('N-34 notes: Alpha typed coupon codes and the opt-in Qualified Reset', () => {
     const notes = firm.notes;
 
     it('names both typed codes, TRADINGVIEW and the site-wide APP50, and keeps list prices as the fee basis', () => {
@@ -521,7 +618,7 @@ describe('N-34 notes: Alpha typed coupon codes and the unmodeled Qualified Reset
         expect(couponNote).toContain('list price');
     });
 
-    it('states the Qualified Reset prices, limits and window and that it is not modeled', () => {
+    it('states the Qualified Reset prices, limits and window and how the opt-in models it', () => {
         const resetNote = notes.find((note) =>
             note.includes('Qualified Account Reset'),
         );
@@ -530,12 +627,19 @@ describe('N-34 notes: Alpha typed coupon codes and the unmodeled Qualified Reset
             '$499',
             '$599',
             '2 times',
-            'never reached a payout request',
+            'never reached payout request',
             '7 days',
-            'not modeled',
+            'opt-in',
+            'off by default',
+            'same day',
+            'inactivity closure',
+            'cost per funded account',
+            'optimize dp',
+            'does not model',
         ]) {
             expect(resetNote).toContain(fact);
         }
+        expect(resetNote).not.toContain('not modeled yet');
     });
 
     it('documents the inclusive 40% boundary and the net-losing cycle rule', () => {

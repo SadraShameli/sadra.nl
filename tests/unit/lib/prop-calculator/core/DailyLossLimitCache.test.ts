@@ -11,6 +11,7 @@ function context(profit: number, isThresholdLocked = false) {
     return {
         isThresholdLocked,
         peakDayCloseProfit: profit,
+        peakIntradayProfit: null,
         profit,
         sessionOpenProfit: profit,
     };

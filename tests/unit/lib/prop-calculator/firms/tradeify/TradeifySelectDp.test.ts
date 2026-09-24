@@ -52,9 +52,9 @@ function firstTradeRiskFor(
     return (state, payoutsIssued = 0) =>
         result.dayPolicy.computeRisk?.(state, 0, {
             cycleBestDayProfit: 0,
+            dayGateProgress: 0,
             lastPayoutBalance: state.balance,
             payoutsIssued,
-            qualifyingDaysSincePayout: 0,
         }) ?? 0;
 }
 

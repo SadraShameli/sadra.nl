@@ -3,25 +3,27 @@ import {
     type CouponDiscounts,
     type FeeSchedule,
     rebuyFee,
+    resetFee,
     retryFee,
     RetryKind,
     retryPath,
 } from '~/lib/prop-calculator';
 
+import { describeDiscountedFee } from './feePreview';
+
 export function describeResetFee(
     fees: FeeSchedule,
-    resetDiscountPercent: number,
+    discounts: CouponDiscounts | undefined,
 ): string {
     if (fees.retry === RetryKind.Rebuy) {
-        return `no reset, re-buy at ${formatCompactCurrency(rebuyFee(fees))}`;
+        return `no reset, re-buy at ${formatCompactCurrency(rebuyFee(fees, discounts))}`;
     }
-    if (fees.reset <= 0) return 'no reset fee';
-    return resetDiscountPercent > 0
-        ? `${formatCompactCurrency(fees.reset)} → ${formatCompactCurrency(fees.reset * (1 - resetDiscountPercent / 100))}`
-        : formatCompactCurrency(fees.reset);
+    return fees.reset <= 0
+        ? 'no reset fee'
+        : describeDiscountedFee(fees.reset, resetFee(fees, discounts));
 }
 
-export function describeRetryOnBust(
+export function describeRetry(
     fees: FeeSchedule,
     discounts: CouponDiscounts | undefined,
     maxAttempts: number,

@@ -108,7 +108,6 @@ describe('TopStep DLL add-on variants (live-verified 2026-09-21 against help.top
             state.qualifyingDays = plan.minDaysAfterPassForPayout;
 
             const payout = tryFundedPayout({
-                maxPayouts: Infinity,
                 minRetainedCushion: 0,
                 payoutRequestSize: undefined,
                 plan,

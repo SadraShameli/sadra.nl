@@ -1785,9 +1785,9 @@ function fundedCycleAfter(
 ): FundedCycleSnapshot {
     return {
         cycleBestDayProfit: 0,
+        dayGateProgress: 0,
         lastPayoutBalance,
         payoutsIssued,
-        qualifyingDaysSincePayout: 0,
     };
 }
 

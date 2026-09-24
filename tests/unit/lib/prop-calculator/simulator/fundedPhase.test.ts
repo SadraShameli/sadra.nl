@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import {
     computedDayPolicy,
@@ -11,8 +11,10 @@ import {
     MffuVariant,
     type Plan,
 } from '~/lib/prop-calculator/core';
+import { type FundedPayoutOptions } from '~/lib/prop-calculator/core/FundedPayoutCycle';
 import { findFirm } from '~/lib/prop-calculator/firms';
-import { simulate } from '~/lib/prop-calculator/simulator';
+import { FundedStage, simulate } from '~/lib/prop-calculator/simulator';
+import { type FundedDaysOptions } from '~/lib/prop-calculator/simulator/fundedPhase';
 
 function payoutCapToyPlan(): Plan {
     const base = findFirm(FirmId.Mffu)?.findPlan({
@@ -83,38 +85,55 @@ describe('the funded day loop hands the day policy the balance left after the la
                 balance: 1000,
                 fundedCycle: {
                     cycleBestDayProfit: 0,
+                    dayGateProgress: 0,
                     lastPayoutBalance: 1000,
                     payoutsIssued: 0,
-                    qualifyingDaysSincePayout: 0,
                 },
             },
             {
                 balance: 1100,
                 fundedCycle: {
                     cycleBestDayProfit: 100,
+                    dayGateProgress: 1,
                     lastPayoutBalance: 1000,
                     payoutsIssued: 0,
-                    qualifyingDaysSincePayout: 1,
                 },
             },
             {
                 balance: 1200,
                 fundedCycle: {
                     cycleBestDayProfit: 100,
+                    dayGateProgress: 2,
                     lastPayoutBalance: 1000,
                     payoutsIssued: 0,
-                    qualifyingDaysSincePayout: 2,
                 },
             },
             {
                 balance: 1150,
                 fundedCycle: {
                     cycleBestDayProfit: 0,
+                    dayGateProgress: 0,
                     lastPayoutBalance: 1150,
                     payoutsIssued: 1,
-                    qualifyingDaysSincePayout: 0,
                 },
             },
         ]);
+    });
+});
+
+describe('the funded phase has no payout budget besides the plan rules (N-14)', () => {
+    it('ends a funded run only by a bust, a concluded account or the horizon', () => {
+        expect(
+            Object.values(FundedStage).toSorted((a, b) => a.localeCompare(b)),
+        ).toStrictEqual([
+            FundedStage.Busted,
+            FundedStage.Concluded,
+            FundedStage.HorizonReached,
+        ]);
+    });
+
+    it('takes no maxPayouts option in the payout or the funded-days options', () => {
+        expectTypeOf<FundedPayoutOptions>().not.toHaveProperty('maxPayouts');
+        expectTypeOf<FundedDaysOptions>().not.toHaveProperty('maxPayouts');
     });
 });

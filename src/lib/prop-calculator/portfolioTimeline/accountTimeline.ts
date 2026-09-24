@@ -88,14 +88,25 @@ export function runAccountTimeline(
 
         const spendBeforeCard = spendSoFar;
         let payoutIndex = 0;
+        let fundedResetIndex = 0;
+        let fundedResetSpend = 0;
 
         for (
             let d = 1;
             d <= card.totalDays && cardStart + d <= dayBudget;
             d++
         ) {
+            while (
+                fundedResetIndex < card.fundedResetCharges.length &&
+                card.fundedResetCharges[fundedResetIndex]?.dayOffset === d
+            ) {
+                fundedResetSpend +=
+                    card.fundedResetCharges[fundedResetIndex]?.fee ?? 0;
+                fundedResetIndex += 1;
+            }
             spendSoFar =
                 spendBeforeCard +
+                fundedResetSpend +
                 (card.evalDays > 0
                     ? (card.totalCost * Math.min(d, card.evalDays)) /
                       card.evalDays

@@ -36,17 +36,24 @@ import {
     type InstrumentSymbol,
     parseFirmId,
     type Plan,
+    type PlanOptIns,
     type Roi,
     serializePlanId,
     type SimInputs,
     type SimOutputs,
     simulate,
     type TradingFirm,
-    withOneTimeEarlyWithdrawalTaken,
+    withPlanOptIns,
 } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
 import { toCouponDiscounts } from './couponDiscounts';
+import {
+    describeActivationFee,
+    describeEvalFee,
+    describeMonthlySubscriptionFee,
+    purchaseCouponDiscounts,
+} from './feePreview';
 import { panelDescriptions } from './kpiDescriptions';
 import { describeResetFee, hasResetOption } from './retryDescription';
 import { type PortfolioEntry } from './types';
@@ -58,8 +65,8 @@ interface PortfolioPanelProperties {
     currentPlan: Plan;
     firms: readonly TradingFirm[];
     onPortfolioChange: (entries: PortfolioEntry[]) => void;
+    planOptIns: PlanOptIns;
     portfolio: PortfolioEntry[];
-    takesOneTimeEarlyWithdrawal: boolean;
 }
 
 interface PortfolioTableRow {
@@ -84,14 +91,10 @@ export default function PortfolioPanel({
     currentPlan,
     firms,
     onPortfolioChange,
+    planOptIns,
     portfolio,
-    takesOneTimeEarlyWithdrawal,
 }: PortfolioPanelProperties) {
-    const key = buildCacheKey(
-        baseInputs,
-        portfolio,
-        takesOneTimeEarlyWithdrawal,
-    );
+    const key = buildCacheKey(baseInputs, portfolio, planOptIns);
     const computation = useDebouncedComputation<SimmedEntry[]>(
         key,
         DEBOUNCE_MS,
@@ -107,10 +110,7 @@ export default function PortfolioPanel({
                     copyAccounts: entry.count,
                     discounts: toCouponDiscounts(entry),
                     instrument: entry.instrument ?? baseInputs.instrument,
-                    plan: withOneTimeEarlyWithdrawalTaken(
-                        plan,
-                        takesOneTimeEarlyWithdrawal,
-                    ),
+                    plan: withPlanOptIns(plan, planOptIns),
                     stopPoints: entry.stopPoints ?? baseInputs.stopPoints,
                     trials,
                 });
@@ -352,19 +352,19 @@ function AccountsCell({
 function buildCacheKey(
     baseInputs: Omit<SimInputs, 'plan'>,
     portfolio: PortfolioEntry[],
-    isEarlyWithdrawalTaken: boolean,
+    optIns: PlanOptIns,
 ): string {
     return JSON.stringify({
         attempts: baseInputs.maxAttempts ?? 1,
         commission: baseInputs.commissionPerRoundTrip ?? 0,
         dayStop: baseInputs.dayStop,
-        earlyWithdrawal: isEarlyWithdrawalTaken,
         evalDayPolicy: baseInputs.evalDayPolicy ?? null,
         fundedHorizonDays: baseInputs.fundedHorizonDays,
         idleDayProbability: baseInputs.idleDayProbability ?? 0,
         instrument: baseInputs.instrument ?? null,
         maxEvalDays: baseInputs.maxEvalDays,
         minRetainedCushion: baseInputs.minRetainedCushion ?? null,
+        optIns,
         payoutRequestSize: baseInputs.payoutRequestSize ?? null,
         portfolio: portfolio.map((entry) => ({
             actDiscount: entry.activationDiscountPercent,
@@ -426,12 +426,7 @@ function CouponCell({
         effectiveActDiscount > 0 ||
         entry.monthlySubscriptionDiscountPercent > 0 ||
         entry.resetDiscountPercent > 0;
-    const evalAfter =
-        plan.fees.oneTimeEval * (1 - entry.evalDiscountPercent / 100);
-    const actAfter = plan.fees.activation * (1 - effectiveActDiscount / 100);
-    const monthlySubscriptionAfter =
-        plan.fees.monthlySubscription *
-        (1 - entry.monthlySubscriptionDiscountPercent / 100);
+    const purchaseDiscounts = purchaseCouponDiscounts(plan, entry, entry.count);
     return (
         <Popover>
             <PopoverTrigger asChild>
@@ -457,11 +452,10 @@ function CouponCell({
                             </label>
                             {plan.fees.oneTimeEval > 0 && (
                                 <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
-                                    {entry.evalDiscountPercent > 0
-                                        ? `${formatCompactCurrency(plan.fees.oneTimeEval)} → ${formatCompactCurrency(evalAfter)}`
-                                        : formatCompactCurrency(
-                                              plan.fees.oneTimeEval,
-                                          )}
+                                    {describeEvalFee(
+                                        plan.fees,
+                                        purchaseDiscounts,
+                                    )}
                                 </span>
                             )}
                         </div>
@@ -498,11 +492,10 @@ function CouponCell({
                             </label>
                             {plan.fees.activation > 0 && (
                                 <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
-                                    {effectiveActDiscount > 0
-                                        ? `${formatCompactCurrency(plan.fees.activation)} → ${formatCompactCurrency(actAfter)}`
-                                        : formatCompactCurrency(
-                                              plan.fees.activation,
-                                          )}
+                                    {describeActivationFee(
+                                        plan.fees,
+                                        purchaseDiscounts,
+                                    )}
                                 </span>
                             )}
                         </div>
@@ -563,12 +556,10 @@ function CouponCell({
                             </label>
                             {plan.fees.monthlySubscription > 0 && (
                                 <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
-                                    {entry.monthlySubscriptionDiscountPercent >
-                                    0
-                                        ? `${formatCompactCurrency(plan.fees.monthlySubscription)} → ${formatCompactCurrency(monthlySubscriptionAfter)}`
-                                        : formatCompactCurrency(
-                                              plan.fees.monthlySubscription,
-                                          )}
+                                    {describeMonthlySubscriptionFee(
+                                        plan.fees,
+                                        purchaseDiscounts,
+                                    )}
                                 </span>
                             )}
                         </div>
@@ -606,10 +597,7 @@ function CouponCell({
                                 Reset fee discount
                             </label>
                             <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
-                                {describeResetFee(
-                                    plan.fees,
-                                    entry.resetDiscountPercent,
-                                )}
+                                {describeResetFee(plan.fees, purchaseDiscounts)}
                             </span>
                         </div>
                         <div className="relative">

@@ -30,6 +30,7 @@ export enum DailyLossLimitShape {
     Fixed = 'fixed',
     None = 'none',
     Range = 'range',
+    RangeWithUnlimitedTier = 'range-with-unlimited-tier',
     ShareOfPeak = 'share-of-peak',
     Staged = 'staged',
 }
@@ -63,14 +64,15 @@ export type DailyLossLimitDescriptor =
           kind: DailyLossLimitShape.Staged;
       }
     | { amount: Dollars; kind: DailyLossLimitShape.Fixed }
+    | { kind: DailyLossLimitShape.None }
+    | { kind: DailyLossLimitShape.ShareOfPeak; share: Fraction0to1 }
     | {
-          hasUnlimitedTier?: true;
-          kind: DailyLossLimitShape.Range;
+          kind:
+              | DailyLossLimitShape.Range
+              | DailyLossLimitShape.RangeWithUnlimitedTier;
           max: Dollars;
           min: Dollars;
-      }
-    | { kind: DailyLossLimitShape.None }
-    | { kind: DailyLossLimitShape.ShareOfPeak; share: Fraction0to1 };
+      };
 
 export interface DllTier {
     dailyLossLimit: Dollars | null;
@@ -186,10 +188,10 @@ class TieredDailyLossLimit extends DailyLossLimit {
             return { kind: DailyLossLimitShape.None };
         }
         return {
-            ...(amounts.length < this.tiers.length && {
-                hasUnlimitedTier: true,
-            }),
-            kind: DailyLossLimitShape.Range,
+            kind:
+                amounts.length < this.tiers.length
+                    ? DailyLossLimitShape.RangeWithUnlimitedTier
+                    : DailyLossLimitShape.Range,
             max: dollars(Math.max(...amounts)),
             min: dollars(Math.min(...amounts)),
         };
@@ -231,7 +233,8 @@ export function hasPeakShareDependency(
     switch (descriptor.kind) {
         case DailyLossLimitShape.Fixed:
         case DailyLossLimitShape.None:
-        case DailyLossLimitShape.Range: {
+        case DailyLossLimitShape.Range:
+        case DailyLossLimitShape.RangeWithUnlimitedTier: {
             return false;
         }
         case DailyLossLimitShape.ShareOfPeak: {

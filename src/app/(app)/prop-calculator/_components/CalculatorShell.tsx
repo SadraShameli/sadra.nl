@@ -134,6 +134,7 @@ export default function CalculatorShell() {
                             onSeedChange={c.setSeed}
                             onSizingModeChange={c.setSizingMode}
                             onStopPointsChange={c.setStopPoints}
+                            onTakesFundedResetChange={c.setTakesFundedReset}
                             onTakesOneTimeEarlyWithdrawalChange={
                                 c.setTakesOneTimeEarlyWithdrawal
                             }
@@ -151,6 +152,7 @@ export default function CalculatorShell() {
                             seed={c.state.seed}
                             sizingMode={c.state.sizingMode}
                             stopPoints={c.state.stopPoints}
+                            takesFundedReset={c.state.takesFundedReset}
                             takesOneTimeEarlyWithdrawal={
                                 c.state.takesOneTimeEarlyWithdrawal
                             }
@@ -206,10 +208,8 @@ export default function CalculatorShell() {
                     currentPlan={c.state.plan}
                     firms={c.firms}
                     onPortfolioChange={c.setPortfolio}
+                    planOptIns={c.planOptIns}
                     portfolio={c.state.portfolio}
-                    takesOneTimeEarlyWithdrawal={
-                        c.state.takesOneTimeEarlyWithdrawal
-                    }
                 />
             </div>
 
@@ -353,9 +353,7 @@ export default function CalculatorShell() {
                     activePlan={c.state.plan}
                     baseInputs={c.simInputs}
                     firm={c.state.firm}
-                    takesOneTimeEarlyWithdrawal={
-                        c.state.takesOneTimeEarlyWithdrawal
-                    }
+                    planOptIns={c.planOptIns}
                 />
             </div>
 
@@ -371,9 +369,7 @@ export default function CalculatorShell() {
                     activeFirmId={c.state.firm.id}
                     baseInputs={c.simInputs}
                     firms={c.firms}
-                    takesOneTimeEarlyWithdrawal={
-                        c.state.takesOneTimeEarlyWithdrawal
-                    }
+                    planOptIns={c.planOptIns}
                     targetAccountSize={c.state.plan.accountSize}
                 />
             </div>

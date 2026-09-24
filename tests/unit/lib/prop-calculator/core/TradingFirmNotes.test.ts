@@ -200,20 +200,26 @@ describe('TradingFirm.notes (live-verified 2026-09-10, MFFU only)', () => {
         ).toBe(false);
     });
 
-    it('Lucid discloses that --eval-discount scales the combined checkout price, add-on and promo included, unlike the site', () => {
+    it('Lucid fee note names the undiscountable add-on and promo on evals and resets, and no longer says --eval-discount scales the combined price (N-52)', () => {
         const notes = findFirm(FirmId.Lucid)?.notes ?? [];
+        const feeNotes = notes.filter((note) => note.startsWith('Fee basis'));
+        expect(feeNotes).toHaveLength(1);
+        const [feeNote = ''] = feeNotes;
+        expect(feeNote).toContain('undiscountableEval');
+        expect(feeNote).toContain('undiscountableReset');
+        expect(feeNote).toContain(
+            'Pro no-DLL at 30% is 172 x 0.7 + 20 = $140.40',
+        );
+        expect(
+            notes.some((note) =>
+                note.includes('scales the combined checkout price'),
+            ),
+        ).toBe(false);
         expect(
             notes.some((note) =>
                 note.includes('never the no-DLL add-on or a reset). Resets'),
             ),
         ).toBe(false);
-        expect(
-            notes.some((note) =>
-                note.includes(
-                    '--eval-discount scales the combined checkout price',
-                ),
-            ),
-        ).toBe(true);
     });
 
     it('TopStep notes state the published $95 No-fee reset, the LFA payout gate and the confirmed LFA 90/10 split', () => {

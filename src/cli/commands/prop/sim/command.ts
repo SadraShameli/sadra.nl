@@ -145,6 +145,16 @@ export function simHeaderLines(
 }
 
 export function simSummaryRows(out: SimOutputs): readonly SummaryRow[] {
+    const fundedResetRows: SummaryRow[] =
+        out.expectedFundedResets > 0
+            ? [
+                  ['funded resets / acct', out.expectedFundedResets.toFixed(2)],
+                  [
+                      'funded reset fees',
+                      formatCurrency(out.costBreakdown.fundedResetFeesTotal),
+                  ],
+              ]
+            : [];
     return [
         ['eval pass', formatPercent(out.evalPassProbability)],
         ['funded survive', formatPercent(out.fundedSurvivalProbability)],
@@ -156,6 +166,7 @@ export function simSummaryRows(out: SimOutputs): readonly SummaryRow[] {
         ['days to pass (p95)', formatDaysToPass(out, out.daysToPassP95, 1)],
         ['expected attempts', out.expectedAttempts.toFixed(2)],
         ['total cost', formatCurrency(out.expectedTotalCost)],
+        ...fundedResetRows,
         ['cost / funded acct', formatFiniteCurrency(out.costPerFundedAccount)],
         [
             'cost / drawdown $',

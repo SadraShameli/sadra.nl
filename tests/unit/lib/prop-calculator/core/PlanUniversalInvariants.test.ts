@@ -28,6 +28,7 @@ function fullyQualifiedFundedAccount(
         plan.minDaysAfterPassForPayout +
         (plan.minDaysAfterPassForPayoutPerCycle ?? 0) +
         10;
+    tracker.sessionDaysSinceAnchor = state.qualifyingDays;
     return { state, tracker };
 }
 
@@ -108,7 +109,6 @@ describe.each(ALL_PLANS)(
                 plan.fundedDrawdown.amount * 10,
             );
             const payout = tryFundedPayout({
-                maxPayouts: Infinity,
                 minRetainedCushion: plan.defaultRetainedCushion(),
                 payoutRequestSize: undefined,
                 plan,
@@ -150,7 +150,6 @@ describe.each(ALL_PLANS)(
                 plan.fundedDrawdown.amount * 10,
             );
             const payout = tryFundedPayout({
-                maxPayouts: Infinity,
                 minRetainedCushion: plan.defaultRetainedCushion(),
                 payoutRequestSize: undefined,
                 plan,

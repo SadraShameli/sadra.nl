@@ -28,6 +28,7 @@ function fundedDll(
     return resolveDailyLossLimit(plan.fundedDailyLossLimit, {
         isThresholdLocked: options.isThresholdLocked,
         peakDayCloseProfit: options.peak,
+        peakIntradayProfit: null,
         profit: options.peak,
         sessionOpenProfit: options.peak,
     });

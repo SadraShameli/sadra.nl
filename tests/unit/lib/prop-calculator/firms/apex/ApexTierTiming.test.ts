@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
     type AccountState,
     ApexVariant,
+    contractLimitAt,
     ContractLimitKind,
     DailyLossLimitKind,
     type DayPolicy,
@@ -12,7 +13,6 @@ import {
     flatDayPolicy,
     fraction,
     type Plan,
-    resolveContractLimit,
     resolveDailyLossLimit,
     RungSizing,
     TierBasis,
@@ -44,14 +44,11 @@ function fundedContracts(
     state: AccountState,
     isMicro: boolean,
 ): null | number {
-    const context = plan.tierProfitContext(state);
-    return resolveContractLimit(
+    return contractLimitAt(
         plan.contractLimits,
         TradingPhase.Funded,
         isMicro,
-        context.profit,
-        context.sessionOpenProfit,
-        context.peakDayCloseProfit,
+        plan.tierProfitContext(state),
     );
 }
 

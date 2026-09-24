@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
     type AccountState,
     computeEvalStateValue,
+    ContractLimitKind,
     contracts,
     createInitialState,
     DailyLossLimitKind,
@@ -10,8 +11,12 @@ import {
     EodTrailingDrawdown,
     FirmId,
     fraction,
+    INSTRUMENTS,
+    InstrumentSymbol,
+    isEvalDpEligible,
     PayoutFloorEffect,
     type Plan,
+    points,
     TierBasis,
     TradeifyVariant,
 } from '~/lib/prop-calculator/core';
@@ -207,7 +212,78 @@ describe('funded DP ratchets the Tradeify scaling DLL on the intraday reach (N-1
     }, 60_000);
 });
 
+describe('funded DP sizes a contract tier on the intraday reach from the full tier context (N-15 follow-up)', () => {
+    it('caps a trade at 2 contracts once the committed intraday peak clears the tier, and at 1 contract below it', () => {
+        const plan = scalingDllToyPlan(
+            TierBasis.PeakIntradayProfit,
+        ).withOverrides({
+            contractLimits: {
+                evalMicros: contracts(40),
+                evalMinis: contracts(4),
+                fundedMicros: null,
+                fundedMinis: {
+                    kind: ContractLimitKind.Tiered,
+                    tierBasis: TierBasis.PeakIntradayProfit,
+                    tiers: [
+                        { maxContracts: contracts(1), minBalance: dollars(0) },
+                        {
+                            maxContracts: contracts(2),
+                            minBalance: dollars(REACH_BREAKPOINT),
+                        },
+                    ],
+                },
+            },
+            fundedDailyLossLimit: { kind: DailyLossLimitKind.None },
+        });
+        const result = computeFundedStateValue({
+            actionStepMultiple: 0.5,
+            cushionStepMultiple: 0.5,
+            evalInitialValue: 0,
+            feePerAttempt: dollars(0),
+            maxActionMultiple: 1,
+            meanHorizonDays: 2,
+            payoutRegimeCap: 0,
+            plan,
+            positionSizing: {
+                instrument: INSTRUMENTS[InstrumentSymbol.NQ],
+                stopPoints: points(2.5),
+            },
+            rrRatio: 2,
+            tradesPerDay: 2,
+            winrate: 0.99,
+        });
+        function firstTradeRisk(committedPeak: number): number {
+            const state = plan.initialState();
+            plan.beginFundedPhase(state);
+            state.peakIntradayProfit = committedPeak;
+            state.intradayHighProfit = committedPeak;
+            return result.dayPolicy.computeRisk?.(state, 0) ?? 0;
+        }
+
+        expect(firstTradeRisk(0)).toBe(50);
+        expect(firstTradeRisk(REACH_BREAKPOINT)).toBe(100);
+    }, 60_000);
+});
+
 describe('eval DP on an eval daily loss limit tiered on the intraday reach', () => {
+    it('reports the plan as not eval-DP-eligible, so optimize dp refuses it with a reason before solving', () => {
+        const funded = scalingDllToyPlan(TierBasis.PeakIntradayProfit);
+        const plan = funded.withOverrides({
+            evalDailyLossLimit: funded.fundedDailyLossLimit,
+            isInstantFunded: false,
+            maxEvalTradingDays: undefined,
+            profitTarget: dollars(150),
+        });
+
+        const withoutEvalReachTier = funded.withOverrides({
+            isInstantFunded: false,
+            profitTarget: dollars(150),
+        });
+
+        expect(isEvalDpEligible(plan)).toBe(false);
+        expect(isEvalDpEligible(withoutEvalReachTier)).toBe(true);
+    });
+
     it('fails loud instead of valuing the reach as the session-open profit, because the eval DP tracks no intraday reach', () => {
         const funded = scalingDllToyPlan(TierBasis.PeakIntradayProfit);
         const plan = funded.withOverrides({

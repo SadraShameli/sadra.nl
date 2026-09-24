@@ -16,12 +16,13 @@ import {
 import {
     type FirmId,
     type Plan,
+    type PlanOptIns,
     rankablePlans,
     type SimInputs,
     type SimOutputs,
     simulate,
     type TradingFirm,
-    withOneTimeEarlyWithdrawalTaken,
+    withPlanOptIns,
 } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
@@ -37,7 +38,7 @@ interface FirmComparisonTableProperties {
     activeFirmId: FirmId;
     baseInputs: Omit<SimInputs, 'plan'>;
     firms: readonly TradingFirm[];
-    takesOneTimeEarlyWithdrawal: boolean;
+    planOptIns: PlanOptIns;
     targetAccountSize: number;
 }
 
@@ -52,14 +53,10 @@ export default function FirmComparisonTable({
     activeFirmId,
     baseInputs,
     firms,
-    takesOneTimeEarlyWithdrawal,
+    planOptIns,
     targetAccountSize,
 }: FirmComparisonTableProperties) {
-    const key = buildCacheKey(
-        baseInputs,
-        targetAccountSize,
-        takesOneTimeEarlyWithdrawal,
-    );
+    const key = buildCacheKey(baseInputs, targetAccountSize, planOptIns);
     const { pending, result: rows } = useDebouncedComputation<Row[]>(
         key,
         DEBOUNCE_MS,
@@ -71,10 +68,7 @@ export default function FirmComparisonTable({
                 if (!plan) continue;
                 const sim = simulate({
                     ...baseInputs,
-                    plan: withOneTimeEarlyWithdrawalTaken(
-                        plan,
-                        takesOneTimeEarlyWithdrawal,
-                    ),
+                    plan: withPlanOptIns(plan, planOptIns),
                     trials,
                 });
                 partial.push({ firm, out: sim, plan });
@@ -227,13 +221,10 @@ export default function FirmComparisonTable({
 function buildCacheKey(
     inputs: Omit<SimInputs, 'plan'>,
     accountSize: number,
-    isEarlyWithdrawalTaken: boolean,
+    optIns: PlanOptIns,
 ): string {
     return simInputsCacheKey(inputs, {
-        extra: {
-            accountSize,
-            earlyWithdrawal: isEarlyWithdrawalTaken,
-        },
+        extra: { accountSize, optIns },
         omit: [SimInputsKeyField.PlanId],
     });
 }

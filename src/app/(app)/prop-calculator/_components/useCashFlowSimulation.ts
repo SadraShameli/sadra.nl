@@ -156,6 +156,7 @@ function buildCacheKey(fields: {
         discReset: fields.discounts?.resetPercent ?? 0,
         earlyWithdrawal: fields.plan.takesOneTimeEarlyWithdrawal,
         evalDayPolicy: fields.evalDayPolicy,
+        fundedReset: fields.plan.takesFundedReset,
         maxEvalDays: fields.maxEvalDays,
         minRetainedCushion: fields.minRetainedCushion ?? null,
         payoutRequestSize: fields.payoutRequestSize ?? null,

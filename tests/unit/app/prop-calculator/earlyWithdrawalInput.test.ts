@@ -42,6 +42,13 @@ function proState() {
     };
 }
 
+function takenOnPro() {
+    return calculatorReducer(proState(), {
+        isTaken: true,
+        type: CalculatorActionType.SetTakesOneTimeEarlyWithdrawal,
+    });
+}
+
 describe('web calculator input for the MFF Pro one-time early withdrawal (N-64, T30 opt-in)', () => {
     it('starts off and toggles through the reducer', () => {
         const state = proState();
@@ -103,5 +110,100 @@ describe('web calculator input for the MFF Pro one-time early withdrawal (N-64, 
                 plan: withOneTimeEarlyWithdrawalTaken(pro, true),
             }),
         );
+    });
+});
+
+describe('the early-withdrawal opt-in is only on while the active plan offers the rule, so its toggle is never hidden while a panel applies it (WP22b, WP18i re-review)', () => {
+    it('turns off when switching to a plan without the rule, and stays off on the way back', () => {
+        const onRapid = calculatorReducer(takenOnPro(), {
+            plan: mffPlan(MffuVariant.Rapid),
+            type: CalculatorActionType.SetPlan,
+        });
+        expect(onRapid.plan.oneTimeEarlyWithdrawal).toBeNull();
+        expect(onRapid.takesOneTimeEarlyWithdrawal).toBe(false);
+
+        const backOnPro = calculatorReducer(onRapid, {
+            plan: mffPlan(MffuVariant.Pro),
+            type: CalculatorActionType.SetPlan,
+        });
+        expect(backOnPro.takesOneTimeEarlyWithdrawal).toBe(false);
+    });
+
+    it('stays on when the selected plan still offers the rule', () => {
+        const pro = mffPlan(MffuVariant.Pro);
+        expect(pro.oneTimeEarlyWithdrawal).not.toBeNull();
+
+        expect(
+            calculatorReducer(takenOnPro(), {
+                plan: pro,
+                type: CalculatorActionType.SetPlan,
+            }).takesOneTimeEarlyWithdrawal,
+        ).toBe(true);
+        expect(
+            calculatorReducer(takenOnPro(), {
+                type: CalculatorActionType.SetSeed,
+                value: 7,
+            }).takesOneTimeEarlyWithdrawal,
+        ).toBe(true);
+    });
+
+    it('turns off when switching to a firm whose selected plan lacks the rule', () => {
+        const apex = ALL_FIRMS.find((firm) => firm.id === FirmId.Apex);
+        if (!apex) throw new Error('Apex firm not registered');
+
+        const next = calculatorReducer(takenOnPro(), {
+            firm: apex,
+            type: CalculatorActionType.SetFirm,
+        });
+        expect(next.plan.oneTimeEarlyWithdrawal).toBeNull();
+        expect(next.takesOneTimeEarlyWithdrawal).toBe(false);
+    });
+
+    it('ignores a shared link that carries ew=1 on a plan without the rule', () => {
+        const apexState = {
+            ...defaultCalculatorState(),
+            takesOneTimeEarlyWithdrawal: true,
+        };
+        const decoded = decodeState(
+            encodeState(apexState),
+            ALL_FIRMS,
+            defaultCalculatorState(),
+        );
+        expect(decoded.plan.id.firm).toBe(FirmId.Apex);
+        expect(decoded.plan.oneTimeEarlyWithdrawal).toBeNull();
+
+        expect(
+            calculatorReducer(defaultCalculatorState(), {
+                state: decoded,
+                type: CalculatorActionType.ApplyState,
+            }).takesOneTimeEarlyWithdrawal,
+        ).toBe(false);
+    });
+
+    it('keeps a shared link that carries ew=1 on MFF Pro', () => {
+        const decoded = decodeState(
+            encodeState({ ...proState(), takesOneTimeEarlyWithdrawal: true }),
+            ALL_FIRMS,
+            defaultCalculatorState(),
+        );
+        expect(
+            calculatorReducer(defaultCalculatorState(), {
+                state: decoded,
+                type: CalculatorActionType.ApplyState,
+            }).takesOneTimeEarlyWithdrawal,
+        ).toBe(true);
+    });
+
+    it('cannot be turned on for a plan without the rule', () => {
+        const rapidState = {
+            ...proState(),
+            plan: mffPlan(MffuVariant.Rapid),
+        };
+        expect(
+            calculatorReducer(rapidState, {
+                isTaken: true,
+                type: CalculatorActionType.SetTakesOneTimeEarlyWithdrawal,
+            }).takesOneTimeEarlyWithdrawal,
+        ).toBe(false);
     });
 });

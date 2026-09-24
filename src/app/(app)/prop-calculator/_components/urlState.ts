@@ -223,6 +223,7 @@ export function decodeState(
         seed: scalarFields.seed,
         sizingMode,
         stopPoints,
+        takesFundedReset: parameters.get('qr') === '1',
         takesOneTimeEarlyWithdrawal: parameters.get('ew') === '1',
         tradesPerDay: scalarFields.tpd,
         trials: scalarFields.trials,
@@ -255,6 +256,7 @@ export function encodeState(state: CalculatorState): URLSearchParams {
     p.set('idp', state.idleDayProbability.toFixed(3));
     p.set('rung', state.rungSizing);
     p.set('ew', state.takesOneTimeEarlyWithdrawal ? '1' : '0');
+    p.set('qr', state.takesFundedReset ? '1' : '0');
     if (state.instrument !== null && state.stopPoints !== null) {
         p.set('instr', state.instrument);
         p.set('sp', String(state.stopPoints));

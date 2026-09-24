@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
     ConsistencyScope,
+    contractLimitAt,
     ContractLimitKind,
     dollars,
     DrawdownKind,
@@ -16,6 +17,7 @@ import {
     resolveContractLimit,
     RungSizing,
     serializePlanId,
+    tierContextFromProfits,
 } from '~/lib/prop-calculator/core';
 import {
     newFundedCycleTracker,
@@ -153,11 +155,11 @@ describe('E8 Futures Signature 50K', () => {
             maxContracts: 40,
         });
         expect(
-            resolveContractLimit(
+            contractLimitAt(
                 plan.contractLimits,
                 TradingPhase.Funded,
                 true,
-                0,
+                tierContextFromProfits(0),
             ),
         ).toBe(40);
         expect(
@@ -169,11 +171,11 @@ describe('E8 Futures Signature 50K', () => {
             ),
         ).toBe(40);
         expect(
-            resolveContractLimit(
+            contractLimitAt(
                 plan.contractLimits,
                 TradingPhase.Funded,
                 false,
-                0,
+                tierContextFromProfits(0),
             ),
         ).toBe(4);
     });
@@ -202,7 +204,6 @@ describe('E8 Futures Signature 50K', () => {
 
             state.qualifyingDays = 0;
             const firstPayout = tryFundedPayout({
-                maxPayouts: Infinity,
                 minRetainedCushion: 0,
                 payoutRequestSize: undefined,
                 plan,
@@ -216,7 +217,6 @@ describe('E8 Futures Signature 50K', () => {
             state.qualifyingDays += 4;
             expect(
                 tryFundedPayout({
-                    maxPayouts: Infinity,
                     minRetainedCushion: 0,
                     payoutRequestSize: undefined,
                     plan,
@@ -227,7 +227,6 @@ describe('E8 Futures Signature 50K', () => {
 
             state.qualifyingDays += 1;
             const secondPayout = tryFundedPayout({
-                maxPayouts: Infinity,
                 minRetainedCushion: 0,
                 payoutRequestSize: undefined,
                 plan,
@@ -373,11 +372,11 @@ describe('E8 Zero (MAX/Starter x 80%/100% payout) 50K', () => {
         if (funded?.kind !== ContractLimitKind.Tiered) {
             throw new Error('expected a tiered funded contract limit');
         }
-        expect(maxContractsAt(funded, 0)).toBe(2);
-        expect(maxContractsAt(funded, 749)).toBe(2);
-        expect(maxContractsAt(funded, 750)).toBe(3);
-        expect(maxContractsAt(funded, 1499)).toBe(3);
-        expect(maxContractsAt(funded, 1500)).toBe(5);
+        expect(maxContractsAt(funded, tierContextFromProfits(0))).toBe(2);
+        expect(maxContractsAt(funded, tierContextFromProfits(749))).toBe(2);
+        expect(maxContractsAt(funded, tierContextFromProfits(750))).toBe(3);
+        expect(maxContractsAt(funded, tierContextFromProfits(1499))).toBe(3);
+        expect(maxContractsAt(funded, tierContextFromProfits(1500))).toBe(5);
         expect(zero.contractLimits?.evalMinis).toBe(4);
     });
 
@@ -393,18 +392,27 @@ describe('E8 Zero (MAX/Starter x 80%/100% payout) 50K', () => {
             ),
         ).toBe(40);
         const fundedMicros = zero.contractLimits?.fundedMicros ?? null;
-        expect(maxContractsAt(fundedMicros, 0)).toBe(20);
-        expect(maxContractsAt(fundedMicros, 749)).toBe(20);
-        expect(maxContractsAt(fundedMicros, 750)).toBe(30);
-        expect(maxContractsAt(fundedMicros, 1499)).toBe(30);
-        expect(maxContractsAt(fundedMicros, 1500)).toBe(50);
+        expect(maxContractsAt(fundedMicros, tierContextFromProfits(0))).toBe(
+            20,
+        );
+        expect(maxContractsAt(fundedMicros, tierContextFromProfits(749))).toBe(
+            20,
+        );
+        expect(maxContractsAt(fundedMicros, tierContextFromProfits(750))).toBe(
+            30,
+        );
+        expect(maxContractsAt(fundedMicros, tierContextFromProfits(1499))).toBe(
+            30,
+        );
+        expect(maxContractsAt(fundedMicros, tierContextFromProfits(1500))).toBe(
+            50,
+        );
         expect(
-            resolveContractLimit(
+            contractLimitAt(
                 zero.contractLimits,
                 TradingPhase.Funded,
                 true,
-                1500,
-                0,
+                tierContextFromProfits(1500, 0),
             ),
         ).toBe(20);
     });
@@ -432,7 +440,6 @@ describe('E8 Zero (MAX/Starter x 80%/100% payout) 50K', () => {
         tracker.qualifyingDaysAtLastPayout = 0;
 
         const payout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: zero,
@@ -518,7 +525,6 @@ describe('E8 Signature payout buffer: a buffer equal to the EOD drawdown can not
                 ? state.startingBalance
                 : scenario.balance - scenario.cycleProfit;
         const payout = tryFundedPayout({
-            maxPayouts: Infinity,
             minRetainedCushion: scenario.minRetainedCushion,
             payoutRequestSize: undefined,
             plan: target,

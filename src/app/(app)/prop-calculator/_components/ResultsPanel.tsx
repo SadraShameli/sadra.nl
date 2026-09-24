@@ -520,6 +520,12 @@ function CostBreakdownBody({ plan, result }: CostBreakdownBodyProperties) {
             value: formatCurrency(callback.resetFeesTotal),
         });
     }
+    if (callback.fundedResetFeesTotal > 0) {
+        rows.push({
+            label: 'Funded reset fees',
+            value: formatCurrency(callback.fundedResetFeesTotal),
+        });
+    }
     return (
         <div className="flex flex-col gap-1.5">
             <p>{kpiDescriptions.totalCost}</p>
