@@ -59,7 +59,7 @@ describe('N-48: the cost breakdown bills the same renewal-chain subscription as 
     });
 
     it('matches the subscription part of the cost per funded account, failed-attempt days included', () => {
-        expect(out.costBreakdown.monthlySubsTotal).toBeCloseTo(
+        expect(out.costBreakdown.subscriptionPerFundedAccount).toBeCloseTo(
             renewalChainSubscription,
             6,
         );
@@ -70,7 +70,7 @@ describe('N-48: the cost breakdown bills the same renewal-chain subscription as 
             1,
             Math.ceil(out.expectedDaysToPass / TRADING_DAYS_PER_MONTH),
         );
-        expect(out.costBreakdown.monthlySubsTotal).toBeGreaterThan(
+        expect(out.costBreakdown.subscriptionPerFundedAccount).toBeGreaterThan(
             topstep.fees.monthlySubscription * passingAttemptMonths,
         );
     });
@@ -80,20 +80,19 @@ describe('N-48: the cost breakdown bills the same renewal-chain subscription as 
             ...lowPassInputs(topstep, 0.4),
             copyAccounts: 5,
         });
-        expect(fiveCopies.costBreakdown.monthlySubsTotal).toBeCloseTo(
-            out.costBreakdown.monthlySubsTotal,
-            6,
-        );
-        expect(fiveCopies.costBreakdown.monthlySubsTotal).toBeLessThan(
-            fiveCopies.costPerFundedAccount,
-        );
+        expect(
+            fiveCopies.costBreakdown.subscriptionPerFundedAccount,
+        ).toBeCloseTo(out.costBreakdown.subscriptionPerFundedAccount, 6);
+        expect(
+            fiveCopies.costBreakdown.subscriptionPerFundedAccount,
+        ).toBeLessThan(fiveCopies.costPerFundedAccount);
     });
 
     it('reports an unbounded subscription bill when no attempt ever passes', () => {
         const never = simulate(lowPassInputs(topstep, 0));
         expect(never.evalPassProbability).toBe(0);
         expect(never.costPerFundedAccount).toBe(Infinity);
-        expect(never.costBreakdown.monthlySubsTotal).toBe(Infinity);
+        expect(never.costBreakdown.subscriptionPerFundedAccount).toBe(Infinity);
     });
 
     it('bills no subscription on a plan without one, even when no attempt passes', () => {
@@ -105,6 +104,6 @@ describe('N-48: the cost breakdown bills the same renewal-chain subscription as 
         const never = simulate(lowPassInputs(apex, 0));
         expect(apex.fees.monthlySubscription).toBe(0);
         expect(never.evalPassProbability).toBe(0);
-        expect(never.costBreakdown.monthlySubsTotal).toBe(0);
+        expect(never.costBreakdown.subscriptionPerFundedAccount).toBe(0);
     });
 });

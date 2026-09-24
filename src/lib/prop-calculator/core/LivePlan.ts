@@ -16,8 +16,9 @@ import {
     type ContractCount,
     dollars,
     type Dollars,
-    fraction,
+    floorToWholeCents,
     type Fraction0to1,
+    ONE_CENT,
 } from './lib/units';
 import {
     createInitialLiveAccountState,
@@ -29,6 +30,7 @@ import {
     payoutFloorEffectName,
 } from './PayoutFloorEffect';
 import { type PayoutTier, walkPayoutTiers } from './PayoutTiers';
+import { type TierProfitContext } from './TierBasis';
 
 export interface LiveCushionPercent {
     postLock: Fraction0to1;
@@ -269,6 +271,14 @@ export class LivePlan {
             : this.cushionPercent.preLock;
     }
 
+    dailyLossLimitFor(state: LiveAccountState): null | number {
+        if (this.liveDailyLossLimit === null) return null;
+        return resolveDailyLossLimit(this.liveDailyLossLimit, {
+            ...this.tierContextOf(state),
+            isThresholdLocked: state.thresholdLocked,
+        });
+    }
+
     defaultRetainedCushion(): Dollars {
         if (this.liveDrawdown === null) return dollars(0);
         if (
@@ -298,14 +308,7 @@ export class LivePlan {
     }
 
     isDayLockedOut(state: LiveAccountState): boolean {
-        if (this.liveDailyLossLimit === null) return false;
-        const profit = state.balance - state.startingBalance;
-        const limit = resolveDailyLossLimit(this.liveDailyLossLimit, {
-            isThresholdLocked: state.thresholdLocked,
-            peakDayCloseProfit: state.peakDayCloseProfit,
-            profit,
-            sessionOpenProfit: profit - state.todayPnL,
-        });
+        const limit = this.dailyLossLimitFor(state);
         return limit !== null && state.todayPnL <= -limit;
     }
 
@@ -314,19 +317,23 @@ export class LivePlan {
         instrument: InstrumentSpec,
     ): ContractCount | null {
         if (this.contractLimits === null) return null;
-        const profit = state.balance - state.startingBalance;
+        const context = this.tierContextOf(state);
         return maxContractsAt(
             instrument.isMicro
                 ? this.contractLimits.micros
                 : this.contractLimits.minis,
-            profit,
-            profit - state.todayPnL,
-            state.peakDayCloseProfit,
+            context.profit,
+            context.sessionOpenProfit,
+            context.peakDayCloseProfit,
         );
     }
 
     payoutFromProfit(liveProfit: number): number {
         return walkPayoutTiers(this.payoutTiers, liveProfit);
+    }
+
+    payoutOnLiquidation(_state: LiveAccountState): number {
+        return 0;
     }
 
     payoutRequestAmount(
@@ -345,7 +352,7 @@ export class LivePlan {
     }
 
     recordDayClose(state: LiveAccountState, isTraded: boolean): void {
-        const profit = state.balance - state.startingBalance;
+        const profit = this.tierProfitOf(state);
         if (profit > state.peakDayCloseProfit) {
             state.peakDayCloseProfit = profit;
         }
@@ -387,6 +394,19 @@ export class LivePlan {
             );
         }
         return dollars(cushion);
+    }
+
+    protected tierContextOf(state: LiveAccountState): TierProfitContext {
+        const profit = this.tierProfitOf(state);
+        return {
+            peakDayCloseProfit: state.peakDayCloseProfit,
+            profit,
+            sessionOpenProfit: profit - state.todayPnL,
+        };
+    }
+
+    protected tierProfitOf(state: LiveAccountState): number {
+        return state.balance - state.startingBalance;
     }
 
     withdrawableAmount(
@@ -462,29 +482,26 @@ export class ReserveLivePlan extends LivePlan {
     }
 
     private releasedReserveHeldBack(state: LiveAccountState): number {
-        const { incrementsReleased } = this.reserveProgressOf(state);
-        return (
-            (incrementsReleased * this.seedReserve.amount) /
-            this.seedReserve.increments
+        const { incrementsReleased } = this.reserveProgressOf(
+            state,
+            'a payout',
         );
+        return incrementsReleased >= this.seedReserve.increments
+            ? 0
+            : (incrementsReleased * this.seedReserve.amount) /
+                  this.seedReserve.increments;
     }
 
-    private reserveProgressOf(state: LiveAccountState): LiveReserveProgress {
+    protected reserveProgressOf(
+        state: LiveAccountState,
+        reader: string,
+    ): LiveReserveProgress {
         if (!isReserveLiveAccountState(state)) {
             throw new Error(
-                `${this.label}: recordDayClose needs the Reserve progress that initialState() creates`,
+                `${this.label}: ${reader} needs the Reserve progress that initialState() creates`,
             );
         }
         return state.reserve;
-    }
-
-    override cushionPercentFor(state: LiveAccountState): Fraction0to1 {
-        const percent = super.cushionPercentFor(state);
-        const cushion = state.balance - state.threshold;
-        const tradableCushion = cushion - this.releasedReserveHeldBack(state);
-        return fraction(
-            tradableCushion <= 0 ? 0 : (percent * tradableCushion) / cushion,
-        );
     }
 
     override initialState(): ReserveLiveAccountState {
@@ -500,7 +517,7 @@ export class ReserveLivePlan extends LivePlan {
     }
 
     override recordDayClose(state: LiveAccountState, isTraded: boolean): void {
-        const progress = this.reserveProgressOf(state);
+        const progress = this.reserveProgressOf(state, 'the session close');
         super.recordDayClose(state, isTraded);
         progress.sessions += 1;
         progress.profitSinceExpansion += state.todayPnL;
@@ -532,10 +549,6 @@ export class ReserveLivePlan extends LivePlan {
         );
     }
 }
-
-const ONE_CENT = dollars(0.01);
-const CENTS_PER_DOLLAR = 100;
-const CENT_ROUNDING_TOLERANCE = 1e-6;
 
 const retainedCushionSchema = z.number().nonnegative();
 const minPayoutRequestSchema = z.number().nonnegative();
@@ -573,8 +586,5 @@ function isReserveLiveAccountState(
 }
 
 function wholeCentsOf(amount: number): number {
-    return amount <= 0
-        ? 0
-        : Math.floor(amount * CENTS_PER_DOLLAR + CENT_ROUNDING_TOLERANCE) /
-              CENTS_PER_DOLLAR;
+    return amount <= 0 ? 0 : floorToWholeCents(amount);
 }

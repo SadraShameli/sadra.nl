@@ -2,8 +2,8 @@
 
 **Sources:** Topstep Help Center, multiple articles (Trading Combine® Parameters, Express Funded Account® Parameters/Activation, Consistency at Topstep, Topstep Payout Policy, What is the Scaling Plan?, What is the Maximum Loss Limit?, plus firm-wide eligibility/prohibited-trading-strategies/risk-adjustment articles). Full list with exact URLs and each article's own stated update date is in the Sources section below.
 
-**Last Verified:** `2026-09-22`
-**Last Updated:** `2026-09-22`
+**Last Verified:** `2026-09-24`
+**Last Updated:** `2026-09-24`
 
 ## Overview
 
@@ -113,6 +113,7 @@ Topstep's stated path is: pass the Trading Combine, take Payouts and build a tra
 
 ## Not Confirmed By This Source
 
+- **Standard-pricing-path DLL variant's $149 XFA Activation Fee may be overstated (N-53)** — the same Responsible-Trading-Discount gap documented in `standard.md`'s Not Confirmed section applies identically here: `TopStep.ts` shares one `PRICING_PATHS`/activation-fee mechanism across both Payout paths, so `StandardConsistencyDll` keeps the same un-discounted $149 XFA Activation Fee as `StandardStandardDll`. This file's own Evaluation table above does not separately state the flat XFA Activation Fee figure at all (see `standard.md` for it); see that file's own N-53 bullet for the live-verified 2026-09-24 citation and quote.
 - **Maximum Total Payouts / Lifetime Cap (general Traders)** — not stated as a fixed lifetime figure for Consistency XFA holders outside the XFA-eligible/LFA-ineligible country group. The only lifetime cap figure in either bundle ($200,000) is stated specifically for that eligibility group. Do not assume $200,000 is a general lifetime cap that applies to every Consistency XFA holder.
 - **Buffer Requirement, engine behavior** — Topstep's own Payout Policy article does not list a profit-since-last-Payout requirement for the Consistency path (see Overview's Engine cross-check note). Whether TopStep.ts's shared `minPayoutProfitPerCycle` constant is a genuine extra restriction on this path or an inert value given the 40% ratio's own math is not stated by the source either way. Do not assume the engine is wrong just because the field is absent from the source's Consistency-specific list, and do not assume the source's silence proves the engine's behavior is intentional.
 - **Minimum Balance at Start, $100K/$150K** — the $48,000 figure for a $50K Combine is stated verbatim in the source's own worked example; the $97,000 and $145,500 figures for $100K/$150K are this file's own arithmetic (size minus that size's own confirmed MLL amount), not an independently stated dollar figure in either bundle. Do not treat $97,000/$145,500 as directly quoted source text.
@@ -120,7 +121,7 @@ Topstep's stated path is: pass the Trading Combine, take Payouts and build a tra
 
 ---
 
-**Last Updated:** `2026-09-22`
+**Last Updated:** `2026-09-24`
 **Sources:**
 
 - `https://help.topstep.com/en/articles/8284121-trading-combine-subscriptions` (updated 2026-09-04)
@@ -131,7 +132,7 @@ Topstep's stated path is: pass the Trading Combine, take Payouts and build a tra
 - `https://help.topstep.com/en/articles/8284223-what-is-the-scaling-plan` (updated 2026-07-16; contract-table figures sourced from this article's own linked chart image, not its body text)
 - `https://help.topstep.com/en/articles/8284233-topstep-payout-policy` (updated 2026-09-03)
 - `https://help.topstep.com/en/articles/10490293-daily-loss-limit-in-the-trading-combine-and-express-funded-account` (updated 2026-06-30)
-- `https://help.topstep.com/en/articles/14289835-topstep-pricing-and-payment-questions` (updated 2026-07-20)
+- `https://help.topstep.com/en/articles/14289835-topstep-pricing-and-payment-questions` (updated 2026-09-23; re-verified live 2026-09-24, the article's own stated update date advanced from 2026-07-20 since the last pass with no change to the figures cited here; also source of the N-53 finding, see Not Confirmed)
 - `https://help.topstep.com/en/articles/8284128-what-is-a-reset` (updated 2026-06-18)
 - `https://help.topstep.com/en/articles/10370307-reset-purchase-limits` (updated 2026-06-18)
 - `https://help.topstep.com/en/articles/8284204-what-is-the-maximum-loss-limit` (updated 2026-09-18)

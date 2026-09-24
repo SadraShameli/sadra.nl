@@ -11,6 +11,7 @@ import {
     ladderGridSize,
     LadderGridSizeError,
     MAX_LADDER_GRID_SIZE,
+    MAX_LADDER_SLOTS,
     validateLadderGrid,
 } from '~/lib/prop-calculator/core';
 
@@ -143,6 +144,76 @@ describe('defaultLadderGridMax puts the default largest rung at 40% of the cushi
     });
 });
 
+describe('the rung count is bounded before any sizing or building (N-50)', () => {
+    const oneValue = { lo: 800, max: 800, step: 100 };
+
+    it('allows ladders of up to 20 rungs, the depth where one day already enumerates about a million outcomes', () => {
+        expect(MAX_LADDER_SLOTS).toBe(20);
+        expect(
+            validateLadderGrid({ ...oneValue, slots: MAX_LADDER_SLOTS }),
+        ).toStrictEqual({ ...oneValue, slots: MAX_LADDER_SLOTS });
+    });
+
+    it.each([MAX_LADDER_SLOTS + 1, 100_000, Number.MAX_SAFE_INTEGER])(
+        'rejects %s rungs with a field error naming slots, instead of hanging or overflowing the stack',
+        (slots) => {
+            const started = performance.now();
+            const error = caught(() => ladderGridSize({ ...oneValue, slots }));
+            expect(error).toBeInstanceOf(LadderGridFieldError);
+            expect(error).toMatchObject({ field: 'slots', value: slots });
+            expect((error as LadderGridError).describe(labels)).toBe(
+                `Count must be <= 20, got "${String(slots)}"`,
+            );
+            expect(performance.now() - started).toBeLessThan(100);
+        },
+    );
+
+    it('builds nothing for a 100,000-rung one-value grid: the error is the rung bound, not a stack overflow', () => {
+        const error = caught(() =>
+            buildLadderGrid({ ...oneValue, slots: 100_000 }),
+        );
+        expect(error).toBeInstanceOf(LadderGridFieldError);
+        expect((error as Error).message).toBe(
+            'ladder grid slots must be <= 20, got "100000"',
+        );
+    });
+
+    it('sizes a one-value grid as one ladder per length, without a loop per rung', () => {
+        expect(ladderGridSize({ ...oneValue, slots: 1 })).toBe(1);
+        expect(ladderGridSize({ ...oneValue, slots: MAX_LADDER_SLOTS })).toBe(
+            MAX_LADDER_SLOTS,
+        );
+        expect(
+            buildLadderGrid({ ...oneValue, slots: MAX_LADDER_SLOTS }),
+        ).toHaveLength(MAX_LADDER_SLOTS);
+    });
+
+    it('keeps the depth-first grid order within the bound', () => {
+        const grid = buildLadderGrid({
+            lo: 100,
+            max: 200,
+            slots: 3,
+            step: 100,
+        });
+        expect(grid).toStrictEqual([
+            [100],
+            [100, 100],
+            [100, 100, 100],
+            [100, 100, 200],
+            [100, 200],
+            [100, 200, 100],
+            [100, 200, 200],
+            [200],
+            [200, 100],
+            [200, 100, 100],
+            [200, 100, 200],
+            [200, 200],
+            [200, 200, 100],
+            [200, 200, 200],
+        ]);
+    });
+});
+
 describe('ladder grid errors are structured and name no front end control', () => {
     it('throws a LadderGridFieldError carrying the field and value', () => {
         const error = caught(() => validateLadderGrid({ ...valid, step: 0 }));
@@ -223,6 +294,21 @@ describe('describeLadderGridFailure words grid errors with the LadderLab field l
             'ladder grid has 41,478,480 ladders, above the 1,000,000 limit: raise Step, lower Rungs or narrow Min rung/Max rung',
         );
         expect(reason).not.toContain('--');
+    });
+
+    it('names the Rungs field when the rung count is above the bound', () => {
+        expect(
+            describeLadderGridFailure(
+                caught(() =>
+                    buildLadderGrid({
+                        lo: 800,
+                        max: 800,
+                        slots: 100_000,
+                        step: 100,
+                    }),
+                ),
+            ),
+        ).toBe('Rungs must be <= 20, got "100000"');
     });
 
     it('passes other errors through by message', () => {

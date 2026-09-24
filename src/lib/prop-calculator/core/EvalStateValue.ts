@@ -22,6 +22,7 @@ import {
     type Dollars,
     type Fraction0to1,
 } from './lib/units';
+import { PeakRatchet } from './PeakRatchet';
 import { type Plan } from './Plan';
 import {
     capRiskToContractLimit,
@@ -43,7 +44,7 @@ export interface EvalStateValueConfig {
     readonly rrRatio: number;
     readonly rungSizing?: RungSizing;
     readonly stopRule?: DayStopRule;
-    readonly terminalValueAtFail?: number;
+    readonly terminalValueAtFail?: (failedAttemptDays: number) => number;
     readonly terminalValueAtPass?: number;
     readonly tradesPerDay?: number;
     readonly winrate: Fraction0to1;
@@ -72,28 +73,6 @@ const DEFAULT_PROFIT_STEP_DOLLARS = 300;
 const DEFAULT_TERMINAL_VALUE_AT_FAIL = 0;
 const DEFAULT_TERMINAL_VALUE_AT_PASS = 1;
 const DEFAULT_TRADES_PER_DAY = 4;
-const BUCKET_EPSILON = 1e-9;
-
-export class PeakRatchet {
-    readonly radix: number;
-
-    constructor(private readonly breakpoints: readonly number[]) {
-        this.radix = breakpoints.length + 1;
-    }
-
-    bandOf(peakDayCloseProfit: number): number {
-        let band = 0;
-        for (const breakpoint of this.breakpoints) {
-            if (breakpoint <= peakDayCloseProfit + BUCKET_EPSILON) band++;
-        }
-        return band;
-    }
-
-    peakAt(band: number): number {
-        return band === 0 ? 0 : (this.breakpoints[band - 1] ?? 0);
-    }
-}
-
 export function computeEvalStateValue(
     config: EvalStateValueConfig,
 ): EvalStateValueResult {
@@ -133,7 +112,7 @@ export function computeEvalStateValue(
         Math.floor(config.tradesPerDay ?? DEFAULT_TRADES_PER_DAY),
     );
     const terminalValueAtFail =
-        config.terminalValueAtFail ?? DEFAULT_TERMINAL_VALUE_AT_FAIL;
+        config.terminalValueAtFail ?? (() => DEFAULT_TERMINAL_VALUE_AT_FAIL);
     const terminalValueAtPass =
         config.terminalValueAtPass ?? DEFAULT_TERMINAL_VALUE_AT_PASS;
     const positionSizing = config.positionSizing ?? null;
@@ -260,6 +239,7 @@ export function computeEvalStateValue(
                     todayPnL: pnlSoFarNow,
                 },
                 TradingPhase.Eval,
+                commission,
             ),
         );
     }
@@ -322,7 +302,9 @@ export function computeEvalStateValue(
         };
         drawdown.onDayClose(state);
         plan.recordDayClosePeak(state);
-        if (plan.isBust(state, TradingPhase.Eval)) return terminalValueAtFail;
+        if (plan.isBust(state, TradingPhase.Eval)) {
+            return terminalValueAtFail(day + 1);
+        }
 
         const idleDaysAtEnd = wasIdleToday
             ? dayStartState.consecutiveIdleDays + 1
@@ -334,7 +316,7 @@ export function computeEvalStateValue(
             maxConsecutiveIdleDays !== null &&
             idleDaysAtEnd >= maxConsecutiveIdleDays
         ) {
-            return terminalValueAtFail;
+            return terminalValueAtFail(day + 1);
         }
         state.consecutiveIdleDays = idleDaysAtEnd;
 
@@ -375,14 +357,16 @@ export function computeEvalStateValue(
         day: number,
         nextTable: readonly number[],
     ): number {
-        if (cushionExact <= 0) return terminalValueAtFail;
+        if (cushionExact <= 0) return terminalValueAtFail(day + 1);
         const state: AccountState = {
             ...dayStartState,
             balance: dayStartState.threshold + cushionExact,
             todayPnL: pnlSoFarExact,
         };
         drawdown.onTrade(state, pnlDelta);
-        if (plan.isBust(state, TradingPhase.Eval)) return terminalValueAtFail;
+        if (plan.isBust(state, TradingPhase.Eval)) {
+            return terminalValueAtFail(day + 1);
+        }
         if (plan.isDayLockedOut(state, TradingPhase.Eval)) {
             return onDayComplete(
                 cushionExact,
@@ -559,8 +543,9 @@ export function computeEvalStateValue(
         const cached = memo.get(key);
         if (cached !== undefined) return cached;
         if (day >= dayCap) {
-            memo.set(key, terminalValueAtFail);
-            return terminalValueAtFail;
+            const timeoutValue = terminalValueAtFail(day);
+            memo.set(key, timeoutValue);
+            return timeoutValue;
         }
 
         const threshold = resolveThreshold(isLocked, thresholdOffset);

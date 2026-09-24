@@ -76,6 +76,7 @@ export interface LadderSearchRun {
     frontier: readonly LadderScore[];
     gridSize: number;
     laddersScored: number;
+    unscorableCount: number;
 }
 
 export type LadderSearchState =
@@ -223,6 +224,7 @@ export function useLadderSearch() {
                         frontier: ladderFrontier(scorable),
                         gridSize,
                         laddersScored: total,
+                        unscorableCount: scores.length - scorable.length,
                     },
                 });
                 teardown();

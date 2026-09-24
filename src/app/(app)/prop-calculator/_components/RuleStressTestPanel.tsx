@@ -75,7 +75,7 @@ export default function RuleStressTestPanel({
                         {row.original.isNoOp && (
                             <span className="flex items-center gap-1 text-[10px] text-amber-400">
                                 <TriangleAlert className="size-3" />
-                                no DLL on this plan — no effect
+                                no DLL on this plan, so no effect
                             </span>
                         )}
                     </div>
@@ -161,16 +161,16 @@ export default function RuleStressTestPanel({
                     <h3 className="text-sm font-semibold">Rule stress test</h3>
                     <InfoPopover title="Rule stress test">
                         Prop firms tighten their rules over time. This runs your
-                        current setup against 4 hypothetical tightenings —
+                        current setup against 4 hypothetical tightenings:
                         daily-loss-limit halved, payout ladder cut 20%, the
                         first-payout and per-cycle profit gates raised 50%, and
-                        the qualifying-day profit bar raised 40% — using the
+                        the qualifying-day profit bar raised 40%. Each uses the
                         same seed and trial count as the baseline for a
                         like-for-like comparison. Note that because a
                         funded-phase rule change can shift how many days a given
                         trial runs before busting or closing out its payout
                         ladder, later trials can still draw a different random
-                        path than the baseline once the two diverge — so treat
+                        path than the baseline once the two diverge, so treat
                         differences as directionally informative, not a pure
                         noise-free A/B test. Shows how resilient your edge is if
                         the firm changes the rules on you.

@@ -66,6 +66,14 @@ export function formatFiniteCurrency(n: number, fractionDigits = 0): string {
         : NOT_APPLICABLE;
 }
 
+export function formatGateCurrency(
+    amount: number,
+    { compact = false }: { compact?: boolean } = {},
+): string {
+    if (!Number.isSafeInteger(amount)) return formatCurrency(amount, 2);
+    return compact ? formatCompactCurrency(amount) : formatCurrency(amount);
+}
+
 export function formatOptionalPercent(
     p: null | number,
     fractionDigits = 1,

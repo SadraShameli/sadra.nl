@@ -151,6 +151,82 @@ describe('replacementEconomics (D1: one cost per funded account formula)', () =>
     );
 });
 
+describe('replacementEconomics on a subscription plan that retries by re-buying (N-60)', () => {
+    const REBUY_FEES: FeeSchedule = {
+        activation: dollars(0),
+        monthlySubscription: dollars(100),
+        oneTimeEval: dollars(30),
+        reset: dollars(1000),
+    };
+
+    it('bills each re-bought account from its own first month: 15-day attempts at p 0.5 cost 2 expected accounts * ($30 + $100), not $30 + $130 + the 30-day chain', () => {
+        const result = replacementEconomics(
+            inputs({
+                evalPassRate: 0.5,
+                fees: REBUY_FEES,
+                meanDaysOnFail: 15,
+                meanDaysOnPass: 15,
+            }),
+        );
+        expect(result.costPerFundedAccount).toBeCloseTo(2 * (30 + 100), 9);
+    });
+
+    it('bills the same from attempt day samples, where the renewal chain would add a month whenever the chain crosses day 21', () => {
+        const result = replacementEconomics(
+            inputs({
+                attemptDays: { failDays: [15], passDays: [15] },
+                evalPassRate: 0.5,
+                fees: REBUY_FEES,
+            }),
+        );
+        expect(result.costPerFundedAccount).toBeCloseTo(2 * (30 + 100), 9);
+    });
+
+    it('averages whole months per attempt over spread samples: passes of 6/19/22/40 days bill 1.5 months, failures of 1/4/20/33 days 1.25, so p 0.3 costs $30 / 0.3 + $100 * (1.5 + (1 / 0.3 - 1) * 1.25)', () => {
+        const result = replacementEconomics(
+            inputs({
+                attemptDays: {
+                    failDays: [1, 4, 20, 33],
+                    passDays: [6, 19, 22, 40],
+                },
+                evalPassRate: 0.3,
+                fees: REBUY_FEES,
+            }),
+        );
+        expect(result.costPerFundedAccount).toBeCloseTo(
+            30 / 0.3 + 100 * (1.5 + (1 / 0.3 - 1) * 1.25),
+            9,
+        );
+    });
+
+    it('a failed attempt past its first month bills that extra month on top of the re-buy price', () => {
+        const result = replacementEconomics(
+            inputs({
+                evalPassRate: 0.5,
+                fees: REBUY_FEES,
+                meanDaysOnFail: 25,
+                meanDaysOnPass: 10,
+            }),
+        );
+        expect(result.costPerFundedAccount).toBeCloseTo(
+            30 + 100 + (30 + 100) + 100,
+            9,
+        );
+    });
+
+    it('keeps the renewal chain for a reset, which continues the same subscription', () => {
+        const result = replacementEconomics(
+            inputs({
+                evalPassRate: 0.5,
+                fees: { ...REBUY_FEES, reset: dollars(40) },
+                meanDaysOnFail: 15,
+                meanDaysOnPass: 15,
+            }),
+        );
+        expect(result.costPerFundedAccount).toBeCloseTo(30 + 40 + 2 * 100, 9);
+    });
+});
+
 function bruteForceBilledMonths(
     evalPassRate: number,
     samples: { failDays: readonly number[]; passDays: readonly number[] },

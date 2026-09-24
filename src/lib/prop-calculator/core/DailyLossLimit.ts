@@ -63,12 +63,17 @@ export type DailyLossLimitDescriptor =
           kind: DailyLossLimitShape.Staged;
       }
     | { amount: Dollars; kind: DailyLossLimitShape.Fixed }
+    | {
+          hasUnlimitedTier?: true;
+          kind: DailyLossLimitShape.Range;
+          max: Dollars;
+          min: Dollars;
+      }
     | { kind: DailyLossLimitShape.None }
-    | { kind: DailyLossLimitShape.Range; max: Dollars; min: Dollars }
     | { kind: DailyLossLimitShape.ShareOfPeak; share: Fraction0to1 };
 
 export interface DllTier {
-    dailyLossLimit: Dollars;
+    dailyLossLimit: Dollars | null;
     maxContracts: ContractCount;
     minProfit: number;
 }
@@ -174,8 +179,16 @@ class TieredDailyLossLimit extends DailyLossLimit {
     }
 
     describe(): DailyLossLimitDescriptor {
-        const amounts = this.tiers.map((tier) => tier.dailyLossLimit);
+        const amounts = this.tiers.flatMap((tier) =>
+            tier.dailyLossLimit === null ? [] : [tier.dailyLossLimit],
+        );
+        if (amounts.length === 0) {
+            return { kind: DailyLossLimitShape.None };
+        }
         return {
+            ...(amounts.length < this.tiers.length && {
+                hasUnlimitedTier: true,
+            }),
             kind: DailyLossLimitShape.Range,
             max: dollars(Math.max(...amounts)),
             min: dollars(Math.min(...amounts)),
@@ -275,7 +288,10 @@ export function scaleDailyLossLimit(
                 }),
                 tiers: config.tiers.map((tier) => ({
                     ...tier,
-                    dailyLossLimit: dollars(tier.dailyLossLimit * factor),
+                    dailyLossLimit:
+                        tier.dailyLossLimit === null
+                            ? null
+                            : dollars(tier.dailyLossLimit * factor),
                 })),
             };
         }

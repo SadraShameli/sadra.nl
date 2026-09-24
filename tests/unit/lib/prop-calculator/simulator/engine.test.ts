@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
     ApexVariant,
+    type CouponDiscounts,
     type DayPolicy,
     DayStopRuleKind,
     dollars,
@@ -13,6 +14,7 @@ import {
     type Plan,
     type PlanId,
     RetryKind,
+    retryPath,
     RoiBasis,
     RungSizing,
     TopStepVariant,
@@ -22,6 +24,7 @@ import { type Rng } from '~/lib/prop-calculator/rng';
 import {
     CorrelationMode,
     type SimInputs,
+    type SimOutputs,
     simulate,
     simulatePortfolio,
 } from '~/lib/prop-calculator/simulator';
@@ -41,12 +44,24 @@ const MFFU_RAPID_EOD: PlanId = {
 
 const APEX_WINRATE_ONE_FIRST_PAYOUT_DAY = 7;
 
+const HALF_OFF_MONTHLY: CouponDiscounts = {
+    activationPercent: percent(0),
+    evalPercent: percent(0),
+    monthlySubscriptionPercent: percent(50),
+};
+
 const TPT: PlanId = { accountSize: 50_000, firm: FirmId.Tpt };
 
 const TOPSTEP_NO_FEE_STANDARD: PlanId = {
     accountSize: 50_000,
     firm: FirmId.TopStep,
     variant: TopStepVariant.NoFeeStandard,
+};
+
+const TOPSTEP_NO_FEE_STANDARD_DLL: PlanId = {
+    accountSize: 50_000,
+    firm: FirmId.TopStep,
+    variant: TopStepVariant.NoFeeStandardDll,
 };
 
 const TOPSTEP_STANDARD: PlanId = {
@@ -445,23 +460,41 @@ describe('R1-2: sim cost per funded account follows the D1 formula', () => {
         );
     });
 
-    it('honours the monthly coupon in the cost breakdown', () => {
+    it('honours the monthly coupon in the cost breakdown on a plan that stays on the reset path', () => {
         const topstep = planFor(TOPSTEP_STANDARD);
-        const inputs = { ...characterizationInputs(TOPSTEP_STANDARD) };
-        const full = simulate(inputs);
-        const halved = simulate({
-            ...inputs,
-            discounts: {
-                activationPercent: percent(0),
-                evalPercent: percent(0),
-                monthlySubscriptionPercent: percent(50),
-            },
+        const freeReset = topstep.withOverrides({
+            fees: { ...topstep.fees, reset: dollars(0) },
         });
+        const inputs = {
+            ...characterizationInputs(TOPSTEP_STANDARD),
+            plan: freeReset,
+        };
+        const full = simulate(inputs);
+        const halved = simulate({ ...inputs, discounts: HALF_OFF_MONTHLY });
         expect(topstep.fees.monthlySubscription).toBeGreaterThan(0);
-        expect(full.costBreakdown.monthlySubsTotal).toBeGreaterThan(0);
-        expect(halved.costBreakdown.monthlySubsTotal).toBeCloseTo(
-            full.costBreakdown.monthlySubsTotal / 2,
+        expect(retryPath(freeReset.fees, HALF_OFF_MONTHLY)).toBe(
+            RetryKind.Reset,
+        );
+        expect(full.costBreakdown.subscriptionPerFundedAccount).toBeGreaterThan(
+            0,
+        );
+        expect(halved.costBreakdown.subscriptionPerFundedAccount).toBeCloseTo(
+            full.costBreakdown.subscriptionPerFundedAccount / 2,
             9,
+        );
+    });
+
+    it('follows the re-buy path the monthly coupon makes cheaper: at half off, a $24.50 TopStep re-buy undercuts the $49 reset, and the subscription row stays the subscription part of the cost per funded account', () => {
+        const topstep = planFor(TOPSTEP_STANDARD);
+        const halved = simulate({
+            ...characterizationInputs(TOPSTEP_STANDARD),
+            discounts: HALF_OFF_MONTHLY,
+        });
+        expect(retryPath(topstep.fees)).toBe(RetryKind.Reset);
+        expect(retryPath(topstep.fees, HALF_OFF_MONTHLY)).toBe(RetryKind.Rebuy);
+        expect(halved.costBreakdown.subscriptionPerFundedAccount).toBeCloseTo(
+            halved.costPerFundedAccount - topstep.fees.activation,
+            6,
         );
     });
 });
@@ -498,6 +531,96 @@ describe('R1-2 review: a subscription plan bills the renewal chain, whatever max
         expect(
             single.costPerFundedAccount / continuous.costPerFundedAccount,
         ).toBeCloseTo(1, 1);
+    });
+});
+
+describe('N-60: the cost breakdown bills a re-buy subscription plan on the re-buy path, like the cost per funded account', () => {
+    const noFeeDll = planFor(TOPSTEP_NO_FEE_STANDARD_DLL);
+    const rebuyWithEval = noFeeDll.withOverrides({
+        fees: {
+            ...noFeeDll.fees,
+            activation: dollars(60),
+            oneTimeEval: dollars(40),
+            retry: RetryKind.Rebuy,
+        },
+    });
+
+    it('uses TopStep No-fee DLL, whose $85 re-buy undercuts the $95 reset, with real retries and real passes', () => {
+        const out = simulate(retryInputs(noFeeDll));
+        expect(retryPath(noFeeDll.fees)).toBe(RetryKind.Rebuy);
+        expect(noFeeDll.fees.monthlySubscription).toBeGreaterThan(0);
+        expect(out.expectedAttempts).toBeGreaterThan(1.05);
+        expect(out.evalPassProbability).toBeGreaterThan(0.2);
+    });
+
+    it('reports the whole cost per funded account as subscription on a plan with no eval or activation fee', () => {
+        const out = simulate(retryInputs(noFeeDll));
+        expect(out.costBreakdown.subscriptionPerFundedAccount).toBeCloseTo(
+            out.costPerFundedAccount,
+            6,
+        );
+    });
+
+    it('reports the subscription part of the cost per funded account when the re-buy also carries an eval fee', () => {
+        const out = simulate(retryInputs(rebuyWithEval));
+        expect(out.costBreakdown.subscriptionPerFundedAccount).toBeCloseTo(
+            subscriptionPartOfCost(rebuyWithEval, out),
+            6,
+        );
+    });
+});
+
+describe('N-55: the per-trial cost breakdown rows add up to the average total cost', () => {
+    const standard = planFor(TOPSTEP_STANDARD);
+    const normal = simulate(characterizationInputs(TOPSTEP_STANDARD));
+
+    it('uses a subscription plan with an activation fee and a normal mix of passes and failures', () => {
+        expect(standard.fees.monthlySubscription).toBeGreaterThan(0);
+        expect(standard.fees.activation).toBeGreaterThan(0);
+        expect(normal.evalPassProbability).toBeGreaterThan(0);
+        expect(normal.evalPassProbability).toBeLessThan(1);
+        expect(normal.costBreakdown.subscriptionPerTrial).toBeGreaterThan(0);
+    });
+
+    it('sums eval, activation, resets and subscription to expectedTotalCost on a normal run', () => {
+        expect(perTrialRowsTotal(normal)).toBeCloseTo(
+            normal.expectedTotalCost,
+            6,
+        );
+    });
+
+    it('charges the activation per trial only on the trials that reach the funded account', () => {
+        expect(normal.costBreakdown.activationFee).toBeCloseTo(
+            normal.costBreakdown.perAccountActivationFee *
+                normal.evalPassProbability,
+            9,
+        );
+    });
+
+    it('multiplies every per-trial row by the copy count and still sums to expectedTotalCost', () => {
+        const copies = simulate({
+            ...characterizationInputs(TOPSTEP_STANDARD),
+            copyAccounts: 3,
+        });
+        expect(copies.costBreakdown.subscriptionPerTrial).toBeCloseTo(
+            3 * normal.costBreakdown.subscriptionPerTrial,
+            6,
+        );
+        expect(perTrialRowsTotal(copies)).toBeCloseTo(
+            copies.expectedTotalCost,
+            6,
+        );
+    });
+
+    it('sums to expectedTotalCost on a re-buy subscription plan too', () => {
+        const rebuy = simulate(
+            retryInputs(planFor(TOPSTEP_NO_FEE_STANDARD_DLL)),
+        );
+        expect(rebuy.costBreakdown.resetFeesTotal).toBeGreaterThan(0);
+        expect(perTrialRowsTotal(rebuy)).toBeCloseTo(
+            rebuy.expectedTotalCost,
+            6,
+        );
     });
 });
 
@@ -602,6 +725,12 @@ function firstPayoutDay(maxAttempts: number, rebuyLagDays: number) {
     }).expectedFirstPayoutDay;
 }
 
+function perTrialRowsTotal(out: SimOutputs): number {
+    const { activationFee, evalFee, resetFeesTotal, subscriptionPerTrial } =
+        out.costBreakdown;
+    return activationFee + evalFee + resetFeesTotal + subscriptionPerTrial;
+}
+
 function retryInputs(plan: Plan): SimInputs {
     return {
         dayStop: { kind: DayStopRuleKind.None },
@@ -616,4 +745,14 @@ function retryInputs(plan: Plan): SimInputs {
         trials: 400,
         winrate: 0.5,
     };
+}
+
+function subscriptionPartOfCost(plan: Plan, out: SimOutputs): number {
+    const retries = out.expectedAttempts / out.evalPassProbability - 1;
+    return (
+        out.costPerFundedAccount -
+        plan.fees.oneTimeEval -
+        retries * plan.fees.oneTimeEval -
+        plan.fees.activation
+    );
 }

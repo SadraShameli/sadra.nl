@@ -154,6 +154,7 @@ function buildCacheKey(fields: {
         discEval: fields.discounts?.evalPercent ?? 0,
         discMonthlySub: fields.discounts?.monthlySubscriptionPercent ?? 0,
         discReset: fields.discounts?.resetPercent ?? 0,
+        earlyWithdrawal: fields.plan.takesOneTimeEarlyWithdrawal,
         evalDayPolicy: fields.evalDayPolicy,
         maxEvalDays: fields.maxEvalDays,
         minRetainedCushion: fields.minRetainedCushion ?? null,

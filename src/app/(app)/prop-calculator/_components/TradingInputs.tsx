@@ -78,6 +78,7 @@ interface TradingInputsProperties {
     onSeedChange: (n: number) => void;
     onSizingModeChange: (m: SizingMode) => void;
     onStopPointsChange: (n: number) => void;
+    onTakesOneTimeEarlyWithdrawalChange: (isTaken: boolean) => void;
     onTradesPerDayChange: (n: number) => void;
     onTrialsChange: (n: number) => void;
     onWinrateChange: (n: number) => void;
@@ -92,6 +93,7 @@ interface TradingInputsProperties {
     seed: number;
     sizingMode: SizingMode;
     stopPoints: null | number;
+    takesOneTimeEarlyWithdrawal: boolean;
     tradesPerDay: number;
     trials: number;
     winrate: number;
@@ -133,6 +135,7 @@ export default function TradingInputs({
     onSeedChange,
     onSizingModeChange,
     onStopPointsChange,
+    onTakesOneTimeEarlyWithdrawalChange,
     onTradesPerDayChange,
     onTrialsChange,
     onWinrateChange,
@@ -147,11 +150,13 @@ export default function TradingInputs({
     seed,
     sizingMode,
     stopPoints,
+    takesOneTimeEarlyWithdrawal,
     tradesPerDay,
     trials,
     winrate,
 }: TradingInputsProperties) {
     const accountSize = plan.accountSize;
+    const earlyWithdrawal = plan.oneTimeEarlyWithdrawal;
     const retryNote = describeRetryOnBust(
         plan.fees,
         toCouponDiscounts({
@@ -348,6 +353,43 @@ export default function TradingInputs({
                                     cushion.
                                 </p>
                             </div>
+                            {earlyWithdrawal === null ? null : (
+                                <div>
+                                    <span className="mb-1 block text-xs font-medium text-muted-foreground">
+                                        One-time early withdrawal
+                                    </span>
+                                    <Toggle
+                                        className="text-xs whitespace-nowrap"
+                                        onPressedChange={
+                                            onTakesOneTimeEarlyWithdrawalChange
+                                        }
+                                        pressed={takesOneTimeEarlyWithdrawal}
+                                        size="sm"
+                                        variant="outline"
+                                    >
+                                        {takesOneTimeEarlyWithdrawal
+                                            ? 'Taken'
+                                            : 'Not taken'}
+                                    </Toggle>
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                        Once, after the payout day gate and
+                                        before the buffer clears, withdraw up
+                                        to{' '}
+                                        {formatPercent(
+                                            earlyWithdrawal.maxProfitShare,
+                                            0,
+                                        )}{' '}
+                                        of the profit (at least{' '}
+                                        {formatCurrency(
+                                            earlyWithdrawal.minRequest,
+                                        )}
+                                        ) while the rest stays. Counted as the
+                                        first payout, so the MLL moves to start
+                                        + $100 and locks, which leaves a thin
+                                        cushion. Off by default.
+                                    </p>
+                                </div>
+                            )}
                             <div>
                                 <label
                                     className="mb-1 block text-xs font-medium text-muted-foreground"

@@ -238,11 +238,112 @@ describe('TradingFirm.notes (live-verified 2026-09-10, MFFU only)', () => {
         ).toBe(false);
     });
 
+    it('TopStep LFA notes describe the shipped live model (R-10): the $1,000 static floor, seed payouts, the Reserve, the capital channel and the liquidation payout', () => {
+        const notes = findFirm(FirmId.TopStep)?.notes ?? [];
+        const stale = [
+            'liveDrawdown is null',
+            'no bust condition at all',
+            'liveBustProbability/medianDaysToBust are always 0/null',
+            'Not modeled yet: payouts drawn from the unlocked part of the seed balance',
+            'currently unmodeled because it hasn',
+        ];
+        for (const phrase of stale) {
+            expect(notes.some((note) => note.includes(phrase))).toBe(false);
+        }
+        const lfaNote = notes.find((note) =>
+            note.includes('Live Funded Account (modeled in TopStepLive.ts'),
+        );
+        expect(lfaNote).toBeDefined();
+        for (const phrase of [
+            'StaticDrawdown',
+            'The remaining balance would then be sent as a final Payout.',
+            'Unlocked reserve is forfeited',
+            'Once 100% of your balance has been unlocked, you may withdraw those funds as well',
+            'capital returned',
+            'never annualized',
+            'Friday',
+            'the 90/10 split on withdrawn seed, Reserve and the liquidation payout is an assumption',
+            'remaining daily loss limit',
+        ]) {
+            expect(lfaNote).toContain(phrase);
+        }
+    });
+
+    it('TopStep LFA notes describe the net-trading-profit tier basis, the wired lot caps and the Daily Loss Limit Safeguard (WP18g: N-57, N-58)', () => {
+        const notes = findFirm(FirmId.TopStep)?.notes ?? [];
+        for (const phrase of [
+            'are NOT wired into an actual ContractLimitConfig',
+            'a Friday-only safeguard that drops the DLL further',
+            'can incorrectly tier the account back down',
+            'the Friday DLL safeguard is listed below as unmodeled',
+        ]) {
+            expect(notes.some((note) => note.includes(phrase))).toBe(false);
+        }
+        const lfaNote = notes.find((note) =>
+            note.includes('Live Funded Account (modeled in TopStepLive.ts'),
+        );
+        for (const phrase of [
+            "Payouts don't affect your Tier.",
+            'It is not currently available for the Live Funded Account.',
+            'Tradable balance at or below $5,000 -> DLL drops to $1,000, Max Position Size = 3',
+            'relaxes only at a Friday close',
+            'the LFA opens on a Monday',
+            'The safeguard reads the balance in whole cents',
+        ]) {
+            expect(lfaNote).toContain(phrase);
+        }
+    });
+
+    it('TopStep LFA notes describe the end-of-day tier timing with 10 Active Trading Days per tier and the Safeguard reading after a Reserve deposit (WP18h: N-59)', () => {
+        const notes = findFirm(FirmId.TopStep)?.notes ?? [];
+        for (const phrase of [
+            'has no day-count concept and applies the new tier',
+            "the new tier's DLL also applies intraday",
+            'Two mechanics of the real tiering rule are deliberately simplified',
+        ]) {
+            expect(notes.some((note) => note.includes(phrase))).toBe(false);
+        }
+        const lfaNote = notes.find((note) =>
+            note.includes('Live Funded Account (modeled in TopStepLive.ts'),
+        );
+        for (const phrase of [
+            'Your Daily Loss Limit increases at end of day after 10 Active Trading Days in the new Tier.',
+            'If you drop out of a Tier before 10 days, the counter resets when you re-enter it.',
+            'You must move one Tier at a time. No skipping.',
+            'Active Trading Day: Any day you place at least 1 trade',
+            'TierBasis.SessionOpenProfit',
+            'after any Reserve increment that lands at that close',
+            'Three readings are this engine',
+            'a tier that was already unlocked and is lost at a close must be earned again with 10 new Active Trading Days when the profit re-enters it',
+        ]) {
+            expect(lfaNote).toContain(phrase);
+        }
+    });
+
+    it('TopStep notes use no em dashes', () => {
+        const notes = findFirm(FirmId.TopStep)?.notes ?? [];
+        expect(notes.some((note) => note.includes('\u{2014}'))).toBe(false);
+    });
+
+    it('Lucid notes name the prop live route to the LucidDaily transition credit (R-4)', () => {
+        const notes = findFirm(FirmId.Lucid)?.notes ?? [];
+        expect(
+            notes.some((note) =>
+                note.includes('it is reachable by direct construction'),
+            ),
+        ).toBe(false);
+        expect(
+            notes.some((note) =>
+                note.includes(
+                    'prop live --firm lucid --transition-profit <amount>',
+                ),
+            ),
+        ).toBe(true);
+    });
+
     it('TopStep notes name only identifiers that still exist: the shared TOPSTEP_PAYOUT_POLICY, never the deleted TRADER_SHARE', () => {
         const notes = findFirm(FirmId.TopStep)?.notes ?? [];
-        expect(notes.some((note) => note.includes('TRADER_SHARE'))).toBe(
-            false,
-        );
+        expect(notes.some((note) => note.includes('TRADER_SHARE'))).toBe(false);
         expect(
             notes.some((note) =>
                 note.includes('TOPSTEP_PAYOUT_POLICY.traderShare'),

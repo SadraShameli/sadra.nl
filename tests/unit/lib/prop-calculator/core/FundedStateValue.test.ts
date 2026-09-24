@@ -15,6 +15,7 @@ import {
     FirmId,
     fraction,
     FtmoFuturesVariant,
+    type FundedCycleSnapshot,
     FundedNextVariant,
     INSTRUMENTS,
     InstrumentSymbol,
@@ -983,6 +984,8 @@ describe(
                     plan: offRegistryPlan,
                 });
 
+                expect(workerResult.workerCount).toBeGreaterThan(1);
+                expect(singleThreadedResult.workerCount).toBe(0);
                 expect(workerResult.initialValue).toBeCloseTo(
                     singleThreadedResult.initialValue,
                     6,
@@ -1030,6 +1033,8 @@ describe(
                     ...coarseConfig,
                     plan: livePlan.withOverrides({}),
                 });
+                expect(workerResult.workerCount).toBeGreaterThan(1);
+                expect(singleThreadedResult.workerCount).toBe(0);
                 expect(workerResult.reachedStateCount).toBe(
                     singleThreadedResult.reachedStateCount,
                 );
@@ -1039,6 +1044,96 @@ describe(
                 );
             },
             120_000,
+        );
+
+        it(
+            'worker parity at a non-default cycleBaselineFineRangeMultiple: the ' +
+                'multiple sets the cycle-baseline grid size and so the shared ' +
+                'key layout, so the workers must receive it and agree with the ' +
+                'single-threaded solve',
+            async () => {
+                await warmFirmsRegistryCache();
+                const livePlan = ALL_FIRMS.find(
+                    (candidate) => candidate.id === FirmId.TopStep,
+                )?.plans[0];
+                if (!livePlan) throw new Error('TopStep firm not registered');
+                const coarseConfig = {
+                    actionStepMultiple: 0.5,
+                    cushionStepMultiple: 0.5,
+                    cycleBaselineFineRangeMultiple: 0,
+                    dayCost: 5,
+                    evalInitialValue: 0,
+                    feePerAttempt: dollars(0),
+                    maxActionMultiple: 1,
+                    maxCushionMultiple: 3,
+                    maxPreLockOffsetMultiple: 1,
+                    meanHorizonDays: 100,
+                    payoutRegimeCap: 1,
+                    rrRatio: 2,
+                    tradesPerDay: 1,
+                    winrate: 0.4,
+                };
+                const workerResult = computeFundedStateValue({
+                    ...coarseConfig,
+                    plan: livePlan,
+                });
+                const singleThreadedResult = computeFundedStateValue({
+                    ...coarseConfig,
+                    plan: livePlan.withOverrides({}),
+                });
+                const defaultMultipleResult = computeFundedStateValue({
+                    ...coarseConfig,
+                    cycleBaselineFineRangeMultiple: undefined,
+                    plan: livePlan.withOverrides({}),
+                });
+                expect(workerResult.workerCount).toBeGreaterThan(1);
+                expect(singleThreadedResult.workerCount).toBe(0);
+                expect(defaultMultipleResult.reachedStateCount).not.toBe(
+                    singleThreadedResult.reachedStateCount,
+                );
+                expect(workerResult.reachedStateCount).toBe(
+                    singleThreadedResult.reachedStateCount,
+                );
+                expect(workerResult.initialValue).toBeCloseTo(
+                    singleThreadedResult.initialValue,
+                    6,
+                );
+            },
+            240_000,
+        );
+
+        it(
+            'fails loud, instead of silently solving single-threaded, when the ' +
+                'worker pool cannot be started (here a config value that cannot ' +
+                'be structured-cloned to the workers)',
+            async () => {
+                await warmFirmsRegistryCache();
+                const livePlan = ALL_FIRMS.find(
+                    (candidate) => candidate.id === FirmId.TopStep,
+                )?.plans[0];
+                if (!livePlan) throw new Error('TopStep firm not registered');
+                const instrument = Object.assign(
+                    {},
+                    INSTRUMENTS[InstrumentSymbol.MNQ],
+                    { describe: () => 'not cloneable' },
+                );
+                expect(() =>
+                    computeFundedStateValue({
+                        actionStepMultiple: 1,
+                        cushionStepMultiple: 1,
+                        evalInitialValue: 0,
+                        feePerAttempt: dollars(0),
+                        maxActionMultiple: 1,
+                        payoutRegimeCap: 0,
+                        plan: livePlan,
+                        positionSizing: { instrument, stopPoints: points(20) },
+                        rrRatio: 2,
+                        tradesPerDay: 1,
+                        winrate: 0.4,
+                    }),
+                ).toThrow(/could not start its worker pool/);
+            },
+            60_000,
         );
 
         it(
@@ -1341,12 +1436,20 @@ describe('cycleBestDayProfit DP state dimension', () => {
             const state = plan.initialState();
             expect(
                 [0, 1, 2, 3].map((tradeIndex) =>
-                    result.dayPolicy.computeRisk?.(state, tradeIndex, 0),
+                    result.dayPolicy.computeRisk?.(
+                        state,
+                        tradeIndex,
+                        fundedCycleAfter(0),
+                    ),
                 ),
             ).toStrictEqual([200, 0, 0, 0]);
             for (const payoutsIssued of [1, 2]) {
                 expect(() =>
-                    result.dayPolicy.computeRisk?.(state, 0, payoutsIssued),
+                    result.dayPolicy.computeRisk?.(
+                        state,
+                        0,
+                        fundedCycleAfter(payoutsIssued),
+                    ),
                 ).toThrow(/never reach/);
             }
 
@@ -1366,7 +1469,7 @@ describe('cycleBestDayProfit DP state dimension', () => {
                             result.dayPolicy.computeRisk?.(
                                 locked,
                                 tradeIndex,
-                                payoutsIssued,
+                                fundedCycleAfter(payoutsIssued),
                             ),
                         ),
                     ).toStrictEqual(expectedRisks);
@@ -1650,6 +1753,44 @@ function flatDllToyPlan(amount: number): Plan {
     });
 }
 
+async function ftmoGrowthCoarse(cycleBaselineFineRangeMultiple: number) {
+    await warmFirmsRegistryCache();
+    const plan = ALL_FIRMS.find(
+        (firm) => firm.id === FirmId.FtmoFutures,
+    )?.findPlan({
+        accountSize: 50_000,
+        firm: FirmId.FtmoFutures,
+        variant: FtmoFuturesVariant.Growth,
+    });
+    if (!plan) throw new Error('FTMO Futures Growth 50K plan not found');
+    return computeFundedStateValue({
+        actionStepMultiple: 0.25,
+        cushionStepMultiple: 0.25,
+        cycleBaselineFineRangeMultiple,
+        evalInitialValue: 0,
+        feePerAttempt: dollars(0),
+        maxActionMultiple: 1,
+        meanHorizonDays: 60,
+        payoutRegimeCap: 2,
+        plan,
+        rrRatio: 2,
+        tradesPerDay: 2,
+        winrate: 0.5,
+    });
+}
+
+function fundedCycleAfter(
+    payoutsIssued: number,
+    lastPayoutBalance = 0,
+): FundedCycleSnapshot {
+    return {
+        cycleBestDayProfit: 0,
+        lastPayoutBalance,
+        payoutsIssued,
+        qualifyingDaysSincePayout: 0,
+    };
+}
+
 function lockedStateAt(
     balance: number,
     todayPnL: number,
@@ -1831,16 +1972,16 @@ describe('computeFundedStateValue measures cycle profit from the real post-payou
         expect(out.expectedGrossPayout).toBeCloseTo(result.initialValue, 10);
     }, 15_000);
 
-    it('fails loud when a post-payout policy lookup is missing the last payout balance', () => {
+    it('finds the post-payout policy from the snapshot the day loop passes, last payout balance included', () => {
         const plan = payoutRequestCapToyPlan();
         const result = computeFundedStateValue(payoutRequestCapConfig(plan));
-        const state = lockedStateAt(1150, 0);
-        expect(() => result.dayPolicy.computeRisk?.(state, 0, 1)).toThrow(
-            /lastPayoutBalance/,
-        );
-        expect(result.dayPolicy.computeRisk?.(state, 0, 1, 0, 0, 1150)).toBe(
-            100,
-        );
+        expect(
+            result.dayPolicy.computeRisk?.(
+                lockedStateAt(1150, 0),
+                0,
+                fundedCycleAfter(1, 1150),
+            ),
+        ).toBe(100);
     });
 
     it('solves a plan that can withdraw while unlocked and still matches simulate()', () => {
@@ -1891,39 +2032,20 @@ describe('computeFundedStateValue enforces the Apex PA Level daily loss limit on
 });
 
 describe('cycleBaselineFineRangeMultiple sets how finely the post-payout baseline is gridded (T11)', () => {
-    async function ftmoGrowthCoarse(cycleBaselineFineRangeMultiple: number) {
-        await warmFirmsRegistryCache();
-        const plan = ALL_FIRMS.find(
-            (firm) => firm.id === FirmId.FtmoFutures,
-        )?.findPlan({
-            accountSize: 50_000,
-            firm: FirmId.FtmoFutures,
-            variant: FtmoFuturesVariant.Growth,
-        });
-        if (!plan) throw new Error('FTMO Futures Growth 50K plan not found');
-        return computeFundedStateValue({
-            actionStepMultiple: 0.25,
-            cushionStepMultiple: 0.25,
-            cycleBaselineFineRangeMultiple,
-            evalInitialValue: 0,
-            feePerAttempt: dollars(0),
-            maxActionMultiple: 1,
-            meanHorizonDays: 60,
-            payoutRegimeCap: 2,
-            plan,
-            rrRatio: 2,
-            tradesPerDay: 2,
-            winrate: 0.5,
-        });
-    }
-
-    it.each([0, 1, 6])(
-        'FTMO Futures Growth 50K converges at fine range multiple %s',
-        async (multiple) => {
-            const result = await ftmoGrowthCoarse(multiple);
+    it('FTMO Futures Growth 50K converges at fine range multiples 0, 1 and 6 and keeps its pinned values, which are not monotone in the multiple: a finer grid never rounds the baseline higher (FundedCycleBaselineGrid.test), yet multiple 0 is worth about $36 more than multiple 1, a gap that stays the same at convergence tolerance 0.01', async () => {
+        const [coarse, landed, exact] = [
+            await ftmoGrowthCoarse(0),
+            await ftmoGrowthCoarse(1),
+            await ftmoGrowthCoarse(6),
+        ];
+        for (const result of [coarse, landed, exact]) {
             expect(result.unconvergedLevelCount).toBe(0);
-            expect(result.initialValue).toBeGreaterThan(0);
-        },
-        600_000,
-    );
+        }
+        expect(coarse.initialValue).toBeCloseTo(15_314.975762824683, 6);
+        expect(landed.initialValue).toBeCloseTo(15_279.158119247604, 6);
+        expect(exact.initialValue).toBeCloseTo(15_768.73217237772, 6);
+        expect(
+            [coarse, landed, exact].map((result) => result.reachedStateCount),
+        ).toStrictEqual([58_500, 81_000, 171_000]);
+    }, 1_800_000);
 });

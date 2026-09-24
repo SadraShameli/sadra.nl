@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    ContractLimitKind,
     contracts,
     createInitialState,
     DailyLossLimitBreachEffect,
@@ -18,6 +19,7 @@ import {
     type PlanId,
     profitShareMultiplier,
     serializePlanId,
+    TierBasis,
     TradingPhase,
     tryFundedPayout,
 } from '~/lib/prop-calculator/core';
@@ -142,6 +144,105 @@ describe('Plan constructor: minTradingDays invariant', () => {
         expect(
             lucidDirect.withOverrides({ minTradingDays: 0 }).minTradingDays,
         ).toBe(0);
+    });
+});
+
+describe('Plan constructor: maxFundedAccounts invariant (N-13)', () => {
+    it.each([0, -1, 2.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1])(
+        'rejects a maxFundedAccounts of %s at construction',
+        (maxFundedAccounts) => {
+            expect(() =>
+                lucidDirect.withOverrides({ maxFundedAccounts }),
+            ).toThrow(/maxFundedAccounts must be a positive integer/);
+        },
+    );
+
+    it('names the plan in the error', () => {
+        expect(() =>
+            lucidDirect.withOverrides({ maxFundedAccounts: 0 }),
+        ).toThrow(`${lucidDirect.label}: maxFundedAccounts`);
+    });
+
+    it('accepts a positive integer', () => {
+        expect(
+            lucidDirect.withOverrides({ maxFundedAccounts: 1 })
+                .maxFundedAccounts,
+        ).toBe(1);
+    });
+
+    it('holds for every registered plan', () => {
+        for (const firm of ALL_FIRMS) {
+            for (const plan of firm.plans) {
+                expect(Number.isSafeInteger(plan.maxFundedAccounts)).toBe(true);
+                expect(plan.maxFundedAccounts).toBeGreaterThan(0);
+            }
+        }
+    });
+});
+
+describe('Plan constructor: fees.undiscountableEval invariant (N-52)', () => {
+    it('rejects an undiscountable component larger than the eval price', () => {
+        expect(() =>
+            lucidDirect.withOverrides({
+                fees: {
+                    ...lucidDirect.fees,
+                    undiscountableEval: dollars(
+                        lucidDirect.fees.oneTimeEval + 1,
+                    ),
+                },
+            }),
+        ).toThrow(/undiscountableEval/);
+    });
+
+    it('rejects a non-finite undiscountable component', () => {
+        expect(() =>
+            lucidDirect.withOverrides({
+                fees: { ...lucidDirect.fees, undiscountableEval: dollars(NaN) },
+            }),
+        ).toThrow(/undiscountableEval/);
+    });
+
+    it('accepts a promo, a negative component', () => {
+        expect(
+            lucidDirect.withOverrides({
+                fees: { ...lucidDirect.fees, undiscountableEval: dollars(-5) },
+            }).fees.undiscountableEval,
+        ).toBe(-5);
+    });
+});
+
+describe('Plan constructor: fees.undiscountableReset invariant (N-52 review)', () => {
+    it('rejects an undiscountable component larger than the reset price', () => {
+        expect(() =>
+            lucidDirect.withOverrides({
+                fees: {
+                    ...lucidDirect.fees,
+                    undiscountableReset: dollars(lucidDirect.fees.reset + 1),
+                },
+            }),
+        ).toThrow(/undiscountableReset/);
+    });
+
+    it.each([NaN, Infinity, -Infinity])(
+        'rejects a non-finite undiscountable reset component (%s)',
+        (value) => {
+            expect(() =>
+                lucidDirect.withOverrides({
+                    fees: {
+                        ...lucidDirect.fees,
+                        undiscountableReset: dollars(value),
+                    },
+                }),
+            ).toThrow(/undiscountableReset/);
+        },
+    );
+
+    it('accepts a promo, a negative component', () => {
+        expect(
+            lucidDirect.withOverrides({
+                fees: { ...lucidDirect.fees, undiscountableReset: dollars(-5) },
+            }).fees.undiscountableReset,
+        ).toBe(-5);
     });
 });
 
@@ -475,6 +576,104 @@ describe('Plan.purchaseDiscounts (R1-1 bundle discount)', () => {
     });
 });
 
+describe('Plan.purchaseDiscounts with a per-position basket discount (N-32)', () => {
+    const basket = tradeify(TradeifyVariant.Lightning).withOverrides({
+        basketDiscount: {
+            basketSize: 10,
+            positions: [
+                { percent: fraction(0.15), position: 5 },
+                { percent: fraction(0.3), position: 10 },
+            ],
+        },
+    });
+
+    it.each([1, 4])(
+        'leaves the discounts unchanged below the first discounted position (%i accounts)',
+        (accountCount) => {
+            expect(
+                basket.purchaseDiscounts(undefined, accountCount),
+            ).toBeUndefined();
+        },
+    );
+
+    it.each([
+        [5, 15 / 5],
+        [9, 15 / 9],
+        [10, 45 / 10],
+        [14, 45 / 14],
+        [15, 60 / 15],
+        [20, 90 / 20],
+    ])(
+        'averages the discounted positions over %i accounts, repeating per full basket',
+        (accountCount, bundlePercent) => {
+            expect(
+                basket.purchaseDiscounts(undefined, accountCount)
+                    ?.bundlePercent,
+            ).toBeCloseTo(bundlePercent, 12);
+        },
+    );
+
+    it('rejects a plan that sets both discount shapes', () => {
+        expect(() =>
+            tradeify(TradeifyVariant.Growth).withOverrides({
+                basketDiscount: {
+                    basketSize: 10,
+                    positions: [{ percent: fraction(0.15), position: 5 }],
+                },
+            }),
+        ).toThrow(/bulkDiscount and basketDiscount/);
+    });
+
+    it.each([
+        [{ basketSize: 0, positions: [] }, /basketSize/],
+        [{ basketSize: 2.5, positions: [] }, /basketSize/],
+        [
+            {
+                basketSize: 10,
+                positions: [{ percent: fraction(0.15), position: 11 }],
+            },
+            /position/,
+        ],
+        [
+            {
+                basketSize: 10,
+                positions: [{ percent: fraction(0.15), position: 0 }],
+            },
+            /position/,
+        ],
+        [
+            {
+                basketSize: 10,
+                positions: [
+                    { percent: fraction(0.15), position: 5 },
+                    { percent: fraction(0.3), position: 5 },
+                ],
+            },
+            /position/,
+        ],
+        [
+            {
+                basketSize: 10,
+                positions: [{ percent: fraction(0), position: 5 }],
+            },
+            /percent/,
+        ],
+        [
+            {
+                basketSize: 10,
+                positions: [{ percent: fraction(1.2), position: 5 }],
+            },
+            /percent/,
+        ],
+    ])('rejects the malformed basket %o', (basketDiscount, message) => {
+        expect(() =>
+            tradeify(TradeifyVariant.Lightning).withOverrides({
+                basketDiscount,
+            }),
+        ).toThrow(message);
+    });
+});
+
 function stateWith(cushion: number, todayPnL: number) {
     const state = createInitialState(50_000, 48_000);
     state.balance = 48_000 + cushion;
@@ -497,10 +696,25 @@ describe('Plan.affordableRisk', () => {
             },
         });
         expect(
-            plan.affordableRisk(stateWith(2000, -300), TradingPhase.Funded),
+            plan.affordableRisk(stateWith(2000, -300), TradingPhase.Funded, 0),
         ).toBe(700);
         expect(
-            plan.affordableRisk(stateWith(500, 0), TradingPhase.Funded),
+            plan.affordableRisk(stateWith(500, 0), TradingPhase.Funded, 0),
+        ).toBe(500);
+    });
+
+    it('leaves room for the round-trip commission under the daily loss limit (N-56)', () => {
+        const plan = rapidEod.withOverrides({
+            fundedDailyLossLimit: {
+                amount: dollars(1000),
+                kind: DailyLossLimitKind.Flat,
+            },
+        });
+        expect(
+            plan.affordableRisk(stateWith(2000, -300), TradingPhase.Funded, 5),
+        ).toBe(695);
+        expect(
+            plan.affordableRisk(stateWith(500, 0), TradingPhase.Funded, 5),
         ).toBe(500);
     });
 
@@ -509,7 +723,7 @@ describe('Plan.affordableRisk', () => {
             fundedDailyLossLimit: { kind: DailyLossLimitKind.None },
         });
         expect(
-            plan.affordableRisk(stateWith(2000, -300), TradingPhase.Funded),
+            plan.affordableRisk(stateWith(2000, -300), TradingPhase.Funded, 0),
         ).toBe(2000);
     });
 
@@ -532,10 +746,10 @@ describe('Plan.affordableRisk', () => {
             },
         });
         expect(
-            plan.affordableRisk(stateWith(2500, 0), TradingPhase.Funded),
+            plan.affordableRisk(stateWith(2500, 0), TradingPhase.Funded, 0),
         ).toBe(300);
         expect(
-            plan.affordableRisk(stateWith(3100, 0), TradingPhase.Funded),
+            plan.affordableRisk(stateWith(3100, 0), TradingPhase.Funded, 0),
         ).toBe(900);
     });
 });
@@ -585,5 +799,112 @@ describe('Plan.canLeaveBalanceAbovePayoutFloor', () => {
         expect(
             rapidEod.withOverrides(overrides).canLeaveBalanceAbovePayoutFloor(),
         ).toBe(true);
+    });
+});
+
+describe('Plan.peakSessionCloseBreakpoints', () => {
+    function peakTier(minProfit: number, dailyLossLimit: number) {
+        return {
+            dailyLossLimit: dollars(dailyLossLimit),
+            maxContracts: contracts(1),
+            minProfit,
+        };
+    }
+
+    function peakContractTier(minBalance: number, maxContracts: number) {
+        return {
+            maxContracts: contracts(maxContracts),
+            minBalance: dollars(minBalance),
+        };
+    }
+
+    const unionPlan = lucidDirect.withOverrides({
+        contractLimits: {
+            evalMicros: contracts(10),
+            evalMinis: contracts(1),
+            fundedMicros: {
+                kind: ContractLimitKind.Tiered,
+                tierBasis: TierBasis.PeakSessionCloseProfit,
+                tiers: [
+                    peakContractTier(0, 10),
+                    peakContractTier(2000, 20),
+                    peakContractTier(4000, 40),
+                ],
+            },
+            fundedMinis: {
+                kind: ContractLimitKind.Tiered,
+                tierBasis: TierBasis.PeakSessionCloseProfit,
+                tiers: [
+                    peakContractTier(-100, 1),
+                    peakContractTier(1500, 2),
+                    peakContractTier(3000, 4),
+                ],
+            },
+        },
+        evalDailyLossLimit: {
+            kind: DailyLossLimitKind.Tiered,
+            tierBasis: TierBasis.PeakSessionCloseProfit,
+            tiers: [peakTier(0, 500), peakTier(750, 900)],
+        },
+        fundedDailyLossLimit: {
+            afterLock: {
+                kind: DailyLossLimitKind.Tiered,
+                tierBasis: TierBasis.PeakSessionCloseProfit,
+                tiers: [peakTier(0, 1000), peakTier(3000, 2000)],
+            },
+            beforeLock: {
+                kind: DailyLossLimitKind.Tiered,
+                tierBasis: TierBasis.PeakSessionCloseProfit,
+                tiers: [peakTier(-250, 400), peakTier(1000, 800)],
+            },
+            kind: DailyLossLimitKind.AfterThresholdLock,
+        },
+    });
+
+    it('unions the funded DLL tiers on both sides of an AfterThresholdLock with the mini contract tiers, deduped, sorted and without the <= 0 floors', () => {
+        expect(
+            unionPlan.peakSessionCloseBreakpoints(TradingPhase.Funded, false),
+        ).toStrictEqual([1000, 1500, 3000]);
+    });
+
+    it('reads the micro contract tiers when sizing in micros', () => {
+        expect(
+            unionPlan.peakSessionCloseBreakpoints(TradingPhase.Funded, true),
+        ).toStrictEqual([1000, 2000, 3000, 4000]);
+    });
+
+    it('ignores contract tiers when there is no position sizing', () => {
+        expect(
+            unionPlan.peakSessionCloseBreakpoints(TradingPhase.Funded, null),
+        ).toStrictEqual([1000, 3000]);
+    });
+
+    it('uses only the eval DLL tiers in the eval, never the funded contract tiers', () => {
+        expect(
+            unionPlan.peakSessionCloseBreakpoints(TradingPhase.Eval, false),
+        ).toStrictEqual([750]);
+    });
+
+    it('leaves out tiers on any other basis', () => {
+        const sessionOpen = unionPlan.withOverrides({
+            contractLimits: {
+                evalMicros: contracts(10),
+                evalMinis: contracts(1),
+                fundedMicros: null,
+                fundedMinis: {
+                    kind: ContractLimitKind.Tiered,
+                    tierBasis: TierBasis.SessionOpenProfit,
+                    tiers: [peakContractTier(0, 1), peakContractTier(1500, 2)],
+                },
+            },
+            fundedDailyLossLimit: {
+                kind: DailyLossLimitKind.Tiered,
+                tierBasis: TierBasis.SessionOpenProfit,
+                tiers: [peakTier(0, 1000), peakTier(3000, 2000)],
+            },
+        });
+        expect(
+            sessionOpen.peakSessionCloseBreakpoints(TradingPhase.Funded, false),
+        ).toStrictEqual([]);
     });
 });

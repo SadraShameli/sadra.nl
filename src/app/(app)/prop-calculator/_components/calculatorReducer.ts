@@ -70,6 +70,7 @@ export enum CalculatorActionType {
     SetSeed = 'set-seed',
     SetSizingMode = 'set-sizing-mode',
     SetStopPoints = 'set-stop-points',
+    SetTakesOneTimeEarlyWithdrawal = 'set-takes-one-time-early-withdrawal',
     SetTradesPerDay = 'set-trades-per-day',
     SetTrials = 'set-trials',
     SetWinrate = 'set-winrate',
@@ -99,6 +100,10 @@ export type CalculatorAction =
     | {
           isLinked: boolean;
           type: CalculatorActionType.SetLinkActivationDiscount;
+      }
+    | {
+          isTaken: boolean;
+          type: CalculatorActionType.SetTakesOneTimeEarlyWithdrawal;
       }
     | { mode: SizingMode; type: CalculatorActionType.SetSizingMode }
     | { plan: Plan; type: CalculatorActionType.SetPlan }
@@ -503,6 +508,9 @@ export function calculatorReducer(
                 ),
             };
         }
+        case CalculatorActionType.SetTakesOneTimeEarlyWithdrawal: {
+            return { ...state, takesOneTimeEarlyWithdrawal: action.isTaken };
+        }
         case CalculatorActionType.SetTradesPerDay: {
             return {
                 ...state,
@@ -595,6 +603,7 @@ export function defaultCalculatorState(): CalculatorState {
         seed: 42,
         sizingMode: SizingMode.Dollar,
         stopPoints: null,
+        takesOneTimeEarlyWithdrawal: false,
         tradesPerDay: 1,
         trials: 2000,
         winrate: 0.4,

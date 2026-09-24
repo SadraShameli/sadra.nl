@@ -93,12 +93,11 @@ describe('simulatePortfolioTimeline: never simulates more concurrent funded acco
     });
 
     it.each([0, -1, 2.5, NaN, Infinity])(
-        'throws instead of producing a result when the plan cap is %s',
+        'never reaches a timeline, since the plan itself rejects a cap of %s',
         (cap) => {
-            const broken = builder50k.withOverrides({ maxFundedAccounts: cap });
-            expect(() => run(broken, 5)).toThrow(
-                /maxFundedAccounts must be a positive integer/,
-            );
+            expect(() =>
+                run(builder50k.withOverrides({ maxFundedAccounts: cap }), 5),
+            ).toThrow(/maxFundedAccounts must be a positive integer/);
         },
     );
 });

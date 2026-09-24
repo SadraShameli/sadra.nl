@@ -252,17 +252,19 @@ export function stepFundedDay(options: FundedDayStepOptions): {
     } = options;
     const { busted, closedForInactivity } = runDay({
         commission,
-        cycleBestDayProfit: tracker.cycleBestDayProfit,
         dayPolicy,
+        fundedCycle: {
+            cycleBestDayProfit: tracker.cycleBestDayProfit,
+            lastPayoutBalance: tracker.lastPayoutBalance,
+            payoutsIssued: tracker.payoutsIssued,
+            qualifyingDaysSincePayout:
+                state.qualifyingDays - tracker.qualifyingDaysAtLastPayout,
+        },
         idleDayProbability,
         intradayPathStepsPerR,
-        lastPayoutBalance: tracker.lastPayoutBalance,
-        payoutsIssued: tracker.payoutsIssued,
         phase: TradingPhase.Funded,
         plan,
         positionSizing,
-        qualifyingDaysSincePayout:
-            state.qualifyingDays - tracker.qualifyingDaysAtLastPayout,
         rng,
         rrRatio,
         rungSizing,

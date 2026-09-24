@@ -44,22 +44,22 @@ const HALF_OFF_RESET: CouponDiscounts = {
     resetPercent: percent(50),
 };
 
-describe('describeRetryOnBust (WP08 handoff: retries at the D1 price)', () => {
+describe('describeRetryOnBust (WP08 handoff: retries at the D1 price; T29: a timed-out attempt is retried too; T10: a re-buy is a new account)', () => {
     it('names the reset when the reset is the cheaper retry', () => {
         expect(describeRetryOnBust(CHEAP_RESET, undefined, 3)).toBe(
-            'Up to 2 resets at $115 each on bust.',
+            'Up to 2 resets at $115 each when an attempt busts or times out.',
         );
     });
 
     it('names a re-buy when a fresh eval is cheaper than the reset', () => {
         expect(describeRetryOnBust(PRICEY_RESET, undefined, 2)).toBe(
-            'Up to 1 re-buy at $160 each on bust.',
+            'Up to 1 re-buy at $160 each when an attempt busts or times out; a re-buy is a new account.',
         );
     });
 
     it('names a re-buy for a plan that sells no reset', () => {
         expect(describeRetryOnBust(NO_RESET, undefined, 3)).toBe(
-            'Up to 2 re-buys at $153 each on bust.',
+            'Up to 2 re-buys at $153 each when an attempt busts or times out; a re-buy is a new account.',
         );
     });
 
@@ -70,7 +70,19 @@ describe('describeRetryOnBust (WP08 handoff: retries at the D1 price)', () => {
             reset: dollars(100),
         };
         expect(describeRetryOnBust(fees, HALF_OFF_RESET, 2)).toBe(
-            'Up to 1 reset at $50 each on bust.',
+            'Up to 1 reset at $50 each when an attempt busts or times out.',
+        );
+    });
+
+    it('prices a subscription re-buy with its first month and calls it a new account', () => {
+        const subscriptionRebuy: FeeSchedule = {
+            ...NO_FEES,
+            monthlySubscription: dollars(100),
+            oneTimeEval: dollars(30),
+            retry: RetryKind.Rebuy,
+        };
+        expect(describeRetryOnBust(subscriptionRebuy, undefined, 3)).toBe(
+            'Up to 2 re-buys at $130 each when an attempt busts or times out; a re-buy is a new account.',
         );
     });
 

@@ -6,6 +6,7 @@ import {
     FirmId,
     fraction,
     type SimInputs,
+    type SimOutputs,
     simulate,
     TradeifyVariant,
 } from '~/lib/prop-calculator';
@@ -42,6 +43,12 @@ function alwaysPassesInputs(overrides: Partial<SimInputs>): SimInputs {
         winrate: 1,
         ...overrides,
     } as SimInputs;
+}
+
+function perTrialRowsTotal(out: SimOutputs): number {
+    const { activationFee, evalFee, resetFeesTotal, subscriptionPerTrial } =
+        out.costBreakdown;
+    return activationFee + evalFee + resetFeesTotal + subscriptionPerTrial;
 }
 
 function tradeifyPlan(variant: TradeifyVariant) {
@@ -121,15 +128,24 @@ describe('R1-1: the bundle discount reaches every headline figure (Tradeify Grow
     });
 
     it('keeps the cost breakdown summing to expectedTotalCost at 5 copies', () => {
-        const {
-            activationFee,
-            evalFee: evalTotal,
-            monthlySubsTotal,
-            resetFeesTotal,
-        } = five.costBreakdown;
-        expect(
-            activationFee + evalTotal + monthlySubsTotal + resetFeesTotal,
-        ).toBeCloseTo(five.expectedTotalCost, 6);
+        expect(perTrialRowsTotal(five)).toBeCloseTo(five.expectedTotalCost, 6);
+    });
+
+    it('keeps the cost breakdown summing to expectedTotalCost at 5 copies on a subscription plan whose attempts run past the first month', () => {
+        const subscriptionPlan = plan.withOverrides({
+            fees: { ...plan.fees, monthlySubscription: dollars(49) },
+        });
+        const mixed = simulate({
+            ...alwaysBustsInputs({ copyAccounts: 5, plan: subscriptionPlan }),
+            riskPerTrade: 100,
+            trials: 200,
+            winrate: 0.4,
+        });
+        expect(mixed.costBreakdown.subscriptionPerTrial).toBeGreaterThan(0);
+        expect(perTrialRowsTotal(mixed)).toBeCloseTo(
+            mixed.expectedTotalCost,
+            6,
+        );
     });
 
     it('discounts only whole bundles of 5: 7 copies are one bundle plus 2 full-price accounts', () => {
@@ -177,10 +193,10 @@ describe('bundle discount on the cost breakdown lines', () => {
         });
 
         const oneAccount = simulate(
-            alwaysBustsInputs({ copyAccounts: 1, plan }),
+            alwaysPassesInputs({ copyAccounts: 1, plan }),
         );
         const fiveAccounts = simulate(
-            alwaysBustsInputs({ copyAccounts: 5, plan }),
+            alwaysPassesInputs({ copyAccounts: 5, plan }),
         );
 
         const oneAccountCost =
@@ -190,7 +206,7 @@ describe('bundle discount on the cost breakdown lines', () => {
             fiveAccounts.costBreakdown.activationFee +
             fiveAccounts.costBreakdown.evalFee;
 
-        expect(oneAccountCost).toBeGreaterThan(0);
+        expect(oneAccount.costBreakdown.activationFee).toBe(50);
         expect(fiveAccountCost).toBeCloseTo(oneAccountCost * 5 * 0.95, 6);
     });
 
@@ -201,10 +217,10 @@ describe('bundle discount on the cost breakdown lines', () => {
         });
 
         const oneAccount = simulate(
-            alwaysBustsInputs({ copyAccounts: 1, plan }),
+            alwaysPassesInputs({ copyAccounts: 1, plan }),
         );
         const fiveAccounts = simulate(
-            alwaysBustsInputs({ copyAccounts: 5, plan }),
+            alwaysPassesInputs({ copyAccounts: 5, plan }),
         );
 
         expect(fiveAccounts.costBreakdown.evalFee).toBe(
@@ -222,10 +238,10 @@ describe('bundle discount on the cost breakdown lines', () => {
         });
 
         const oneAccount = simulate(
-            alwaysBustsInputs({ copyAccounts: 1, plan }),
+            alwaysPassesInputs({ copyAccounts: 1, plan }),
         );
         const fourAccounts = simulate(
-            alwaysBustsInputs({ copyAccounts: 4, plan }),
+            alwaysPassesInputs({ copyAccounts: 4, plan }),
         );
 
         expect(fourAccounts.costBreakdown.evalFee).toBe(
@@ -236,7 +252,7 @@ describe('bundle discount on the cost breakdown lines', () => {
         );
     });
 
-    it('leaves monthlySubsTotal and resetFeesTotal untouched by the discount at 5 copies, and keeps monthlySubsTotal per funded account like costPerFundedAccount: Tradeify only discounts the account-purchase cost, never the subscription or reset fee', () => {
+    it('leaves subscriptionPerFundedAccount and resetFeesTotal untouched by the discount at 5 copies, and keeps subscriptionPerFundedAccount per funded account like costPerFundedAccount: Tradeify only discounts the account-purchase cost, never the subscription or reset fee', () => {
         const basePlan = tradeifyPlan(TradeifyVariant.Growth);
         const plan = basePlan.withOverrides({
             fees: { ...basePlan.fees, monthlySubscription: dollars(49) },
@@ -259,10 +275,10 @@ describe('bundle discount on the cost breakdown lines', () => {
         expect(fiveAccounts.costBreakdown.resetFeesTotal).toBe(
             oneAccount.costBreakdown.resetFeesTotal * 5,
         );
-        expect(onePassing.costBreakdown.monthlySubsTotal).toBe(49);
-        expect(fivePassing.costBreakdown.monthlySubsTotal).toBe(49);
-        expect(fivePassing.costBreakdown.monthlySubsTotal).toBeLessThanOrEqual(
-            fivePassing.costPerFundedAccount,
-        );
+        expect(onePassing.costBreakdown.subscriptionPerFundedAccount).toBe(49);
+        expect(fivePassing.costBreakdown.subscriptionPerFundedAccount).toBe(49);
+        expect(
+            fivePassing.costBreakdown.subscriptionPerFundedAccount,
+        ).toBeLessThanOrEqual(fivePassing.costPerFundedAccount);
     });
 });

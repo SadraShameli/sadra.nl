@@ -645,19 +645,4 @@ describe("describeShare (N-43, N-45 display): the consistency cell reads the rul
         expect(describeShare(null)).toBe('none');
         expect(describeShare(undefined)).toBe('none');
     });
-
-    it('still accepts a bare share from callers that have not switched to the rule yet', () => {
-        expect(describeShare(0.4)).toBe('40%');
-    });
-
-    it.each([
-        [0.07, '7%'],
-        [0.29, '29%'],
-        [1 / 3, '33.33%'],
-    ])(
-        'rounds a bare share %s the same way the rule label does',
-        (share, expected) => {
-            expect(describeShare(share)).toBe(expected);
-        },
-    );
 });

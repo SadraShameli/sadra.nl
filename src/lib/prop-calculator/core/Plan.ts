@@ -31,6 +31,10 @@ import {
     totalFees,
 } from './FeeSchedule';
 import {
+    type OneTimeEarlyWithdrawal,
+    PayoutDayGateBasis,
+} from './FundedPayoutCycle';
+import {
     type Dollars,
     dollars,
     type Fraction0to1,
@@ -58,6 +62,7 @@ import {
     scalePayoutTiers,
     walkPayoutTiers,
 } from './PayoutTiers';
+import { PeakRatchet } from './PeakRatchet';
 import { PlanAvailability } from './PlanAvailability';
 import { type PlanId } from './PlanId';
 import {
@@ -66,6 +71,16 @@ import {
     type TierProfitContext,
 } from './TierBasis';
 import { TradingPhase } from './TradingPhase';
+
+export interface BasketDiscount {
+    basketSize: number;
+    positions: readonly BasketPositionDiscount[];
+}
+
+export interface BasketPositionDiscount {
+    percent: Fraction0to1;
+    position: number;
+}
 
 export interface ConsistencyLadder {
     steps: readonly Fraction0to1[];
@@ -77,6 +92,7 @@ export type ConsistencyOverride =
 export interface PlanInit {
     accountSize: Dollars;
     availability?: PlanAvailability;
+    basketDiscount?: BasketDiscount;
     bulkDiscount?: { minAccounts: number; percent: Fraction0to1 };
     consistency: ConsistencyRule | null;
     contractLimits?: ContractLimits;
@@ -107,9 +123,11 @@ export interface PlanInit {
     minQualifyingDayProfit?: Dollars | null;
     minRetainedCushionOverride?: Dollars;
     minTradingDays: number;
+    oneTimeEarlyWithdrawal?: OneTimeEarlyWithdrawal;
     payoutBalanceShareCap?: Fraction0to1;
     payoutBuffer?: PayoutBuffer;
     payoutCapOverride?: PayoutCapStrategy;
+    payoutDayGateBasis?: PayoutDayGateBasis;
     payoutFloorEffect?: PayoutFloorEffect;
     payoutLadder?: null | PayoutLadder;
     payoutMethodFee?: Dollars;
@@ -119,6 +137,7 @@ export interface PlanInit {
     payoutTiers: readonly PayoutTier[];
     payoutTiersFromPayout?: readonly PayoutCountSplitTier[];
     profitTarget: Dollars;
+    takesOneTimeEarlyWithdrawal?: boolean;
 }
 
 export abstract class Plan {
@@ -127,6 +146,8 @@ export abstract class Plan {
     readonly accountSize: Dollars;
 
     readonly availability: PlanAvailability;
+
+    readonly basketDiscount: BasketDiscount | null;
 
     readonly bulkDiscount: null | {
         minAccounts: number;
@@ -183,11 +204,15 @@ export abstract class Plan {
 
     readonly minTradingDays: number;
 
+    readonly oneTimeEarlyWithdrawal: null | OneTimeEarlyWithdrawal;
+
     readonly payoutBalanceShareCap: Fraction0to1 | null;
 
     readonly payoutBuffer: null | PayoutBuffer;
 
     readonly payoutCapOverride: null | PayoutCapStrategy;
+
+    readonly payoutDayGateBasis: PayoutDayGateBasis;
 
     readonly payoutFloorEffect: PayoutFloorEffect;
 
@@ -207,10 +232,36 @@ export abstract class Plan {
 
     readonly profitTarget: Dollars;
 
+    readonly takesOneTimeEarlyWithdrawal: boolean;
+
     constructor(protected readonly init: PlanInit) {
         this.accountSize = init.accountSize;
         this.availability = init.availability ?? PlanAvailability.Purchasable;
+        this.basketDiscount = init.basketDiscount ?? null;
         this.bulkDiscount = init.bulkDiscount ?? null;
+
+        if (this.basketDiscount !== null && this.bulkDiscount !== null) {
+            throw new Error(
+                `${init.label}: bulkDiscount and basketDiscount are two purchase-discount shapes; set only one`,
+            );
+        }
+
+        if (this.basketDiscount !== null) {
+            assertBasketDiscount(this.basketDiscount, init.label);
+        }
+
+        for (const [componentKey, priceKey] of [
+            ['undiscountableEval', 'oneTimeEval'],
+            ['undiscountableReset', 'reset'],
+        ] as const) {
+            const component = init.fees[componentKey] ?? 0;
+            const price = init.fees[priceKey];
+            if (!Number.isFinite(component) || price < component) {
+                throw new Error(
+                    `${init.label}: fees.${componentKey} (${component}) must leave a non-negative discountable part of ${priceKey} (${price})`,
+                );
+            }
+        }
         this.consistency = init.consistency;
         this.contractLimits = init.contractLimits ?? null;
 
@@ -278,17 +329,74 @@ export abstract class Plan {
         }
 
         this.maxFundedAccounts = init.maxFundedAccounts;
+
+        if (
+            !Number.isSafeInteger(this.maxFundedAccounts) ||
+            this.maxFundedAccounts <= 0
+        ) {
+            throw new Error(
+                `${this.label}: maxFundedAccounts must be a positive integer, got ${this.maxFundedAccounts}`,
+            );
+        }
+
         this.maxEvalTradingDays = init.maxEvalTradingDays ?? null;
         this.maxLifetimePayoutDollars = init.maxLifetimePayoutDollars ?? null;
         this.maxLifetimePayouts = init.maxLifetimePayouts ?? null;
         this.minDaysAfterPassForPayout = init.minDaysAfterPassForPayout ?? 0;
         this.minDaysAfterPassForPayoutPerCycle =
             init.minDaysAfterPassForPayoutPerCycle ?? null;
+        this.payoutDayGateBasis =
+            init.payoutDayGateBasis ??
+            PayoutDayGateBasis.QualifyingDaysSincePassOrPayout;
+
+        if (
+            this.payoutDayGateBasis ===
+            PayoutDayGateBasis.CalendarDaysSinceFirstTradeOrPayout
+        ) {
+            for (const [key, days] of [
+                ['minDaysAfterPassForPayout', this.minDaysAfterPassForPayout],
+                [
+                    'minDaysAfterPassForPayoutPerCycle',
+                    this.minDaysAfterPassForPayoutPerCycle ?? 0,
+                ],
+            ] as const) {
+                if (!Number.isSafeInteger(days) || days < 0) {
+                    throw new Error(
+                        `${this.label}: ${key} counts calendar days and must be a non-negative integer, got ${days}`,
+                    );
+                }
+            }
+        }
+
         this.minPayoutProfit = init.minPayoutProfit ?? dollars(0);
         this.minPayoutProfitPerCycle = init.minPayoutProfitPerCycle ?? null;
         this.minPayoutRequest = init.minPayoutRequest ?? dollars(0);
         this.minQualifyingDayProfit = init.minQualifyingDayProfit ?? null;
         this.minTradingDays = init.minTradingDays;
+        this.oneTimeEarlyWithdrawal = init.oneTimeEarlyWithdrawal ?? null;
+        this.takesOneTimeEarlyWithdrawal =
+            init.takesOneTimeEarlyWithdrawal ?? false;
+
+        if (
+            this.oneTimeEarlyWithdrawal !== null &&
+            (!(this.oneTimeEarlyWithdrawal.maxProfitShare > 0) ||
+                this.oneTimeEarlyWithdrawal.maxProfitShare > 1 ||
+                !Number.isFinite(this.oneTimeEarlyWithdrawal.minRequest) ||
+                this.oneTimeEarlyWithdrawal.minRequest < 0)
+        ) {
+            throw new Error(
+                `${this.label}: oneTimeEarlyWithdrawal needs a maxProfitShare in (0, 1] and a finite, non-negative minRequest, got ${this.oneTimeEarlyWithdrawal.maxProfitShare} and ${this.oneTimeEarlyWithdrawal.minRequest}`,
+            );
+        }
+
+        if (
+            this.takesOneTimeEarlyWithdrawal &&
+            this.oneTimeEarlyWithdrawal === null
+        ) {
+            throw new Error(
+                `${this.label}: takesOneTimeEarlyWithdrawal is set but the plan offers no oneTimeEarlyWithdrawal`,
+            );
+        }
 
         if (
             !Number.isSafeInteger(this.minTradingDays) ||
@@ -432,6 +540,45 @@ export abstract class Plan {
         this.profitTarget = init.profitTarget;
     }
 
+    private peakBreakpoints(
+        basis: TierBasis,
+        phase: TradingPhase,
+        contractsAreMicro: boolean | null,
+    ): readonly number[] {
+        const dailyLossLimitBreakpoints = dailyLossLimitTierBreakpoints(
+            this.dailyLossLimitFor(phase),
+            basis,
+        );
+        const contractBreakpoints =
+            contractsAreMicro !== null && phase === TradingPhase.Funded
+                ? this.fundedContractTierBreakpoints(basis, contractsAreMicro)
+                : [];
+        return tierBreakpoints([
+            ...dailyLossLimitBreakpoints,
+            ...contractBreakpoints,
+        ]).filter((breakpoint) => breakpoint > 0);
+    }
+
+    private purchaseDiscountPercentPoints(accountCount: number): number {
+        const bundle = this.bulkDiscount;
+        if (bundle !== null) {
+            const bundledAccounts =
+                bundle.minAccounts *
+                Math.floor(accountCount / bundle.minAccounts);
+            return bundle.percent * 100 * bundledAccounts;
+        }
+        const basket = this.basketDiscount;
+        if (basket === null) return 0;
+        const fullBaskets = Math.floor(accountCount / basket.basketSize);
+        const remainder = accountCount % basket.basketSize;
+        return basket.positions.reduce(
+            (points, { percent: share, position }) =>
+                points +
+                share * 100 * (fullBaskets + (position <= remainder ? 1 : 0)),
+            0,
+        );
+    }
+
     get isPurchasable(): boolean {
         return this.availability === PlanAvailability.Purchasable;
     }
@@ -440,7 +587,11 @@ export abstract class Plan {
         return state.balance - state.startingBalance;
     }
 
-    affordableRisk(state: AccountState, phase: TradingPhase): number {
+    affordableRisk(
+        state: AccountState,
+        phase: TradingPhase,
+        commission: number,
+    ): number {
         return resolveAffordableRisk(
             state.balance - state.threshold,
             resolveDailyLossLimit(
@@ -448,6 +599,7 @@ export abstract class Plan {
                 this.dailyLossLimitContext(state),
             ),
             state.todayPnL,
+            commission,
         );
     }
 
@@ -455,7 +607,9 @@ export abstract class Plan {
         state.balance = this.accountSize;
         state.bestDayProfit = 0;
         state.consecutiveIdleDays = 0;
+        state.intradayHighProfit = 0;
         state.peakDayCloseProfit = 0;
+        state.peakIntradayProfit = 0;
         state.qualifyingDays = 0;
         state.threshold = this.fundedDrawdown.initialThreshold(
             this.accountSize,
@@ -499,6 +653,18 @@ export abstract class Plan {
         if (profit > state.peakDayCloseProfit) {
             state.peakDayCloseProfit = profit;
         }
+        state.peakIntradayProfit = Math.max(
+            state.peakIntradayProfit ?? 0,
+            state.intradayHighProfit ?? 0,
+            profit,
+        );
+    }
+
+    recordIntradayHigh(state: AccountState): void {
+        state.intradayHighProfit = Math.max(
+            state.intradayHighProfit ?? 0,
+            this.accountProfit(state),
+        );
     }
 
     feesUntilPass(daysToPass: number, discounts?: CouponDiscounts): number {
@@ -509,19 +675,14 @@ export abstract class Plan {
         discounts: CouponDiscounts | undefined,
         accountCount: number,
     ): CouponDiscounts | undefined {
-        const bundle = this.bulkDiscount;
-        if (bundle === null || accountCount < bundle.minAccounts) {
-            return discounts;
-        }
-        const bundledAccounts =
-            bundle.minAccounts * Math.floor(accountCount / bundle.minAccounts);
+        const discountedPercentPoints =
+            this.purchaseDiscountPercentPoints(accountCount);
+        if (discountedPercentPoints === 0) return discounts;
         return {
             activationPercent: discounts?.activationPercent ?? percent(0),
             evalPercent: discounts?.evalPercent ?? percent(0),
             ...discounts,
-            bundlePercent: percent(
-                (bundle.percent * 100 * bundledAccounts) / accountCount,
-            ),
+            bundlePercent: percent(discountedPercentPoints / accountCount),
         };
     }
 
@@ -559,31 +720,59 @@ export abstract class Plan {
         return dailyLossLimitTierBreakpoints(this.fundedDailyLossLimit, basis);
     }
 
+    peakIntradayBreakpoints(
+        phase: TradingPhase,
+        contractsAreMicro: boolean | null,
+    ): readonly number[] {
+        return this.peakBreakpoints(
+            TierBasis.PeakIntradayProfit,
+            phase,
+            contractsAreMicro,
+        );
+    }
+
+    peakRatchetFor(
+        phase: TradingPhase,
+        contractsAreMicro: boolean | null,
+    ): PeakRatchet {
+        const sessionCloseBreakpoints = this.peakSessionCloseBreakpoints(
+            phase,
+            contractsAreMicro,
+        );
+        const intradayBreakpoints = this.peakIntradayBreakpoints(
+            phase,
+            contractsAreMicro,
+        );
+        if (intradayBreakpoints.length === 0) {
+            return new PeakRatchet(sessionCloseBreakpoints);
+        }
+        if (sessionCloseBreakpoints.length > 0) {
+            throw new Error(
+                `${this.label}: one peak ratchet cannot track tiers on both the peak session close and the peak intraday profit in the ${phase} phase`,
+            );
+        }
+        return new PeakRatchet(
+            intradayBreakpoints,
+            TierBasis.PeakIntradayProfit,
+        );
+    }
+
     peakSessionCloseBreakpoints(
         phase: TradingPhase,
         contractsAreMicro: boolean | null,
     ): readonly number[] {
-        const dailyLossLimitBreakpoints = dailyLossLimitTierBreakpoints(
-            this.dailyLossLimitFor(phase),
+        return this.peakBreakpoints(
             TierBasis.PeakSessionCloseProfit,
+            phase,
+            contractsAreMicro,
         );
-        const contractBreakpoints =
-            contractsAreMicro !== null && phase === TradingPhase.Funded
-                ? this.fundedContractTierBreakpoints(
-                      TierBasis.PeakSessionCloseProfit,
-                      contractsAreMicro,
-                  )
-                : [];
-        return tierBreakpoints([
-            ...dailyLossLimitBreakpoints,
-            ...contractBreakpoints,
-        ]).filter((breakpoint) => breakpoint > 0);
     }
 
     tierProfitContext(state: AccountState): TierProfitContext {
         const profit = this.profitFor(state);
         return {
             peakDayCloseProfit: state.peakDayCloseProfit,
+            peakIntradayProfit: state.peakIntradayProfit,
             profit,
             sessionOpenProfit: profit - state.todayPnL,
         };
@@ -778,6 +967,33 @@ export abstract class Plan {
 }
 
 class VariantPlan extends Plan {}
+
+function assertBasketDiscount(basket: BasketDiscount, label: string): void {
+    if (!Number.isSafeInteger(basket.basketSize) || basket.basketSize <= 0) {
+        throw new Error(
+            `${label}: basketDiscount.basketSize must be a positive integer, got ${basket.basketSize}`,
+        );
+    }
+    const seenPositions = new Set<number>();
+    for (const { percent: share, position } of basket.positions) {
+        if (
+            !Number.isSafeInteger(position) ||
+            position < 1 ||
+            position > basket.basketSize ||
+            seenPositions.has(position)
+        ) {
+            throw new Error(
+                `${label}: basketDiscount position ${position} must be a distinct whole number from 1 to ${basket.basketSize}`,
+            );
+        }
+        if (!(share > 0 && share <= 1)) {
+            throw new Error(
+                `${label}: basketDiscount percent at position ${position} must be in (0, 1], got ${share}`,
+            );
+        }
+        seenPositions.add(position);
+    }
+}
 
 function assertDistinctThresholds(
     tiers: readonly PayoutTier[],

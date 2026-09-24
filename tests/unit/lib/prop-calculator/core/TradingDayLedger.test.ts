@@ -155,6 +155,62 @@ describe('closeTradingDay books the day close', () => {
     });
 });
 
+describe('the intraday profit peak (Tradeify 10468321: reaching the balance intraday raises the tier from the next session)', () => {
+    it('tracks the highest profit reached after any trade without committing it before the session closes', () => {
+        const plan = rapidEod();
+        const state = plan.initialState();
+
+        applyTrade(plan, TradingPhase.Funded, state, 700);
+        applyTrade(plan, TradingPhase.Funded, state, -500);
+
+        expect(state.intradayHighProfit).toBe(700);
+        expect(state.peakIntradayProfit).toBe(0);
+    });
+
+    it('commits the session intraday high at the close and never lowers it after a losing session', () => {
+        const plan = rapidEod();
+        const state = plan.initialState();
+        applyTrade(plan, TradingPhase.Funded, state, 700);
+        applyTrade(plan, TradingPhase.Funded, state, -500);
+        closeTradingDay(plan, TradingPhase.Funded, state, true);
+
+        expect(state.peakIntradayProfit).toBe(700);
+        expect(state.peakDayCloseProfit).toBe(200);
+
+        resetForNewDay(state);
+        applyTrade(plan, TradingPhase.Funded, state, -150);
+        closeTradingDay(plan, TradingPhase.Funded, state, true);
+
+        expect(state.peakIntradayProfit).toBe(700);
+        expect(state.intradayHighProfit).toBe(700);
+    });
+
+    it('commits the session close when it is the highest point of the session', () => {
+        const plan = rapidEod();
+        const state = plan.initialState();
+        state.balance = state.startingBalance + 400;
+        closeTradingDay(plan, TradingPhase.Funded, state, false);
+
+        expect(state.peakIntradayProfit).toBe(400);
+    });
+
+    it('starts both intraday peaks at 0 and resets them only when a funded phase begins', () => {
+        const plan = rapidEod();
+        const state = plan.initialState();
+        expect(state.intradayHighProfit).toBe(0);
+        expect(state.peakIntradayProfit).toBe(0);
+
+        applyTrade(plan, TradingPhase.Eval, state, 900);
+        closeTradingDay(plan, TradingPhase.Eval, state, true);
+        resetForNewDay(state);
+        expect(state.peakIntradayProfit).toBe(900);
+
+        plan.beginFundedPhase(state);
+        expect(state.intradayHighProfit).toBe(0);
+        expect(state.peakIntradayProfit).toBe(0);
+    });
+});
+
 describe('recordBestDay keeps the best day P&L', () => {
     it('raises bestDayProfit only on a better day', () => {
         const plan = rapidEod();

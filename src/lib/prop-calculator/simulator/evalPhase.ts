@@ -150,7 +150,7 @@ export function runEvalWithRetries(
 
         failedAttemptDays.push(attempt.days);
 
-        if (attempt.outcome === 'busted' && attemptsUsed < maxAttempts) {
+        if (attemptsUsed < maxAttempts) {
             resetFeesPaid += plan.retryFee(discounts);
             continue;
         }

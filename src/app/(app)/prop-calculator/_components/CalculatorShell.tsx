@@ -134,6 +134,9 @@ export default function CalculatorShell() {
                             onSeedChange={c.setSeed}
                             onSizingModeChange={c.setSizingMode}
                             onStopPointsChange={c.setStopPoints}
+                            onTakesOneTimeEarlyWithdrawalChange={
+                                c.setTakesOneTimeEarlyWithdrawal
+                            }
                             onTradesPerDayChange={c.setTradesPerDay}
                             onTrialsChange={c.setTrials}
                             onWinrateChange={c.setWinrate}
@@ -148,6 +151,9 @@ export default function CalculatorShell() {
                             seed={c.state.seed}
                             sizingMode={c.state.sizingMode}
                             stopPoints={c.state.stopPoints}
+                            takesOneTimeEarlyWithdrawal={
+                                c.state.takesOneTimeEarlyWithdrawal
+                            }
                             tradesPerDay={c.state.tradesPerDay}
                             trials={c.state.trials}
                             winrate={c.state.winrate}
@@ -201,6 +207,9 @@ export default function CalculatorShell() {
                     firms={c.firms}
                     onPortfolioChange={c.setPortfolio}
                     portfolio={c.state.portfolio}
+                    takesOneTimeEarlyWithdrawal={
+                        c.state.takesOneTimeEarlyWithdrawal
+                    }
                 />
             </div>
 
@@ -344,6 +353,9 @@ export default function CalculatorShell() {
                     activePlan={c.state.plan}
                     baseInputs={c.simInputs}
                     firm={c.state.firm}
+                    takesOneTimeEarlyWithdrawal={
+                        c.state.takesOneTimeEarlyWithdrawal
+                    }
                 />
             </div>
 
@@ -359,6 +371,9 @@ export default function CalculatorShell() {
                     activeFirmId={c.state.firm.id}
                     baseInputs={c.simInputs}
                     firms={c.firms}
+                    takesOneTimeEarlyWithdrawal={
+                        c.state.takesOneTimeEarlyWithdrawal
+                    }
                     targetAccountSize={c.state.plan.accountSize}
                 />
             </div>
@@ -404,7 +419,7 @@ export default function CalculatorShell() {
                     onReset={c.resetLabScenarios}
                     onUpdate={c.updateLabScenario}
                     payoutRequestSize={c.simInputs.payoutRequestSize}
-                    plan={c.state.plan}
+                    plan={c.simInputs.plan}
                     resetDiscountPercent={c.state.resetDiscountPercent}
                     rungSizing={c.simInputs.rungSizing}
                     scenarios={c.state.labScenarios}

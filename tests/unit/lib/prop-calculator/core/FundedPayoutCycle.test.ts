@@ -2,19 +2,23 @@ import { describe, expect, it } from 'vitest';
 
 import {
     ApexVariant,
+    closeTradingDay,
     ConsistencyBasis,
     ConsistencyRule,
     ConsistencyScope,
     ContractLimitKind,
     DailyLossLimitKind,
+    describePayoutDayGate,
     dollars,
     DrawdownKind,
     FirmId,
     fraction,
     LucidVariant,
     MffuVariant,
+    PayoutDayGateBasis,
     PayoutFloorEffect,
     profitShareMultiplier,
+    sessionDaysForCalendarDays,
     TierBasis,
     TopStepVariant,
     TradeifyVariant,
@@ -1377,5 +1381,147 @@ describe('maxLifetimePayoutDollars', () => {
 
     it('is confirmed set on the real Pro plan at $100,000', () => {
         expect(plan(MffuVariant.Pro).maxLifetimePayoutDollars).toBe(100_000);
+    });
+});
+
+function calendarGatedPayoutSessions(
+    target: ReturnType<typeof calendarGatedPlan>,
+    isTradedOn: (session: number) => boolean,
+): number[] {
+    const state = target.initialState();
+    target.beginFundedPhase(state);
+    const tracker = newFundedCycleTracker(state);
+    const sessions: number[] = [];
+    for (let session = 0; session < 24; session++) {
+        state.balance = 52_600;
+        closeTradingDay(
+            target,
+            TradingPhase.Funded,
+            state,
+            isTradedOn(session),
+        );
+        const payout = tryFundedPayout({
+            maxPayouts: Infinity,
+            minRetainedCushion: target.resolveRetainedCushion(undefined),
+            payoutRequestSize: undefined,
+            plan: target,
+            state,
+            tracker,
+        });
+        if (payout !== null) sessions.push(session);
+    }
+    return sessions;
+}
+
+function calendarGatedPlan() {
+    return plan(MffuVariant.RapidEod).withOverrides({
+        minDaysAfterPassForPayout: 7,
+        minDaysAfterPassForPayoutPerCycle: 14,
+        minPayoutProfit: dollars(0),
+        minPayoutProfitPerCycle: dollars(0),
+        minPayoutRequest: dollars(1),
+        payoutDayGateBasis:
+            PayoutDayGateBasis.CalendarDaysSinceFirstTradeOrPayout,
+    });
+}
+
+describe('PayoutDayGateBasis.CalendarDaysSinceFirstTradeOrPayout (N-7)', () => {
+    it('defaults every plan to qualifying days since the pass or the last payout', () => {
+        expect(plan(MffuVariant.RapidEod).payoutDayGateBasis).toBe(
+            PayoutDayGateBasis.QualifyingDaysSincePassOrPayout,
+        );
+    });
+
+    it('converts calendar days to sessions at 5 sessions per 7 calendar days', () => {
+        expect(sessionDaysForCalendarDays(7)).toBe(5);
+        expect(sessionDaysForCalendarDays(14)).toBe(10);
+        expect(sessionDaysForCalendarDays(0)).toBe(0);
+    });
+
+    it('uses the first-payout day count after the first trade and the per-cycle count after each payout', () => {
+        expect(
+            calendarGatedPayoutSessions(calendarGatedPlan(), () => true),
+        ).toStrictEqual([5, 15]);
+    });
+
+    it('counts idle sessions once the first trade is in, but not before it', () => {
+        expect(
+            calendarGatedPayoutSessions(
+                calendarGatedPlan(),
+                (session) => session === 2,
+            ),
+        ).toStrictEqual([7, 17]);
+    });
+
+    it('rejects a calendar-day gate that is not a whole number of days', () => {
+        expect(() =>
+            calendarGatedPlan().withOverrides({
+                minDaysAfterPassForPayout: 2.5,
+            }),
+        ).toThrow(/minDaysAfterPassForPayout/);
+        expect(() =>
+            calendarGatedPlan().withOverrides({
+                minDaysAfterPassForPayoutPerCycle: -1,
+            }),
+        ).toThrow(/minDaysAfterPassForPayoutPerCycle/);
+    });
+
+    it('snapshots the day-gate progress the funded DP keys its policy on, so a replayed policy counts idle sessions under a calendar-day gate', () => {
+        const target = calendarGatedPlan();
+        const state = target.initialState();
+        target.beginFundedPhase(state);
+        const tracker = newFundedCycleTracker(state);
+        for (let session = 0; session < 4; session++) {
+            state.balance = 52_600;
+            closeTradingDay(target, TradingPhase.Funded, state, session === 0);
+            tryFundedPayout({
+                maxPayouts: Infinity,
+                minRetainedCushion: target.resolveRetainedCushion(undefined),
+                payoutRequestSize: undefined,
+                plan: target,
+                state,
+                tracker,
+            });
+        }
+
+        expect(tracker.payoutsIssued).toBe(0);
+        expect(state.qualifyingDays - tracker.qualifyingDaysAtLastPayout).toBe(
+            1,
+        );
+        expect(tracker.cycleSnapshot(target, state)).toStrictEqual({
+            cycleBestDayProfit: tracker.cycleBestDayProfit,
+            lastPayoutBalance: tracker.lastPayoutBalance,
+            payoutsIssued: 0,
+            qualifyingDaysSincePayout: 4,
+        });
+    });
+
+    it('snapshots qualifying days since the pass or the last payout for a qualifying-day gate, exactly as before', () => {
+        const target = plan(MffuVariant.RapidEod);
+        const state = target.initialState();
+        target.beginFundedPhase(state);
+        const tracker = newFundedCycleTracker(state);
+        state.qualifyingDays = 7;
+        tracker.qualifyingDaysAtLastPayout = 3;
+
+        expect(
+            tracker.cycleSnapshot(target, state).qualifyingDaysSincePayout,
+        ).toBe(4);
+    });
+
+    it('describes the payout day gate in its own unit, so MFF Pro reads as calendar days from the first trade, not qualifying days', () => {
+        expect(describePayoutDayGate(plan(MffuVariant.Pro))).toBe(
+            '14 calendar days from first trade',
+        );
+        expect(describePayoutDayGate(calendarGatedPlan())).toBe(
+            '7 calendar days from first trade',
+        );
+        expect(
+            describePayoutDayGate(
+                plan(MffuVariant.RapidEod).withOverrides({
+                    minDaysAfterPassForPayout: 5,
+                }),
+            ),
+        ).toBe('5 qualifying days');
     });
 });

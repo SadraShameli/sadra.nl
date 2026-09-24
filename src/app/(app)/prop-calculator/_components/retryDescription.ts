@@ -29,12 +29,23 @@ export function describeRetryOnBust(
     const retries = maxAttempts - 1;
     const fee = retryFee(fees, discounts);
     if (retries < 1 || fee <= 0) return null;
-    const noun = retryNoun(retryPath(fees, discounts), retries);
-    return `Up to ${retries} ${noun} at ${formatCompactCurrency(fee)} each on bust.`;
+    const kind = retryPath(fees, discounts);
+    return `Up to ${retries} ${retryNoun(kind, retries)} at ${formatCompactCurrency(fee)} each when an attempt busts or times out${retryKindNote(kind)}.`;
 }
 
 export function hasResetOption(fees: FeeSchedule): boolean {
     return fees.retry !== RetryKind.Rebuy && fees.reset > 0;
+}
+
+function retryKindNote(kind: RetryKind): string {
+    switch (kind) {
+        case RetryKind.Rebuy: {
+            return '; a re-buy is a new account';
+        }
+        case RetryKind.Reset: {
+            return '';
+        }
+    }
 }
 
 function retryNoun(kind: RetryKind, count: number): string {

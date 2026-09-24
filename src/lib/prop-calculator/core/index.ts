@@ -40,11 +40,13 @@ export {
 export {
     canonicaliseLadder,
     computedDayPolicy,
+    type ComputeRisk,
     type DayPolicy,
     type DayStopRule,
     DayStopRuleKind,
     DEFAULT_RUNG_SIZING,
     flatDayPolicy,
+    type FundedCycleSnapshot,
     isFlatLadder,
     ladderRungSchema,
     ladderRungsSchema,
@@ -78,8 +80,12 @@ export {
     type CouponDiscounts,
     type FeeSchedule,
     feesUntilPass,
+    feesUntilPassAcrossAttempts,
     initialEvalFee,
+    rebuyAttemptSubscriptionFee,
     rebuyFee,
+    resetFactor,
+    resetFee,
     retryFee,
     RetryKind,
     retryPath,
@@ -88,9 +94,14 @@ export {
 } from './FeeSchedule';
 export { FirmId, parseFirmId } from './FirmId';
 export {
+    describePayoutDayGate,
     type FundedCycleTracker,
     newFundedCycleTracker,
+    type OneTimeEarlyWithdrawal,
+    PayoutDayGateBasis,
+    sessionDaysForCalendarDays,
     tryFundedPayout,
+    withOneTimeEarlyWithdrawalTaken,
 } from './FundedPayoutCycle';
 export {
     ALL_INSTRUMENTS,
@@ -110,6 +121,7 @@ export {
     type DayOutcome,
     defaultLadderGridMax,
     enumerateDay,
+    LADDER_EVAL_PASS_FLOOR,
     ladderFrontier,
     type LadderGridConfig,
     ladderGridConfigSchema,
@@ -125,6 +137,7 @@ export {
     type LadderSearchResult,
     ladderTrialStreams,
     MAX_LADDER_GRID_SIZE,
+    MAX_LADDER_SLOTS,
     runLadderSearch,
     scoreLadder,
     validateLadderGrid,
@@ -136,9 +149,11 @@ export {
     dollars,
     type Dollars,
     dollarsSchema,
+    floorToWholeCents,
     fraction,
     type Fraction0to1,
     fractionSchema,
+    ONE_CENT,
     percent,
     type Percent0to100,
     percentSchema,
@@ -156,9 +171,17 @@ export {
     type LiveCushionPercent,
     LivePlan,
     type LivePlanInit,
+    type LiveReserveProgress,
+    type LiveSeedReserve,
     type LiveWinningDayPayoutGate,
+    type ReserveLiveAccountState,
+    ReserveLivePlan,
+    type ReserveLivePlanInit,
 } from './LivePlan';
-export { resolveLiveTradeRisk } from './LiveSizing';
+export {
+    capRiskToRemainingDailyLoss,
+    resolveLiveTradeRisk,
+} from './LiveSizing';
 export { PayoutBuffer } from './PayoutBuffer';
 export {
     FlatPayoutCap,
@@ -183,7 +206,13 @@ export {
     scalePayoutTiers,
     walkPayoutTiers,
 } from './PayoutTiers';
-export { Plan, type PlanInit } from './Plan';
+export { PeakRatchet } from './PeakRatchet';
+export {
+    type BasketDiscount,
+    type BasketPositionDiscount,
+    Plan,
+    type PlanInit,
+} from './Plan';
 export {
     PLAN_AVAILABILITY_LABEL,
     PlanAvailability,

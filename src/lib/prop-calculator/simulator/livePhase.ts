@@ -8,7 +8,10 @@ import {
 } from '../core/lib/units';
 import { type LiveAccountState } from '../core/LiveAccountState';
 import { type LivePlan } from '../core/LivePlan';
-import { resolveLiveTradeRisk } from '../core/LiveSizing';
+import {
+    capRiskToRemainingDailyLoss,
+    resolveLiveTradeRisk,
+} from '../core/LiveSizing';
 import {
     capRiskToContractLimit,
     type PositionSizingConfig,
@@ -39,12 +42,87 @@ interface LiveHorizonOptions {
 
 interface LiveHorizonResult {
     busted: boolean;
+    capitalReturned: number;
     closedForInactivity: boolean;
     daysElapsed: number;
     daysToBust: null | number;
     daysToFirstWithdrawal: null | number;
+    liquidationPayout: number;
     recurringWithdrawn: number;
     totalWithdrawn: number;
+}
+
+class LiveWithdrawalLedger {
+    private capitalDebited = 0;
+
+    private cumulativeDebited: number;
+
+    capitalReturned = 0;
+
+    liquidationPayout = 0;
+
+    recurringWithdrawn = 0;
+
+    constructor(
+        private readonly plan: LivePlan,
+        private readonly oneOffCredit: number,
+    ) {
+        this.cumulativeDebited = plan.transitionPayout;
+    }
+
+    private pay(debited: number): number {
+        const grossPaidBefore = this.plan.payoutFromProfit(
+            this.cumulativeDebited,
+        );
+        this.cumulativeDebited += debited;
+        return (
+            this.plan.payoutFromProfit(this.cumulativeDebited) - grossPaidBefore
+        );
+    }
+
+    get totalWithdrawn(): number {
+        return (
+            this.oneOffCredit +
+            this.recurringWithdrawn +
+            this.capitalReturned +
+            this.liquidationPayout
+        );
+    }
+
+    recordLiquidation(remainingBalance: number): void {
+        if (remainingBalance <= 0) return;
+        this.liquidationPayout += this.pay(remainingBalance);
+    }
+
+    recordWithdrawal(state: LiveAccountState, debited: number): void {
+        const capitalBase = state.startingBalance - this.capitalDebited;
+        const profitAvailable = Math.max(0, state.balance - capitalBase);
+        const capitalPart = Math.max(0, debited - profitAvailable);
+        const paid = this.pay(debited);
+        const capitalPaid = (paid * capitalPart) / debited;
+        this.capitalDebited += capitalPart;
+        this.capitalReturned += capitalPaid;
+        this.recurringWithdrawn += paid - capitalPaid;
+    }
+
+    result(
+        outcome: Pick<
+            LiveHorizonResult,
+            | 'busted'
+            | 'closedForInactivity'
+            | 'daysElapsed'
+            | 'daysToBust'
+            | 'daysToFirstWithdrawal'
+        >,
+    ): LiveHorizonResult {
+        return {
+            ...outcome,
+            capitalReturned: this.capitalReturned,
+            liquidationPayout: this.liquidationPayout,
+            recurringWithdrawn: this.recurringWithdrawn,
+            totalWithdrawn: this.totalWithdrawn,
+        };
+    }
 }
 
 export function oneOffLiveCredit(plan: LivePlan): number {
@@ -78,7 +156,7 @@ export function runLiveDay(options: LiveDayRunOptions): {
             const cushion = state.balance - state.threshold;
             const cushionPercent = plan.cushionPercentFor(state);
             const intendedRisk = resolveLiveTradeRisk(cushion, cushionPercent);
-            const risk =
+            const contractCappedRisk =
                 positionSizing === null
                     ? intendedRisk
                     : capRiskToContractLimit(
@@ -89,6 +167,12 @@ export function runLiveDay(options: LiveDayRunOptions): {
                               positionSizing.instrument,
                           ),
                       );
+            const risk = capRiskToRemainingDailyLoss(
+                contractCappedRisk,
+                plan.dailyLossLimitFor(state),
+                state.todayPnL,
+                commission,
+            );
             if (risk <= 0) break;
 
             const isWon = rng() < winrate;
@@ -148,9 +232,7 @@ export function runLiveHorizon(options: LiveHorizonOptions): LiveHorizonResult {
         payoutRequestSizeInput,
     );
     const state: LiveAccountState = plan.initialState();
-    const oneOffCredit = oneOffLiveCredit(plan);
-    let cumulativeDebited: number = plan.transitionPayout;
-    let recurringWithdrawn = 0;
+    const ledger = new LiveWithdrawalLedger(plan, oneOffLiveCredit(plan));
     let daysToFirstWithdrawal: null | number =
         plan.transitionPayout > 0 ? 0 : null;
 
@@ -169,15 +251,16 @@ export function runLiveHorizon(options: LiveHorizonOptions): LiveHorizonResult {
         const daysElapsed = day + 1;
 
         if (busted) {
-            return {
+            if (!closedForInactivity) {
+                ledger.recordLiquidation(plan.payoutOnLiquidation(state));
+            }
+            return ledger.result({
                 busted: true,
                 closedForInactivity,
                 daysElapsed,
                 daysToBust: daysElapsed,
                 daysToFirstWithdrawal,
-                recurringWithdrawn,
-                totalWithdrawn: oneOffCredit + recurringWithdrawn,
-            };
+            });
         }
 
         const debited = plan.payoutRequestAmount(
@@ -186,23 +269,18 @@ export function runLiveHorizon(options: LiveHorizonOptions): LiveHorizonResult {
             payoutRequestSize,
         );
         if (debited <= 0) continue;
+        ledger.recordWithdrawal(state, debited);
         plan.withdraw(state, debited);
-        const grossPaidBefore = plan.payoutFromProfit(cumulativeDebited);
-        cumulativeDebited += debited;
-        const grossPaidAfter = plan.payoutFromProfit(cumulativeDebited);
-        recurringWithdrawn += grossPaidAfter - grossPaidBefore;
         daysToFirstWithdrawal ??= daysElapsed;
     }
 
-    return {
+    return ledger.result({
         busted: false,
         closedForInactivity: false,
         daysElapsed: horizonDays,
         daysToBust: null,
         daysToFirstWithdrawal,
-        recurringWithdrawn,
-        totalWithdrawn: oneOffCredit + recurringWithdrawn,
-    };
+    });
 }
 
 export function simulateLiveAccount(inputs: LiveSimInputs): LiveOutputs {
@@ -238,6 +316,8 @@ export function simulateLiveAccount(inputs: LiveSimInputs): LiveOutputs {
     const daysToFirstWithdrawalValues: number[] = [];
     const cumulativeWithdrawalsAtHorizon: number[] = [];
     let recurringWithdrawnSum = 0;
+    let capitalReturnedSum = 0;
+    let liquidationPayoutSum = 0;
 
     for (let index = 0; index < trials; index++) {
         const result = runLiveHorizon({
@@ -265,6 +345,8 @@ export function simulateLiveAccount(inputs: LiveSimInputs): LiveOutputs {
         }
         cumulativeWithdrawalsAtHorizon.push(result.totalWithdrawn);
         recurringWithdrawnSum += result.recurringWithdrawn;
+        capitalReturnedSum += result.capitalReturned;
+        liquidationPayoutSum += result.liquidationPayout;
     }
 
     const expectedAnnualWithdrawalRate =
@@ -282,6 +364,8 @@ export function simulateLiveAccount(inputs: LiveSimInputs): LiveOutputs {
             95,
         ),
         expectedAnnualWithdrawalRate,
+        expectedCapitalReturned: capitalReturnedSum / trials,
+        expectedLiquidationPayout: liquidationPayoutSum / trials,
         liveBustProbability: bustedCount / trials,
         liveInactivityClosureProbability: inactivityClosureCount / trials,
         medianDaysToBust: median(daysToBustValues),

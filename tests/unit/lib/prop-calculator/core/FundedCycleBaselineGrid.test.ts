@@ -79,3 +79,58 @@ describe('FundedCycleBaselineGrid', () => {
         ).toThrow(/min/);
     });
 });
+
+const T11_DRAWDOWN = 2000;
+const T11_MAX = 11_000;
+
+function isNestedBelowMax(
+    coarser: FundedCycleBaselineGrid,
+    finer: FundedCycleBaselineGrid,
+): boolean {
+    const finerLevels = levelsOf(finer);
+    return levelsOf(coarser)
+        .filter((level) => level <= T11_MAX)
+        .every((level) => finerLevels.includes(level));
+}
+
+function roundedBaseline(grid: FundedCycleBaselineGrid, dollars: number) {
+    return grid.dollarsAt(grid.indexAtOrAbove(dollars));
+}
+
+function t11Grid(fineRangeMultiple: number, min: number) {
+    return new FundedCycleBaselineGrid({
+        coarseStep: T11_DRAWDOWN,
+        fineEnd: fineRangeMultiple * T11_DRAWDOWN,
+        fineStep: T11_DRAWDOWN / 4,
+        max: T11_MAX,
+        min,
+    });
+}
+
+describe('FundedCycleBaselineGrid fine range (T11)', () => {
+    it.each([0, -1500])(
+        'never rounds a baseline higher on a finer grid than on a coarser one, and never below the real baseline (min %s)',
+        (min) => {
+            const [coarse, landed, exact] = [0, 1, 6].map((multiple) =>
+                t11Grid(multiple, min),
+            );
+            if (!coarse || !landed || !exact) throw new Error('grids missing');
+            expect(isNestedBelowMax(coarse, landed)).toBe(true);
+            expect(isNestedBelowMax(landed, exact)).toBe(true);
+            for (let dollars = min - 100; dollars <= 14_000; dollars += 125) {
+                const exactBaseline = roundedBaseline(exact, dollars);
+                expect(roundedBaseline(landed, dollars)).toBeGreaterThanOrEqual(
+                    exactBaseline,
+                );
+                expect(roundedBaseline(coarse, dollars)).toBeGreaterThanOrEqual(
+                    roundedBaseline(landed, dollars),
+                );
+                if (dollars <= T11_MAX) {
+                    expect(exactBaseline).toBeGreaterThanOrEqual(
+                        dollars - 1e-9,
+                    );
+                }
+            }
+        },
+    );
+});

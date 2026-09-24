@@ -1,4 +1,4 @@
-const BUCKET_EPSILON = 1e-9;
+import { BUCKET_EPSILON } from './constants';
 
 interface FundedCycleBaselineGridOptions {
     readonly coarseStep: number;

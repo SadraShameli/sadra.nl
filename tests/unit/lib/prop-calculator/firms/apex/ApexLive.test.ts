@@ -49,6 +49,8 @@ describe('Apex Live levels from the pasted Live Prop Trading Program FAQ (dateMo
     it('has no daily loss limit at Level 1', () => {
         const plan = buildApexLivePlan();
 
+        expect(plan.dailyLossLimitFor(sessionState(plan, 9000))).toBeNull();
+
         expect(plan.isDayLockedOut(sessionState(plan, 9000, -8500))).toBe(
             false,
         );

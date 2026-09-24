@@ -69,16 +69,13 @@ export function runDay(options: DayRunOptions): {
 } {
     const {
         commission,
-        cycleBestDayProfit,
         dayPolicy,
+        fundedCycle,
         idleDayProbability,
         intradayPathStepsPerR,
-        lastPayoutBalance,
-        payoutsIssued,
         phase,
         plan,
         positionSizing,
-        qualifyingDaysSincePayout,
         rng,
         rrRatio,
         rungSizing,
@@ -110,17 +107,10 @@ export function runDay(options: DayRunOptions): {
     if (!isIdleToday) {
         for (let index = 0; index < dayPolicy.ladder.length; index++) {
             const intendedRisk =
-                dayPolicy.computeRisk?.(
-                    state,
-                    index,
-                    payoutsIssued,
-                    cycleBestDayProfit,
-                    qualifyingDaysSincePayout,
-                    lastPayoutBalance,
-                ) ??
+                dayPolicy.computeRisk?.(state, index, fundedCycle) ??
                 dayPolicy.ladder[index] ??
                 0;
-            const affordable = plan.affordableRisk(state, phase);
+            const affordable = plan.affordableRisk(state, phase, commission);
             const tierContext = plan.tierProfitContext(state);
             const contractCappedRisk =
                 positionSizing === null

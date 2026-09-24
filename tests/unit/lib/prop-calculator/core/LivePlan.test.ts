@@ -14,13 +14,11 @@ import {
     type LiveAccountState,
     LivePlan,
     type LivePlanInit,
+    type LiveSeedReserve,
     PayoutFloorEffect,
+    ReserveLivePlan,
     TierBasis,
 } from '~/lib/prop-calculator/core';
-import {
-    type LiveSeedReserve,
-    ReserveLivePlan,
-} from '~/lib/prop-calculator/core/LivePlan';
 import { LIVE_PLAN_BUILDERS } from '~/lib/prop-calculator/firms';
 import { buildApexLivePlan } from '~/lib/prop-calculator/firms/apex/ApexLive';
 import { buildMffuRapidLivePlan } from '~/lib/prop-calculator/firms/mffu/MffuRapidLive';
@@ -392,6 +390,38 @@ describe('LivePlan.isDayLockedOut', () => {
         expect(plan.isDayLockedOut(stateAt({ todayPnL: -499 }))).toBe(false);
         expect(plan.isDayLockedOut(stateAt({ todayPnL: -500 }))).toBe(true);
         expect(plan.isDayLockedOut(stateAt({ todayPnL: -501 }))).toBe(true);
+    });
+});
+
+describe('LivePlan.dailyLossLimitFor (R-3 per-trade loss cap input)', () => {
+    it('is null when the plan has no daily loss limit', () => {
+        const plan = new LivePlan(apexLikeInit());
+
+        expect(plan.dailyLossLimitFor(stateAt({ todayPnL: -300 }))).toBeNull();
+    });
+
+    it("is the flat $500 limit whatever today's P&L is", () => {
+        const plan = new LivePlan(dllLikeInit());
+
+        expect(plan.dailyLossLimitFor(stateAt({ todayPnL: 0 }))).toBe(500);
+        expect(plan.dailyLossLimitFor(stateAt({ todayPnL: -300 }))).toBe(500);
+        expect(plan.dailyLossLimitFor(stateAt({ todayPnL: 150 }))).toBe(500);
+    });
+});
+
+describe('LivePlan.payoutOnLiquidation (R-12)', () => {
+    it('pays nothing at a bust by default', () => {
+        expect(
+            new LivePlan(apexLikeInit()).payoutOnLiquidation(
+                stateAt({ balance: 2500 }),
+            ),
+        ).toBe(0);
+    });
+
+    it('pays nothing on a Reserve plan that does not opt in', () => {
+        const plan = reservePlan();
+
+        expect(plan.payoutOnLiquidation(plan.initialState())).toBe(0);
     });
 });
 
@@ -1320,5 +1350,25 @@ describe('LivePlan.seedReserveTerms', () => {
             profitTargetPerIncrement: 100,
             reviewIntervalSessions: 5,
         });
+    });
+});
+
+describe('ReserveLivePlan names the step that needed the Reserve progress when handed a state that did not come from initialState() (WP18h)', () => {
+    it('names the session close', () => {
+        const plain = createInitialLiveAccountState(1000, 0);
+
+        expect(() => reservePlan().recordDayClose(plain, true)).toThrow(
+            'Test DLL Live: the session close needs the Reserve progress that initialState() creates',
+        );
+    });
+
+    it('names the payout', () => {
+        const plain = createInitialLiveAccountState(1000, 0);
+
+        expect(() =>
+            reservePlan().withdrawableAmount(plain, dollars(0)),
+        ).toThrow(
+            'Test DLL Live: a payout needs the Reserve progress that initialState() creates',
+        );
     });
 });

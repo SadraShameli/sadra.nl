@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    ContractLimitKind,
+    contracts,
+    dollars,
     FirmId,
+    maxContractsAt,
+    PeakRatchet,
     type Plan,
+    resolveDailyLossLimit,
     selectTier,
     TierBasis,
     tierBreakpoints,
@@ -10,6 +16,7 @@ import {
     tierProfitFor,
     TopStepVariant,
     TradeifyVariant,
+    TradingPhase,
 } from '~/lib/prop-calculator/core';
 import { ALL_FIRMS, findFirm } from '~/lib/prop-calculator/firms';
 
@@ -55,15 +62,77 @@ describe('tierProfitFor', () => {
     });
 
     it('reads the session-open profit for SessionOpenProfit, ignoring the peak', () => {
-        expect(tierProfitFor(TierBasis.SessionOpenProfit, CROSSING)).toBe(
-            2900,
-        );
+        expect(tierProfitFor(TierBasis.SessionOpenProfit, CROSSING)).toBe(2900);
     });
 
     it('reads the peak session close for PeakSessionCloseProfit', () => {
         expect(tierProfitFor(TierBasis.PeakSessionCloseProfit, CROSSING)).toBe(
             3100,
         );
+    });
+
+    it('reads the highest intraday profit reached in a completed session for PeakIntradayProfit', () => {
+        expect(
+            tierProfitFor(TierBasis.PeakIntradayProfit, {
+                ...CROSSING,
+                peakIntradayProfit: 3400,
+            }),
+        ).toBe(3400);
+    });
+
+    it('never lets PeakIntradayProfit fall below the peak session close or the session-open profit', () => {
+        expect(
+            tierProfitFor(TierBasis.PeakIntradayProfit, {
+                peakDayCloseProfit: 1000,
+                peakIntradayProfit: 500,
+                profit: 0,
+                sessionOpenProfit: 2900,
+            }),
+        ).toBe(2900);
+        expect(
+            tierProfitFor(TierBasis.PeakIntradayProfit, {
+                ...CROSSING,
+                peakIntradayProfit: 0,
+            }),
+        ).toBe(3100);
+    });
+
+    it('ignores the live intraday profit for PeakIntradayProfit, so a reach applies from the next session', () => {
+        expect(
+            tierProfitFor(TierBasis.PeakIntradayProfit, {
+                peakDayCloseProfit: 0,
+                peakIntradayProfit: 0,
+                profit: 3200,
+                sessionOpenProfit: 0,
+            }),
+        ).toBe(0);
+    });
+
+    it('fails loud when PeakIntradayProfit is read from a context that never tracked the intraday peak', () => {
+        expect(() =>
+            tierProfitFor(TierBasis.PeakIntradayProfit, CROSSING),
+        ).toThrow(/PeakIntradayProfit/);
+    });
+
+    it('fails loud for a contract tier on PeakIntradayProfit, because maxContractsAt receives no intraday peak', () => {
+        expect(() =>
+            maxContractsAt(
+                {
+                    kind: ContractLimitKind.Tiered,
+                    tierBasis: TierBasis.PeakIntradayProfit,
+                    tiers: [
+                        { maxContracts: contracts(2), minBalance: dollars(0) },
+                        {
+                            maxContracts: contracts(4),
+                            minBalance: dollars(1500),
+                        },
+                    ],
+                },
+                1600,
+                1600,
+                1600,
+            ),
+        ).toThrow(/PeakIntradayProfit/);
     });
 
     it('never lets PeakSessionCloseProfit fall below the session-open profit when the recorded peak lags it', () => {
@@ -123,9 +192,40 @@ describe('Plan tier profit context', () => {
 
         expect(plan.tierProfitContext(state)).toStrictEqual({
             peakDayCloseProfit: 1400,
+            peakIntradayProfit: 0,
             profit: 2500,
             sessionOpenProfit: 1200,
         });
+    });
+
+    it('carries the intraday peak committed at the last session close, not the running intraday high of the current session', () => {
+        const plan = tradeifyGrowth();
+        const state = plan.initialState();
+        plan.beginFundedPhase(state);
+        state.peakIntradayProfit = 2800;
+        state.intradayHighProfit = 3200;
+        state.balance = state.startingBalance + 3200;
+        state.todayPnL = 400;
+
+        expect(plan.tierProfitContext(state).peakIntradayProfit).toBe(2800);
+    });
+
+    it('fails loud on the Tradeify scaling daily loss limit for a state that never tracked the intraday peak', () => {
+        const plan = tradeifyGrowth();
+        const untracked = plan.initialState();
+        delete untracked.intradayHighProfit;
+        delete untracked.peakIntradayProfit;
+        untracked.balance = untracked.startingBalance + 3200;
+
+        expect(
+            plan.tierProfitContext(untracked).peakIntradayProfit,
+        ).toBeUndefined();
+        expect(() =>
+            resolveDailyLossLimit(
+                plan.fundedDailyLossLimit,
+                plan.dailyLossLimitContext(untracked),
+            ),
+        ).toThrow(/PeakIntradayProfit/);
     });
 
     it('carries the session-open profit into the daily loss limit context', () => {
@@ -139,6 +239,7 @@ describe('Plan tier profit context', () => {
         expect(plan.dailyLossLimitContext(state)).toStrictEqual({
             isThresholdLocked: true,
             peakDayCloseProfit: 0,
+            peakIntradayProfit: 0,
             profit: 900,
             sessionOpenProfit: 1500,
         });
@@ -172,14 +273,88 @@ describe('Plan tier profit context', () => {
 
         expect(
             plan.fundedDailyLossLimitTierBreakpoints(
-                TierBasis.PeakSessionCloseProfit,
+                TierBasis.PeakIntradayProfit,
             ),
         ).toStrictEqual([0, 3000]);
+        expect(
+            plan.fundedDailyLossLimitTierBreakpoints(
+                TierBasis.PeakSessionCloseProfit,
+            ),
+        ).toStrictEqual([]);
         expect(
             plan.fundedDailyLossLimitTierBreakpoints(
                 TierBasis.SessionOpenProfit,
             ),
         ).toStrictEqual([]);
+    });
+
+    it('splits the positive peak breakpoints by the peak basis they ratchet on', () => {
+        const plan = tradeifyGrowth();
+
+        expect(
+            plan.peakIntradayBreakpoints(TradingPhase.Funded, null),
+        ).toStrictEqual([3000]);
+        expect(
+            plan.peakSessionCloseBreakpoints(TradingPhase.Funded, null),
+        ).toStrictEqual([]);
+        expect(
+            plan.peakIntradayBreakpoints(TradingPhase.Funded, false),
+        ).toStrictEqual([3000]);
+    });
+
+    it('builds the funded peak ratchet on the intraday peak for the Tradeify scaling daily loss limit', () => {
+        const ratchet = tradeifyGrowth().peakRatchetFor(
+            TradingPhase.Funded,
+            null,
+        );
+
+        expect(ratchet).toBeInstanceOf(PeakRatchet);
+        expect(ratchet.basis).toBe(TierBasis.PeakIntradayProfit);
+        expect(ratchet.radix).toBe(2);
+    });
+
+    it('builds the funded peak ratchet on the peak session close for the Tradeify Select contract tiers', () => {
+        const plan = findFirm(FirmId.Tradeify)?.findPlan({
+            accountSize: 50_000,
+            firm: FirmId.Tradeify,
+            variant: TradeifyVariant.SelectFlex,
+        });
+        if (!plan) throw new Error('Tradeify Select Flex 50K plan not found');
+        const ratchet = plan.peakRatchetFor(TradingPhase.Funded, false);
+
+        expect(ratchet.basis).toBe(TierBasis.PeakSessionCloseProfit);
+        expect(ratchet.radix).toBe(3);
+    });
+
+    it('refuses a peak ratchet for a plan that tiers on both peak bases', () => {
+        const plan = tradeifyGrowth().withOverrides({
+            contractLimits: {
+                evalMicros: contracts(40),
+                evalMinis: contracts(4),
+                fundedMicros: {
+                    kind: ContractLimitKind.Tiered,
+                    tierBasis: TierBasis.PeakSessionCloseProfit,
+                    tiers: [
+                        { maxContracts: contracts(20), minBalance: dollars(0) },
+                        {
+                            maxContracts: contracts(40),
+                            minBalance: dollars(1500),
+                        },
+                    ],
+                },
+                fundedMinis: {
+                    kind: ContractLimitKind.Flat,
+                    maxContracts: contracts(4),
+                },
+            },
+        });
+
+        expect(() => plan.peakRatchetFor(TradingPhase.Funded, true)).toThrow(
+            /both the peak session close and the peak intraday profit/,
+        );
+        expect(plan.peakRatchetFor(TradingPhase.Funded, false).basis).toBe(
+            TierBasis.PeakIntradayProfit,
+        );
     });
 });
 
@@ -194,20 +369,20 @@ describe('firm notes describe the TierBasis their configs use', () => {
         }
     });
 
-    it('describes the Tradeify scaling daily loss limit as tiering off the highest session close, not the prior day close', () => {
+    it('describes the Tradeify scaling daily loss limit as tiering off the highest intraday profit reached, not the prior day close', () => {
         const note = findFirm(FirmId.Tradeify)?.notes.find(
             (candidate) =>
                 candidate.includes('SCALING_FUNDED_DLL') &&
-                candidate.includes('TierBasis.PeakSessionCloseProfit'),
+                candidate.includes('TierBasis.PeakIntradayProfit'),
         );
 
         expect(
             tradeifyGrowth().fundedDailyLossLimitTierBreakpoints(
-                TierBasis.PeakSessionCloseProfit,
+                TierBasis.PeakIntradayProfit,
             ),
         ).not.toStrictEqual([]);
         expect(note).toBeDefined();
         expect(note).not.toContain("prior day's confirmed EOD close");
-        expect(note).toContain('highest session close');
+        expect(note).toContain('highest intraday profit');
     });
 });

@@ -1,3 +1,7 @@
+import {
+    activationFee,
+    feesUntilPassAcrossAttempts,
+} from '../core/FeeSchedule';
 import { runEvalWithRetries } from './evalPhase';
 import { runFundedHorizon } from './fundedPhase';
 import { TradeTotals } from './PhaseStats';
@@ -159,12 +163,16 @@ function finishTrial(arguments_: FinishTrialArguments): TrialResult {
         totals,
     } = arguments_;
     const grossPayout = totalPayout;
-    const isNeverReachedFundedAccount =
-        outcome === 'bust-eval' || outcome === 'timeout-eval';
-    const baseCost = isNeverReachedFundedAccount
-        ? plan.feesUntilPass(evalDays, discounts)
-        : plan.totalCostThroughDay(evalDays, discounts);
-    const totalCost = baseCost + resetFeesPaid;
+    const attemptDays =
+        daysToPass === null
+            ? failedAttemptDays
+            : [...failedAttemptDays, daysToPass];
+    const evalPhaseCost =
+        feesUntilPassAcrossAttempts(plan.fees, attemptDays, discounts) +
+        resetFeesPaid;
+    const totalCost = hasPassedEval(outcome)
+        ? evalPhaseCost + activationFee(plan.fees, discounts)
+        : evalPhaseCost;
     const net = grossPayout - totalCost;
     return {
         attemptsUsed,

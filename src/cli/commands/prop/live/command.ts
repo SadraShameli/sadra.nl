@@ -20,20 +20,20 @@ import { formatCurrency, formatPercent } from '~/lib/format';
 import {
     dollars,
     findLivePlanBuilder,
+    findLiveTransitionPlanBuilder,
     FirmId,
     type InstrumentSymbol,
+    type LiveCushionPercent,
     type LiveOutputs,
     type LivePlan,
     type LivePlanBuilder,
     type LiveSimInputs,
+    LUCID_DAILY_LIVE_TRANSITION_PAYOUT_CAP,
     oneOffLiveCredit,
+    type PayoutTier,
     simulateLiveAccount,
     TRADING_DAYS_PER_YEAR,
 } from '~/lib/prop-calculator';
-import {
-    findLiveTransitionPlanBuilder,
-    LUCID_DAILY_LIVE_TRANSITION_PAYOUT_CAP,
-} from '~/lib/prop-calculator/firms';
 
 export interface LiveArguments {
     commission: string;
@@ -60,18 +60,24 @@ const TRANSITION_CREDIT_FIRMS = Object.values(FirmId).filter(
     (id) => findLiveTransitionPlanBuilder(id) !== undefined,
 );
 
+const DEFAULT_CUSHION_PERCENT = { postLock: '10', preLock: '5' } as const;
+
+export function describeLucidDailyTransitionProfit(plan: LivePlan): string {
+    return `Lucid Daily live only: sim profit above the buffer at the live transition, paid out once at the ${describeTraderShare(plan.payoutTiers)} split and capped at ${formatCurrency(LUCID_DAILY_LIVE_TRANSITION_PAYOUT_CAP)} (shown as a one-off credit, never annualized). Omit for a live account with no transition credit`;
+}
+
 export const liveArguments = {
     ...commonSimArguments,
     ...commissionArgument,
     ...idleDayProbabilityArgument,
     'cushion-percent-post-lock': {
-        default: '10',
+        default: DEFAULT_CUSHION_PERCENT.postLock,
         description:
             'Percent of drawdown cushion risked per trade after the threshold locks (0-100)',
         type: 'string',
     },
     'cushion-percent-pre-lock': {
-        default: '5',
+        default: DEFAULT_CUSHION_PERCENT.preLock,
         description:
             'Percent of drawdown cushion risked per trade before the threshold locks (0-100)',
         type: 'string',
@@ -89,16 +95,25 @@ export const liveArguments = {
     },
     'request-size': {
         description:
-            "Per payout request: a dollar amount, or 'all' to withdraw everything down to one cent above the drawdown floor. Default: withdraw only the excess above one full drawdown of cushion. On a live plan with a seed Reserve, released seed Reserve is never withdrawn, and 'all' also withdraws the starting seed above the floor; the annual rate counts that seed as income",
+            "Per payout request: a dollar amount, or 'all' to withdraw everything down to one cent above the drawdown floor. Default: withdraw only the excess above one full drawdown of cushion. On a live plan with a seed Reserve, released seed Reserve is held back until every increment is released, and 'all' also withdraws the starting seed above the floor; any withdrawal of seed or Reserve is reported as capital returned, never annualized",
         type: 'string',
     },
     'transition-profit': {
-        description: `Lucid Daily live only: sim profit above the buffer at the live transition, paid out once at the 90% split and capped at ${formatCurrency(LUCID_DAILY_LIVE_TRANSITION_PAYOUT_CAP)} (shown as a one-off credit, never annualized). Omit for a live account with no transition credit`,
+        get description(): string {
+            return describeLucidDailyTransitionProfit(
+                buildLucidTransitionPlan(),
+            );
+        },
         type: 'string',
     },
 } satisfies ArgsDef;
 
 const DRAIN_TO_FLOOR = 'all';
+
+const ONE_OFF_LIST = new Intl.ListFormat('en-GB', {
+    style: 'long',
+    type: 'conjunction',
+});
 
 const liveWithdrawalSchema = z.union([
     z.string().trim().toLowerCase().pipe(z.literal(DRAIN_TO_FLOOR)),
@@ -117,14 +132,14 @@ export function describeAnnualWithdrawalRate(horizonDays: number): string {
 }
 
 export function describeLiveWithdrawal(inputs: LiveSimInputs): string {
-    const hasSeedReserve = inputs.plan.seedReserveTerms() !== null;
-    const reserveNote = hasSeedReserve
-        ? '; released seed Reserve is never withdrawn'
-        : '';
+    const seedReserve = inputs.plan.seedReserveTerms();
+    const reserveNote =
+        seedReserve === null
+            ? ''
+            : `; released seed Reserve is held back until all ${seedReserve.increments} increments are out`;
     if (inputs.retainedCushion === 0) {
-        const seedNote = hasSeedReserve
-            ? ', seed included, which the annual rate counts as income'
-            : '';
+        const seedNote =
+            seedReserve === null ? '' : ', seed included as capital returned';
         return `withdraw: everything down to one cent above the floor (--request-size ${DRAIN_TO_FLOOR})${seedNote}${reserveNote}`;
     }
     const cushion = formatCurrency(
@@ -157,24 +172,43 @@ export function liveSummaryRows(
             'median days to 1st withdrawal',
             out.medianDaysToFirstWithdrawal.toFixed(1),
         ],
+    ];
+    const credit = oneOffLiveCredit(inputs.plan);
+    const withdrawalsLabel = describeWithdrawalsAtHorizon([
+        [credit, 'transition credit'],
+        [out.expectedCapitalReturned, 'capital returned'],
+        [out.expectedLiquidationPayout, 'liquidation payout'],
+    ]);
+    rows.push(
         [
-            'withdrawals at horizon (p5)',
+            `${withdrawalsLabel} (p5)`,
             formatCurrency(out.cumulativeWithdrawalsP5),
         ],
         [
-            'withdrawals at horizon (p50)',
+            `${withdrawalsLabel} (p50)`,
             formatCurrency(out.cumulativeWithdrawalsP50),
         ],
         [
-            'withdrawals at horizon (p95)',
+            `${withdrawalsLabel} (p95)`,
             formatCurrency(out.cumulativeWithdrawalsP95),
         ],
-    ];
-    const credit = oneOffLiveCredit(inputs.plan);
+    );
     if (credit > 0) {
         rows.push([
             'one-off transition credit (not annualized)',
             formatCurrency(credit),
+        ]);
+    }
+    if (out.expectedCapitalReturned > 0) {
+        rows.push([
+            'expected capital returned (not annualized)',
+            formatCurrency(out.expectedCapitalReturned),
+        ]);
+    }
+    if (out.expectedLiquidationPayout > 0) {
+        rows.push([
+            'expected liquidation payout (not annualized)',
+            formatCurrency(out.expectedLiquidationPayout),
         ]);
     }
     rows.push([
@@ -189,25 +223,13 @@ export function parseLiveSimInputs(
     buildLivePlan: LivePlanBuilder,
 ): LiveSimInputs {
     const stopPoints = arguments_['stop-points'];
-    const plan = buildLivePlan({
-        postLock: readPercentAsFraction(
-            arguments_['cushion-percent-post-lock'],
-            'cushion-percent-post-lock',
-        ),
-        preLock: readPercentAsFraction(
+    const plan = buildLivePlan(
+        readCushionPercent(
             arguments_['cushion-percent-pre-lock'],
-            'cushion-percent-pre-lock',
+            arguments_['cushion-percent-post-lock'],
         ),
-    });
+    );
     const withdrawal = readLiveWithdrawal(arguments_['request-size']);
-    if (
-        withdrawal.payoutRequestSize !== undefined &&
-        withdrawal.payoutRequestSize < plan.minPayoutRequest
-    ) {
-        throw new TypeError(
-            `--request-size ${withdrawal.payoutRequestSize} is below the ${formatCurrency(plan.minPayoutRequest)} minimum payout request of ${plan.label}, so it could never be paid`,
-        );
-    }
     return {
         ...withdrawal,
         commissionPerRoundTrip: readNonNegativeNumber(
@@ -223,6 +245,10 @@ export function parseLiveSimInputs(
             'idle-day-probability',
         ),
         instrument: arguments_.instrument,
+        payoutRequestSize: resolveRequestSize(
+            plan,
+            withdrawal.payoutRequestSize,
+        ),
         plan,
         rrRatio: readPositiveNumber(arguments_.rr, 'rr'),
         seed: readInteger(arguments_.seed, 'seed'),
@@ -279,6 +305,41 @@ export function resolveLivePlanBuilder(
         buildWithCredit(cushionPercent, transitionProfit);
 }
 
+function buildLucidTransitionPlan(): LivePlan {
+    const buildWithCredit = findLiveTransitionPlanBuilder(FirmId.Lucid);
+    if (!buildWithCredit) {
+        throw new Error(
+            '--transition-profit help: Lucid has no live transition plan builder',
+        );
+    }
+    return buildWithCredit(
+        readCushionPercent(
+            DEFAULT_CUSHION_PERCENT.preLock,
+            DEFAULT_CUSHION_PERCENT.postLock,
+        ),
+        LUCID_DAILY_LIVE_TRANSITION_PAYOUT_CAP,
+    );
+}
+
+function describeTraderShare(tiers: readonly PayoutTier[]): string {
+    return tiers
+        .map((tier) => tier.traderShare)
+        .filter((share, index, shares) => share !== shares[index - 1])
+        .map((share) => formatPercent(share, 0))
+        .join(' then ');
+}
+
+function describeWithdrawalsAtHorizon(
+    oneOffs: readonly (readonly [number, string])[],
+): string {
+    const included = oneOffs
+        .filter(([amount]) => amount > 0)
+        .map(([, name]) => name);
+    return included.length === 0
+        ? 'withdrawals at horizon'
+        : `withdrawals at horizon, incl. ${ONE_OFF_LIST.format(included)}`;
+}
+
 export default defineCommand({
     args: liveArguments,
     meta: {
@@ -328,3 +389,30 @@ export default defineCommand({
         }
     },
 });
+
+function readCushionPercent(
+    rawPreLock: string,
+    rawPostLock: string,
+): LiveCushionPercent {
+    return {
+        postLock: readPercentAsFraction(
+            rawPostLock,
+            'cushion-percent-post-lock',
+        ),
+        preLock: readPercentAsFraction(rawPreLock, 'cushion-percent-pre-lock'),
+    };
+}
+
+function resolveRequestSize(
+    plan: LivePlan,
+    requestSize: number | undefined,
+): number | undefined {
+    try {
+        return plan.resolvePayoutRequestSize(requestSize);
+    } catch (error) {
+        throw new TypeError(
+            `--request-size ${requestSize}: ${error instanceof Error ? error.message : String(error)}`,
+            { cause: error },
+        );
+    }
+}

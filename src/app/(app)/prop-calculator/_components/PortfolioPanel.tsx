@@ -42,6 +42,7 @@ import {
     type SimOutputs,
     simulate,
     type TradingFirm,
+    withOneTimeEarlyWithdrawalTaken,
 } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
@@ -58,6 +59,7 @@ interface PortfolioPanelProperties {
     firms: readonly TradingFirm[];
     onPortfolioChange: (entries: PortfolioEntry[]) => void;
     portfolio: PortfolioEntry[];
+    takesOneTimeEarlyWithdrawal: boolean;
 }
 
 interface PortfolioTableRow {
@@ -83,8 +85,13 @@ export default function PortfolioPanel({
     firms,
     onPortfolioChange,
     portfolio,
+    takesOneTimeEarlyWithdrawal,
 }: PortfolioPanelProperties) {
-    const key = buildCacheKey(baseInputs, portfolio);
+    const key = buildCacheKey(
+        baseInputs,
+        portfolio,
+        takesOneTimeEarlyWithdrawal,
+    );
     const computation = useDebouncedComputation<SimmedEntry[]>(
         key,
         DEBOUNCE_MS,
@@ -100,7 +107,10 @@ export default function PortfolioPanel({
                     copyAccounts: entry.count,
                     discounts: toCouponDiscounts(entry),
                     instrument: entry.instrument ?? baseInputs.instrument,
-                    plan,
+                    plan: withOneTimeEarlyWithdrawalTaken(
+                        plan,
+                        takesOneTimeEarlyWithdrawal,
+                    ),
                     stopPoints: entry.stopPoints ?? baseInputs.stopPoints,
                     trials,
                 });
@@ -342,11 +352,13 @@ function AccountsCell({
 function buildCacheKey(
     baseInputs: Omit<SimInputs, 'plan'>,
     portfolio: PortfolioEntry[],
+    isEarlyWithdrawalTaken: boolean,
 ): string {
     return JSON.stringify({
         attempts: baseInputs.maxAttempts ?? 1,
         commission: baseInputs.commissionPerRoundTrip ?? 0,
         dayStop: baseInputs.dayStop,
+        earlyWithdrawal: isEarlyWithdrawalTaken,
         evalDayPolicy: baseInputs.evalDayPolicy ?? null,
         fundedHorizonDays: baseInputs.fundedHorizonDays,
         idleDayProbability: baseInputs.idleDayProbability ?? 0,

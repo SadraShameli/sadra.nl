@@ -21,6 +21,7 @@ import {
     type SimOutputs,
     simulate,
     type TradingFirm,
+    withOneTimeEarlyWithdrawalTaken,
 } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
@@ -36,6 +37,7 @@ interface FirmComparisonTableProperties {
     activeFirmId: FirmId;
     baseInputs: Omit<SimInputs, 'plan'>;
     firms: readonly TradingFirm[];
+    takesOneTimeEarlyWithdrawal: boolean;
     targetAccountSize: number;
 }
 
@@ -50,9 +52,14 @@ export default function FirmComparisonTable({
     activeFirmId,
     baseInputs,
     firms,
+    takesOneTimeEarlyWithdrawal,
     targetAccountSize,
 }: FirmComparisonTableProperties) {
-    const key = buildCacheKey(baseInputs, targetAccountSize);
+    const key = buildCacheKey(
+        baseInputs,
+        targetAccountSize,
+        takesOneTimeEarlyWithdrawal,
+    );
     const { pending, result: rows } = useDebouncedComputation<Row[]>(
         key,
         DEBOUNCE_MS,
@@ -62,7 +69,14 @@ export default function FirmComparisonTable({
             for (const firm of firms) {
                 const plan = pickPlan(firm, targetAccountSize);
                 if (!plan) continue;
-                const sim = simulate({ ...baseInputs, plan, trials });
+                const sim = simulate({
+                    ...baseInputs,
+                    plan: withOneTimeEarlyWithdrawalTaken(
+                        plan,
+                        takesOneTimeEarlyWithdrawal,
+                    ),
+                    trials,
+                });
                 partial.push({ firm, out: sim, plan });
             }
             const bestNet = bestExpectedMonthlyNet(partial);
@@ -213,9 +227,13 @@ export default function FirmComparisonTable({
 function buildCacheKey(
     inputs: Omit<SimInputs, 'plan'>,
     accountSize: number,
+    isEarlyWithdrawalTaken: boolean,
 ): string {
     return simInputsCacheKey(inputs, {
-        extra: { accountSize },
+        extra: {
+            accountSize,
+            earlyWithdrawal: isEarlyWithdrawalTaken,
+        },
         omit: [SimInputsKeyField.PlanId],
     });
 }

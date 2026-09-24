@@ -52,6 +52,7 @@ export interface CalculatorState {
     seed: number;
     sizingMode: SizingMode;
     stopPoints: null | number;
+    takesOneTimeEarlyWithdrawal: boolean;
     tradesPerDay: number;
     trials: number;
     winrate: number;

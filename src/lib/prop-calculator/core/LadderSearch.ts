@@ -78,7 +78,7 @@ export interface LadderScoreConfig {
     winrate: number;
 }
 
-const MIN_SCORABLE_PASS_RATE = 0.02;
+export const LADDER_EVAL_PASS_FLOOR = 0.02;
 const DEFAULT_CUSHION_BUCKET_DOLLARS = 50;
 const LADDER_TRIAL_SUBSTREAM = 0;
 const CENTS = 100;
@@ -112,6 +112,8 @@ export interface LadderSearchResult {
 
 export const MAX_LADDER_GRID_SIZE = 1_000_000;
 
+export const MAX_LADDER_SLOTS = 20;
+
 const DEFAULT_MAX_RUNG_SHARE_OF_CUSHION = 0.4;
 const GRID_VALUE_PRECISION = 12;
 const GRID_COUNT_TOLERANCE = 1e-9;
@@ -123,7 +125,8 @@ export const ladderGridConfigSchema = z
         slots: z
             .number('must be a finite number')
             .int('must be a whole number')
-            .positive('must be >= 1'),
+            .positive('must be >= 1')
+            .max(MAX_LADDER_SLOTS, `must be <= ${MAX_LADDER_SLOTS}`),
         step: z.number('must be a finite number').positive('must be > 0'),
     })
     .refine((config) => config.max >= config.lo, {
@@ -329,7 +332,12 @@ export function enumerateDay(options: {
                             positionSizing,
                             contractLimit,
                         ),
-                  resolveAffordableRisk(remaining, dailyLossLimit, dayPnL),
+                  resolveAffordableRisk(
+                      remaining,
+                      dailyLossLimit,
+                      dayPnL,
+                      commission,
+                  ),
                   rungSizing,
               );
         if (risk <= 0) {
@@ -387,6 +395,7 @@ export function enumerateDay(options: {
 export function ladderGridSize(config: LadderGridConfig): number {
     const { slots } = validateLadderGrid(config);
     const valueCount = ladderGridValueCount(config);
+    if (valueCount === 1) return slots;
     let total = 0;
     let ladders = 1;
     for (let length = 1; length <= slots; length++) {
@@ -530,7 +539,7 @@ export function scoreLadder(
     const meanDaysOnFail = fails > 0 ? daysOnFailSum / fails : 0;
     const passRateStandardError = binomialStandardError(passRate, sims);
 
-    if (passRate < MIN_SCORABLE_PASS_RATE) {
+    if (passRate < LADDER_EVAL_PASS_FLOOR) {
         return {
             costPerFunded: Infinity,
             costPerFundedStandardError: Infinity,

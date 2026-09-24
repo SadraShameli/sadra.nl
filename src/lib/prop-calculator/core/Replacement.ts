@@ -5,7 +5,10 @@ import {
     type FeeSchedule,
     initialEvalFee,
     monthlySubscriptionFee,
+    rebuyAttemptSubscriptionFee,
     retryFee,
+    RetryKind,
+    retryPath,
     subscriptionFee,
 } from './FeeSchedule';
 
@@ -32,14 +35,8 @@ export interface ReplacementInputs {
 export function replacementEconomics(
     inputs: ReplacementInputs,
 ): ReplacementEconomics {
-    const {
-        attemptDays,
-        discounts,
-        evalPassRate,
-        fees,
-        meanDaysOnFail,
-        meanDaysOnPass,
-    } = inputs;
+    const { discounts, evalPassRate, fees, meanDaysOnFail, meanDaysOnPass } =
+        inputs;
     if (
         !Number.isFinite(evalPassRate) ||
         evalPassRate < 0 ||
@@ -60,10 +57,9 @@ export function replacementEconomics(
     const retries = attempts - 1;
     const days = meanDaysOnPass + retries * meanDaysOnFail;
     const subscription =
-        attemptDays === undefined
-            ? subscriptionFee(fees, days, discounts)
-            : monthlySubscriptionFee(fees, discounts) *
-              expectedBilledMonths(evalPassRate, attemptDays);
+        retryPath(fees, discounts) === RetryKind.Rebuy
+            ? rebuyChainSubscription(inputs, retries)
+            : renewalChainSubscription(inputs, days);
     return {
         attemptsPerFundedAccount: attempts,
         costPerFundedAccount:
@@ -163,6 +159,45 @@ function mean(values: readonly number[]): number {
     return values.length === 0
         ? 0
         : values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function rebuyChainSubscription(
+    inputs: ReplacementInputs,
+    retries: number,
+): number {
+    const {
+        attemptDays,
+        discounts,
+        evalPassRate,
+        fees,
+        meanDaysOnFail,
+        meanDaysOnPass,
+    } = inputs;
+    const passFee = (days: number) => subscriptionFee(fees, days, discounts);
+    const retryAttemptFee = (days: number) =>
+        rebuyAttemptSubscriptionFee(fees, days, discounts);
+    if (attemptDays === undefined) {
+        return (
+            passFee(meanDaysOnPass) + retries * retryAttemptFee(meanDaysOnFail)
+        );
+    }
+    assertDaySamples(evalPassRate, attemptDays);
+    return (
+        mean(attemptDays.passDays.map((days) => passFee(days))) +
+        retries *
+            mean(attemptDays.failDays.map((days) => retryAttemptFee(days)))
+    );
+}
+
+function renewalChainSubscription(
+    inputs: ReplacementInputs,
+    days: number,
+): number {
+    const { attemptDays, discounts, evalPassRate, fees } = inputs;
+    return attemptDays === undefined
+        ? subscriptionFee(fees, days, discounts)
+        : monthlySubscriptionFee(fees, discounts) *
+              expectedBilledMonths(evalPassRate, attemptDays);
 }
 
 function residueDistribution(

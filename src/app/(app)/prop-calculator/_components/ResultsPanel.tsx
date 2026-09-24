@@ -489,23 +489,29 @@ function CostBreakdownBody({ plan, result }: CostBreakdownBodyProperties) {
     const activationListed = plan.fees.activation;
     const rows: { label: string; value: string }[] = [];
     if (evalListed > 0) {
-        const evalDiscounted = callback.perAccountEvalFee;
         rows.push({
             label: 'Eval fee',
-            value:
-                Math.abs(evalListed - evalDiscounted) > 0.01
-                    ? `${formatCompactCurrency(evalListed)} → ${formatCurrency(evalDiscounted)}`
-                    : formatCurrency(evalDiscounted),
+            value: perTrialFeeValue(
+                evalListed,
+                callback.perAccountEvalFee,
+                callback.evalFee,
+            ),
         });
     }
     if (activationListed > 0) {
-        const activationDiscounted = callback.perAccountActivationFee;
         rows.push({
             label: 'Activation',
-            value:
-                Math.abs(activationListed - activationDiscounted) > 0.01
-                    ? `${formatCompactCurrency(activationListed)} → ${formatCurrency(activationDiscounted)}`
-                    : formatCurrency(activationDiscounted),
+            value: perTrialFeeValue(
+                activationListed,
+                callback.perAccountActivationFee,
+                callback.activationFee,
+            ),
+        });
+    }
+    if (callback.subscriptionPerTrial > 0) {
+        rows.push({
+            label: 'Subscription',
+            value: formatCurrency(callback.subscriptionPerTrial),
         });
     }
     if (callback.resetFeesTotal > 0) {
@@ -534,14 +540,14 @@ function CostBreakdownBody({ plan, result }: CostBreakdownBodyProperties) {
                         <span>Total avg</span>
                         <span>{formatCurrency(result.expectedTotalCost)}</span>
                     </div>
-                    {callback.monthlySubsTotal > 0 && (
+                    {callback.subscriptionPerFundedAccount > 0 && (
                         <div className="mt-0.5 flex items-center justify-between gap-3 border-t border-border/40 pt-1">
                             <span className="text-muted-foreground">
                                 Monthly subs per funded acct
                             </span>
                             <span className="text-foreground">
                                 {formatFiniteCurrency(
-                                    callback.monthlySubsTotal,
+                                    callback.subscriptionPerFundedAccount,
                                 )}
                             </span>
                         </div>
@@ -598,4 +604,19 @@ function Kpi({
             )}
         </Card>
     );
+}
+
+function perTrialFeeValue(
+    listedPerAccount: number,
+    perAccount: number,
+    perTrial: number,
+): string {
+    if (Math.abs(listedPerAccount - perAccount) <= 0.01) {
+        return formatCurrency(perTrial);
+    }
+    const listedPerTrial =
+        perAccount > 0
+            ? (perTrial * listedPerAccount) / perAccount
+            : listedPerAccount;
+    return `${formatCompactCurrency(listedPerTrial)} → ${formatCurrency(perTrial)}`;
 }

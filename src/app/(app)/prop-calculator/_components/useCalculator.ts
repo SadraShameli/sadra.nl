@@ -13,6 +13,7 @@ import {
     type SimOutputs,
     simulate,
     type TradingFirm,
+    withOneTimeEarlyWithdrawalTaken,
 } from '~/lib/prop-calculator';
 
 import {
@@ -78,6 +79,7 @@ export interface UseCalculatorReturn {
     setSeed: (n: number) => void;
     setSizingMode: (m: SizingMode) => void;
     setStopPoints: (n: number) => void;
+    setTakesOneTimeEarlyWithdrawal: (isTaken: boolean) => void;
     setTradesPerDay: (n: number) => void;
     setTrials: (n: number) => void;
     setWinrate: (n: number) => void;
@@ -166,7 +168,10 @@ export function useCalculator(): UseCalculatorReturn {
             maxEvalDays: state.maxEvalDays,
             minRetainedCushion: state.retainedCushion ?? undefined,
             payoutRequestSize: state.payoutRequestSize ?? undefined,
-            plan: state.plan,
+            plan: withOneTimeEarlyWithdrawalTaken(
+                state.plan,
+                state.takesOneTimeEarlyWithdrawal,
+            ),
             riskPerTrade,
             rrRatio: state.rrRatio,
             rungSizing: state.rungSizing,
@@ -202,6 +207,7 @@ export function useCalculator(): UseCalculatorReturn {
             state.idleDayProbability,
             state.payoutRequestSize,
             state.rungSizing,
+            state.takesOneTimeEarlyWithdrawal,
         ],
     );
 
@@ -299,6 +305,11 @@ export function useCalculator(): UseCalculatorReturn {
             act({ mode, type: CalculatorActionType.SetSizingMode }),
         setStopPoints: (n) =>
             act({ type: CalculatorActionType.SetStopPoints, value: n }),
+        setTakesOneTimeEarlyWithdrawal: (isTaken) =>
+            act({
+                isTaken,
+                type: CalculatorActionType.SetTakesOneTimeEarlyWithdrawal,
+            }),
         setTradesPerDay: (n) =>
             act({ type: CalculatorActionType.SetTradesPerDay, value: n }),
         setTrials: (n) =>

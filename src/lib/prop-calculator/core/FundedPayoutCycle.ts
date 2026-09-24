@@ -1,9 +1,16 @@
 import { type AccountState } from './AccountState';
-import { dollars } from './lib/units';
+import { type ConsistencyRule } from './ConsistencyRule';
+import { type FundedCycleSnapshot } from './DayPolicy';
+import { type Dollars, dollars, type Fraction0to1 } from './lib/units';
 import { PayoutProfitPool } from './PayoutCap';
 import { PayoutFloorEffect } from './PayoutFloorEffect';
 import { type PayoutLadder } from './PayoutTiers';
 import { type Plan } from './Plan';
+
+export enum PayoutDayGateBasis {
+    CalendarDaysSinceFirstTradeOrPayout = 'calendar-days-since-first-trade-or-payout',
+    QualifyingDaysSincePassOrPayout = 'qualifying-days-since-pass-or-payout',
+}
 
 export interface FundedPayoutOptions {
     maxPayouts: number;
@@ -20,11 +27,19 @@ export interface FundedPayoutResult {
     traderReceives: number;
 }
 
+export interface OneTimeEarlyWithdrawal {
+    maxProfitShare: Fraction0to1;
+    minRequest: Dollars;
+}
+
 export interface WithdrawableNowOptions {
     minRetainedCushion: number;
     plan: Plan;
     state: AccountState;
 }
+
+const SESSION_DAYS_PER_CALENDAR_WEEK = 5;
+const CALENDAR_DAYS_PER_WEEK = 7;
 
 type LadderStepLookup =
     | { amount: number; kind: 'step' }
@@ -42,9 +57,115 @@ export class FundedCycleTracker {
 
     qualifyingDaysAtLastPayout: number;
 
+    sessionDaysSinceAnchor: null | number = null;
+
     constructor(state: AccountState) {
         this.lastPayoutBalance = state.balance;
         this.qualifyingDaysAtLastPayout = state.qualifyingDays;
+    }
+
+    private closeSession(state: AccountState): void {
+        if (this.sessionDaysSinceAnchor !== null) {
+            this.sessionDaysSinceAnchor += 1;
+            return;
+        }
+        if (state.consecutiveIdleDays === 0) this.sessionDaysSinceAnchor = 0;
+    }
+
+    private earlyWithdrawalDebit(
+        plan: Plan,
+        state: AccountState,
+        payoutRequestSize: number | undefined,
+    ): null | number {
+        const rule = plan.oneTimeEarlyWithdrawal;
+        if (
+            rule === null ||
+            !plan.takesOneTimeEarlyWithdrawal ||
+            this.payoutsIssued > 0
+        ) {
+            return null;
+        }
+        const allowance = rule.maxProfitShare * plan.accountProfit(state);
+        const debited =
+            payoutRequestSize === undefined
+                ? allowance
+                : Math.min(payoutRequestSize, allowance);
+        const isAboveFloorAfterwards =
+            state.balance - debited > payoutReferenceThreshold(plan, state);
+        return isAboveFloorAfterwards && debited >= rule.minRequest
+            ? debited
+            : null;
+    }
+
+    private hasMetDayGate(plan: Plan, state: AccountState): boolean {
+        const requiredDays =
+            this.payoutsIssued === 0
+                ? plan.minDaysAfterPassForPayout
+                : (plan.minDaysAfterPassForPayoutPerCycle ??
+                  plan.minDaysAfterPassForPayout);
+        switch (plan.payoutDayGateBasis) {
+            case PayoutDayGateBasis.CalendarDaysSinceFirstTradeOrPayout: {
+                return (
+                    this.sessionDaysSinceAnchor !== null &&
+                    this.sessionDaysSinceAnchor >=
+                        sessionDaysForCalendarDays(requiredDays)
+                );
+            }
+            case PayoutDayGateBasis.QualifyingDaysSincePassOrPayout: {
+                return (
+                    state.qualifyingDays - this.qualifyingDaysAtLastPayout >=
+                    requiredDays
+                );
+            }
+        }
+    }
+
+    private settle(
+        debited: number,
+        plan: Plan,
+        state: AccountState,
+        fundedConsistency: ConsistencyRule | null,
+    ): FundedPayoutResult {
+        const traderReceives = plan.payoutFromProfit(
+            debited,
+            this.payoutsIssued,
+        );
+        const isCausesHardBreach =
+            plan.fullWithdrawalHardBreach &&
+            debited >= plan.accountProfit(state);
+
+        state.balance -= debited;
+        switch (plan.payoutFloorEffect) {
+            case PayoutFloorEffect.LockAtPlanFloor: {
+                plan.fundedDrawdown.forceLock(state);
+                break;
+            }
+            case PayoutFloorEffect.MoveToLockedFloor: {
+                plan.fundedDrawdown.moveToLock(state);
+                break;
+            }
+            case PayoutFloorEffect.None: {
+                break;
+            }
+            case PayoutFloorEffect.ReleaseFloor: {
+                plan.fundedDrawdown.release(state, plan.accountSize);
+                break;
+            }
+        }
+        this.lastPayoutBalance = state.balance;
+        this.qualifyingDaysAtLastPayout = state.qualifyingDays;
+        this.sessionDaysSinceAnchor = 0;
+        if (!fundedConsistency?.isPerpetual()) {
+            this.cycleBestDayProfit = 0;
+        }
+        this.cumulativePayout += traderReceives;
+        this.payoutsIssued += 1;
+
+        return {
+            causesHardBreach: isCausesHardBreach,
+            debited,
+            traderReceives,
+        };
     }
 
     closeoutCredit(options: WithdrawableNowOptions): number {
@@ -60,6 +181,38 @@ export class FundedCycleTracker {
                   Math.max(0, this.withdrawableNow(options)),
                   this.payoutsIssued,
               );
+    }
+
+    cycleSnapshot(plan: Plan, state: AccountState): FundedCycleSnapshot {
+        return {
+            cycleBestDayProfit: this.cycleBestDayProfit,
+            lastPayoutBalance: this.lastPayoutBalance,
+            payoutsIssued: this.payoutsIssued,
+            qualifyingDaysSincePayout: this.dayGateProgress(plan, state),
+        };
+    }
+
+    dayGateProgress(plan: Plan, state: AccountState): number {
+        switch (plan.payoutDayGateBasis) {
+            case PayoutDayGateBasis.CalendarDaysSinceFirstTradeOrPayout: {
+                if (this.sessionDaysSinceAnchor === null) return 0;
+                return this.payoutsIssued === 0
+                    ? this.sessionDaysSinceAnchor + 1
+                    : this.sessionDaysSinceAnchor;
+            }
+            case PayoutDayGateBasis.QualifyingDaysSincePassOrPayout: {
+                return state.qualifyingDays - this.qualifyingDaysAtLastPayout;
+            }
+        }
+    }
+
+    restoreCalendarDayGateProgress(progress: number): void {
+        this.sessionDaysSinceAnchor =
+            this.payoutsIssued > 0
+                ? progress
+                : progress === 0
+                  ? null
+                  : progress - 1;
     }
 
     withdrawableNow(options: WithdrawableNowOptions): number {
@@ -94,6 +247,7 @@ export class FundedCycleTracker {
             plan,
             state,
         } = options;
+        this.closeSession(state);
         if (
             this.payoutsIssued >= maxPayouts ||
             (plan.maxLifetimePayoutDollars !== null &&
@@ -109,14 +263,6 @@ export class FundedCycleTracker {
             this.payoutsIssued === 0
                 ? plan.minPayoutProfit
                 : (plan.minPayoutProfitPerCycle ?? dollars(0));
-        const requiredQualifyingDays =
-            this.payoutsIssued === 0
-                ? plan.minDaysAfterPassForPayout
-                : (plan.minDaysAfterPassForPayoutPerCycle ??
-                  plan.minDaysAfterPassForPayout);
-        const hasQualifyingDays =
-            state.qualifyingDays - this.qualifyingDaysAtLastPayout >=
-            requiredQualifyingDays;
         const fundedConsistency = plan.fundedConsistencyRule(
             this.payoutsIssued,
         );
@@ -125,12 +271,19 @@ export class FundedCycleTracker {
             cycleProfit,
         );
 
-        if (
-            !hasQualifyingDays ||
-            !isConsistent ||
-            poolProfit < requiredProfit
-        ) {
+        if (!isConsistent || !this.hasMetDayGate(plan, state)) {
             return null;
+        }
+
+        if (poolProfit < requiredProfit) {
+            const earlyDebit = this.earlyWithdrawalDebit(
+                plan,
+                state,
+                payoutRequestSize,
+            );
+            return earlyDebit === null
+                ? null
+                : this.settle(earlyDebit, plan, state, fundedConsistency);
         }
 
         const withdrawable = this.withdrawableNow({
@@ -152,46 +305,21 @@ export class FundedCycleTracker {
                     : plan.payoutProfitShare * cycleProfit,
             withdrawable,
         });
-        if (debited === null) return null;
-        const traderReceives = plan.payoutFromProfit(
-            debited,
-            this.payoutsIssued,
-        );
-        const isCausesHardBreach =
-            plan.fullWithdrawalHardBreach &&
-            debited >= plan.accountProfit(state);
+        return debited === null
+            ? null
+            : this.settle(debited, plan, state, fundedConsistency);
+    }
+}
 
-        state.balance -= debited;
-        switch (plan.payoutFloorEffect) {
-            case PayoutFloorEffect.LockAtPlanFloor: {
-                plan.fundedDrawdown.forceLock(state);
-                break;
-            }
-            case PayoutFloorEffect.MoveToLockedFloor: {
-                plan.fundedDrawdown.moveToLock(state);
-                break;
-            }
-            case PayoutFloorEffect.None: {
-                break;
-            }
-            case PayoutFloorEffect.ReleaseFloor: {
-                plan.fundedDrawdown.release(state, plan.accountSize);
-                break;
-            }
+export function describePayoutDayGate(plan: Plan): string {
+    const days = plan.minDaysAfterPassForPayout;
+    switch (plan.payoutDayGateBasis) {
+        case PayoutDayGateBasis.CalendarDaysSinceFirstTradeOrPayout: {
+            return `${days} calendar days from first trade`;
         }
-        this.lastPayoutBalance = state.balance;
-        this.qualifyingDaysAtLastPayout = state.qualifyingDays;
-        if (!fundedConsistency?.isPerpetual()) {
-            this.cycleBestDayProfit = 0;
+        case PayoutDayGateBasis.QualifyingDaysSincePassOrPayout: {
+            return `${days} qualifying days`;
         }
-        this.cumulativePayout += traderReceives;
-        this.payoutsIssued += 1;
-
-        return {
-            causesHardBreach: isCausesHardBreach,
-            debited,
-            traderReceives,
-        };
     }
 }
 
@@ -199,11 +327,27 @@ export function newFundedCycleTracker(state: AccountState): FundedCycleTracker {
     return new FundedCycleTracker(state);
 }
 
+export function sessionDaysForCalendarDays(calendarDays: number): number {
+    return Math.round(
+        (calendarDays * SESSION_DAYS_PER_CALENDAR_WEEK) /
+            CALENDAR_DAYS_PER_WEEK,
+    );
+}
+
 export function tryFundedPayout(
     options: FundedPayoutOptions,
 ): FundedPayoutResult | null {
     const { tracker, ...rest } = options;
     return tracker.tryPayout(rest);
+}
+
+export function withOneTimeEarlyWithdrawalTaken(
+    plan: Plan,
+    isTaken: boolean,
+): Plan {
+    return isTaken && plan.oneTimeEarlyWithdrawal !== null
+        ? plan.withOverrides({ takesOneTimeEarlyWithdrawal: true })
+        : plan;
 }
 
 function ladderStepLookup(

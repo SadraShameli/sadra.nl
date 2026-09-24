@@ -4,7 +4,9 @@ import {
     ContractLimitKind,
     FirmId,
     FundedNextVariant,
+    initialEvalFee,
     newFundedCycleTracker,
+    percent,
     tryFundedPayout,
 } from '~/lib/prop-calculator/core';
 import { TradingPhase } from '~/lib/prop-calculator/core/TradingPhase';
@@ -362,14 +364,97 @@ describe('FundedNext fee and coupon notes stay consistent with the no-code check
         }
     });
 
-    it('discloses the automatic 5th and 10th purchase discounts as unmodeled', () => {
-        expect(feeNote).toContain('15% OFF');
-        expect(feeNote).toContain('30% OFF');
-        expect(feeNote).toContain('not modeled');
+    it('points the fee note at the modeled basket discount instead of calling it unmodeled (N-32 review)', () => {
+        expect(feeNote).toContain('basketDiscount');
+        for (const note of notes) {
+            expect(note).not.toContain(
+                'it is not modeled (every purchase is charged the single-account price)',
+            );
+            expect(note).not.toMatch(
+                /(bundle|basket) discount[^.]*\bnot modeled\b/,
+            );
+        }
     });
 
     it('keeps dollar figures out of the reset-mechanism note so it cannot contradict the fee note', () => {
         expect(resetNote).toBeDefined();
         expect(resetNote).not.toMatch(/\$\d/);
+    });
+});
+
+describe('FundedNext automatic basket discount: 15% off the 5th and 30% off the 10th account in one basket of up to 10 (checkout API bundle_list, no code, live-called 2026-09-24) (N-32)', () => {
+    const basketVariants = [
+        FundedNextVariant.Flex,
+        FundedNextVariant.Legacy,
+        FundedNextVariant.RapidPro,
+        FundedNextVariant.RapidProDllAddOn,
+        FundedNextVariant.RapidDaily,
+    ];
+
+    it.each(basketVariants)(
+        '%s carries the per-position basket discount',
+        (variant) => {
+            expect(planFor(variant).basketDiscount).toStrictEqual({
+                basketSize: 10,
+                positions: [
+                    { percent: 0.15, position: 5 },
+                    { percent: 0.3, position: 10 },
+                ],
+            });
+            expect(planFor(variant).bulkDiscount).toBeNull();
+        },
+    );
+
+    it('FNL:003 has no basket list in the checkout API, so no basket discount', () => {
+        expect(planFor(FundedNextVariant.Fnl003).basketDiscount).toBeNull();
+    });
+
+    it('averages the 5th-account 15% over the accounts bought, and nothing below 5', () => {
+        const rapidPro = planFor(FundedNextVariant.RapidPro);
+        expect(rapidPro.purchaseDiscounts(undefined, 4)).toBeUndefined();
+        expect(
+            rapidPro.purchaseDiscounts(undefined, 5)?.bundlePercent,
+        ).toBeCloseTo(3, 12);
+        const fiveAccounts =
+            5 *
+            initialEvalFee(
+                rapidPro.fees,
+                rapidPro.purchaseDiscounts(undefined, 5),
+            );
+        expect(fiveAccounts).toBeCloseTo(4 * 299.98 + 299.98 * 0.85, 9);
+    });
+
+    it('keeps a typed coupon alongside the basket discount', () => {
+        const coupon = {
+            activationPercent: percent(0),
+            evalPercent: percent(40),
+        };
+        const discounts = planFor(FundedNextVariant.Flex).purchaseDiscounts(
+            coupon,
+            5,
+        );
+        expect(discounts?.evalPercent).toBe(40);
+        expect(discounts?.activationPercent).toBe(0);
+        expect(discounts?.bundlePercent).toBeCloseTo(3, 12);
+    });
+
+    it('notes the basket discount with its source, the 10-account basket, the rounding and the unconfirmed add-on base', () => {
+        const basketNote = firm.notes.find((note) =>
+            note.includes('bundle_list'),
+        );
+        expect(basketNote).toBeDefined();
+        for (const fact of [
+            '15% OFF',
+            '30% OFF',
+            'purchase_limit',
+            '2026-09-24',
+            'FNL:003',
+            'maxFundedAccounts',
+            'Daily Loss Limit Add-On',
+            'unconfirmed',
+        ]) {
+            expect(basketNote).toContain(fact);
+        }
+        expect(basketNote).not.toContain(String.fromCodePoint(0x20_14));
     });
 });

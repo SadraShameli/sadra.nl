@@ -191,6 +191,25 @@ describe('enumerateDay', () => {
         expect(Math.min(...skipped.outcomes.map((o) => o.worstPnL))).toBe(-400);
     });
 
+    it('sizes a rung so its loss plus commission stays inside the daily loss limit (N-56)', () => {
+        const distribution = enumerateDay({
+            ...eodDayStart(2000),
+            commission: 5,
+            dailyLossLimit: 500,
+            dayPolicy: {
+                ladder: [1000],
+                maxLossesPerDay: null,
+                stopRule: { kind: DayStopRuleKind.None },
+            },
+            rrRatio: 2,
+            rungSizing: RungSizing.CapToCushion,
+            winrate: 0.4,
+        });
+        expect(
+            distribution.outcomes.map((outcome) => outcome.tradePnLs),
+        ).toStrictEqual([[985], [-500]]);
+    });
+
     it('subtracts the round-trip commission from every trade', () => {
         const distribution = enumerateDay({
             ...eodDayStart(2000),

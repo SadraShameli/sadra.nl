@@ -27,35 +27,50 @@ describe('MyFundedFutures notes after the MFF Pro rechecks (live-recheck.md, 202
         expect(note).not.toContain('pending a separate decision');
     });
 
-    it('discloses the conflicting in-buffer withdrawal statements of article 13745661 and the plan page (N-51)', () => {
-        const note = noteContaining('Withdrawal While in Buffer');
+    it('states the in-buffer rule and its one-time exception from both help articles, and the plan page sentence on regular payouts (N-51)', () => {
+        const note = noteContaining('One-time withdrawal');
 
         expect(note).toContain(
-            'You can withdraw up to 60% of your profits before fully clearing the buffer',
+            'trader cannot request first withdrawal until the account balance is above the starting balance plus the buffer amount',
         );
         expect(note).toContain(
-            'Must meet the buffer target before requesting a payout',
+            'Up to 60% of profits can be withdrawn, with a minimum of $1,000. Remaining 40% remains for continued trading.',
+        );
+        expect(note).toContain(
+            'Withdrawal While in Buffer: You can withdraw up to 60% of your profits before fully clearing the buffer.',
         );
         expect(note).toContain(
             'You also need to have cleared the required buffer before a payout can be approved',
         );
+        expect(note).not.toContain('conflict');
     });
 
-    it('never calls the 60% in-buffer withdrawal confirmed, and points the lifetime-cap note at the N-51 conflict instead', () => {
-        const confirmedSixtyPercent = NOTES.flatMap((note) =>
-            note
-                .split('. ')
-                .filter(
-                    (sentence) =>
-                        sentence.includes('60%') &&
-                        sentence.includes('confirmed'),
-                ),
-        );
+    it('discloses the opt-in model of the one-time early withdrawal and its assumed MLL treatment (N-64, T30)', () => {
+        const note = noteContaining('One-time withdrawal');
 
-        expect(confirmedSixtyPercent).toStrictEqual([]);
-        expect(noteContaining("Pro's $100,000 lifetime cap")).toContain(
-            'see the N-51 note',
+        expect(note).toContain('--early-withdrawal');
+        expect(note).toContain('off by default');
+        expect(note).toContain(
+            'After your first approved payout, the MLL locks permanently at your starting balance plus $100',
         );
+        expect(note).toContain('assumption');
+    });
+
+    it('points the lifetime-cap note at the in-buffer note instead of calling the 60% withdrawal contested', () => {
+        const note = noteContaining("Pro's $100,000 lifetime cap");
+
+        expect(note).toContain('see the N-51 note');
+        expect(note).not.toContain('contested');
+    });
+
+    it('states the Pro payout day gate as 14 calendar days from the first sim-funded trade, modeled as 10 sessions including idle ones (N-7)', () => {
+        const note = noteContaining('initialWithdrawalDays:14');
+
+        expect(note).toContain(
+            'The 14-day window runs from your first trade on the sim funded account',
+        );
+        expect(note).toContain('10 sessions');
+        expect(note).toContain('idle');
     });
 
     it('states the firm-wide $250 minimum live withdrawal applied to Rapid Live (N-41)', () => {

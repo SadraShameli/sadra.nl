@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-    type AccountState,
     computedDayPolicy,
     DailyLossLimitKind,
     dollars,
     EodTrailingDrawdown,
     FirmId,
     fraction,
+    type FundedCycleSnapshot,
     MffuVariant,
     type Plan,
 } from '~/lib/prop-calculator/core';
@@ -54,23 +54,11 @@ describe('the funded day loop hands the day policy the balance left after the la
     it('passes the starting balance before any payout and the post-debit balance after one', () => {
         const recorded: {
             balance: number;
-            lastPayoutBalance: number | undefined;
-            payoutsIssued: number | undefined;
+            fundedCycle: FundedCycleSnapshot | undefined;
         }[] = [];
         const dayPolicy = computedDayPolicy(
-            (
-                state: AccountState,
-                _tradeIndexToday: number,
-                payoutsIssued?: number,
-                _cycleBestDayProfit?: number,
-                _qualifyingDaysSincePayout?: number,
-                lastPayoutBalance?: number,
-            ) => {
-                recorded.push({
-                    balance: state.balance,
-                    lastPayoutBalance,
-                    payoutsIssued,
-                });
+            (state, _tradeIndexToday, fundedCycle) => {
+                recorded.push({ balance: state.balance, fundedCycle });
                 return 100;
             },
             1,
@@ -91,10 +79,42 @@ describe('the funded day loop hands the day policy the balance left after the la
 
         expect(out.expectedGrossPayout).toBeCloseTo(250, 10);
         expect(recorded).toStrictEqual([
-            { balance: 1000, lastPayoutBalance: 1000, payoutsIssued: 0 },
-            { balance: 1100, lastPayoutBalance: 1000, payoutsIssued: 0 },
-            { balance: 1200, lastPayoutBalance: 1000, payoutsIssued: 0 },
-            { balance: 1150, lastPayoutBalance: 1150, payoutsIssued: 1 },
+            {
+                balance: 1000,
+                fundedCycle: {
+                    cycleBestDayProfit: 0,
+                    lastPayoutBalance: 1000,
+                    payoutsIssued: 0,
+                    qualifyingDaysSincePayout: 0,
+                },
+            },
+            {
+                balance: 1100,
+                fundedCycle: {
+                    cycleBestDayProfit: 100,
+                    lastPayoutBalance: 1000,
+                    payoutsIssued: 0,
+                    qualifyingDaysSincePayout: 1,
+                },
+            },
+            {
+                balance: 1200,
+                fundedCycle: {
+                    cycleBestDayProfit: 100,
+                    lastPayoutBalance: 1000,
+                    payoutsIssued: 0,
+                    qualifyingDaysSincePayout: 2,
+                },
+            },
+            {
+                balance: 1150,
+                fundedCycle: {
+                    cycleBestDayProfit: 0,
+                    lastPayoutBalance: 1150,
+                    payoutsIssued: 1,
+                    qualifyingDaysSincePayout: 0,
+                },
+            },
         ]);
     });
 });

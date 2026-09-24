@@ -124,9 +124,9 @@ export function solveAverageRewardPolicy(
             maxEvalDays: objective.maxEvalDays,
             plan: objective.plan,
             rrRatio: config.rrRatio,
-            terminalValueAtFail:
+            terminalValueAtFail: (failedAttemptDays: number) =>
                 objective.entryCost(ratePerDay) -
-                objective.retryCost(ratePerDay),
+                objective.retryCost(ratePerDay, failedAttemptDays),
             terminalValueAtPass:
                 fundedResult.initialValue - objective.activationCost(),
             winrate: config.winrate,
@@ -190,8 +190,12 @@ export function solveAverageRewardPolicy(
             const point = evaluateRate(candidate);
             trace.push(point);
             bracket = narrowBracket(bracket, point);
+            const isSecantStep = trace.length > 2;
             const step = Math.abs(point.ratePerDay - previousRatePerDay);
-            if (bracket.hi - bracket.lo <= tolerance || step <= tolerance) {
+            if (
+                bracket.hi - bracket.lo <= tolerance ||
+                (isSecantStep && step <= tolerance)
+            ) {
                 status = RateSearchStatus.Converged;
                 break;
             }

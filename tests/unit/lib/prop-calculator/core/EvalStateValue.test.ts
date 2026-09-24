@@ -5,6 +5,7 @@ import {
     computeEvalStateValue,
     contracts,
     createInitialState,
+    DailyLossLimitBreachEffect,
     DailyLossLimitKind,
     type DayPolicy,
     DayStopRuleKind,
@@ -791,4 +792,52 @@ describe('computeEvalStateValue tracks the peak session close for a peak-based e
         state.tradingDays = 3;
         expect(result.dayPolicy.computeRisk?.(state, 0)).toBe(50);
     });
+
+    it('values a terminating limit that tightens once the peak close reaches its tier at the hand-solved 0.375 and agrees with simulate()', () => {
+        const plan = toyPlan(150).withOverrides({
+            evalDailyLossLimit: {
+                kind: DailyLossLimitKind.Tiered,
+                tierBasis: TierBasis.PeakSessionCloseProfit,
+                tiers: [
+                    {
+                        dailyLossLimit: dollars(1000),
+                        maxContracts: contracts(1),
+                        minProfit: 0,
+                    },
+                    {
+                        dailyLossLimit: dollars(40),
+                        maxContracts: contracts(1),
+                        minProfit: 100,
+                    },
+                ],
+            },
+            evalDailyLossLimitBreach: DailyLossLimitBreachEffect.Terminate,
+        });
+        expect(isEvalDpEligible(plan)).toBe(true);
+        const dp = computeEvalStateValue({
+            actionStepDollars: 50,
+            cushionStepDollars: 10,
+            maxActionDollars: 50,
+            maxEvalDays: 3,
+            plan,
+            profitStepDollars: 10,
+            rrRatio: 2,
+            tradesPerDay: 1,
+            winrate: fraction(0.5),
+        });
+        const out = simulate({
+            evalDayPolicy: dp.dayPolicy,
+            fundedHorizonDays: 1,
+            maxEvalDays: 3,
+            plan,
+            riskPerTrade: 50,
+            rrRatio: 2,
+            seed: 42,
+            tradesPerDay: 1,
+            trials: 20_000,
+            winrate: 0.5,
+        });
+        expect(dp.initialValue).toBeCloseTo(0.375, 9);
+        expect(out.evalPassProbability).toBeCloseTo(dp.initialValue, 1);
+    }, 60_000);
 });

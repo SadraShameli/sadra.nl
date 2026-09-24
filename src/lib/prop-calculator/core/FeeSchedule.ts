@@ -20,6 +20,8 @@ export interface FeeSchedule {
     oneTimeEval: Dollars;
     reset: Dollars;
     retry?: RetryKind;
+    undiscountableEval?: Dollars;
+    undiscountableReset?: Dollars;
 }
 
 export function activationFee(
@@ -42,11 +44,32 @@ export function feesUntilPass(
     );
 }
 
+export function feesUntilPassAcrossAttempts(
+    fees: FeeSchedule,
+    attemptDays: readonly number[],
+    discounts?: CouponDiscounts,
+): number {
+    if (retryPath(fees, discounts) === RetryKind.Reset) {
+        const chainDays = attemptDays.reduce((sum, days) => sum + days, 0);
+        return feesUntilPass(fees, chainDays, discounts);
+    }
+    const [firstAttemptDays = 0, ...rebuyAttemptDays] = attemptDays;
+    return rebuyAttemptDays.reduce(
+        (total, days) =>
+            total + rebuyAttemptSubscriptionFee(fees, days, discounts),
+        feesUntilPass(fees, firstAttemptDays, discounts),
+    );
+}
+
 export function initialEvalFee(
     fees: FeeSchedule,
     discounts?: CouponDiscounts,
 ): number {
-    return fees.oneTimeEval * evalFactor(discounts) * bundleFactor(discounts);
+    return discountedCheckout(
+        fees.oneTimeEval,
+        undiscountableEval(fees),
+        evalFactor(discounts) * bundleFactor(discounts),
+    );
 }
 
 export function monthlySubscriptionFee(
@@ -56,18 +79,43 @@ export function monthlySubscriptionFee(
     return fees.monthlySubscription * monthlySubscriptionFactor(discounts);
 }
 
+export function rebuyAttemptSubscriptionFee(
+    fees: FeeSchedule,
+    attemptDays: number,
+    discounts?: CouponDiscounts,
+): number {
+    return (
+        subscriptionFee(fees, attemptDays, discounts) -
+        monthlySubscriptionFee(fees, discounts)
+    );
+}
+
 export function rebuyFee(
     fees: FeeSchedule,
     discounts?: CouponDiscounts,
 ): number {
     return (
-        fees.oneTimeEval * evalFactor(discounts) +
-        monthlySubscriptionFee(fees, discounts)
+        discountedCheckout(
+            fees.oneTimeEval,
+            undiscountableEval(fees),
+            evalFactor(discounts),
+        ) + monthlySubscriptionFee(fees, discounts)
     );
 }
 
 export function resetFactor(discounts: CouponDiscounts | undefined): number {
     return 1 - (discounts?.resetPercent ?? 0) / 100;
+}
+
+export function resetFee(
+    fees: FeeSchedule,
+    discounts?: CouponDiscounts,
+): number {
+    return discountedCheckout(
+        fees.reset,
+        undiscountableReset(fees),
+        resetFactor(discounts),
+    );
 }
 
 export function retryFee(
@@ -76,7 +124,7 @@ export function retryFee(
 ): number {
     return retryPath(fees, discounts) === RetryKind.Rebuy
         ? rebuyFee(fees, discounts)
-        : fees.reset * resetFactor(discounts);
+        : resetFee(fees, discounts);
 }
 
 export function retryPath(
@@ -84,7 +132,7 @@ export function retryPath(
     discounts?: CouponDiscounts,
 ): RetryKind {
     if (fees.retry === RetryKind.Rebuy) return RetryKind.Rebuy;
-    return rebuyFee(fees, discounts) < fees.reset * resetFactor(discounts)
+    return rebuyFee(fees, discounts) < resetFee(fees, discounts)
         ? RetryKind.Rebuy
         : RetryKind.Reset;
 }
@@ -117,6 +165,17 @@ function bundleFactor(discounts: CouponDiscounts | undefined): number {
     return 1 - (discounts?.bundlePercent ?? 0) / 100;
 }
 
+function discountedCheckout(
+    checkoutPrice: number,
+    undiscountable: number,
+    factor: number,
+): number {
+    return Math.max(
+        0,
+        (checkoutPrice - undiscountable) * factor + undiscountable,
+    );
+}
+
 function evalFactor(discounts: CouponDiscounts | undefined): number {
     return 1 - (discounts?.evalPercent ?? 0) / 100;
 }
@@ -125,4 +184,12 @@ function monthlySubscriptionFactor(
     discounts: CouponDiscounts | undefined,
 ): number {
     return 1 - (discounts?.monthlySubscriptionPercent ?? 0) / 100;
+}
+
+function undiscountableEval(fees: FeeSchedule): number {
+    return fees.undiscountableEval ?? 0;
+}
+
+function undiscountableReset(fees: FeeSchedule): number {
+    return fees.undiscountableReset ?? 0;
 }

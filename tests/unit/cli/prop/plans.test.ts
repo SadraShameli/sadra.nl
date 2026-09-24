@@ -179,6 +179,24 @@ describe('planRuleLines: payout caps (R1-44)', () => {
         );
     });
 
+    it('shows the Alpha Futures Standard Qualified consistency rule as inclusive and failing on a net-losing cycle', () => {
+        const ruleLine = linesFor(alphaStandard).find((line) =>
+            line.includes('consistency eval'),
+        );
+
+        expect(ruleLine).toContain(
+            '| funded 40% (inclusive, fails on a net-losing cycle)',
+        );
+    });
+
+    it('keeps a plain exclusive consistency rule as a bare percentage', () => {
+        const ruleLine = linesFor(topStepXfa).find((line) =>
+            line.includes('consistency eval'),
+        );
+
+        expect(ruleLine).toContain('consistency eval 55%');
+    });
+
     it('shows the Alpha Futures 50% of account profit cap', () => {
         expect(linesFor(alphaStandard)).toContain(
             '    payout cap 50% of total profit, max $3,000 per request',

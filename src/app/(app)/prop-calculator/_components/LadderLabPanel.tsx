@@ -19,6 +19,7 @@ import {
     InstrumentSymbol,
     type LadderScore,
     ladderSum,
+    MAX_LADDER_SLOTS,
     minStopPoints,
     resolveContractLimit,
     resolvePositionSizing,
@@ -32,6 +33,7 @@ import { cn } from '~/lib/utilities';
 import LadderFrontierChartView from './charts/LadderFrontierChartView';
 import DayStopRulePicker from './DayStopRulePicker';
 import { describeLadderIgnoredInputs } from './ladderIgnoredInputs';
+import { describeUnscorableLadderRun } from './ladderUnscorable';
 import { LadderRunPhase, useLadderSearch } from './useLadderSearch';
 
 interface LadderLabPanelProperties {
@@ -98,6 +100,10 @@ export default function LadderLabPanel({
               );
 
     const succeeded = state.phase === LadderRunPhase.Succeeded ? state : null;
+    const unscorableNote =
+        succeeded === null
+            ? null
+            : describeUnscorableLadderRun(succeeded.result);
     const rows = useMemo(() => {
         const result = succeeded?.result;
         if (!result) return [];
@@ -317,7 +323,12 @@ export default function LadderLabPanel({
                 <NumberField label="Min rung" onChange={setLo} value={lo} />
                 <NumberField label="Max rung" onChange={setMax} value={max} />
                 <NumberField label="Step" onChange={setStep} value={step} />
-                <NumberField label="Rungs" onChange={setSlots} value={slots} />
+                <NumberField
+                    label="Rungs"
+                    max={MAX_LADDER_SLOTS}
+                    onChange={setSlots}
+                    value={slots}
+                />
                 <NumberField
                     label="Sims per ladder"
                     onChange={setSims}
@@ -416,6 +427,12 @@ export default function LadderLabPanel({
                         tied, so raise the sims per ladder to separate them.
                     </p>
 
+                    {unscorableNote !== null && (
+                        <p className="text-xs text-amber-400">
+                            {unscorableNote}
+                        </p>
+                    )}
+
                     <div>
                         <h4 className="mb-2 text-xs font-semibold">
                             Efficient frontier
@@ -453,10 +470,12 @@ export default function LadderLabPanel({
 
 function NumberField({
     label,
+    max,
     onChange,
     value,
 }: {
     label: string;
+    max?: number;
     onChange: (value: number) => void;
     value: number;
 }) {
@@ -466,9 +485,15 @@ function NumberField({
             <Input
                 className="h-8"
                 inputMode="numeric"
+                max={max}
                 onChange={(event) => {
                     const parsed = Number(event.target.value);
-                    if (Number.isSafeInteger(parsed)) onChange(parsed);
+                    if (
+                        Number.isSafeInteger(parsed) &&
+                        (max === undefined || parsed <= max)
+                    ) {
+                        onChange(parsed);
+                    }
                 }}
                 value={value}
             />

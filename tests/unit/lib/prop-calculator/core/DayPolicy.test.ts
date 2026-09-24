@@ -1,13 +1,20 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import {
+    type AccountState,
     ApexVariant,
+    capRiskToRemainingDailyLoss,
     computedDayPolicy,
+    computeEvalStateValue,
+    type ComputeRisk,
+    DailyLossLimitKind,
     type DayPolicy,
     DayStopRuleKind,
     dollars,
     FirmId,
+    flatDayPolicy,
     fraction,
+    type FundedCycleSnapshot,
     ladderRungSchema,
     ladderRungsSchema,
     type Plan,
@@ -19,6 +26,7 @@ import {
     stopTargetDollarsSchema,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
+import { computeFundedStateValue } from '~/lib/prop-calculator/core/FundedStateValue';
 import { findFirm } from '~/lib/prop-calculator/firms';
 import { type Rng } from '~/lib/prop-calculator/rng';
 import {
@@ -164,14 +172,186 @@ describe('the day policy input schemas live in the domain', () => {
 
 describe('resolveAffordableRisk', () => {
     it('returns the whole cushion when there is no daily loss limit', () => {
-        expect(resolveAffordableRisk(2000, null, -300)).toBe(2000);
+        expect(resolveAffordableRisk(2000, null, -300, 0)).toBe(2000);
+        expect(resolveAffordableRisk(2000, null, -300, 5)).toBe(2000);
     });
 
     it('caps at the daily loss limit headroom left today', () => {
-        expect(resolveAffordableRisk(2000, 1000, -300)).toBe(700);
+        expect(resolveAffordableRisk(2000, 1000, -300, 0)).toBe(700);
     });
 
     it('caps at the cushion when the cushion is below the headroom', () => {
-        expect(resolveAffordableRisk(500, 1000, 0)).toBe(500);
+        expect(resolveAffordableRisk(500, 1000, 0, 0)).toBe(500);
+    });
+
+    it('keeps the round-trip commission inside the daily loss limit, so a full-size loser lands exactly on it (N-56)', () => {
+        const risk = resolveAffordableRisk(2000, 1000, -300, 5);
+        expect(risk).toBe(695);
+        expect(-300 - risk - 5).toBe(-1000);
+    });
+
+    it('is the same rule the live phase caps a trade with', () => {
+        for (const [dailyLossLimit, todayPnL, commission] of [
+            [1000, -300, 5],
+            [1000, 0, 2.5],
+            [500, -120, 0],
+        ] as const) {
+            expect(
+                resolveAffordableRisk(
+                    Infinity,
+                    dailyLossLimit,
+                    todayPnL,
+                    commission,
+                ),
+            ).toBe(
+                capRiskToRemainingDailyLoss(
+                    Infinity,
+                    dailyLossLimit,
+                    todayPnL,
+                    commission,
+                ),
+            );
+        }
+    });
+});
+
+const alwaysLoses: Rng = () => 0.99;
+
+describe('runDay keeps a losing trade and its commission inside the daily loss limit (N-56)', () => {
+    it.each([TradingPhase.Eval, TradingPhase.Funded])(
+        'sizes the %s trade to the limit minus the commission',
+        (phase) => {
+            const flatLimit = {
+                amount: dollars(500),
+                kind: DailyLossLimitKind.Flat,
+            } as const;
+            const plan = apexEod.withOverrides({
+                evalDailyLossLimit: flatLimit,
+                fundedDailyLossLimit: flatLimit,
+            });
+            const state = plan.initialState();
+            if (phase === TradingPhase.Funded) plan.beginFundedPhase(state);
+            const stats = freshStats(state.startingBalance);
+            runDay({
+                commission: dollars(5),
+                dayPolicy: flatDayPolicy(1000, 1),
+                phase,
+                plan,
+                positionSizing: null,
+                rng: alwaysLoses,
+                rrRatio: 2,
+                rungSizing: RungSizing.CapToCushion,
+                state,
+                stats,
+                winrate: fraction(0.5),
+            });
+            expect(state.todayPnL).toBe(-500);
+            expect(state.balance).toBe(state.startingBalance - 500);
+        },
+    );
+});
+
+describe('both dynamic programs cap the first trade at the daily loss limit minus the commission (N-56 review)', () => {
+    const flatLimit = {
+        amount: dollars(500),
+        kind: DailyLossLimitKind.Flat,
+    } as const;
+    const plan = apexEod.withOverrides({
+        evalDailyLossLimit: flatLimit,
+        fundedDailyLossLimit: flatLimit,
+    });
+
+    function evalFirstTradeRisk(commission: number): number {
+        const result = computeEvalStateValue({
+            commission: dollars(commission),
+            maxActionDollars: 800,
+            maxEvalDays: 2,
+            plan,
+            rrRatio: 3.2,
+            tradesPerDay: 1,
+            winrate: fraction(0.95),
+        });
+        return result.dayPolicy.computeRisk?.(plan.initialState(), 0) ?? 0;
+    }
+
+    function fundedFirstTradeRisk(commission: number): number {
+        const result = computeFundedStateValue({
+            actionStepMultiple: 0.25,
+            commission: dollars(commission),
+            cushionStepMultiple: 0.25,
+            cycleBestDayBucketCount: 1,
+            evalInitialValue: 0,
+            feePerAttempt: dollars(0),
+            maxActionMultiple: 0.5,
+            maxCushionMultiple: 1.5,
+            maxPreLockOffsetMultiple: 1,
+            payoutRegimeCap: 0,
+            plan,
+            rrRatio: 3,
+            tradesPerDay: 1,
+            winrate: 0.95,
+        });
+        const state = plan.initialState();
+        plan.beginFundedPhase(state);
+        return result.dayPolicy.computeRisk?.(state, 0) ?? 0;
+    }
+
+    it('the eval DP sizes a first trade that must win the target in two days at $500 - $5 = $495, and at $500 with no commission', () => {
+        expect(evalFirstTradeRisk(5)).toBe(495);
+        expect(evalFirstTradeRisk(0)).toBe(500);
+    });
+
+    it(
+        'the funded DP sizes a full-edge first trade at $500 - $5 = $495, and at $500 with no commission',
+        {
+            timeout: 120_000,
+        },
+        () => {
+            expect(fundedFirstTradeRisk(5)).toBe(495);
+            expect(fundedFirstTradeRisk(0)).toBe(500);
+        },
+    );
+});
+
+describe('ComputeRisk takes the funded cycle as one named snapshot', () => {
+    it('requires every funded cycle field, the last payout balance included, once a snapshot is passed', () => {
+        expectTypeOf<FundedCycleSnapshot>().toEqualTypeOf<{
+            readonly cycleBestDayProfit: number;
+            readonly lastPayoutBalance: number;
+            readonly payoutsIssued: number;
+            readonly qualifyingDaysSincePayout: number;
+        }>();
+        expectTypeOf<Parameters<ComputeRisk>>().toEqualTypeOf<
+            [AccountState, number, FundedCycleSnapshot?]
+        >();
+    });
+
+    it('hands the funded cycle snapshot from runDay to computeRisk unchanged', () => {
+        const state = apexEod.initialState();
+        const fundedCycle: FundedCycleSnapshot = {
+            cycleBestDayProfit: 400,
+            lastPayoutBalance: 51_250,
+            payoutsIssued: 2,
+            qualifyingDaysSincePayout: 3,
+        };
+        const received: (FundedCycleSnapshot | undefined)[] = [];
+        runDay({
+            commission: dollars(0),
+            dayPolicy: computedDayPolicy((_state, _index, snapshot) => {
+                received.push(snapshot);
+                return 100;
+            }, 2),
+            fundedCycle,
+            phase: TradingPhase.Funded,
+            plan: apexEod,
+            positionSizing: null,
+            rng: alwaysWins,
+            rrRatio: 1,
+            rungSizing: RungSizing.CapToCushion,
+            state,
+            stats: freshStats(state.startingBalance),
+            winrate: fraction(1),
+        });
+        expect(received).toStrictEqual([fundedCycle, fundedCycle]);
     });
 });

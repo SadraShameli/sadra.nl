@@ -6,7 +6,7 @@ import { ui } from '~/cli/ui';
 import { NOT_APPLICABLE } from '~/lib/format';
 import {
     ALL_FIRMS,
-    ConsistencyRule,
+    type ConsistencyRule,
     type ContractLimitConfig,
     ContractLimitKind,
     type CouponDiscounts,
@@ -40,7 +40,24 @@ import {
     stopTargetDollarsSchema,
     TRADING_DAYS_PER_YEAR,
     type TradingFirm,
+    withOneTimeEarlyWithdrawalTaken,
 } from '~/lib/prop-calculator';
+
+export interface CouponDiscountArguments {
+    'activation-discount': string;
+    'eval-discount': string;
+    'monthly-discount': string;
+}
+
+export interface CouponDiscountPercents {
+    readonly activationDiscountPercent: Percent0to100;
+    readonly evalDiscountPercent: Percent0to100;
+    readonly monthlySubscriptionDiscountPercent: Percent0to100;
+}
+
+export interface EarlyWithdrawalArguments {
+    'early-withdrawal'?: boolean;
+}
 
 export interface TableColumn {
     align?: 'left' | 'right';
@@ -48,12 +65,11 @@ export interface TableColumn {
     width: number;
 }
 
-export interface TradingArguments extends PlanSelectorArguments {
-    'activation-discount': string;
+export interface TradingArguments
+    extends CouponDiscountArguments, PlanSelectorArguments {
     commission: string;
     'copy-accounts': string;
     'eval-days': string;
-    'eval-discount': string;
     'funded-days': string;
     'funded-risk'?: string;
     'funded-rr'?: string;
@@ -63,7 +79,6 @@ export interface TradingArguments extends PlanSelectorArguments {
     ladder?: string;
     'max-attempts': string;
     'max-lifetime-payouts'?: string;
-    'monthly-discount': string;
     'path-granularity'?: string;
     'rebuy-lag-days': string;
     'request-size'?: string;
@@ -105,6 +120,7 @@ export interface TradingInputsInit {
     rungSizing: RungSizing;
     seed: number;
     stopPoints: number | undefined;
+    takesOneTimeEarlyWithdrawal: boolean;
     tradesPerDay: number;
     trials: number;
     winrate: Fraction0to1;
@@ -201,17 +217,16 @@ export class TablePrinter {
 }
 
 export class TradingInputs {
-    static parse(arguments_: TradingArguments): TradingInputs {
+    static parse(
+        arguments_: EarlyWithdrawalArguments & TradingArguments,
+    ): TradingInputs {
         const requestSize = arguments_['request-size'];
         const stopPoints = arguments_['stop-points'];
         const fundedRisk = arguments_['funded-risk'];
         const fundedRr = arguments_['funded-rr'];
         const fundedTpd = arguments_['funded-tpd'];
         return new TradingInputs({
-            activationDiscountPercent: readPercent(
-                arguments_['activation-discount'],
-                'activation-discount',
-            ),
+            ...readCouponDiscountPercents(arguments_),
             commissionPerRoundTrip: readNonNegativeNumber(
                 arguments_.commission,
                 'commission',
@@ -221,10 +236,6 @@ export class TradingInputs {
                 'copy-accounts',
             ),
             dayStop: readStopRule(arguments_.stop),
-            evalDiscountPercent: readPercent(
-                arguments_['eval-discount'],
-                'eval-discount',
-            ),
             fundedHorizonDays: readNonNegativeInteger(
                 arguments_['funded-days'],
                 'funded-days',
@@ -265,10 +276,6 @@ export class TradingInputs {
                 arguments_['retain-cushion'],
                 'retain-cushion',
             ),
-            monthlySubscriptionDiscountPercent: readPercent(
-                arguments_['monthly-discount'],
-                'monthly-discount',
-            ),
             payoutRequestSize:
                 requestSize === undefined
                     ? undefined
@@ -282,6 +289,8 @@ export class TradingInputs {
                 stopPoints === undefined
                     ? undefined
                     : readPositiveNumber(stopPoints, 'stop-points'),
+            takesOneTimeEarlyWithdrawal:
+                arguments_['early-withdrawal'] ?? false,
             tradesPerDay: readPositiveInteger(arguments_.tpd, 'tpd'),
             trials: readPositiveInteger(arguments_.trials, 'trials'),
             winrate: readFraction(arguments_.winrate, 'winrate'),
@@ -313,6 +322,7 @@ export class TradingInputs {
     readonly rungSizing: RungSizing;
     readonly seed: number;
     readonly stopPoints: number | undefined;
+    readonly takesOneTimeEarlyWithdrawal: boolean;
     readonly tradesPerDay: number;
     readonly trials: number;
     readonly winrate: Fraction0to1;
@@ -344,22 +354,14 @@ export class TradingInputs {
         this.rungSizing = init.rungSizing;
         this.seed = init.seed;
         this.stopPoints = init.stopPoints;
+        this.takesOneTimeEarlyWithdrawal = init.takesOneTimeEarlyWithdrawal;
         this.tradesPerDay = init.tradesPerDay;
         this.trials = init.trials;
         this.winrate = init.winrate;
     }
 
     toCouponDiscounts(): CouponDiscounts | undefined {
-        return this.activationDiscountPercent > 0 ||
-            this.evalDiscountPercent > 0 ||
-            this.monthlySubscriptionDiscountPercent > 0
-            ? {
-                  activationPercent: this.activationDiscountPercent,
-                  evalPercent: this.evalDiscountPercent,
-                  monthlySubscriptionPercent:
-                      this.monthlySubscriptionDiscountPercent,
-              }
-            : undefined;
+        return toCouponDiscounts(this);
     }
 
     toDayPolicy(): DayPolicy | undefined {
@@ -373,10 +375,14 @@ export class TradingInputs {
     }
 
     toSimInputs(plan: Plan): SimInputs {
-        const resolvedPlan =
+        const cappedPlan =
             this.maxLifetimePayoutsOverride === undefined
                 ? plan
                 : plan.withMaxLifetimePayouts(this.maxLifetimePayoutsOverride);
+        const resolvedPlan = withOneTimeEarlyWithdrawalTaken(
+            cappedPlan,
+            this.takesOneTimeEarlyWithdrawal,
+        );
         return {
             commissionPerRoundTrip: this.commissionPerRoundTrip,
             copyAccounts: this.copyAccounts,
@@ -495,18 +501,11 @@ export const pathGranularityComparisonArgument = {
     },
 } satisfies ArgsDef;
 
-export const purchaseArguments = {
+export const couponDiscountArguments = {
     'activation-discount': {
         default: '0',
         description:
             'Coupon discount percent [0,100] off the one-time activation fee',
-        type: 'string',
-    },
-    ...commissionArgument,
-    'copy-accounts': {
-        default: '1',
-        description:
-            'Number of identical accounts run together (multiplies per-account fees and P&L)',
         type: 'string',
     },
     'eval-discount': {
@@ -522,6 +521,55 @@ export const purchaseArguments = {
         type: 'string',
     },
 } satisfies ArgsDef;
+
+export const copyAccountsArgument = {
+    'copy-accounts': {
+        default: '1',
+        description:
+            'Number of identical accounts run together (multiplies per-account fees and P&L)',
+        type: 'string',
+    },
+} satisfies ArgsDef;
+
+export const purchaseArguments = {
+    ...couponDiscountArguments,
+    ...commissionArgument,
+    ...copyAccountsArgument,
+} satisfies ArgsDef;
+
+export function readCouponDiscountPercents(
+    arguments_: CouponDiscountArguments,
+): CouponDiscountPercents {
+    return {
+        activationDiscountPercent: readPercent(
+            arguments_['activation-discount'],
+            'activation-discount',
+        ),
+        evalDiscountPercent: readPercent(
+            arguments_['eval-discount'],
+            'eval-discount',
+        ),
+        monthlySubscriptionDiscountPercent: readPercent(
+            arguments_['monthly-discount'],
+            'monthly-discount',
+        ),
+    };
+}
+
+export function toCouponDiscounts(
+    percents: CouponDiscountPercents,
+): CouponDiscounts | undefined {
+    return percents.activationDiscountPercent > 0 ||
+        percents.evalDiscountPercent > 0 ||
+        percents.monthlySubscriptionDiscountPercent > 0
+        ? {
+              activationPercent: percents.activationDiscountPercent,
+              evalPercent: percents.evalDiscountPercent,
+              monthlySubscriptionPercent:
+                  percents.monthlySubscriptionDiscountPercent,
+          }
+        : undefined;
+}
 
 export const evalPolicyArguments = {
     'eval-days': {
@@ -547,6 +595,12 @@ export const tradingArguments = {
     ...commonSimArguments,
     ...purchaseArguments,
     ...evalPolicyArguments,
+    'early-withdrawal': {
+        default: false,
+        description:
+            'Take the one-time early withdrawal on plans that offer it (MFF Pro): once, after the payout day gate and before the buffer clears, withdraw up to 60% of the profit (at least $1,000) while the other 40% stays. Modeled as the first payout, so the MLL moves to start + $100 and locks, which leaves a thin cushion. Off by default; plans without the rule ignore it',
+        type: 'boolean',
+    },
     'funded-days': {
         default: String(TRADING_DAYS_PER_YEAR),
         description: 'Funded-phase horizon in trading days',
@@ -642,12 +696,9 @@ export function describeFundedContracts(
 }
 
 export function describeShare(
-    rule: ConsistencyRule | null | number | undefined,
+    rule: ConsistencyRule | null | undefined,
 ): string {
-    if (rule === null || rule === undefined) return 'none';
-    return typeof rule === 'number'
-        ? ConsistencyRule.formatShare(rule)
-        : rule.shareLabel();
+    return rule === null || rule === undefined ? 'none' : rule.shareLabel();
 }
 
 export function formatDaysToPass(

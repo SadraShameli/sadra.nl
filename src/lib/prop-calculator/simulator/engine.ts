@@ -2,12 +2,14 @@ import { TRADING_DAYS_PER_MONTH } from '../core/constants';
 import { DEFAULT_RUNG_SIZING } from '../core/DayPolicy';
 import {
     activationFee,
+    type CouponDiscounts,
     type FeeSchedule,
+    feesUntilPassAcrossAttempts,
     initialEvalFee,
     monthlySubscriptionFee,
+    retryPath,
 } from '../core/FeeSchedule';
 import { dollars, fraction } from '../core/lib/units';
-import { type Plan } from '../core/Plan';
 import { resolvePositionSizing } from '../core/PositionSizing';
 import {
     replacementEconomics,
@@ -24,6 +26,7 @@ import {
     type AtLeastProbabilities,
     CorrelationMode,
     type CostBreakdown,
+    type CostBreakdownArguments,
     type MultiAccountResult,
     type PortfolioSimInputs,
     type SimInputs,
@@ -132,6 +135,7 @@ export function simulate(inputs: SimInputs): SimOutputs {
     let inactivityClosureCount = 0;
     let attemptsSum = 0;
     let resetFeesSum = 0;
+    let subscriptionSum = 0;
     const sampleEquityCurves: number[][] = [];
     const finalBalances: number[] = [];
     const maxDrawdowns: number[] = [];
@@ -177,6 +181,7 @@ export function simulate(inputs: SimInputs): SimOutputs {
         attemptsSum += r.attemptsUsed;
         attemptsArray.push(r.attemptsUsed);
         resetFeesSum += r.resetFeesPaid;
+        subscriptionSum += trialSubscription(plan.fees, r, purchaseDiscounts);
         failedAttemptDaysArray.push(...r.failedAttemptDays);
         grossSpendArray.push(r.totalCost);
     }
@@ -235,11 +240,13 @@ export function simulate(inputs: SimInputs): SimOutputs {
     };
     const costPerFundedAccount =
         replacementEconomics(replacementInputs).costPerFundedAccount;
-    const costBreakdown = buildCostBreakdown(
+    const costBreakdown = buildCostBreakdown({
+        averageResetFees: resetFeesSum / trials,
+        averageSubscription: subscriptionSum / trials,
+        evalPassProbability,
         plan,
         replacementInputs,
-        resetFeesSum / trials,
-    );
+    });
     const costPerDrawdownDollar =
         costPerFundedAccount / plan.fundedDrawdown.amount;
 
@@ -258,10 +265,12 @@ export function simulate(inputs: SimInputs): SimOutputs {
         costBreakdown: {
             activationFee: costBreakdown.activationFee * m,
             evalFee: costBreakdown.evalFee * m,
-            monthlySubsTotal: costBreakdown.monthlySubsTotal,
             perAccountActivationFee: costBreakdown.perAccountActivationFee,
             perAccountEvalFee: costBreakdown.perAccountEvalFee,
             resetFeesTotal: costBreakdown.resetFeesTotal * m,
+            subscriptionPerFundedAccount:
+                costBreakdown.subscriptionPerFundedAccount,
+            subscriptionPerTrial: costBreakdown.subscriptionPerTrial * m,
         },
         costPerDrawdownDollar,
         costPerFundedAccount,
@@ -513,21 +522,26 @@ function atLeastProbabilities(
     return { k1, kAll, kHalf };
 }
 
-function buildCostBreakdown(
-    plan: Plan,
-    replacementInputs: ReplacementInputs,
-    avgResetFees: number,
-): CostBreakdown {
+function buildCostBreakdown(arguments_: CostBreakdownArguments): CostBreakdown {
+    const {
+        averageResetFees,
+        averageSubscription,
+        evalPassProbability,
+        plan,
+        replacementInputs,
+    } = arguments_;
     const { discounts } = replacementInputs;
     const perAccountEvalFee = initialEvalFee(plan.fees, discounts);
     const perAccountActivationFee = activationFee(plan.fees, discounts);
     return {
-        activationFee: perAccountActivationFee,
+        activationFee: perAccountActivationFee * evalPassProbability,
         evalFee: perAccountEvalFee,
-        monthlySubsTotal: renewalChainSubscription(replacementInputs),
         perAccountActivationFee,
         perAccountEvalFee,
-        resetFeesTotal: avgResetFees,
+        resetFeesTotal: averageResetFees,
+        subscriptionPerFundedAccount:
+            subscriptionPerFundedAccount(replacementInputs),
+        subscriptionPerTrial: averageSubscription,
     };
 }
 
@@ -544,14 +558,6 @@ function monthlyNetPerSlot(cycleNet: number, slotDays: number): number {
     return (cycleNet * TRADING_DAYS_PER_MONTH) / slotDays;
 }
 
-function renewalChainSubscription(inputs: ReplacementInputs): number {
-    if (monthlySubscriptionFee(inputs.fees, inputs.discounts) === 0) return 0;
-    return replacementEconomics({
-        ...inputs,
-        fees: subscriptionOnlyFees(inputs.fees),
-    }).costPerFundedAccount;
-}
-
 function resolveRebuyLagDays(
     rebuyLagDays: number = SIM_DEFAULTS.rebuyLagDays,
 ): number {
@@ -563,11 +569,38 @@ function resolveRebuyLagDays(
     return rebuyLagDays;
 }
 
-function subscriptionOnlyFees(fees: FeeSchedule): FeeSchedule {
+function subscriptionOnlyFees(
+    fees: FeeSchedule,
+    discounts: CouponDiscounts | undefined,
+): FeeSchedule {
     return {
         activation: dollars(0),
         monthlySubscription: fees.monthlySubscription,
         oneTimeEval: dollars(0),
         reset: dollars(0),
+        retry: retryPath(fees, discounts),
     };
+}
+
+function subscriptionPerFundedAccount(inputs: ReplacementInputs): number {
+    if (monthlySubscriptionFee(inputs.fees, inputs.discounts) === 0) return 0;
+    return replacementEconomics({
+        ...inputs,
+        fees: subscriptionOnlyFees(inputs.fees, inputs.discounts),
+    }).costPerFundedAccount;
+}
+
+function trialSubscription(
+    fees: FeeSchedule,
+    result: TrialResult,
+    discounts: CouponDiscounts | undefined,
+): number {
+    const attemptDays =
+        result.daysToPass === null
+            ? result.failedAttemptDays
+            : [...result.failedAttemptDays, result.daysToPass];
+    return (
+        feesUntilPassAcrossAttempts(fees, attemptDays, discounts) -
+        initialEvalFee(fees, discounts)
+    );
 }

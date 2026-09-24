@@ -1,5 +1,10 @@
 import { TRADING_DAYS_PER_MONTH } from './constants';
-import { type CouponDiscounts } from './FeeSchedule';
+import {
+    type CouponDiscounts,
+    monthlySubscriptionFee,
+    RetryKind,
+    retryPath,
+} from './FeeSchedule';
 import { type Plan } from './Plan';
 
 export interface RenewalCycleObjectiveInit {
@@ -58,6 +63,20 @@ export class RenewalCycleObjective {
         );
     }
 
+    private unbilledSubscriptionAfterReset(failedAttemptDays: number): number {
+        if (retryPath(this.plan.fees, this.discounts) === RetryKind.Rebuy) {
+            return 0;
+        }
+        const usedMonths = failedAttemptDays / TRADING_DAYS_PER_MONTH;
+        const billedDuringAttempt =
+            this.plan.feesUntilPass(failedAttemptDays, this.discounts) -
+            this.plan.feesUntilPass(0, this.discounts);
+        return (
+            monthlySubscriptionFee(this.plan.fees, this.discounts) * usedMonths -
+            billedDuringAttempt
+        );
+    }
+
     activationCost(): number {
         return (
             this.plan.totalCostThroughDay(0, this.purchaseDiscounts) -
@@ -100,9 +119,11 @@ export class RenewalCycleObjective {
         return ratePerDay * TRADING_DAYS_PER_MONTH;
     }
 
-    retryCost(ratePerDay: number): number {
+    retryCost(ratePerDay: number, failedAttemptDays: number): number {
         return (
-            this.plan.retryFee(this.discounts) + ratePerDay * this.rebuyLagDays
+            this.plan.retryFee(this.discounts) +
+            this.unbilledSubscriptionAfterReset(failedAttemptDays) +
+            ratePerDay * this.rebuyLagDays
         );
     }
 }

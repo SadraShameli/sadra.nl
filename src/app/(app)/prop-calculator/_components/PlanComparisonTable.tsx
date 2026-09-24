@@ -20,6 +20,7 @@ import {
     type SimOutputs,
     simulate,
     type TradingFirm,
+    withOneTimeEarlyWithdrawalTaken,
 } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
@@ -36,6 +37,7 @@ interface PlanComparisonTableProperties {
     activePlan: Plan;
     baseInputs: Omit<SimInputs, 'plan'>;
     firm: TradingFirm;
+    takesOneTimeEarlyWithdrawal: boolean;
 }
 
 interface Row {
@@ -50,15 +52,23 @@ export default function PlanComparisonTable({
     activePlan,
     baseInputs,
     firm,
+    takesOneTimeEarlyWithdrawal,
 }: PlanComparisonTableProperties) {
-    const key = buildCacheKey(baseInputs, firm.id);
+    const key = buildCacheKey(baseInputs, firm.id, takesOneTimeEarlyWithdrawal);
     const { pending, result: rows } = useDebouncedComputation<Row[]>(
         key,
         DEBOUNCE_MS,
         () => {
             const trials = Math.min(MAX_TRIALS, baseInputs.trials);
             const partial = rankablePlans(firm.plans, false).map((plan) => ({
-                out: simulate({ ...baseInputs, plan, trials }),
+                out: simulate({
+                    ...baseInputs,
+                    plan: withOneTimeEarlyWithdrawalTaken(
+                        plan,
+                        takesOneTimeEarlyWithdrawal,
+                    ),
+                    trials,
+                }),
                 plan,
                 ptdd: plan.profitTarget / plan.drawdown.amount,
             }));
@@ -208,9 +218,10 @@ export default function PlanComparisonTable({
 function buildCacheKey(
     inputs: Omit<SimInputs, 'plan'>,
     firmId: string,
+    isEarlyWithdrawalTaken: boolean,
 ): string {
     return simInputsCacheKey(inputs, {
-        extra: { firmId },
+        extra: { earlyWithdrawal: isEarlyWithdrawalTaken, firmId },
         omit: [SimInputsKeyField.PlanId],
     });
 }

@@ -2,6 +2,7 @@ import { type AccountState } from '../core/AccountState';
 import {
     type DayPolicy,
     type DayStopRule,
+    type FundedCycleSnapshot,
     type RungSizing,
 } from '../core/DayPolicy';
 import { type CouponDiscounts } from '../core/FeeSchedule';
@@ -12,6 +13,7 @@ import { type LiveAccountState } from '../core/LiveAccountState';
 import { type LivePlan } from '../core/LivePlan';
 import { type Plan } from '../core/Plan';
 import { type PositionSizingConfig } from '../core/PositionSizing';
+import { type ReplacementInputs } from '../core/Replacement';
 import { type Roi } from '../core/Roi';
 import { type TradingPhase } from '../core/TradingPhase';
 import { type Rng } from '../rng';
@@ -38,24 +40,30 @@ export type AttemptOutcome = 'busted' | 'passed' | 'timed-out';
 export interface CostBreakdown {
     activationFee: number;
     evalFee: number;
-    monthlySubsTotal: number;
     perAccountActivationFee: number;
     perAccountEvalFee: number;
     resetFeesTotal: number;
+    subscriptionPerFundedAccount: number;
+    subscriptionPerTrial: number;
+}
+
+export interface CostBreakdownArguments {
+    averageResetFees: number;
+    averageSubscription: number;
+    evalPassProbability: number;
+    plan: Plan;
+    replacementInputs: ReplacementInputs;
 }
 
 export interface DayRunOptions {
     commission: Dollars;
-    cycleBestDayProfit?: number;
     dayPolicy: DayPolicy;
+    fundedCycle?: FundedCycleSnapshot;
     idleDayProbability?: number;
     intradayPathStepsPerR?: number;
-    lastPayoutBalance?: number;
-    payoutsIssued?: number;
     phase: TradingPhase;
     plan: Plan;
     positionSizing: null | PositionSizingConfig;
-    qualifyingDaysSincePayout?: number;
     rng: Rng;
     rrRatio: number;
     rungSizing: RungSizing;
@@ -187,6 +195,8 @@ export interface LiveOutputs {
     cumulativeWithdrawalsP50: number;
     cumulativeWithdrawalsP95: number;
     expectedAnnualWithdrawalRate: number;
+    expectedCapitalReturned: number;
+    expectedLiquidationPayout: number;
     liveBustProbability: number;
     liveInactivityClosureProbability: number;
     medianDaysToBust: number;

@@ -22,11 +22,10 @@ export const APEX_LIVE_DEFAULT_CUSHION_PERCENT: LiveCushionPercent = {
 const DRAWDOWN_AMOUNT = dollars(3000);
 const LOCK_OFFSET = 100;
 const MIN_PAYOUT_REQUEST = dollars(500);
-const NO_DAILY_LOSS_LIMIT = dollars(Infinity);
 
 const LIVE_LEVELS = [
     {
-        dailyLossLimit: NO_DAILY_LOSS_LIMIT,
+        dailyLossLimit: null,
         maxMicros: contracts(100),
         maxMinis: contracts(10),
         minProfit: dollars(0),

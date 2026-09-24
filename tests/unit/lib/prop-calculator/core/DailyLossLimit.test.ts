@@ -4,6 +4,7 @@ import {
     type DailyLossLimitConfig,
     type DailyLossLimitContext,
     DailyLossLimitKind,
+    DailyLossLimitShape,
     dailyLossLimitTierBreakpoints,
     describeDailyLossLimit,
     type DllTier,
@@ -494,5 +495,80 @@ describe('hasPeakShareDependency flags exactly the continuously peak-dependent l
         expect(
             isContinuouslyPeakDependent({ kind: DailyLossLimitKind.None }),
         ).toBe(false);
+    });
+});
+
+describe('a tier with no daily loss limit (null)', () => {
+    const OPEN_THEN_CAPPED: readonly DllTier[] = [
+        { dailyLossLimit: null, maxContracts: contracts(10), minProfit: 0 },
+        {
+            dailyLossLimit: dollars(5000),
+            maxContracts: contracts(25),
+            minProfit: 10_000,
+        },
+        {
+            dailyLossLimit: dollars(10_000),
+            maxContracts: contracts(30),
+            minProfit: 25_000,
+        },
+    ];
+    const config: DailyLossLimitConfig = {
+        kind: DailyLossLimitKind.Tiered,
+        tiers: OPEN_THEN_CAPPED,
+    };
+
+    it('resolves to null, the engine-wide "no limit", on the unlimited tier', () => {
+        expect(resolveDailyLossLimit(config, atProfit(0))).toBeNull();
+        expect(resolveDailyLossLimit(config, atProfit(9999))).toBeNull();
+        expect(resolveDailyLossLimit(config, atProfit(10_000))).toBe(5000);
+    });
+
+    it('describes the limited tiers as a range and flags the unlimited one', () => {
+        expect(describeDailyLossLimit(config)).toStrictEqual({
+            hasUnlimitedTier: true,
+            kind: DailyLossLimitShape.Range,
+            max: dollars(10_000),
+            min: dollars(5000),
+        });
+    });
+
+    it('describes a tiered limit whose every tier is unlimited as no limit', () => {
+        expect(
+            describeDailyLossLimit({
+                kind: DailyLossLimitKind.Tiered,
+                tiers: [
+                    {
+                        dailyLossLimit: null,
+                        maxContracts: contracts(1),
+                        minProfit: 0,
+                    },
+                ],
+            }),
+        ).toStrictEqual({ kind: DailyLossLimitShape.None });
+    });
+
+    it('keeps the unlimited tier unlimited when scaled', () => {
+        const scaled = scaleDailyLossLimit(config, fraction(0.5));
+        expect(scaled).toStrictEqual({
+            kind: DailyLossLimitKind.Tiered,
+            tiers: [
+                {
+                    dailyLossLimit: null,
+                    maxContracts: contracts(10),
+                    minProfit: 0,
+                },
+                {
+                    dailyLossLimit: dollars(2500),
+                    maxContracts: contracts(25),
+                    minProfit: 10_000,
+                },
+                {
+                    dailyLossLimit: dollars(5000),
+                    maxContracts: contracts(30),
+                    minProfit: 25_000,
+                },
+            ],
+        });
+        expect(resolveDailyLossLimit(scaled, atProfit(0))).toBeNull();
     });
 });

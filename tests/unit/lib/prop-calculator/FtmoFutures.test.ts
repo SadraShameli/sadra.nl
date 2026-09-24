@@ -551,3 +551,17 @@ describe('idle days are simulable in FTMO Futures Evaluation (no closure rule, b
         },
     );
 });
+
+describe('the FTMO Futures retry note matches the T29 retry loop', () => {
+    const notes = new FtmoFutures().notes;
+    const retryNote = notes.find((note) => note.includes('runEvalWithRetries'));
+
+    it('says every failed attempt is retried, a timeout of the modeled eval horizon as well as a bust', () => {
+        expect(retryNote).toContain(
+            'charges fees.reset on every failed Evaluation attempt except the terminal one, a bust or a timeout alike',
+        );
+        expect(retryNote).toContain('--eval-days');
+        expect(retryNote).not.toContain('on every bust except');
+        expect(retryNote).not.toContain('N-bust run');
+    });
+});

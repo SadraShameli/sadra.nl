@@ -33,6 +33,18 @@ export function profitShareMultiplier(value: number): ProfitShareMultiplier {
     return value as ProfitShareMultiplier;
 }
 
+export const ONE_CENT = dollars(0.01);
+
+const CENTS_PER_DOLLAR = 100;
+const CENT_ROUNDING_TOLERANCE = 1e-6;
+
+export function floorToWholeCents(amount: number): number {
+    return (
+        Math.floor(amount * CENTS_PER_DOLLAR + CENT_ROUNDING_TOLERANCE) /
+        CENTS_PER_DOLLAR
+    );
+}
+
 export const contractCountSchema = z
     .number()
     .int()

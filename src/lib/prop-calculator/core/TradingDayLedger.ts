@@ -12,6 +12,7 @@ export function applyTrade(
     state.balance += pnl;
     state.todayPnL += pnl;
     plan.drawdownFor(phase).onTrade(state, pnl, peakPnL);
+    plan.recordIntradayHigh(state);
 }
 
 export function closeTradingDay(

@@ -16,6 +16,12 @@ export enum RungSizing {
     SkipIfUnaffordable = 'skipIfUnaffordable',
 }
 
+export type ComputeRisk = (
+    state: AccountState,
+    tradeIndexToday: number,
+    fundedCycle?: FundedCycleSnapshot,
+) => number;
+
 export interface DayPolicy {
     readonly computeRisk?: ComputeRisk;
     readonly ladder: readonly number[];
@@ -30,14 +36,12 @@ export type DayStopRule =
     | { kind: DayStopRuleKind.FirstWin }
     | { kind: DayStopRuleKind.None };
 
-type ComputeRisk = (
-    state: AccountState,
-    tradeIndexToday: number,
-    payoutsIssued?: number,
-    cycleBestDayProfit?: number,
-    qualifyingDaysSincePayout?: number,
-    lastPayoutBalance?: number,
-) => number;
+export interface FundedCycleSnapshot {
+    readonly cycleBestDayProfit: number;
+    readonly lastPayoutBalance: number;
+    readonly payoutsIssued: number;
+    readonly qualifyingDaysSincePayout: number;
+}
 
 export const DEFAULT_RUNG_SIZING: RungSizing = RungSizing.CapToCushion;
 
@@ -135,10 +139,11 @@ export function resolveAffordableRisk(
     cushion: number,
     dailyLossLimit: null | number,
     todayPnL: number,
+    commission: number,
 ): number {
     return dailyLossLimit === null
         ? cushion
-        : Math.min(cushion, dailyLossLimit + todayPnL);
+        : Math.min(cushion, dailyLossLimit - commission + todayPnL);
 }
 
 export function resolveFundedTradeRisk(

@@ -9,7 +9,11 @@ import {
     planVariant,
 } from '~/cli/commands/prop/shared';
 import { ui } from '~/cli/ui';
-import { formatCurrency, formatPercent } from '~/lib/format';
+import {
+    formatCurrency,
+    formatGateCurrency,
+    formatPercent,
+} from '~/lib/format';
 import {
     type ContractLimits,
     type DrawdownStrategy,
@@ -142,8 +146,8 @@ export function planRuleLines(plan: Plan): string[] {
         [
             `    eval DLL ${plan.isInstantFunded ? 'n/a' : describeDll(plan.evalDailyLossLimit, plan.isDailyLossLimitTerminating(TradingPhase.Eval))}`,
             `funded DLL ${describeDll(plan.fundedDailyLossLimit, plan.isDailyLossLimitTerminating(TradingPhase.Funded))}`,
-            `consistency eval ${plan.isInstantFunded ? 'n/a' : describeShare(consistencyEval?.maxBestDayShare)}`,
-            `funded ${describeShare(consistencyFunded?.maxBestDayShare)}`,
+            `consistency eval ${plan.isInstantFunded ? 'n/a' : describeShare(consistencyEval)}`,
+            `funded ${describeShare(consistencyFunded)}`,
         ].join(' | '),
         [
             `    contracts ${plan.isInstantFunded ? 'n/a' : limits ? `${limits.evalMinis} mini / ${limits.evalMicros ?? '?'} micro` : 'not recorded'}`,
@@ -161,7 +165,7 @@ export function planRuleLines(plan: Plan): string[] {
             ...(plan.minPayoutProfitPerCycle === null
                 ? []
                 : [
-                      `per cycle ${formatGateAmount(plan.minPayoutProfitPerCycle)}`,
+                      `per cycle ${formatGateCurrency(plan.minPayoutProfitPerCycle)}`,
                   ]),
             `min request ${formatCurrency(plan.minPayoutRequest)}`,
             `qualifying days ${plan.minDaysAfterPassForPayout}`,
@@ -269,8 +273,4 @@ function describePayoutFloorEffect(effect: PayoutFloorEffect): string {
             return ', floor reset to breakeven on each payout';
         }
     }
-}
-
-function formatGateAmount(amount: number): string {
-    return formatCurrency(amount, Number.isSafeInteger(amount) ? 0 : 2);
 }

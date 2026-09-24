@@ -1,11 +1,12 @@
 import type { ArgsDef } from 'citty';
 
 import { parseArgs } from 'citty';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import liveCommand, {
     describeAnnualWithdrawalRate,
     describeLiveWithdrawal,
+    describeLucidDailyTransitionProfit,
     describeSeedReserve,
     liveArguments,
     liveSummaryRows,
@@ -17,16 +18,24 @@ import { tradingArguments } from '~/cli/commands/prop/shared';
 import { formatCurrency } from '~/lib/format';
 import {
     buildApexLivePlan,
+    DailyLossLimitKind,
+    dollars,
     findLivePlanBuilder,
+    findLiveTransitionPlanBuilder,
     FirmId,
     fraction,
     INSTRUMENTS,
     InstrumentSymbol,
+    LIVE_TRANSITION_PLAN_BUILDERS,
+    LivePlan,
     type LivePlanBuilder,
     type LiveSimInputs,
+    type LiveTransitionPlanBuilder,
+    LUCID_DAILY_LIVE_TRANSITION_PAYOUT_CAP,
     simulateLiveAccount,
+    TRADING_DAYS_PER_YEAR,
 } from '~/lib/prop-calculator';
-import { TRADING_DAYS_PER_YEAR } from '~/lib/prop-calculator/core/constants';
+import * as firms from '~/lib/prop-calculator/firms';
 import { buildLucidDailyLivePlan } from '~/lib/prop-calculator/firms';
 
 const TOPSTEP_CUSHION = {
@@ -315,12 +324,16 @@ describe('readLiveWithdrawal (D4: keep one drawdown of cushion unless --request-
         expect(description).not.toContain('\u{2014}');
     });
 
-    it('says in the --request-size help text that released seed Reserve is never withdrawn and that draining counts seed as income', () => {
+    it('says in the --request-size help text that released seed Reserve is held back until every increment is out, and that seed and Reserve withdrawals are capital, not annualized', () => {
         const description = liveArguments['request-size'].description;
-        expect(description).toContain('released seed Reserve is never withdrawn');
         expect(description).toContain(
-            'the annual rate counts that seed as income',
+            'released seed Reserve is held back until every increment is released',
         );
+        expect(description).toContain(
+            'reported as capital returned, never annualized',
+        );
+        expect(description).not.toContain('never withdrawn');
+        expect(description).not.toContain('counts that seed as income');
     });
 });
 
@@ -347,17 +360,17 @@ describe('describeLiveWithdrawal on a live plan with a seed Reserve (TopStep LFA
         {
             argv: [],
             expected:
-                'withdraw: excess above $9,000 cushion; released seed Reserve is never withdrawn',
+                'withdraw: excess above $9,000 cushion; released seed Reserve is held back until all 4 increments are out',
         },
         {
             argv: ['--request-size', '500'],
             expected:
-                'withdraw: $500/request above $9,000 cushion; released seed Reserve is never withdrawn',
+                'withdraw: $500/request above $9,000 cushion; released seed Reserve is held back until all 4 increments are out',
         },
         {
             argv: ['--request-size', 'all'],
             expected:
-                'withdraw: everything down to one cent above the floor (--request-size all), seed included, which the annual rate counts as income; released seed Reserve is never withdrawn',
+                'withdraw: everything down to one cent above the floor (--request-size all), seed included as capital returned; released seed Reserve is held back until all 4 increments are out',
         },
     ])('describes $argv as "$expected"', ({ argv, expected }) => {
         const inputs = parseLive(argv, topStepBuilder());
@@ -400,7 +413,7 @@ describe('prop live --firm apex Live levels and minimum payout request', () => {
         expect(() =>
             parseLive([...HAND_COMPUTED_APEX_RUN, '--request-size', '400']),
         ).toThrow(
-            '--request-size 400 is below the $500 minimum payout request of Apex Live, so it could never be paid',
+            '--request-size 400: Apex Live: a payout request of $400 is below the $500 minimum payout request, so it could never be paid',
         );
     });
 
@@ -427,7 +440,7 @@ describe('prop live --firm apex Live levels and minimum payout request', () => {
                 mffuBuilder(),
             ),
         ).toThrow(
-            '--request-size 200 is below the $250 minimum payout request of MyFundedFutures Rapid Live, so it could never be paid',
+            '--request-size 200: MyFundedFutures Rapid Live: a payout request of $200 is below the $250 minimum payout request, so it could never be paid',
         );
     });
 });
@@ -571,6 +584,231 @@ describe('prop live summary rows (N-46)', () => {
     });
 });
 
+describe('prop live capital and liquidation rows (WP18f R-5, R-12)', () => {
+    const topStepFiveDayProfit = 9000 * 1.05 ** 5 - 9000;
+
+    it('shows seed withdrawn in drain mode on its own not-annualized line and annualizes only the trading profit', () => {
+        const { rows } = rowsFor(
+            [
+                ...HAND_COMPUTED_APEX_RUN,
+                '--horizon-days',
+                '5',
+                '--request-size',
+                'all',
+            ],
+            topStepBuilder(),
+        );
+
+        expect(rows.get('expected capital returned (not annualized)')).toBe(
+            formatCurrency(0.9 * (6243.26 - topStepFiveDayProfit)),
+        );
+        expect(rows.get('annual rate (scaled from 5d)')).toBe(
+            formatCurrency(
+                ((0.9 * topStepFiveDayProfit) / 5) * TRADING_DAYS_PER_YEAR,
+            ),
+        );
+    });
+
+    it('shows the final payout at an auto-liquidation on its own not-annualized line', () => {
+        const { out, rows } = rowsFor(
+            [
+                '--trials',
+                '1',
+                '--winrate',
+                '0',
+                '--rr',
+                '2',
+                '--tpd',
+                '1',
+                '--commission',
+                '10',
+                '--horizon-days',
+                '100',
+                '--request-size',
+                'all',
+            ],
+            topStepBuilder(),
+        );
+
+        expect(out.expectedLiquidationPayout).toBeGreaterThan(0);
+        expect(rows.get('expected liquidation payout (not annualized)')).toBe(
+            formatCurrency(out.expectedLiquidationPayout),
+        );
+        expect(rows.get('annual rate (scaled from 100d)')).toBe('$0');
+    });
+
+    it('leaves both lines out for a live plan that only ever pays profit', () => {
+        const { rows } = rowsFor(
+            [...HAND_COMPUTED_APEX_RUN, '--horizon-days', '25'],
+            apexBuilder(),
+        );
+
+        expect(rows.has('expected capital returned (not annualized)')).toBe(
+            false,
+        );
+        expect(rows.has('expected liquidation payout (not annualized)')).toBe(
+            false,
+        );
+    });
+});
+
+function percentileLabels(inclusion: string): [string, string, string] {
+    return [
+        `withdrawals at horizon${inclusion} (p5)`,
+        `withdrawals at horizon${inclusion} (p50)`,
+        `withdrawals at horizon${inclusion} (p95)`,
+    ];
+}
+
+describe('prop live percentile rows name the one-off money they include (WP18f review)', () => {
+    const liquidationRun = [
+        '--trials',
+        '1',
+        '--winrate',
+        '0',
+        '--rr',
+        '2',
+        '--tpd',
+        '1',
+        '--commission',
+        '10',
+        '--horizon-days',
+        '100',
+    ];
+
+    it('keeps the plain label for a live plan that only ever pays profit', () => {
+        const { out, rows } = rowsFor(
+            [...HAND_COMPUTED_APEX_RUN, '--horizon-days', '25'],
+            apexBuilder(),
+        );
+
+        const [p5, p50, p95] = percentileLabels('');
+        expect(rows.get(p5)).toBe(formatCurrency(out.cumulativeWithdrawalsP5));
+        expect(rows.get(p50)).toBe(
+            formatCurrency(out.cumulativeWithdrawalsP50),
+        );
+        expect(rows.get(p95)).toBe(
+            formatCurrency(out.cumulativeWithdrawalsP95),
+        );
+    });
+
+    it('says the totals include the LucidDaily transition credit', () => {
+        const { out, rows } = rowsFor(
+            [
+                ...HAND_COMPUTED_APEX_RUN,
+                '--horizon-days',
+                '25',
+                '--request-size',
+                'all',
+            ],
+            buildLucidDailyLivePlan,
+        );
+
+        const [, p50] = percentileLabels(', incl. transition credit');
+        expect(rows.get(p50)).toBe(
+            formatCurrency(out.cumulativeWithdrawalsP50),
+        );
+        expect(rows.has('withdrawals at horizon (p50)')).toBe(false);
+    });
+
+    it('says the totals include capital returned when TopStep drain mode takes the seed', () => {
+        const { out, rows } = rowsFor(
+            [
+                ...HAND_COMPUTED_APEX_RUN,
+                '--horizon-days',
+                '5',
+                '--request-size',
+                'all',
+            ],
+            topStepBuilder(),
+        );
+
+        expect(out.expectedCapitalReturned).toBeGreaterThan(0);
+        expect(out.expectedLiquidationPayout).toBe(0);
+        for (const label of percentileLabels(', incl. capital returned')) {
+            expect(rows.has(label)).toBe(true);
+        }
+        expect(
+            rows.get('withdrawals at horizon, incl. capital returned (p50)'),
+        ).toBe(formatCurrency(out.cumulativeWithdrawalsP50));
+        expect(rows.has('withdrawals at horizon (p50)')).toBe(false);
+    });
+
+    it('says the totals include the liquidation payout after a TopStep floor bust', () => {
+        const { out, rows } = rowsFor(liquidationRun, topStepBuilder());
+
+        expect(out.expectedCapitalReturned).toBe(0);
+        expect(out.expectedLiquidationPayout).toBeGreaterThan(0);
+        expect(
+            rows.get('withdrawals at horizon, incl. liquidation payout (p50)'),
+        ).toBe(formatCurrency(out.cumulativeWithdrawalsP50));
+        expect(rows.has('withdrawals at horizon (p50)')).toBe(false);
+    });
+
+    it('lists every one-off kind a run pays in one label', () => {
+        const inputs = parseLive(
+            [
+                ...HAND_COMPUTED_APEX_RUN,
+                '--horizon-days',
+                '25',
+                '--request-size',
+                'all',
+            ],
+            buildLucidDailyLivePlan,
+        );
+        const out = simulateLiveAccount(inputs);
+        const rows = new Map(
+            liveSummaryRows(inputs, {
+                ...out,
+                expectedCapitalReturned: 100,
+                expectedLiquidationPayout: 50,
+            }),
+        );
+
+        expect(
+            rows.get(
+                'withdrawals at horizon, incl. transition credit, capital returned and liquidation payout (p95)',
+            ),
+        ).toBe(formatCurrency(out.cumulativeWithdrawalsP95));
+    });
+
+    it('names capital returned and the liquidation payout together', () => {
+        const inputs = parseLive(
+            [...HAND_COMPUTED_APEX_RUN, '--horizon-days', '25'],
+            apexBuilder(),
+        );
+        const out = simulateLiveAccount(inputs);
+        const rows = new Map(
+            liveSummaryRows(inputs, {
+                ...out,
+                expectedCapitalReturned: 100,
+                expectedLiquidationPayout: 50,
+            }),
+        );
+
+        expect(
+            rows.get(
+                'withdrawals at horizon, incl. capital returned and liquidation payout (p5)',
+            ),
+        ).toBe(formatCurrency(out.cumulativeWithdrawalsP5));
+    });
+});
+
+describe('the root prop-calculator barrel re-exports the live transition builder surface (R-7)', () => {
+    it('matches the firms barrel', () => {
+        const lucidBuilder: LiveTransitionPlanBuilder | undefined =
+            findLiveTransitionPlanBuilder(FirmId.Lucid);
+
+        expect(lucidBuilder).toBe(
+            firms.findLiveTransitionPlanBuilder(FirmId.Lucid),
+        );
+        expect(LIVE_TRANSITION_PLAN_BUILDERS).toBe(
+            firms.LIVE_TRANSITION_PLAN_BUILDERS,
+        );
+        expect(LUCID_DAILY_LIVE_TRANSITION_PAYOUT_CAP).toBe(15_000);
+    });
+});
+
 describe('prop live --transition-profit maps the Lucid Daily live variant (N-54)', () => {
     const argv = [...HAND_COMPUTED_APEX_RUN, '--horizon-days', '25'];
 
@@ -631,5 +869,126 @@ describe('prop live --transition-profit maps the Lucid Daily live variant (N-54)
         expect(description).toContain('Lucid Daily');
         expect(description).toContain('$15,000');
         expect(description).not.toContain('\u{2014}');
+    });
+});
+
+function planMessageFor(plan: LivePlan, requestSize: number): string {
+    try {
+        plan.resolvePayoutRequestSize(requestSize);
+    } catch (error) {
+        return error instanceof Error ? error.message : String(error);
+    }
+    throw new Error(`${plan.label} accepted a $${requestSize} request`);
+}
+
+describe('prop live --request-size minimum has one source of truth, the plan (WP18g)', () => {
+    it('fails with the plan own minimum-request message, prefixed with the flag', () => {
+        const plan = buildApexLivePlan(TOPSTEP_CUSHION);
+
+        expect(() =>
+            parseLive([...HAND_COMPUTED_APEX_RUN, '--request-size', '400']),
+        ).toThrow(`--request-size 400: ${planMessageFor(plan, 400)}`);
+    });
+
+    it('fails the same way on the TopStep LFA $125 minimum', () => {
+        const plan = topStepBuilder()(TOPSTEP_CUSHION);
+
+        expect(() =>
+            parseLive(
+                [...HAND_COMPUTED_APEX_RUN, '--request-size', '100'],
+                topStepBuilder(),
+            ),
+        ).toThrow(`--request-size 100: ${planMessageFor(plan, 100)}`);
+    });
+
+    it('accepts --request-size 125 on the TopStep LFA, exactly its minimum', () => {
+        expect(
+            parseLive(
+                [...HAND_COMPUTED_APEX_RUN, '--request-size', '125'],
+                topStepBuilder(),
+            ).payoutRequestSize,
+        ).toBe(125);
+    });
+});
+
+function livePlanPaying(traderShares: readonly number[]): LivePlan {
+    return new LivePlan({
+        cushionPercent: TOPSTEP_CUSHION,
+        label: 'Split probe',
+        liveDailyLossLimit: {
+            amount: dollars(1000),
+            kind: DailyLossLimitKind.Flat,
+        },
+        liveDrawdown: null,
+        payoutTiers: traderShares.map((share, index) => ({
+            thresholdProfit: dollars(index * 10_000),
+            traderShare: fraction(share),
+        })),
+    });
+}
+
+describe('prop live --transition-profit help text takes the split from the plan (WP18g)', () => {
+    it('names the trader share of the plan it describes, not a literal', () => {
+        expect(
+            describeLucidDailyTransitionProfit(livePlanPaying([0.8])),
+        ).toContain('at the 80% split');
+    });
+
+    it('names every step of a tiered split in order', () => {
+        expect(
+            describeLucidDailyTransitionProfit(livePlanPaying([0.8, 0.9])),
+        ).toContain('at the 80% then 90% split');
+    });
+
+    it('keeps a split that steps back down: 80% then 90% then 80% is not collapsed to 80% then 90%', () => {
+        expect(
+            describeLucidDailyTransitionProfit(livePlanPaying([0.8, 0.9, 0.8])),
+        ).toContain('at the 80% then 90% then 80% split');
+    });
+
+    it('still merges neighbouring tiers that pay the same share', () => {
+        expect(
+            describeLucidDailyTransitionProfit(livePlanPaying([0.9, 0.9, 0.8])),
+        ).toContain('at the 90% then 80% split');
+    });
+
+    it('declares the help text from the Lucid Daily live plan payout tiers', () => {
+        const builder = findLiveTransitionPlanBuilder(FirmId.Lucid);
+        if (!builder) throw new Error('Lucid has no live transition builder');
+        const plan = builder(TOPSTEP_CUSHION, dollars(0));
+
+        expect(liveArguments['transition-profit'].description).toBe(
+            describeLucidDailyTransitionProfit(plan),
+        );
+        expect(liveArguments['transition-profit'].description).toContain(
+            'at the 90% split',
+        );
+    });
+});
+
+describe('prop live --transition-profit help is built when the arguments are resolved, not when the module loads (WP18h)', () => {
+    afterEach(() => {
+        vi.doUnmock('~/lib/prop-calculator');
+        vi.resetModules();
+    });
+
+    it('loads the live command with no Lucid transition plan builder and fails loud when the command arguments are resolved, for any firm', async () => {
+        vi.resetModules();
+        vi.doMock('~/lib/prop-calculator', async (importOriginal) => ({
+            ...(await importOriginal<object>()),
+            findLiveTransitionPlanBuilder: vi.fn(),
+        }));
+
+        const { liveArguments: lazyArguments } =
+            await import('~/cli/commands/prop/live/command');
+
+        expect(() => lazyArguments['transition-profit'].description).toThrow(
+            '--transition-profit help: Lucid has no live transition plan builder',
+        );
+        expect(() =>
+            parseArgs(['--firm', FirmId.TopStep], lazyArguments),
+        ).toThrow(
+            '--transition-profit help: Lucid has no live transition plan builder',
+        );
     });
 });

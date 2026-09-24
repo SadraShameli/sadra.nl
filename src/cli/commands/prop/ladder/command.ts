@@ -22,6 +22,7 @@ import { formatCurrency, formatPercent, NOT_APPLICABLE } from '~/lib/format';
 import {
     assertLadderGridSize,
     defaultLadderGridMax,
+    LADDER_EVAL_PASS_FLOOR,
     LADDER_IGNORED_INPUT_REASONS,
     type LadderGridConfig,
     LadderGridError,
@@ -78,8 +79,6 @@ type UnsupportedLadderFlag = Exclude<
 >;
 
 const LADDER_WORK_WARNING = 500_000_000;
-
-export const LADDER_EVAL_PASS_FLOOR = 0.02;
 
 const UNSUPPORTED_LADDER_FLAGS: Readonly<
     Record<UnsupportedLadderFlag, LadderIgnoredInput>

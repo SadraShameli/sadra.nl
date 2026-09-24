@@ -156,6 +156,7 @@ function buildCacheKey(fields: {
     return JSON.stringify({
         actDiscount: fields.activationDiscountPercent,
         commission: fields.commissionPerRoundTrip,
+        earlyWithdrawal: fields.plan.takesOneTimeEarlyWithdrawal,
         evalDiscount: fields.discountPercent,
         fundedHorizonDays: fields.fundedHorizonDays,
         linkAct: fields.linkActivationDiscount,

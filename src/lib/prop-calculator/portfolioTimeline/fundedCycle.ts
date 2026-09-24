@@ -1,4 +1,8 @@
 import {
+    activationFee,
+    feesUntilPassAcrossAttempts,
+} from '../core/FeeSchedule';
+import {
     assertPositiveSafeInteger,
     newPhaseStats,
     type PayoutSink,
@@ -62,7 +66,7 @@ export function runEvalToFundedCycle(
         totals,
         winrate,
     });
-    const { attemptsUsed, resetFeesPaid } = retryResult;
+    const { attemptsUsed, failedAttemptDays, resetFeesPaid } = retryResult;
     let totalDays = retryResult.daysElapsed;
     const billableEvalDays = retryResult.daysElapsed;
 
@@ -72,7 +76,11 @@ export function runEvalToFundedCycle(
             evalDays: billableEvalDays,
             payouts: [],
             totalCost:
-                plan.feesUntilPass(billableEvalDays, discounts) + resetFeesPaid,
+                feesUntilPassAcrossAttempts(
+                    plan.fees,
+                    failedAttemptDays,
+                    discounts,
+                ) + resetFeesPaid,
             totalDays,
         };
     }
@@ -114,8 +122,13 @@ export function runEvalToFundedCycle(
         evalDays: billableEvalDays,
         payouts: sink.events,
         totalCost:
-            plan.totalCostThroughDay(billableEvalDays, discounts) +
-            resetFeesPaid,
+            feesUntilPassAcrossAttempts(
+                plan.fees,
+                [...failedAttemptDays, retryResult.attempt.days],
+                discounts,
+            ) +
+            resetFeesPaid +
+            activationFee(plan.fees, discounts),
         totalDays,
     };
 }

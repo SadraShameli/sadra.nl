@@ -6,6 +6,7 @@ export enum SimInputsKeyField {
     Commission = 'commission',
     CopyAccounts = 'copy',
     DayStop = 'dayStop',
+    EarlyWithdrawal = 'earlyWithdrawal',
     EvalDayPolicy = 'evalDayPolicy',
     EvalDiscount = 'eval',
     FundedHorizonDays = 'funded',
@@ -37,6 +38,8 @@ export function simInputsCacheKey(
         [SimInputsKeyField.Commission]: inputs.commissionPerRoundTrip ?? 0,
         [SimInputsKeyField.CopyAccounts]: inputs.copyAccounts ?? 1,
         [SimInputsKeyField.DayStop]: inputs.dayStop ?? null,
+        [SimInputsKeyField.EarlyWithdrawal]:
+            inputs.plan?.takesOneTimeEarlyWithdrawal ?? false,
         [SimInputsKeyField.EvalDayPolicy]: inputs.evalDayPolicy ?? null,
         [SimInputsKeyField.EvalDiscount]: inputs.discounts?.evalPercent ?? 0,
         [SimInputsKeyField.FundedHorizonDays]: inputs.fundedHorizonDays,

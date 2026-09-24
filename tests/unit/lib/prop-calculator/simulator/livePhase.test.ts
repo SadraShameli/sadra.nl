@@ -995,7 +995,7 @@ describe('runLiveHorizon on TopStep numbers ($1,000 auto-liquidation floor, Rese
         expect(result.totalWithdrawn).toBeCloseTo(0.9 * 2486.53, 8);
     });
 
-    it('adds a released $10,000 Reserve increment to the balance but keeps it out of both payouts and position size: over 20 winning days the day-10 review releases $10,000 on day 12, the day-15 and day-20 reviews see only $2,486.5 of profit each, and the default cushion pays $8,951.526 of profit', () => {
+    it('adds a released $10,000 Reserve increment to the tradable balance but holds it out of payouts until all four are out: over 20 winning days two releases feed the position size, and the default cushion pays $14,275.305 of profit', () => {
         const plan = buildTopStepLivePlan();
         const result = runLiveHorizon({
             commission: dollars(0),
@@ -1011,37 +1011,12 @@ describe('runLiveHorizon on TopStep numbers ($1,000 auto-liquidation floor, Rese
         });
 
         expect(result.busted).toBe(false);
-        expect(result.totalWithdrawn).toBeCloseTo(8951.526, 6);
+        expect(result.capitalReturned).toBe(0);
+        expect(result.totalWithdrawn).toBeCloseTo(14_275.305, 6);
     });
 
-    it('never pays the released Reserve out as recurring income: over 60 winning days all four $10,000 increments release, yet the default withdraws only the $28,419.21 of trading profit, paying $25,577.289, and the 60-day annual rate carries none of the $40,000 Reserve', () => {
+    it('returns the whole $40,000 Reserve once all four increments are out, as capital, never as recurring income: over 60 winning days the default debits $49,131.46 of trading profit (the $5,000 tier holds after profit payouts, N-57, and applies only after 10 Active Trading Days at $15,000, N-59) and $40,000 of released Reserve, and the 60-day annual rate carries only the profit', () => {
         const horizonDays = 60;
-        const plan = buildTopStepLivePlan();
-        const retainedCushion = plan.resolveRetainedCushion(undefined);
-        const state = plan.initialState();
-        let tradingProfit = 0;
-        let debitedTotal = 0;
-        for (let day = 0; day < horizonDays; day++) {
-            runLiveDay({
-                commission: dollars(0),
-                plan,
-                positionSizing: null,
-                rng: alwaysWins,
-                rrRatio: 1,
-                state,
-                tradesPerDay: 1,
-                winrate: fraction(1),
-            });
-            tradingProfit += state.todayPnL;
-            const debited = plan.payoutRequestAmount(
-                state,
-                retainedCushion,
-                undefined,
-            );
-            if (debited <= 0) continue;
-            plan.withdraw(state, debited);
-            debitedTotal += debited;
-        }
         const out = simulateLiveAccount({
             horizonDays,
             plan: buildTopStepLivePlan(),
@@ -1051,54 +1026,43 @@ describe('runLiveHorizon on TopStep numbers ($1,000 auto-liquidation floor, Rese
             trials: 1,
             winrate: 1,
         });
+        const profitDebited = 49_131.460093;
 
-        expect(state.startingBalance).toBe(50_000);
-        expect(debitedTotal).toBeCloseTo(28_419.21, 6);
-        expect(debitedTotal).toBeLessThanOrEqual(tradingProfit);
-        expect(out.cumulativeWithdrawalsAtHorizon[0]).toBeCloseTo(
-            25_577.289,
-            6,
-        );
+        expect(out.expectedCapitalReturned).toBeCloseTo(0.9 * 40_000, 3);
         expect(out.expectedAnnualWithdrawalRate).toBeCloseTo(
-            ((0.9 * debitedTotal) / horizonDays) * TRADING_DAYS_PER_YEAR,
-            6,
+            ((0.9 * profitDebited) / horizonDays) * TRADING_DAYS_PER_YEAR,
+            4,
         );
-        expect(out.expectedAnnualWithdrawalRate).toBeLessThanOrEqual(
-            ((0.9 * tradingProfit) / horizonDays) * TRADING_DAYS_PER_YEAR,
+        expect(out.cumulativeWithdrawalsAtHorizon[0]).toBeCloseTo(
+            0.9 * (profitDebited + 40_000),
+            3,
         );
+        expect(out.expectedLiquidationPayout).toBe(0);
     });
 
-    it('pays the same over 60 winning days whether the assumed transferred XFA balance leaves a $40,000 Reserve or none, so the unconfirmed $50,000 default does not drive the result', () => {
-        const runWith = (plan: ReturnType<typeof buildTopStepLivePlan>) =>
-            runLiveHorizon({
-                commission: dollars(0),
-                horizonDays: 60,
-                payoutRequestSize: undefined,
-                plan,
-                positionSizing: null,
-                retainedCushion: plan.resolveRetainedCushion(undefined),
-                rng: alwaysWins,
-                rrRatio: 1,
-                tradesPerDay: 1,
-                winrate: fraction(1),
-            }).totalWithdrawn;
-
-        const withoutReserve = buildTopStepLivePlan(
-            undefined,
-            dollars(10_000),
-        );
+    it('reports a Reserve return only when the assumed transferred XFA balance leaves a Reserve: with no Reserve the 60-day run returns no capital', () => {
+        const withoutReserve = buildTopStepLivePlan(undefined, dollars(10_000));
+        const out = simulateLiveAccount({
+            horizonDays: 60,
+            plan: withoutReserve,
+            rrRatio: 1,
+            seed: 42,
+            tradesPerDay: 1,
+            trials: 1,
+            winrate: 1,
+        });
 
         expect(withoutReserve.seedReserve.amount).toBe(0);
-        expect(runWith(buildTopStepLivePlan())).toBeCloseTo(25_577.289, 6);
-        expect(runWith(withoutReserve)).toBeCloseTo(25_577.289, 6);
+        expect(out.expectedCapitalReturned).toBe(0);
+        expect(out.expectedAnnualWithdrawalRate).toBeGreaterThan(0);
     });
 
-    it('never lets one losing trade at the default 5% sizing exceed the $2,000 base Daily Loss Limit after all four Reserve releases: the $40,000 released Reserve does not feed the position size', () => {
+    it('caps one losing trade at the $2,000 base Daily Loss Limit after all four Reserve releases, although 5% of the $61,000 cushion, released Reserve included, is $3,050', () => {
         const plan = buildTopStepLivePlan();
         const state = plan.initialState();
         for (const pnl of [
-            3000, 0, 0, 0, 0, 3000, 0, 0, 0, 0, 3000, 0, 0, 0, 0, 3000, 0, 0,
-            0, 0, 0, 0,
+            3000, 0, 0, 0, 0, 3000, 0, 0, 0, 0, 3000, 0, 0, 0, 0, 3000, 0, 0, 0,
+            0, 0, 0,
         ]) {
             state.todayPnL = pnl;
             state.balance += pnl;
@@ -1118,8 +1082,8 @@ describe('runLiveHorizon on TopStep numbers ($1,000 auto-liquidation floor, Rese
         });
 
         expect(state.startingBalance).toBe(50_000);
-        expect(state.todayPnL).toBeCloseTo(-1050, 9);
-        expect(state.todayPnL).toBeGreaterThan(-2000);
+        expect(state.balance).toBeCloseTo(60_000, 9);
+        expect(state.todayPnL).toBeCloseTo(-2000, 9);
     });
 
     it('closes the account at the $1,000 auto-liquidation floor: a $10 commission on every losing trade busts it on day 75', () => {
@@ -1138,7 +1102,9 @@ describe('runLiveHorizon on TopStep numbers ($1,000 auto-liquidation floor, Rese
 
         expect(result.busted).toBe(true);
         expect(result.daysToBust).toBe(75);
-        expect(result.totalWithdrawn).toBe(0);
+        expect(result.recurringWithdrawn).toBe(0);
+        expect(result.liquidationPayout).toBeGreaterThan(0);
+        expect(result.totalWithdrawn).toBe(result.liquidationPayout);
     });
 
     it('restarts the winning-day count after each LFA payout: over 10 winning days it withdraws only on days 5 and 10', () => {
@@ -1226,6 +1192,273 @@ describe('runLiveHorizon on TopStep numbers ($1,000 auto-liquidation floor, Rese
         expect(result.busted).toBe(false);
         expect(state.todayPnL).toBeLessThanOrEqual(-2000);
         expect(state.todayPnL).toBeGreaterThan(-2500);
+    });
+});
+
+function topStepDrainRun(horizonDays: number) {
+    return runLiveHorizon({
+        commission: dollars(0),
+        horizonDays,
+        payoutRequestSize: undefined,
+        plan: buildTopStepLivePlan(),
+        positionSizing: null,
+        retainedCushion: dollars(0),
+        rng: alwaysWins,
+        rrRatio: 1,
+        tradesPerDay: 1,
+        winrate: fraction(1),
+    });
+}
+
+const TOPSTEP_FIVE_DAY_PROFIT = 9000 * 1.05 ** 5 - 9000;
+const TOPSTEP_FIVE_DAY_DRAIN = 6243.26;
+
+describe('WP18f R-5: a withdrawal from below the running starting balance is capital, a one-off that is never annualized', () => {
+    it('splits the day-5 LFA drain of $6,243.26 into $2,486.53 of trading profit, paid as recurring income, and $3,756.73 of seed, paid as capital, both at the 90/10 split', () => {
+        const result = topStepDrainRun(5);
+
+        expect(result.recurringWithdrawn).toBeCloseTo(
+            0.9 * TOPSTEP_FIVE_DAY_PROFIT,
+            8,
+        );
+        expect(result.capitalReturned).toBeCloseTo(
+            0.9 * (TOPSTEP_FIVE_DAY_DRAIN - TOPSTEP_FIVE_DAY_PROFIT),
+            8,
+        );
+        expect(result.totalWithdrawn).toBeCloseTo(
+            0.9 * TOPSTEP_FIVE_DAY_DRAIN,
+            8,
+        );
+    });
+
+    it('counts profit earned after a seed withdrawal as profit again: over 10 winning days both drains pay out all $3,935.15 of trading profit as recurring income and only the other $6,154.05 as capital', () => {
+        const result = topStepDrainRun(10);
+
+        expect(result.recurringWithdrawn).toBeCloseTo(0.9 * 3935.154013, 5);
+        expect(result.capitalReturned).toBeCloseTo(0.9 * 6154.045987, 5);
+        expect(result.totalWithdrawn).toBeCloseTo(
+            0.9 * (TOPSTEP_FIVE_DAY_DRAIN + 3845.94),
+            6,
+        );
+    });
+
+    it('annualizes only the profit part in simulateLiveAccount and reports the seed as expectedCapitalReturned', () => {
+        const out = simulateLiveAccount({
+            horizonDays: 5,
+            plan: buildTopStepLivePlan(),
+            retainedCushion: 0,
+            rrRatio: 1,
+            seed: 42,
+            tradesPerDay: 1,
+            trials: 1,
+            winrate: 1,
+        });
+
+        expect(out.expectedAnnualWithdrawalRate).toBeCloseTo(
+            ((0.9 * TOPSTEP_FIVE_DAY_PROFIT) / 5) * TRADING_DAYS_PER_YEAR,
+            6,
+        );
+        expect(out.expectedCapitalReturned).toBeCloseTo(
+            0.9 * (TOPSTEP_FIVE_DAY_DRAIN - TOPSTEP_FIVE_DAY_PROFIT),
+            8,
+        );
+        expect(out.cumulativeWithdrawalsP50).toBeCloseTo(
+            0.9 * TOPSTEP_FIVE_DAY_DRAIN,
+            8,
+        );
+    });
+
+    it('reports no capital for a plan that only ever pays profit', () => {
+        const out = simulateLiveAccount({
+            horizonDays: 25,
+            plan: buildApexLivePlan(),
+            rrRatio: 1,
+            seed: 42,
+            tradesPerDay: 1,
+            trials: 1,
+            winrate: 1,
+        });
+
+        expect(out.expectedCapitalReturned).toBe(0);
+        expect(out.expectedLiquidationPayout).toBe(0);
+    });
+});
+
+function bustByCommission(): { balanceAtBust: number; daysToBust: number } {
+    const plan = buildTopStepLivePlan();
+    const state = plan.initialState();
+    for (let day = 1; day <= 500; day++) {
+        const { busted } = runLiveDay({
+            commission: dollars(10),
+            plan,
+            positionSizing: null,
+            rng: alwaysLoses,
+            rrRatio: 2,
+            state,
+            tradesPerDay: 1,
+            winrate: fraction(0),
+        });
+        if (busted) return { balanceAtBust: state.balance, daysToBust: day };
+    }
+    throw new Error('the commission loss streak never busted');
+}
+
+describe('WP18f R-12: an auto-liquidation pays the remaining balance as a final payout (help.topstep.com article 10657969: "The remaining balance would then be sent as a final Payout.")', () => {
+    it('pays 90% of the balance left at the $1,000 floor bust on day 75 as a one-off liquidation payout', () => {
+        const { balanceAtBust, daysToBust } = bustByCommission();
+        const result = runLiveHorizon({
+            commission: dollars(10),
+            horizonDays: 500,
+            payoutRequestSize: undefined,
+            plan: buildTopStepLivePlan(),
+            positionSizing: null,
+            retainedCushion: dollars(0),
+            rng: alwaysLoses,
+            rrRatio: 2,
+            tradesPerDay: 1,
+            winrate: fraction(0),
+        });
+
+        expect(daysToBust).toBe(75);
+        expect(balanceAtBust).toBeGreaterThan(0);
+        expect(balanceAtBust).toBeLessThanOrEqual(1000);
+        expect(result.liquidationPayout).toBeCloseTo(0.9 * balanceAtBust, 9);
+        expect(result.recurringWithdrawn).toBe(0);
+        expect(result.capitalReturned).toBe(0);
+    });
+
+    it('reports the liquidation payout as its own one-off in simulateLiveAccount, outside the annual rate', () => {
+        const { balanceAtBust } = bustByCommission();
+        const out = simulateLiveAccount({
+            commissionPerRoundTrip: 10,
+            horizonDays: 100,
+            plan: buildTopStepLivePlan(),
+            retainedCushion: 0,
+            rrRatio: 2,
+            seed: 42,
+            tradesPerDay: 1,
+            trials: 1,
+            winrate: 0,
+        });
+
+        expect(out.liveBustProbability).toBe(1);
+        expect(out.expectedLiquidationPayout).toBeCloseTo(
+            0.9 * balanceAtBust,
+            9,
+        );
+        expect(out.expectedAnnualWithdrawalRate).toBe(0);
+        expect(out.cumulativeWithdrawalsP50).toBeCloseTo(
+            0.9 * balanceAtBust,
+            9,
+        );
+    });
+
+    it('pays nothing at an inactivity closure, which the source does not describe as a liquidation ("Live Funded Accounts with no trading activity for more than 30 days may be closed")', () => {
+        const result = runLiveHorizon({
+            commission: dollars(0),
+            horizonDays: 40,
+            idleDayProbability: 1,
+            payoutRequestSize: undefined,
+            plan: buildTopStepLivePlan(),
+            positionSizing: null,
+            retainedCushion: dollars(0),
+            rng: alwaysIdle,
+            rrRatio: 2,
+            tradesPerDay: 1,
+            winrate: fraction(0),
+        });
+
+        expect(result.closedForInactivity).toBe(true);
+        expect(result.daysToBust).toBe(30);
+        expect(result.liquidationPayout).toBe(0);
+        expect(result.totalWithdrawn).toBe(0);
+    });
+});
+
+describe('WP18f R-3: no single trade loses more than the remaining Daily Loss Limit, and released Reserve stays tradable', () => {
+    it('cuts the third loss at a 10% pre-lock cushion from $729 to the $290 left of the $2,000 limit, so the day ends at exactly -$2,000, not -$2,439', () => {
+        const plan = buildTopStepLivePlan({
+            postLock: fraction(0.1),
+            preLock: fraction(0.1),
+        });
+        const state = plan.initialState();
+
+        const result = runLiveDay({
+            commission: dollars(0),
+            plan,
+            positionSizing: null,
+            rng: alwaysLoses,
+            rrRatio: 2,
+            state,
+            tradesPerDay: 100,
+            winrate: fraction(0),
+        });
+
+        expect(result.busted).toBe(false);
+        expect(state.todayPnL).toBeCloseTo(-2000, 9);
+        expect(state.balance).toBeCloseTo(8000, 9);
+    });
+
+    it('counts the commission in the loss: with a $30 round trip the third trade risks only the $203 that leaves room for its commission', () => {
+        const plan = buildTopStepLivePlan({
+            postLock: fraction(0.1),
+            preLock: fraction(0.1),
+        });
+        const state = plan.initialState();
+
+        runLiveDay({
+            commission: dollars(30),
+            plan,
+            positionSizing: null,
+            rng: alwaysLoses,
+            rrRatio: 2,
+            state,
+            tradesPerDay: 100,
+            winrate: fraction(0),
+        });
+
+        expect(state.todayPnL).toBeCloseTo(-2000, 9);
+    });
+
+    it('keeps trading after losses reach into a released Reserve increment: the day after a -$12,000 day risks 5% of the $10,000 cushion instead of stalling', () => {
+        const plan = buildTopStepLivePlan();
+        const state = plan.initialState();
+        for (const pnl of [3000, 0, 0, 0, 0, 0, 0, -12_000]) {
+            state.todayPnL = pnl;
+            state.balance += pnl;
+            plan.recordDayClose(state, pnl !== 0);
+        }
+        state.todayPnL = 0;
+
+        const result = runLiveDay({
+            commission: dollars(0),
+            plan,
+            positionSizing: null,
+            rng: alwaysLoses,
+            rrRatio: 2,
+            state,
+            tradesPerDay: 1,
+            winrate: fraction(0),
+        });
+
+        expect(state.startingBalance).toBe(20_000);
+        expect(result.traded).toBe(true);
+        expect(state.todayPnL).toBeCloseTo(-500, 9);
+    });
+
+    it('never closes a TopStep LFA for inactivity when the trader never idles, even with a $30 round-trip commission at a 36% win rate (was 47.8% of 400 trials)', () => {
+        const out = simulateLiveAccount({
+            commissionPerRoundTrip: 30,
+            horizonDays: TRADING_DAYS_PER_YEAR,
+            plan: buildTopStepLivePlan(),
+            rrRatio: 2,
+            seed: 42,
+            tradesPerDay: 4,
+            trials: 400,
+            winrate: 0.36,
+        });
+
+        expect(out.liveInactivityClosureProbability).toBe(0);
     });
 });
 
@@ -1487,7 +1720,7 @@ describe('simulateLiveAccount', () => {
         expect(out.medianDaysToFirstWithdrawal).toBe(3);
     });
 
-    it('annualizes over the whole horizon, counting the days after a bust as $0 (N-24): $1,989.99 withdrawn on day 1 then a bust on day 2 of a 10-day horizon is 1,989.99 / 10 x 252 = $50,147.748, not 1,989.99 / 2 x 252', () => {
+    it('annualizes over the whole horizon, counting the days after a bust as $0 (N-24): of the $1,989.99 withdrawn on day 1 before a bust on day 2 of a 10-day horizon, the $990 of profit annualizes as 990 / 10 x 252 = $24,948, not 990 / 2 x 252, and the $999.99 taken from below the $0 start is capital (R-5)', () => {
         const fullPayout = {
             thresholdProfit: dollars(0),
             traderShare: fraction(1),
@@ -1516,8 +1749,9 @@ describe('simulateLiveAccount', () => {
         expect(out.liveBustProbability).toBe(1);
         expect(out.medianDaysToBust).toBe(2);
         expect(out.cumulativeWithdrawalsP50).toBeCloseTo(1989.99, 8);
+        expect(out.expectedCapitalReturned).toBeCloseTo(999.99, 8);
         expect(out.expectedAnnualWithdrawalRate).toBeCloseTo(
-            (1989.99 / 10) * TRADING_DAYS_PER_MONTH * 12,
+            (990 / 10) * TRADING_DAYS_PER_MONTH * 12,
             6,
         );
     });
@@ -1612,5 +1846,150 @@ describe('TRADING_DAYS_PER_YEAR', () => {
     it('is twelve 21-day trading months, 252 days', () => {
         expect(TRADING_DAYS_PER_YEAR).toBe(TRADING_DAYS_PER_MONTH * 12);
         expect(TRADING_DAYS_PER_YEAR).toBe(252);
+    });
+});
+
+const TOPSTEP_FULL_CUSHION = { postLock: fraction(1), preLock: fraction(1) };
+
+function closeActiveTopStepSessions(
+    plan: ReturnType<typeof buildTopStepLivePlan>,
+    state: LiveAccountState,
+    count: number,
+): void {
+    for (let session = 0; session < count; session++) {
+        state.todayPnL = 0;
+        plan.recordDayClose(state, true);
+    }
+}
+
+function closeTopStepSessions(
+    plan: ReturnType<typeof buildTopStepLivePlan>,
+    state: LiveAccountState,
+    dailyPnL: readonly number[],
+): void {
+    for (const pnl of dailyPnL) {
+        state.todayPnL = pnl;
+        state.balance += pnl;
+        plan.recordDayClose(state, pnl !== 0);
+    }
+    state.todayPnL = 0;
+}
+
+function loseOneTopStepTrade(
+    plan: ReturnType<typeof buildTopStepLivePlan>,
+    state: LiveAccountState,
+    stopPoints?: number,
+): void {
+    runLiveDay({
+        commission: dollars(0),
+        plan,
+        positionSizing:
+            stopPoints === undefined
+                ? null
+                : {
+                      instrument: INSTRUMENTS[InstrumentSymbol.NQ],
+                      stopPoints: points(stopPoints),
+                  },
+        rng: alwaysLoses,
+        rrRatio: 2,
+        state,
+        tradesPerDay: 1,
+        winrate: fraction(0),
+    });
+}
+
+describe('WP18g: the TopStep LFA per-trade loss cap follows net trading profit and the Daily Loss Limit Safeguard (N-57, N-58, help.topstep.com article 11748475)', () => {
+    it('caps one losing trade at the $5,000 tier after the $40,000 Reserve is returned on $15,000 of trading profit, not at the $2,000 base tier', () => {
+        const plan = buildTopStepLivePlan(TOPSTEP_FULL_CUSHION);
+        const state = plan.initialState();
+        closeTopStepSessions(
+            plan,
+            state,
+            [
+                3000, 0, 0, 0, 0, 3000, 0, 0, 0, 0, 3000, 0, 0, 0, 0, 3000, 0,
+                0, 0, 0, 0, 0, 3000,
+            ],
+        );
+        closeActiveTopStepSessions(plan, state, 9);
+        plan.withdraw(state, 40_000);
+
+        loseOneTopStepTrade(plan, state);
+
+        expect(state.todayPnL).toBeCloseTo(-5000, 9);
+        expect(state.balance).toBeCloseTo(20_000, 9);
+    });
+
+    it('caps one losing trade at the $1,000 Safeguard limit after a session closes at $4,500, although the $3,500 above the floor is at risk', () => {
+        const plan = buildTopStepLivePlan(TOPSTEP_FULL_CUSHION);
+        const state = plan.initialState();
+        closeTopStepSessions(plan, state, [-5500]);
+
+        loseOneTopStepTrade(plan, state);
+
+        expect(state.todayPnL).toBeCloseTo(-1000, 9);
+        expect(state.balance).toBeCloseTo(3500, 9);
+    });
+
+    it('caps a fresh LFA at 5 NQ lots: a 10-point stop risks at most 5 x $200 = $1,000, under the $2,000 limit', () => {
+        const plan = buildTopStepLivePlan(TOPSTEP_FULL_CUSHION);
+        const state = plan.initialState();
+
+        loseOneTopStepTrade(plan, state, 10);
+
+        expect(state.todayPnL).toBeCloseTo(-1000, 9);
+    });
+
+    it('caps at 3 NQ lots under the $5,000 Safeguard: a 10-point stop risks at most $600', () => {
+        const plan = buildTopStepLivePlan(TOPSTEP_FULL_CUSHION);
+        const state = plan.initialState();
+        closeTopStepSessions(plan, state, [-5500]);
+
+        loseOneTopStepTrade(plan, state, 10);
+
+        expect(state.todayPnL).toBeCloseTo(-600, 9);
+    });
+});
+
+describe('WP18h: the TopStep LFA per-trade loss cap moves to a higher tier only at a session close after 10 Active Trading Days (N-59, help.topstep.com article 11748475: "Your Daily Loss Limit increases at end of day after 10 Active Trading Days in the new Tier.")', () => {
+    it('caps one losing trade at the $2,000 base tier on the first session after profit reaches $15,000', () => {
+        const plan = buildTopStepLivePlan(TOPSTEP_FULL_CUSHION);
+        const state = plan.initialState();
+        closeTopStepSessions(plan, state, [15_000]);
+
+        loseOneTopStepTrade(plan, state);
+
+        expect(state.todayPnL).toBeCloseTo(-2000, 9);
+        expect(state.balance).toBeCloseTo(23_000, 9);
+    });
+
+    it('caps it at the $5,000 tier on the session after the 10th Active Trading Day at $15,000', () => {
+        const plan = buildTopStepLivePlan(TOPSTEP_FULL_CUSHION);
+        const state = plan.initialState();
+        closeTopStepSessions(plan, state, [15_000]);
+        closeActiveTopStepSessions(plan, state, 9);
+
+        loseOneTopStepTrade(plan, state);
+
+        expect(state.todayPnL).toBeCloseTo(-5000, 9);
+    });
+
+    it('never raises the cap within a session: after a $15,000 winning trade the next losing trade takes the day down to the -$2,000 base limit, not the -$5,000 of the tier live profit has reached', () => {
+        const plan = buildTopStepLivePlan(TOPSTEP_FULL_CUSHION);
+        const state = plan.initialState();
+        let draw = 0;
+        const winThenLose: Rng = () => (draw++ < 1 ? 0 : 0.999);
+
+        runLiveDay({
+            commission: dollars(0),
+            plan,
+            positionSizing: null,
+            rng: winThenLose,
+            rrRatio: 7.5,
+            state,
+            tradesPerDay: 2,
+            winrate: fraction(0.5),
+        });
+
+        expect(state.todayPnL).toBeCloseTo(-2000, 9);
     });
 });

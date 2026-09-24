@@ -5,13 +5,17 @@ import { describe, expect, it } from 'vitest';
 
 import optimizeDp, {
     dpArguments,
+    EMPIRICAL_MAX_ATTEMPTS,
+    empiricalSimInputs,
     empiricalSummaryLines,
     fundedIneligibilityMessage,
     payoutCountRuleWarning,
     readDpInputs,
+    renewalObjective,
 } from '~/cli/commands/prop/optimize/dp/command';
 import {
     ApexVariant,
+    type DayPolicy,
     dollars,
     E8FuturesVariant,
     FirmId,
@@ -22,6 +26,7 @@ import {
     TopStepVariant,
 } from '~/lib/prop-calculator';
 import {
+    DayStopRuleKind,
     FtmoFuturesVariant,
     FundedNextVariant,
     TradingPhase,
@@ -239,12 +244,16 @@ describe('optimize dp flag bounds', () => {
         ['eval-days', '0', /--eval-days must be a whole number >= 1/],
         ['funded-days', '0', /--funded-days must be a whole number >= 1/],
         ['iterations', '2.5', /--iterations must be a whole number >= 1/],
+        ['copy-accounts', '0', /--copy-accounts must be a whole number >= 1/],
+        ['eval-discount', '101', /--eval-discount/],
     ])('rejects --%s %s, naming the flag', (flag, value, message) => {
         expect(() => parseDpInputs([`--${flag}=${value}`])).toThrow(message);
     });
 
     it('reads the defaults', () => {
         expect(parseDpInputs([])).toStrictEqual({
+            copyAccounts: 1,
+            discounts: undefined,
             fundedHorizonDays: 252,
             maxEvalDays: 40,
             maxSolves: 8,
@@ -274,7 +283,7 @@ describe('optimize dp empirical summary (D2)', () => {
         evalPassProbability: 0.8,
         fundedSurvivalProbability: 0.1,
     };
-    const lines = empiricalSummaryLines(out, out.expectedMonthlyNet);
+    const lines = empiricalSummaryLines(out, out.expectedMonthlyNet, 1);
 
     it('labels the eval pass rate from evalPassProbability', () => {
         expect(lines).toContain('eval pass rate: 80.0%');
@@ -285,6 +294,95 @@ describe('optimize dp empirical summary (D2)', () => {
     });
 
     it('reports a zero gap when the empirical monthly net equals the DP rate', () => {
+        expect(lines).toContain('gap vs DP-predicted monthly rate: $0');
+    });
+});
+
+describe('optimize dp prices the empirical cross-check like the DP (N-62)', () => {
+    const plan = topStepNoFeeStandardPlan();
+    const inputs = parseDpInputs([
+        '--eval-discount=20',
+        '--activation-discount=10',
+        '--monthly-discount=5',
+        '--copy-accounts=3',
+    ]);
+    const policy: DayPolicy = {
+        ladder: [200],
+        maxLossesPerDay: null,
+        stopRule: { kind: DayStopRuleKind.None },
+    };
+
+    it('reads the coupon discounts and the copy count', () => {
+        expect(inputs.discounts).toStrictEqual({
+            activationPercent: 10,
+            evalPercent: 20,
+            monthlySubscriptionPercent: 5,
+        });
+        expect(inputs.copyAccounts).toBe(3);
+    });
+
+    it('hands the discounts and copy count to the renewal-cycle objective', () => {
+        const objective = renewalObjective(inputs, plan);
+        expect(objective.discounts).toStrictEqual(inputs.discounts);
+        expect(objective.copyAccounts).toBe(3);
+        expect(objective.purchaseDiscounts).toStrictEqual(
+            plan.purchaseDiscounts(inputs.discounts, 3),
+        );
+    });
+
+    it('retries failed evals in the simulate() cross-check, with the same discounts and copy count', () => {
+        const simInputs = empiricalSimInputs(inputs, plan, {
+            evalDayPolicy: policy,
+            fundedDayPolicy: policy,
+        });
+        expect(EMPIRICAL_MAX_ATTEMPTS).toBeGreaterThanOrEqual(1000);
+        expect(simInputs.maxAttempts).toBe(EMPIRICAL_MAX_ATTEMPTS);
+        expect(simInputs.discounts).toStrictEqual(inputs.discounts);
+        expect(simInputs.copyAccounts).toBe(3);
+        expect(simInputs.evalDayPolicy).toBe(policy);
+        expect(simInputs.fundedDayPolicy).toBe(policy);
+    });
+
+    it('keeps retrying busted evals until one passes, so every trial reaches the funded phase', () => {
+        const swingPolicy: DayPolicy = { ...policy, ladder: [1000] };
+        const out = simulate(
+            empiricalSimInputs(
+                {
+                    ...inputs,
+                    fundedHorizonDays: 5,
+                    maxEvalDays: 60,
+                    trials: 200,
+                },
+                plan,
+                { evalDayPolicy: swingPolicy, fundedDayPolicy: policy },
+            ),
+        );
+        expect(out.expectedAttempts).toBeGreaterThan(1);
+        expect(out.evalPassProbability).toBe(1);
+    }, 60_000);
+
+    it('compares the DP rate per account slot, so the copy count does not show up as a gap', () => {
+        const base = simulate({
+            fundedHorizonDays: 20,
+            maxEvalDays: 30,
+            plan: apexEodPlan(),
+            riskPerTrade: 250,
+            rrRatio: 2,
+            seed: 1,
+            tradesPerDay: 4,
+            trials: 20,
+            winrate: 0.5,
+        });
+        const threeCopies: SimOutputs = {
+            ...base,
+            expectedHorizonCredit: 3 * 400,
+            expectedMonthlyNet: 3 * 1000,
+        };
+        const lines = empiricalSummaryLines(threeCopies, 1000, 3);
+        expect(lines).toContain(
+            'expected monthly net per account slot: $1,000',
+        );
+        expect(lines).toContain('expected horizon credit per cycle: $400');
         expect(lines).toContain('gap vs DP-predicted monthly rate: $0');
     });
 });

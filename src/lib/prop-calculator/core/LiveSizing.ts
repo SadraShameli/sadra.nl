@@ -1,4 +1,21 @@
-import { type Fraction0to1 } from './lib/units';
+import { resolveAffordableRisk } from './DayPolicy';
+import { type Fraction0to1, ONE_CENT } from './lib/units';
+
+export function capRiskToRemainingDailyLoss(
+    risk: number,
+    dailyLossLimit: null | number,
+    todayPnL: number,
+    commission: number,
+): number {
+    if (dailyLossLimit === null) return risk;
+    const lossRoom = resolveAffordableRisk(
+        Infinity,
+        dailyLossLimit,
+        todayPnL,
+        commission,
+    );
+    return lossRoom < ONE_CENT ? 0 : Math.min(risk, lossRoom);
+}
 
 export function resolveLiveTradeRisk(
     cushion: number,

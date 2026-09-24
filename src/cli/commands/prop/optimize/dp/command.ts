@@ -1,19 +1,25 @@
 import { type ArgsDef, defineCommand } from 'citty';
 
 import {
+    copyAccountsArgument,
+    type CouponDiscountArguments,
+    couponDiscountArguments,
     planArguments,
     planResolver,
+    readCouponDiscountPercents,
     readFraction,
     readInteger,
     readPositiveInteger,
     readPositiveNumber,
     readRebuyLagDays,
     rebuyLagDaysArgument,
+    toCouponDiscounts,
 } from '~/cli/commands/prop/shared';
 import { ui } from '~/cli/ui';
 import { formatCurrency, formatPercent } from '~/lib/format';
 import {
     type AccountState,
+    type CouponDiscounts,
     type DayPolicy,
     type Fraction0to1,
     isEvalDpEligible,
@@ -34,7 +40,8 @@ import {
 } from '~/lib/prop-calculator/core/FundedDpPayoutCapGaps';
 import { isFundedDpEligible } from '~/lib/prop-calculator/core/FundedStateValue';
 
-export interface DpArguments {
+export interface DpArguments extends CouponDiscountArguments {
+    'copy-accounts': string;
     'eval-days': string;
     'funded-days': string;
     iterations: string;
@@ -46,6 +53,8 @@ export interface DpArguments {
 }
 
 export interface DpInputs {
+    copyAccounts: number;
+    discounts: CouponDiscounts | undefined;
     fundedHorizonDays: number;
     maxEvalDays: number;
     maxSolves: number;
@@ -56,17 +65,50 @@ export interface DpInputs {
     winrate: Fraction0to1;
 }
 
+export const EMPIRICAL_MAX_ATTEMPTS = 1000;
+
+export interface DpPolicies {
+    evalDayPolicy: DayPolicy;
+    fundedDayPolicy: DayPolicy;
+}
+
+export function empiricalSimInputs(
+    inputs: DpInputs,
+    plan: Plan,
+    policies: DpPolicies,
+): SimInputs {
+    return {
+        copyAccounts: inputs.copyAccounts,
+        discounts: inputs.discounts,
+        evalDayPolicy: policies.evalDayPolicy,
+        fundedDayPolicy: policies.fundedDayPolicy,
+        fundedHorizonDays: inputs.fundedHorizonDays,
+        maxAttempts: EMPIRICAL_MAX_ATTEMPTS,
+        maxEvalDays: inputs.maxEvalDays,
+        plan,
+        rebuyLagDays: inputs.rebuyLagDays,
+        riskPerTrade: 1,
+        rrRatio: inputs.rrRatio,
+        seed: inputs.seed,
+        tradesPerDay: 1,
+        trials: inputs.trials,
+        winrate: inputs.winrate,
+    };
+}
+
 export function empiricalSummaryLines(
     out: SimOutputs,
     predictedMonthlyRate: number,
+    copyAccounts: number,
 ): string[] {
+    const monthlyNetPerSlot = out.expectedMonthlyNet / copyAccounts;
     return [
         `eval pass rate: ${formatPercent(out.evalPassProbability)}`,
         `funded survive: ${formatPercent(out.fundedSurvivalProbability)}`,
         `funded bust probability: ${formatPercent(out.fundedBustProbability)}`,
-        `expected monthly net per account slot: ${formatCurrency(out.expectedMonthlyNet)}`,
-        `expected horizon credit per cycle: ${formatCurrency(out.expectedHorizonCredit)}`,
-        `gap vs DP-predicted monthly rate: ${formatCurrency(out.expectedMonthlyNet - predictedMonthlyRate)}`,
+        `expected monthly net per account slot: ${formatCurrency(monthlyNetPerSlot)}`,
+        `expected horizon credit per cycle: ${formatCurrency(out.expectedHorizonCredit / copyAccounts)}`,
+        `gap vs DP-predicted monthly rate: ${formatCurrency(monthlyNetPerSlot - predictedMonthlyRate)}`,
     ];
 }
 
@@ -83,6 +125,11 @@ export function payoutCountRuleWarning(plan: Plan): null | string {
 
 export function readDpInputs(arguments_: DpArguments): DpInputs {
     return {
+        copyAccounts: readPositiveInteger(
+            arguments_['copy-accounts'],
+            'copy-accounts',
+        ),
+        discounts: toCouponDiscounts(readCouponDiscountPercents(arguments_)),
         fundedHorizonDays: readPositiveInteger(
             arguments_['funded-days'],
             'funded-days',
@@ -95,6 +142,20 @@ export function readDpInputs(arguments_: DpArguments): DpInputs {
         trials: readPositiveInteger(arguments_.trials, 'trials'),
         winrate: readFraction(arguments_.winrate, 'winrate'),
     };
+}
+
+export function renewalObjective(
+    inputs: DpInputs,
+    plan: Plan,
+): RenewalCycleObjective {
+    return new RenewalCycleObjective({
+        copyAccounts: inputs.copyAccounts,
+        discounts: inputs.discounts,
+        fundedHorizonDays: inputs.fundedHorizonDays,
+        maxEvalDays: inputs.maxEvalDays,
+        plan,
+        rebuyLagDays: inputs.rebuyLagDays,
+    });
 }
 
 function describeFundedDpPayoutCapGap(gap: FundedDpPayoutCapGap): string {
@@ -114,12 +175,14 @@ function describeFundedDpPayoutCapGap(gap: FundedDpPayoutCapGap): string {
 function sampleRisks(dayPolicy: DayPolicy, state: AccountState): number[] {
     const slots = dayPolicy.ladder.length;
     return Array.from({ length: slots }, (_, index) =>
-        Math.round(dayPolicy.computeRisk?.(state, index, 0, 0) ?? 0),
+        Math.round(dayPolicy.computeRisk?.(state, index) ?? 0),
     );
 }
 
 export const dpArguments = {
     ...planArguments,
+    ...couponDiscountArguments,
+    ...copyAccountsArgument,
     'eval-days': {
         default: '40',
         description:
@@ -193,23 +256,9 @@ export default defineCommand({
                 ui.warn(payoutWarning);
             }
 
-            const {
-                fundedHorizonDays,
-                maxEvalDays,
-                maxSolves,
-                rebuyLagDays,
-                rrRatio,
-                seed,
-                trials,
-                winrate,
-            } = readDpInputs(context.args);
-
-            const objective = new RenewalCycleObjective({
-                fundedHorizonDays,
-                maxEvalDays,
-                plan,
-                rebuyLagDays,
-            });
+            const inputs = readDpInputs(context.args);
+            const { copyAccounts, maxSolves, rrRatio, winrate } = inputs;
+            const objective = renewalObjective(inputs, plan);
 
             spinner = ui
                 .spinner(`solving average-reward DP for ${plan.label}`)
@@ -250,27 +299,21 @@ export default defineCommand({
                 );
             }
 
-            const simInputs: SimInputs = {
-                evalDayPolicy: solution.evalResult.dayPolicy,
-                fundedDayPolicy: solution.fundedResult.dayPolicy,
-                fundedHorizonDays,
-                maxAttempts: 1,
-                maxEvalDays,
-                plan,
-                rebuyLagDays,
-                riskPerTrade: 1,
-                rrRatio,
-                seed,
-                tradesPerDay: 1,
-                trials,
-                winrate,
-            };
-            const out = simulate(simInputs);
+            const out = simulate(
+                empiricalSimInputs(inputs, plan, {
+                    evalDayPolicy: solution.evalResult.dayPolicy,
+                    fundedDayPolicy: solution.fundedResult.dayPolicy,
+                }),
+            );
 
             ui.muted(
-                '\n  empirical (real simulate() run driven end-to-end by the DP’s own policy -- trust this over the predicted values above)\n',
+                `\n  empirical (real simulate() run driven end-to-end by the DP’s own policy, failed evals retried up to ${EMPIRICAL_MAX_ATTEMPTS} times at the retry fee like the DP, same coupons and copy count -- trust this over the predicted values above)\n`,
             );
-            for (const line of empiricalSummaryLines(out, monthlyRate)) {
+            for (const line of empiricalSummaryLines(
+                out,
+                monthlyRate,
+                copyAccounts,
+            )) {
                 ui.note(`  ${line}`);
             }
 

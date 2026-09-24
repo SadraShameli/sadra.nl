@@ -38,15 +38,6 @@ export function simulatePortfolioTimeline(
         winrate,
     } = inputs;
 
-    if (
-        !Number.isSafeInteger(plan.maxFundedAccounts) ||
-        plan.maxFundedAccounts < 1
-    ) {
-        throw new Error(
-            `${plan.label}: maxFundedAccounts must be a positive integer, got ${plan.maxFundedAccounts}`,
-        );
-    }
-
     assertPositiveSafeInteger(trials, 'trials');
     assertPositiveSafeInteger(dayBudget, 'dayBudget');
     assertPositiveSafeInteger(accounts, 'accounts');

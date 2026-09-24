@@ -254,11 +254,18 @@ describe('Apex PA Level note', () => {
         expect(levelNote).toContain('EOD & Intraday Trailing');
     });
 
-    it('discloses that the funded DP does not apply the funded Daily Loss Limit at all yet', () => {
+    it('states that the funded DP enforces the PA Level DLL within the day from the session-open Level', () => {
+        expect(levelNote).toContain('enforces the PA Level DLL the same way');
         expect(levelNote).toContain(
-            'does not apply the funded Daily Loss Limit at all yet',
+            'caps each trade at the DLL headroom left today',
         );
-        expect(levelNote).toContain('capped only by cushion');
+        expect(levelNote).toContain(
+            "locks the day out once today's loss reaches the limit",
+        );
+        expect(levelNote).not.toContain(
+            'does not apply the funded Daily Loss Limit',
+        );
+        expect(levelNote).not.toContain('capped only by cushion');
         expect(levelNote).not.toContain(
             'session-open profit equals live profit',
         );

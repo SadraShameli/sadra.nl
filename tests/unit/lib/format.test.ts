@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
     formatCurrency,
     formatFiniteCurrency,
+    formatGateCurrency,
     formatOptionalPercent,
     NOT_APPLICABLE,
 } from '~/lib/format';
@@ -52,5 +53,29 @@ describe('formatFiniteCurrency', () => {
     it('defaults to whole dollars', () => {
         expect(formatFiniteCurrency(1234.56)).toBe('$1,235');
         expect(formatFiniteCurrency(0.0123, 4)).toBe('$0.0123');
+    });
+});
+
+describe('formatGateCurrency (R-8: one whole-dollars-or-cents gate formatter)', () => {
+    it('prints a whole-dollar gate with no cents', () => {
+        expect(formatGateCurrency(500)).toBe('$500');
+        expect(formatGateCurrency(1500)).toBe('$1,500');
+    });
+
+    it('prints a sub-dollar or fractional gate in cents', () => {
+        expect(formatGateCurrency(0.01)).toBe('$0.01');
+        expect(formatGateCurrency(250.5)).toBe('$250.50');
+    });
+
+    it('compacts a whole-dollar gate of $1,000 or more when asked', () => {
+        expect(formatGateCurrency(1500, { compact: true })).toBe('$1.5K');
+        expect(formatGateCurrency(500, { compact: true })).toBe('$500');
+    });
+
+    it('keeps cents for a fractional gate even when compact', () => {
+        expect(formatGateCurrency(0.01, { compact: true })).toBe('$0.01');
+        expect(formatGateCurrency(1500.25, { compact: true })).toBe(
+            '$1,500.25',
+        );
     });
 });
