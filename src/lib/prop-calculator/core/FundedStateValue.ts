@@ -108,6 +108,14 @@ const OUTCOME_FIRST_LOCKOUT = -2;
 const TERMINAL_CONTINUATION_KEY = -1;
 const UNCOMPUTED_CONTINUATION_KEY = -2;
 const MAX_CACHED_DAY_CLOSE_CELLS = 4_000_000;
+const CACHED_MAP_ENTRY_CELL_COST = 6;
+const CACHED_TABLE_OVERHEAD_CELL_COST = 25;
+
+interface FundedDayCloseCells {
+    readonly cash: Float64Array;
+    readonly credit: Float64Array;
+    readonly keys: Int32Array;
+}
 
 interface FundedDayCloseOutcome {
     readonly cash: number;
@@ -116,11 +124,10 @@ interface FundedDayCloseOutcome {
 }
 
 interface FundedDayCloseTable {
-    readonly cash: Float64Array;
-    readonly credit: Float64Array;
-    readonly idle: Map<number, FundedDayCloseOutcome>;
-    readonly keys: Int32Array;
+    readonly idleCells: FundedDayCloseCells | null;
+    readonly idleEntries: Map<number, FundedDayCloseOutcome>;
     readonly lockouts: Map<number, FundedDayCloseOutcome>;
+    readonly stops: FundedDayCloseCells;
 }
 
 interface FundedDaySkeleton {
@@ -137,6 +144,17 @@ interface FundedDaySkeletonCache {
     closeCellCount: number;
     levelKey: null | string;
     readonly skeletons: Map<string, FundedDaySkeleton>;
+}
+
+interface FundedDaySolveScope {
+    readonly cellCount: number;
+    readonly closeTable: FundedDayCloseTable | null;
+    readonly context: FundedSolveContext;
+    readonly dayStart: FundedDayStart;
+    readonly lockoutValues: number[];
+    readonly skeleton: FundedDaySkeleton;
+    readonly stopValues: Float64Array;
+    readonly workingBucketCount: number;
 }
 
 interface FundedDayStart extends FundedLevel, FundedPair {
@@ -643,24 +661,15 @@ function buildState(
     };
 }
 
-function cachedStopValue(
-    context: FundedSolveContext,
-    dayStart: FundedDayStart,
-    workingBucketCount: number,
-    closeTable: FundedDayCloseTable | null,
+function cachedCellValue(
+    scope: FundedDaySolveScope,
+    cells: FundedDayCloseCells | null,
     cell: number,
+    wasIdleToday: boolean,
 ): number {
-    const reach = Math.floor(cell / workingBucketCount);
-    const computeOutcome = (): FundedDayCloseOutcome =>
-        dayCloseOutcome(
-            context,
-            dayStart,
-            (cell - reach * workingBucketCount) * context.cushionStepDollars,
-            false,
-            reach,
-        );
-    if (closeTable === null) {
-        const outcome = computeOutcome();
+    const { context } = scope;
+    if (cells === null) {
+        const outcome = cellOutcome(scope, cell, wasIdleToday);
         return dayCloseValue(
             context,
             outcome.cash,
@@ -668,20 +677,19 @@ function cachedStopValue(
             outcome.horizonCredit,
         );
     }
-    let continuationKeyValue =
-        closeTable.keys[cell] ?? UNCOMPUTED_CONTINUATION_KEY;
+    let continuationKeyValue = cells.keys[cell] ?? UNCOMPUTED_CONTINUATION_KEY;
     if (continuationKeyValue === UNCOMPUTED_CONTINUATION_KEY) {
-        const outcome = computeOutcome();
-        closeTable.cash[cell] = outcome.cash;
-        closeTable.credit[cell] = outcome.horizonCredit;
-        closeTable.keys[cell] = outcome.continuationKey;
+        const outcome = cellOutcome(scope, cell, wasIdleToday);
+        cells.cash[cell] = outcome.cash;
+        cells.credit[cell] = outcome.horizonCredit;
+        cells.keys[cell] = outcome.continuationKey;
         continuationKeyValue = outcome.continuationKey;
     }
     return dayCloseValue(
         context,
-        closeTable.cash[cell] ?? 0,
+        cells.cash[cell] ?? 0,
         continuationKeyValue,
-        closeTable.credit[cell] ?? 0,
+        cells.credit[cell] ?? 0,
     );
 }
 
@@ -719,6 +727,29 @@ function canWithdrawWhileUnlocked(
             );
         }
     }
+}
+
+function cellOutcome(
+    scope: FundedDaySolveScope,
+    cell: number,
+    wasIdleToday: boolean,
+): FundedDayCloseOutcome {
+    const reach = Math.floor(cell / scope.workingBucketCount);
+    return dayCloseOutcome(
+        scope.context,
+        scope.dayStart,
+        (cell - reach * scope.workingBucketCount) *
+            scope.context.cushionStepDollars,
+        wasIdleToday,
+        reach,
+    );
+}
+
+function chargeDayCloseCells(
+    context: FundedSolveContext,
+    cellCount: number,
+): void {
+    context.daySkeletons.closeCellCount += cellCount;
 }
 
 function computeCandidateRisks(
@@ -976,17 +1007,17 @@ function dayCloseTableFor(
     const tableKey = `${dayStart.idleDays}:${dayStart.cycleBestDay}:${dayStart.qualifyingDays}:${dayStart.cycleBaseline}`;
     const cached = skeleton.closeTables.get(tableKey);
     if (cached !== undefined) return cached;
-    const cache = context.daySkeletons;
-    if (cache.closeCellCount + cellCount > MAX_CACHED_DAY_CLOSE_CELLS) {
-        return null;
-    }
-    cache.closeCellCount += cellCount;
+    const hasIdleCells = !context.isSolvingPerDayStart;
+    const chargedCellCount =
+        CACHED_TABLE_OVERHEAD_CELL_COST +
+        (hasIdleCells ? 2 * cellCount : cellCount);
+    if (!hasDayCloseBudget(context, chargedCellCount)) return null;
+    chargeDayCloseCells(context, chargedCellCount);
     const table: FundedDayCloseTable = {
-        cash: new Float64Array(cellCount),
-        credit: new Float64Array(cellCount),
-        idle: new Map(),
-        keys: new Int32Array(cellCount).fill(UNCOMPUTED_CONTINUATION_KEY),
+        idleCells: hasIdleCells ? newDayCloseCells(cellCount) : null,
+        idleEntries: new Map(),
         lockouts: new Map(),
+        stops: newDayCloseCells(cellCount),
     };
     skeleton.closeTables.set(tableKey, table);
     return table;
@@ -1077,6 +1108,16 @@ function decodePair(
     };
 }
 
+function hasDayCloseBudget(
+    context: FundedSolveContext,
+    cellCount: number,
+): boolean {
+    return (
+        context.daySkeletons.closeCellCount + cellCount <=
+        MAX_CACHED_DAY_CLOSE_CELLS
+    );
+}
+
 function hazardConvergenceSweepCap(
     firstSweepMaxDelta: number,
     convergenceTolerance: number,
@@ -1097,6 +1138,25 @@ function hazardConvergenceSweepCap(
             Math.log(continuingBranchContraction),
     );
     return 1 + Math.max(0, additionalSweepsToShrinkBelowTolerance);
+}
+
+function highestReachWithin(
+    context: FundedSolveContext,
+    dayStart: FundedDayStart,
+    reachCount: number,
+    highestCushionDollars: number,
+): number {
+    return context.peakRatchet.isIntraday
+        ? Math.min(
+              reachCount - 1,
+              context.peakRatchet.raise(
+                  dayStart.ratchet,
+                  dayStart.thresholdDollars +
+                      highestCushionDollars -
+                      context.startingBalance,
+              ) - dayStart.ratchet,
+          )
+        : reachCount - 1;
 }
 
 function isLevelSkipped(
@@ -1164,19 +1224,41 @@ function maxPairCount(context: FundedSolveContext): number {
     );
 }
 
+function newDayCloseCells(cellCount: number): FundedDayCloseCells {
+    return {
+        cash: new Float64Array(cellCount),
+        credit: new Float64Array(cellCount),
+        keys: new Int32Array(cellCount).fill(UNCOMPUTED_CONTINUATION_KEY),
+    };
+}
+
 function outcomeDayCloseValue(
-    context: FundedSolveContext,
+    scope: FundedDaySolveScope,
     store: Map<number, FundedDayCloseOutcome> | undefined,
     outcomeId: number,
-    computeOutcome: () => FundedDayCloseOutcome,
+    cushionAtEnd: number,
+    wasIdleToday: boolean,
+    reach: number,
 ): number {
     let outcome = store?.get(outcomeId);
     if (outcome === undefined) {
-        outcome = computeOutcome();
-        store?.set(outcomeId, outcome);
+        outcome = dayCloseOutcome(
+            scope.context,
+            scope.dayStart,
+            cushionAtEnd,
+            wasIdleToday,
+            reach,
+        );
+        if (
+            store !== undefined &&
+            hasDayCloseBudget(scope.context, CACHED_MAP_ENTRY_CELL_COST)
+        ) {
+            chargeDayCloseCells(scope.context, CACHED_MAP_ENTRY_CELL_COST);
+            store.set(outcomeId, outcome);
+        }
     }
     return dayCloseValue(
-        context,
+        scope.context,
         outcome.cash,
         outcome.continuationKey,
         outcome.horizonCredit,
@@ -1297,6 +1379,76 @@ function runFundedWorkerBootstrap(): void {
     });
 }
 
+function scopedIdleValue(
+    scope: FundedDaySolveScope,
+    reach: number,
+    index: number,
+): number {
+    const { closeTable } = scope;
+    const cell = reach * scope.workingBucketCount + index;
+    return closeTable?.idleCells === null
+        ? outcomeDayCloseValue(
+              scope,
+              closeTable.idleEntries,
+              cell,
+              index * scope.context.cushionStepDollars,
+              true,
+              reach,
+          )
+        : cachedCellValue(scope, closeTable?.idleCells ?? null, cell, true);
+}
+
+function scopedLockoutValue(
+    scope: FundedDaySolveScope,
+    lockoutId: number,
+): number {
+    const memo = scope.lockoutValues[lockoutId];
+    if (memo !== undefined) return memo;
+    const lockout = scope.skeleton.lockouts[lockoutId];
+    const value =
+        lockout === undefined
+            ? 0
+            : outcomeDayCloseValue(
+                  scope,
+                  scope.closeTable?.lockouts,
+                  lockoutId,
+                  lockout.cushionAfter,
+                  false,
+                  lockout.reachAfter,
+              );
+    scope.lockoutValues[lockoutId] = value;
+    return value;
+}
+
+function scopedOutcomeValue(
+    scope: FundedDaySolveScope,
+    nextTable: Float64Array | null,
+    outcome: number,
+): number {
+    if (outcome >= 0) {
+        return nextTable === null
+            ? scopedStopValue(scope, outcome)
+            : (nextTable[outcome] ?? 0);
+    }
+    return outcome === OUTCOME_BUST
+        ? scope.context.bustTerminalValue
+        : scopedLockoutValue(scope, OUTCOME_FIRST_LOCKOUT - outcome);
+}
+
+function scopedStopValue(scope: FundedDaySolveScope, cell: number): number {
+    if (cell >= scope.cellCount) return 0;
+    const memo = scope.stopValues[cell] ?? NaN;
+    if (!Number.isNaN(memo)) return memo;
+    const value = cachedCellValue(
+        scope,
+        scope.closeTable?.stops ?? null,
+        cell,
+        false,
+    );
+    scope.stopValues[cell] = value;
+    return value;
+}
+
 function skeletonRisks(
     context: FundedSolveContext,
     skeleton: FundedDaySkeleton,
@@ -1385,9 +1537,13 @@ function solveDayTree(
             ).finalTable.subarray(0, cushionBucketCount),
         );
     }
-    return Array.from(
-        { length: cushionBucketCount },
-        (_, cushionStartIndex) =>
+    const dayStartValues: number[] = [];
+    for (
+        let cushionStartIndex = 0;
+        cushionStartIndex < cushionBucketCount;
+        cushionStartIndex++
+    ) {
+        dayStartValues.push(
             solveDayTreeOnce(
                 context,
                 {
@@ -1399,7 +1555,9 @@ function solveDayTree(
                 workingBucketCount,
                 false,
             ).finalTable[cushionStartIndex] ?? 0,
-    );
+        );
+    }
+    return dayStartValues;
 }
 
 function solveDayTreeOnce(
@@ -1412,60 +1570,16 @@ function solveDayTreeOnce(
     const { cushionStepDollars, winrate } = context;
     const { reachCount } = skeleton;
     const cellCount = reachCount * workingBucketCount;
-    const closeTable = dayCloseTableFor(context, skeleton, dayStart, cellCount);
-    const stopValues = new Float64Array(cellCount).fill(NaN);
-    const lockoutValues: number[] = [];
-    const stopValueAt = (cell: number): number => {
-        if (cell >= cellCount) return 0;
-        const memo = stopValues[cell] ?? NaN;
-        if (!Number.isNaN(memo)) return memo;
-        const value = cachedStopValue(
-            context,
-            dayStart,
-            workingBucketCount,
-            closeTable,
-            cell,
-        );
-        stopValues[cell] = value;
-        return value;
+    const scope: FundedDaySolveScope = {
+        cellCount,
+        closeTable: dayCloseTableFor(context, skeleton, dayStart, cellCount),
+        context,
+        dayStart,
+        lockoutValues: [],
+        skeleton,
+        stopValues: new Float64Array(cellCount).fill(NaN),
+        workingBucketCount,
     };
-    const lockoutValueAt = (lockoutId: number): number => {
-        const memo = lockoutValues[lockoutId];
-        if (memo !== undefined) return memo;
-        const lockout = skeleton.lockouts[lockoutId];
-        const value =
-            lockout === undefined
-                ? 0
-                : outcomeDayCloseValue(
-                      context,
-                      closeTable?.lockouts,
-                      lockoutId,
-                      () =>
-                          dayCloseOutcome(
-                              context,
-                              dayStart,
-                              lockout.cushionAfter,
-                              false,
-                              lockout.reachAfter,
-                          ),
-                  );
-        lockoutValues[lockoutId] = value;
-        return value;
-    };
-    const idleValueAt = (reach: number, index: number): number =>
-        outcomeDayCloseValue(
-            context,
-            closeTable?.idle,
-            reach * workingBucketCount + index,
-            () =>
-                dayCloseOutcome(
-                    context,
-                    dayStart,
-                    index * cushionStepDollars,
-                    true,
-                    reach,
-                ),
-        );
 
     const isWindowed = context.isSolvingPerDayStart && !isRecordingPolicy;
     const startIndex = Math.round(
@@ -1480,17 +1594,6 @@ function solveDayTreeOnce(
     let nextTable: Float64Array | null = null;
     const policyTables: number[][][] = [];
     for (let tradeIndex = context.slots - 1; tradeIndex >= 0; tradeIndex--) {
-        const readNext = nextTable;
-        const outcomeValue = (outcome: number): number => {
-            if (outcome >= 0) {
-                return readNext === null
-                    ? stopValueAt(outcome)
-                    : (readNext[outcome] ?? 0);
-            }
-            return outcome === OUTCOME_BUST
-                ? context.bustTerminalValue
-                : lockoutValueAt(OUTCOME_FIRST_LOCKOUT - outcome);
-        };
         const lowIndex = isWindowed
             ? Math.max(0, startIndex - tradeIndex * cellsDownPerTrade)
             : 0;
@@ -1500,9 +1603,18 @@ function solveDayTreeOnce(
                   startIndex + tradeIndex * cellsUpPerTrade,
               )
             : workingBucketCount - 1;
+        const highestReach = isWindowed
+            ? highestReachWithin(
+                  context,
+                  dayStart,
+                  reachCount,
+                  (startIndex + tradeIndex * cellsUpPerTrade + 1) *
+                      cushionStepDollars,
+              )
+            : reachCount - 1;
         const currentTable = new Float64Array(cellCount);
         const currentPolicies: number[][] = [];
-        for (let reach = 0; reach < reachCount; reach++) {
+        for (let reach = 0; reach <= highestReach; reach++) {
             const currentPolicy: number[] = isRecordingPolicy
                 ? Array.from({ length: workingBucketCount })
                 : [];
@@ -1521,11 +1633,20 @@ function solveDayTreeOnce(
                     const value =
                         risk <= 0
                             ? tradeIndex === 0
-                                ? idleValueAt(reach, index)
-                                : stopValueAt(cell)
-                            : winrate * outcomeValue(row.wins[riskIndex] ?? 0) +
+                                ? scopedIdleValue(scope, reach, index)
+                                : scopedStopValue(scope, cell)
+                            : winrate *
+                                  scopedOutcomeValue(
+                                      scope,
+                                      nextTable,
+                                      row.wins[riskIndex] ?? 0,
+                                  ) +
                               (1 - winrate) *
-                                  outcomeValue(row.losses[riskIndex] ?? 0);
+                                  scopedOutcomeValue(
+                                      scope,
+                                      nextTable,
+                                      row.losses[riskIndex] ?? 0,
+                                  );
                     if (value <= bestValue) continue;
                     bestValue = value;
                     bestAction = risk;
@@ -1542,11 +1663,13 @@ function solveDayTreeOnce(
         0,
         workingBucketCount,
     );
-    const finalTable =
-        context.dayCost === 0
-            ? dayStartTable
-            : dayStartTable.map((entry) => entry - context.dayCost);
-    return { finalTable, policyTables };
+    if (context.dayCost !== 0) {
+        for (let index = 0; index < dayStartTable.length; index++) {
+            dayStartTable[index] =
+                (dayStartTable[index] ?? 0) - context.dayCost;
+        }
+    }
+    return { finalTable: dayStartTable, policyTables };
 }
 
 function terminalOutcome(cash: number): FundedDayCloseOutcome {
@@ -1727,7 +1850,7 @@ class FundedWorkerPool {
         cycleBaselineRadix: number,
         cushionBucketCount: number,
         workingBucketCount: number,
-    ): number[][] {
+    ): Float64Array {
         this.dispatchCount++;
         const resultShape = level.isLocked ? 'locked' : 'unlocked';
         const results = level.isLocked
@@ -1781,13 +1904,7 @@ class FundedWorkerPool {
             );
         }
 
-        return Array.from({ length: pairCount }, (_, pairIndex) =>
-            Array.from(
-                { length: cushionBucketCount },
-                (_valuePlaceholder, index) =>
-                    results[pairIndex * cushionBucketCount + index] ?? 0,
-            ),
-        );
+        return results.subarray(0, pairCount * cushionBucketCount);
     }
 
     terminate(): void {
@@ -1822,13 +1939,16 @@ export function computeFundedStateValue(
         );
     }
 
-    const value = new Map<number, number>();
+    let values = new Float64Array(0);
     let unconvergedLevelCount = 0;
 
     const mainContext = buildFundedSolveContext(
         config,
-        (key) => value.get(key) ?? 0,
+        (key) => values[key] ?? 0,
     );
+    values = new Float64Array(mainContext.keyLayout.length);
+    const writtenFlags = new Uint8Array(mainContext.keyLayout.length);
+    let reachedStateCount = 0;
 
     const convergenceTolerance =
         config.convergenceTolerance ?? DEFAULT_CONVERGENCE_TOLERANCE;
@@ -1863,7 +1983,7 @@ export function computeFundedStateValue(
                 level.regime,
             );
             const pairCount = pairCountAt(mainContext, level.regime);
-            const dayStartValuesByPair =
+            const pooledValues =
                 workerPool !== null && pairCount >= MIN_PARALLEL_GRID_CELLS
                     ? workerPool.runGrid(
                           level,
@@ -1872,42 +1992,52 @@ export function computeFundedStateValue(
                           cushionBucketCount,
                           workingBucketCount,
                       )
-                    : Array.from({ length: pairCount }, (_, pairIndex) =>
-                          solveDayTree(
-                              mainContext,
-                              level,
-                              decodePair(
-                                  mainContext,
-                                  pairIndex,
-                                  cycleBaselineRadix,
-                              ),
-                              cushionBucketCount,
-                              workingBucketCount,
-                          ),
-                      );
+                    : null;
+            const localValuesByPair: number[][] = [];
+            if (pooledValues === null) {
+                for (let pairIndex = 0; pairIndex < pairCount; pairIndex++) {
+                    localValuesByPair.push(
+                        solveDayTree(
+                            mainContext,
+                            level,
+                            decodePair(
+                                mainContext,
+                                pairIndex,
+                                cycleBaselineRadix,
+                            ),
+                            cushionBucketCount,
+                            workingBucketCount,
+                        ),
+                    );
+                }
+            }
 
             let maxDelta = 0;
-            const updates: [number, number][] = [];
             for (let pairIndex = 0; pairIndex < pairCount; pairIndex++) {
                 const pair = decodePair(
                     mainContext,
                     pairIndex,
                     cycleBaselineRadix,
                 );
-                const dayStartValues = dayStartValuesByPair[pairIndex] ?? [];
                 for (let index = 0; index < cushionBucketCount; index++) {
                     const key = keyFor(pair, index);
-                    const next = dayStartValues[index] ?? 0;
+                    const next =
+                        pooledValues === null
+                            ? (localValuesByPair[pairIndex]?.[index] ?? 0)
+                            : (pooledValues[
+                                  pairIndex * cushionBucketCount + index
+                              ] ?? 0);
                     maxDelta = Math.max(
                         maxDelta,
-                        Math.abs(next - (value.get(key) ?? 0)),
+                        Math.abs(next - (values[key] ?? 0)),
                     );
-                    updates.push([key, next]);
+                    values[key] = next;
+                    if (writtenFlags[key] === 0) {
+                        writtenFlags[key] = 1;
+                        reachedStateCount++;
+                    }
+                    workerPool?.write(key, next);
                 }
-            }
-            for (const [key, next] of updates) {
-                value.set(key, next);
-                workerPool?.write(key, next);
             }
             return maxDelta;
         }
@@ -1996,7 +2126,7 @@ export function computeFundedStateValue(
         ratchet: 0,
     };
     const initialValue =
-        value.get(
+        values[
             unlockedKey(
                 mainContext,
                 0,
@@ -2007,8 +2137,8 @@ export function computeFundedStateValue(
                     drawdown.amount,
                     unlockedCushionBucketCount,
                 ),
-            ),
-        ) ?? 0;
+            )
+        ] ?? 0;
 
     const policyCache = new Map<number, number[][][]>();
 
@@ -2125,7 +2255,7 @@ export function computeFundedStateValue(
         bustTerminalValue: mainContext.bustTerminalValue,
         dayPolicy,
         initialValue,
-        reachedStateCount: value.size,
+        reachedStateCount,
         unconvergedLevelCount,
         workerCount: workerPool?.usedWorkerCount ?? 0,
     };

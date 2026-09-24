@@ -126,7 +126,7 @@ export function fundedConsistencyGridNote(plan: Plan): null | string {
     const rule = plan.fundedConsistencyRule();
     return rule === null
         ? null
-        : `${plan.label}: its funded best-day consistency rule (${rule.shareLabel()}) makes the account build up profit before each payout, but this DP's locked cushion grid stops at ${DEFAULT_MAX_CUSHION_MULTIPLE} drawdowns and truncates any balance above that. That understates payouts (conservative), so the empirical run below can come out above the DP-predicted rate. The best day itself is tracked on the cushion grid and rounded up between grid steps, so the DP never allows a payout the real rule denies.`;
+        : `${plan.label}: its funded best-day consistency rule (${rule.shareLabel()}) makes the account build up profit before each payout, but this DP's locked cushion grid stops at ${DEFAULT_MAX_CUSHION_MULTIPLE} drawdowns and truncates any balance above that. The best day is tracked on the cushion grid and rounded up between grid steps, but a day that ends above the grid top is truncated like the balance, which shrinks both that day's P&L and the cycle profit the rule compares it with. In those states the DP can pay out less than the real account, and it can also allow a payout the real rule denies or deny one it allows: neither direction is guaranteed there, so trust the empirical run below over the DP-predicted rate.`;
 }
 
 export function fundedIneligibilityMessage(plan: Plan): string {

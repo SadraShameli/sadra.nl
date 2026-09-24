@@ -171,15 +171,18 @@ describe('fundedConsistencyGridNote (N-65)', () => {
         ).toBeNull();
     });
 
-    it('discloses for MFF Builder that the 6 drawdown cushion grid truncates the balance a best-day rule makes the account build up, so the DP is pessimistic there, while the best day itself never lets a payout through that the real rule denies', () => {
+    it('discloses for MFF Builder that the 6 drawdown cushion grid truncates both the balance and a day ending above the grid top, so neither direction of the consistency error is guaranteed there, without claiming the DP is conservative (N-65 review)', () => {
         const plan = mffBuilderPlan();
         const note = fundedConsistencyGridNote(plan);
         expect(note).not.toBeNull();
         expect(note?.startsWith(`${plan.label}: `)).toBe(true);
         expect(note).toContain('50%');
         expect(note).toContain('6 drawdowns');
-        expect(note).toContain('understates');
-        expect(note).toContain('never allows a payout the real rule denies');
+        expect(note).toContain('rounded up between grid steps');
+        expect(note).toContain('a day that ends above the grid top');
+        expect(note).toContain('neither direction is guaranteed');
+        expect(note).not.toContain('conservative');
+        expect(note).not.toContain('never allows a payout the real rule denies');
         expect(note?.slice(plan.label.length)).not.toContain('\u{2014}');
     });
 });
