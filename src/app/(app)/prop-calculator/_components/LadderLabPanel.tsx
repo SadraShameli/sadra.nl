@@ -8,25 +8,24 @@ import { Card } from '~/components/ui/Card';
 import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import InfoPopover from '~/components/ui/InfoPopover';
 import { Input } from '~/components/ui/Input';
-import { formatCurrency, formatPercent } from '~/lib/format';
+import { formatCurrency, formatPercent, NOT_APPLICABLE } from '~/lib/format';
 import {
     ALL_INSTRUMENTS,
     type DayPolicy,
     type DayStopRule,
     DayStopRuleKind,
     defaultLadderGridMax,
+    evalContractLimit,
     INSTRUMENTS,
     InstrumentSymbol,
     type LadderScore,
     ladderSum,
     MAX_LADDER_SLOTS,
     minStopPoints,
-    resolveContractLimit,
     resolvePositionSizing,
     RungSizing,
     SIM_DEFAULTS,
     type SimInputs,
-    TradingPhase,
 } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
@@ -92,12 +91,7 @@ export default function LadderLabPanel({
     const contractCap =
         instrumentSpec === null
             ? null
-            : resolveContractLimit(
-                  plan.contractLimits,
-                  TradingPhase.Eval,
-                  instrumentSpec.isMicro,
-                  0,
-              );
+            : evalContractLimit(plan.contractLimits, instrumentSpec.isMicro);
 
     const succeeded = state.phase === LadderRunPhase.Succeeded ? state : null;
     const unscorableNote =
@@ -202,7 +196,9 @@ export default function LadderLabPanel({
                               );
                     return (
                         <span className="text-muted-foreground">
-                            {stop === null ? '—' : `${stop.toFixed(1)} pt`}
+                            {stop === null
+                                ? NOT_APPLICABLE
+                                : `${stop.toFixed(1)} pt`}
                         </span>
                     );
                 },

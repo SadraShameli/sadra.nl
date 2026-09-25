@@ -16,10 +16,16 @@ import { formatCurrency, formatPercent } from '~/lib/format';
 import {
     type DayStopRule,
     fraction,
+    SIM_DEFAULTS,
     type SimInputs,
     type SimOutputs,
     simulate,
 } from '~/lib/prop-calculator';
+
+export enum FundedSortKey {
+    Cycle = 'cycle',
+    Monthly = 'monthly',
+}
 
 export interface Candidate {
     label: string;
@@ -38,9 +44,10 @@ interface ScoredCandidate {
     survivors: number;
 }
 
-type SortKey = 'cycle' | 'monthly';
-
-const SORT_KEYS: readonly SortKey[] = ['monthly', 'cycle'];
+const SORT_KEYS: readonly FundedSortKey[] = [
+    FundedSortKey.Monthly,
+    FundedSortKey.Cycle,
+];
 
 export default defineCommand({
     args: {
@@ -65,7 +72,7 @@ export default defineCommand({
             type: 'string',
         },
         sort: {
-            default: 'monthly',
+            default: FundedSortKey.Monthly,
             description:
                 'monthly (default): steady-state expected net per month for one account slot (per-run net divided by expected days per run, i.e. the slot is refilled after every failed eval, funded bust or horizon end) -- the only key valid for ranking plans. cycle: expected net from THIS ONE simulated run only (whatever --eval-days/--funded-days bound it to) -- use this for a short, fixed-horizon goal you do not intend to repeat indefinitely.',
             options: [...SORT_KEYS],
@@ -83,7 +90,7 @@ export default defineCommand({
             const plan = planResolver.resolveOne(context.args);
             const inputs = TradingInputs.parse(context.args);
             const base = inputs.toSimInputs(plan);
-            const sort = context.args.sort;
+            const sort = z.enum(FundedSortKey).parse(context.args.sort);
             const candidates = readFundedCandidates(
                 context.args,
                 inputs.dayStop,
@@ -91,7 +98,11 @@ export default defineCommand({
 
             spinner = ui
                 .spinner(
-                    `${plan.label} · ${candidates.length} funded policies · ${inputs.trials} trials each`,
+                    fundedSweepProgress(
+                        plan.label,
+                        candidates.length,
+                        inputs.trials,
+                    ),
                 )
                 .start();
 
@@ -106,10 +117,10 @@ export default defineCommand({
 
             rows.sort((a, b) => {
                 switch (sort) {
-                    case 'cycle': {
+                    case FundedSortKey.Cycle: {
                         return b.out.expectedNet - a.out.expectedNet;
                     }
-                    case 'monthly': {
+                    case FundedSortKey.Monthly: {
                         return (
                             b.out.expectedMonthlyNet - a.out.expectedMonthlyNet
                         );
@@ -117,7 +128,7 @@ export default defineCommand({
                 }
             });
 
-            spinner.succeed(`${plan.label} · ${rows.length} funded policies`);
+            spinner.succeed(fundedSweepSummary(plan.label, rows.length));
 
             ui.heading(plan.label);
             ui.muted(sortDescription(sort, base));
@@ -149,6 +160,21 @@ export default defineCommand({
         }
     },
 });
+
+export function fundedSweepProgress(
+    planLabel: string,
+    policyCount: number,
+    trials: number,
+): string {
+    return `${fundedSweepSummary(planLabel, policyCount)}, ${trials} trials each`;
+}
+
+export function fundedSweepSummary(
+    planLabel: string,
+    policyCount: number,
+): string {
+    return `${planLabel}: ${policyCount} funded policies`;
+}
 
 export function readFundedCandidates(
     arguments_: FundedCandidateArguments,
@@ -208,13 +234,13 @@ export function readFundedCandidates(
     return candidates;
 }
 
-export function sortDescription(sort: SortKey, base: SimInputs): string {
+export function sortDescription(sort: FundedSortKey, base: SimInputs): string {
     switch (sort) {
-        case 'cycle': {
+        case FundedSortKey.Cycle: {
             return `  ranked by per-cycle expected net for THIS run only (${base.maxEvalDays}-day eval cap + ${base.fundedHorizonDays}-day funded horizon, no assumption you repeat this indefinitely)\n`;
         }
-        case 'monthly': {
-            const rebuyLagDays = base.rebuyLagDays ?? 0;
+        case FundedSortKey.Monthly: {
+            const rebuyLagDays = base.rebuyLagDays ?? SIM_DEFAULTS.rebuyLagDays;
             return `  ranked by steady-state expected net per month for one account slot (per-run net / expected days per run, slot refilled after every failed eval, funded bust or ${base.fundedHorizonDays}-day horizon end, plus ${rebuyLagDays} rebuy-lag-days of empty slot time per new eval attempt; an account still open at the horizon is credited its withdrawable balance there)\n`;
         }
     }

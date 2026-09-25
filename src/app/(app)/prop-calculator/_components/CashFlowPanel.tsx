@@ -6,7 +6,11 @@ import { Button } from '~/components/ui/Button';
 import { Card } from '~/components/ui/Card';
 import InfoPopover from '~/components/ui/InfoPopover';
 import { Input } from '~/components/ui/Input';
-import { formatCompactCurrency, formatPercent } from '~/lib/format';
+import {
+    formatCompactCurrency,
+    formatPercent,
+    NOT_APPLICABLE,
+} from '~/lib/format';
 import { type SimInputs, TRADING_DAYS_PER_YEAR } from '~/lib/prop-calculator';
 import { median } from '~/lib/prop-calculator/stats';
 import { cn } from '~/lib/utilities';
@@ -119,7 +123,7 @@ export default function CashFlowPanel({
                     <InfoPopover title="Cash Flow Over Time">
                         Projects your realistic, rules-aware cash flow: buy an
                         eval, retry at full price on failure (no discounted
-                        resets), then — once funded — cycle through the payout
+                        resets), then, once funded, cycle through the payout
                         ladder with qualifying days, the safety net, and the
                         consistency rule all enforced, repeating for every new
                         card bought after an account closes or busts. It never
@@ -221,7 +225,7 @@ export default function CashFlowPanel({
                     <p className="text-[11px] text-amber-400">
                         Capped at {CASH_FLOW_MAX_TRADES_PER_DAY} effective
                         trades/day for this panel (global setting is{' '}
-                        {tradesPerDay}) — this simulation runs entirely on the
+                        {tradesPerDay}): this simulation runs entirely on the
                         main thread, so its own worst case has to stay bounded
                         independently of the slider above.
                     </p>
@@ -253,7 +257,7 @@ export default function CashFlowPanel({
                         sub="month net turns positive"
                         value={
                             medianBreakEvenMonth === null
-                                ? '—'
+                                ? NOT_APPLICABLE
                                 : `${medianBreakEvenMonth.toFixed(1)}mo`
                         }
                         valueClassName={

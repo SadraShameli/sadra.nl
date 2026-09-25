@@ -29,6 +29,7 @@ import {
     formatDays,
     formatOptionalPercent,
     formatPercent,
+    NOT_APPLICABLE,
 } from '~/lib/format';
 import {
     ALL_INSTRUMENTS,
@@ -55,6 +56,7 @@ import {
     purchaseCouponDiscounts,
 } from './feePreview';
 import { panelDescriptions } from './kpiDescriptions';
+import { portfolioCacheKey } from './portfolioCacheKey';
 import { describeResetFee, hasResetOption } from './retryDescription';
 import { type PortfolioEntry } from './types';
 import { useDebouncedComputation } from './useDebouncedSimulation';
@@ -94,7 +96,7 @@ export default function PortfolioPanel({
     planOptIns,
     portfolio,
 }: PortfolioPanelProperties) {
-    const key = buildCacheKey(baseInputs, portfolio, planOptIns);
+    const key = portfolioCacheKey(baseInputs, portfolio, planOptIns);
     const computation = useDebouncedComputation<SimmedEntry[]>(
         key,
         DEBOUNCE_MS,
@@ -249,7 +251,7 @@ export default function PortfolioPanel({
                             />
                             <SummaryCard
                                 info={{
-                                    body: "Average all-in evaluation fees you'll pay per cycle across all accounts — eval, activation, monthly subs, and resets — weighted by account count. This is your expected outlay before any payout.",
+                                    body: "Average all-in evaluation fees you'll pay per cycle across all accounts (eval, activation, monthly subs, and resets), weighted by account count. This is your expected outlay before any payout.",
                                     title: 'Total eval cost',
                                 }}
                                 label="Total eval cost"
@@ -349,46 +351,6 @@ function AccountsCell({
     );
 }
 
-function buildCacheKey(
-    baseInputs: Omit<SimInputs, 'plan'>,
-    portfolio: PortfolioEntry[],
-    optIns: PlanOptIns,
-): string {
-    return JSON.stringify({
-        attempts: baseInputs.maxAttempts ?? 1,
-        commission: baseInputs.commissionPerRoundTrip ?? 0,
-        dayStop: baseInputs.dayStop,
-        evalDayPolicy: baseInputs.evalDayPolicy ?? null,
-        fundedHorizonDays: baseInputs.fundedHorizonDays,
-        idleDayProbability: baseInputs.idleDayProbability ?? 0,
-        instrument: baseInputs.instrument ?? null,
-        maxEvalDays: baseInputs.maxEvalDays,
-        minRetainedCushion: baseInputs.minRetainedCushion ?? null,
-        optIns,
-        payoutRequestSize: baseInputs.payoutRequestSize ?? null,
-        portfolio: portfolio.map((entry) => ({
-            actDiscount: entry.activationDiscountPercent,
-            count: entry.count,
-            evalDiscount: entry.evalDiscountPercent,
-            firmId: entry.firmId,
-            instrument: entry.instrument,
-            linkAct: entry.linkActivationDiscount,
-            msubDiscount: entry.monthlySubscriptionDiscountPercent,
-            planId: entry.planId,
-            resetDiscount: entry.resetDiscountPercent,
-            stopPoints: entry.stopPoints,
-        })),
-        risk: baseInputs.riskPerTrade,
-        rr: baseInputs.rrRatio,
-        rungSizing: baseInputs.rungSizing ?? null,
-        seed: baseInputs.seed,
-        stopPoints: baseInputs.stopPoints ?? null,
-        tpd: baseInputs.tradesPerDay,
-        trials: baseInputs.trials,
-        winrate: baseInputs.winrate,
-    });
-}
-
 function ComputedCell({
     children,
     className,
@@ -404,7 +366,7 @@ function ComputedCell({
         return pending ? (
             <Skeleton className="h-4 w-12" />
         ) : (
-            <span className="text-muted-foreground">—</span>
+            <span className="text-muted-foreground">{NOT_APPLICABLE}</span>
         );
     }
     return <span className={className}>{children(sim.out)}</span>;

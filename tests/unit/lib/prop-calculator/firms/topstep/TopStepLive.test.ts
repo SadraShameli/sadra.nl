@@ -1,16 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-    ContractLimitKind,
     createInitialLiveAccountState,
-    DailyLossLimitKind,
     dollars,
     DrawdownKind,
     INSTRUMENTS,
     InstrumentSymbol,
     type LiveAccountState,
     ReserveLivePlan,
-    TierBasis,
 } from '~/lib/prop-calculator/core';
 import {
     buildTopStepLivePlan,
@@ -106,12 +103,18 @@ describe('buildTopStepLivePlan', () => {
     });
 
     it('wires the position-size tiers as one lot table for minis and micros alike', () => {
-        const plan = buildTopStepLivePlan();
+        for (const profit of [0, 100_000, 200_000]) {
+            const plan = buildTopStepLivePlan();
+            const state = plan.initialState();
+            closeSessions(plan, state, [profit]);
+            closeActiveSessions(plan, state, 8 * ACTIVE_DAYS_PER_TIER);
 
-        expect(plan.contractLimits).not.toBeNull();
-        expect(plan.contractLimits?.micros).toStrictEqual(
-            plan.contractLimits?.minis,
-        );
+            expect(
+                plan.maxContractsFor(state, INSTRUMENTS[InstrumentSymbol.MNQ]),
+            ).toBe(
+                plan.maxContractsFor(state, INSTRUMENTS[InstrumentSymbol.NQ]),
+            );
+        }
     });
 
     it('accepts a caller-supplied cumulative XFA reserve balance for the starting-balance derivation', () => {
@@ -260,6 +263,17 @@ function closeSessions(
 }
 
 const QUIET_WEEK = [0, 0, 0, 0, 0];
+
+function unlockedLimitsAt(profit: number) {
+    const plan = buildTopStepLivePlan();
+    const state = plan.initialState();
+    closeSessions(plan, state, [profit]);
+    closeActiveSessions(plan, state, 8 * ACTIVE_DAYS_PER_TIER);
+    return [
+        plan.dailyLossLimitFor(state),
+        plan.maxContractsFor(state, INSTRUMENTS[InstrumentSymbol.NQ]),
+    ];
+}
 
 describe('TopStep LFA Reserve and Capital Expansion (N-44, article 10657969: "80% held in Reserve, released in 4 increments of 25% as you hit profit thresholds")', () => {
     it('holds $40,000 in Reserve at the default 50K tier and releases it in four $10,000 increments', () => {
@@ -585,24 +599,15 @@ describe('TopStep LFA position size (N-58, article 11748475: "Position Limits re
         expect(lotsAt(1_000_000)).toBe(100);
     });
 
-    it('takes the lot counts from the same expansion table as the Daily Loss Limit tiers', () => {
-        const plan = buildTopStepLivePlan();
-        const config = plan.liveDailyLossLimit;
-        const minis = plan.contractLimits?.minis;
-
-        expect(config?.kind).toBe(DailyLossLimitKind.Tiered);
-        expect(minis?.kind).toBe(ContractLimitKind.Tiered);
-        if (
-            config?.kind !== DailyLossLimitKind.Tiered ||
-            minis?.kind !== ContractLimitKind.Tiered
-        ) {
-            return;
-        }
-        expect(
-            minis.tiers.map((tier) => [tier.minBalance, tier.maxContracts]),
-        ).toStrictEqual(
-            config.tiers.map((tier) => [tier.minProfit, tier.maxContracts]),
-        );
+    it('reads the lot count and the Daily Loss Limit from one expansion table once every tier is unlocked', () => {
+        expect(unlockedLimitsAt(0)).toStrictEqual([2000, 5]);
+        expect(unlockedLimitsAt(15_000)).toStrictEqual([5000, 5]);
+        expect(unlockedLimitsAt(20_000)).toStrictEqual([5500, 5]);
+        expect(unlockedLimitsAt(50_000)).toStrictEqual([6000, 5]);
+        expect(unlockedLimitsAt(100_000)).toStrictEqual([10_000, 30]);
+        expect(unlockedLimitsAt(200_000)).toStrictEqual([20_000, 50]);
+        expect(unlockedLimitsAt(550_000)).toStrictEqual([50_000, 70]);
+        expect(unlockedLimitsAt(1_000_000)).toStrictEqual([100_000, 100]);
     });
 });
 
@@ -773,21 +778,20 @@ describe('TopStep LFA Safeguard reads the tradable balance after a Reserve depos
 describe('TopStep LFA tier timing (N-59, help.topstep.com article 11748475, dateModified 2026-07-17, fetched live 2026-09-23: "Your Daily Loss Limit increases at end of day after 10 Active Trading Days in the new Tier.", "If your net profit falls below your Tier at end of day, your Daily Loss Limit scales down that same day.", "If you drop out of a Tier before 10 days, the counter resets when you re-enter it.", "You must move one Tier at a time. No skipping.", "Active Trading Day: Any day you place at least 1 trade")', () => {
     const nq = INSTRUMENTS[InstrumentSymbol.NQ];
 
-    it('keys the Daily Loss Limit and the lot caps on the session open, not on live intraday profit', () => {
+    it('keys the Daily Loss Limit and the lot cap on the session open, not on live intraday profit: an unlocked $15,000 tier keeps $5,000 and 5 lots while the session runs up to $100,000', () => {
         const plan = buildTopStepLivePlan();
-        const config = plan.liveDailyLossLimit;
-        const minis = plan.contractLimits?.minis;
+        const state = plan.initialState();
+        closeSessions(plan, state, [15_000]);
+        closeActiveSessions(plan, state, ACTIVE_DAYS_PER_TIER - 1);
+        const intraday = {
+            ...state,
+            balance: state.balance + 85_000,
+            todayPnL: 85_000,
+        };
 
-        expect(config?.kind).toBe(DailyLossLimitKind.Tiered);
-        expect(minis?.kind).toBe(ContractLimitKind.Tiered);
-        if (
-            config?.kind !== DailyLossLimitKind.Tiered ||
-            minis?.kind !== ContractLimitKind.Tiered
-        ) {
-            return;
-        }
-        expect(config.tierBasis).toBe(TierBasis.SessionOpenProfit);
-        expect(minis.tierBasis).toBe(TierBasis.SessionOpenProfit);
+        expect(plan.dailyLossLimitFor(state)).toBe(5000);
+        expect(plan.dailyLossLimitFor(intraday)).toBe(5000);
+        expect(plan.maxContractsFor(intraday, nq)).toBe(5);
     });
 
     it('keeps the $2,000 limit and 5 lots mid-session when live profit crosses $15,000 during the first session', () => {

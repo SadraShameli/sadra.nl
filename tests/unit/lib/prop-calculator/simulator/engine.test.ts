@@ -20,7 +20,6 @@ import {
     TopStepVariant,
 } from '~/lib/prop-calculator/core';
 import { findFirm } from '~/lib/prop-calculator/firms';
-import { type Rng } from '~/lib/prop-calculator/rng';
 import {
     CorrelationMode,
     type SimInputs,
@@ -29,6 +28,9 @@ import {
     simulatePortfolio,
 } from '~/lib/prop-calculator/simulator';
 import { simulateTrial } from '~/lib/prop-calculator/simulator/trial';
+
+import { perTrialRowsTotal } from '../perTrialRowsTotal';
+import { scriptedRng } from '../scriptedRng';
 
 const APEX_EOD: PlanId = {
     accountSize: 50_000,
@@ -92,15 +94,6 @@ function planFor(id: PlanId): Plan {
     const plan = firm.findPlan(id);
     if (!plan) throw new Error(`plan not found for ${id.firm}`);
     return plan;
-}
-
-function scriptedRng(draws: readonly number[], fallback: number): Rng {
-    let index = 0;
-    return () => {
-        const draw = draws[index];
-        index += 1;
-        return draw ?? fallback;
-    };
 }
 
 const APEX_LADDER_POLICY: DayPolicy = {
@@ -723,12 +716,6 @@ function firstPayoutDay(maxAttempts: number, rebuyLagDays: number) {
         trials: 400,
         winrate: 0.5,
     }).expectedFirstPayoutDay;
-}
-
-function perTrialRowsTotal(out: SimOutputs): number {
-    const { activationFee, evalFee, resetFeesTotal, subscriptionPerTrial } =
-        out.costBreakdown;
-    return activationFee + evalFee + resetFeesTotal + subscriptionPerTrial;
 }
 
 function retryInputs(plan: Plan): SimInputs {

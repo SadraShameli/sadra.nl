@@ -21,7 +21,6 @@ export interface FundedPayoutOptions {
     payoutRequestSize: number | undefined;
     plan: Plan;
     state: AccountState;
-    tracker: FundedCycleTracker;
 }
 
 export interface FundedPayoutResult {
@@ -62,14 +61,6 @@ export class FundedCycleTracker {
     constructor(state: AccountState) {
         this.lastPayoutBalance = state.balance;
         this.qualifyingDaysAtLastPayout = state.qualifyingDays;
-    }
-
-    private closeSession(state: AccountState): void {
-        if (this.sessionDaysSinceAnchor !== null) {
-            this.sessionDaysSinceAnchor += 1;
-            return;
-        }
-        if (state.consecutiveIdleDays === 0) this.sessionDaysSinceAnchor = 0;
     }
 
     private earlyWithdrawalDebit(
@@ -206,6 +197,14 @@ export class FundedCycleTracker {
         }
     }
 
+    recordSessionClose(state: AccountState): void {
+        if (this.sessionDaysSinceAnchor !== null) {
+            this.sessionDaysSinceAnchor += 1;
+            return;
+        }
+        if (state.consecutiveIdleDays === 0) this.sessionDaysSinceAnchor = 0;
+    }
+
     restoreCalendarDayGateProgress(progress: number): void {
         this.sessionDaysSinceAnchor =
             this.payoutsIssued > 0
@@ -237,11 +236,8 @@ export class FundedCycleTracker {
               );
     }
 
-    tryPayout(
-        options: Omit<FundedPayoutOptions, 'tracker'>,
-    ): FundedPayoutResult | null {
+    tryPayout(options: FundedPayoutOptions): FundedPayoutResult | null {
         const { minRetainedCushion, payoutRequestSize, plan, state } = options;
-        this.closeSession(state);
         if (
             plan.maxLifetimePayoutDollars !== null &&
             this.cumulativePayout >= plan.maxLifetimePayoutDollars
@@ -331,13 +327,6 @@ export function sessionDaysForCalendarDays(calendarDays: number): number {
         (calendarDays * SESSION_DAYS_PER_CALENDAR_WEEK) /
             CALENDAR_DAYS_PER_WEEK,
     );
-}
-
-export function tryFundedPayout(
-    options: FundedPayoutOptions,
-): FundedPayoutResult | null {
-    const { tracker, ...rest } = options;
-    return tracker.tryPayout(rest);
 }
 
 export function withOneTimeEarlyWithdrawalTaken(

@@ -15,6 +15,14 @@ export interface TierProfitContext {
     readonly sessionOpenProfit: number;
 }
 
+export interface TrackedTierProfitContext extends TierProfitContext {
+    readonly peakIntradayProfit: number;
+}
+
+export interface UntrackedTierProfitContext extends TierProfitContext {
+    readonly peakIntradayProfit: null;
+}
+
 export function selectTier<T>(
     tiers: readonly T[],
     profit: number,
@@ -45,7 +53,7 @@ export function tierContextFromProfits(
     profit: number,
     sessionOpenProfit: number = profit,
     peakDayCloseProfit: number = sessionOpenProfit,
-): TierProfitContext {
+): UntrackedTierProfitContext {
     return {
         peakDayCloseProfit,
         peakIntradayProfit: null,

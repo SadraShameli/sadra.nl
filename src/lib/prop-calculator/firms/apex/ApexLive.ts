@@ -62,7 +62,7 @@ const MICRO_LIMITS: ContractLimitConfig = {
     })),
 };
 
-const LIVE_DAILY_LOSS_LIMIT: DailyLossLimitConfig = {
+export const APEX_LIVE_DAILY_LOSS_LIMIT: DailyLossLimitConfig = {
     kind: DailyLossLimitKind.Tiered,
     tierBasis: TierBasis.SessionOpenProfit,
     tiers: LIVE_LEVELS.map((level) => ({
@@ -79,7 +79,7 @@ export function buildApexLivePlan(
         contractLimits: { micros: MICRO_LIMITS, minis: MINI_LIMITS },
         cushionPercent,
         label: 'Apex Live',
-        liveDailyLossLimit: LIVE_DAILY_LOSS_LIMIT,
+        liveDailyLossLimit: APEX_LIVE_DAILY_LOSS_LIMIT,
         liveDrawdown: new EodTrailingDrawdown({
             amount: DRAWDOWN_AMOUNT,
             lock: {

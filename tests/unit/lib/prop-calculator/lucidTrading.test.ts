@@ -7,19 +7,16 @@ import {
     DailyLossLimitShape,
     describeDailyLossLimit,
     DrawdownKind,
+    evalContractLimit,
     FirmId,
     LucidVariant,
     maxContractsAt,
     PlanAvailability,
-    resolveContractLimit,
     resolveDailyLossLimit,
     tierContextFromProfits,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
-import {
-    newFundedCycleTracker,
-    tryFundedPayout,
-} from '~/lib/prop-calculator/core/FundedPayoutCycle';
+import { newFundedCycleTracker } from '~/lib/prop-calculator/core/FundedPayoutCycle';
 import { LucidTrading } from '~/lib/prop-calculator/firms/lucid/LucidTrading';
 
 const lucid = new LucidTrading();
@@ -57,12 +54,12 @@ describe('LucidPro recurring per-cycle profit goal (support.lucidtrading.com Luc
         tracker.lastPayoutBalance = state.balance - 200;
         tracker.qualifyingDaysAtLastPayout = 0;
 
-        const payout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const payout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: pro,
             state,
-            tracker,
         });
 
         expect(payout).toBeNull();
@@ -79,12 +76,12 @@ describe('LucidPro recurring per-cycle profit goal (support.lucidtrading.com Luc
         tracker.lastPayoutBalance = state.balance - 500;
         tracker.qualifyingDaysAtLastPayout = 0;
 
-        const payout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const payout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: pro,
             state,
-            tracker,
         });
 
         expect(payout).not.toBeNull();
@@ -108,12 +105,12 @@ describe("LucidFlex net-positive profit requirement applies to every cycle, firs
         tracker.qualifyingDaysAtLastPayout = 0;
         tracker.lastPayoutBalance = state.balance;
 
-        const payout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const payout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: flex,
             state,
-            tracker,
         });
 
         expect(payout).toBeNull();
@@ -129,12 +126,12 @@ describe("LucidFlex net-positive profit requirement applies to every cycle, firs
         tracker.qualifyingDaysAtLastPayout = 0;
         tracker.lastPayoutBalance = state.balance - 1200;
 
-        const payout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const payout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: flex,
             state,
-            tracker,
         });
 
         expect(payout).not.toBeNull();
@@ -185,14 +182,7 @@ describe("LucidFlex funded contract limit scales with simulated profit, unlike t
                 tierContextFromProfits(1500),
             ),
         ).toBe(3);
-        expect(
-            resolveContractLimit(
-                flex.contractLimits,
-                TradingPhase.Eval,
-                false,
-                1500,
-            ),
-        ).toBe(4);
+        expect(evalContractLimit(flex.contractLimits, false)).toBe(4);
     });
 });
 

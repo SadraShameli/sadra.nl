@@ -19,13 +19,12 @@ import {
     capRiskToContractLimit,
     type DayStopRule,
     describeFundedReset,
+    evalContractLimit,
     INSTRUMENTS,
     type InstrumentSymbol,
     type Plan,
     points,
-    resolveContractLimit,
     type RungSizing,
-    TradingPhase,
 } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
@@ -187,11 +186,9 @@ export default function TradingInputs({
 
     const positionSizingSpec =
         instrument === null ? null : INSTRUMENTS[instrument];
-    const evalContractLimit = resolveContractLimit(
+    const evalContractCap = evalContractLimit(
         plan.contractLimits,
-        TradingPhase.Eval,
         positionSizingSpec?.isMicro ?? false,
-        0,
     );
     const feasibleRisk =
         positionSizingSpec === null || stopPoints === null
@@ -202,7 +199,7 @@ export default function TradingInputs({
                       instrument: positionSizingSpec,
                       stopPoints: points(stopPoints),
                   },
-                  evalContractLimit,
+                  evalContractCap,
               );
     const isRiskCappedByContracts =
         feasibleRisk !== null && feasibleRisk < computedRisk;
@@ -750,7 +747,7 @@ export default function TradingInputs({
                 {instrument !== null && stopPoints !== null ? (
                     <p className="mt-1 text-xs text-muted-foreground">
                         {isRiskCappedByContracts
-                            ? `Capped to ${formatCurrency(feasibleRisk)}/trade in eval - ${evalContractLimit ?? '?'} ${positionSizingSpec?.isMicro ? 'micro' : 'mini'} contract limit at a ${stopPoints}pt stop`
+                            ? `Capped to ${formatCurrency(feasibleRisk)}/trade in eval - ${evalContractCap ?? '?'} ${positionSizingSpec?.isMicro ? 'micro' : 'mini'} contract limit at a ${stopPoints}pt stop`
                             : `Fits within the eval contract limit at a ${stopPoints}pt stop`}
                     </p>
                 ) : null}

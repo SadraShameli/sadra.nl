@@ -13,9 +13,10 @@ import {
     simulatePortfolioTimeline,
 } from '~/lib/prop-calculator/portfolioTimeline';
 
+import { simInputsCacheKey } from './simInputsCacheKey';
 import { useDebouncedComputation } from './useDebouncedSimulation';
 
-interface Arguments {
+export interface CashFlowSimulationArguments {
     accounts: number;
     commissionPerRoundTrip?: number;
     dayBudget?: number;
@@ -46,8 +47,26 @@ export const CASH_FLOW_MAX_TRADES_PER_DAY = 10;
 
 const DEBOUNCE_MS = 550;
 
+export function cashFlowSimulationCacheKey(
+    arguments_: CashFlowSimulationArguments,
+): string {
+    const {
+        accounts,
+        dayBudget = DEFAULT_DAY_BUDGET,
+        tradesPerDay,
+        ...inputs
+    } = arguments_;
+    return simInputsCacheKey(
+        {
+            ...inputs,
+            tradesPerDay: effectiveCashFlowTradesPerDay(tradesPerDay),
+        },
+        { extra: { accounts, dayBudget } },
+    );
+}
+
 export function useCashFlowSimulation(
-    arguments_: Arguments,
+    arguments_: CashFlowSimulationArguments,
 ): UseCashFlowSimulationReturn {
     const {
         accounts,
@@ -69,31 +88,10 @@ export function useCashFlowSimulation(
         winrate,
     } = arguments_;
 
-    const effectiveTradesPerDay = Math.min(
-        CASH_FLOW_MAX_TRADES_PER_DAY,
-        Math.max(1, Math.floor(tradesPerDay)),
-    );
+    const effectiveTradesPerDay = effectiveCashFlowTradesPerDay(tradesPerDay);
     const isTradesPerDayCapped = tradesPerDay > CASH_FLOW_MAX_TRADES_PER_DAY;
 
-    const key = buildCacheKey({
-        accounts,
-        commissionPerRoundTrip,
-        dayBudget,
-        dayStop,
-        discounts,
-        effectiveTradesPerDay,
-        evalDayPolicy,
-        maxEvalDays,
-        minRetainedCushion,
-        payoutRequestSize,
-        plan,
-        riskPerTrade,
-        rrRatio,
-        rungSizing,
-        seed,
-        trials,
-        winrate,
-    });
+    const key = cashFlowSimulationCacheKey(arguments_);
 
     const { pending, result } =
         useDebouncedComputation<null | PortfolioTimelineResult>(
@@ -126,47 +124,9 @@ export function useCashFlowSimulation(
     return { effectiveTradesPerDay, isTradesPerDayCapped, pending, result };
 }
 
-function buildCacheKey(fields: {
-    accounts: number;
-    commissionPerRoundTrip: number | undefined;
-    dayBudget: number;
-    dayStop: DayStopRule | undefined;
-    discounts: CouponDiscounts | undefined;
-    effectiveTradesPerDay: number;
-    evalDayPolicy: DayPolicy | undefined;
-    maxEvalDays: number;
-    minRetainedCushion: number | undefined;
-    payoutRequestSize: number | undefined;
-    plan: Plan;
-    riskPerTrade: number;
-    rrRatio: number;
-    rungSizing: RungSizing | undefined;
-    seed: number;
-    trials: number;
-    winrate: number;
-}): string {
-    return JSON.stringify({
-        accounts: fields.accounts,
-        commission: fields.commissionPerRoundTrip ?? 0,
-        dayBudget: fields.dayBudget,
-        dayStop: fields.dayStop,
-        discActivation: fields.discounts?.activationPercent ?? 0,
-        discEval: fields.discounts?.evalPercent ?? 0,
-        discMonthlySub: fields.discounts?.monthlySubscriptionPercent ?? 0,
-        discReset: fields.discounts?.resetPercent ?? 0,
-        earlyWithdrawal: fields.plan.takesOneTimeEarlyWithdrawal,
-        evalDayPolicy: fields.evalDayPolicy,
-        fundedReset: fields.plan.takesFundedReset,
-        maxEvalDays: fields.maxEvalDays,
-        minRetainedCushion: fields.minRetainedCushion ?? null,
-        payoutRequestSize: fields.payoutRequestSize ?? null,
-        planId: fields.plan.id,
-        risk: fields.riskPerTrade,
-        rr: fields.rrRatio,
-        rungSizing: fields.rungSizing ?? null,
-        seed: fields.seed,
-        tpd: fields.effectiveTradesPerDay,
-        trials: fields.trials,
-        winrate: fields.winrate,
-    });
+function effectiveCashFlowTradesPerDay(tradesPerDay: number): number {
+    return Math.min(
+        CASH_FLOW_MAX_TRADES_PER_DAY,
+        Math.max(1, Math.floor(tradesPerDay)),
+    );
 }

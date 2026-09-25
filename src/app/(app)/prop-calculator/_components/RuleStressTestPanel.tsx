@@ -7,7 +7,7 @@ import { Card } from '~/components/ui/Card';
 import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import { EmptyState } from '~/components/ui/EmptyState';
 import InfoPopover from '~/components/ui/InfoPopover';
-import { formatCurrency, formatPercent } from '~/lib/format';
+import { formatCurrency, formatPercent, NOT_APPLICABLE } from '~/lib/format';
 import {
     type SimInputs,
     type SimOutputs,
@@ -95,7 +95,7 @@ export default function RuleStressTestPanel({
                     r.out.expectedMonthlyNet -
                     (baseline?.out.expectedMonthlyNet ?? 0),
                 cell: ({ row }) => {
-                    if (!baseline) return '—';
+                    if (!baseline) return NOT_APPLICABLE;
                     const delta =
                         row.original.out.expectedMonthlyNet -
                         baseline.out.expectedMonthlyNet;
@@ -112,7 +112,7 @@ export default function RuleStressTestPanel({
                 accessorFn: (r) => pctDelta(r.out.expectedMonthlyNet, baseline),
                 cell: ({ row }) => {
                     if (!baseline || baseline.out.expectedMonthlyNet === 0) {
-                        return '—';
+                        return NOT_APPLICABLE;
                     }
                     const pct = pctDelta(
                         row.original.out.expectedMonthlyNet,

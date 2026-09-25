@@ -13,6 +13,11 @@ export interface DrawdownLockConfig {
     lockedThreshold: (startingBalance: number) => number;
 }
 
+export type DrawdownState = Pick<
+    AccountState,
+    'balance' | 'startingBalance' | 'threshold' | 'thresholdLocked'
+>;
+
 export interface DrawdownStrategyInit {
     amount: Dollars;
     lock?: DrawdownLockConfig;
@@ -34,23 +39,23 @@ export abstract class DrawdownStrategy {
         return startingBalance - this.init.amount;
     }
 
-    isBreached(state: AccountState): boolean {
+    isBreached(state: DrawdownState): boolean {
         return state.balance <= state.threshold;
     }
 
     abstract allowsWithdrawalWhileUnlocked(retainedCushion: number): boolean;
 
-    abstract intradayLockDistance(state: AccountState): number;
+    abstract intradayLockDistance(state: DrawdownState): number;
 
-    abstract onDayClose(state: AccountState): void;
+    abstract onDayClose(state: DrawdownState): void;
 
     abstract onTrade(
-        state: AccountState,
+        state: DrawdownState,
         tradePnL: number,
         peakPnL?: number,
     ): void;
 
-    forceLock(state: AccountState): void {
+    forceLock(state: DrawdownState): void {
         if (state.thresholdLocked) return;
         const lock = this.init.lock;
         if (!lock) return;
@@ -59,7 +64,7 @@ export abstract class DrawdownStrategy {
         state.thresholdLocked = true;
     }
 
-    moveToLock(state: AccountState): void {
+    moveToLock(state: DrawdownState): void {
         if (state.thresholdLocked) return;
         const lock = this.init.lock;
         if (!lock) return;
@@ -68,7 +73,7 @@ export abstract class DrawdownStrategy {
     }
 
     prospectiveLockThreshold(
-        state: AccountState,
+        state: DrawdownState,
         effect: PayoutLockEffect,
     ): number {
         const lock = this.init.lock;
@@ -84,13 +89,13 @@ export abstract class DrawdownStrategy {
         }
     }
 
-    release(state: AccountState, floorTo: number): void {
+    release(state: DrawdownState, floorTo: number): void {
         state.threshold = floorTo;
         state.thresholdLocked = true;
     }
 
     protected maybeLock(
-        state: AccountState,
+        state: DrawdownState,
         profit: number = state.balance - state.startingBalance,
     ): void {
         const lock = this.init.lock;
@@ -100,7 +105,7 @@ export abstract class DrawdownStrategy {
         state.thresholdLocked = true;
     }
 
-    protected ratchet(state: AccountState, target: number): void {
+    protected ratchet(state: DrawdownState, target: number): void {
         if (target > state.threshold) state.threshold = target;
     }
 }
@@ -112,11 +117,11 @@ export class EodTrailingDrawdown extends DrawdownStrategy {
         return retainedCushion < this.amount;
     }
 
-    intradayLockDistance(_state: AccountState): number {
+    intradayLockDistance(_state: DrawdownState): number {
         return Infinity;
     }
 
-    onDayClose(state: AccountState): void {
+    onDayClose(state: DrawdownState): void {
         if (state.thresholdLocked) {
             return;
         }
@@ -125,7 +130,7 @@ export class EodTrailingDrawdown extends DrawdownStrategy {
         this.maybeLock(state);
     }
 
-    onTrade(_state: AccountState, _tradePnL: number, _peakPnL?: number): void {
+    onTrade(_state: DrawdownState, _tradePnL: number, _peakPnL?: number): void {
         return;
     }
 }
@@ -137,19 +142,19 @@ export class IntradayTrailingDrawdown extends DrawdownStrategy {
         return retainedCushion < this.amount;
     }
 
-    intradayLockDistance(state: AccountState): number {
+    intradayLockDistance(state: DrawdownState): number {
         const trigger = this.lock?.atProfit ?? null;
         return trigger === null || state.thresholdLocked
             ? Infinity
             : state.startingBalance + trigger - state.balance;
     }
 
-    onDayClose(_state: AccountState): void {
+    onDayClose(_state: DrawdownState): void {
         return;
     }
 
     onTrade(
-        state: AccountState,
+        state: DrawdownState,
         tradePnL: number,
         peakPnL: number = tradePnL,
     ): void {
@@ -170,14 +175,14 @@ export class StaticDrawdown extends DrawdownStrategy {
         return true;
     }
 
-    intradayLockDistance(_state: AccountState): number {
+    intradayLockDistance(_state: DrawdownState): number {
         return Infinity;
     }
 
-    onDayClose(_state: AccountState): void {
+    onDayClose(_state: DrawdownState): void {
         return;
     }
-    onTrade(_state: AccountState, _tradePnL: number, _peakPnL?: number): void {
+    onTrade(_state: DrawdownState, _tradePnL: number, _peakPnL?: number): void {
         return;
     }
 }

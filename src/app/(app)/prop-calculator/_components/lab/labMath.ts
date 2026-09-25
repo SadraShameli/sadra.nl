@@ -88,37 +88,6 @@ export function gamblersRuinAsymmetric(
     return previous[startIndex] ?? 0;
 }
 
-export function groupedPassDistribution(
-    N: number,
-    groups: number,
-    perGroupP: number,
-): number[] {
-    const out = Array.from({ length: N + 1 }, () => 0);
-    if (N <= 0) {
-        out[0] = 1;
-        return out;
-    }
-    const G = Math.max(1, Math.min(groups, N));
-    const baseSize = Math.floor(N / G);
-    const extra = N - baseSize * G;
-    const groupSizes: number[] = [];
-    for (let g = 0; g < G; g++) {
-        groupSizes.push(baseSize + (g < extra ? 1 : 0));
-    }
-    out[0] = 1;
-    let totalSeen = 0;
-    let working = [...out];
-    for (const size of groupSizes) {
-        const next = Array.from({ length: N + 1 }, () => 0);
-        const newTotal = totalSeen + size;
-        applyGroupStep(working, next, totalSeen, size, perGroupP, N);
-        working = next;
-        totalSeen = newTotal;
-    }
-    for (let k = 0; k <= N; k++) out[k] = working[k] ?? 0;
-    return out;
-}
-
 export function probAtLeastKofN(N: number, K: number, p: number): number {
     if (K <= 0) return 1;
     if (K > N) return 0;
@@ -134,25 +103,6 @@ export function probStreakAtLeast(N: number, k: number, q: number): number {
     if (q >= 1) return 1;
     const expected = (N - k + 1) * Math.pow(q, k);
     return 1 - Math.exp(-expected);
-}
-
-function applyGroupStep(
-    working: readonly number[],
-    next: number[],
-    totalSeen: number,
-    size: number,
-    perGroupP: number,
-    N: number,
-): void {
-    const fail = 1 - perGroupP;
-    for (let k = 0; k <= totalSeen; k++) {
-        const pk = working[k] ?? 0;
-        if (pk === 0) continue;
-        next[k] = (next[k] ?? 0) + pk * fail;
-        const indexPass = k + size;
-        if (indexPass <= N)
-            next[indexPass] = (next[indexPass] ?? 0) + pk * perGroupP;
-    }
 }
 
 function logBinomCoef(n: number, k: number): number {

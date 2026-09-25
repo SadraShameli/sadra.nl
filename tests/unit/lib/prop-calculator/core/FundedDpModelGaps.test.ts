@@ -10,9 +10,9 @@ import {
     TopStepVariant,
 } from '~/lib/prop-calculator/core';
 import {
-    FundedDpPayoutCapGapKind,
-    fundedDpPayoutCapGaps,
-} from '~/lib/prop-calculator/core/FundedDpPayoutCapGaps';
+    FundedDpModelGapKind,
+    fundedDpModelGaps,
+} from '~/lib/prop-calculator/core/FundedDpModelGaps';
 import { PayoutCountTieredPayoutCap } from '~/lib/prop-calculator/core/PayoutCap';
 import { ALL_FIRMS } from '~/lib/prop-calculator/firms';
 import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFunding';
@@ -80,37 +80,35 @@ function topStepNoFeeStandardPlan(): Plan {
     return plan;
 }
 
-describe('fundedDpPayoutCapGaps', () => {
+describe('fundedDpModelGaps', () => {
     it('is empty for Apex EOD 50K: its payoutLadder (6 steps) and maxLifetimePayouts (6) both fit inside the default payout-count regime cap of 6', () => {
-        expect(fundedDpPayoutCapGaps(apexEodPlan())).toStrictEqual([]);
+        expect(fundedDpModelGaps(apexEodPlan())).toStrictEqual([]);
     });
 
     it('is empty for Apex Intraday 50K, for the same reason as EOD', () => {
-        expect(fundedDpPayoutCapGaps(apexIntradayPlan())).toStrictEqual([]);
+        expect(fundedDpModelGaps(apexIntradayPlan())).toStrictEqual([]);
     });
 
     it('is empty for E8 Signature 50K: its PayoutCountTieredPayoutCap tiers start at payouts 0, 2 and 4, and its maxLifetimePayouts is 5 -- both comfortably inside the regime cap of 6', () => {
-        expect(fundedDpPayoutCapGaps(findE8SignaturePlan())).toStrictEqual([]);
+        expect(fundedDpModelGaps(findE8SignaturePlan())).toStrictEqual([]);
     });
 
     it('is empty for MFF Builder 50K: its payoutLadder (5 steps) and maxLifetimePayouts (5) both fit inside the regime cap', () => {
-        expect(fundedDpPayoutCapGaps(mffBuilderPlan())).toStrictEqual([]);
+        expect(fundedDpModelGaps(mffBuilderPlan())).toStrictEqual([]);
     });
 
     it('is empty for TopStep no-fee-standard 50K: it has no maxLifetimePayoutDollars, no payoutLadder and no PayoutCountTieredPayoutCap', () => {
-        expect(fundedDpPayoutCapGaps(topStepNoFeeStandardPlan())).toStrictEqual(
-            [],
-        );
+        expect(fundedDpModelGaps(topStepNoFeeStandardPlan())).toStrictEqual([]);
     });
 
     it('flags MFF Pro 50K for its $100,000 maxLifetimePayoutDollars (the DP never restores FundedCycleTracker.cumulativePayout from any state, so it always ignores this cap) and for its payout-triggered lock, whose unbounded pre-lock trailing saturates the DP offset grid', () => {
-        expect(fundedDpPayoutCapGaps(mffProPlan())).toStrictEqual([
+        expect(fundedDpModelGaps(mffProPlan())).toStrictEqual([
             {
-                kind: FundedDpPayoutCapGapKind.LifetimeDollarCapIgnored,
+                kind: FundedDpModelGapKind.LifetimeDollarCapIgnored,
                 maxLifetimePayoutDollars: dollars(100_000),
             },
             {
-                kind: FundedDpPayoutCapGapKind.PayoutTriggeredLockPreLockOffsetSaturates,
+                kind: FundedDpModelGapKind.PayoutTriggeredLockPreLockOffsetSaturates,
             },
         ]);
     });
@@ -118,10 +116,10 @@ describe('fundedDpPayoutCapGaps', () => {
     it('flags the payout-triggered lock gap only on plans whose funded lock has no profit trigger', () => {
         for (const firm of ALL_FIRMS) {
             for (const plan of firm.plans) {
-                const hasGap = fundedDpPayoutCapGaps(plan).some(
+                const hasGap = fundedDpModelGaps(plan).some(
                     (gap) =>
                         gap.kind ===
-                        FundedDpPayoutCapGapKind.PayoutTriggeredLockPreLockOffsetSaturates,
+                        FundedDpModelGapKind.PayoutTriggeredLockPreLockOffsetSaturates,
                 );
                 expect(hasGap, plan.label).toBe(
                     plan.fundedDrawdown.lock?.atProfit === null,
@@ -165,10 +163,10 @@ describe('fundedDpPayoutCapGaps', () => {
             payoutRequestCap: undefined,
         });
 
-        expect(fundedDpPayoutCapGaps(plan)).toStrictEqual([
+        expect(fundedDpModelGaps(plan)).toStrictEqual([
             {
                 fromPayoutIndex: 9,
-                kind: FundedDpPayoutCapGapKind.PayoutCountTierBeyondRegimeCap,
+                kind: FundedDpModelGapKind.PayoutCountTierBeyondRegimeCap,
                 payoutRegimeCap: 6,
             },
         ]);
@@ -197,6 +195,6 @@ describe('fundedDpPayoutCapGaps', () => {
             payoutRequestCap: undefined,
         });
 
-        expect(fundedDpPayoutCapGaps(plan)).toStrictEqual([]);
+        expect(fundedDpModelGaps(plan)).toStrictEqual([]);
     });
 });

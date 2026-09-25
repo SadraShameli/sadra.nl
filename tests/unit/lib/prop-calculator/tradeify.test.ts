@@ -21,7 +21,6 @@ import {
     RungSizing,
     TierBasis,
     TradeifyVariant,
-    tryFundedPayout,
 } from '~/lib/prop-calculator/core';
 import { TradingPhase } from '~/lib/prop-calculator/core/TradingPhase';
 import { Tradeify } from '~/lib/prop-calculator/firms/tradeify/Tradeify';
@@ -31,6 +30,9 @@ import {
     runDay,
     TradeTotals,
 } from '~/lib/prop-calculator/simulator';
+
+import { freshFundedCycle } from './dayRunOptions';
+import { scriptedRng } from './scriptedRng';
 
 const firm = new Tradeify();
 
@@ -164,6 +166,7 @@ function runSelectFundedDay(
             maxLossesPerDay: null,
             stopRule: { kind: DayStopRuleKind.None },
         },
+        fundedCycle: freshFundedCycle(plan, state),
         phase: TradingPhase.Funded,
         plan,
         positionSizing:
@@ -184,16 +187,6 @@ function runSelectFundedDay(
         ),
         winrate: fraction(0.5),
     });
-}
-
-function scriptedRng(values: readonly number[]): () => number {
-    let index = 0;
-    return () => {
-        const value = values[index];
-        index += 1;
-        if (value === undefined) throw new Error('scripted rng exhausted');
-        return value;
-    };
 }
 
 function selectFundedContracts(
@@ -309,12 +302,12 @@ function selectFlexStateAfterPayout(plan: Plan) {
             symbol: null,
         });
     }
-    const payout = tryFundedPayout({
+    tracker.recordSessionClose(state);
+    const payout = tracker.tryPayout({
         minRetainedCushion: 0,
         payoutRequestSize: undefined,
         plan,
         state,
-        tracker,
     });
     resetForNewDay(state);
     return { payout, state };
@@ -453,7 +446,7 @@ describe('Tradeify scaling funded DLL (help article 10468321 "Rules: Daily Loss 
 describe('Tradeify tier notes', () => {
     it('states that the Select contract tiers are cumulative on TierBasis.PeakSessionCloseProfit and cites the payout policy article', () => {
         const note = firm.notes.find((candidate) =>
-            candidate.includes("SELECT_CONTRACT_LIMITS' funded Tiered tiers"),
+            candidate.includes('SELECT_CONTRACT_LIMITS'),
         );
         expect(note).toContain('TierBasis.PeakSessionCloseProfit');
         expect(note).toContain('12853966');

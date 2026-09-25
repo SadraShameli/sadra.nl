@@ -44,10 +44,10 @@ export interface AccountTimelineResult {
 
 export interface CardResult {
     attemptsUsed: number;
+    evalCost: number;
     evalDays: number;
     fundedResetCharges: readonly FundedResetCharge[];
     payouts: readonly PayoutEvent[];
-    totalCost: number;
     totalDays: number;
 }
 

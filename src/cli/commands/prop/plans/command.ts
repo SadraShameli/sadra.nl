@@ -1,6 +1,7 @@
 import { defineCommand } from 'citty';
 
 import {
+    ContractUnit,
     describeDll,
     describeFundedContracts,
     describeShare,
@@ -13,6 +14,7 @@ import {
     formatCurrency,
     formatGateCurrency,
     formatPercent,
+    NOT_APPLICABLE,
 } from '~/lib/format';
 import {
     type ContractLimits,
@@ -146,13 +148,13 @@ export function planRuleLines(plan: Plan): string[] {
             ? [`    funded drawdown ${fundedDrawdownText}`]
             : []),
         [
-            `    eval DLL ${plan.isInstantFunded ? 'n/a' : describeDll(plan.evalDailyLossLimit, plan.isDailyLossLimitTerminating(TradingPhase.Eval))}`,
+            `    eval DLL ${plan.isInstantFunded ? NOT_APPLICABLE : describeDll(plan.evalDailyLossLimit, plan.isDailyLossLimitTerminating(TradingPhase.Eval))}`,
             `funded DLL ${describeDll(plan.fundedDailyLossLimit, plan.isDailyLossLimitTerminating(TradingPhase.Funded))}`,
-            `consistency eval ${plan.isInstantFunded ? 'n/a' : describeShare(consistencyEval)}`,
+            `consistency eval ${plan.isInstantFunded ? NOT_APPLICABLE : describeShare(consistencyEval)}`,
             `funded ${describeShare(consistencyFunded)}`,
         ].join(' | '),
         [
-            `    contracts ${plan.isInstantFunded ? 'n/a' : limits ? `${limits.evalMinis} mini / ${limits.evalMicros ?? '?'} micro` : 'not recorded'}`,
+            `    contracts ${plan.isInstantFunded ? NOT_APPLICABLE : limits ? `${limits.evalMinis} ${ContractUnit.Mini} / ${limits.evalMicros ?? '?'} ${ContractUnit.Micro}` : 'not recorded'}`,
             `funded ${describeFundedLimits(limits)}`,
         ].join(' | '),
         [
@@ -219,7 +221,7 @@ function describeFundedLimits(limits: ContractLimits | null): string {
     return limits === null ||
         (limits.fundedMinis === null && limits.fundedMicros === null)
         ? 'unpublished'
-        : `${describeFundedContracts(limits.fundedMinis, 'mini')} / ${describeFundedContracts(limits.fundedMicros, 'micro')}`;
+        : `${describeFundedContracts(limits.fundedMinis, ContractUnit.Mini)} / ${describeFundedContracts(limits.fundedMicros, ContractUnit.Micro)}`;
 }
 
 function describeLockFloor(offset: number): string {

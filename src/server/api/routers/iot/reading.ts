@@ -1,5 +1,5 @@
 import { format } from 'date-fns';
-import { and, asc, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, lt, lte, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { LoudnessAlertEmail, ReadingCreatedEmail } from '~/lib/email';
@@ -19,8 +19,11 @@ import {
 } from '~/server/api/types/types';
 import {
     type Granularity,
+    publicReadingColumns,
     readingCreateProperties,
     readingProperties,
+    READINGS_SERIES_MAX_POINTS,
+    readingsPageProperties,
     readingsQueryProperties,
 } from '~/server/api/types/zod';
 import { location, reading, sensor } from '~/server/db/schemas/iot';
@@ -37,13 +40,14 @@ const adminReadingInputSchema = z.object({
     sensorId: z.number().int().positive(),
     value: z.number(),
 });
-const listAdminInputSchema = z.object({
-    device_id: z.number().int().positive().optional(),
-    limit: z.number().int().min(1).max(500).default(100),
-    location_id: z.number().int().positive().optional(),
-    offset: z.number().int().nonnegative().default(0),
-    sensor_id: z.number().int().positive().optional(),
-});
+const listAdminInputSchema = readingsPageProperties
+    .omit({ cursor: true })
+    .extend({
+        device_id: z.number().int().positive().optional(),
+        location_id: z.number().int().positive().optional(),
+        offset: z.number().int().nonnegative().default(0),
+        sensor_id: z.number().int().positive().optional(),
+    });
 const readingsQueryInputSchema = z.union([
     readingsQueryProperties,
     z.undefined(),
@@ -300,9 +304,19 @@ export const readingRouter = createTRPCRouter({
             return await getReading(input, ctx);
         }),
 
-    getReadings: publicProcedure.query(async ({ ctx }) => {
-        return { data: await ctx.db.query.reading.findMany() };
-    }),
+    getReadings: publicProcedure
+        .input(readingsPageProperties.prefault({}))
+        .query(async ({ ctx, input }) => {
+            return {
+                data: await ctx.db.query.reading.findMany({
+                    columns: publicReadingColumns,
+                    limit: input.limit,
+                    orderBy: (reading, { desc }) => [desc(reading.id)],
+                    where: (reading) =>
+                        input.cursor ? lt(reading.id, input.cursor) : undefined,
+                }),
+            };
+        }),
 
     getReadingsInput: publicProcedure
         .input(readingsQueryInputSchema)
@@ -350,11 +364,12 @@ export const readingRouter = createTRPCRouter({
                     })
                     .from(reading)
                     .where(baseWhere)
-                    .orderBy(asc(reading.id));
-                rows = raw;
+                    .orderBy(desc(reading.id))
+                    .limit(READINGS_SERIES_MAX_POINTS);
+                rows = raw.toReversed();
             } else {
                 const trunc = sql<Date>`date_trunc(${input.granularity}, ${reading.created_at})`;
-                rows = await ctx.db
+                const bucketed = await ctx.db
                     .select({
                         avg: sql<number>`avg(${reading.value})`,
                         bucket: trunc,
@@ -365,7 +380,9 @@ export const readingRouter = createTRPCRouter({
                     .from(reading)
                     .where(baseWhere)
                     .groupBy(sql`2`, reading.sensor_id)
-                    .orderBy(sql`2`);
+                    .orderBy(desc(sql`2`))
+                    .limit(READINGS_SERIES_MAX_POINTS);
+                rows = bucketed.toReversed();
             }
 
             if (rows.length === 0) {

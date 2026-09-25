@@ -5,10 +5,7 @@ import {
     FundedNextVariant,
     MffuVariant,
 } from '~/lib/prop-calculator/core';
-import {
-    newFundedCycleTracker,
-    tryFundedPayout,
-} from '~/lib/prop-calculator/core/FundedPayoutCycle';
+import { newFundedCycleTracker } from '~/lib/prop-calculator/core/FundedPayoutCycle';
 import { FundedNext } from '~/lib/prop-calculator/firms/fundednext/FundedNext';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 
@@ -34,12 +31,12 @@ function laterCyclePayout(balance: number) {
     tracker.lastPayoutBalance = state.startingBalance;
     tracker.qualifyingDaysAtLastPayout = 0;
     tracker.payoutsIssued = 1;
-    return tryFundedPayout({
+    tracker.recordSessionClose(state);
+    return tracker.tryPayout({
         minRetainedCushion: 0,
         payoutRequestSize: undefined,
         plan,
         state,
-        tracker,
     });
 }
 
@@ -69,12 +66,12 @@ function requestPayout(balance: number) {
     const tracker = newFundedCycleTracker(state);
     tracker.lastPayoutBalance = state.startingBalance;
     tracker.qualifyingDaysAtLastPayout = 0;
-    return tryFundedPayout({
+    tracker.recordSessionClose(state);
+    return tracker.tryPayout({
         minRetainedCushion: 0,
         payoutRequestSize: undefined,
         plan,
         state,
-        tracker,
     });
 }
 
@@ -103,12 +100,12 @@ describe('FundedNext Rapid Daily buffer', () => {
         tracker.lastPayoutBalance = state.startingBalance;
         tracker.qualifyingDaysAtLastPayout = 0;
 
-        tryFundedPayout({
+        tracker.recordSessionClose(state);
+        tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan,
             state,
-            tracker,
         });
 
         expect(state.balance).toBe(BUFFER_LEVEL);
@@ -184,12 +181,12 @@ function payoutAfterQualifyingDays(qualifyingDaysSincePayout: number) {
     const tracker = newFundedCycleTracker(state);
     tracker.lastPayoutBalance = state.startingBalance;
     tracker.qualifyingDaysAtLastPayout = 0;
-    return tryFundedPayout({
+    tracker.recordSessionClose(state);
+    return tracker.tryPayout({
         minRetainedCushion: 0,
         payoutRequestSize: undefined,
         plan,
         state,
-        tracker,
     });
 }
 

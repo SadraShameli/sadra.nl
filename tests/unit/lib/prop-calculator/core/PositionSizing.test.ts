@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import * as core from '~/lib/prop-calculator/core';
 import {
     type AccountState,
     contractLimitAt,
@@ -8,6 +9,7 @@ import {
     contracts,
     DayStopRuleKind,
     dollars,
+    evalContractLimit,
     fraction,
     INSTRUMENTS,
     InstrumentSymbol,
@@ -21,17 +23,18 @@ import {
 import {
     capRiskToContractLimit,
     type PositionSizingConfig,
-    resolveContractLimit,
     resolvePositionSizing,
 } from '~/lib/prop-calculator/core/PositionSizing';
 import { TopStep } from '~/lib/prop-calculator/firms/topstep/TopStep';
-import { type Rng } from '~/lib/prop-calculator/rng';
 import { runDay } from '~/lib/prop-calculator/simulator/day';
 import {
     LossStreak,
     newPhaseStats,
     TradeTotals,
 } from '~/lib/prop-calculator/simulator/PhaseStats';
+
+import { freshFundedCycle } from '../dayRunOptions';
+import { scriptedRng } from '../scriptedRng';
 
 const NQ: PositionSizingConfig = {
     instrument: INSTRUMENTS[InstrumentSymbol.NQ],
@@ -113,6 +116,7 @@ function runFundedDays(options: {
                 maxLossesPerDay: null,
                 stopRule: { kind: DayStopRuleKind.None },
             },
+            fundedCycle: freshFundedCycle(plan, state),
             phase: TradingPhase.Funded,
             plan,
             positionSizing: NQ,
@@ -139,6 +143,7 @@ function runSingleTradeDay(
             maxLossesPerDay: null,
             stopRule: { kind: DayStopRuleKind.None },
         },
+        fundedCycle: freshFundedCycle(plan, state),
         phase: TradingPhase.Funded,
         plan,
         positionSizing: NQ,
@@ -149,16 +154,6 @@ function runSingleTradeDay(
         stats: freshStats(state.startingBalance),
         winrate: fraction(0.5),
     });
-}
-
-function scriptedRng(draws: readonly number[]): Rng {
-    let index = 0;
-    return () => {
-        const draw = draws[index];
-        if (draw === undefined) throw new Error('scripted rng exhausted');
-        index += 1;
-        return draw;
-    };
 }
 
 describe('resolvePositionSizing', () => {
@@ -216,7 +211,7 @@ describe('capRiskToContractLimit', () => {
     });
 });
 
-describe('resolveContractLimit', () => {
+describe('evalContractLimit', () => {
     const topstep = new TopStep();
     const plan = topstep.plans[0];
     if (!plan) throw new Error('No TopStep plan registered');
@@ -224,33 +219,42 @@ describe('resolveContractLimit', () => {
     if (!limits) throw new Error('TopStep plan has no contractLimits');
 
     it('returns null when the plan has no contract limits', () => {
-        expect(
-            resolveContractLimit(null, TradingPhase.Eval, false, 0),
-        ).toBeNull();
+        expect(evalContractLimit(null, false)).toBeNull();
+        expect(evalContractLimit(null, true)).toBeNull();
     });
 
-    it('reads the flat eval cap directly, ignoring accountProfit', () => {
-        expect(resolveContractLimit(limits, TradingPhase.Eval, false, 0)).toBe(
-            limits.evalMinis,
-        );
-        expect(
-            resolveContractLimit(limits, TradingPhase.Eval, false, 999_999),
-        ).toBe(limits.evalMinis);
+    it('reads the flat eval cap for minis and micros, with no profit argument to misread', () => {
+        expect(evalContractLimit(limits, false)).toBe(limits.evalMinis);
+        expect(evalContractLimit(limits, true)).toBe(limits.evalMicros);
     });
 
-    it('refuses to size a funded trade from positional profits, so a funded tier on the peak session close cannot silently fall back to the session-open profit', () => {
-        expect(() =>
-            resolveContractLimit(limits, TradingPhase.Funded, false, 0),
-        ).toThrow(/contractLimitAt/);
-        expect(() =>
-            resolveContractLimit(
-                CUMULATIVE_TIER_LIMITS,
-                TradingPhase.Funded,
-                false,
-                0,
-                0,
-            ),
-        ).toThrow(/contractLimitAt/);
+    it('agrees with contractLimitAt in the eval phase for any tier context', () => {
+        for (const context of [
+            tierContextFromProfits(0),
+            tierContextFromProfits(999_999, 0, 999_999),
+        ]) {
+            expect(evalContractLimit(FROZEN_TIER_LIMITS, false)).toBe(
+                contractLimitAt(
+                    FROZEN_TIER_LIMITS,
+                    TradingPhase.Eval,
+                    false,
+                    context,
+                ),
+            );
+            expect(evalContractLimit(FROZEN_TIER_LIMITS, true)).toBe(
+                contractLimitAt(
+                    FROZEN_TIER_LIMITS,
+                    TradingPhase.Eval,
+                    true,
+                    context,
+                ),
+            );
+        }
+    });
+
+    it('is the only eval sizing entry point: the barrel no longer offers resolveContractLimit, whose phase argument let a funded trade reach a runtime throw', () => {
+        expect(Object.keys(core)).toContain('evalContractLimit');
+        expect(Object.keys(core)).not.toContain('resolveContractLimit');
     });
 });
 
@@ -317,6 +321,7 @@ describe('runDay: position sizing actually caps a trade in the simulated day loo
                 maxLossesPerDay: null,
                 stopRule: { kind: DayStopRuleKind.None },
             },
+            fundedCycle: freshFundedCycle(plan, state),
             phase: TradingPhase.Funded,
             plan,
             positionSizing: NQ,
@@ -348,6 +353,7 @@ describe('runDay: position sizing actually caps a trade in the simulated day loo
                 maxLossesPerDay: null,
                 stopRule: { kind: DayStopRuleKind.None },
             },
+            fundedCycle: freshFundedCycle(plan, state),
             phase: TradingPhase.Funded,
             plan,
             positionSizing: NQ,
@@ -424,23 +430,21 @@ describe('contractLimitAt with a day-start-frozen funded tier (SessionOpenProfit
         ).toBe(1);
     });
 
-    it('ignores both profit arguments in the eval phase, which reads its flat cap directly and has no tier to freeze', () => {
+    it('reads the flat eval cap in the eval phase, which has no tier to freeze', () => {
         expect(
-            resolveContractLimit(
+            contractLimitAt(
                 FROZEN_TIER_LIMITS,
                 TradingPhase.Eval,
                 false,
-                0,
-                999_999,
+                tierContextFromProfits(0, 999_999),
             ),
         ).toBe(7);
         expect(
-            resolveContractLimit(
+            contractLimitAt(
                 FROZEN_TIER_LIMITS,
                 TradingPhase.Eval,
                 true,
-                999_999,
-                0,
+                tierContextFromProfits(999_999, 0),
             ),
         ).toBe(70);
     });
@@ -528,13 +532,11 @@ describe('contractLimitAt with a cumulative funded tier (PeakSessionCloseProfit)
 
     it('ignores the peak in the eval phase, which reads its flat cap directly', () => {
         expect(
-            resolveContractLimit(
+            contractLimitAt(
                 CUMULATIVE_TIER_LIMITS,
                 TradingPhase.Eval,
                 false,
-                0,
-                0,
-                999_999,
+                tierContextFromProfits(0, 0, 999_999),
             ),
         ).toBe(7);
     });

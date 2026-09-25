@@ -7,6 +7,8 @@ import {
 } from '~/lib/prop-calculator/core/TradePathSimulation';
 import { mulberry32 } from '~/lib/prop-calculator/rng';
 
+import { scriptedRng } from '../scriptedRng';
+
 function alwaysStepDown() {
     return 0.99;
 }
@@ -316,16 +318,6 @@ function runTrials(
         );
     }
     return results;
-}
-
-function scriptedRng(draws: readonly number[]): () => number {
-    let index = 0;
-    return () => {
-        const draw = draws[index];
-        if (draw === undefined) throw new Error('script exhausted');
-        index += 1;
-        return draw;
-    };
 }
 
 function winFraction(results: readonly TradePathResult[]): number {

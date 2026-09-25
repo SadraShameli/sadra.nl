@@ -44,7 +44,11 @@ export function runEvalToFundedCycle(
         winrate,
     } = options;
     assertPositiveSafeInteger(maxEvalDays, 'maxEvalDays');
-    const safeMaxFundedDays = Math.max(0, Math.floor(maxFundedDays));
+    if (!Number.isSafeInteger(maxFundedDays) || maxFundedDays < 0) {
+        throw new Error(
+            `maxFundedDays must be a non-negative safe integer, got ${maxFundedDays}`,
+        );
+    }
 
     const totals = new TradeTotals();
     const retryResult = runEvalWithRetries({
@@ -70,14 +74,14 @@ export function runEvalToFundedCycle(
     if (retryResult.terminalOutcome !== null) {
         return {
             attemptsUsed,
-            evalDays: billableEvalDays,
-            fundedResetCharges: [],
-            payouts: [],
-            totalCost: evalPhaseCost(
+            evalCost: evalPhaseCost(
                 plan.fees,
                 { daysToPass: null, failedAttemptDays, resetFeesPaid },
                 discounts,
             ),
+            evalDays: billableEvalDays,
+            fundedResetCharges: [],
+            payouts: [],
             totalDays,
         };
     }
@@ -98,7 +102,7 @@ export function runEvalToFundedCycle(
         discounts,
         equityCurve: null,
         idleDayProbability,
-        maxDays: safeMaxFundedDays,
+        maxDays: maxFundedDays,
         minRetainedCushion,
         payoutRequestSize,
         plan,
@@ -116,10 +120,7 @@ export function runEvalToFundedCycle(
 
     return {
         attemptsUsed,
-        evalDays: billableEvalDays,
-        fundedResetCharges: fundedResets,
-        payouts: sink.events,
-        totalCost: evalPhaseCost(
+        evalCost: evalPhaseCost(
             plan.fees,
             {
                 daysToPass: retryResult.attempt.days,
@@ -128,6 +129,9 @@ export function runEvalToFundedCycle(
             },
             discounts,
         ),
+        evalDays: billableEvalDays,
+        fundedResetCharges: fundedResets,
+        payouts: sink.events,
         totalDays,
     };
 }

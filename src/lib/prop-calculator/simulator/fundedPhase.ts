@@ -2,7 +2,6 @@ import { type CouponDiscounts } from '../core/FeeSchedule';
 import {
     type FundedCycleTracker,
     newFundedCycleTracker,
-    tryFundedPayout,
 } from '../core/FundedPayoutCycle';
 import {
     canTakeFundedReset,
@@ -139,12 +138,11 @@ export function runFundedDays(options: FundedDaysOptions): FundedDaysResult {
             };
         }
 
-        const payout = tryFundedPayout({
+        const payout = tracker.tryPayout({
             minRetainedCushion,
             payoutRequestSize,
             plan,
             state,
-            tracker,
         });
         if (payout === null) continue;
 
@@ -296,5 +294,6 @@ export function stepFundedDay(options: FundedDayStepOptions): {
     if (state.todayPnL > tracker.cycleBestDayProfit) {
         tracker.cycleBestDayProfit = state.todayPnL;
     }
+    if (!busted) tracker.recordSessionClose(state);
     return { busted, closedForInactivity };
 }

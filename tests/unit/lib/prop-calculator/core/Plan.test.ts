@@ -21,7 +21,6 @@ import {
     serializePlanId,
     TierBasis,
     TradingPhase,
-    tryFundedPayout,
 } from '~/lib/prop-calculator/core';
 import {
     AlphaFuturesVariant,
@@ -513,12 +512,12 @@ describe('Plan.payoutProfitPool AccountProfit invariants', () => {
         tracker.lastPayoutBalance = state.startingBalance;
         tracker.qualifyingDaysAtLastPayout = 0;
 
-        const payout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const payout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: uncapped,
             state,
-            tracker,
         });
 
         expect(state.threshold).toBeLessThan(state.startingBalance);

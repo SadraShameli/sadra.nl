@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import {
     ApexVariant,
@@ -7,6 +7,7 @@ import {
     FirmId,
     flatDayPolicy,
     fraction,
+    type FundedCycleSnapshot,
     type Plan,
     type PlanId,
     RungSizing,
@@ -15,11 +16,34 @@ import {
 import { findFirm } from '~/lib/prop-calculator/firms';
 import { mulberry32, type Rng } from '~/lib/prop-calculator/rng';
 import {
+    type DayRunOptions,
     LossStreak,
     newPhaseStats,
     runDay,
     TradeTotals,
 } from '~/lib/prop-calculator/simulator';
+
+import { dayRunOptionsFor } from '../dayRunOptions';
+
+describe('runDay options are discriminated by phase (WP23)', () => {
+    it('requires the funded cycle snapshot on a funded day, so a funded policy never falls back to a fresh cycle', () => {
+        expectTypeOf<
+            Extract<
+                DayRunOptions,
+                { phase: TradingPhase.Funded }
+            >['fundedCycle']
+        >().toEqualTypeOf<FundedCycleSnapshot>();
+    });
+
+    it('has no funded cycle on an eval day', () => {
+        expectTypeOf<
+            Extract<DayRunOptions, { phase: TradingPhase.Eval }>
+        >().not.toHaveProperty('fundedCycle');
+        expectTypeOf<
+            Extract<DayRunOptions, { phase: TradingPhase.Eval }>
+        >().toHaveProperty('phase');
+    });
+});
 
 function planFor(id: PlanId): Plan {
     const plan = findFirm(id.firm)?.findPlan(id);
@@ -64,20 +88,21 @@ function drawsForOneTrade(
         new LossStreak(totals),
     );
     const counter = countingRng(1);
-    runDay({
-        commission: dollars(0),
-        dayPolicy: flatDayPolicy(250, 1, { kind: DayStopRuleKind.None }),
-        intradayPathStepsPerR,
-        phase,
-        plan,
-        positionSizing: null,
-        rng: counter.rng,
-        rrRatio: 2,
-        rungSizing: RungSizing.CapToCushion,
-        state,
-        stats,
-        winrate: fraction(0.4),
-    });
+    runDay(
+        dayRunOptionsFor(phase, {
+            commission: dollars(0),
+            dayPolicy: flatDayPolicy(250, 1, { kind: DayStopRuleKind.None }),
+            intradayPathStepsPerR,
+            plan,
+            positionSizing: null,
+            rng: counter.rng,
+            rrRatio: 2,
+            rungSizing: RungSizing.CapToCushion,
+            state,
+            stats,
+            winrate: fraction(0.4),
+        }),
+    );
     return counter.draws();
 }
 

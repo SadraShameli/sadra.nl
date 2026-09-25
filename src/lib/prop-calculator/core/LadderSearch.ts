@@ -24,8 +24,8 @@ import { type ContractCount } from './lib/units';
 import { type Plan } from './Plan';
 import {
     capRiskToContractLimit,
+    evalContractLimit,
     type PositionSizingConfig,
-    resolveContractLimit,
 } from './PositionSizing';
 import { replacementEconomics } from './Replacement';
 import { applyTrade, closeTradingDay, recordBestDay } from './TradingDayLedger';
@@ -434,11 +434,9 @@ export function scoreLadder(
     const contractLimit =
         positionSizing === null
             ? null
-            : resolveContractLimit(
+            : evalContractLimit(
                   plan.contractLimits,
-                  TradingPhase.Eval,
                   positionSizing.instrument.isMicro,
-                  0,
               );
 
     const uncappedThreshold = ladder.reduce(

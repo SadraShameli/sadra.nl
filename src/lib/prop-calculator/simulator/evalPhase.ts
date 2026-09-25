@@ -6,6 +6,7 @@ import {
     type AttemptOutcome,
     type EvalAttemptOptions,
     type EvalAttemptResult,
+    type EvalDayRunOptions,
     type EvalWithRetriesOptions,
     type EvalWithRetriesResult,
 } from './types';
@@ -50,7 +51,7 @@ export function runEvalAttempt(options: EvalAttemptOptions): EvalAttemptResult {
     let outcome: AttemptOutcome = 'timed-out';
 
     const dayCap = plan.evalDayCap(maxEvalDays);
-    const dayOptions = {
+    const dayOptions: EvalDayRunOptions = {
         commission,
         dayPolicy,
         idleDayProbability,

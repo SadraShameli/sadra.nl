@@ -564,7 +564,12 @@ function buildCostBreakdown(arguments_: CostBreakdownArguments): CostBreakdown {
 }
 
 function buildGroupSizes(N: number, groups: number): number[] {
-    const G = Math.max(1, Math.min(groups, N));
+    if (!Number.isSafeInteger(groups) || groups < 1 || groups > N) {
+        throw new Error(
+            `groups must be a whole number from 1 to the ${N} accounts, got ${groups}`,
+        );
+    }
+    const G = groups;
     const base = Math.floor(N / G);
     const extra = N - base * G;
     const out: number[] = [];

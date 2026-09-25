@@ -5,7 +5,7 @@ import {
     type InstrumentSymbol,
 } from './Instruments';
 import { type ContractCount, points, type Points } from './lib/units';
-import { tierContextFromProfits, type TierProfitContext } from './TierBasis';
+import { type TierProfitContext } from './TierBasis';
 import { TradingPhase } from './TradingPhase';
 
 export interface PositionSizingConfig {
@@ -38,7 +38,7 @@ export function contractLimitAt(
     if (limits === null) return null;
     switch (phase) {
         case TradingPhase.Eval: {
-            return isMicro ? limits.evalMicros : limits.evalMinis;
+            return evalContractLimit(limits, isMicro);
         }
         case TradingPhase.Funded: {
             return maxContractsAt(
@@ -49,29 +49,12 @@ export function contractLimitAt(
     }
 }
 
-export function resolveContractLimit(
+export function evalContractLimit(
     limits: ContractLimits | null,
-    phase: TradingPhase,
     isMicro: boolean,
-    accountProfit: number,
-    accountProfitAtSessionStart: number = accountProfit,
-    peakDayCloseProfit: number = accountProfitAtSessionStart,
 ): ContractCount | null {
-    if (phase === TradingPhase.Funded) {
-        throw new Error(
-            'resolveContractLimit sizes eval trades only: size a funded trade with contractLimitAt and the full tier profit context',
-        );
-    }
-    return contractLimitAt(
-        limits,
-        phase,
-        isMicro,
-        tierContextFromProfits(
-            accountProfit,
-            accountProfitAtSessionStart,
-            peakDayCloseProfit,
-        ),
-    );
+    if (limits === null) return null;
+    return isMicro ? limits.evalMicros : limits.evalMinis;
 }
 
 export function resolvePositionSizing(

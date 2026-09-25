@@ -22,6 +22,7 @@ import { formatCurrency, formatPercent, NOT_APPLICABLE } from '~/lib/format';
 import {
     assertLadderGridSize,
     defaultLadderGridMax,
+    evalContractLimit,
     LADDER_EVAL_PASS_FLOOR,
     LADDER_IGNORED_INPUT_REASONS,
     type LadderGridConfig,
@@ -36,10 +37,8 @@ import {
     minStopPoints,
     type Plan,
     type PositionSizingConfig,
-    resolveContractLimit,
     resolvePositionSizing,
     runLadderSearch,
-    TradingPhase,
     validateLadderGrid,
 } from '~/lib/prop-calculator';
 
@@ -246,12 +245,7 @@ export function describeLadderSizing(
     }
     const { instrument, stopPoints } = positionSizing;
     const sizing = `sizing ${instrument.symbol} @ ${stopPoints}pt`;
-    const limit = resolveContractLimit(
-        plan.contractLimits,
-        TradingPhase.Eval,
-        instrument.isMicro,
-        0,
-    );
+    const limit = evalContractLimit(plan.contractLimits, instrument.isMicro);
     return limit === null
         ? `${sizing}, no eval contract limit`
         : `${sizing}, eval cap ${limit} contracts (${formatCurrency(limit * instrument.pointValue * stopPoints)} max risk)`;
@@ -374,11 +368,9 @@ export default defineCommand({
             if (unscorableLine !== null) ui.warn(unscorableLine);
             if (result.unscorableCount >= result.laddersScored) return;
 
-            const contractLimit = resolveContractLimit(
+            const contractLimit = evalContractLimit(
                 plan.contractLimits,
-                TradingPhase.Eval,
                 instrument.isMicro,
-                0,
             );
             for (const { select, title } of LADDER_RANKINGS) {
                 printTable(

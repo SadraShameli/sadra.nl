@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
 import {
+    ContractUnit,
     describeDll,
     describeFundedContracts,
     describeShare,
@@ -37,7 +38,6 @@ import { NOT_APPLICABLE } from '~/lib/format';
 import {
     AlphaFuturesVariant,
     ApexVariant,
-    buildApexLivePlan,
     ConsistencyRule,
     ConsistencyScope,
     ContractLimitKind,
@@ -54,6 +54,7 @@ import {
     type Plan,
     type PlanId,
 } from '~/lib/prop-calculator';
+import { APEX_LIVE_DAILY_LOSS_LIMIT } from '~/lib/prop-calculator/firms/apex/ApexLive';
 
 const ARGS = {
     ...planArguments,
@@ -591,10 +592,16 @@ describe('describeFundedContracts (WP13 handoff)', () => {
         expect(
             describeFundedContracts(
                 { kind: ContractLimitKind.Flat, maxContracts: contracts(5) },
-                'mini',
+                ContractUnit.Mini,
             ),
         ).toBe('5 mini');
-        expect(describeFundedContracts(null, 'micro')).toBe('? micro');
+        expect(describeFundedContracts(null, ContractUnit.Micro)).toBe(
+            '? micro',
+        );
+    });
+
+    it('takes the unit as a ContractUnit enum member (WP21b)', () => {
+        expect(Object.values(ContractUnit)).toStrictEqual(['micro', 'mini']);
     });
 });
 
@@ -653,10 +660,7 @@ describe("describeShare (N-43, N-45 display): the consistency cell reads the rul
 
 describe('describeDll prints a no-limit tier (WP22b)', () => {
     it('shows the Apex Live Level 1 no-limit tier next to its $5000-$10000 range', () => {
-        const config = buildApexLivePlan().liveDailyLossLimit;
-        if (config === null) throw new Error('Apex Live has no DLL');
-
-        expect(describeDll(config, false)).toBe(
+        expect(describeDll(APEX_LIVE_DAILY_LOSS_LIMIT, false)).toBe(
             '$5000-$10000, none on some tiers',
         );
     });

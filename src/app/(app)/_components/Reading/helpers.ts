@@ -1,4 +1,4 @@
-export type Granularity = 'day' | 'hour' | 'month' | 'raw' | 'week';
+import { type Granularity } from '~/lib/schemas/sensor';
 
 type DataPoint = { date: string; value: number };
 

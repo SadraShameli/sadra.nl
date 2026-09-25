@@ -18,7 +18,7 @@ import {
     fraction,
 } from '~/lib/prop-calculator/core/lib/units';
 import { TierBasis } from '~/lib/prop-calculator/core/TierBasis';
-import { buildApexLivePlan } from '~/lib/prop-calculator/firms';
+import { APEX_LIVE_DAILY_LOSS_LIMIT } from '~/lib/prop-calculator/firms/apex/ApexLive';
 
 function atProfit(profit: number): DailyLossLimitContext {
     return {
@@ -542,9 +542,9 @@ describe('a tier with no daily loss limit (null)', () => {
     });
 
     it('describes the real Apex Live Levels (Level 1 has no DLL) as a range with an unlimited tier', () => {
-        const live = buildApexLivePlan().liveDailyLossLimit;
-        if (live === null) throw new Error('Apex Live has no DLL');
-        expect(describeDailyLossLimit(live)).toStrictEqual({
+        expect(
+            describeDailyLossLimit(APEX_LIVE_DAILY_LOSS_LIMIT),
+        ).toStrictEqual({
             kind: DailyLossLimitShape.RangeWithUnlimitedTier,
             max: dollars(10_000),
             min: dollars(5000),

@@ -9,8 +9,9 @@ import optimizeDp, {
     empiricalSimInputs,
     empiricalSummaryLines,
     fundedConsistencyGridNote,
+    fundedDpModelGapWarning,
     fundedIneligibilityMessage,
-    payoutCountRuleWarning,
+    fundedValueIterationLine,
     readDpInputs,
     renewalObjective,
     resolveDpPlan,
@@ -26,6 +27,7 @@ import {
     type SimOutputs,
     simulate,
     TopStepVariant,
+    TRADING_DAYS_PER_YEAR,
 } from '~/lib/prop-calculator';
 import {
     DayStopRuleKind,
@@ -182,34 +184,49 @@ describe('fundedConsistencyGridNote (N-65)', () => {
         expect(note).toContain('a day that ends above the grid top');
         expect(note).toContain('neither direction is guaranteed');
         expect(note).not.toContain('conservative');
-        expect(note).not.toContain('never allows a payout the real rule denies');
+        expect(note).not.toContain(
+            'never allows a payout the real rule denies',
+        );
         expect(note?.slice(plan.label.length)).not.toContain('\u{2014}');
     });
 });
 
-describe('payoutCountRuleWarning', () => {
+describe('fundedValueIterationLine (N-63)', () => {
+    it('states the funded sweep count and the error bound on every funded state value', () => {
+        expect(
+            fundedValueIterationLine({
+                sweepCount: 535,
+                valueErrorBound: 5.9594,
+            }),
+        ).toBe(
+            "funded value iteration: 535 sweeps, every funded state value within $5.96 of the DP's exact fixed point",
+        );
+    });
+});
+
+describe('fundedDpModelGapWarning', () => {
     it('returns null for Apex EOD: its payoutLadder (6 steps) and maxLifetimePayouts (6) both fit inside the DP payout-count regime cap of 6', () => {
-        expect(payoutCountRuleWarning(apexEodPlan())).toBeNull();
+        expect(fundedDpModelGapWarning(apexEodPlan())).toBeNull();
     });
 
     it('returns null for Apex Intraday, for the same reason as EOD', () => {
-        expect(payoutCountRuleWarning(apexIntradayPlan())).toBeNull();
+        expect(fundedDpModelGapWarning(apexIntradayPlan())).toBeNull();
     });
 
     it('returns null for E8 Signature: its tiered payout cap tiers (0, 2, 4) and maxLifetimePayouts (5) both fit inside the regime cap', () => {
-        expect(payoutCountRuleWarning(findE8SignaturePlan())).toBeNull();
+        expect(fundedDpModelGapWarning(findE8SignaturePlan())).toBeNull();
     });
 
     it('returns null for MFF Builder: its payoutLadder (5 steps) and maxLifetimePayouts (5) both fit inside the regime cap', () => {
-        expect(payoutCountRuleWarning(mffBuilderPlan())).toBeNull();
+        expect(fundedDpModelGapWarning(mffBuilderPlan())).toBeNull();
     });
 
     it('returns null for TopStep no-fee-standard: it has no count-keyed payout rule at all', () => {
-        expect(payoutCountRuleWarning(topStepNoFeeStandardPlan())).toBeNull();
+        expect(fundedDpModelGapWarning(topStepNoFeeStandardPlan())).toBeNull();
     });
 
     it('warns about MFF Pro’s $100,000 lifetime payout-dollar cap and says this DP ignores it (optimistic)', () => {
-        const warning = payoutCountRuleWarning(mffProPlan());
+        const warning = fundedDpModelGapWarning(mffProPlan());
         expect(warning).not.toBeNull();
         expect(warning).toContain('$100,000');
         expect(warning).toContain('maxLifetimePayoutDollars');
@@ -218,7 +235,7 @@ describe('payoutCountRuleWarning', () => {
     });
 
     it('warns that MFF Pro’s payout-triggered lock lets the pre-lock floor trail past the DP offset grid', () => {
-        const warning = payoutCountRuleWarning(mffProPlan());
+        const warning = fundedDpModelGapWarning(mffProPlan());
         expect(warning).toContain(
             'locks its funded drawdown only on the first payout',
         );
@@ -250,7 +267,7 @@ describe('payoutCountRuleWarning', () => {
             payoutRequestCap: undefined,
         });
 
-        const warning = payoutCountRuleWarning(plan);
+        const warning = fundedDpModelGapWarning(plan);
         expect(warning).not.toBeNull();
         expect(warning).toContain('payout #10');
         expect(warning).toContain('regime cap of 6');
@@ -278,6 +295,12 @@ describe('optimize dp arguments', () => {
         expect(arguments_.iterations).toBeDefined();
         const parsed = parseArgs([], arguments_);
         expect(parsed.iterations).toBe('8');
+    });
+
+    it('defaults --funded-days to one trading year, the shared TRADING_DAYS_PER_YEAR', () => {
+        expect(dpArguments['funded-days'].default).toBe(
+            String(TRADING_DAYS_PER_YEAR),
+        );
     });
 });
 

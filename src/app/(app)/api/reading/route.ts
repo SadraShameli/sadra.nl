@@ -1,12 +1,19 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 
-import { zodErrorResponse } from '~/lib/schemas/api';
+import {
+    parseSearchParameters,
+    readingsPageQuerySchema,
+    zodErrorResponse,
+} from '~/lib/schemas/api';
 import { readingCreateProperties } from '~/lib/schemas/sensor';
 import { api } from '~/trpc/server';
 
-export async function GET() {
-    const result = await api.reading.getReadings();
+export async function GET(request: NextRequest) {
+    const page = parseSearchParameters(readingsPageQuerySchema, request);
+    if (page.response) return page.response;
+
+    const result = await api.reading.getReadings(page.data);
     return NextResponse.json(result.data);
 }
 

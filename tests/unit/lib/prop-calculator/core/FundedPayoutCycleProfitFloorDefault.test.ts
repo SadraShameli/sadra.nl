@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { ApexVariant, FirmId, MffuVariant } from '~/lib/prop-calculator/core';
-import {
-    newFundedCycleTracker,
-    tryFundedPayout,
-} from '~/lib/prop-calculator/core/FundedPayoutCycle';
+import { newFundedCycleTracker } from '~/lib/prop-calculator/core/FundedPayoutCycle';
 import { AlphaFutures } from '~/lib/prop-calculator/firms/alphafutures/AlphaFutures';
 import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFunding';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
@@ -33,12 +30,12 @@ describe('requiredProfit no longer borrows the withdrawal-size minimum as a stan
         tracker.lastPayoutBalance = state.balance - 200;
         tracker.qualifyingDaysAtLastPayout = 0;
 
-        const payout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const payout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: eod,
             state,
-            tracker,
         });
 
         expect(payout).not.toBeNull();

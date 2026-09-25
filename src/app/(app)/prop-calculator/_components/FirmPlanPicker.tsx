@@ -91,7 +91,7 @@ export default function FirmPlanPicker({
                                 key={serializePlanId(p.id)}
                                 value={serializePlanId(p.id)}
                             >
-                                {p.label} · target{' '}
+                                {p.label}: target{' '}
                                 {formatCompactCurrency(p.profitTarget)} ·
                                 drawdown{' '}
                                 {formatCompactCurrency(p.drawdown.amount)}

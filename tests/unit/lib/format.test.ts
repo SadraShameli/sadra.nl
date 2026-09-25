@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
     formatCurrency,
+    formatDays,
     formatFiniteCurrency,
     formatGateCurrency,
     formatOptionalPercent,
@@ -11,6 +12,19 @@ import {
 describe('NOT_APPLICABLE', () => {
     it("is the 'n/a' placeholder every optional formatter prints", () => {
         expect(NOT_APPLICABLE).toBe('n/a');
+    });
+});
+
+describe('formatDays (WP21b: no em dash placeholder)', () => {
+    it.each([0, -1, NaN, Infinity])(
+        "prints 'n/a' for a missing day count %s",
+        (value) => {
+            expect(formatDays(value)).toBe(NOT_APPLICABLE);
+        },
+    );
+
+    it('formats a positive day count to one decimal', () => {
+        expect(formatDays(12.34)).toBe('12.3 d');
     });
 });
 

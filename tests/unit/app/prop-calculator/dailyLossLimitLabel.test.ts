@@ -2,22 +2,16 @@ import { describe, expect, it } from 'vitest';
 
 import { dailyLossLimitLabel } from '~/app/(app)/prop-calculator/_components/dailyLossLimitLabel';
 import {
-    buildApexLivePlan,
     contracts,
     DailyLossLimitKind,
     dollars,
     fraction,
 } from '~/lib/prop-calculator';
-
-function apexLiveDailyLossLimit() {
-    const config = buildApexLivePlan().liveDailyLossLimit;
-    if (config === null) throw new Error('Apex Live has no daily loss limit');
-    return config;
-}
+import { APEX_LIVE_DAILY_LOSS_LIMIT } from '~/lib/prop-calculator/firms/apex/ApexLive';
 
 describe('web daily loss limit badge label', () => {
     it('shows the Apex Live Level 1 no-limit tier next to its $5,000 to $10,000 range (WP22b)', () => {
-        expect(dailyLossLimitLabel(apexLiveDailyLossLimit())).toBe(
+        expect(dailyLossLimitLabel(APEX_LIVE_DAILY_LOSS_LIMIT)).toBe(
             '$5,000–$10,000 (scales, none on some tiers)',
         );
     });

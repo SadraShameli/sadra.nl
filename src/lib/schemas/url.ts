@@ -81,20 +81,24 @@ export const dayPolicySchema = z.object({
     stopRule: dayStopRuleSchema,
 });
 
-export const labScenarioSchema = z.object({
-    accounts: z.number().int().positive(),
-    correlation: z.enum(CorrelationMode),
-    dayStop: dayStopRuleSchema,
-    groups: z.number(),
-    id: z.string(),
-    instrument: z.enum(InstrumentSymbol).nullable().catch(null),
-    label: z.string(),
-    riskPerTrade: z.number(),
-    rrRatio: z.number(),
-    stopPoints: z.number().nullable().catch(null),
-    tradesPerDay: z.number(),
-    winrate: z.number(),
-});
+export const labScenarioSchema = z
+    .object({
+        accounts: z.number().int().positive(),
+        correlation: z.enum(CorrelationMode),
+        dayStop: dayStopRuleSchema,
+        groups: z.number().int().positive(),
+        id: z.string(),
+        instrument: z.enum(InstrumentSymbol).nullable().catch(null),
+        label: z.string(),
+        riskPerTrade: z.number(),
+        rrRatio: z.number(),
+        stopPoints: z.number().nullable().catch(null),
+        tradesPerDay: z.number(),
+        winrate: z.number(),
+    })
+    .refine((scenario) => scenario.groups <= scenario.accounts, {
+        path: ['groups'],
+    });
 
 export const portfolioEntrySchema = z.object({
     activationDiscountPercent: z.number(),

@@ -5,7 +5,6 @@ import {
     FirmId,
     newFundedCycleTracker,
     type Plan,
-    tryFundedPayout,
 } from '~/lib/prop-calculator/core';
 import { AlphaFutures } from '~/lib/prop-calculator/firms/alphafutures/AlphaFutures';
 
@@ -59,12 +58,12 @@ describe('Alpha Futures payout split follows the General Service Agreement: 70% 
         for (let payout = 0; payout < 6; payout++) {
             state.balance += 2000;
             state.qualifyingDays += 5;
-            const result = tryFundedPayout({
+            tracker.recordSessionClose(state);
+            const result = tracker.tryPayout({
                 minRetainedCushion: plan.resolveRetainedCushion(undefined),
                 payoutRequestSize: 1000,
                 plan,
                 state,
-                tracker,
             });
             received.push(result?.traderReceives ?? NaN);
         }
@@ -97,12 +96,12 @@ function secondPayout(plan: Plan, profit: number) {
     tracker.payoutsIssued = 1;
     tracker.qualifyingDaysAtLastPayout = 5;
     tracker.lastPayoutBalance = state.startingBalance;
-    return tryFundedPayout({
+    tracker.recordSessionClose(state);
+    return tracker.tryPayout({
         minRetainedCushion: 0,
         payoutRequestSize: undefined,
         plan,
         state,
-        tracker,
     });
 }
 
@@ -141,13 +140,13 @@ describe('Alpha Futures standing minimum withdrawal request ($200 Zero, $500 Sta
         tracker.lastPayoutBalance = state.startingBalance;
         tracker.qualifyingDaysAtLastPayout = 0;
 
+        tracker.recordSessionClose(state);
         expect(
-            tryFundedPayout({
+            tracker.tryPayout({
                 minRetainedCushion: 0,
                 payoutRequestSize: undefined,
                 plan,
                 state,
-                tracker,
             }),
         ).toBeNull();
     });
@@ -163,12 +162,12 @@ describe('Alpha Futures request cap is 50% of the profit in the account, not of 
         tracker.qualifyingDaysAtLastPayout = 5;
         tracker.lastPayoutBalance = state.balance - 1000;
 
-        const payout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const payout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan,
             state,
-            tracker,
         });
 
         expect(payout?.debited).toBe(2000);
@@ -183,12 +182,12 @@ describe('Alpha Futures request cap is 50% of the profit in the account, not of 
         tracker.qualifyingDaysAtLastPayout = 5;
         tracker.lastPayoutBalance = state.balance + 1000;
 
-        const payout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const payout = tracker.tryPayout({
             minRetainedCushion: plan.resolveRetainedCushion(undefined),
             payoutRequestSize: undefined,
             plan,
             state,
-            tracker,
         });
 
         expect(payout?.debited).toBe(3000);
@@ -203,13 +202,13 @@ describe('Alpha Futures request cap is 50% of the profit in the account, not of 
         tracker.qualifyingDaysAtLastPayout = 5;
         tracker.lastPayoutBalance = state.balance - 1000;
 
+        tracker.recordSessionClose(state);
         expect(
-            tryFundedPayout({
+            tracker.tryPayout({
                 minRetainedCushion: 0,
                 payoutRequestSize: undefined,
                 plan,
                 state,
-                tracker,
             }),
         ).toBeNull();
     });
@@ -272,12 +271,12 @@ describe('Alpha Futures Qualified 40% consistency is measured on net profit sinc
         tracker.qualifyingDaysAtLastPayout = 5;
         tracker.lastPayoutBalance = state.startingBalance + 4000;
         tracker.cycleBestDayProfit = cycleBestDayProfit;
-        return tryFundedPayout({
+        tracker.recordSessionClose(state);
+        return tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan,
             state,
-            tracker,
         });
     }
 

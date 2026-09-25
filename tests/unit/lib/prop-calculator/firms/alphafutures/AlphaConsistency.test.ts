@@ -18,7 +18,6 @@ import {
     type Plan,
     RungSizing,
     simulate,
-    tryFundedPayout,
 } from '~/lib/prop-calculator';
 import {
     computeFundedStateValue,
@@ -61,12 +60,12 @@ function secondRequest(
     tracker.qualifyingDaysAtLastPayout = 5;
     tracker.lastPayoutBalance = state.balance - options.cycleProfit;
     tracker.cycleBestDayProfit = options.cycleBestDayProfit;
-    return tryFundedPayout({
+    tracker.recordSessionClose(state);
+    return tracker.tryPayout({
         minRetainedCushion: 0,
         payoutRequestSize: undefined,
         plan,
         state,
-        tracker,
     });
 }
 

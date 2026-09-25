@@ -36,6 +36,9 @@ import {
     TradeTotals,
 } from '~/lib/prop-calculator/simulator';
 
+import { freshFundedCycle } from '../dayRunOptions';
+import { dayRunOptionsFor } from '../dayRunOptions';
+
 function freshStats(startingBalance: number) {
     const totals = new TradeTotals();
     return newPhaseStats(startingBalance, totals, new LossStreak(totals));
@@ -92,6 +95,7 @@ describe('computedDayPolicy', () => {
         runDay({
             commission: dollars(0),
             dayPolicy,
+            fundedCycle: freshFundedCycle(apexEod, state),
             phase: TradingPhase.Funded,
             plan: apexEod,
             positionSizing: null,
@@ -232,19 +236,20 @@ describe('runDay keeps a losing trade and its commission inside the daily loss l
             const state = plan.initialState();
             if (phase === TradingPhase.Funded) plan.beginFundedPhase(state);
             const stats = freshStats(state.startingBalance);
-            runDay({
-                commission: dollars(5),
-                dayPolicy: flatDayPolicy(1000, 1),
-                phase,
-                plan,
-                positionSizing: null,
-                rng: alwaysLoses,
-                rrRatio: 2,
-                rungSizing: RungSizing.CapToCushion,
-                state,
-                stats,
-                winrate: fraction(0.5),
-            });
+            runDay(
+                dayRunOptionsFor(phase, {
+                    commission: dollars(5),
+                    dayPolicy: flatDayPolicy(1000, 1),
+                    plan,
+                    positionSizing: null,
+                    rng: alwaysLoses,
+                    rrRatio: 2,
+                    rungSizing: RungSizing.CapToCushion,
+                    state,
+                    stats,
+                    winrate: fraction(0.5),
+                }),
+            );
             expect(state.todayPnL).toBe(-500);
             expect(state.balance).toBe(state.startingBalance - 500);
         },

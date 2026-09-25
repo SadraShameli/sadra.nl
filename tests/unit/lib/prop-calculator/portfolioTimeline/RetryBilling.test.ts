@@ -17,6 +17,8 @@ import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFuture
 import { runEvalToFundedCycle } from '~/lib/prop-calculator/portfolioTimeline';
 import { mulberry32, type Rng } from '~/lib/prop-calculator/rng';
 
+import { scriptedRng } from '../scriptedRng';
+
 const EVAL_FEE = 30;
 const MONTHLY = 100;
 const ACTIVATION = 50;
@@ -54,15 +56,6 @@ function runCard(plan: Plan, rng: Rng, winrate: number) {
         rungSizing: RungSizing.CapToCushion,
         winrate: fraction(winrate),
     });
-}
-
-function scriptedRng(draws: readonly number[], fallback: number): Rng {
-    let index = 0;
-    return () => {
-        const draw = draws[index];
-        index += 1;
-        return draw ?? fallback;
-    };
 }
 
 function subscriptionPlan(options: SubscriptionPlanOptions): Plan {
@@ -109,7 +102,7 @@ describe('N-60: the cash-flow timeline bills a re-buy as a new account (T10)', (
 
         expect(card.attemptsUsed).toBe(MAX_EVAL_ATTEMPTS_PER_CARD);
         expect(card.evalDays).toBe(250);
-        expect(card.totalCost).toBe(
+        expect(card.evalCost).toBe(
             MAX_EVAL_ATTEMPTS_PER_CARD * (EVAL_FEE + MONTHLY),
         );
     });
@@ -130,7 +123,7 @@ describe('N-60: the cash-flow timeline bills a re-buy as a new account (T10)', (
 
         expect(card.attemptsUsed).toBe(3);
         expect(card.evalDays).toBe(31);
-        expect(card.totalCost).toBe(
+        expect(card.evalCost).toBe(
             EVAL_FEE + MONTHLY + 2 * (EVAL_FEE + MONTHLY) + ACTIVATION,
         );
     });
@@ -143,7 +136,7 @@ describe('N-60: the cash-flow timeline bills a re-buy as a new account (T10)', (
         );
 
         expect(card.attemptsUsed).toBe(MAX_EVAL_ATTEMPTS_PER_CARD);
-        expect(card.totalCost).toBe(EVAL_FEE + 12 * MONTHLY + 24 * 40);
+        expect(card.evalCost).toBe(EVAL_FEE + 12 * MONTHLY + 24 * 40);
     });
 });
 
@@ -162,6 +155,6 @@ describe('T29: the cash-flow timeline retries a timed-out eval attempt like a bu
         expect(card.attemptsUsed).toBe(MAX_EVAL_ATTEMPTS_PER_CARD);
         expect(card.evalDays).toBe(5 * MAX_EVAL_ATTEMPTS_PER_CARD);
         expect(card.payouts).toEqual([]);
-        expect(card.totalCost).toBe(EVAL_FEE + 6 * MONTHLY + 24 * 40);
+        expect(card.evalCost).toBe(EVAL_FEE + 6 * MONTHLY + 24 * 40);
     });
 });

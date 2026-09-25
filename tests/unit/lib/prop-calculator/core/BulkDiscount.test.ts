@@ -6,11 +6,12 @@ import {
     FirmId,
     fraction,
     type SimInputs,
-    type SimOutputs,
     simulate,
     TradeifyVariant,
 } from '~/lib/prop-calculator';
 import { Tradeify } from '~/lib/prop-calculator/firms/tradeify/Tradeify';
+
+import { perTrialRowsTotal } from '../perTrialRowsTotal';
 
 const tradeify = new Tradeify();
 
@@ -43,12 +44,6 @@ function alwaysPassesInputs(overrides: Partial<SimInputs>): SimInputs {
         winrate: 1,
         ...overrides,
     } as SimInputs;
-}
-
-function perTrialRowsTotal(out: SimOutputs): number {
-    const { activationFee, evalFee, resetFeesTotal, subscriptionPerTrial } =
-        out.costBreakdown;
-    return activationFee + evalFee + resetFeesTotal + subscriptionPerTrial;
 }
 
 function tradeifyPlan(variant: TradeifyVariant) {

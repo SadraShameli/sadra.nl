@@ -30,7 +30,7 @@ import {
     payoutFloorEffectName,
 } from './PayoutFloorEffect';
 import { type PayoutTier, walkPayoutTiers } from './PayoutTiers';
-import { type TierProfitContext } from './TierBasis';
+import { type UntrackedTierProfitContext } from './TierBasis';
 
 export interface LiveCushionPercent {
     postLock: Fraction0to1;
@@ -85,13 +85,13 @@ export interface ReserveLivePlanInit extends LivePlanInit {
 }
 
 export class LivePlan {
-    readonly contractLimits: LiveContractLimits | null;
+    protected readonly contractLimits: LiveContractLimits | null;
 
     readonly cushionPercent: LiveCushionPercent;
 
     readonly label: string;
 
-    readonly liveDailyLossLimit: DailyLossLimitConfig | null;
+    protected readonly liveDailyLossLimit: DailyLossLimitConfig | null;
 
     readonly liveDrawdown: DrawdownStrategy | null;
 
@@ -393,7 +393,9 @@ export class LivePlan {
         return dollars(cushion);
     }
 
-    protected tierContextOf(state: LiveAccountState): TierProfitContext {
+    protected tierContextOf(
+        state: LiveAccountState,
+    ): UntrackedTierProfitContext {
         const profit = this.tierProfitOf(state);
         return {
             peakDayCloseProfit: state.peakDayCloseProfit,

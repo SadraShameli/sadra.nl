@@ -1,39 +1,39 @@
+import { canTakeFundedReset, type FundedResetPolicy } from './FundedReset';
 import { defaultPayoutRegimeCap } from './FundedStateValue';
 import { type Dollars } from './lib/units';
 import { PayoutCountTieredPayoutCap } from './PayoutCap';
 import { type Plan } from './Plan';
 
-export enum FundedDpPayoutCapGapKind {
-    FundedResetNotModeled = 'funded-reset-not-modeled',
+export enum FundedDpModelGapKind {
+    FundedResetPolicyIgnoresResetCount = 'funded-reset-policy-ignores-reset-count',
     LifetimeDollarCapIgnored = 'lifetime-dollar-cap-ignored',
     PayoutCountTierBeyondRegimeCap = 'payout-count-tier-beyond-regime-cap',
     PayoutTriggeredLockPreLockOffsetSaturates = 'payout-triggered-lock-pre-lock-offset-saturates',
 }
 
-export type FundedDpPayoutCapGap =
-    | {
-          readonly fee: Dollars;
-          readonly kind: FundedDpPayoutCapGapKind.FundedResetNotModeled;
-          readonly maxPerAccount: number;
-      }
+export type FundedDpModelGap =
     | {
           readonly fromPayoutIndex: number;
-          readonly kind: FundedDpPayoutCapGapKind.PayoutCountTierBeyondRegimeCap;
+          readonly kind: FundedDpModelGapKind.PayoutCountTierBeyondRegimeCap;
           readonly payoutRegimeCap: number;
       }
     | {
-          readonly kind: FundedDpPayoutCapGapKind.LifetimeDollarCapIgnored;
+          readonly kind: FundedDpModelGapKind.FundedResetPolicyIgnoresResetCount;
+          readonly policy: FundedResetPolicy;
+      }
+    | {
+          readonly kind: FundedDpModelGapKind.LifetimeDollarCapIgnored;
           readonly maxLifetimePayoutDollars: Dollars;
       }
     | {
-          readonly kind: FundedDpPayoutCapGapKind.PayoutTriggeredLockPreLockOffsetSaturates;
+          readonly kind: FundedDpModelGapKind.PayoutTriggeredLockPreLockOffsetSaturates;
       };
 
-export function fundedDpPayoutCapGaps(plan: Plan): FundedDpPayoutCapGap[] {
-    const gaps: FundedDpPayoutCapGap[] = [];
+export function fundedDpModelGaps(plan: Plan): FundedDpModelGap[] {
+    const gaps: FundedDpModelGap[] = [];
     if (plan.maxLifetimePayoutDollars !== null) {
         gaps.push({
-            kind: FundedDpPayoutCapGapKind.LifetimeDollarCapIgnored,
+            kind: FundedDpModelGapKind.LifetimeDollarCapIgnored,
             maxLifetimePayoutDollars: plan.maxLifetimePayoutDollars,
         });
     }
@@ -43,7 +43,7 @@ export function fundedDpPayoutCapGaps(plan: Plan): FundedDpPayoutCapGap[] {
             if (tier.fromPayoutIndex > payoutRegimeCap) {
                 gaps.push({
                     fromPayoutIndex: tier.fromPayoutIndex,
-                    kind: FundedDpPayoutCapGapKind.PayoutCountTierBeyondRegimeCap,
+                    kind: FundedDpModelGapKind.PayoutCountTierBeyondRegimeCap,
                     payoutRegimeCap,
                 });
             }
@@ -51,14 +51,20 @@ export function fundedDpPayoutCapGaps(plan: Plan): FundedDpPayoutCapGap[] {
     }
     if (plan.fundedDrawdown.lock?.atProfit === null) {
         gaps.push({
-            kind: FundedDpPayoutCapGapKind.PayoutTriggeredLockPreLockOffsetSaturates,
+            kind: FundedDpModelGapKind.PayoutTriggeredLockPreLockOffsetSaturates,
         });
     }
-    if (plan.takesFundedReset && plan.fundedReset !== null) {
+    if (
+        plan.fundedReset !== null &&
+        canTakeFundedReset(plan, {
+            closedForInactivity: false,
+            payoutsIssued: 0,
+            resetsUsed: 0,
+        })
+    ) {
         gaps.push({
-            fee: plan.fundedReset.fee,
-            kind: FundedDpPayoutCapGapKind.FundedResetNotModeled,
-            maxPerAccount: plan.fundedReset.maxPerAccount,
+            kind: FundedDpModelGapKind.FundedResetPolicyIgnoresResetCount,
+            policy: plan.fundedReset,
         });
     }
     return gaps;

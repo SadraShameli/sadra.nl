@@ -5,7 +5,11 @@ import { useMemo } from 'react';
 import { Card } from '~/components/ui/Card';
 import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import InfoPopover from '~/components/ui/InfoPopover';
-import { formatCompactCurrency, formatPercent } from '~/lib/format';
+import {
+    formatCompactCurrency,
+    formatPercent,
+    NOT_APPLICABLE,
+} from '~/lib/format';
 import { type SimOutputs } from '~/lib/prop-calculator';
 import { percentile } from '~/lib/prop-calculator/stats';
 import { cn } from '~/lib/utilities';
@@ -96,10 +100,10 @@ export default function TailRiskPanel({ result }: TailRiskPanelProperties) {
                     computed from the full distribution of trial outcomes. VaR
                     95% is the loss you won&apos;t exceed in 19 out of 20
                     trials. CVaR 95% is the average loss in the worst 5% of
-                    outcomes — it describes the shape of the tail, not just
-                    where it starts. Tail ratio compares the 95th percentile
-                    gain to the 5th percentile loss; &gt; 1 means your upside
-                    tail is larger than your downside tail.
+                    outcomes: it describes the shape of the tail, not just where
+                    it starts. Tail ratio compares the 95th percentile gain to
+                    the 5th percentile loss; &gt; 1 means your upside tail is
+                    larger than your downside tail.
                 </InfoPopover>
             </div>
 
@@ -235,7 +239,7 @@ function TailRiskTable({ rows }: { rows: TailRiskRow[] }) {
                                         : 'text-muted-foreground',
                             )}
                         >
-                            {g === null ? '—' : formatPercent(g)}
+                            {g === null ? NOT_APPLICABLE : formatPercent(g)}
                         </span>
                     );
                 },

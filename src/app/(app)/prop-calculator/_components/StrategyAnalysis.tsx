@@ -10,8 +10,13 @@ import {
     formatCurrency,
     formatPercent,
     formatR,
+    NOT_APPLICABLE,
 } from '~/lib/format';
-import { type SimInputs, type SimOutputs } from '~/lib/prop-calculator';
+import {
+    resolveCopyAccounts,
+    type SimInputs,
+    type SimOutputs,
+} from '~/lib/prop-calculator';
 import { standardDeviation } from '~/lib/prop-calculator/stats';
 import { cn } from '~/lib/utilities';
 
@@ -33,14 +38,9 @@ export default function StrategyAnalysis({
     baseInputs,
     result,
 }: StrategyAnalysisProperties) {
-    const {
-        copyAccounts = 1,
-        fundedHorizonDays,
-        plan,
-        rrRatio,
-        winrate,
-    } = baseInputs;
-    const accounts = Math.max(1, Math.floor(copyAccounts));
+    const { copyAccounts, fundedHorizonDays, plan, rrRatio, winrate } =
+        baseInputs;
+    const accounts = resolveCopyAccounts(copyAccounts);
     const kelly = useMemo(
         () => kellySizing(baseInputs, result),
         [baseInputs, result],
@@ -248,7 +248,7 @@ export default function StrategyAnalysis({
                             sub={`${rrRatio.toFixed(2)}:1 reward-to-risk`}
                             value={
                                 averageTrade === null
-                                    ? 'n/a'
+                                    ? NOT_APPLICABLE
                                     : `+${formatCurrency(averageTrade.win)} / −${formatCurrency(averageTrade.loss)}`
                             }
                             valueClass={
@@ -267,7 +267,7 @@ export default function StrategyAnalysis({
                             value={
                                 breakdown.tradesPerPass > 0
                                     ? `${breakdown.tradesPerPass} trades`
-                                    : '—'
+                                    : NOT_APPLICABLE
                             }
                         />
                         <Metric
@@ -276,7 +276,7 @@ export default function StrategyAnalysis({
                             value={
                                 breakdown.tradesPerPass > 0
                                     ? `${breakdown.sumR >= 0 ? '+' : ''}${breakdown.sumR.toFixed(1)}R`
-                                    : '—'
+                                    : NOT_APPLICABLE
                             }
                             valueClass={
                                 breakdown.sumR > 0
@@ -461,7 +461,7 @@ export default function StrategyAnalysis({
                             {edge.zScore === null ? (
                                 <Metric
                                     label="Z-score"
-                                    value="N/A — no edge"
+                                    value={`${NOT_APPLICABLE}: no edge`}
                                     valueClass="text-muted-foreground"
                                 />
                             ) : (
@@ -486,7 +486,7 @@ export default function StrategyAnalysis({
                                         label="Min trades (95% CI)"
                                         value={
                                             edge.minTrades === null
-                                                ? '—'
+                                                ? NOT_APPLICABLE
                                                 : String(edge.minTrades)
                                         }
                                     />
@@ -517,7 +517,7 @@ export default function StrategyAnalysis({
                                 label="Average risk"
                                 value={
                                     kelly.currentRiskFraction === null
-                                        ? 'n/a'
+                                        ? NOT_APPLICABLE
                                         : formatPercent(
                                               kelly.currentRiskFraction,
                                           )
@@ -565,7 +565,7 @@ function KellyIndexMetric({ index }: { index: KellyIndex }) {
             return (
                 <Metric
                     label="Kelly index"
-                    value="n/a"
+                    value={NOT_APPLICABLE}
                     valueClass="text-muted-foreground"
                 />
             );

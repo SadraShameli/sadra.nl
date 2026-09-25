@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
     dpArguments,
-    payoutCountRuleWarning,
+    fundedDpModelGapWarning,
     resolveDpPlan,
 } from '~/cli/commands/prop/optimize/dp/command';
 import {
@@ -136,8 +136,8 @@ describe('--funded-reset (N-34, T31: the Alpha Qualified Reset is an opt-in, off
     });
 });
 
-describe('optimize dp takes --funded-reset and discloses that its DP does not model it (T31)', () => {
-    it('opts the plan in, so the FundedResetNotModeled gap line prints', () => {
+describe('optimize dp takes --funded-reset into its own solve (T31, N-34 DP half)', () => {
+    it('opts the plan in, and the only reset line left states the plan terms from the plan data and the day-policy limit, never that the DP ignores the reset', () => {
         const plan = resolvedDpPlan([
             '--firm',
             'alphafutures',
@@ -145,20 +145,28 @@ describe('optimize dp takes --funded-reset and discloses that its DP does not mo
             'zero',
             '--funded-reset',
         ]);
+        const policy = plan.fundedReset;
+        if (policy === null) throw new Error('Alpha Zero has no reset policy');
+        const warning = fundedDpModelGapWarning(plan) ?? '';
 
         expect(plan.takesFundedReset).toBe(true);
-        expect(payoutCountRuleWarning(plan)).toContain(
-            'takes the funded reset',
-        );
+        expect(warning).toContain(describeFundedResetTerms(policy));
+        expect(warning).toContain('values every reset exactly');
+        expect(warning).not.toContain('does not model');
+        expect(warning).not.toContain('only before any payout');
+        expect(warning).not.toContain('\u{2014}');
     });
 
     it('keeps both opt-ins independent and off by default', () => {
-        const plan = resolvedDpPlan(['--firm', 'alphafutures', '--variant', 'zero']);
+        const plan = resolvedDpPlan([
+            '--firm',
+            'alphafutures',
+            '--variant',
+            'zero',
+        ]);
 
         expect(plan.takesFundedReset).toBe(false);
-        expect(payoutCountRuleWarning(plan) ?? '').not.toContain(
-            'takes the funded reset',
-        );
+        expect(fundedDpModelGapWarning(plan)).toBeNull();
         expect(
             resolvedDpPlan([
                 '--firm',

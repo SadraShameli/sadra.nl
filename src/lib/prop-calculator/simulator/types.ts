@@ -59,22 +59,7 @@ export interface CostBreakdownArguments {
     replacementInputs: ReplacementInputs;
 }
 
-export interface DayRunOptions {
-    commission: Dollars;
-    dayPolicy: DayPolicy;
-    fundedCycle?: FundedCycleSnapshot;
-    idleDayProbability?: number;
-    intradayPathStepsPerR?: number;
-    phase: TradingPhase;
-    plan: Plan;
-    positionSizing: null | PositionSizingConfig;
-    rng: Rng;
-    rrRatio: number;
-    rungSizing: RungSizing;
-    state: AccountState;
-    stats: PhaseStats;
-    winrate: Fraction0to1;
-}
+export type DayRunOptions = EvalDayRunOptions | FundedDayRunOptions;
 
 export interface EvalAttemptOptions {
     commission: Dollars;
@@ -100,6 +85,10 @@ export interface EvalAttemptResult {
     state: AccountState;
     stats: PhaseStats;
     streak: LossStreak;
+}
+
+export interface EvalDayRunOptions extends DayRunCommonOptions {
+    phase: TradingPhase.Eval;
 }
 
 export interface EvalWithRetriesOptions extends EvalAttemptOptions {
@@ -137,6 +126,11 @@ export interface FinishTrialArguments {
     resetFeesPaid: number;
     totalPayout: number;
     totals: TradeTotals;
+}
+
+export interface FundedDayRunOptions extends DayRunCommonOptions {
+    fundedCycle: FundedCycleSnapshot;
+    phase: TradingPhase.Funded;
 }
 
 export interface FundedDayStepOptions {
@@ -389,4 +383,19 @@ export interface TrialResult {
     riskTaken: number;
     totalCost: number;
     tradesTaken: number;
+}
+
+interface DayRunCommonOptions {
+    commission: Dollars;
+    dayPolicy: DayPolicy;
+    idleDayProbability?: number;
+    intradayPathStepsPerR?: number;
+    plan: Plan;
+    positionSizing: null | PositionSizingConfig;
+    rng: Rng;
+    rrRatio: number;
+    rungSizing: RungSizing;
+    state: AccountState;
+    stats: PhaseStats;
+    winrate: Fraction0to1;
 }

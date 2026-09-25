@@ -7,6 +7,7 @@ import {
     dollars,
     DrawdownKind,
     E8FuturesVariant,
+    evalContractLimit,
     FirmId,
     flatDayPolicy,
     fraction,
@@ -14,15 +15,11 @@ import {
     maxContractsAt,
     PayoutFloorEffect,
     points,
-    resolveContractLimit,
     RungSizing,
     serializePlanId,
     tierContextFromProfits,
 } from '~/lib/prop-calculator/core';
-import {
-    newFundedCycleTracker,
-    tryFundedPayout,
-} from '~/lib/prop-calculator/core/FundedPayoutCycle';
+import { newFundedCycleTracker } from '~/lib/prop-calculator/core/FundedPayoutCycle';
 import { TradingPhase } from '~/lib/prop-calculator/core/TradingPhase';
 import { ALL_FIRMS, findFirm } from '~/lib/prop-calculator/firms';
 import { E8Futures } from '~/lib/prop-calculator/firms/e8futures/E8Futures';
@@ -162,14 +159,7 @@ describe('E8 Futures Signature 50K', () => {
                 tierContextFromProfits(0),
             ),
         ).toBe(40);
-        expect(
-            resolveContractLimit(
-                plan.contractLimits,
-                TradingPhase.Eval,
-                true,
-                0,
-            ),
-        ).toBe(40);
+        expect(evalContractLimit(plan.contractLimits, true)).toBe(40);
         expect(
             contractLimitAt(
                 plan.contractLimits,
@@ -203,35 +193,35 @@ describe('E8 Futures Signature 50K', () => {
             state.balance = state.startingBalance + 10_000;
 
             state.qualifyingDays = 0;
-            const firstPayout = tryFundedPayout({
+            tracker.recordSessionClose(state);
+            const firstPayout = tracker.tryPayout({
                 minRetainedCushion: 0,
                 payoutRequestSize: undefined,
                 plan,
                 state,
-                tracker,
             });
             expect(firstPayout).not.toBeNull();
             expect(tracker.payoutsIssued).toBe(1);
 
             state.balance += 3000;
             state.qualifyingDays += 4;
+            tracker.recordSessionClose(state);
             expect(
-                tryFundedPayout({
+                tracker.tryPayout({
                     minRetainedCushion: 0,
                     payoutRequestSize: undefined,
                     plan,
                     state,
-                    tracker,
                 }),
             ).toBeNull();
 
             state.qualifyingDays += 1;
-            const secondPayout = tryFundedPayout({
+            tracker.recordSessionClose(state);
+            const secondPayout = tracker.tryPayout({
                 minRetainedCushion: 0,
                 payoutRequestSize: undefined,
                 plan,
                 state,
-                tracker,
             });
             expect(secondPayout).not.toBeNull();
         },
@@ -383,14 +373,7 @@ describe('E8 Zero (MAX/Starter x 80%/100% payout) 50K', () => {
     it("caps micros by margin like minis: 40 in the challenge and 20 -> 30 -> 50 funded, at $1,000 per micro against the $40,000 and $20,000/$30,000/$50,000 allowances (pasted 2026-09-23 from 'Max. available Contract Sizes')", () => {
         const zero = findE8ZeroPlan(E8FuturesVariant.ZeroStarter80);
         expect(zero.contractLimits?.evalMicros).toBe(40);
-        expect(
-            resolveContractLimit(
-                zero.contractLimits,
-                TradingPhase.Eval,
-                true,
-                0,
-            ),
-        ).toBe(40);
+        expect(evalContractLimit(zero.contractLimits, true)).toBe(40);
         const fundedMicros = zero.contractLimits?.fundedMicros ?? null;
         expect(maxContractsAt(fundedMicros, tierContextFromProfits(0))).toBe(
             20,
@@ -439,12 +422,12 @@ describe('E8 Zero (MAX/Starter x 80%/100% payout) 50K', () => {
         tracker.lastPayoutBalance = state.startingBalance;
         tracker.qualifyingDaysAtLastPayout = 0;
 
-        const payout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const payout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: zero,
             state,
-            tracker,
         });
 
         expect(payout).not.toBeNull();
@@ -524,12 +507,12 @@ describe('E8 Signature payout buffer: a buffer equal to the EOD drawdown can not
             scenario.payoutsIssued === 0
                 ? state.startingBalance
                 : scenario.balance - scenario.cycleProfit;
-        const payout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const payout = tracker.tryPayout({
             minRetainedCushion: scenario.minRetainedCushion,
             payoutRequestSize: undefined,
             plan: target,
             state,
-            tracker,
         });
         return { balanceAfter: state.balance, payout };
     }

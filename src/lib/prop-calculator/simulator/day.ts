@@ -20,6 +20,7 @@ import {
 import { applyTrade, closeTradingDay } from '../core/TradingDayLedger';
 import { TradingPhase } from '../core/TradingPhase';
 import { assertNoFundedDayPolicyConflict } from './dayPolicyValidation';
+import { SIM_DEFAULTS } from './SimDefaults';
 import { type DayRunOptions, type SimInputs } from './types';
 
 const MAX_INTRADAY_PATH_STEPS = 100_000;
@@ -70,8 +71,7 @@ export function runDay(options: DayRunOptions): {
     const {
         commission,
         dayPolicy,
-        fundedCycle,
-        idleDayProbability,
+        idleDayProbability = SIM_DEFAULTS.idleDayProbability,
         intradayPathStepsPerR,
         phase,
         plan,
@@ -83,6 +83,8 @@ export function runDay(options: DayRunOptions): {
         stats,
         winrate,
     } = options;
+    const fundedCycle =
+        options.phase === TradingPhase.Funded ? options.fundedCycle : undefined;
     resetForNewDay(state);
     let isTraded = false;
     let lossesToday = 0;
@@ -100,9 +102,8 @@ export function runDay(options: DayRunOptions): {
               }
             : undefined;
 
-    const idleChance = idleDayProbability ?? 0;
     const maxConsecutiveIdleDays = plan.maxConsecutiveIdleDaysFor(phase);
-    const isIdleToday = idleChance > 0 && rng() < idleChance;
+    const isIdleToday = idleDayProbability > 0 && rng() < idleDayProbability;
 
     if (!isIdleToday) {
         for (let index = 0; index < dayPolicy.ladder.length; index++) {

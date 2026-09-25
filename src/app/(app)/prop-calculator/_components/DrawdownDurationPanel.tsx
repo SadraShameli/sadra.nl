@@ -110,10 +110,10 @@ export default function DrawdownDurationPanel({
                     drawdown episodes last and how quickly they recover. Time
                     underwater is the share of trading days spent below a prior
                     peak. V-shape episodes recover in under 40% of their total
-                    duration — the faster that number, the less psychological
-                    and capital drag the strategy produces. Recovery tax shows
-                    the extra return required to get back to breakeven after
-                    typical drawdowns.
+                    duration: the faster that number, the less psychological and
+                    capital drag the strategy produces. Recovery tax shows the
+                    extra return required to get back to breakeven after typical
+                    drawdowns.
                 </InfoPopover>
             </div>
 
@@ -143,9 +143,7 @@ export default function DrawdownDurationPanel({
                     <StatCard
                         label="Avg recovery time"
                         sub="from trough to new peak"
-                        value={
-                            m.avgRecovery > 0 ? formatDays(m.avgRecovery) : '—'
-                        }
+                        value={formatDays(m.avgRecovery)}
                         valueClassName={recoveryClass}
                     />
                     <StatCard

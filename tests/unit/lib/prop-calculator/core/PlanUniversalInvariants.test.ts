@@ -10,7 +10,6 @@ import {
     type Plan,
     type PlanInit,
     TradingPhase,
-    tryFundedPayout,
 } from '~/lib/prop-calculator/core';
 import { ALL_FIRMS } from '~/lib/prop-calculator/firms';
 
@@ -108,12 +107,12 @@ describe.each(ALL_PLANS)(
                 plan,
                 plan.fundedDrawdown.amount * 10,
             );
-            const payout = tryFundedPayout({
+            tracker.recordSessionClose(state);
+            const payout = tracker.tryPayout({
                 minRetainedCushion: plan.defaultRetainedCushion(),
                 payoutRequestSize: undefined,
                 plan,
                 state,
-                tracker,
             });
             if (payout === null) return;
             expect(plan.isBust(state, TradingPhase.Funded)).toBe(false);
@@ -149,12 +148,12 @@ describe.each(ALL_PLANS)(
                 plan,
                 plan.fundedDrawdown.amount * 10,
             );
-            const payout = tryFundedPayout({
+            tracker.recordSessionClose(state);
+            const payout = tracker.tryPayout({
                 minRetainedCushion: plan.defaultRetainedCushion(),
                 payoutRequestSize: undefined,
                 plan,
                 state,
-                tracker,
             });
             expect(payout).not.toBeNull();
             expect(payout?.debited).toBeGreaterThan(0);

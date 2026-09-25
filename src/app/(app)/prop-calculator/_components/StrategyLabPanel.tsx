@@ -20,6 +20,7 @@ import {
     formatCompactCurrency,
     formatCurrency,
     formatPercent,
+    NOT_APPLICABLE,
 } from '~/lib/format';
 import {
     ALL_INSTRUMENTS,
@@ -166,7 +167,7 @@ export default function StrategyLabPanel({
                         <ul className="mt-2 list-disc pl-4">
                             <li>
                                 <strong>Copy-trade</strong>: all accounts share
-                                the same outcome — bimodal distribution.
+                                the same outcome, a bimodal distribution.
                             </li>
                             <li>
                                 <strong>Group-split</strong>: accounts split
@@ -327,7 +328,7 @@ function ResultCell({
 }) {
     return (
         <span className={cn('font-mono', className)}>
-            {value === undefined ? '—' : children(value)}
+            {value === undefined ? NOT_APPLICABLE : children(value)}
         </span>
     );
 }

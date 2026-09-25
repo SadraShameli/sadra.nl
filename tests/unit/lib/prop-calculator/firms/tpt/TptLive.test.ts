@@ -44,7 +44,11 @@ describe('buildTptLivePlan', () => {
     it('has no contract cap modeled, since no live-specific figure was confirmed for standard PRO+', () => {
         const plan = buildTptLivePlan();
 
-        expect(plan.contractLimits).toBeNull();
+        for (const symbol of [InstrumentSymbol.NQ, InstrumentSymbol.MNQ]) {
+            expect(
+                plan.maxContractsFor(plan.initialState(), INSTRUMENTS[symbol]),
+            ).toBeNull();
+        }
     });
 });
 

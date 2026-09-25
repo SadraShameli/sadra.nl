@@ -38,6 +38,7 @@ const TOY_GRID = {
 const COARSE_BEST_DAY_STEP = 200;
 const TOY_LOCKED_CUSHION_STEPS = 12;
 const TOY_CUSHION_STEP = 50;
+const BUILDER_COARSE_FIXED_POINT = 14_039.076058086;
 
 function consistencyToyPlan(maxBestDayShare: number): Plan {
     const base = new MyFundedFutures().findPlan({
@@ -219,7 +220,7 @@ describe('computeFundedStateValue with a funded consistency rule agrees with a r
 });
 
 describe('computeFundedStateValue pins a real plan with a funded consistency rule (N-65 review)', () => {
-    it('values MFF Builder 50K (50 percent best-day rule) at the coarse probe grid at $14,006.93 over 226,800 states, down from the $15,832.08 over 68,040 states that the floor-rounded best day produced by waiting for payouts the real rule denies', async () => {
+    it('values MFF Builder 50K (50 percent best-day rule) at the coarse probe grid at $14,039.06 over 226,800 states, down from the $15,832.08 over 68,040 states that the floor-rounded best day produced by waiting for payouts the real rule denies, and within its stated error bound of the fixed point $14,039.08 (WP17e: the pre-WP17e default stopped at $14,006.93, $32.15 short, because a sweep moving no value by $1 or more is not a value bound at a 60-day horizon)', async () => {
         const plan = await registryMffBuilder50k();
         const result = computeFundedStateValue({
             actionStepMultiple: 0.25,
@@ -236,6 +237,9 @@ describe('computeFundedStateValue pins a real plan with a funded consistency rul
         });
         expect(result.unconvergedLevelCount).toBe(0);
         expect(result.reachedStateCount).toBe(226_800);
-        expect(result.initialValue).toBeCloseTo(14_006.926986926397, 6);
+        expect(result.initialValue).toBeCloseTo(14_039.064822050797, 6);
+        expect(
+            Math.abs(result.initialValue - BUILDER_COARSE_FIXED_POINT),
+        ).toBeLessThanOrEqual(result.valueErrorBound);
     }, 900_000);
 });

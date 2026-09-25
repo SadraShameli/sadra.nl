@@ -68,20 +68,9 @@ import {
     deviceCreateSchema,
     deviceUpdateSchema,
 } from '~/lib/schemas/sensor-hub';
-import { api } from '~/trpc/react';
+import { api, type RouterOutputs } from '~/trpc/react';
 
-type DeviceRow = {
-    created_at: Date;
-    device_id: number;
-    id: number;
-    location_id: number;
-    loudness_threshold: number;
-    name: string;
-    register_interval: number;
-    token_created_at: Date | null;
-    token_hash: null | string;
-    token_revoked_at: Date | null;
-};
+type DeviceRow = RouterOutputs['device']['listAdmin'][number];
 
 type EditDeviceValues = {
     location_id: number;
@@ -203,7 +192,7 @@ export function DevicesPanel() {
                             </span>
                         );
                     }
-                    return d.token_hash && d.token_created_at ? (
+                    return d.has_token && d.token_created_at ? (
                         <span className="text-xs text-emerald-400">issued</span>
                     ) : (
                         <span className="text-xs text-muted-foreground">
@@ -236,7 +225,7 @@ export function DevicesPanel() {
                             }}
                             size="sm"
                             title={
-                                row.original.token_hash
+                                row.original.has_token
                                     ? 'Rotate token'
                                     : 'Issue token'
                             }
@@ -244,7 +233,7 @@ export function DevicesPanel() {
                         >
                             <Key className="size-3.5" />
                         </Button>
-                        {row.original.token_hash &&
+                        {row.original.has_token &&
                             !row.original.token_revoked_at && (
                                 <Button
                                     disabled={revoke.isPending}

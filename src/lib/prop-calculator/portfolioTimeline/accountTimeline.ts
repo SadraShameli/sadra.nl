@@ -5,7 +5,7 @@ import {
 } from '../core/DayPolicy';
 import { dollars, fraction } from '../core/lib/units';
 import { resolvePositionSizing } from '../core/PositionSizing';
-import { assertPositiveSafeInteger } from '../simulator';
+import { assertPositiveSafeInteger, SIM_DEFAULTS } from '../simulator';
 import { runEvalToFundedCycle } from './fundedCycle';
 import {
     type AccountTimelineInputs,
@@ -19,7 +19,7 @@ export function runAccountTimeline(
     inputs: AccountTimelineInputs,
 ): AccountTimelineResult {
     const {
-        commissionPerRoundTrip = 0,
+        commissionPerRoundTrip = SIM_DEFAULTS.commissionPerRoundTrip,
         dayBudget = DEFAULT_DAY_BUDGET,
         discounts,
         idleDayProbability,
@@ -108,9 +108,9 @@ export function runAccountTimeline(
                 spendBeforeCard +
                 fundedResetSpend +
                 (card.evalDays > 0
-                    ? (card.totalCost * Math.min(d, card.evalDays)) /
+                    ? (card.evalCost * Math.min(d, card.evalDays)) /
                       card.evalDays
-                    : card.totalCost);
+                    : card.evalCost);
             while (
                 payoutIndex < card.payouts.length &&
                 card.payouts[payoutIndex]?.dayOffset === d

@@ -19,11 +19,14 @@ import {
     selectTier,
     TierBasis,
     tierBreakpoints,
+    tierContextFromProfits,
     type TierProfitContext,
     tierProfitFor,
     TopStepVariant,
+    type TrackedTierProfitContext,
     TradeifyVariant,
     TradingPhase,
+    type UntrackedTierProfitContext,
 } from '~/lib/prop-calculator/core';
 import { ALL_FIRMS, findFirm } from '~/lib/prop-calculator/firms';
 import {
@@ -32,6 +35,8 @@ import {
     runDay,
     TradeTotals,
 } from '~/lib/prop-calculator/simulator';
+
+import { freshFundedCycle } from '../dayRunOptions';
 
 const CROSSING: TierProfitContext = {
     peakDayCloseProfit: 3100,
@@ -232,19 +237,17 @@ describe('Plan tier profit context', () => {
         expect(plan.tierProfitContext(state).peakIntradayProfit).toBe(2800);
     });
 
-    it('passes an untracked intraday peak on as an explicit null, so the Tradeify scaling daily loss limit fails loud on it', () => {
+    it('always passes a tracked intraday peak from an account state, while a context without one still fails loud on the Tradeify scaling daily loss limit', () => {
         const plan = tradeifyGrowth();
-        const untracked = plan.initialState();
-        delete untracked.intradayHighProfit;
-        delete untracked.peakIntradayProfit;
-        untracked.balance = untracked.startingBalance + 3200;
+        const state = plan.initialState();
+        state.balance = state.startingBalance + 3200;
 
-        expect(plan.tierProfitContext(untracked).peakIntradayProfit).toBeNull();
+        expect(plan.tierProfitContext(state).peakIntradayProfit).toBe(0);
         expect(() =>
-            resolveDailyLossLimit(
-                plan.fundedDailyLossLimit,
-                plan.dailyLossLimitContext(untracked),
-            ),
+            resolveDailyLossLimit(plan.fundedDailyLossLimit, {
+                ...plan.dailyLossLimitContext(state),
+                peakIntradayProfit: null,
+            }),
         ).toThrow(/PeakIntradayProfit/);
     });
 
@@ -428,6 +431,20 @@ describe('the intraday peak is a required part of the tier context (N-15 follow-
         >();
     });
 
+    it('types the intraday peak as a number on a tracked context and as null on a context that cannot track it (N-15(a))', () => {
+        expectTypeOf<
+            TrackedTierProfitContext['peakIntradayProfit']
+        >().toEqualTypeOf<number>();
+        expectTypeOf<
+            UntrackedTierProfitContext['peakIntradayProfit']
+        >().toEqualTypeOf<null>();
+        expectTypeOf<TrackedTierProfitContext>().toExtend<TierProfitContext>();
+        expectTypeOf<UntrackedTierProfitContext>().toExtend<TierProfitContext>();
+        expectTypeOf(
+            tierContextFromProfits(0),
+        ).toEqualTypeOf<UntrackedTierProfitContext>();
+    });
+
     it('resolves a funded contract tier on PeakIntradayProfit from the full tier context', () => {
         const plan = tradeifyGrowth().withOverrides({
             contractLimits: {
@@ -470,6 +487,7 @@ describe('the intraday peak is a required part of the tier context (N-15 follow-
         runDay({
             commission: dollars(0),
             dayPolicy: flatDayPolicy(1000, 1),
+            fundedCycle: freshFundedCycle(plan, state),
             phase: TradingPhase.Funded,
             plan,
             positionSizing: {

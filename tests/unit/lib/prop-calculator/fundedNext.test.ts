@@ -7,7 +7,6 @@ import {
     initialEvalFee,
     newFundedCycleTracker,
     percent,
-    tryFundedPayout,
 } from '~/lib/prop-calculator/core';
 import { TradingPhase } from '~/lib/prop-calculator/core/TradingPhase';
 import { FundedNext } from '~/lib/prop-calculator/firms/fundednext/FundedNext';
@@ -201,12 +200,12 @@ describe('FundedNext Legacy payout profit gates (article 14269280, live-fetched 
         const { state, tracker } = postMilestoneState(cycleProfit);
         tracker.payoutsIssued = payoutsIssued;
         tracker.qualifyingDaysAtLastPayout = payoutsIssued === 0 ? 0 : 26;
-        return tryFundedPayout({
+        tracker.recordSessionClose(state);
+        return tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: 300,
             plan,
             state,
-            tracker,
         });
     }
 

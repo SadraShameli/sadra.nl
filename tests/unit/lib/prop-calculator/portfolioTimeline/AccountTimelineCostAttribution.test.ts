@@ -43,7 +43,7 @@ function testPlan() {
 }
 
 describe('runAccountTimeline: card cost is attributed across the days it is actually incurred, not front-loaded on day 1', () => {
-    it("spreads a card's totalCost proportionally across its eval days instead of booking it all on the card's first day", () => {
+    it("spreads a card's evalCost proportionally across its eval days instead of booking it all on the card's first day", () => {
         const plan = testPlan();
 
         const result = runAccountTimeline({

@@ -3,6 +3,8 @@ import { type NextRequest, NextResponse } from 'next/server';
 import {
     idSensorPathParameterSchema,
     parseRouteParameters,
+    parseSearchParameters,
+    readingsPageQuerySchema,
 } from '~/lib/schemas/api';
 import { api } from '~/trpc/server';
 
@@ -15,8 +17,11 @@ export async function GET(
         await params,
     );
     if (parsed.response) return parsed.response;
+    const page = parseSearchParameters(readingsPageQuerySchema, request);
+    if (page.response) return page.response;
 
     const result = await api.location.getLocationReadings({
+        ...page.data,
         location: { location_id: parsed.data.id },
         sensor_id: parsed.data.sensor_id,
     });

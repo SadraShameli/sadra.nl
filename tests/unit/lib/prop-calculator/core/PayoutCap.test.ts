@@ -9,10 +9,7 @@ import {
     PayoutCapScheduleKind,
     percent,
 } from '~/lib/prop-calculator/core';
-import {
-    newFundedCycleTracker,
-    tryFundedPayout,
-} from '~/lib/prop-calculator/core/FundedPayoutCycle';
+import { newFundedCycleTracker } from '~/lib/prop-calculator/core/FundedPayoutCycle';
 import {
     PayoutCountTieredPayoutCap,
     QualifyingDaysMilestonePayoutCap,
@@ -293,7 +290,7 @@ describe('PayoutCountTieredPayoutCap.resolve', () => {
     });
 });
 
-describe('PayoutCountTieredPayoutCap through tryFundedPayout: the cap raises exactly at the real payout-count boundary', () => {
+describe('PayoutCountTieredPayoutCap through FundedCycleTracker.tryPayout: the cap raises exactly at the real payout-count boundary', () => {
     const fundedNext = new FundedNext();
 
     function planWithPayoutCountTiers() {
@@ -334,12 +331,12 @@ describe('PayoutCountTieredPayoutCap through tryFundedPayout: the cap raises exa
 
         const tracker = newFundedCycleTracker(state);
         tracker.lastPayoutBalance = state.startingBalance;
-        const payout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const payout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan,
             state,
-            tracker,
         });
 
         expect(payout).not.toBeNull();
@@ -356,22 +353,22 @@ describe('PayoutCountTieredPayoutCap through tryFundedPayout: the cap raises exa
         const tracker = newFundedCycleTracker(state);
         tracker.lastPayoutBalance = state.startingBalance;
         expect(tracker.payoutsIssued).toBe(0);
-        tryFundedPayout({
+        tracker.recordSessionClose(state);
+        tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan,
             state,
-            tracker,
         });
         expect(tracker.payoutsIssued).toBe(1);
 
         state.balance += 10_000;
-        const secondPayout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const secondPayout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan,
             state,
-            tracker,
         });
 
         expect(secondPayout).not.toBeNull();
@@ -404,12 +401,12 @@ describe('FundedNext Legacy: two-regime payout cap (live-verified: 50% / $6,000 
         tracker.lastPayoutBalance = state.startingBalance;
         tracker.qualifyingDaysAtLastPayout = 0;
 
-        const payout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const payout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan,
             state,
-            tracker,
         });
 
         expect(payout).not.toBeNull();
@@ -428,12 +425,12 @@ describe('FundedNext Legacy: two-regime payout cap (live-verified: 50% / $6,000 
         tracker.lastPayoutBalance = state.startingBalance;
         tracker.qualifyingDaysAtLastPayout = 0;
 
-        return tryFundedPayout({
+        tracker.recordSessionClose(state);
+        return tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan,
             state,
-            tracker,
         });
     }
 
@@ -457,12 +454,12 @@ describe('FundedNext Legacy: two-regime payout cap (live-verified: 50% / $6,000 
         tracker.lastPayoutBalance = state.startingBalance;
         tracker.qualifyingDaysAtLastPayout = 0;
 
-        const payout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const payout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan,
             state,
-            tracker,
         });
 
         expect(payout).not.toBeNull();
@@ -475,7 +472,7 @@ describe('FundedNext Legacy: two-regime payout cap (live-verified: 50% / $6,000 
             "not the old 10%) already dominates this plan's payout cap at real " +
             'trading parameters, so removing the cap no longer changes Monte Carlo ' +
             "survival -- the cap's own marginal effect is still directly verified " +
-            'by the two tryFundedPayout-level tests above (a large early payout ' +
+            'by the two tryPayout-level tests above (a large early payout ' +
             'against a locked, non-trailing threshold, where cushionRoom is not ' +
             'floor-bound)',
         () => {

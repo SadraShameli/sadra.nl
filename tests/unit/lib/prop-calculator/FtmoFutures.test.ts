@@ -21,7 +21,6 @@ import {
 import {
     type FundedCycleTracker,
     newFundedCycleTracker,
-    tryFundedPayout,
 } from '~/lib/prop-calculator/core/FundedPayoutCycle';
 import { TradingPhase } from '~/lib/prop-calculator/core/TradingPhase';
 import {
@@ -75,12 +74,12 @@ function requestMaxPayout(
     tracker: FundedCycleTracker,
     payoutRequestSize?: number,
 ) {
-    return tryFundedPayout({
+    tracker.recordSessionClose(state);
+    return tracker.tryPayout({
         minRetainedCushion: 0,
         payoutRequestSize,
         plan,
         state,
-        tracker,
     });
 }
 
@@ -479,12 +478,12 @@ describe('FTMO Futures (Growth and Pro, 50K)', () => {
 
             const { state, tracker } = lockedFundedAccount(pro, 3000);
             state.qualifyingDays = 5;
-            const payout = tryFundedPayout({
+            tracker.recordSessionClose(state);
+            const payout = tracker.tryPayout({
                 minRetainedCushion: pro.defaultRetainedCushion(),
                 payoutRequestSize: undefined,
                 plan: pro,
                 state,
-                tracker,
             });
             expect(payout?.debited).toBe(1000);
             expect(state.balance).toBe(ACCOUNT_SIZE + 2000);

@@ -3,9 +3,9 @@ export interface AccountState {
     bestDayProfit: number;
     consecutiveIdleDays: number;
     elapsedDays?: number;
-    intradayHighProfit?: number;
+    intradayHighProfit: number;
     peakDayCloseProfit: number;
-    peakIntradayProfit?: number;
+    peakIntradayProfit: number;
     qualifyingDays: number;
     startingBalance: number;
     threshold: number;
@@ -35,6 +35,6 @@ export function createInitialState(
     };
 }
 
-export function resetForNewDay(state: AccountState): void {
+export function resetForNewDay(state: Pick<AccountState, 'todayPnL'>): void {
     state.todayPnL = 0;
 }

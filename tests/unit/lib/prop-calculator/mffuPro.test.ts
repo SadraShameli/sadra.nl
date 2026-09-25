@@ -14,7 +14,6 @@ import {
     type Plan,
     sessionDaysForCalendarDays,
     TradingPhase,
-    tryFundedPayout,
 } from '~/lib/prop-calculator/core';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 import { simulate } from '~/lib/prop-calculator/simulator';
@@ -100,12 +99,12 @@ describe('MFFU Pro 50K funded drawdown locks on the first payout (R1-51, pro.md:
         state.threshold = 52_500;
         tracker.sessionDaysSinceAnchor = 10;
 
-        const payout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const payout = tracker.tryPayout({
             minRetainedCushion: plan.resolveRetainedCushion(undefined),
             payoutRequestSize: undefined,
             plan,
             state,
-            tracker,
         });
 
         expect(payout?.debited).toBe(2400);
@@ -173,12 +172,12 @@ function runSessions(script: SessionScript) {
             state,
             script.tradedOn(session),
         );
-        const payout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const payout = tracker.tryPayout({
             minRetainedCushion: plan.resolveRetainedCushion(undefined),
             payoutRequestSize: script.payoutRequestSize,
             plan,
             state,
-            tracker,
         });
         if (payout !== null) {
             payouts.push({

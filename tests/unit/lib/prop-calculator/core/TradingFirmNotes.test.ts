@@ -5,7 +5,7 @@ import {
     FirmId,
     TradingFirm,
 } from '~/lib/prop-calculator/core';
-import { findFirm } from '~/lib/prop-calculator/firms';
+import { ALL_FIRMS, findFirm } from '~/lib/prop-calculator/firms';
 import { E8Futures } from '~/lib/prop-calculator/firms/e8futures/E8Futures';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 
@@ -324,6 +324,80 @@ describe('TradingFirm.notes (live-verified 2026-09-10, MFFU only)', () => {
         ]) {
             expect(lfaNote).toContain(phrase);
         }
+    });
+
+    it('no firm note names the retired resolveContractLimit; the contract-limit notes name contractLimitAt instead (WP21b)', () => {
+        const offenders = ALL_FIRMS.flatMap((firm) =>
+            firm.notes
+                .filter((note) => note.includes('resolveContractLimit'))
+                .map(() => firm.id),
+        );
+        expect(offenders).toEqual([]);
+        for (const firm of [
+            FirmId.AlphaFutures,
+            FirmId.FtmoFutures,
+            FirmId.TopStep,
+            FirmId.Tradeify,
+        ]) {
+            expect(
+                findFirm(firm)?.notes.some((note) =>
+                    note.includes('contractLimitAt'),
+                ),
+            ).toBe(true);
+        }
+    });
+
+    it("notes that describe Tradeify's scaling daily loss limit name its PeakIntradayProfit tier basis, never PeakSessionCloseProfit, across every firm (WP21b, WP23)", () => {
+        const subject = "Tradeify's scaling daily loss limit uses TierBasis.";
+        const stale = ALL_FIRMS.filter((firm) =>
+            firm.notes.some((note) =>
+                note.includes(`${subject}PeakSessionCloseProfit`),
+            ),
+        ).map((firm) => firm.id);
+        expect(stale).toStrictEqual([]);
+        for (const firm of [FirmId.E8Futures, FirmId.Lucid, FirmId.TopStep]) {
+            expect(
+                findFirm(firm)?.notes.some((note) =>
+                    note.includes(`${subject}PeakIntradayProfit`),
+                ),
+            ).toBe(true);
+        }
+    });
+
+    it('Tradeify keeps one Select contract-scaling note, not two overlapping ones (WP21b)', () => {
+        const notes = findFirm(FirmId.Tradeify)?.notes ?? [];
+        const selectTierNotes = notes.filter((note) =>
+            note.includes('SELECT_CONTRACT_LIMITS'),
+        );
+        expect(selectTierNotes).toHaveLength(1);
+        const [selectTierNote = ''] = selectTierNotes;
+        for (const phrase of [
+            '2/20 from $0 profit, 3/30 from $1,500, 4/40 from $2,000',
+            'TierBasis.PeakSessionCloseProfit',
+            'Scaling triggers are cumulative',
+            'Growth and Lightning',
+        ]) {
+            expect(selectTierNote).toContain(phrase);
+        }
+    });
+
+    it("Lucid's Flex DLL note cites the pasted homepage config's per-tier figures instead of calling $1,200 an unconfirmed analogy (WP21b)", () => {
+        const notes = findFirm(FirmId.Lucid)?.notes ?? [];
+        expect(
+            notes.some((note) =>
+                note.includes(
+                    "Flex's own dollar figure is NOT independently confirmed anywhere",
+                ),
+            ),
+        ).toBe(false);
+        expect(
+            notes.some((note) => note.includes('an assumption by analogy')),
+        ).toBe(false);
+        const toggleNote = notes.find((note) =>
+            note.includes('purchasable Daily Loss Limit toggle'),
+        );
+        expect(toggleNote).toContain('$600/$1,200/$1,800/$2,700');
+        expect(toggleNote).toContain('LucidPricingConfig');
     });
 
     it('TopStep notes use no em dashes', () => {

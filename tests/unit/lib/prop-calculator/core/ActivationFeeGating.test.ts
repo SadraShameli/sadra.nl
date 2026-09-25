@@ -9,20 +9,11 @@ import {
     TopStepVariant,
 } from '~/lib/prop-calculator/core';
 import { TopStep } from '~/lib/prop-calculator/firms/topstep/TopStep';
-import { type Rng } from '~/lib/prop-calculator/rng';
 import { simulateTrial } from '~/lib/prop-calculator/simulator/trial';
 
-const firm = new TopStep();
+import { scriptedRng } from '../scriptedRng';
 
-function scriptedRng(draws: readonly number[]): Rng {
-    let index = 0;
-    return () => {
-        const draw = draws[index];
-        if (draw === undefined) throw new Error('scripted rng exhausted');
-        index += 1;
-        return draw;
-    };
-}
+const firm = new TopStep();
 
 function standardStandardPlan() {
     const plan = firm.findPlan({

@@ -104,7 +104,7 @@ describe('a daily-loss-limit breach stops the day, it does not kill the account'
         const stats = freshStats(state.startingBalance);
         const base = {
             commission: dollars(0),
-            phase: TradingPhase.Eval,
+            phase: TradingPhase.Eval as const,
             plan: apexEod,
             positionSizing: null,
             rrRatio: 2,

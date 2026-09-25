@@ -20,6 +20,8 @@ import {
     TradeTotals,
 } from '~/lib/prop-calculator/simulator/PhaseStats';
 
+import { dayRunOptionsFor } from './dayRunOptions';
+
 const ALL_PLANS: readonly Plan[] = ALL_FIRMS.flatMap((firm) => firm.plans);
 const TRIALS = 150;
 const MONTE_CARLO_TOLERANCE = 3 / Math.sqrt(TRIALS);
@@ -190,24 +192,25 @@ describe.each(ALL_PLANS)(
                 if (phase === TradingPhase.Funded) {
                     plan.beginFundedPhase(idleState);
                 }
-                const idleResult = runDay({
-                    commission: dollars(0),
-                    dayPolicy: {
-                        ladder: [2000, 2000, 2000, 2000],
-                        maxLossesPerDay: null,
-                        stopRule: { kind: DayStopRuleKind.None },
-                    },
-                    idleDayProbability: 1,
-                    phase,
-                    plan,
-                    positionSizing: null,
-                    rng: () => 0,
-                    rrRatio: 2,
-                    rungSizing: RungSizing.CapToCushion,
-                    state: idleState,
-                    stats: freshStats(idleState.startingBalance),
-                    winrate: fraction(0.4),
-                });
+                const idleResult = runDay(
+                    dayRunOptionsFor(phase, {
+                        commission: dollars(0),
+                        dayPolicy: {
+                            ladder: [2000, 2000, 2000, 2000],
+                            maxLossesPerDay: null,
+                            stopRule: { kind: DayStopRuleKind.None },
+                        },
+                        idleDayProbability: 1,
+                        plan,
+                        positionSizing: null,
+                        rng: () => 0,
+                        rrRatio: 2,
+                        rungSizing: RungSizing.CapToCushion,
+                        state: idleState,
+                        stats: freshStats(idleState.startingBalance),
+                        winrate: fraction(0.4),
+                    }),
+                );
                 expect(idleResult.traded).toBe(false);
                 expect(idleState.consecutiveIdleDays).toBe(1);
 
@@ -215,24 +218,25 @@ describe.each(ALL_PLANS)(
                 if (phase === TradingPhase.Funded) {
                     plan.beginFundedPhase(tradedState);
                 }
-                const tradedResult = runDay({
-                    commission: dollars(0),
-                    dayPolicy: {
-                        ladder: [1],
-                        maxLossesPerDay: null,
-                        stopRule: { kind: DayStopRuleKind.None },
-                    },
-                    idleDayProbability: 0,
-                    phase,
-                    plan,
-                    positionSizing: null,
-                    rng: () => 0,
-                    rrRatio: 2,
-                    rungSizing: RungSizing.CapToCushion,
-                    state: tradedState,
-                    stats: freshStats(tradedState.startingBalance),
-                    winrate: fraction(0.4),
-                });
+                const tradedResult = runDay(
+                    dayRunOptionsFor(phase, {
+                        commission: dollars(0),
+                        dayPolicy: {
+                            ladder: [1],
+                            maxLossesPerDay: null,
+                            stopRule: { kind: DayStopRuleKind.None },
+                        },
+                        idleDayProbability: 0,
+                        plan,
+                        positionSizing: null,
+                        rng: () => 0,
+                        rrRatio: 2,
+                        rungSizing: RungSizing.CapToCushion,
+                        state: tradedState,
+                        stats: freshStats(tradedState.startingBalance),
+                        winrate: fraction(0.4),
+                    }),
+                );
                 expect(tradedResult.traded).toBe(true);
             });
         }
@@ -265,20 +269,21 @@ describe.each(ALL_PLANS)(
                     }
                     const stats = freshStats(state.startingBalance);
                     for (let day = 0; day < 30; day++) {
-                        const result = runDay({
-                            commission: dollars(0),
-                            dayPolicy: idleDayPolicy,
-                            idleDayProbability: 1,
-                            phase,
-                            plan,
-                            positionSizing: null,
-                            rng: () => 0,
-                            rrRatio: 2,
-                            rungSizing: RungSizing.CapToCushion,
-                            state,
-                            stats,
-                            winrate: fraction(0.4),
-                        });
+                        const result = runDay(
+                            dayRunOptionsFor(phase, {
+                                commission: dollars(0),
+                                dayPolicy: idleDayPolicy,
+                                idleDayProbability: 1,
+                                plan,
+                                positionSizing: null,
+                                rng: () => 0,
+                                rrRatio: 2,
+                                rungSizing: RungSizing.CapToCushion,
+                                state,
+                                stats,
+                                winrate: fraction(0.4),
+                            }),
+                        );
                         expect(result.closedForInactivity).toBe(false);
                     }
                 });
@@ -291,20 +296,21 @@ describe.each(ALL_PLANS)(
                     const stats = freshStats(state.startingBalance);
                     let lastResult: ReturnType<typeof runDay> | undefined;
                     for (let day = 1; day <= limit; day++) {
-                        lastResult = runDay({
-                            commission: dollars(0),
-                            dayPolicy: idleDayPolicy,
-                            idleDayProbability: 1,
-                            phase,
-                            plan,
-                            positionSizing: null,
-                            rng: () => 0,
-                            rrRatio: 2,
-                            rungSizing: RungSizing.CapToCushion,
-                            state,
-                            stats,
-                            winrate: fraction(0.4),
-                        });
+                        lastResult = runDay(
+                            dayRunOptionsFor(phase, {
+                                commission: dollars(0),
+                                dayPolicy: idleDayPolicy,
+                                idleDayProbability: 1,
+                                plan,
+                                positionSizing: null,
+                                rng: () => 0,
+                                rrRatio: 2,
+                                rungSizing: RungSizing.CapToCushion,
+                                state,
+                                stats,
+                                winrate: fraction(0.4),
+                            }),
+                        );
                         if (day < limit) {
                             expect(lastResult.busted).toBe(false);
                         }

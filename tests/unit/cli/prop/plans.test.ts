@@ -115,7 +115,7 @@ const alphaAdvanced = {
 describe('planHeadline', () => {
     it('names the plan with its --firm and --variant flags', () => {
         expect(planHeadline(planFor(ftmoGrowth))).toBe(
-            '$50K — Growth  --firm ftmo-futures --variant growth',
+            '$50K · Growth  --firm ftmo-futures --variant growth',
         );
     });
 });

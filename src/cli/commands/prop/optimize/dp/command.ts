@@ -23,6 +23,7 @@ import {
     type AccountState,
     type CouponDiscounts,
     type DayPolicy,
+    describeFundedResetTerms,
     type Fraction0to1,
     isEvalDpEligible,
     type Plan,
@@ -30,6 +31,7 @@ import {
     type SimInputs,
     type SimOutputs,
     simulate,
+    TRADING_DAYS_PER_YEAR,
     withPlanOptIns,
 } from '~/lib/prop-calculator';
 import {
@@ -37,12 +39,13 @@ import {
     solveAverageRewardPolicy,
 } from '~/lib/prop-calculator/core/AverageRewardSolver';
 import {
-    type FundedDpPayoutCapGap,
-    FundedDpPayoutCapGapKind,
-    fundedDpPayoutCapGaps,
-} from '~/lib/prop-calculator/core/FundedDpPayoutCapGaps';
+    type FundedDpModelGap,
+    FundedDpModelGapKind,
+    fundedDpModelGaps,
+} from '~/lib/prop-calculator/core/FundedDpModelGaps';
 import {
     DEFAULT_MAX_CUSHION_MULTIPLE,
+    type FundedStateValueResult,
     isFundedDpEligible,
     warmFirmsRegistryCache,
 } from '~/lib/prop-calculator/core/FundedStateValue';
@@ -129,15 +132,21 @@ export function fundedConsistencyGridNote(plan: Plan): null | string {
         : `${plan.label}: its funded best-day consistency rule (${rule.shareLabel()}) makes the account build up profit before each payout, but this DP's locked cushion grid stops at ${DEFAULT_MAX_CUSHION_MULTIPLE} drawdowns and truncates any balance above that. The best day is tracked on the cushion grid and rounded up between grid steps, but a day that ends above the grid top is truncated like the balance, which shrinks both that day's P&L and the cycle profit the rule compares it with. In those states the DP can pay out less than the real account, and it can also allow a payout the real rule denies or deny one it allows: neither direction is guaranteed there, so trust the empirical run below over the DP-predicted rate.`;
 }
 
+export function fundedDpModelGapWarning(plan: Plan): null | string {
+    const gaps = fundedDpModelGaps(plan);
+    if (gaps.length === 0) return null;
+    const described = gaps.map(describeFundedDpModelGap).join('; ');
+    return `${plan.label}: ${described}.`;
+}
+
 export function fundedIneligibilityMessage(plan: Plan): string {
     return `${plan.label}: funded phase is not DP-eligible (intraday-trailing drawdown, a funded daily loss limit that scales continuously with peak-day-close profit (PeakProfitShare), no drawdown lock / ReleaseFloor payout effect, or a payout cap keyed on cumulative qualifying days (QualifyingDaysMilestonePayoutCap)).`;
 }
 
-export function payoutCountRuleWarning(plan: Plan): null | string {
-    const gaps = fundedDpPayoutCapGaps(plan);
-    if (gaps.length === 0) return null;
-    const described = gaps.map(describeFundedDpPayoutCapGap).join('; ');
-    return `${plan.label}: ${described}.`;
+export function fundedValueIterationLine(
+    result: Pick<FundedStateValueResult, 'sweepCount' | 'valueErrorBound'>,
+): string {
+    return `funded value iteration: ${result.sweepCount} sweeps, every funded state value within ${formatCurrency(result.valueErrorBound, 2)} of the DP's exact fixed point`;
 }
 
 export function readDpInputs(arguments_: DpArguments): DpInputs {
@@ -185,18 +194,18 @@ export function resolveDpPlan(
     });
 }
 
-function describeFundedDpPayoutCapGap(gap: FundedDpPayoutCapGap): string {
+function describeFundedDpModelGap(gap: FundedDpModelGap): string {
     switch (gap.kind) {
-        case FundedDpPayoutCapGapKind.FundedResetNotModeled: {
-            return `takes the funded reset (${formatCurrency(gap.fee)} each, up to ${gap.maxPerAccount} per account, only before any payout) that this DP does not model: a breach before the first payout is scored as account closure, so the DP understates both the value and the reset spend`;
+        case FundedDpModelGapKind.FundedResetPolicyIgnoresResetCount: {
+            return `takes the ${describeFundedResetTerms(gap.policy)}. This DP values every reset exactly, but the day policy it hands to the empirical run cannot see how many resets were used, so after a reset it keeps the decisions solved for an account with no reset used, and the empirical run can fall slightly short of the DP-predicted rate`;
         }
-        case FundedDpPayoutCapGapKind.LifetimeDollarCapIgnored: {
+        case FundedDpModelGapKind.LifetimeDollarCapIgnored: {
             return `has a lifetime payout-dollar cap of ${formatCurrency(gap.maxLifetimePayoutDollars)} (maxLifetimePayoutDollars) that this DP ignores entirely -- it never restores FundedCycleTracker.cumulativePayout from any state, so it is optimistic about payouts past that total`;
         }
-        case FundedDpPayoutCapGapKind.PayoutCountTierBeyondRegimeCap: {
+        case FundedDpModelGapKind.PayoutCountTierBeyondRegimeCap: {
             return `has a payout-count-tiered payout cap tier starting at payout #${gap.fromPayoutIndex + 1}, beyond this DP's payout-count regime cap of ${gap.payoutRegimeCap} -- payout counts past the cap saturate at the cap bucket inside it, so that tier is not modeled exactly`;
         }
-        case FundedDpPayoutCapGapKind.PayoutTriggeredLockPreLockOffsetSaturates: {
+        case FundedDpModelGapKind.PayoutTriggeredLockPreLockOffsetSaturates: {
             return `locks its funded drawdown only on the first payout (no profit trigger), so its floor can trail without bound before that payout while this DP's pre-lock offset grid stops at a fixed multiple of the drawdown -- offsets past it saturate at the top bucket, so the DP understates the balance (and the first payout) in those rare high-profit states before the first payout, making it slightly pessimistic`;
         }
     }
@@ -221,7 +230,7 @@ export const dpArguments = {
         type: 'string',
     },
     'funded-days': {
-        default: '252',
+        default: String(TRADING_DAYS_PER_YEAR),
         description:
             'Funded-phase horizon for the empirical validation run. Also sets the DP’s mean horizon: the funded value function treats horizon end as a memoryless hazard of 1/this-many-days per funded day.',
         type: 'string',
@@ -284,9 +293,9 @@ export default defineCommand({
                 ui.warn(fundedIneligibilityMessage(plan));
                 return;
             }
-            const payoutWarning = payoutCountRuleWarning(plan);
-            if (payoutWarning !== null) {
-                ui.warn(payoutWarning);
+            const modelGapWarning = fundedDpModelGapWarning(plan);
+            if (modelGapWarning !== null) {
+                ui.warn(modelGapWarning);
             }
             const consistencyNote = fundedConsistencyGridNote(plan);
             if (consistencyNote !== null) {
@@ -327,6 +336,7 @@ export default defineCommand({
                 `  rate: ${formatCurrency(solution.ratePerDay, 2)}/day, ${formatCurrency(monthlyRate)}/month per account slot`,
             );
             ui.note(`  solves used: ${solvesUsed}`);
+            ui.note(`  ${fundedValueIterationLine(solution.fundedResult)}`);
             ui.muted(
                 '  rate-search trace (rate per day tried -> cycle value h at that rate):\n',
             );

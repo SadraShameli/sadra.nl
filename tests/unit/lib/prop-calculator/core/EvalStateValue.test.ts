@@ -187,7 +187,7 @@ describe('computeEvalStateValue backward induction — hand-computable toy cases
             'day, with contractLimits.evalMinis capped to 1 contract on ES ' +
             '(pointValue $50) at a 1-point stop: the nominal $100 action is ' +
             "capRiskToContractLimit'd down to $50 before resolveTradeRisk " +
-            'ever sees it (resolveContractLimit(..., TradingPhase.Eval, ...) ' +
+            'ever sees it (contractLimitAt(..., TradingPhase.Eval, ...) ' +
             'then capRiskToContractLimit, the literal engine functions, in ' +
             "the engine's own order), so neither win ($100 profit) nor lose " +
             '(-$50) reaches the $150 target within the one-day cap — ' +
@@ -840,4 +840,17 @@ describe('computeEvalStateValue tracks the peak session close for a peak-based e
         expect(dp.initialValue).toBeCloseTo(0.375, 9);
         expect(out.evalPassProbability).toBeCloseTo(dp.initialValue, 1);
     }, 60_000);
+});
+
+describe('computeEvalStateValue error messages use no em dash (WP21b handoff)', () => {
+    it('explains a sequence-dependent stop rule without an em dash', () => {
+        expect(() =>
+            computeEvalStateValue({
+                ...toyDpConfig(toyPlan(150), 1, 50),
+                stopRule: { k: 2, kind: DayStopRuleKind.AfterKLosses },
+            }),
+        ).toThrow(
+            /\(none\/day-green\/after-target\): "after-k-losses" depends/,
+        );
+    });
 });

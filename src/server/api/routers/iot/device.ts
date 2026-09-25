@@ -1,5 +1,5 @@
 import { TRPCError } from '@trpc/server';
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq, lt, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { DeviceCreatedEmail } from '~/lib/email';
@@ -24,6 +24,8 @@ import {
     deviceProperties,
     deviceReadingsProperties,
     deviceRecordingsProperties,
+    type PublicDevice,
+    publicDeviceColumns,
 } from '~/server/api/types/zod';
 import { device, location, type recording } from '~/server/db/schemas/iot';
 import { generateDeviceToken } from '~/server/helpers/device-token';
@@ -37,6 +39,7 @@ async function getDevice(
     context: ContextType,
 ): Promise<Result<GetDeviceProperties>> {
     const result = await context.db.query.device.findFirst({
+        columns: publicDeviceColumns,
         where: (device) => eq(device.device_id, input.device_id),
     });
 
@@ -129,35 +132,22 @@ export const deviceRouter = createTRPCRouter({
                 if (!sensor.data) {
                     return sensor;
                 }
-
-                const readings = await ctx.db.query.reading.findMany({
-                    where: (reading) =>
-                        and(
-                            device.data
-                                ? eq(reading.device_id, device.data.id)
-                                : undefined,
-                            sensor.data
-                                ? eq(reading.sensor_id, sensor.data.id)
-                                : undefined,
-                        ),
-                });
-
-                const readingsRecord: [string, number][] = readings.map(
-                    (reading) => [
-                        `${reading.created_at.getHours()}:${reading.created_at.getMinutes()}`,
-                        reading.value,
-                    ],
-                );
-
-                return { data: readingsRecord };
             }
 
             const readings = await ctx.db.query.reading.findMany({
-                where: (reading) => {
-                    return device.data
-                        ? eq(reading.device_id, device.data.id)
-                        : undefined;
-                },
+                columns: { created_at: true, value: true },
+                limit: input.limit,
+                orderBy: (reading, { desc }) => [desc(reading.id)],
+                where: (reading) =>
+                    and(
+                        device.data
+                            ? eq(reading.device_id, device.data.id)
+                            : undefined,
+                        input.sensor_id
+                            ? eq(reading.sensor_id, input.sensor_id)
+                            : undefined,
+                        input.cursor ? lt(reading.id, input.cursor) : undefined,
+                    ),
             });
 
             const readingsRecord: [string, number][] = readings.map(
@@ -202,9 +192,15 @@ export const deviceRouter = createTRPCRouter({
             >;
         }),
 
-    getDevices: protectedProcedure.query(async ({ ctx }) => {
-        return { data: await ctx.db.query.device.findMany() };
-    }),
+    getDevices: protectedProcedure.query(
+        async ({ ctx }): Promise<{ data: PublicDevice[] }> => {
+            return {
+                data: await ctx.db.query.device.findMany({
+                    columns: publicDeviceColumns,
+                }),
+            };
+        },
+    ),
 
     issueToken: adminProcedure
         .input(idInputSchema)
@@ -229,9 +225,21 @@ export const deviceRouter = createTRPCRouter({
         }),
 
     listAdmin: adminProcedure.query(async ({ ctx }) => {
-        return await ctx.db.query.device.findMany({
-            orderBy: (d, { asc }) => [asc(d.location_id), asc(d.device_id)],
-        });
+        return await ctx.db
+            .select({
+                created_at: device.created_at,
+                device_id: device.device_id,
+                has_token: sql<boolean>`${device.token_hash} is not null`,
+                id: device.id,
+                location_id: device.location_id,
+                loudness_threshold: device.loudness_threshold,
+                name: device.name,
+                register_interval: device.register_interval,
+                token_created_at: device.token_created_at,
+                token_revoked_at: device.token_revoked_at,
+            })
+            .from(device)
+            .orderBy(asc(device.location_id), asc(device.device_id));
     }),
 
     revokeToken: adminProcedure

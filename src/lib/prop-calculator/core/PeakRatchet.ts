@@ -15,7 +15,7 @@ export class PeakRatchet {
     private committedPeakOf(state: AccountState): number {
         switch (this.basis) {
             case TierBasis.PeakIntradayProfit: {
-                return trackedIntradayProfit(state.peakIntradayProfit);
+                return state.peakIntradayProfit;
             }
             case TierBasis.PeakSessionCloseProfit: {
                 return state.peakDayCloseProfit;
@@ -50,19 +50,7 @@ export class PeakRatchet {
     reachBandOf(state: AccountState): number {
         const committedBand = this.committedBandOf(state);
         return this.isIntraday
-            ? this.raise(
-                  committedBand,
-                  trackedIntradayProfit(state.intradayHighProfit),
-              )
+            ? this.raise(committedBand, state.intradayHighProfit)
             : committedBand;
     }
-}
-
-function trackedIntradayProfit(value: number | undefined): number {
-    if (value === undefined) {
-        throw new Error(
-            'A TierBasis.PeakIntradayProfit ratchet needs the intraday peak, and this account state does not track it',
-        );
-    }
-    return value;
 }

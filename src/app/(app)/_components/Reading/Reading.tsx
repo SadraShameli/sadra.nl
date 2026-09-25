@@ -1,6 +1,7 @@
 'use client';
 
 import { keepPreviousData, skipToken } from '@tanstack/react-query';
+import { addDays } from 'date-fns';
 import {
     AreaChart as ChartIcon,
     Cpu,
@@ -26,22 +27,24 @@ import {
 import { EmptyState } from '~/components/ui/EmptyState';
 import { Skeleton } from '~/components/ui/Skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
+import {
+    finestGranularityForRange,
+    type Granularity,
+    isReadingsSpanWithinCap,
+    type PublicDevice,
+    READINGS_SERIES_LONGEST_SPAN_MS,
+} from '~/lib/schemas/sensor';
 import { cn } from '~/lib/utilities';
-import { type device, type location } from '~/server/db/schemas/iot';
+import { type location } from '~/server/db/schemas/iot';
 import { api } from '~/trpc/react';
 
-import {
-    exportReadingsToCSV,
-    GRANULARITIES,
-    type Granularity,
-} from './helpers';
+import { exportReadingsToCSV, GRANULARITIES } from './helpers';
 
 export default function ReadingSection() {
     const [date, setDate] = useState<DateRange>();
     const [currentLocation, setCurrentLocation] =
         useState<typeof location.$inferSelect>();
-    const [currentDevice, setCurrentDevice] =
-        useState<typeof device.$inferSelect>();
+    const [currentDevice, setCurrentDevice] = useState<PublicDevice>();
     const [currentSensor, setCurrentSensor] = useState<string>();
     const [granularity, setGranularity] = useState<Granularity>('hour');
 
@@ -125,7 +128,26 @@ export default function ReadingSection() {
                                 <DateRangePicker
                                     className="app-reading__date-picker"
                                     maxDate={new Date()}
-                                    onChange={setDate}
+                                    minDate={addDays(
+                                        Date.now() -
+                                            READINGS_SERIES_LONGEST_SPAN_MS,
+                                        1,
+                                    )}
+                                    onChange={(range) => {
+                                        setDate(range);
+                                        setGranularity((current) =>
+                                            isReadingsSpanWithinCap(
+                                                current,
+                                                range?.from,
+                                                range?.to,
+                                            )
+                                                ? current
+                                                : (finestGranularityForRange(
+                                                      range?.from,
+                                                      range?.to,
+                                                  ) ?? current),
+                                        );
+                                    }}
                                     placeholder="Pick a date"
                                     value={date}
                                 />
@@ -253,6 +275,13 @@ export default function ReadingSection() {
                                         >
                                             {GRANULARITIES.map((g) => (
                                                 <DropdownMenuRadioItem
+                                                    disabled={
+                                                        !isReadingsSpanWithinCap(
+                                                            g.value,
+                                                            date?.from,
+                                                            date?.to,
+                                                        )
+                                                    }
                                                     key={g.value}
                                                     value={g.value}
                                                 >

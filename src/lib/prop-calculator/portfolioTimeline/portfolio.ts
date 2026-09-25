@@ -1,6 +1,6 @@
 import { TRADING_DAYS_PER_MONTH } from '../core/constants';
 import { deriveSubSeed, mulberry32 } from '../rng';
-import { assertPositiveSafeInteger } from '../simulator';
+import { assertPositiveSafeInteger, SIM_DEFAULTS } from '../simulator';
 import { percentile } from '../stats';
 import { runAccountTimeline } from './accountTimeline';
 import {
@@ -16,7 +16,7 @@ export function simulatePortfolioTimeline(
 ): PortfolioTimelineResult {
     const {
         accounts,
-        commissionPerRoundTrip = 0,
+        commissionPerRoundTrip = SIM_DEFAULTS.commissionPerRoundTrip,
         dayBudget = DEFAULT_DAY_BUDGET,
         dayStop,
         discounts,

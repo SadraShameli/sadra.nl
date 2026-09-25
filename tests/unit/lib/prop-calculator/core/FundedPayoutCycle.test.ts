@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import * as core from '~/lib/prop-calculator/core';
 import {
     ApexVariant,
     closeTradingDay,
@@ -24,10 +25,7 @@ import {
     TradeifyVariant,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
-import {
-    newFundedCycleTracker,
-    tryFundedPayout,
-} from '~/lib/prop-calculator/core/FundedPayoutCycle';
+import { newFundedCycleTracker } from '~/lib/prop-calculator/core/FundedPayoutCycle';
 import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFunding';
 import { LucidTrading } from '~/lib/prop-calculator/firms/lucid/LucidTrading';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
@@ -111,12 +109,12 @@ describe('non-ladder payouts', () => {
         tracker.lastPayoutBalance = state.startingBalance;
         tracker.qualifyingDaysAtLastPayout = 0;
 
-        const payout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const payout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: target,
             state,
-            tracker,
         });
 
         expect(payout).not.toBeNull();
@@ -134,13 +132,13 @@ describe('non-ladder payouts', () => {
         tracker.lastPayoutBalance = state.startingBalance;
         tracker.qualifyingDaysAtLastPayout = 0;
 
+        tracker.recordSessionClose(state);
         expect(
-            tryFundedPayout({
+            tracker.tryPayout({
                 minRetainedCushion: 0,
                 payoutRequestSize: undefined,
                 plan: target,
                 state,
-                tracker,
             }),
         ).toBeNull();
     });
@@ -154,12 +152,12 @@ describe('non-ladder payouts', () => {
         tracker.lastPayoutBalance = state.startingBalance;
         tracker.qualifyingDaysAtLastPayout = 0;
 
-        const payout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const payout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: 500,
             plan: target,
             state,
-            tracker,
         });
 
         expect(payout?.debited).toBe(500);
@@ -173,13 +171,13 @@ describe('non-ladder payouts', () => {
         tracker.lastPayoutBalance = state.startingBalance;
         tracker.qualifyingDaysAtLastPayout = 0;
 
+        tracker.recordSessionClose(state);
         expect(
-            tryFundedPayout({
+            tracker.tryPayout({
                 minRetainedCushion: 0,
                 payoutRequestSize: 499,
                 plan: target,
                 state,
-                tracker,
             }),
         ).toBeNull();
     });
@@ -193,12 +191,12 @@ describe('minimum retained cushion', () => {
         tracker.lastPayoutBalance = state.startingBalance;
         tracker.qualifyingDaysAtLastPayout = 0;
 
-        const payout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const payout = tracker.tryPayout({
             minRetainedCushion: 2000,
             payoutRequestSize: undefined,
             plan: target,
             state,
-            tracker,
         });
 
         expect(payout?.debited).toBe(900);
@@ -212,13 +210,13 @@ describe('minimum retained cushion', () => {
         tracker.lastPayoutBalance = state.startingBalance;
         tracker.qualifyingDaysAtLastPayout = 0;
 
+        tracker.recordSessionClose(state);
         expect(
-            tryFundedPayout({
+            tracker.tryPayout({
                 minRetainedCushion: 2000,
                 payoutRequestSize: undefined,
                 plan: target,
                 state,
-                tracker,
             }),
         ).toBeNull();
     });
@@ -467,12 +465,12 @@ describe('ladder payouts', () => {
 
         let issued = 0;
         for (let attempt = 0; attempt < 10; attempt++) {
-            const payout = tryFundedPayout({
+            tracker.recordSessionClose(state);
+            const payout = tracker.tryPayout({
                 minRetainedCushion: 0,
                 payoutRequestSize: undefined,
                 plan: builder,
                 state,
-                tracker,
             });
             if (payout === null) break;
             expect(payout.debited).toBe(2000);
@@ -501,12 +499,12 @@ describe('ladder payouts', () => {
         tracker.lastPayoutBalance = state.startingBalance;
         tracker.qualifyingDaysAtLastPayout = 0;
 
-        const payout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const payout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: apexPlan,
             state,
-            tracker,
         });
 
         expect(payout?.debited).toBe(1500);
@@ -531,12 +529,12 @@ describe('ladder payouts', () => {
         tracker.lastPayoutBalance = state.startingBalance;
         tracker.qualifyingDaysAtLastPayout = 0;
 
-        const payout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const payout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: apexPlan,
             state,
-            tracker,
         });
 
         expect(payout).toBeNull();
@@ -559,12 +557,12 @@ describe('ladder payouts', () => {
         tracker.lastPayoutBalance = state.startingBalance;
         tracker.qualifyingDaysAtLastPayout = 0;
 
-        const payout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const payout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: 600,
             plan: apexPlan,
             state,
-            tracker,
         });
 
         expect(payout?.debited).toBe(600);
@@ -582,12 +580,12 @@ describe('ladder payouts', () => {
         tracker.lastPayoutBalance = state.startingBalance;
         tracker.qualifyingDaysAtLastPayout = 0;
 
-        const payout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const payout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: 600,
             plan: builder,
             state,
-            tracker,
         });
 
         expect(payout?.debited).toBe(600);
@@ -613,12 +611,12 @@ describe(
             tracker.lastPayoutBalance = state.startingBalance;
             tracker.qualifyingDaysAtLastPayout = 0;
 
-            const payout = tryFundedPayout({
+            tracker.recordSessionClose(state);
+            const payout = tracker.tryPayout({
                 minRetainedCushion: 0,
                 payoutRequestSize: undefined,
                 plan: flex,
                 state,
-                tracker,
             });
 
             expect(payout?.debited).toBe(1500);
@@ -637,12 +635,12 @@ describe(
             tracker.lastPayoutBalance = state.startingBalance;
             tracker.qualifyingDaysAtLastPayout = 0;
 
-            const payout = tryFundedPayout({
+            tracker.recordSessionClose(state);
+            const payout = tracker.tryPayout({
                 minRetainedCushion: 0,
                 payoutRequestSize: undefined,
                 plan: flex,
                 state,
-                tracker,
             });
 
             expect(payout?.debited).toBe(2000);
@@ -670,12 +668,12 @@ describe(
             tracker.lastPayoutBalance = state.startingBalance;
             tracker.qualifyingDaysAtLastPayout = 0;
 
-            const payout = tryFundedPayout({
+            tracker.recordSessionClose(state);
+            const payout = tracker.tryPayout({
                 minRetainedCushion: 0,
                 payoutRequestSize: undefined,
                 plan: flex,
                 state,
-                tracker,
             });
 
             expect(payout).not.toBeNull();
@@ -697,12 +695,12 @@ describe(
             tracker.qualifyingDaysAtLastPayout = 0;
             const thresholdBeforePayout = state.threshold;
 
-            const payout = tryFundedPayout({
+            tracker.recordSessionClose(state);
+            const payout = tracker.tryPayout({
                 minRetainedCushion: 0,
                 payoutRequestSize: undefined,
                 plan: rapidEod,
                 state,
-                tracker,
             });
 
             expect(payout).not.toBeNull();
@@ -732,12 +730,12 @@ describe('payout ladder capped-at-last-step (help.myfundedfutures.com / support.
 
         const amounts: number[] = [];
         for (let attempt = 0; attempt < 5; attempt++) {
-            const payout = tryFundedPayout({
+            tracker.recordSessionClose(state);
+            const payout = tracker.tryPayout({
                 minRetainedCushion: 0,
                 payoutRequestSize: undefined,
                 plan: pro,
                 state,
-                tracker,
             });
             if (payout === null) break;
             amounts.push(payout.debited);
@@ -798,22 +796,22 @@ describe('funded consistency ladder (help.tradeify.co Lightning Funded)', () => 
         tracker.qualifyingDaysAtLastPayout = 0;
         tracker.cycleBestDayProfit = 2200;
 
-        const firstAttempt = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const firstAttempt = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: lightning,
             state,
-            tracker,
         });
         expect(firstAttempt).toBeNull();
 
         tracker.payoutsIssued = 1;
-        const secondAttempt = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const secondAttempt = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: lightning,
             state,
-            tracker,
         });
         expect(secondAttempt?.debited).toBe(2000);
     });
@@ -848,12 +846,12 @@ describe("Tradeify Select Daily: 2x-fresh-profit payout mechanism (hard cap conf
         expect(plan.payoutProfitShare).toBe(2);
 
         const { state, tracker } = selectDailyState(300, 5000);
-        const payout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const payout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan,
             state,
-            tracker,
         });
 
         expect(payout?.debited).toBe(600);
@@ -862,12 +860,12 @@ describe("Tradeify Select Daily: 2x-fresh-profit payout mechanism (hard cap conf
     it('falls back to the hard dollar cap once 2x cycle profit exceeds it', () => {
         const { plan, state, tracker } = selectDailyState(700, 5000);
 
-        const payout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const payout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan,
             state,
-            tracker,
         });
 
         expect(payout?.debited).toBe(plan.payoutRequestCap);
@@ -878,12 +876,12 @@ describe("Tradeify Select Daily: 2x-fresh-profit payout mechanism (hard cap conf
         const { plan, state, tracker } = selectDailyState(300, 0);
         expect(plan.payoutRequestCap).toBe(1250);
 
-        const payout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const payout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan,
             state,
-            tracker,
         });
 
         expect(payout).toBeNull();
@@ -910,12 +908,12 @@ describe('Tradeify Select Flex: payout eligibility is 50% of TOTAL account profi
         tracker.lastPayoutBalance = state.startingBalance + 1250;
         tracker.qualifyingDaysAtLastPayout = 0;
 
-        const payout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const payout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: flex,
             state,
-            tracker,
         });
 
         expect(payout?.debited).toBe(2000);
@@ -1066,12 +1064,12 @@ describe('Topstep 50K parameters (help.topstep.com)', () => {
             tracker.lastPayoutBalance = state.startingBalance;
             tracker.qualifyingDaysAtLastPayout = 0;
 
-            const payout = tryFundedPayout({
+            tracker.recordSessionClose(state);
+            const payout = tracker.tryPayout({
                 minRetainedCushion: 0,
                 payoutRequestSize: undefined,
                 plan: target,
                 state,
-                tracker,
             });
 
             expect(payout?.debited).toBe(cap);
@@ -1093,12 +1091,12 @@ describe('Topstep 50K parameters (help.topstep.com)', () => {
         tracker.lastPayoutBalance = state.startingBalance;
         tracker.qualifyingDaysAtLastPayout = 0;
 
-        const payout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const payout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: target,
             state,
-            tracker,
         });
 
         expect(payout?.debited).toBeCloseTo(1500, 6);
@@ -1116,12 +1114,12 @@ describe('Topstep 50K parameters (help.topstep.com)', () => {
         tracker.lastPayoutBalance = state.startingBalance;
         tracker.qualifyingDaysAtLastPayout = 0;
 
-        const payout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const payout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: target,
             state,
-            tracker,
         });
 
         expect(payout?.debited).toBeCloseTo(target.payoutRequestCap ?? 0, 6);
@@ -1138,12 +1136,12 @@ describe('Topstep 50K parameters (help.topstep.com)', () => {
         tracker.lastPayoutBalance = state.startingBalance;
         tracker.qualifyingDaysAtLastPayout = 0;
 
-        const firstPayout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const firstPayout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: 500,
             plan: target,
             state,
-            tracker,
         });
 
         expect(firstPayout?.debited).toBe(500);
@@ -1158,12 +1156,12 @@ describe('Topstep 50K parameters (help.topstep.com)', () => {
         tracker.qualifyingDaysAtLastPayout = 0;
         state.qualifyingDays += 999;
 
-        const secondPayout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const secondPayout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: 150,
             plan: target,
             state,
-            tracker,
         });
 
         expect(secondPayout?.debited).toBe(150);
@@ -1186,12 +1184,12 @@ describe('ConsistencyBasis.Perpetual (FundedNext FNL:003\'s "20% Perpetual Consi
         tracker.qualifyingDaysAtLastPayout = 0;
         tracker.cycleBestDayProfit = 1000;
 
-        const payout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const payout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: target,
             state,
-            tracker,
         });
 
         expect(payout).not.toBeNull();
@@ -1210,24 +1208,24 @@ describe('ConsistencyBasis.Perpetual (FundedNext FNL:003\'s "20% Perpetual Consi
         tracker.qualifyingDaysAtLastPayout = 0;
         tracker.cycleBestDayProfit = 1000;
 
-        const firstPayout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const firstPayout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: target,
             state,
-            tracker,
         });
         expect(firstPayout).not.toBeNull();
 
         state.balance += 1000;
         state.qualifyingDays += 999;
 
-        const secondPayout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const secondPayout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: target,
             state,
-            tracker,
         });
 
         expect(secondPayout).toBeNull();
@@ -1247,12 +1245,12 @@ describe('ConsistencyBasis.Perpetual (FundedNext FNL:003\'s "20% Perpetual Consi
         tracker.qualifyingDaysAtLastPayout = 0;
         tracker.cycleBestDayProfit = 1000;
 
-        const firstPayout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const firstPayout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: target,
             state,
-            tracker,
         });
         expect(firstPayout).not.toBeNull();
         expect(tracker.cycleBestDayProfit).toBe(0);
@@ -1260,12 +1258,12 @@ describe('ConsistencyBasis.Perpetual (FundedNext FNL:003\'s "20% Perpetual Consi
         state.balance += 1000;
         state.qualifyingDays += 999;
 
-        const secondPayout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const secondPayout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: target,
             state,
-            tracker,
         });
 
         expect(secondPayout).not.toBeNull();
@@ -1289,12 +1287,12 @@ describe('maxLifetimePayoutDollars', () => {
         tracker.lastPayoutBalance = state.startingBalance;
         tracker.qualifyingDaysAtLastPayout = 0;
 
-        const firstPayout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const firstPayout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: 1000,
             plan: target,
             state,
-            tracker,
         });
 
         expect(firstPayout?.debited).toBe(1000);
@@ -1308,12 +1306,12 @@ describe('maxLifetimePayoutDollars', () => {
         tracker.qualifyingDaysAtLastPayout = 0;
         state.qualifyingDays += 99;
 
-        const secondPayout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const secondPayout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: 1000,
             plan: target,
             state,
-            tracker,
         });
 
         expect(secondPayout?.debited).toBe(1000);
@@ -1327,12 +1325,12 @@ describe('maxLifetimePayoutDollars', () => {
         tracker.qualifyingDaysAtLastPayout = 0;
         state.qualifyingDays += 99;
 
-        const thirdPayout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const thirdPayout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: 1000,
             plan: target,
             state,
-            tracker,
         });
 
         expect(thirdPayout).toBeNull();
@@ -1365,12 +1363,12 @@ function calendarGatedPayoutSessions(
             state,
             isTradedOn(session),
         );
-        const payout = tryFundedPayout({
+        tracker.recordSessionClose(state);
+        const payout = tracker.tryPayout({
             minRetainedCushion: target.resolveRetainedCushion(undefined),
             payoutRequestSize: undefined,
             plan: target,
             state,
-            tracker,
         });
         if (payout !== null) sessions.push(session);
     }
@@ -1438,12 +1436,12 @@ describe('PayoutDayGateBasis.CalendarDaysSinceFirstTradeOrPayout (N-7)', () => {
         for (let session = 0; session < 4; session++) {
             state.balance = 52_600;
             closeTradingDay(target, TradingPhase.Funded, state, session === 0);
-            tryFundedPayout({
+            tracker.recordSessionClose(state);
+            tracker.tryPayout({
                 minRetainedCushion: target.resolveRetainedCushion(undefined),
                 payoutRequestSize: undefined,
                 plan: target,
                 state,
-                tracker,
             });
         }
 
@@ -1492,5 +1490,15 @@ describe('PayoutDayGateBasis.CalendarDaysSinceFirstTradeOrPayout (N-7)', () => {
                 }),
             ),
         ).toBe('5 qualifying days, then 3 per payout cycle');
+    });
+});
+
+describe('one session-clock pattern: every caller records the session close, then tries the payout (WP21a findings 1 and 4)', () => {
+    it('offers no tryFundedPayout wrapper that advances the calendar clock inside a payout attempt', async () => {
+        const payoutCycle =
+            await import('~/lib/prop-calculator/core/FundedPayoutCycle');
+
+        expect(Object.keys(core)).not.toContain('tryFundedPayout');
+        expect(Object.keys(payoutCycle)).not.toContain('tryFundedPayout');
     });
 });

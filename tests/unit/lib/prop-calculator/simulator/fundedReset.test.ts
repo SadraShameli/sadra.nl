@@ -309,7 +309,7 @@ describe('R7: the cash-flow timeline books each reset fee on its own day', () =>
             { dayOffset: 1, fee: RESET_FEE },
             { dayOffset: 2, fee: RESET_FEE },
         ]);
-        expect(card.totalCost).toBe(EVAL_FEE);
+        expect(card.evalCost).toBe(EVAL_FEE);
         expect(card.totalDays).toBe(3);
     });
 

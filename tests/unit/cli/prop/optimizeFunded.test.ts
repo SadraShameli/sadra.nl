@@ -6,6 +6,9 @@ import { z } from 'zod';
 
 import optimizeFunded, {
     type FundedCandidateArguments,
+    FundedSortKey,
+    fundedSweepProgress,
+    fundedSweepSummary,
     readFundedCandidates,
     sortDescription,
     survivorCount,
@@ -41,6 +44,20 @@ describe('optimize funded --path-granularity (WP11 handoff)', () => {
     });
 });
 
+describe('optimize funded spinner text (WP23: a plan label is never joined with another middle dot)', () => {
+    it('separates the plan label from the sweep size with a colon while the sweep runs', () => {
+        expect(fundedSweepProgress('$50K · Zero', 12, 500)).toBe(
+            '$50K · Zero: 12 funded policies, 500 trials each',
+        );
+    });
+
+    it('separates the plan label from the policy count with a colon when the sweep ends', () => {
+        expect(fundedSweepSummary('$50K · Zero', 12)).toBe(
+            '$50K · Zero: 12 funded policies',
+        );
+    });
+});
+
 describe('optimize funded --sort default', () => {
     it('defaults sort to monthly', async () => {
         const arguments_ = await resolveArguments();
@@ -57,6 +74,19 @@ describe('optimize funded --sort options', () => {
             throw new Error('sort argument is not an enum');
         }
         expect(sortArgument.options).toStrictEqual(['monthly', 'cycle']);
+    });
+
+    it('draws its options from the FundedSortKey enum (WP21b)', async () => {
+        const arguments_ = await resolveArguments();
+        const sortArgument = arguments_.sort;
+        if (sortArgument?.type !== 'enum') {
+            throw new Error('sort argument is not an enum');
+        }
+        expect(sortArgument.default).toBe(FundedSortKey.Monthly);
+        expect(sortArgument.options).toStrictEqual([
+            FundedSortKey.Monthly,
+            FundedSortKey.Cycle,
+        ]);
     });
 
     it('rejects --sort lifetime', async () => {
@@ -86,7 +116,10 @@ function registryPlan(): Plan {
 
 describe('optimize funded --sort monthly description', () => {
     it('states the configured rebuy lag and the horizon credit', () => {
-        const description = sortDescription('monthly', baseSimInputs(3));
+        const description = sortDescription(
+            FundedSortKey.Monthly,
+            baseSimInputs(3),
+        );
         expect(description).toContain('rebuy-lag-days');
         expect(description).toContain('3');
         expect(description.toLowerCase()).toContain('credit');
@@ -94,7 +127,7 @@ describe('optimize funded --sort monthly description', () => {
     });
 
     it('states a rebuy lag of 0 when the input omits it', () => {
-        const description = sortDescription('monthly', {
+        const description = sortDescription(FundedSortKey.Monthly, {
             fundedHorizonDays: 252,
             maxEvalDays: 40,
             plan: registryPlan(),

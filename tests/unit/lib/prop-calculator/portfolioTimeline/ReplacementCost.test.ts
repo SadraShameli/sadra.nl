@@ -54,7 +54,7 @@ describe('N-12: the cash-flow timeline prices eval retries on the D1 cheaper pat
             winrate: fraction(0),
         });
         expect(card.attemptsUsed).toBeGreaterThan(1);
-        expect(card.totalCost).toBeCloseTo(
+        expect(card.evalCost).toBeCloseTo(
             100 + 100 * (card.attemptsUsed - 1),
             9,
         );

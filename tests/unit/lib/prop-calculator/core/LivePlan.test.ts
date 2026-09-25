@@ -149,7 +149,7 @@ describe('LivePlan constructor invariants (mirroring Plan.ts)', () => {
         );
 
         expect(plan.liveDrawdown).not.toBeNull();
-        expect(plan.liveDailyLossLimit).not.toBeNull();
+        expect(plan.dailyLossLimitFor(plan.initialState())).toBe(500);
         expect(plan.isBust(stateAt({ balance: -3000, threshold: -3000 }))).toBe(
             true,
         );
@@ -791,7 +791,6 @@ describe('LivePlan.maxContractsFor', () => {
     it('returns null for every instrument when the plan has no contract limits', () => {
         const plan = new LivePlan(apexLikeInit());
 
-        expect(plan.contractLimits).toBeNull();
         expect(
             plan.maxContractsFor(
                 plan.initialState(),

@@ -28,6 +28,8 @@ import {
     TradeTotals,
 } from '~/lib/prop-calculator/simulator';
 
+import { freshFundedCycle } from './dayRunOptions';
+
 function freshStats(startingBalance: number) {
     const totals = new TradeTotals();
     return newPhaseStats(startingBalance, totals, new LossStreak(totals));
@@ -197,6 +199,7 @@ describe('Apex Intraday daily-loss-limit: lockout behavior differs by phase', ()
         const fundedResult = runDay({
             commission: dollars(0),
             dayPolicy: flatDayPolicy(1500, 1, { kind: DayStopRuleKind.None }),
+            fundedCycle: freshFundedCycle(plan50kIntraday, fundedState),
             phase: TradingPhase.Funded,
             plan: plan50kIntraday,
             positionSizing: null,
@@ -368,6 +371,7 @@ describe('Apex funded inactivity closure', () => {
         const dayOptions = {
             commission: dollars(0),
             dayPolicy: flatDayPolicy(500, 1, { kind: DayStopRuleKind.None }),
+            fundedCycle: freshFundedCycle(plan, state),
             idleDayProbability: 1,
             phase: TradingPhase.Funded,
             plan,

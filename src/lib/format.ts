@@ -23,7 +23,7 @@ export function formatCurrency(n: number, fractionDigits = 0): string {
 }
 
 export function formatDays(d: number): string {
-    return !Number.isFinite(d) || d <= 0 ? '—' : `${d.toFixed(1)} d`;
+    return !Number.isFinite(d) || d <= 0 ? NOT_APPLICABLE : `${d.toFixed(1)} d`;
 }
 
 export function formatDelta(

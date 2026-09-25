@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { INSTRUMENTS, InstrumentSymbol } from '~/lib/prop-calculator/core';
 import { buildFundedNextLivePlan } from '~/lib/prop-calculator/firms/fundednext/FundedNextLive';
 
 describe('buildFundedNextLivePlan', () => {
@@ -59,6 +60,10 @@ describe('buildFundedNextLivePlan', () => {
     it('has no contract cap modeled -- no live-specific figure was confirmed for FundedNext Live', () => {
         const plan = buildFundedNextLivePlan();
 
-        expect(plan.contractLimits).toBeNull();
+        for (const symbol of [InstrumentSymbol.NQ, InstrumentSymbol.MNQ]) {
+            expect(
+                plan.maxContractsFor(plan.initialState(), INSTRUMENTS[symbol]),
+            ).toBeNull();
+        }
     });
 });

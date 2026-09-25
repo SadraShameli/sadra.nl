@@ -63,6 +63,7 @@ export {
 export {
     DrawdownKind,
     type DrawdownLockConfig,
+    type DrawdownState,
     DrawdownStrategy,
     EodTrailingDrawdown,
     IntradayTrailingDrawdown,
@@ -104,7 +105,6 @@ export {
     type OneTimeEarlyWithdrawal,
     PayoutDayGateBasis,
     sessionDaysForCalendarDays,
-    tryFundedPayout,
     withOneTimeEarlyWithdrawalTaken,
 } from './FundedPayoutCycle';
 export {
@@ -252,8 +252,8 @@ export { NO_PLAN_OPT_INS, type PlanOptIns, withPlanOptIns } from './PlanOptIns';
 export {
     capRiskToContractLimit,
     contractLimitAt,
+    evalContractLimit,
     type PositionSizingConfig,
-    resolveContractLimit,
     resolvePositionSizing,
 } from './PositionSizing';
 export {
@@ -279,6 +279,8 @@ export {
     tierContextFromProfits,
     type TierProfitContext,
     tierProfitFor,
+    type TrackedTierProfitContext,
+    type UntrackedTierProfitContext,
 } from './TierBasis';
 export {
     calibrateStepProbability,

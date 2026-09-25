@@ -46,6 +46,11 @@ import {
     withPlanOptIns,
 } from '~/lib/prop-calculator';
 
+export enum ContractUnit {
+    Micro = 'micro',
+    Mini = 'mini',
+}
+
 export interface CouponDiscountArguments {
     'activation-discount': string;
     'eval-discount': string;
@@ -696,7 +701,7 @@ export function describeDll(
 
 export function describeFundedContracts(
     config: ContractLimitConfig | null,
-    unit: string,
+    unit: ContractUnit,
 ): string {
     if (config === null) return `? ${unit}`;
     switch (config.kind) {

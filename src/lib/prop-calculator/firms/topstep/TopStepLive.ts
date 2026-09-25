@@ -3,6 +3,7 @@ import {
     type ContractLimitConfig,
     ContractLimitKind,
     contracts,
+    type DailyLossLimitConfig,
     DailyLossLimitKind,
     type DllTier,
     dollars,
@@ -16,7 +17,7 @@ import {
     ReserveLivePlan,
     StaticDrawdown,
     TierBasis,
-    type TierProfitContext,
+    type UntrackedTierProfitContext,
 } from '~/lib/prop-calculator/core';
 import { TOPSTEP_PAYOUT_POLICY } from '~/lib/prop-calculator/firms/topstep/TopStep';
 
@@ -91,6 +92,12 @@ const DLL_TIERS: readonly DllTier[] = [
 
 const TIER_PROFITS: readonly number[] = DLL_TIERS.map((tier) => tier.minProfit);
 
+const TOPSTEP_LIVE_DAILY_LOSS_LIMIT: DailyLossLimitConfig = {
+    kind: DailyLossLimitKind.Tiered,
+    tierBasis: TierBasis.SessionOpenProfit,
+    tiers: DLL_TIERS,
+};
+
 const EXPANSION_POSITION_LIMITS: ContractLimitConfig = {
     kind: ContractLimitKind.Tiered,
     tierBasis: TierBasis.SessionOpenProfit,
@@ -142,7 +149,7 @@ class TopStepLivePlan extends ReserveLivePlan {
 
     protected override tierContextOf(
         state: LiveAccountState,
-    ): TierProfitContext {
+    ): UntrackedTierProfitContext {
         return {
             ...super.tierContextOf(state),
             sessionOpenProfit: this.lfaProgressOf(state).unlockedTierProfit,
@@ -226,11 +233,7 @@ export function buildTopStepLivePlan(
         },
         cushionPercent,
         label: 'TopStep Live Funded Account (LFA)',
-        liveDailyLossLimit: {
-            kind: DailyLossLimitKind.Tiered,
-            tierBasis: TierBasis.SessionOpenProfit,
-            tiers: DLL_TIERS,
-        },
+        liveDailyLossLimit: TOPSTEP_LIVE_DAILY_LOSS_LIMIT,
         liveDrawdown: new StaticDrawdown({
             amount: dollars(startingBalance - AUTO_LIQUIDATION_BALANCE),
         }),

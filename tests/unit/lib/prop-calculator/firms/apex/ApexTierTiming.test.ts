@@ -26,6 +26,9 @@ import {
     TradeTotals,
 } from '~/lib/prop-calculator/simulator';
 
+import { freshFundedCycle } from '../../dayRunOptions';
+import { scriptedRng } from '../../scriptedRng';
+
 const firm = new ApexTraderFunding();
 const VARIANTS = [ApexVariant.Eod, ApexVariant.Intraday] as const;
 
@@ -83,6 +86,7 @@ function runFundedDay(
     return runDay({
         commission: dollars(0),
         dayPolicy,
+        fundedCycle: freshFundedCycle(plan, state),
         phase: TradingPhase.Funded,
         plan,
         positionSizing: null,
@@ -97,16 +101,6 @@ function runFundedDay(
         ),
         winrate: fraction(0.5),
     });
-}
-
-function scriptedRng(values: readonly number[]): () => number {
-    let index = 0;
-    return () => {
-        const value = values[index];
-        index += 1;
-        if (value === undefined) throw new Error('scripted rng exhausted');
-        return value;
-    };
 }
 
 describe.each(VARIANTS)(

@@ -19,6 +19,7 @@ import {
 } from '../core/PositionSizing';
 import { mulberry32, type Rng } from '../rng';
 import { median, percentile } from '../stats';
+import { SIM_DEFAULTS } from './SimDefaults';
 import {
     type LiveDayRunOptions,
     type LiveOutputs,
@@ -136,7 +137,7 @@ export function runLiveDay(options: LiveDayRunOptions): {
 } {
     const {
         commission,
-        idleDayProbability,
+        idleDayProbability = SIM_DEFAULTS.idleDayProbability,
         plan,
         positionSizing,
         rng,
@@ -148,8 +149,7 @@ export function runLiveDay(options: LiveDayRunOptions): {
     resetForNewDay(state);
     let isTraded = false;
 
-    const idleChance = idleDayProbability ?? 0;
-    const isIdleToday = idleChance > 0 && rng() < idleChance;
+    const isIdleToday = idleDayProbability > 0 && rng() < idleDayProbability;
 
     if (!isIdleToday) {
         for (let index = 0; index < tradesPerDay; index++) {
@@ -285,7 +285,7 @@ export function runLiveHorizon(options: LiveHorizonOptions): LiveHorizonResult {
 
 export function simulateLiveAccount(inputs: LiveSimInputs): LiveOutputs {
     const {
-        commissionPerRoundTrip = 0,
+        commissionPerRoundTrip = SIM_DEFAULTS.commissionPerRoundTrip,
         horizonDays,
         idleDayProbability,
         instrument,

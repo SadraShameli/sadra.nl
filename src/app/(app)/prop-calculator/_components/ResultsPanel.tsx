@@ -15,6 +15,7 @@ import {
     formatOptionalPercent,
     formatPercent,
     formatStreak,
+    NOT_APPLICABLE,
 } from '~/lib/format';
 import { type Plan, type SimOutputs } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
@@ -269,7 +270,7 @@ export default function ResultsPanel({
                         value={
                             result.expectedFirstPayoutDay > 0
                                 ? `day ${result.expectedFirstPayoutDay.toFixed(0)}`
-                                : '—'
+                                : NOT_APPLICABLE
                         }
                     />
                     <Kpi
@@ -386,7 +387,7 @@ export default function ResultsPanel({
                                           result.tradesPerSuccessfulAttempt,
                                       ),
                                   )
-                                : '—'
+                                : NOT_APPLICABLE
                         }
                     />
                     <Kpi

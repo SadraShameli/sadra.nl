@@ -19,9 +19,9 @@ import {
     withPlanOptIns,
 } from '~/lib/prop-calculator';
 import {
-    FundedDpPayoutCapGapKind,
-    fundedDpPayoutCapGaps,
-} from '~/lib/prop-calculator/core/FundedDpPayoutCapGaps';
+    FundedDpModelGapKind,
+    fundedDpModelGaps,
+} from '~/lib/prop-calculator/core/FundedDpModelGaps';
 import { AlphaFutures } from '~/lib/prop-calculator/firms/alphafutures/AlphaFutures';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 
@@ -247,16 +247,15 @@ describe('describeFundedReset', () => {
     });
 });
 
-describe('the funded DP discloses that it does not model an opted-in funded reset', () => {
-    it('reports the gap for Alpha Zero with the opt-in', () => {
+describe('the funded DP models an opted-in funded reset and discloses only that its day policy cannot see the reset count', () => {
+    it('reports the day-policy gap with the plan policy for Alpha Zero with the opt-in', () => {
         const zeroTaken = withFundedResetTaken(
             alphaPlan(AlphaFuturesVariant.Zero),
             true,
         );
-        expect(fundedDpPayoutCapGaps(zeroTaken)).toContainEqual({
-            fee: 499,
-            kind: FundedDpPayoutCapGapKind.FundedResetNotModeled,
-            maxPerAccount: 2,
+        expect(fundedDpModelGaps(zeroTaken)).toContainEqual({
+            kind: FundedDpModelGapKind.FundedResetPolicyIgnoresResetCount,
+            policy: zeroTaken.fundedReset,
         });
     });
 
@@ -266,10 +265,10 @@ describe('the funded DP discloses that it does not model an opted-in funded rese
             withFundedResetTaken(alphaPlan(AlphaFuturesVariant.Advanced), true),
         ]) {
             expect(
-                fundedDpPayoutCapGaps(plan).some(
+                fundedDpModelGaps(plan).some(
                     (gap) =>
                         gap.kind ===
-                        FundedDpPayoutCapGapKind.FundedResetNotModeled,
+                        FundedDpModelGapKind.FundedResetPolicyIgnoresResetCount,
                 ),
             ).toBe(false);
         }

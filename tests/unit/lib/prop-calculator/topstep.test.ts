@@ -8,7 +8,6 @@ import {
     type Plan,
     PlanAvailability,
     TopStepVariant,
-    tryFundedPayout,
 } from '~/lib/prop-calculator/core';
 import { TopStep } from '~/lib/prop-calculator/firms/topstep/TopStep';
 
@@ -107,12 +106,12 @@ describe('TopStep DLL add-on variants (live-verified 2026-09-21 against help.top
             state.balance = plan.accountSize + bigProfit;
             state.qualifyingDays = plan.minDaysAfterPassForPayout;
 
-            const payout = tryFundedPayout({
+            tracker.recordSessionClose(state);
+            const payout = tracker.tryPayout({
                 minRetainedCushion: 0,
                 payoutRequestSize: undefined,
                 plan,
                 state,
-                tracker,
             });
 
             expect(payout).not.toBeNull();

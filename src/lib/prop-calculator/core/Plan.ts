@@ -684,15 +684,15 @@ export abstract class Plan {
             state.peakDayCloseProfit = profit;
         }
         state.peakIntradayProfit = Math.max(
-            state.peakIntradayProfit ?? 0,
-            state.intradayHighProfit ?? 0,
+            state.peakIntradayProfit,
+            state.intradayHighProfit,
             profit,
         );
     }
 
     recordIntradayHigh(state: AccountState): void {
         state.intradayHighProfit = Math.max(
-            state.intradayHighProfit ?? 0,
+            state.intradayHighProfit,
             this.accountProfit(state),
         );
     }
@@ -802,7 +802,7 @@ export abstract class Plan {
         const profit = this.profitFor(state);
         return {
             peakDayCloseProfit: state.peakDayCloseProfit,
-            peakIntradayProfit: state.peakIntradayProfit ?? null,
+            peakIntradayProfit: state.peakIntradayProfit,
             profit,
             sessionOpenProfit: profit - state.todayPnL,
         };

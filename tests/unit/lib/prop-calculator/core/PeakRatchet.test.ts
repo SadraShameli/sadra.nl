@@ -89,19 +89,13 @@ describe('PeakRatchet', () => {
         expect(intraday.reachBandOf(state)).toBe(1);
     });
 
-    it('fails loud when an intraday ratchet reads a state that never tracked the intraday peak', () => {
+    it('reads a fresh account state, which always tracks the intraday peak, at the base band', () => {
         const intraday = new PeakRatchet([300], TierBasis.PeakIntradayProfit);
-        const untracked = createInitialState(50_000, 48_000);
-        delete untracked.intradayHighProfit;
-        delete untracked.peakIntradayProfit;
+        const fresh = createInitialState(50_000, 48_000);
 
-        expect(() => intraday.committedBandOf(untracked)).toThrow(
-            /PeakIntradayProfit/,
-        );
-        expect(() => intraday.reachBandOf(untracked)).toThrow(
-            /PeakIntradayProfit/,
-        );
-        expect(ratchet.committedBandOf(untracked)).toBe(0);
-        expect(ratchet.reachBandOf(untracked)).toBe(0);
+        expect(intraday.committedBandOf(fresh)).toBe(0);
+        expect(intraday.reachBandOf(fresh)).toBe(0);
+        expect(ratchet.committedBandOf(fresh)).toBe(0);
+        expect(ratchet.reachBandOf(fresh)).toBe(0);
     });
 });
