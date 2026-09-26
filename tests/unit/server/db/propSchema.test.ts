@@ -1,4 +1,4 @@
-import { is } from 'drizzle-orm';
+import { is, SQL } from 'drizzle-orm';
 import {
     type ForeignKey,
     getTableConfig,
@@ -7,13 +7,18 @@ import {
     PgDialect,
     PgTable,
 } from 'drizzle-orm/pg-core';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import {
+    FirmEngagementReason,
+    FirmEngagementStatus,
     MAX_ACCOUNT_DATE_YEAR,
     MAX_PLAN_SERIAL_LENGTH,
     MIN_ACCOUNT_DATE_YEAR,
     PayoutStatus,
+    RoundStatus,
 } from '~/lib/prop-accounts';
 import { ALL_FIRMS, serializePlanId } from '~/lib/prop-calculator';
 import { MAX_ACCEPTED_RUNGS } from '~/lib/schemas/propAccounts';
@@ -43,8 +48,18 @@ const ACCOUNT_CHILD_TABLES = [
     'sadranl_prop_fee',
     'sadranl_prop_account_event',
     'sadranl_prop_sizing_decision',
+    'sadranl_prop_rule_violation',
 ];
+const BANKROLL_TABLE = 'sadranl_prop_bankroll_transfer';
+const EXTERNAL_FIRM_TABLE = 'sadranl_prop_external_firm';
+const ROUND_TABLE = 'sadranl_prop_round';
+const ENGAGEMENT_TABLE = 'sadranl_prop_firm_engagement';
+const STATEMENT_TABLE = 'sadranl_prop_firm_statement';
+const VIOLATION_TABLE = 'sadranl_prop_rule_violation';
+const DECISION_TABLE = 'sadranl_prop_sizing_decision';
+const PAYOUT_TABLE = 'sadranl_prop_payout';
 const ENUM_COLUMNS = new Set([
+    'basis',
     'dashboard_convention',
     'firm_id',
     'kind',
@@ -63,6 +78,7 @@ const SIGNED_CENTS_COLUMNS = new Set([
     `${SNAPSHOT_TABLE}.floor_at_last_payout_cents`,
     `${SNAPSHOT_TABLE}.highest_eod_balance_cents`,
     `${SNAPSHOT_TABLE}.highest_intraday_balance_cents`,
+    `${VIOLATION_TABLE}.cost_cents`,
 ]);
 
 const ACCOUNT_DATE_GATE =
@@ -88,6 +104,12 @@ function checkExpressions(config: TableConfig): string[] {
 
 function columnList(columns: readonly unknown[]): string {
     return columns.map((column) => (column as PgColumn).name).join(',');
+}
+
+function columnNamed(config: TableConfig, name: string): PgColumn {
+    const column = config.columns.find((candidate) => candidate.name === name);
+    if (column === undefined) throw new Error(`${config.name} has no ${name}`);
+    return column;
 }
 
 function configNamed(name: string): TableConfig {
@@ -128,6 +150,14 @@ function indexedColumnLists(config: TableConfig): string[][] {
     ];
 }
 
+function indexNamed(config: TableConfig, name: string) {
+    const index = config.indexes.find(
+        (candidate) => candidate.config.name === name,
+    );
+    if (index === undefined) throw new Error(`${config.name} has no ${name}`);
+    return index;
+}
+
 function isLedByIndex(
     config: TableConfig,
     columns: readonly string[],
@@ -140,16 +170,36 @@ function isLedByIndex(
     );
 }
 
+function sqlText(value: unknown): string {
+    return DIALECT.sqlToQuery(value as SQL)
+        .sql.replaceAll(/"\w+"\./g, '')
+        .replaceAll('"', '')
+        .replaceAll(/\s+/g, ' ')
+        .trim();
+}
+
+function uniqueConstraintLists(config: TableConfig): string[] {
+    return config.uniqueConstraints.map((constraint) =>
+        columnList(constraint.columns),
+    );
+}
+
 describe('prop schema', () => {
-    it('defines exactly the 9 prop tables', () => {
+    it('defines exactly the 15 prop tables', () => {
         expect(CONFIGS.map((config) => config.name).toSorted(byName)).toEqual(
             [
                 'sadranl_prop_account',
                 'sadranl_prop_account_event',
                 'sadranl_prop_account_snapshot',
+                BANKROLL_TABLE,
                 'sadranl_prop_copy_group',
+                EXTERNAL_FIRM_TABLE,
                 'sadranl_prop_fee',
+                ENGAGEMENT_TABLE,
+                STATEMENT_TABLE,
                 'sadranl_prop_payout',
+                ROUND_TABLE,
+                VIOLATION_TABLE,
                 'sadranl_prop_rulebook',
                 'sadranl_prop_saved_scenario',
                 'sadranl_prop_sizing_decision',
@@ -240,7 +290,12 @@ describe('prop schema', () => {
     });
 
     it('declares the composite FK targets as unique constraints, not indexes', () => {
-        for (const name of [ACCOUNT_TABLE, 'sadranl_prop_copy_group']) {
+        for (const name of [
+            ACCOUNT_TABLE,
+            'sadranl_prop_copy_group',
+            EXTERNAL_FIRM_TABLE,
+            ROUND_TABLE,
+        ]) {
             const config = configNamed(name);
             expect(
                 config.uniqueConstraints.some(
@@ -264,7 +319,46 @@ describe('prop schema', () => {
     it('keys the nullable references to rows of the same owner with composite no-action FKs', () => {
         const account = configNamed(ACCOUNT_TABLE);
         const decision = configNamed('sadranl_prop_sizing_decision');
+        const round = configNamed(ROUND_TABLE);
+        const engagement = configNamed(ENGAGEMENT_TABLE);
+        const statement = configNamed(STATEMENT_TABLE);
+        const violation = configNamed(VIOLATION_TABLE);
         const cases: [TableConfig, string, string, string, string][] = [
+            [
+                account,
+                'round_id,user_id',
+                ROUND_TABLE,
+                'id,user_id',
+                'round_id',
+            ],
+            [
+                round,
+                'external_firm_id,user_id',
+                EXTERNAL_FIRM_TABLE,
+                'id,user_id',
+                'external_firm_id',
+            ],
+            [
+                engagement,
+                'external_firm_id,user_id',
+                EXTERNAL_FIRM_TABLE,
+                'id,user_id',
+                'external_firm_id',
+            ],
+            [
+                statement,
+                'external_firm_id,user_id',
+                EXTERNAL_FIRM_TABLE,
+                'id,user_id',
+                'external_firm_id',
+            ],
+            [
+                violation,
+                'decision_id,account_id,user_id',
+                DECISION_TABLE,
+                'id,account_id,user_id',
+                'decision_id',
+            ],
             [
                 account,
                 'copy_group_id,user_id',
@@ -359,6 +453,9 @@ describe('prop schema', () => {
 
     it('checks money invariants in the database', () => {
         const cases: [string, string][] = [
+            [BANKROLL_TABLE, 'amount_cents > 0'],
+            [ROUND_TABLE, 'budget_cents > 0'],
+            [STATEMENT_TABLE, 'reported_payout_cents >= 0'],
             ['sadranl_prop_fee', 'amount_cents >= 0'],
             ['sadranl_prop_payout', 'gross_cents > 0'],
             [
@@ -427,9 +524,15 @@ describe('prop schema', () => {
             'propAccount',
             'propAccountEvent',
             'propAccountSnapshot',
+            'propBankrollTransfer',
             'propCopyGroup',
+            'propExternalFirm',
             'propFee',
+            'propFirmEngagement',
+            'propFirmStatement',
             'propPayout',
+            'propRound',
+            'propRuleViolation',
             'propRulebook',
             'propSavedScenario',
             'propSizingDecision',
@@ -468,7 +571,10 @@ describe('prop schema', () => {
         const cases: [string, string][] = [
             [ACCOUNT_TABLE, 'copy_group_id,user_id'],
             [ACCOUNT_TABLE, 'replaces_account_id,user_id'],
+            [ACCOUNT_TABLE, 'round_id,user_id'],
             ['sadranl_prop_sizing_decision', 'snapshot_id,account_id,user_id'],
+            [ROUND_TABLE, 'external_firm_id,user_id'],
+            [VIOLATION_TABLE, 'decision_id,account_id,user_id'],
         ];
         for (const [name, column] of cases) {
             const index = configNamed(name).indexes.find(
@@ -564,9 +670,12 @@ describe('prop schema', () => {
         ]);
     });
 
-    it('gives no enum column a DB default', () => {
+    it('gives no enum column a DB default and requires it, except the firm id paired with an external firm', () => {
         let enumColumns = 0;
         for (const config of CONFIGS) {
+            const hasExternalFirm = config.columns.some(
+                (column) => column.name === 'external_firm_id',
+            );
             for (const column of config.columns) {
                 if (!ENUM_COLUMNS.has(column.name)) continue;
                 enumColumns += 1;
@@ -574,11 +683,11 @@ describe('prop schema', () => {
                     false,
                 );
                 expect(column.notNull, `${config.name}.${column.name}`).toBe(
-                    true,
+                    !(hasExternalFirm && column.name === 'firm_id'),
                 );
             }
         }
-        expect(enumColumns).toBeGreaterThanOrEqual(9);
+        expect(enumColumns).toBeGreaterThanOrEqual(19);
     });
 
     it('gives no varchar column a DB default', () => {
@@ -599,7 +708,7 @@ describe('prop schema', () => {
                     column.name.endsWith('_on') || column.name === 'as_of',
             ),
         );
-        expect(dateColumns.length).toBeGreaterThanOrEqual(10);
+        expect(dateColumns.length).toBeGreaterThanOrEqual(19);
         for (const column of dateColumns) {
             expect(column.getSQLType(), column.name).toBe('varchar(10)');
         }
@@ -622,7 +731,7 @@ describe('prop schema', () => {
                 );
             }
         }
-        expect(dateColumns).toBe(11);
+        expect(dateColumns).toBe(19);
     });
 
     it('gates every date CHECK so no value can raise a cast error instead of a check violation', () => {
@@ -649,7 +758,7 @@ describe('prop schema', () => {
         const dateChecks = CONFIGS.flatMap(checkExpressions).filter(
             (expression) => expression.includes(ACCOUNT_DATE_GATE),
         );
-        expect(dateChecks).toHaveLength(11);
+        expect(dateChecks).toHaveLength(19);
         for (const expression of dateChecks) {
             expect(expression).not.toMatch(/::date\b/);
         }
@@ -677,5 +786,294 @@ describe('prop schema', () => {
         expect(expressions).toContain(
             'COALESCE(array_ndims(accepted_rungs_cents), 1) = 1',
         );
+    });
+});
+
+describe('prop schema: video record tables', () => {
+    it('keeps bankroll transfers by kind, a positive amount and a real date, indexed by (user_id, occurred_on)', () => {
+        const bankroll = configNamed(BANKROLL_TABLE);
+        expect(columnNamed(bankroll, 'kind').notNull).toBe(true);
+        expect(columnNamed(bankroll, 'amount_cents').notNull).toBe(true);
+        expect(columnNamed(bankroll, 'occurred_on').notNull).toBe(true);
+        expect(columnNamed(bankroll, 'note').notNull).toBe(false);
+        expect(checkExpressions(bankroll)).toContain('amount_cents > 0');
+        expect(indexColumnLists(bankroll)).toContain('user_id,occurred_on');
+    });
+
+    it('names an external firm with 1 to 64 characters, unique per user ignoring letter case', () => {
+        const firm = configNamed(EXTERNAL_FIRM_TABLE);
+        expect(columnNamed(firm, 'name').getSQLType()).toBe('varchar(64)');
+        expect(columnNamed(firm, 'name').notNull).toBe(true);
+        expect(columnNamed(firm, 'notes').notNull).toBe(false);
+        expect(checkExpressions(firm)).toContain('char_length(name) > 0');
+        expect(uniqueConstraintLists(firm)).toContain('id,user_id');
+        const byName = indexNamed(firm, 'prop_external_firm_user_name_idx');
+        expect(byName.config.unique).toBe(true);
+        expect(byName.config.where).toBeUndefined();
+        expect(
+            byName.config.columns.map((column) =>
+                is(column, SQL) ? sqlText(column) : (column as PgColumn).name,
+            ),
+        ).toEqual(['user_id', 'lower(name)']);
+    });
+
+    it('gives a round a per-user unique label, at most one firm column, a checked budget and matching status and close date', () => {
+        const round = configNamed(ROUND_TABLE);
+        const label = round.indexes.find(
+            (index) => columnList(index.config.columns) === 'user_id,label',
+        );
+        expect(label?.config.unique).toBe(true);
+        expect(columnNamed(round, 'firm_id').getSQLType()).toBe('varchar(32)');
+        expect(columnNamed(round, 'firm_id').notNull).toBe(false);
+        expect(columnNamed(round, 'external_firm_id').notNull).toBe(false);
+        expect(columnNamed(round, 'budget_cents').notNull).toBe(false);
+        expect(columnNamed(round, 'opened_on').notNull).toBe(true);
+        expect(columnNamed(round, 'closed_on').notNull).toBe(false);
+        const expressions = checkExpressions(round);
+        expect(expressions).toContain(
+            'firm_id IS NULL OR external_firm_id IS NULL',
+        );
+        expect(expressions).toContain('budget_cents > 0');
+        expect(expressions).toContain(
+            'closed_on IS NULL OR closed_on >= opened_on',
+        );
+        expect(expressions).toContain(
+            `(status = '${RoundStatus.Closed}') = (closed_on IS NOT NULL)`,
+        );
+    });
+
+    it('puts an account in at most one round of the same owner, never through a single-column reference', () => {
+        const account = configNamed(ACCOUNT_TABLE);
+        expect(columnNamed(account, 'round_id').getSQLType()).toBe('uuid');
+        expect(columnNamed(account, 'round_id').notNull).toBe(false);
+        expect(foreignKeyOn(account, 'round_id,user_id').getName()).toBe(
+            'prop_account_round_fk',
+        );
+    });
+
+    it('keeps one engagement per firm key with exactly one firm column and a reason exactly when not Active', () => {
+        const engagement = configNamed(ENGAGEMENT_TABLE);
+        const expressions = checkExpressions(engagement);
+        expect(expressions).toContain(
+            '(firm_id IS NULL) <> (external_firm_id IS NULL)',
+        );
+        expect(expressions).toContain(
+            `(status = '${FirmEngagementStatus.Active}') = (reason IS NULL)`,
+        );
+        expect(columnNamed(engagement, 'status').notNull).toBe(true);
+        expect(columnNamed(engagement, 'reason').notNull).toBe(false);
+        expect(columnNamed(engagement, 'reason').hasDefault).toBe(false);
+        expect(columnNamed(engagement, 'since_on').notNull).toBe(true);
+        expect(columnNamed(engagement, 'sent_live_on').notNull).toBe(false);
+        for (const [name, columns, set] of [
+            [
+                'prop_firm_engagement_user_firm_idx',
+                'user_id,firm_id',
+                'firm_id',
+            ],
+            [
+                'prop_firm_engagement_user_external_firm_idx',
+                'user_id,external_firm_id',
+                'external_firm_id',
+            ],
+        ] as const) {
+            const index = indexNamed(engagement, name);
+            expect(index.config.unique, name).toBe(true);
+            expect(columnList(index.config.columns), name).toBe(columns);
+            expect(sqlText(index.config.where), name).toBe(
+                `${set} IS NOT NULL`,
+            );
+        }
+    });
+
+    it('keeps a sent-live date exactly on a SentLive reason, on or before the status date', () => {
+        const expressions = checkExpressions(configNamed(ENGAGEMENT_TABLE));
+        expect(expressions).toContain(
+            `(reason IS NOT DISTINCT FROM '${FirmEngagementReason.SentLive}') = (sent_live_on IS NOT NULL)`,
+        );
+        expect(expressions).toContain(
+            'sent_live_on IS NULL OR sent_live_on <= since_on',
+        );
+    });
+
+    it('indexes firm engagements by owner and status date for the list, the quota count and the user cascade', () => {
+        const byOwner = indexNamed(
+            configNamed(ENGAGEMENT_TABLE),
+            'prop_firm_engagement_user_since_idx',
+        );
+        expect(byOwner.config.unique).toBe(false);
+        expect(byOwner.config.where).toBeUndefined();
+        expect(columnList(byOwner.config.columns)).toBe('user_id,since_on');
+    });
+
+    it('keeps a firm statement for exactly one firm column with a required basis, indexed per firm by date', () => {
+        const statement = configNamed(STATEMENT_TABLE);
+        expect(checkExpressions(statement)).toContain(
+            '(firm_id IS NULL) <> (external_firm_id IS NULL)',
+        );
+        expect(columnNamed(statement, 'basis').notNull).toBe(true);
+        expect(columnNamed(statement, 'as_of').notNull).toBe(true);
+        expect(columnNamed(statement, 'reported_payout_cents').notNull).toBe(
+            true,
+        );
+        const indexes = indexColumnLists(statement);
+        expect(indexes).toContain('user_id,firm_id,as_of');
+        expect(indexes).toContain('user_id,external_firm_id,as_of');
+    });
+
+    it('keeps a violation on its account with a signed nullable cost, indexed by (user_id, account_id, occurred_on)', () => {
+        const violation = configNamed(VIOLATION_TABLE);
+        expect(columnNamed(violation, 'kind').notNull).toBe(true);
+        expect(columnNamed(violation, 'source').notNull).toBe(true);
+        expect(columnNamed(violation, 'occurred_on').notNull).toBe(true);
+        expect(columnNamed(violation, 'cost_cents').getSQLType()).toBe(
+            'integer',
+        );
+        expect(columnNamed(violation, 'cost_cents').notNull).toBe(false);
+        expect(checkExpressions(violation).join(' ')).not.toMatch(
+            /\bcost_cents\b/,
+        );
+        expect(indexColumnLists(violation)).toContain(
+            'user_id,account_id,occurred_on',
+        );
+    });
+
+    it('rejects in the database a violation on account A that links a decision of account B of the same owner', () => {
+        const violation = configNamed(VIOLATION_TABLE);
+        const decisionLink = foreignKeyOn(
+            violation,
+            'decision_id,account_id,user_id',
+        );
+        const accountLink = foreignKeyOn(violation, 'account_id,user_id');
+        expect(columnList(decisionLink.reference().columns.slice(1))).toBe(
+            columnList(accountLink.reference().columns),
+        );
+        expect(columnList(decisionLink.reference().foreignColumns)).toBe(
+            'id,account_id,user_id',
+        );
+        expect(uniqueConstraintLists(configNamed(DECISION_TABLE))).toContain(
+            'id,account_id,user_id',
+        );
+        expect(indexColumnLists(configNamed(DECISION_TABLE))).not.toContain(
+            'id,account_id,user_id',
+        );
+        expect(
+            violation.foreignKeys.some(
+                (candidate) =>
+                    columnList(candidate.reference().columns) ===
+                    'decision_id,user_id',
+            ),
+        ).toBe(false);
+    });
+
+    it('adds a nullable payout approval date between the request and the payment', () => {
+        const payout = configNamed(PAYOUT_TABLE);
+        expect(columnNamed(payout, 'approved_on').notNull).toBe(false);
+        const expressions = checkExpressions(payout);
+        expect(expressions).toContain(
+            'approved_on IS NULL OR approved_on >= requested_on',
+        );
+        expect(expressions).toContain(
+            'paid_on IS NULL OR approved_on IS NULL OR paid_on >= approved_on',
+        );
+    });
+});
+
+const DRIZZLE_FOLDER = path.resolve(import.meta.dirname, '../../../../drizzle');
+const STATEMENT_BREAK = '--> statement-breakpoint';
+
+interface JournalEntry {
+    readonly idx: number;
+    readonly tag: string;
+}
+
+function foreignKeysBeforeTheirTargets(
+    statements: readonly string[],
+): string[] {
+    const targets = new Set<string>();
+    const early: string[] = [];
+    for (const statement of statements) {
+        const created = /^CREATE TABLE "(\w+)"/.exec(statement);
+        if (created?.[1]) {
+            const table = created[1];
+            for (const match of statement.matchAll(
+                /"(\w+)" uuid PRIMARY KEY|"(\w+)" text PRIMARY KEY|"(\w+)" serial PRIMARY KEY/g,
+            )) {
+                targets.add(
+                    keyOf(table, match[1] ?? match[2] ?? match[3] ?? ''),
+                );
+            }
+            for (const match of statement.matchAll(/UNIQUE\(([^)]*)\)/g)) {
+                targets.add(keyOf(table, match[1] ?? ''));
+            }
+            continue;
+        }
+        const altered =
+            /^ALTER TABLE "(\w+)" ADD CONSTRAINT "\w+" UNIQUE\(([^)]*)\)/.exec(
+                statement,
+            );
+        if (altered?.[1]) {
+            targets.add(keyOf(altered[1], altered[2] ?? ''));
+            continue;
+        }
+        const reference =
+            /FOREIGN KEY \(([^)]*)\) REFERENCES "public"\."(\w+)"\(([^)]*)\)/.exec(
+                statement,
+            );
+        if (!reference?.[2] || !reference[3]) continue;
+        const target = keyOf(reference[2], reference[3]);
+        if (target.startsWith('sadranl_prop_') && !targets.has(target)) {
+            early.push(target);
+        }
+    }
+    return early;
+}
+
+function journalStatements(): string[] {
+    const journal = JSON.parse(
+        readFileSync(
+            path.join(DRIZZLE_FOLDER, 'meta', '_journal.json'),
+            'utf8',
+        ),
+    ) as { readonly entries: readonly JournalEntry[] };
+    return journal.entries
+        .toSorted((a, b) => a.idx - b.idx)
+        .flatMap((entry) =>
+            readFileSync(path.join(DRIZZLE_FOLDER, `${entry.tag}.sql`), 'utf8')
+                .split(STATEMENT_BREAK)
+                .map((statement) => statement.trim()),
+        );
+}
+
+function keyOf(table: string, columns: string): string {
+    return `${table}(${columns.replaceAll(/[\s"]/g, '')})`;
+}
+
+describe('prop migrations', () => {
+    it('flags a composite foreign key whose unique target is added later in the same migration', () => {
+        expect(
+            foreignKeysBeforeTheirTargets([
+                'CREATE TABLE "sadranl_prop_a" (\n"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,\n"account_id" uuid NOT NULL\n);',
+                'ALTER TABLE "sadranl_prop_b" ADD CONSTRAINT "b_a_fk" FOREIGN KEY ("a_id","account_id") REFERENCES "public"."sadranl_prop_a"("id","account_id") ON DELETE no action ON UPDATE no action;',
+                'ALTER TABLE "sadranl_prop_a" ADD CONSTRAINT "a_uq" UNIQUE("id","account_id");',
+            ]),
+        ).toEqual(['sadranl_prop_a(id,account_id)']);
+        expect(
+            foreignKeysBeforeTheirTargets([
+                'CREATE TABLE "sadranl_prop_a" (\n"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,\n"account_id" uuid NOT NULL\n);',
+                'ALTER TABLE "sadranl_prop_a" ADD CONSTRAINT "a_uq" UNIQUE("id","account_id");',
+                'ALTER TABLE "sadranl_prop_b" ADD CONSTRAINT "b_a_fk" FOREIGN KEY ("a_id","account_id") REFERENCES "public"."sadranl_prop_a"("id","account_id") ON DELETE no action ON UPDATE no action;',
+            ]),
+        ).toEqual([]);
+    });
+
+    it('creates every prop foreign key target before the foreign key, in journal order', () => {
+        const statements = journalStatements();
+        expect(
+            statements.some((statement) =>
+                statement.includes('"prop_rule_violation_decision_fk"'),
+            ),
+        ).toBe(true);
+        expect(foreignKeysBeforeTheirTargets(statements)).toEqual([]);
     });
 });

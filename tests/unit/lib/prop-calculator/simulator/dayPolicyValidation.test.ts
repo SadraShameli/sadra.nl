@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -5,6 +7,7 @@ import {
     type DayPolicy,
     DayStopRuleKind,
     FirmId,
+    fraction,
     InstrumentSymbol,
     type Plan,
     PolicySizing,
@@ -12,8 +15,9 @@ import {
     type SimInputs,
     simInputsSizingIssue,
     simulate,
+    simulateLiveAccount,
 } from '~/lib/prop-calculator';
-import { findFirm } from '~/lib/prop-calculator/firms';
+import { buildApexLivePlan, findFirm } from '~/lib/prop-calculator/firms';
 
 function apexEod50k(): Plan {
     const found = findFirm(FirmId.Apex)?.findPlan({
@@ -216,4 +220,59 @@ describe('the below-one-contract refusal rounds the one-contract minimum up to w
             ).toBeNull();
         },
     );
+});
+
+function livePhaseSource(): string {
+    return readFileSync(
+        path.join(
+            process.cwd(),
+            'src/lib/prop-calculator/simulator/livePhase.ts',
+        ),
+        'utf8',
+    );
+}
+
+function liveRefusalAtStop(stopPoints: number): string {
+    try {
+        simulateLiveAccount({
+            horizonDays: 1,
+            instrument: InstrumentSymbol.MNQ,
+            plan: buildApexLivePlan(),
+            rrRatio: 2,
+            seed: 1,
+            stopPoints,
+            tradesPerDay: 1,
+            trials: 1,
+            winrate: 0.5,
+        });
+    } catch (error) {
+        return error instanceof Error ? error.message : String(error);
+    }
+    throw new Error(`a ${stopPoints} point stop was not refused`);
+}
+
+describe('one position-sizing refusal for funded and live percent-of-cushion risk (WP44b, N-76)', () => {
+    it('refuses live risk with the funded issue text, naming the live cushionPercent and the live contract limit instead of the funded ones', () => {
+        const funded = simInputsSizingIssue({
+            fundedCushionPercent: fraction(0.25),
+            riskPerTrade: 250,
+        });
+
+        expect(funded).toBe(
+            'fundedCushionPercent needs position sizing: set stopPoints (a positive stop distance in points) and instrument, so percent-of-cushion risk is placed in whole contracts, at least one and at most the funded contract limit.',
+        );
+        expect(liveRefusalAtStop(0)).toBe(
+            `${SIM_INPUTS_REFUSAL_PREFIX}${(funded ?? '')
+                .replace('fundedCushionPercent', 'live cushionPercent')
+                .replace('funded contract limit', 'live contract limit')}`,
+        );
+    });
+
+    it('keeps no local copy of the refusal text or the sizing resolution in the live phase', () => {
+        const source = livePhaseSource();
+
+        expect(source).not.toContain('needs position sizing');
+        expect(source).not.toContain('resolvePositionSizing');
+        expect(source).not.toContain('SIM_INPUTS_REFUSAL_PREFIX');
+    });
 });

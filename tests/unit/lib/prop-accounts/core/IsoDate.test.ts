@@ -29,7 +29,7 @@ import {
 } from '~/lib/prop-calculator/core';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '../../../../..');
-const DATE_MODULE = 'src/lib/prop-accounts/core/IsoDate.ts';
+const DATE_MODULE = 'src/lib/prop-calculator/core/lib/isoDate.ts';
 const SCANNED_ROOTS = [
     'src/lib/prop-accounts',
     'src/lib/prop-calculator/advisor',
@@ -224,7 +224,7 @@ describe('IsoDate months and years', () => {
 });
 
 describe('one date module', () => {
-    it('leaves no copy of the ISO-day or weekday helpers outside IsoDate.ts', () => {
+    it('leaves no copy of the ISO-day or weekday helpers outside the core isoDate module', () => {
         const copies = SCANNED_ROOTS.flatMap(sourceFiles)
             .filter((file) => file !== DATE_MODULE)
             .flatMap((file) => {

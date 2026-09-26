@@ -1,23 +1,72 @@
+import { z } from 'zod';
+
 import { type AccountState } from './AccountState';
-import { type ConsistencyRule } from './ConsistencyRule';
 import {
     CALENDAR_DAYS_PER_WEEK,
     SESSION_DAYS_PER_CALENDAR_WEEK,
 } from './constants';
 import { type FundedCycleSnapshot } from './DayPolicy';
-import { type Dollars, dollars, type Fraction0to1 } from './lib/units';
+import {
+    type Dollars,
+    dollars,
+    dollarsSchema,
+    type Fraction0to1,
+    isAtOrBelowWithinCentTolerance,
+    nonNegativeDollarsSchema,
+} from './lib/units';
 import { PayoutProfitPool } from './PayoutCap';
 import { PayoutFloorEffect } from './PayoutFloorEffect';
+import { accountConclusionGate, PayoutGate } from './PayoutGate';
+import {
+    DEFAULT_PAYOUT_REQUEST_POLICY,
+    fullPayoutRequest,
+    minimumPayoutRequest,
+    PayoutRequestPolicy,
+} from './PayoutRequestPolicy';
 import { type PayoutLadder } from './PayoutTiers';
 import { type Plan } from './Plan';
+import {
+    applyPayoutFloorEffect,
+    postPayoutThreshold,
+} from './PostPayoutThreshold';
 
 export enum PayoutDayGateBasis {
     CalendarDaysSinceFirstTradeOrPayout = 'calendar-days-since-first-trade-or-payout',
     QualifyingDaysSincePassOrPayout = 'qualifying-days-since-pass-or-payout',
 }
 
+export enum PayoutEvaluationKind {
+    Blocked = 'blocked',
+    Eligible = 'eligible',
+}
+
+const seedCountSchema = z.number().int().nonnegative();
+
+export const fundedCycleSeedSchema = z.object({
+    calendarDayGateProgress: seedCountSchema,
+    cumulativePayout: nonNegativeDollarsSchema,
+    cycleBestDayProfit: nonNegativeDollarsSchema,
+    fundedResetsUsed: seedCountSchema,
+    lastPayoutBalance: dollarsSchema,
+    payoutsIssued: seedCountSchema,
+    qualifyingDaysAtLastPayout: seedCountSchema,
+});
+
+export interface EligiblePayout {
+    causesHardBreach: boolean;
+    debited: number;
+    isEarlyWithdrawal: boolean;
+    keepsRetainedCushion: boolean;
+    kind: PayoutEvaluationKind.Eligible;
+    postPayoutCushion: number;
+    traderReceives: number;
+}
+
+export type FundedCycleSeed = z.input<typeof fundedCycleSeedSchema>;
+
 export interface FundedPayoutOptions {
     minRetainedCushion: number;
+    payoutRequestPolicy?: PayoutRequestPolicy;
     payoutRequestSize: number | undefined;
     plan: Plan;
     state: AccountState;
@@ -33,6 +82,9 @@ export interface OneTimeEarlyWithdrawal {
     maxProfitShare: Fraction0to1;
     minRequest: Dollars;
 }
+
+export type PayoutEvaluation =
+    EligiblePayout | { gate: PayoutGate; kind: PayoutEvaluationKind.Blocked };
 
 export interface WithdrawableNowOptions {
     minRetainedCushion: number;
@@ -55,6 +107,13 @@ interface PerRequestCeilingOptions {
     withdrawable: number;
 }
 
+type RequestCeiling =
+    | { amount: number; kind: 'amount' }
+    | {
+          gate: PayoutGate.LadderExhausted | PayoutGate.LadderStepUnaffordable;
+          kind: 'blocked';
+      };
+
 export class FundedCycleTracker {
     cumulativePayout = 0;
 
@@ -76,29 +135,90 @@ export class FundedCycleTracker {
         this.qualifyingDaysAtLastPayout = state.qualifyingDays;
     }
 
-    private earlyWithdrawalDebit(
-        plan: Plan,
-        state: AccountState,
-        payoutRequestSize: number | undefined,
-    ): null | number {
+    private conclusionGate(plan: Plan): null | PayoutGate {
+        return (
+            accountConclusionGate(
+                plan,
+                this.payoutsIssued,
+                this.cumulativePayout,
+            ) ??
+            (ladderStepLookup(plan.payoutLadder, this.payoutsIssued).kind ===
+            'exhausted'
+                ? PayoutGate.LadderExhausted
+                : null)
+        );
+    }
+
+    private eligiblePayout(
+        options: FundedPayoutOptions,
+        debited: number,
+        isEarlyWithdrawal: boolean,
+    ): EligiblePayout {
+        const { minRetainedCushion, plan, state } = options;
+        const balanceAfter = state.balance - debited;
+        const postPayoutCushion =
+            balanceAfter -
+            postPayoutThreshold(
+                plan.fundedDrawdown,
+                { ...state, balance: balanceAfter },
+                plan.payoutFloorEffect,
+                plan.accountSize,
+            );
+        return {
+            causesHardBreach:
+                plan.fullWithdrawalHardBreach &&
+                debited >= plan.accountProfit(state),
+            debited,
+            isEarlyWithdrawal,
+            keepsRetainedCushion: isAtOrBelowWithinCentTolerance(
+                Math.max(0, minRetainedCushion),
+                postPayoutCushion,
+            ),
+            kind: PayoutEvaluationKind.Eligible,
+            postPayoutCushion,
+            traderReceives: plan.payoutFromProfit(debited, this.payoutsIssued),
+        };
+    }
+
+    private evaluateEarlyWithdrawal(
+        options: FundedPayoutOptions,
+        fullRequest: null | number,
+    ): PayoutEvaluation {
+        const { payoutRequestSize, plan, state } = options;
         const rule = plan.oneTimeEarlyWithdrawal;
         if (
             rule === null ||
             !plan.takesOneTimeEarlyWithdrawal ||
             this.payoutsIssued > 0
         ) {
-            return null;
+            return blockedBy(PayoutGate.BelowMinPayoutProfit);
         }
         const allowance = rule.maxProfitShare * plan.accountProfit(state);
         const debited =
             payoutRequestSize === undefined
                 ? allowance
                 : Math.min(payoutRequestSize, allowance);
-        const isAboveFloorAfterwards =
-            state.balance - debited > payoutReferenceThreshold(plan, state);
-        return isAboveFloorAfterwards && debited >= rule.minRequest
-            ? debited
-            : null;
+        if (state.balance - debited <= payoutReferenceThreshold(plan, state)) {
+            return blockedBy(PayoutGate.EarlyWithdrawalBelowFloor);
+        }
+        return debited < rule.minRequest
+            ? blockedBy(PayoutGate.EarlyWithdrawalBelowMinimum)
+            : this.settleableAmount(options, debited, fullRequest, true);
+    }
+
+    private fullRequestAmount(
+        plan: Plan,
+        state: AccountState,
+        fullRequest: number,
+        ladderStep: LadderStepLookup,
+    ): number {
+        const { requestCap } = plan.resolvedPayoutCap(
+            state,
+            this.payoutsIssued,
+        );
+        const stepAmount =
+            ladderStep.kind === 'step' ? ladderStep.amount : Infinity;
+        return Math.min(fullRequest, requestCap ?? Infinity, stepAmount);
     }
 
     private hasMetDayGate(plan: Plan, state: AccountState): boolean {
@@ -142,37 +262,22 @@ export class FundedCycleTracker {
     }
 
     private settle(
-        debited: number,
+        payout: EligiblePayout,
         plan: Plan,
         state: AccountState,
-        fundedConsistency: ConsistencyRule | null,
     ): FundedPayoutResult {
-        const traderReceives = plan.payoutFromProfit(
-            debited,
+        const { causesHardBreach, debited, traderReceives } = payout;
+        const fundedConsistency = plan.fundedConsistencyRule(
             this.payoutsIssued,
         );
-        const isCausesHardBreach =
-            plan.fullWithdrawalHardBreach &&
-            debited >= plan.accountProfit(state);
 
         state.balance -= debited;
-        switch (plan.payoutFloorEffect) {
-            case PayoutFloorEffect.LockAtPlanFloor: {
-                plan.fundedDrawdown.forceLock(state);
-                break;
-            }
-            case PayoutFloorEffect.MoveToLockedFloor: {
-                plan.fundedDrawdown.moveToLock(state);
-                break;
-            }
-            case PayoutFloorEffect.None: {
-                break;
-            }
-            case PayoutFloorEffect.ReleaseFloor: {
-                plan.fundedDrawdown.release(state, plan.accountSize);
-                break;
-            }
-        }
+        applyPayoutFloorEffect(
+            plan.fundedDrawdown,
+            state,
+            plan.payoutFloorEffect,
+            plan.accountSize,
+        );
         this.lastPayoutBalance = state.balance;
         this.qualifyingDaysAtLastPayout = state.qualifyingDays;
         this.sessionDaysSinceAnchor = 0;
@@ -182,31 +287,42 @@ export class FundedCycleTracker {
         this.cumulativePayout += traderReceives;
         this.payoutsIssued += 1;
 
-        return {
-            causesHardBreach: isCausesHardBreach,
-            debited,
-            traderReceives,
-        };
+        return { causesHardBreach, debited, traderReceives };
+    }
+
+    private settleableAmount(
+        options: FundedPayoutOptions,
+        available: number,
+        fullAmount: null | number,
+        isEarlyWithdrawal: boolean,
+    ): PayoutEvaluation {
+        if (fullAmount === null) {
+            return this.eligiblePayout(options, available, isEarlyWithdrawal);
+        }
+        return isAtOrBelowWithinCentTolerance(fullAmount, available)
+            ? this.eligiblePayout(options, fullAmount, isEarlyWithdrawal)
+            : blockedBy(PayoutGate.BelowFullRequest);
     }
 
     closeoutCredit(options: WithdrawableNowOptions): number {
         const { payoutRequestSize, plan, state } = options;
-        if (
-            (plan.maxLifetimePayouts !== null &&
-                this.payoutsIssued >= plan.maxLifetimePayouts) ||
-            (plan.maxLifetimePayoutDollars !== null &&
-                this.cumulativePayout >= plan.maxLifetimePayoutDollars)
-        ) {
-            return 0;
-        }
+        if (this.conclusionGate(plan) !== null) return 0;
         const ceiling = perRequestCeiling({
             ...this.requestLimits(plan, state),
             payoutRequestSize,
             withdrawable: this.withdrawableNow(options),
         });
-        return ceiling === null
-            ? 0
-            : plan.payoutFromProfit(Math.max(0, ceiling), this.payoutsIssued);
+        switch (ceiling.kind) {
+            case 'amount': {
+                return plan.payoutFromProfit(
+                    Math.max(0, ceiling.amount),
+                    this.payoutsIssued,
+                );
+            }
+            case 'blocked': {
+                return 0;
+            }
+        }
     }
 
     cycleSnapshot(plan: Plan, state: AccountState): FundedCycleSnapshot {
@@ -241,6 +357,67 @@ export class FundedCycleTracker {
         if (state.consecutiveIdleDays === 0) this.sessionDaysSinceAnchor = 0;
     }
 
+    evaluatePayout(options: FundedPayoutOptions): PayoutEvaluation {
+        const { minRetainedCushion, payoutRequestSize, plan, state } = options;
+        const fullRequest = fullRequestOf(options);
+        const concluded = this.conclusionGate(plan);
+        if (concluded !== null) return blockedBy(concluded);
+
+        const cycleProfit = state.balance - this.lastPayoutBalance;
+        const fundedConsistency = plan.fundedConsistencyRule(
+            this.payoutsIssued,
+        );
+        if (
+            fundedConsistency?.isViolated(this.cycleBestDayProfit, cycleProfit)
+        ) {
+            return blockedBy(PayoutGate.FundedConsistency);
+        }
+        if (!this.hasMetDayGate(plan, state)) {
+            return blockedBy(PayoutGate.DayGateNotMet);
+        }
+
+        const requiredProfit =
+            this.payoutsIssued === 0
+                ? plan.minPayoutProfit
+                : (plan.minPayoutProfitPerCycle ?? dollars(0));
+        if (payoutPoolProfit(plan, state, cycleProfit) < requiredProfit) {
+            return this.evaluateEarlyWithdrawal(options, fullRequest);
+        }
+
+        const withdrawable = this.withdrawableNow({
+            minRetainedCushion,
+            plan,
+            state,
+        });
+        if (withdrawable <= 0) {
+            return blockedBy(PayoutGate.NothingWithdrawable);
+        }
+
+        const limits = this.requestLimits(plan, state);
+        const ceiling = perRequestCeiling({
+            ...limits,
+            payoutRequestSize,
+            withdrawable,
+        });
+        if (ceiling.kind === 'blocked') return blockedBy(ceiling.gate);
+        if (ceiling.amount < minimumPayoutRequest(plan)) {
+            return blockedBy(PayoutGate.BelowMinRequest);
+        }
+        return this.settleableAmount(
+            options,
+            ceiling.amount,
+            fullRequest === null
+                ? null
+                : this.fullRequestAmount(
+                      plan,
+                      state,
+                      fullRequest,
+                      limits.ladderStep,
+                  ),
+            false,
+        );
+    }
+
     restoreCalendarDayGateProgress(progress: number): void {
         this.sessionDaysSinceAnchor =
             this.payoutsIssued > 0
@@ -273,60 +450,15 @@ export class FundedCycleTracker {
     }
 
     tryPayout(options: FundedPayoutOptions): FundedPayoutResult | null {
-        const { minRetainedCushion, payoutRequestSize, plan, state } = options;
-        if (
-            plan.maxLifetimePayoutDollars !== null &&
-            this.cumulativePayout >= plan.maxLifetimePayoutDollars
-        ) {
-            return null;
+        const evaluation = this.evaluatePayout(options);
+        switch (evaluation.kind) {
+            case PayoutEvaluationKind.Blocked: {
+                return null;
+            }
+            case PayoutEvaluationKind.Eligible: {
+                return this.settle(evaluation, options.plan, options.state);
+            }
         }
-
-        const cycleProfit = state.balance - this.lastPayoutBalance;
-        const poolProfit = payoutPoolProfit(plan, state, cycleProfit);
-        const requiredProfit =
-            this.payoutsIssued === 0
-                ? plan.minPayoutProfit
-                : (plan.minPayoutProfitPerCycle ?? dollars(0));
-        const fundedConsistency = plan.fundedConsistencyRule(
-            this.payoutsIssued,
-        );
-        const isConsistent = !fundedConsistency?.isViolated(
-            this.cycleBestDayProfit,
-            cycleProfit,
-        );
-
-        if (!isConsistent || !this.hasMetDayGate(plan, state)) {
-            return null;
-        }
-
-        if (poolProfit < requiredProfit) {
-            const earlyDebit = this.earlyWithdrawalDebit(
-                plan,
-                state,
-                payoutRequestSize,
-            );
-            return earlyDebit === null
-                ? null
-                : this.settle(earlyDebit, plan, state, fundedConsistency);
-        }
-
-        const withdrawable = this.withdrawableNow({
-            minRetainedCushion,
-            plan,
-            state,
-        });
-        if (withdrawable <= 0) return null;
-
-        const debited = perRequestCeiling({
-            ...this.requestLimits(plan, state),
-            payoutRequestSize,
-            withdrawable,
-        });
-        const minRequest =
-            plan.payoutLadder?.minRequestAmount ?? plan.minPayoutRequest;
-        return debited === null || debited < minRequest
-            ? null
-            : this.settle(debited, plan, state, fundedConsistency);
     }
 }
 
@@ -364,6 +496,37 @@ export function newFundedCycleTrackerAfterReset(
     return new FundedCycleTracker(state, fundedResetsUsed);
 }
 
+export function restoreFundedCycleTracker(
+    state: AccountState,
+    seed: FundedCycleSeed,
+): FundedCycleTracker {
+    const parsed = fundedCycleSeedSchema.safeParse(seed);
+    if (!parsed.success) {
+        throw new RangeError(
+            `A funded cycle seed is invalid: ${parsed.error.issues
+                .map((issue) => `${issue.path.join('.')} ${issue.message}`)
+                .join('; ')}`,
+        );
+    }
+    const valid = parsed.data;
+    if (valid.qualifyingDaysAtLastPayout > state.qualifyingDays) {
+        throw new RangeError(
+            `A funded cycle seed counts ${valid.qualifyingDaysAtLastPayout} qualifying days at the last payout, more than the ${state.qualifyingDays} the account has`,
+        );
+    }
+    const tracker =
+        valid.fundedResetsUsed === 0
+            ? newFundedCycleTracker(state)
+            : newFundedCycleTrackerAfterReset(state, valid.fundedResetsUsed);
+    tracker.payoutsIssued = valid.payoutsIssued;
+    tracker.cumulativePayout = valid.cumulativePayout;
+    tracker.cycleBestDayProfit = valid.cycleBestDayProfit;
+    tracker.lastPayoutBalance = valid.lastPayoutBalance;
+    tracker.qualifyingDaysAtLastPayout = valid.qualifyingDaysAtLastPayout;
+    tracker.restoreCalendarDayGateProgress(valid.calendarDayGateProgress);
+    return tracker;
+}
+
 export function sessionDaysForCalendarDays(calendarDays: number): number {
     return Math.round(
         (calendarDays * SESSION_DAYS_PER_CALENDAR_WEEK) /
@@ -378,6 +541,22 @@ export function withOneTimeEarlyWithdrawalTaken(
     return isTaken && plan.oneTimeEarlyWithdrawal !== null
         ? plan.withOverrides({ takesOneTimeEarlyWithdrawal: true })
         : plan;
+}
+
+function blockedBy(gate: PayoutGate): PayoutEvaluation {
+    return { gate, kind: PayoutEvaluationKind.Blocked };
+}
+
+function fullRequestOf(options: FundedPayoutOptions): null | number {
+    const policy = options.payoutRequestPolicy ?? DEFAULT_PAYOUT_REQUEST_POLICY;
+    switch (policy) {
+        case PayoutRequestPolicy.FullRequestOnly: {
+            return fullPayoutRequest(options.plan, options.payoutRequestSize);
+        }
+        case PayoutRequestPolicy.UpToRequest: {
+            return null;
+        }
+    }
 }
 
 function ladderStepLookup(
@@ -413,17 +592,22 @@ function payoutReferenceThreshold(plan: Plan, state: AccountState): number {
     const effect = plan.payoutFloorEffect;
     switch (effect) {
         case PayoutFloorEffect.LockAtPlanFloor:
-        case PayoutFloorEffect.MoveToLockedFloor: {
-            return plan.fundedDrawdown.prospectiveLockThreshold(state, effect);
+        case PayoutFloorEffect.MoveToLockedFloor:
+        case PayoutFloorEffect.None: {
+            return postPayoutThreshold(
+                plan.fundedDrawdown,
+                state,
+                effect,
+                plan.accountSize,
+            );
         }
-        case PayoutFloorEffect.None:
         case PayoutFloorEffect.ReleaseFloor: {
             return state.threshold;
         }
     }
 }
 
-function perRequestCeiling(options: PerRequestCeilingOptions): null | number {
+function perRequestCeiling(options: PerRequestCeilingOptions): RequestCeiling {
     const {
         deniesIfUnaffordable,
         ladderStep,
@@ -439,27 +623,38 @@ function perRequestCeiling(options: PerRequestCeilingOptions): null | number {
 
     switch (ladderStep.kind) {
         case 'exhausted': {
-            return null;
+            return { gate: PayoutGate.LadderExhausted, kind: 'blocked' };
         }
         case 'no-ladder': {
             const available =
                 profitShareCap === undefined
                     ? Math.min(poolLimit, ceiling)
                     : ceiling;
-            return payoutRequestSize === undefined
-                ? available
-                : Math.min(payoutRequestSize, available);
+            return {
+                amount:
+                    payoutRequestSize === undefined
+                        ? available
+                        : Math.min(payoutRequestSize, available),
+                kind: 'amount',
+            };
         }
         case 'step': {
             if (deniesIfUnaffordable && ladderStep.amount > ceiling) {
-                return null;
+                return {
+                    gate: PayoutGate.LadderStepUnaffordable,
+                    kind: 'blocked',
+                };
             }
             const stepCeiling = deniesIfUnaffordable
                 ? ladderStep.amount
                 : Math.min(ladderStep.amount, ceiling);
-            return payoutRequestSize === undefined
-                ? stepCeiling
-                : Math.min(payoutRequestSize, stepCeiling);
+            return {
+                amount:
+                    payoutRequestSize === undefined
+                        ? stepCeiling
+                        : Math.min(payoutRequestSize, stepCeiling),
+                kind: 'amount',
+            };
         }
     }
 }

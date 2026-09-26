@@ -4,9 +4,9 @@ Sources: [`PLAN.md`](PLAN.md) (items, decisions, user questions, wave log, check
 
 ## 1. Summary
 
-The 2026-09-23 audit of the prop-calculator engine and CLI raised 45 in-scope findings (41 confirmed, 4 disputed) and 8 test gaps. Design work and verification then raised 75 more findings (N-1 to N-75). That makes 128 tracked items. Nine more audit items (R1-5, R1-12, R1-16, R1-17, R1-20, R1-35, R1-38, R1-47, R1-52) were rejected by both reviewers and are out of scope.
+The 2026-09-23 audit of the prop-calculator engine and CLI raised 45 in-scope findings (41 confirmed, 4 disputed) and 8 test gaps. Design work and verification then raised 76 more findings (N-1 to N-76). That makes 129 tracked items. Nine more audit items (R1-5, R1-12, R1-16, R1-17, R1-20, R1-35, R1-38, R1-47, R1-52) were rejected by both reviewers and are out of scope.
 
-Final status of the 128 items:
+Final status of the 129 items:
 
 | Status | Count | Items |
 |---|---|---|
@@ -14,7 +14,7 @@ Final status of the 128 items:
 | decision (disclosed, closed by the santa pass) | 1 | N-47 (T9: a discount flag also discounts re-buys) |
 | not a bug | 0 | N-6 was closed as not a bug on the MFF plan config and is now counted as done; U6 asks you to confirm it |
 | blocked (waiting on a firm page) | 2 | N-40 (E8 Zero scaling), N-53 (TopStep activation discount) |
-| fixed, targeted santa still to run | 4 | N-71, N-72, N-73 (found by the post-audit rerun; fixed in WP39, WP39b to WP39d, WP40 and WP41; confirmed by the follow-up rerun, gate D11 passed) and N-74 (found by the follow-up rerun; fixed in WP39e, leftovers in WP39f and WP39g; the stop-point rows are re-run on the fixed engine) |
+| fixed and verified after the reruns | 5 | N-71, N-72, N-73 (found by the post-audit rerun; fixed in WP39, WP39b to WP39d, WP40 and WP41, text in WP43 and WP43b to WP43h; confirmed by the follow-up rerun, gate D11 passed), N-74 (found by the follow-up rerun; fixed in WP39e, leftovers in WP39f and WP39g; confirmed by the stop-point rerun) and N-76 (found by the last santa: `prop live` without a stop sized percent risk fractionally; fixed in WP44 and WP44b). All five verified 2 of 2 by independent santa pairs |
 | explained, not a defect | 1 | N-75 (MFF Pro's published 5-micro funded cap makes every MNQ flat of $100 or more at 10 points one policy; WP42 made the `optimize funded` labels show the capped placement; U22 asks whether 5 micros is right) |
 
 What the audit fixed, in short:
@@ -22,8 +22,8 @@ What the audit fixed, in short:
 - Cost figures. One formula now prices cost per funded account everywhere (D1). Retries use the cheaper of reset and re-buy. The bundle discount reaches every figure. Firm fees follow the no-code checkout price (T4).
 - Pass rates. Every surface shows two figures, "eval pass" and "funded survive" (D2).
 - Drawdown and tier rules. Apex, Tradeify, TopStep, Lucid, MFF Pro and Alpha tier timing now follow the firms' own pages. The funded DP now models the daily loss limit within the day.
-- CLI safety. Flags are bounded and fail loud. The ladder grid is capped. `prop live` works as documented.
-- End-of-horizon credit and percent sizing (N-71, N-72). These had produced monthly nets in the billions.
+- CLI safety. Flags are bounded and fail loud. The ladder grid is capped. `prop live` works as documented, and since N-76 it needs `--stop-points` so live risk is placed in whole contracts.
+- End-of-horizon credit and percent sizing (N-71, N-72). Percent rows had printed monthly nets in the billions (N-71); the uncapped credit also inflated `--request-size` runs on daily-payout plans about threefold (N-72: Lucid Daily EOD $7,459 then, $2,456 now).
 - Whole-contract sizing into a day-locking loss limit (N-74). A daily-loss room below one contract took a full contract whose win paid in full while the loss was capped, which inflated every lockout-DLL plan at wide stops.
 - Solver budget (N-73). `optimize dp` stopped one solve short of convergence.
 
@@ -39,7 +39,14 @@ How it was verified:
   - `bun run knip` exit 0
   - `bun run test`: 275 files, 5,923 tests passed, 0 failed
   - `bun run format` flagged 8 files. They were formatted with `bunx prettier --write` on exactly those files (whitespace only), and then passed.
-- Not yet covered by that check: WP39 to WP41 landed after it. WP39d reported 238 test files and 6,192 tests green under `tests/unit/lib/prop-calculator` and `tests/unit/cli/prop`. A second read-only repo check (wave 26) is running and is not in this draft.
+- A second read-only repo check ran after every engine fix (WP39 to WP43d), on 2026-09-26 afternoon:
+  - `bunx eslint .`, `bun run stylelint`, `bun run typecheck` and `bun run knip` all exited 0.
+  - `bun run test`: 367 files, 8,558 passed, 1 skipped, 1 failed. The failure was a load timeout at 5.3 s in `positionSizeModel.test.ts`. Run alone, the file passes 32 of 32, and that test takes 1.9 s. It gets an explicit timeout in prop-tools PT-25c.
+  - `bun run format` flagged 2 test files, formatted with `bunx prettier --write` on exactly those files (whitespace only).
+- Targeted santa after the late fixes (wf_145246f7-a47, wf_75ca05b1-887, wf_e016248f-435, wf_59f5a051-cbf):
+  - Every verified item whose files changed later was re-checked against the diff and its regression tests, with 0 escalations. The last round covered 81 items (202 test files, 9,549 tests, 0 failed).
+  - N-71 to N-76 were each verified 2 of 2 by independent pairs (N-75 as explained, not a defect). Earlier rounds held N-71 and N-72 back only on stale text, which WP43 and WP43b to WP43h and the doc edits fixed.
+  - Fingerprints: 127 items, none stale.
 
 ## 2. What changed for your numbers
 
@@ -50,8 +57,8 @@ These engine changes move results. Rankings and dollar figures recorded before t
 | D1 cost per funded account | Eval fee, plus (1/p - 1) retries at the cheaper of reset and re-buy, plus subscription months over the renewal chain, plus activation once, divided by the eval pass probability. One formula for sim, ladder, compare, the web timeline and the renewal DP. Discounts and the bundle apply consistently. | Cost per funded account drops sharply for plans with high funded bust, because the denominator is now eval pass. `compare --sort cost` ranks by it; spend per trial is its own `spend` column and sort key (T6). Call-up-only plans (TopStep Pro Account, LucidMaxx) drop out of rankings unless `--include-callup` (D3). |
 | T10 subscription re-buys | A re-buy is a new account: its first month is inside the re-buy price, and billing restarts per attempt. A reset keeps continuous billing. | Re-buy plans with a subscription are no longer billed a month twice (N-60). |
 | T29 eval timeouts | An attempt that times out (a firm day cap such as Apex's, or `--eval-days`) is a failed attempt. It is retried at the retry fee while attempts remain. | Before, a timeout ended the trial. The simulator, D1 and the DP now agree. A trial counts as a timeout only when its last attempt times out. |
-| T32 end-of-horizon credit | A surviving account is credited one payout request the plan would allow next, capped by the ladder step, request size, profit share, pool limit, request cap and balance-share cap. | Before, the credit (from pre-audit commit 27f1c66) booked the whole balance above the floor. That inflated monthly nets on ladder and profit-share plans, and percent rows printed billions. Flat rows move on every ladder plan (Lucid Pro, Pro no-DLL, Direct; Tradeify Growth, Lightning; MFF Builder; Apex EOD, Intraday), every profit-share plan (Lucid Flex, Tradeify Select Daily, FTMO) and every `--request-size` run. On Lucid Daily EOD flat $1,000 the $500-request credit is now $0, and the base run ranks above it again ($2,700 vs $2,356 monthly). `optimize funded` also prints the credit and a "monthly ex-credit" column (WP40). |
-| T33 whole-contract sizing | Percent-of-cushion risk needs `--stop-points` (instrument default NQ). It is placed in whole contracts: at least one micro, at most the plan's funded contract limit. A flat dollar risk is also rounded down to whole contracts when `--stop-points` is given, and is refused below one contract. | Percent rows now show a bust rate above zero, and the 49%/50% cliff is gone. `prop sim` refuses a percent policy without a stop, and `optimize funded` leaves percent candidates out and says why. Example at an NQ 10-point stop: $150 is refused, $200 is one contract, $450 places two. The `prop sim` header prints the placed risk. The funded DP values its candidates in whole contracts too. Narrowed by WP39e (N-74): when the room left is below one contract, the engine takes one contract only if losing that room ends the account (the drawdown cushion, or a terminating DLL such as FTMO Pro's); a lockout DLL room below one contract ends the day with no trade (U21). Before this, NQ at a 20-point stop printed far above MNQ on every lockout-DLL plan (TopStep standard-standard-dll flat $800: $4,518 vs $2,817 monthly); after it, NQ is at or below MNQ ($2,263 vs $2,859 on a 2,000-trial check). |
+| T32 end-of-horizon credit | A surviving account is credited one payout request the plan would allow next, capped by the ladder step, request size, profit share, request cap and balance-share cap, and by the payout profit pool only when the plan has no payout ladder and no profit share; net of the split and the payout method fee. | Before, the credit (from pre-audit commit 27f1c66) booked the whole balance above the floor. That inflated monthly nets on ladder and profit-share plans, and percent rows printed billions. Flat rows move on every ladder plan (Lucid Pro, Pro no-DLL, Direct; Tradeify Growth, Lightning; MFF Builder; Apex EOD, Intraday), every profit-share plan (Lucid Flex, Tradeify Select Daily, FTMO) and every `--request-size` run. On Lucid Daily EOD flat $1,000 the $500-request credit is now $0, and the base run ranks above it again ($2,700 vs $2,356 monthly in a 2,000-trial check; $2,661 vs $2,456 in the 100,000-trial follow-up rerun). `optimize funded` also prints the credit and a "monthly ex-credit" column (WP40). |
+| T33 whole-contract sizing | Percent-of-cushion risk needs `--stop-points` (instrument default NQ). It is placed in whole contracts of `--instrument` (a micro or a mini): at least one contract, at most the plan's funded contract limit. A flat dollar risk is also rounded down to whole contracts when `--stop-points` is given, and is refused below one contract. | Percent rows now show a bust rate above zero, and the 49%/50% cliff is gone. The engine (`simulate()`, used by the web and the CLI) refuses a percent policy without a stop, and so does the live engine (`simulateLiveAccount`, used by `prop live`, which reports it as a missing `--stop-points`; N-76, WP44). `optimize funded` leaves percent candidates out and says why. Example at an NQ 10-point stop: $150 is refused, $200 is one contract, $450 places two. The `prop sim` header prints the placed risk. The funded DP values its candidates in whole contracts too. Narrowed by WP39e (N-74): when the room left is below one contract, the engine takes one contract only if losing that room ends the account (the drawdown cushion, or a terminating DLL such as FTMO Pro's); a lockout DLL room below one contract ends the day with no trade (U21). Before this, NQ at a 20-point stop printed far above MNQ on every lockout-DLL plan (TopStep standard-standard-dll flat $800: $4,518 vs $2,817 monthly); after it, NQ is at or below MNQ ($2,263 vs $2,859 on a 2,000-trial check). |
 | N-67 TopStep 50K LFA tiers | The 50K Live Funded Account DLL tiers are $2,500 / $3,000 / $3,500 (article 11748475, revised 2026-09-24). Before, the engine used $5,000 / $5,500 / $6,000. | The LFA daily loss limit on the 50K is lower at every tier. The D4 default cushion leaves exactly $10,000, which keeps the Friday Safeguard's $2,000 DLL. That costs $500 of DLL at the first tier, $1,000 at the second and $1,500 at the third, not $3,000 (see U7). |
 | N-68 Lucid live tiers | Lucid Live contract caps move at the end of the trading day (article 15245873). | A mid-day cross of the $2,000 or $4,000 tier no longer raises the cap until the next session, and a mid-day drop no longer lowers it. |
 | N-69 DLL rounding | Lockout and breach checks compare in whole cents. | Before, float drift left about 9% of capped losing trades a hair above the limit, so the day did not lock out. A terminating DLL plan such as FTMO Pro now terminates where it should. |
@@ -77,8 +84,8 @@ These are choices the engine makes that you should know about. Most were picked 
   - D1 adds the reset fees divided by the accounts that passed the eval (you may prefer passes plus resets).
   - D2 counts a reset account that then survives as surviving.
   - The funded DP now models the reset exactly (WP17d).
-- **T32 (U17): the horizon credit is one request.** A surviving account's end-of-horizon credit is one capped request, not its whole balance. Timing gates stay ignored (day gate, funded consistency, minimum payout profit, minimum request). `optimize funded`, `prop sim` and the web still rank on the credit-inclusive monthly net.
-- **T33 (U18, U21): whole contracts, minimum one micro.** When one micro exceeds an affordable room whose loss ends the account (the drawdown cushion, or a terminating DLL such as FTMO Pro's), the account still takes one micro: liquidation caps the loss at that room, and a win pays rr on one micro's risk. When the room is a lockout DLL below one contract, the trade is skipped and the day ends (WP39e, N-74).
+- **T32 (U17): the horizon credit is one request.** A surviving account's end-of-horizon credit is one capped request, not its whole balance. Timing gates stay ignored (day gate, funded consistency, minimum payout profit, minimum request). `optimize funded` and `prop compare --sort net` (and the web's comparison tables) still rank on the credit-inclusive monthly net; `prop sim` shows it for one policy.
+- **T33 (U18, U21): whole contracts, minimum one contract.** When one contract of `--instrument` (a micro or a mini) exceeds an affordable room whose loss ends the account (the drawdown cushion, or a terminating DLL such as FTMO Pro's), the account still takes one contract: liquidation caps the loss at that room, and a win pays rr on one contract's risk (unless `--unaffordable skipIfUnaffordable` is set, which skips such a funded trade and ends the day; a live trade always takes it). When the room is a lockout DLL below one contract, the trade is skipped and the day ends (WP39e, N-74).
 - **T34 (N-73): the budget changed, the search did not.** The default solve budget rose to 12. The precision question is U20.
 - **T26 (N-43, U3): Alpha 40% boundary.** Picked by me under your "ur pick" rule. It is inclusive (`>=`, fails at exactly 40%), per rule, so other firms' "exceeds" rules are unaffected.
 - **T30 (N-64, U4): MFF Pro early withdrawal is opt-in.** The one-time early withdrawal is off by default (`--early-withdrawal`, a web toggle). When taken, it counts as the first payout, so the MLL moves to start + $100. That is an assumption.
@@ -155,10 +162,11 @@ The engine runs today on the default in each item. The plan stays open until you
     - Default: one capped request, and ranking on the credit-inclusive monthly net.
     - Options: one capped request, a bounded continuation value (the requests possible over one more cadence window, with survival risk), or zero. Also: rank by default on credit-inclusive or credit-free monthly? Should the credit honour terminal caps such as LucidDaily's $15,000 live-transition cap (to be re-verified live) and the timing gates?
 18. **U18, T33: percent-of-cushion sizing.**
-    - Defaults: percent needs `--stop-points`; one micro when it exceeds a room that busts the account (the drawdown cushion or a terminating DLL such as FTMO Pro's); flat risk rounded to whole contracts. A lockout DLL room is U21.
+    - Defaults: percent needs `--stop-points`; one contract (a micro or a mini, per `--instrument`) when it exceeds a room that busts the account (the drawdown cushion or a terminating DLL such as FTMO Pro's); flat risk rounded to whole contracts. A lockout DLL room is U21.
     - Options: refuse without a stop, or default to a documented instrument and stop. For a bust-bound room below one contract: take one contract (loss capped at the room, win paid on the full contract), make it symmetric (win pays rr x the room), or skip the trade (skipping can run into Lucid's 30-day inactivity closure). No effect was measured on flat rows (no-DLL TopStep NQ 20 points equals MNQ 20 points exactly at commission 0); any effect would be in percent rows. Round flat risk too, or not.
 19. **U19, N-72: Hard Rule 2 on daily-payout plans.**
-    - Default: the base funded policy requests everything above the $2,000 retained cushion. On Lucid Daily, TPT and MFF Rapid that drains the account to the floor after every green day (0 of 100,000 survivors at flat $800 to $1,000).
+    - Default: the base funded policy requests everything above the $2,000 retained cushion. On Lucid Daily, TPT and MFF Rapid that drains the account back to the retained-cushion barrier ($2,000 above the floor) after every green day (0 of 100,000 survivors at flat $800 to $1,000). A capped request (for example $500) lets the cushion grow, and more accounts survive.
+    - What the fixed engine says now (post-fix rerun, Result 8, seed 42, credit $0 on both): on Lucid Daily (all four variants) and MFF Rapid the base policy ranks first again, but on TPT and MFF Rapid EOD a $500 capped request still earns more per slot, TPT $2,192 vs $1,947 and MFF Rapid EOD $2,420 vs $1,999 monthly. That lead is credit-free: it comes from the balance left in the account, not the horizon credit.
     - Question: does "payouts always leaving $2,000 cushion" mean retain exactly $2,000, or retain at least $2,000 with a capped request? This decides how the skill ranks daily-payout plans, and whether it keeps citing "$500 requests: mostly a model artifact".
 20. **U20, N-73: DP convergence precision.**
     - Default: the rate search stops at $0.05/day, finer than the value iteration certifies (about $0.6 to $0.8/day).
@@ -211,4 +219,37 @@ Also, from the Lucid docs review (open, low priority): LucidFlex and LucidDirect
 
 ## 7. Engine results after the fixes
 
-This section will be filled from `2026-09-26-post-fix-rerun.md` (the follow-up rerun of every stage except A on the final engine, wave 26). Until then, the 2026-09-26 post-audit rerun predates the N-71 to N-73 fixes. Its percent rows, credit-inclusive monthly nets and DP rows are stale.
+Two CLI-only reruns on the fixed engine, both independently verified cell by cell against the raw output. Figures are monthly net per account slot, seed 42, 1-year funded horizon, 100,000 trials, unless stated.
+
+- **`2026-09-26-post-fix-rerun.md`** (1,318 jobs; every stage of the post-audit run except Stage A). Its base rows (no `--stop-points`) and DP rows are current.
+- **`2026-09-26-stop-point-rerun.md`** (583 jobs; every `--stop-points` job of the post-fix run, re-run after the N-74 fix). It supersedes the post-fix run's Stage D and MNQ companion rows.
+
+What they show:
+
+- **N-71 gone.** None of the 16,651 printed policy rows reaches $20,000 a month. The Lucid Pro / Pro no-DLL / Direct percent rows that printed hundreds of millions to billions ($624,388,543 / $1,743,617,717 / $973,964,343) now print at most $3,222 / $3,336 / $1,903 (50% cushion, MNQ at 10 points, B seed 42, current figures from the stop-point rerun). Percent rows bust like other sizes.
+- **N-72 explained.** The horizon credit is one capped request, and $0 on a daily-payout plan whose last payout emptied the pool. The base policy ranks first again on Lucid Daily (all four variants) and MFF Rapid. On TPT ($2,192 vs $1,947) and MFF Rapid EOD ($2,420 vs $1,999) a $500 request still leads with a $0 credit, which is the credit-free effect behind U19.
+- **N-73 fixed, gate D11 passed.** Both DP solves converge in 9 of 12 solves. The DP beats the best flat on both plans: FTMO Futures Growth $4,851 vs flat $800 $2,924; TopStep No-fee Standard $3,181 vs flat $1,000 $3,065. TopStep's DP-predicted rate is still well above what its policy earns when simulated (gap -$1,624 a month), which U20 covers.
+- **N-74 fixed.** At a 20-point NQ stop every lockout-DLL plan fell back:
+  - FTMO Growth flat $800 went from $4,237 to $2,301, against $2,927 with no stop.
+  - The four TopStep DLL variants went from $4,500 to $5,371 down to $2,175 to $2,319, against $2,824 to $2,972 with no stop.
+  - All 564 changed Stage D rows fell. Every no-DLL output and every FTMO Pro (terminating DLL) output is bit-identical to before.
+  - A few plans sit $4 to $45 above the no-stop figure. That is the same small lift whole-contract sizing gives plans with no DLL at all (it grows with contract size and lowers bust), not the defect.
+- **N-75.** On MFF Pro, every MNQ flat of $100 or more is one policy: 5 MNQ = $100 at 10 points, $585 a month. The labels now say so (U22).
+- **Ranking changes against the post-audit run.** Per-cycle net, bust and survivors in the base sweep are unchanged. Only monthly net moved, through the capped credit. Best flat fell back on the plans whose lead came from the old credit:
+  - Lucid Direct $8,375 to $2,127.
+  - Lucid Pro no-DLL $7,296 to $3,681.
+  - Lucid Pro $6,903 to $3,505.
+  - Tradeify Lightning $5,872 to $2,946.
+  - Tradeify Growth $5,159 to $3,324.
+- **Leading best flats now.** FundedNext Legacy $1,000 $4,730, TopStep No-fee Consistency $1,000 $4,326, TopStep Standard Consistency $1,000 $4,293.
+- **Realistic $250 view (buyable plans).** TopStep No-fee Consistency $1,924, No-fee Standard $1,920, FTMO Growth $1,918, then the TopStep Standard path.
+- **Win rate 43%.** The best flat is TopStep No-fee Consistency $1,000 $6,211. The post-audit leader, Lucid Direct $11,740, was the credit artifact.
+- **Percent vs flat.** With whole contracts, the best percent row beats the best flat only on a few buyable plans:
+  - E8 Zero MAX, in the base and commission companions.
+  - Apex EOD and E8 Zero, under a request size.
+  - Three live-capped jobs.
+  
+  At a 20-point NQ stop, 70 of 176 Stage D files rank a percent row first. Many of those percent rows are the same trade as flat $400 (one NQ).
+- **Do not rank on.** FundedNext Legacy's 50% cushion row at 20 points ($8,953 at seed 42, $8,997 at seed 1337, the largest in any stage) is the U23 modelling limit: win rate and rr are held fixed while the dollar contract cap scales with the stop.
+
+The prop-firm-trading skill's own historical tables that used percent rows (the "Fixed $250 vs percentage sizing" sweep and Hard Rule 5's evidence sentence) now carry an N-71 caveat; they predate these reruns.

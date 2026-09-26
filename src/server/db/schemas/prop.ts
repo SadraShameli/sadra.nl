@@ -19,15 +19,22 @@ import type {
     AccountEventKind,
     AccountStage,
     AccountStatus,
+    BankrollTransferKind,
     DashboardBalanceConvention,
     FeeKind,
+    FirmEngagementReason,
+    FirmEngagementStatus,
     ISO_DATE_LENGTH,
     MAX_PLAN_SERIAL_LENGTH,
     PayoutStatus,
     PersonalRules,
+    ReportedPayoutBasis,
+    RoundStatus,
+    RuleViolationKind,
     SnapshotSource,
     StoredFirmId,
     UsdCents,
+    ViolationSource,
 } from '~/lib/prop-accounts';
 import type { PlanOptIns } from '~/lib/prop-calculator';
 import type { RulebookParameters } from '~/lib/prop-calculator/advisor';
@@ -48,6 +55,9 @@ const ENUM_LENGTH = 32;
 const LABEL_LENGTH = 64;
 const MAX_RUNGS: typeof MAX_ACCEPTED_RUNGS = 20;
 const PAID_STATUS: `${PayoutStatus.Paid}` = 'paid';
+const CLOSED_ROUND_STATUS: `${RoundStatus.Closed}` = 'closed';
+const ACTIVE_ENGAGEMENT_STATUS: `${FirmEngagementStatus.Active}` = 'active';
+const SENT_LIVE_REASON: `${FirmEngagementReason.SentLive}` = 'sent-live';
 const ACCOUNT_DATE_PATTERN =
     '^(20[0-9]{2}|2100)-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$';
 
@@ -68,6 +78,22 @@ function createdAt() {
     return timestamp('created_at', { withTimezone: true })
         .default(sql`CURRENT_TIMESTAMP`)
         .notNull();
+}
+
+function exactlyOneFirmCheck(
+    name: string,
+    firmId: AnyPgColumn,
+    externalFirmId: AnyPgColumn,
+) {
+    return check(name, sql`(${firmId} IS NULL) <> (${externalFirmId} IS NULL)`);
+}
+
+function externalFirmId() {
+    return uuid('external_firm_id');
+}
+
+function firmId() {
+    return varchar('firm_id', { length: ENUM_LENGTH }).$type<StoredFirmId>();
 }
 
 function isoDate(name: string) {
@@ -103,6 +129,73 @@ export const propCopyGroup = createTable(
     (t) => [
         unique('prop_copy_group_id_user_id_uq').on(t.id, t.userId),
         uniqueIndex('prop_copy_group_user_name_idx').on(t.userId, t.name),
+    ],
+);
+
+export const propExternalFirm = createTable(
+    'prop_external_firm',
+    {
+        createdAt: createdAt(),
+        id: uuid('id').primaryKey().defaultRandom(),
+        name: varchar('name', { length: LABEL_LENGTH }).notNull(),
+        notes: text('notes'),
+        updatedAt: updatedAt(),
+        userId: ownerId(),
+    },
+    (t) => [
+        unique('prop_external_firm_id_user_id_uq').on(t.id, t.userId),
+        uniqueIndex('prop_external_firm_user_name_idx').on(
+            t.userId,
+            sql`lower(${t.name})`,
+        ),
+        check('prop_external_firm_name_ck', sql`char_length(${t.name}) > 0`),
+    ],
+);
+
+export const propRound = createTable(
+    'prop_round',
+    {
+        budgetCents: cents('budget_cents'),
+        closedOn: isoDate('closed_on'),
+        createdAt: createdAt(),
+        externalFirmId: externalFirmId(),
+        firmId: firmId(),
+        id: uuid('id').primaryKey().defaultRandom(),
+        label: varchar('label', { length: LABEL_LENGTH }).notNull(),
+        notes: text('notes'),
+        openedOn: isoDate('opened_on').notNull(),
+        status: varchar('status', { length: ENUM_LENGTH })
+            .$type<RoundStatus>()
+            .notNull(),
+        updatedAt: updatedAt(),
+        userId: ownerId(),
+    },
+    (t) => [
+        unique('prop_round_id_user_id_uq').on(t.id, t.userId),
+        foreignKey({
+            columns: [t.externalFirmId, t.userId],
+            foreignColumns: [propExternalFirm.id, propExternalFirm.userId],
+            name: 'prop_round_external_firm_fk',
+        }).onDelete('no action'),
+        uniqueIndex('prop_round_user_label_idx').on(t.userId, t.label),
+        index('prop_round_external_firm_idx')
+            .on(t.externalFirmId, t.userId)
+            .where(sql`external_firm_id IS NOT NULL`),
+        check(
+            'prop_round_one_firm_ck',
+            sql`${t.firmId} IS NULL OR ${t.externalFirmId} IS NULL`,
+        ),
+        check('prop_round_budget_positive_ck', sql`${t.budgetCents} > 0`),
+        check(
+            'prop_round_closed_after_open_ck',
+            sql`${t.closedOn} IS NULL OR ${t.closedOn} >= ${t.openedOn}`,
+        ),
+        check(
+            'prop_round_closed_on_iff_closed_ck',
+            sql`(${t.status} = ${sql.raw(`'${CLOSED_ROUND_STATUS}'`)}) = (${t.closedOn} IS NOT NULL)`,
+        ),
+        accountDateCheck('prop_round_opened_on_ck', t.openedOn),
+        accountDateCheck('prop_round_closed_on_ck', t.closedOn),
     ],
 );
 
@@ -144,6 +237,7 @@ export const propAccount = createTable(
         }).notNull(),
         purchasedOn: isoDate('purchased_on').notNull(),
         replacesAccountId: uuid('replaces_account_id'),
+        roundId: uuid('round_id'),
         stage: varchar('stage', { length: ENUM_LENGTH })
             .$type<AccountStage>()
             .notNull(),
@@ -169,6 +263,11 @@ export const propAccount = createTable(
             foreignColumns: [t.id, t.userId],
             name: 'prop_account_replaces_account_fk',
         }).onDelete('no action'),
+        foreignKey({
+            columns: [t.roundId, t.userId],
+            foreignColumns: [propRound.id, propRound.userId],
+            name: 'prop_account_round_fk',
+        }).onDelete('no action'),
         uniqueIndex('prop_account_user_label_active_idx')
             .on(t.userId, t.label)
             .where(sql`archived_at IS NULL`),
@@ -180,6 +279,9 @@ export const propAccount = createTable(
         index('prop_account_replaces_account_idx')
             .on(t.replacesAccountId, t.userId)
             .where(sql`replaces_account_id IS NOT NULL`),
+        index('prop_account_round_idx')
+            .on(t.roundId, t.userId)
+            .where(sql`round_id IS NOT NULL`),
         nonNegative(
             'prop_account_live_start_balance_ck',
             t.liveStartBalanceCents,
@@ -278,6 +380,7 @@ export const propPayout = createTable(
     'prop_payout',
     {
         accountId: uuid('account_id').notNull(),
+        approvedOn: isoDate('approved_on'),
         createdAt: createdAt(),
         grossCents: cents('gross_cents').notNull(),
         id: uuid('id').primaryKey().defaultRandom(),
@@ -312,7 +415,16 @@ export const propPayout = createTable(
             'prop_payout_paid_after_request_ck',
             sql`${t.paidOn} IS NULL OR ${t.paidOn} >= ${t.requestedOn}`,
         ),
+        check(
+            'prop_payout_approved_after_request_ck',
+            sql`${t.approvedOn} IS NULL OR ${t.approvedOn} >= ${t.requestedOn}`,
+        ),
+        check(
+            'prop_payout_paid_after_approval_ck',
+            sql`${t.paidOn} IS NULL OR ${t.approvedOn} IS NULL OR ${t.paidOn} >= ${t.approvedOn}`,
+        ),
         accountDateCheck('prop_payout_requested_on_ck', t.requestedOn),
+        accountDateCheck('prop_payout_approved_on_ck', t.approvedOn),
         accountDateCheck('prop_payout_paid_on_ck', t.paidOn),
     ],
 );
@@ -418,6 +530,11 @@ export const propSizingDecision = createTable(
         userId: ownerId(),
     },
     (t) => [
+        unique('prop_sizing_decision_id_account_user_uq').on(
+            t.id,
+            t.accountId,
+            t.userId,
+        ),
         foreignKey({
             columns: [t.accountId, t.userId],
             foreignColumns: [propAccount.id, propAccount.userId],
@@ -469,6 +586,178 @@ export const propSizingDecision = createTable(
     ],
 );
 
+export const propBankrollTransfer = createTable(
+    'prop_bankroll_transfer',
+    {
+        amountCents: cents('amount_cents').notNull(),
+        createdAt: createdAt(),
+        id: uuid('id').primaryKey().defaultRandom(),
+        kind: varchar('kind', { length: ENUM_LENGTH })
+            .$type<BankrollTransferKind>()
+            .notNull(),
+        note: text('note'),
+        occurredOn: isoDate('occurred_on').notNull(),
+        updatedAt: updatedAt(),
+        userId: ownerId(),
+    },
+    (t) => [
+        index('prop_bankroll_transfer_user_occurred_idx').on(
+            t.userId,
+            t.occurredOn,
+        ),
+        check(
+            'prop_bankroll_transfer_amount_positive_ck',
+            sql`${t.amountCents} > 0`,
+        ),
+        accountDateCheck('prop_bankroll_transfer_occurred_on_ck', t.occurredOn),
+    ],
+);
+
+export const propFirmEngagement = createTable(
+    'prop_firm_engagement',
+    {
+        createdAt: createdAt(),
+        externalFirmId: externalFirmId(),
+        firmId: firmId(),
+        id: uuid('id').primaryKey().defaultRandom(),
+        note: text('note'),
+        reason: varchar('reason', {
+            length: ENUM_LENGTH,
+        }).$type<FirmEngagementReason>(),
+        sentLiveOn: isoDate('sent_live_on'),
+        sinceOn: isoDate('since_on').notNull(),
+        status: varchar('status', { length: ENUM_LENGTH })
+            .$type<FirmEngagementStatus>()
+            .notNull(),
+        updatedAt: updatedAt(),
+        userId: ownerId(),
+    },
+    (t) => [
+        foreignKey({
+            columns: [t.externalFirmId, t.userId],
+            foreignColumns: [propExternalFirm.id, propExternalFirm.userId],
+            name: 'prop_firm_engagement_external_firm_fk',
+        }).onDelete('no action'),
+        index('prop_firm_engagement_user_since_idx').on(t.userId, t.sinceOn),
+        uniqueIndex('prop_firm_engagement_user_firm_idx')
+            .on(t.userId, t.firmId)
+            .where(sql`firm_id IS NOT NULL`),
+        uniqueIndex('prop_firm_engagement_user_external_firm_idx')
+            .on(t.userId, t.externalFirmId)
+            .where(sql`external_firm_id IS NOT NULL`),
+        exactlyOneFirmCheck(
+            'prop_firm_engagement_one_firm_ck',
+            t.firmId,
+            t.externalFirmId,
+        ),
+        check(
+            'prop_firm_engagement_reason_ck',
+            sql`(${t.status} = ${sql.raw(`'${ACTIVE_ENGAGEMENT_STATUS}'`)}) = (${t.reason} IS NULL)`,
+        ),
+        check(
+            'prop_firm_engagement_sent_live_reason_ck',
+            sql`(${t.reason} IS NOT DISTINCT FROM ${sql.raw(`'${SENT_LIVE_REASON}'`)}) = (${t.sentLiveOn} IS NOT NULL)`,
+        ),
+        check(
+            'prop_firm_engagement_sent_live_before_since_ck',
+            sql`${t.sentLiveOn} IS NULL OR ${t.sentLiveOn} <= ${t.sinceOn}`,
+        ),
+        accountDateCheck('prop_firm_engagement_since_on_ck', t.sinceOn),
+        accountDateCheck('prop_firm_engagement_sent_live_on_ck', t.sentLiveOn),
+    ],
+);
+
+export const propFirmStatement = createTable(
+    'prop_firm_statement',
+    {
+        asOf: isoDate('as_of').notNull(),
+        basis: varchar('basis', { length: ENUM_LENGTH })
+            .$type<ReportedPayoutBasis>()
+            .notNull(),
+        createdAt: createdAt(),
+        externalFirmId: externalFirmId(),
+        firmId: firmId(),
+        id: uuid('id').primaryKey().defaultRandom(),
+        note: text('note'),
+        reportedPayoutCents: cents('reported_payout_cents').notNull(),
+        updatedAt: updatedAt(),
+        userId: ownerId(),
+    },
+    (t) => [
+        foreignKey({
+            columns: [t.externalFirmId, t.userId],
+            foreignColumns: [propExternalFirm.id, propExternalFirm.userId],
+            name: 'prop_firm_statement_external_firm_fk',
+        }).onDelete('no action'),
+        index('prop_firm_statement_user_firm_as_of_idx').on(
+            t.userId,
+            t.firmId,
+            t.asOf,
+        ),
+        index('prop_firm_statement_user_external_firm_as_of_idx').on(
+            t.userId,
+            t.externalFirmId,
+            t.asOf,
+        ),
+        exactlyOneFirmCheck(
+            'prop_firm_statement_one_firm_ck',
+            t.firmId,
+            t.externalFirmId,
+        ),
+        nonNegative(
+            'prop_firm_statement_reported_payout_ck',
+            t.reportedPayoutCents,
+        ),
+        accountDateCheck('prop_firm_statement_as_of_ck', t.asOf),
+    ],
+);
+
+export const propRuleViolation = createTable(
+    'prop_rule_violation',
+    {
+        accountId: uuid('account_id').notNull(),
+        costCents: cents('cost_cents'),
+        createdAt: createdAt(),
+        decisionId: uuid('decision_id'),
+        id: uuid('id').primaryKey().defaultRandom(),
+        kind: varchar('kind', { length: ENUM_LENGTH })
+            .$type<RuleViolationKind>()
+            .notNull(),
+        note: text('note'),
+        occurredOn: isoDate('occurred_on').notNull(),
+        source: varchar('source', { length: ENUM_LENGTH })
+            .$type<ViolationSource>()
+            .notNull(),
+        updatedAt: updatedAt(),
+        userId: ownerId(),
+    },
+    (t) => [
+        foreignKey({
+            columns: [t.accountId, t.userId],
+            foreignColumns: [propAccount.id, propAccount.userId],
+            name: 'prop_rule_violation_account_fk',
+        }).onDelete('cascade'),
+        foreignKey({
+            columns: [t.decisionId, t.accountId, t.userId],
+            foreignColumns: [
+                propSizingDecision.id,
+                propSizingDecision.accountId,
+                propSizingDecision.userId,
+            ],
+            name: 'prop_rule_violation_decision_fk',
+        }).onDelete('no action'),
+        index('prop_rule_violation_user_account_occurred_idx').on(
+            t.userId,
+            t.accountId,
+            t.occurredOn,
+        ),
+        index('prop_rule_violation_decision_idx')
+            .on(t.decisionId, t.accountId, t.userId)
+            .where(sql`decision_id IS NOT NULL`),
+        accountDateCheck('prop_rule_violation_occurred_on_ck', t.occurredOn),
+    ],
+);
+
 export const propSavedScenario = createTable(
     'prop_saved_scenario',
     {
@@ -487,9 +776,15 @@ export const propSavedScenario = createTable(
 export type PropAccountEventRow = typeof propAccountEvent.$inferSelect;
 export type PropAccountRow = typeof propAccount.$inferSelect;
 export type PropAccountSnapshotRow = typeof propAccountSnapshot.$inferSelect;
+export type PropBankrollTransferRow = typeof propBankrollTransfer.$inferSelect;
 export type PropCopyGroupRow = typeof propCopyGroup.$inferSelect;
+export type PropExternalFirmRow = typeof propExternalFirm.$inferSelect;
 export type PropFeeRow = typeof propFee.$inferSelect;
+export type PropFirmEngagementRow = typeof propFirmEngagement.$inferSelect;
+export type PropFirmStatementRow = typeof propFirmStatement.$inferSelect;
 export type PropPayoutRow = typeof propPayout.$inferSelect;
+export type PropRoundRow = typeof propRound.$inferSelect;
 export type PropRulebookRow = typeof propRulebook.$inferSelect;
+export type PropRuleViolationRow = typeof propRuleViolation.$inferSelect;
 export type PropSavedScenarioRow = typeof propSavedScenario.$inferSelect;
 export type PropSizingDecisionRow = typeof propSizingDecision.$inferSelect;

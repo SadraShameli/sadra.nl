@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-    describePayoutSplit,
-    planHeadline,
-    planRuleLines,
-} from '~/cli/commands/prop/plans/command';
+import { planHeadline, planRuleLines } from '~/cli/commands/prop/plans/command';
 import { planResolver } from '~/cli/commands/prop/shared';
 import {
     AlphaFuturesVariant,
@@ -24,6 +20,11 @@ import {
     TopStepVariant,
     TradeifyVariant,
 } from '~/lib/prop-calculator/core';
+import {
+    describePayoutSplit,
+    describePlanRules,
+    formatPlanRuleLine,
+} from '~/lib/prop-calculator/describe';
 import { findFirm } from '~/lib/prop-calculator/firms';
 
 function linesFor(planId: PlanId): string[] {
@@ -141,6 +142,19 @@ describe('planHeadline call-up tag (D3)', () => {
             }),
         );
         expect(headline).not.toContain('call-up');
+    });
+});
+
+describe('planRuleLines renders the shared describe library (PT-31a)', () => {
+    it('indents each describe line by four spaces for every plan', () => {
+        const plans = planResolver.resolveMany({});
+        for (const plan of plans) {
+            expect(planRuleLines(plan)).toEqual(
+                describePlanRules(plan).map(
+                    (line) => `    ${formatPlanRuleLine(line)}`,
+                ),
+            );
+        }
     });
 });
 

@@ -44,7 +44,7 @@ import { Skeleton } from '~/components/ui/Skeleton';
 import { Switch } from '~/components/ui/Switch';
 import { errorMessage } from '~/lib/errorMessage';
 import { formatUsdCents, usdCents } from '~/lib/prop-accounts';
-import { DayStopRuleKind } from '~/lib/prop-calculator';
+import { DayStopRuleKind, FirmId } from '~/lib/prop-calculator';
 import {
     DEFAULT_RULEBOOK,
     documentedRuleLabel,
@@ -52,6 +52,7 @@ import {
     HARD_RULE_2_MIN_RETAINED_CUSHION_CENTS,
     LadderFractionSource,
     ReviewWeekday,
+    RiskDisplayUnit,
     rulebookDeviation,
     type RulebookParameters,
     RuleSource,
@@ -68,11 +69,15 @@ import {
     comparableText,
     DEFAULT_FORM_VALUES,
     FieldKind,
+    type HazardFieldName,
+    hazardFieldName,
+    hazardFieldSpec,
     rulebookFormSchema,
     type RulebookFormValues,
     rulebookToFormValues,
     TEXT_FIELDS,
     type TextFieldName,
+    type TextFieldSpec,
 } from './rulebookFormValues';
 import {
     describeTradingPlanImportChange,
@@ -117,6 +122,12 @@ const LADDER_SOURCE_OPTIONS: Readonly<
         label: 'From the MFF Rapid EOD 50K search, extrapolated to this plan',
         source: RuleSource.EvalLadder,
     },
+};
+
+const RISK_UNIT_LABEL: Readonly<Record<RiskDisplayUnit, string>> = {
+    [RiskDisplayUnit.AccountDollars]: 'Account dollars',
+    [RiskDisplayUnit.EvAtStake]: 'EV at stake',
+    [RiskDisplayUnit.FeeEquivalent]: 'Fee equivalent (retry fees)',
 };
 
 const WEEKDAY_LABEL: Readonly<Record<ReviewWeekday, string>> = {
@@ -212,6 +223,62 @@ export function RulebookView({
     );
 }
 
+function AlertsCard({ control }: { control: Control<RulebookFormValues> }) {
+    return (
+        <SectionCard title="Alerts">
+            <TextField
+                control={control}
+                name="alerts.evalDaysRemainingWarning"
+            />
+            <TextField
+                control={control}
+                name="alerts.evalNearFloorDrawdownFraction"
+            />
+            <TextField
+                control={control}
+                name="alerts.fundedNearFloorRiskMultiple"
+            />
+            <TextField
+                control={control}
+                name="alerts.payoutReadyLossFraction"
+            />
+            <TextField
+                control={control}
+                name="alerts.payoutReadyRiskAboveRungCents"
+            />
+            <TextField
+                control={control}
+                name="alerts.dayLossBankrollFraction"
+            />
+            <TextField
+                control={control}
+                name="alerts.firmProfitConcentrationCount"
+            />
+            <TextField
+                control={control}
+                name="alerts.firmProfitConcentrationShare"
+            />
+        </SectionCard>
+    );
+}
+
+function BankrollCard({ control }: { control: Control<RulebookFormValues> }) {
+    return (
+        <SectionCard title="Bankroll and scaling">
+            <TextField control={control} name="bankroll.lossRiskThreshold" />
+            <TextField control={control} name="bankroll.objectiveSwitchCents" />
+            <TextField control={control} name="bankroll.dailyAccountCapacity" />
+            <TextField control={control} name="bankroll.sessionHoursPerDay" />
+            <TextField control={control} name="bankroll.accountsPerSession" />
+            <TextField
+                control={control}
+                name="bankroll.defaultRoundBudgetCents"
+            />
+            <TextField control={control} name="bankroll.roundGapDays" />
+        </SectionCard>
+    );
+}
+
 function DeviationCard({ parsed }: { parsed: null | RulebookParameters }) {
     const deviation = parsed === null ? null : rulebookDeviation(parsed);
     return (
@@ -254,6 +321,48 @@ function DeviationCard({ parsed }: { parsed: null | RulebookParameters }) {
                 </p>
             </CardContent>
         </Card>
+    );
+}
+
+function DisplayCard({ control }: { control: Control<RulebookFormValues> }) {
+    return (
+        <SectionCard title="Display">
+            <FormField
+                control={control}
+                name="display.riskUnit"
+                render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Show risk as</FormLabel>
+                        <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                        >
+                            <FormControl>
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                                {Object.values(RiskDisplayUnit).map((unit) => (
+                                    <SelectItem key={unit} value={unit}>
+                                        {RISK_UNIT_LABEL[unit]}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <FormDescription>
+                            The unit risk is shown in across the tools. Your
+                            setting, not a skill rule, default{' '}
+                            {RISK_UNIT_LABEL[
+                                DEFAULT_RULEBOOK.display.riskUnit
+                            ].toLowerCase()}
+                            .
+                        </FormDescription>
+                        <FormMessage />
+                    </FormItem>
+                )}
+            />
+        </SectionCard>
     );
 }
 
@@ -411,6 +520,22 @@ function FundedCard({ control }: { control: Control<RulebookFormValues> }) {
                 />
             )}
         </SectionCard>
+    );
+}
+
+function HazardField({
+    control,
+    firmId,
+}: {
+    control: Control<RulebookFormValues>;
+    firmId: FirmId;
+}) {
+    return (
+        <SpecField
+            control={control}
+            name={hazardFieldName(firmId)}
+            spec={hazardFieldSpec(firmId)}
+        />
     );
 }
 
@@ -620,6 +745,25 @@ function LiveCard({ control }: { control: Control<RulebookFormValues> }) {
     );
 }
 
+function LiveTransferCard({
+    control,
+}: {
+    control: Control<RulebookFormValues>;
+}) {
+    return (
+        <SectionCard title="Live transfer (your assumption, not a firm rule)">
+            <p className="text-xs text-muted-foreground md:col-span-2">
+                Your estimate of the chance, per paid payout, that a firm moves
+                a funded account to live. No firm publishes this number. Leave a
+                firm empty to keep its transfers unpriced, as today.
+            </p>
+            {Object.values(FirmId).map((firmId) => (
+                <HazardField control={control} firmId={firmId} key={firmId} />
+            ))}
+        </SectionCard>
+    );
+}
+
 function OverwriteRulebook({
     tradingPlan,
 }: {
@@ -689,6 +833,25 @@ function PayoutCard({ control }: { control: Control<RulebookFormValues> }) {
     );
 }
 
+function PlausibilityCard({
+    control,
+}: {
+    control: Control<RulebookFormValues>;
+}) {
+    return (
+        <SectionCard title="Plausibility">
+            <TextField
+                control={control}
+                name="plausibility.typicalMaxExpectancyR"
+            />
+            <TextField
+                control={control}
+                name="plausibility.strongMaxExpectancyR"
+            />
+        </SectionCard>
+    );
+}
+
 function ResetRulebookDialog({
     disabled,
     onConfirm,
@@ -725,7 +888,7 @@ function ResetRulebookDialog({
 
 function ReviewCard({ control }: { control: Control<RulebookFormValues> }) {
     return (
-        <SectionCard title="Review and alerts">
+        <SectionCard title="Review">
             <FormField
                 control={control}
                 name="review.weekday"
@@ -758,18 +921,6 @@ function ReviewCard({ control }: { control: Control<RulebookFormValues> }) {
                 )}
             />
             <TextField control={control} name="review.fundedStaleDays" />
-            <TextField
-                control={control}
-                name="alerts.evalDaysRemainingWarning"
-            />
-            <TextField
-                control={control}
-                name="alerts.evalNearFloorDrawdownFraction"
-            />
-            <TextField
-                control={control}
-                name="alerts.fundedNearFloorRiskMultiple"
-            />
         </SectionCard>
     );
 }
@@ -844,11 +995,18 @@ function RulebookForm({
                     tradingPlan={tradingPlan}
                 />
                 <StrategyCard control={form.control} />
+                <PlausibilityCard control={form.control} />
                 <EvalCard control={form.control} />
                 <FundedCard control={form.control} />
                 <PayoutCard control={form.control} />
                 <LiveCard control={form.control} />
                 <ReviewCard control={form.control} />
+                <TargetsCard control={form.control} />
+                <AlertsCard control={form.control} />
+                <BankrollCard control={form.control} />
+                <SamplesCard control={form.control} />
+                <DisplayCard control={form.control} />
+                <LiveTransferCard control={form.control} />
 
                 {form.formState.errors.root?.message !== undefined && (
                     <p className="text-sm text-destructive" role="alert">
@@ -892,6 +1050,17 @@ function RulebookLoadError({ message }: { message: string }) {
     );
 }
 
+function SamplesCard({ control }: { control: Control<RulebookFormValues> }) {
+    return (
+        <SectionCard title="Samples">
+            <TextField control={control} name="samples.minEvalAttempts" />
+            <TextField control={control} name="samples.minFundedAccounts" />
+            <TextField control={control} name="samples.minTrades" />
+            <TextField control={control} name="samples.minClosedRounds" />
+        </SectionCard>
+    );
+}
+
 function SectionCard({
     children,
     title,
@@ -911,24 +1080,24 @@ function SectionCard({
     );
 }
 
-function StrategyCard({ control }: { control: Control<RulebookFormValues> }) {
-    return (
-        <SectionCard title="Strategy">
-            <TextField control={control} name="strategy.winrate" />
-            <TextField control={control} name="strategy.rr" />
-            <TextField control={control} name="strategy.tradesPerDayMax" />
-        </SectionCard>
-    );
+function settingNote(spec: TextFieldSpec): string {
+    if (spec.source !== null) {
+        return `Skill: ${spec.source}, default ${spec.read(DEFAULT_FORM_VALUES)}.`;
+    }
+    return spec.isOptional
+        ? 'Your setting, not a skill rule. Empty means not set.'
+        : `Your setting, not a skill rule, default ${spec.read(DEFAULT_FORM_VALUES)}.`;
 }
 
-function TextField({
+function SpecField({
     control,
     name,
+    spec,
 }: {
     control: Control<RulebookFormValues>;
-    name: TextFieldName;
+    name: HazardFieldName | TextFieldName;
+    spec: TextFieldSpec;
 }) {
-    const spec = TEXT_FIELDS[name];
     const defaultComparable = comparableText(
         spec.kind,
         spec.read(DEFAULT_FORM_VALUES),
@@ -965,10 +1134,7 @@ function TextField({
                             />
                         </FormControl>
                         <FormDescription>
-                            {spec.hint}{' '}
-                            {spec.source === null
-                                ? 'Your alert threshold, not a skill rule.'
-                                : `Skill: ${spec.source}, default ${spec.read(DEFAULT_FORM_VALUES)}.`}
+                            {spec.hint} {settingNote(spec)}
                         </FormDescription>
                         <FormMessage />
                     </FormItem>
@@ -976,6 +1142,38 @@ function TextField({
             }}
         />
     );
+}
+
+function StrategyCard({ control }: { control: Control<RulebookFormValues> }) {
+    return (
+        <SectionCard title="Strategy">
+            <TextField control={control} name="strategy.winrate" />
+            <TextField control={control} name="strategy.rr" />
+            <TextField control={control} name="strategy.tradesPerDayMax" />
+        </SectionCard>
+    );
+}
+
+function TargetsCard({ control }: { control: Control<RulebookFormValues> }) {
+    return (
+        <SectionCard title="Targets">
+            <TextField
+                control={control}
+                name="review.monthlyPayoutTargetCents"
+            />
+            <TextField control={control} name="review.targetMonthlyMultiple" />
+        </SectionCard>
+    );
+}
+
+function TextField({
+    control,
+    name,
+}: {
+    control: Control<RulebookFormValues>;
+    name: TextFieldName;
+}) {
+    return <SpecField control={control} name={name} spec={TEXT_FIELDS[name]} />;
 }
 
 function useRulebookReset() {

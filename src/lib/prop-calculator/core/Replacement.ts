@@ -17,10 +17,23 @@ export interface AttemptDaySamples {
     readonly passDays: readonly number[];
 }
 
+export interface CurrentAttemptInputs {
+    readonly attemptDays?: AttemptDaySamples;
+    readonly meanDaysOnFail: number;
+    readonly meanDaysOnPass: number;
+    readonly passRate: number;
+    readonly subscriptionElapsedDays: number;
+}
+
 export interface ReplacementEconomics {
     attemptsPerFundedAccount: number;
     costPerFundedAccount: number;
     daysPerFundedAccount: number;
+}
+
+export interface ReplacementFromStateInputs {
+    readonly current: CurrentAttemptInputs;
+    readonly fresh: ReplacementInputs;
 }
 
 export interface ReplacementInputs {
@@ -32,33 +45,41 @@ export interface ReplacementInputs {
     readonly meanDaysOnPass: number;
 }
 
+interface ChainDays {
+    readonly meanDays: number;
+    readonly residues: readonly number[];
+    readonly zeroDayProbability: number;
+}
+
+interface WeightedChain {
+    readonly chain: ChainDays;
+    readonly weight: number;
+}
+
+const REPLACEMENT_ECONOMICS = 'replacementEconomics';
+const REPLACEMENT_FROM_STATE = 'replacementEconomicsFromState';
+
+const UNREACHABLE_FUNDED_ACCOUNT: ReplacementEconomics = {
+    attemptsPerFundedAccount: Infinity,
+    costPerFundedAccount: Infinity,
+    daysPerFundedAccount: Infinity,
+};
+
 export function replacementEconomics(
     inputs: ReplacementInputs,
 ): ReplacementEconomics {
     const { discounts, evalPassRate, fees, meanDaysOnFail, meanDaysOnPass } =
         inputs;
-    if (
-        !Number.isFinite(evalPassRate) ||
-        evalPassRate < 0 ||
-        evalPassRate > 1
-    ) {
-        throw new Error(
-            `replacementEconomics: evalPassRate must be a probability in [0, 1], got ${evalPassRate}`,
-        );
-    }
-    if (evalPassRate === 0) {
-        return {
-            attemptsPerFundedAccount: Infinity,
-            costPerFundedAccount: Infinity,
-            daysPerFundedAccount: Infinity,
-        };
-    }
+    assertProbability(REPLACEMENT_ECONOMICS, 'evalPassRate', evalPassRate);
+    if (evalPassRate === 0) return { ...UNREACHABLE_FUNDED_ACCOUNT };
     const attempts = 1 / evalPassRate;
     const retries = attempts - 1;
-    const days = meanDaysOnPass + retries * meanDaysOnFail;
+    const days = chainDays(evalPassRate, meanDaysOnPass, meanDaysOnFail);
     const subscription =
         retryPath(fees, discounts) === RetryKind.Rebuy
-            ? rebuyChainSubscription(inputs, retries)
+            ? rebuyChainSubscription(inputs, retries, (attemptDays) =>
+                  subscriptionFee(fees, attemptDays, discounts),
+              )
             : renewalChainSubscription(inputs, days);
     return {
         attemptsPerFundedAccount: attempts,
@@ -71,20 +92,115 @@ export function replacementEconomics(
     };
 }
 
+export function replacementEconomicsFromState(
+    inputs: ReplacementFromStateInputs,
+): ReplacementEconomics {
+    const { current, fresh } = inputs;
+    const { discounts, fees } = fresh;
+    assertProbability(REPLACEMENT_FROM_STATE, 'passRate', current.passRate);
+    assertProbability(
+        REPLACEMENT_FROM_STATE,
+        'evalPassRate',
+        fresh.evalPassRate,
+    );
+    if (!isWholeDayCount(current.subscriptionElapsedDays)) {
+        throw new Error(
+            `${REPLACEMENT_FROM_STATE}: subscriptionElapsedDays must be a whole non-negative day count, got ${current.subscriptionElapsedDays}`,
+        );
+    }
+    if (current.attemptDays !== undefined) {
+        assertDaySamples(
+            REPLACEMENT_FROM_STATE,
+            'passRate',
+            current.passRate,
+            current.attemptDays,
+        );
+    }
+    const failShare = 1 - current.passRate;
+    if (failShare > 0 && fresh.evalPassRate === 0) {
+        return { ...UNREACHABLE_FUNDED_ACCOUNT };
+    }
+    const freshAttempts = failShare > 0 ? failShare / fresh.evalPassRate : 0;
+    const freshDays =
+        failShare > 0
+            ? chainDays(
+                  fresh.evalPassRate,
+                  fresh.meanDaysOnPass,
+                  fresh.meanDaysOnFail,
+              )
+            : 0;
+    const days =
+        current.passRate * current.meanDaysOnPass +
+        failShare * (current.meanDaysOnFail + freshDays);
+    const subscription =
+        retryPath(fees, discounts) === RetryKind.Rebuy
+            ? rebuySubscriptionFromState(inputs)
+            : renewalSubscriptionFromState(inputs, days);
+    return {
+        attemptsPerFundedAccount: 1 + freshAttempts,
+        costPerFundedAccount:
+            activationFee(fees, discounts) +
+            freshAttempts * retryFee(fees, discounts) +
+            subscription,
+        daysPerFundedAccount: days,
+    };
+}
+
 function assertDaySamples(
-    evalPassRate: number,
+    caller: string,
+    rateName: string,
+    passRate: number,
     samples: AttemptDaySamples,
 ): void {
     const isUsable =
-        samples.passDays.length > 0 &&
-        (evalPassRate === 1 || samples.failDays.length > 0) &&
+        (passRate === 0 || samples.passDays.length > 0) &&
+        (passRate === 1 || samples.failDays.length > 0) &&
         samples.passDays.every((day) => isWholeDayCount(day)) &&
         samples.failDays.every((day) => isWholeDayCount(day));
     if (!isUsable) {
         throw new Error(
-            'replacementEconomics: attemptDays needs whole non-negative day counts, at least one pass sample, and a fail sample whenever evalPassRate is below 1',
+            `${caller}: attemptDays needs whole non-negative day counts, a pass sample whenever ${rateName} is above 0, and a fail sample whenever ${rateName} is below 1`,
         );
     }
+}
+
+function assertProbability(
+    caller: string,
+    rateName: string,
+    value: number,
+): void {
+    if (!Number.isFinite(value) || value < 0 || value > 1) {
+        throw new Error(
+            `${caller}: ${rateName} must be a probability in [0, 1], got ${value}`,
+        );
+    }
+}
+
+function billedMonths(chain: ChainDays): number {
+    const period = chain.residues.length;
+    const roundUpDays = chain.residues.reduce(
+        (sum, probability, residue) =>
+            sum + probability * ((period - residue) % period),
+        0,
+    );
+    return (chain.meanDays + roundUpDays) / period + chain.zeroDayProbability;
+}
+
+function chainDays(
+    evalPassRate: number,
+    meanDaysOnPass: number,
+    meanDaysOnFail: number,
+): number {
+    return meanDaysOnPass + (1 / evalPassRate - 1) * meanDaysOnFail;
+}
+
+function concatChains(first: ChainDays, second: ChainDays): ChainDays {
+    return {
+        meanDays: first.meanDays + second.meanDays,
+        residues: convolveResidues(first.residues, second.residues),
+        zeroDayProbability:
+            first.zeroDayProbability * second.zeroDayProbability,
+    };
 }
 
 function convolveResidues(
@@ -102,32 +218,27 @@ function convolveResidues(
     return out;
 }
 
+function expectedAttemptFee(
+    meanDays: number,
+    samples: readonly number[] | undefined,
+    fee: (days: number) => number,
+): number {
+    return samples === undefined
+        ? fee(meanDays)
+        : mean(samples.map((days) => fee(days)));
+}
+
 function expectedBilledMonths(
     evalPassRate: number,
     samples: AttemptDaySamples,
 ): number {
-    assertDaySamples(evalPassRate, samples);
-    const period = TRADING_DAYS_PER_MONTH;
-    const failShare = 1 - evalPassRate;
-    const chainResidues = convolveResidues(
-        residueDistribution(samples.passDays, period),
-        failureSumResidues(
-            evalPassRate,
-            residueDistribution(samples.failDays, period),
-        ),
+    assertDaySamples(
+        REPLACEMENT_ECONOMICS,
+        'evalPassRate',
+        evalPassRate,
+        samples,
     );
-    const meanChainDays =
-        mean(samples.passDays) +
-        (failShare / evalPassRate) * mean(samples.failDays);
-    const roundUpDays = chainResidues.reduce(
-        (sum, probability, residue) =>
-            sum + probability * ((period - residue) % period),
-        0,
-    );
-    const zeroDayChainProbability =
-        shareOfZeroDays(samples.passDays) *
-        (evalPassRate / (1 - failShare * shareOfZeroDays(samples.failDays)));
-    return (meanChainDays + roundUpDays) / period + zeroDayChainProbability;
+    return billedMonths(freshChain(evalPassRate, samples));
 }
 
 function failureSumResidues(
@@ -151,6 +262,30 @@ function failureSumResidues(
     return solveLinearSystem(matrix, rhs);
 }
 
+function freshChain(
+    evalPassRate: number,
+    samples: AttemptDaySamples,
+): ChainDays {
+    const period = TRADING_DAYS_PER_MONTH;
+    const failShare = 1 - evalPassRate;
+    return {
+        meanDays:
+            mean(samples.passDays) +
+            (failShare / evalPassRate) * mean(samples.failDays),
+        residues: convolveResidues(
+            residueDistribution(samples.passDays, period),
+            failureSumResidues(
+                evalPassRate,
+                residueDistribution(samples.failDays, period),
+            ),
+        ),
+        zeroDayProbability:
+            shareOfZeroDays(samples.passDays) *
+            (evalPassRate /
+                (1 - failShare * shareOfZeroDays(samples.failDays))),
+    };
+}
+
 function isWholeDayCount(day: number): boolean {
     return Number.isSafeInteger(day) && day >= 0;
 }
@@ -161,9 +296,29 @@ function mean(values: readonly number[]): number {
         : values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
+function mixChains(branches: readonly WeightedChain[]): ChainDays {
+    return branches.reduce<ChainDays>(
+        (mixed, { chain, weight }) => ({
+            meanDays: mixed.meanDays + weight * chain.meanDays,
+            residues: mixed.residues.map(
+                (probability, residue) =>
+                    probability + weight * (chain.residues[residue] ?? 0),
+            ),
+            zeroDayProbability:
+                mixed.zeroDayProbability + weight * chain.zeroDayProbability,
+        }),
+        {
+            meanDays: 0,
+            residues: Array.from({ length: TRADING_DAYS_PER_MONTH }, () => 0),
+            zeroDayProbability: 0,
+        },
+    );
+}
+
 function rebuyChainSubscription(
     inputs: ReplacementInputs,
     retries: number,
+    passAttemptFee: (days: number) => number,
 ): number {
     const {
         attemptDays,
@@ -173,20 +328,65 @@ function rebuyChainSubscription(
         meanDaysOnFail,
         meanDaysOnPass,
     } = inputs;
-    const passFee = (days: number) => subscriptionFee(fees, days, discounts);
-    const retryAttemptFee = (days: number) =>
-        rebuyAttemptSubscriptionFee(fees, days, discounts);
-    if (attemptDays === undefined) {
-        return (
-            passFee(meanDaysOnPass) + retries * retryAttemptFee(meanDaysOnFail)
+    if (attemptDays !== undefined) {
+        assertDaySamples(
+            REPLACEMENT_ECONOMICS,
+            'evalPassRate',
+            evalPassRate,
+            attemptDays,
         );
     }
-    assertDaySamples(evalPassRate, attemptDays);
     return (
-        mean(attemptDays.passDays.map((days) => passFee(days))) +
+        expectedAttemptFee(
+            meanDaysOnPass,
+            attemptDays?.passDays,
+            passAttemptFee,
+        ) +
         retries *
-            mean(attemptDays.failDays.map((days) => retryAttemptFee(days)))
+            expectedAttemptFee(meanDaysOnFail, attemptDays?.failDays, (days) =>
+                rebuyAttemptSubscriptionFee(fees, days, discounts),
+            )
     );
+}
+
+function rebuySubscriptionFromState(
+    inputs: ReplacementFromStateInputs,
+): number {
+    const { current, fresh } = inputs;
+    const { discounts, fees } = fresh;
+    const { attemptDays, passRate, subscriptionElapsedDays } = current;
+    const failShare = 1 - passRate;
+    const startedMonths = subscriptionFee(
+        fees,
+        subscriptionElapsedDays,
+        discounts,
+    );
+    const currentAccountFee = (days: number) =>
+        subscriptionFee(fees, subscriptionElapsedDays + days, discounts) -
+        startedMonths;
+    const currentAccount =
+        passRate *
+            expectedAttemptFee(
+                current.meanDaysOnPass,
+                attemptDays?.passDays,
+                currentAccountFee,
+            ) +
+        failShare *
+            expectedAttemptFee(
+                current.meanDaysOnFail,
+                attemptDays?.failDays,
+                currentAccountFee,
+            );
+    return failShare === 0
+        ? currentAccount
+        : currentAccount +
+              failShare *
+                  rebuyChainSubscription(
+                      fresh,
+                      1 / fresh.evalPassRate - 1,
+                      (days) =>
+                          rebuyAttemptSubscriptionFee(fees, days, discounts),
+                  );
 }
 
 function renewalChainSubscription(
@@ -200,16 +400,77 @@ function renewalChainSubscription(
               expectedBilledMonths(evalPassRate, attemptDays);
 }
 
+function renewalSubscriptionFromState(
+    inputs: ReplacementFromStateInputs,
+    days: number,
+): number {
+    const { current, fresh } = inputs;
+    const { discounts, fees } = fresh;
+    const { attemptDays, passRate, subscriptionElapsedDays } = current;
+    const failShare = 1 - passRate;
+    const startedMonths = subscriptionFee(
+        fees,
+        subscriptionElapsedDays,
+        discounts,
+    );
+    const freshSamples = failShare > 0 ? fresh.attemptDays : undefined;
+    if (
+        attemptDays === undefined ||
+        (freshSamples === undefined && failShare > 0)
+    ) {
+        return (
+            subscriptionFee(fees, subscriptionElapsedDays + days, discounts) -
+            startedMonths
+        );
+    }
+    const branches: WeightedChain[] = [];
+    if (passRate > 0) {
+        branches.push({
+            chain: sampleChain(attemptDays.passDays, subscriptionElapsedDays),
+            weight: passRate,
+        });
+    }
+    if (freshSamples !== undefined) {
+        assertDaySamples(
+            REPLACEMENT_FROM_STATE,
+            'evalPassRate',
+            fresh.evalPassRate,
+            freshSamples,
+        );
+        branches.push({
+            chain: concatChains(
+                sampleChain(attemptDays.failDays, subscriptionElapsedDays),
+                freshChain(fresh.evalPassRate, freshSamples),
+            ),
+            weight: failShare,
+        });
+    }
+    return (
+        monthlySubscriptionFee(fees, discounts) *
+            billedMonths(mixChains(branches)) -
+        startedMonths
+    );
+}
+
 function residueDistribution(
     days: readonly number[],
     period: number,
+    offset = 0,
 ): number[] {
     const out = Array.from({ length: period }, () => 0);
     for (const day of days) {
-        const residue = day % period;
+        const residue = (day + offset) % period;
         out[residue] = (out[residue] ?? 0) + 1 / days.length;
     }
     return out;
+}
+
+function sampleChain(days: readonly number[], offset: number): ChainDays {
+    return {
+        meanDays: offset + mean(days),
+        residues: residueDistribution(days, TRADING_DAYS_PER_MONTH, offset),
+        zeroDayProbability: offset === 0 ? shareOfZeroDays(days) : 0,
+    };
 }
 
 function shareOfZeroDays(days: readonly number[]): number {

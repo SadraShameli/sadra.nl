@@ -8,26 +8,39 @@ import {
     AccountReadIssueKind,
     AccountStage,
     AccountStatus,
+    BankrollTransferKind,
     DashboardBalanceConvention,
     FeeKind,
+    FirmEngagementReason,
+    FirmEngagementStatus,
     LifecycleRejection,
     nonNegativeUsdCentsSchema,
     PayoutStatus,
     personalRulesSchema,
     planOptInsSchema,
     positiveUsdCentsSchema,
+    ReportedPayoutBasis,
+    RoundStatus,
+    RuleViolationKind,
     SnapshotSource,
     type StoredFirmId,
     UnresolvedPlanReason,
     usdCentsSchema,
+    ViolationSource,
 } from '~/lib/prop-accounts';
 import {
     propAccount,
     propAccountEvent,
     propAccountSnapshot,
+    propBankrollTransfer,
     propCopyGroup,
+    propExternalFirm,
     propFee,
+    propFirmEngagement,
+    propFirmStatement,
     propPayout,
+    propRound,
+    propRuleViolation,
     propSavedScenario,
     propSizingDecision,
 } from '~/server/db/schemas/prop';
@@ -38,38 +51,56 @@ export enum PropLimitRejection {
 }
 
 export enum PropMutationRejection {
+    DecisionOfOtherAccount = 'decision-of-other-account',
     DuplicateImportLabel = 'duplicate-import-label',
     DuplicateSnapshot = 'duplicate-snapshot',
+    FutureDate = 'future-date',
     ImplausibleSnapshot = 'implausible-snapshot',
     LifecycleTransition = 'lifecycle-transition',
     MissingSnapshotField = 'missing-snapshot-field',
     MixedStageCopyGroup = 'mixed-stage-copy-group',
     OutOfOrderEvent = 'out-of-order-event',
+    RecordInUse = 'record-in-use',
+    ReferenceNotOwned = 'reference-not-owned',
+    RoundBudgetExceeded = 'round-budget-exceeded',
+    RoundClosed = 'round-closed',
     StageNotOfferedByPlan = 'stage-not-offered-by-plan',
     UnresolvablePlan = 'unresolvable-plan',
 }
 
 export enum PropQuota {
     Accounts = 'accounts',
+    BankrollTransfers = 'bankroll-transfers',
     CopyGroups = 'copy-groups',
     Decisions = 'decisions',
     Events = 'events',
+    ExternalFirms = 'external-firms',
     Fees = 'fees',
+    FirmEngagements = 'firm-engagements',
+    FirmStatements = 'firm-statements',
     Payouts = 'payouts',
+    Rounds = 'rounds',
     Scenarios = 'scenarios',
     Snapshots = 'snapshots',
+    Violations = 'violations',
 }
 
 export enum PropRecord {
     Account = 'account',
+    BankrollTransfer = 'bankroll transfer',
     CopyGroup = 'copy group',
     Decision = 'sizing decision',
     Event = 'account event',
+    ExternalFirm = 'external firm',
     Fee = 'fee',
+    FirmEngagement = 'firm status',
+    FirmStatement = 'firm statement',
     Payout = 'payout',
+    Round = 'round',
     Rulebook = 'rulebook',
     Scenario = 'saved scenario',
     Snapshot = 'snapshot',
+    Violation = 'rule violation',
 }
 
 export enum PropStoredRecordRejection {
@@ -131,6 +162,10 @@ export function propRejectionOf(error: unknown): null | PropRejection {
     return rejection.success ? rejection.data : null;
 }
 
+function storedFirmIdOf(column: z.ZodString) {
+    return column.min(1).pipe(z.custom<StoredFirmId>());
+}
+
 const nullableCents = usdCentsSchema.nullable();
 const nullableNonNegativeCents = nonNegativeUsdCentsSchema.nullable();
 
@@ -144,8 +179,7 @@ const accountReadIssueSchema = z.discriminatedUnion('kind', [
 
 export const propAccountOutputSchema = createSelectSchema(propAccount, {
     dashboardConvention: z.enum(DashboardBalanceConvention),
-    firmId: (storedFirmId) =>
-        storedFirmId.min(1).pipe(z.custom<StoredFirmId>()),
+    firmId: storedFirmIdOf,
     liveStartBalanceCents: nullableNonNegativeCents,
     optIns: planOptInsSchema,
     personalRules: personalRulesSchema,
@@ -213,5 +247,49 @@ export const propSizingDecisionOutputSchema = createSelectSchema(
 
 export const propSavedScenarioOutputSchema =
     createSelectSchema(propSavedScenario);
+
+export const propBankrollTransferOutputSchema = createSelectSchema(
+    propBankrollTransfer,
+    {
+        amountCents: positiveUsdCentsSchema,
+        kind: z.enum(BankrollTransferKind),
+    },
+);
+
+export const propExternalFirmOutputSchema =
+    createSelectSchema(propExternalFirm);
+
+export const propRoundOutputSchema = createSelectSchema(propRound, {
+    budgetCents: positiveUsdCentsSchema.nullable(),
+    firmId: storedFirmIdOf,
+    status: z.enum(RoundStatus),
+});
+
+export const propFirmEngagementOutputSchema = createSelectSchema(
+    propFirmEngagement,
+    {
+        firmId: storedFirmIdOf,
+        reason: z.enum(FirmEngagementReason).nullable(),
+        status: z.enum(FirmEngagementStatus),
+    },
+);
+
+export const propFirmStatementOutputSchema = createSelectSchema(
+    propFirmStatement,
+    {
+        basis: z.enum(ReportedPayoutBasis),
+        firmId: storedFirmIdOf,
+        reportedPayoutCents: nonNegativeUsdCentsSchema,
+    },
+);
+
+export const propRuleViolationOutputSchema = createSelectSchema(
+    propRuleViolation,
+    {
+        costCents: nullableCents,
+        kind: z.enum(RuleViolationKind),
+        source: z.enum(ViolationSource),
+    },
+);
 
 export const okOutputSchema = z.object({ ok: z.literal(true) });

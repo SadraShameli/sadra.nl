@@ -8,6 +8,7 @@ import {
     INSTRUMENTS,
     InstrumentSymbol,
     type LiveAccountState,
+    points,
     ReserveLivePlan,
 } from '~/lib/prop-calculator/core';
 import {
@@ -605,6 +606,15 @@ describe('TopStep LFA position size (N-58, article 11748475: "Position Limits re
         ).toBe(5);
     });
 
+    it('states the micro lot rule without a --stop-points condition, since every live run is placed in whole contracts at a stop (WP44b, N-76)', () => {
+        const note = topStepLfaNote();
+
+        expect(note).not.toContain('only binds with --stop-points');
+        expect(note).toContain(
+            'this is the literal and conservative reading. The Daily Loss Limit Safeguard',
+        );
+    });
+
     it('keeps 5 lots at $99,999.99 of profit and expands along the table once every tier is unlocked: 30 lots from $100,000, 50 from $200,000, 70 from $550,000, 100 from $1,000,000', () => {
         const nq = INSTRUMENTS[InstrumentSymbol.NQ];
         const lotsAt = (profit: number) => {
@@ -988,11 +998,25 @@ const PRE_REVISION_50K_TIER_LIMITS: ReadonlyMap<number, number> = new Map([
 ]);
 const TRACE_DAYS = 60;
 const RESERVE_RETURNED = 40_000;
+const ONE_NQ_AT_1300 = {
+    instrument: INSTRUMENTS[InstrumentSymbol.NQ],
+    stopPoints: points(65),
+};
+const CONTRACT_RISK = 1300;
 
 interface LfaTraceDay {
     readonly debited: number;
     readonly limit: null | number;
     readonly pnl: number;
+}
+
+function moneyBefore(
+    trace: readonly LfaTraceDay[],
+    session: number,
+): Pick<LfaTraceDay, 'debited' | 'pnl'>[] {
+    return trace
+        .slice(0, session)
+        .map(({ debited, pnl }) => ({ debited, pnl }));
 }
 
 function profitDebitedOverHorizon(plan: ReserveLivePlan): number {
@@ -1001,7 +1025,7 @@ function profitDebitedOverHorizon(plan: ReserveLivePlan): number {
         horizonDays: TRACE_DAYS,
         payoutRequestSize: undefined,
         plan,
-        positionSizing: null,
+        positionSizing: ONE_NQ_AT_1300,
         retainedCushion: plan.resolveRetainedCushion(undefined),
         rng: () => 0,
         rrRatio: 1,
@@ -1025,7 +1049,7 @@ function traceWinningDays(plan: ReserveLivePlan): LfaTraceDay[] {
             commission: dollars(0),
             idleDayProbability: 0,
             plan,
-            positionSizing: null,
+            positionSizing: ONE_NQ_AT_1300,
             rng: () => 0,
             rrRatio: 1,
             state,
@@ -1054,65 +1078,83 @@ function withPreRevisionTierLimits(plan: ReserveLivePlan): ReserveLivePlan {
     return counterfactual;
 }
 
-describe('TopStep LFA 60-day profitDebited re-pin (N-67): livePhase.test.ts moved from $49,131.46 to $48,783.96, and the whole -$347.50 is the 50K tier change', () => {
+describe('TopStep LFA 60-day profitDebited and the 50K tier change (N-67), at a stated 65 point NQ stop ($1,300 a contract), since live risk is always placed in whole contracts (WP44b, N-76): the $2,500 tier is worth -$2,600 against the pre-revision $5,000 limit', () => {
     const current = buildTopStepLivePlan();
     const preRevision = withPreRevisionTierLimits(buildTopStepLivePlan());
     const currentTrace = traceWinningDays(current);
     const preRevisionTrace = traceWinningDays(preRevision);
-    const firstTierSession = 29;
+    const firstTierSession = 21;
+    const firstSplitSession = 23;
+    const drainSession = 29;
 
-    it('reproduces both pins: $48,783.96 on the $2,500 tier and $49,131.46 with the pre-revision $5,000 limit on the same plan', () => {
-        expect(profitDebitedOverHorizon(current)).toBeCloseTo(48_783.96, 3);
-        expect(profitDebitedOverHorizon(preRevision)).toBeCloseTo(49_131.46, 3);
-        expect(tracedProfitDebited(currentTrace)).toBeCloseTo(48_783.96, 3);
-        expect(tracedProfitDebited(preRevisionTrace)).toBeCloseTo(49_131.46, 3);
+    it('debits $78,000 of profit on the $2,500 tier, one $1,300 contract won on each of the 60 days and all of it withdrawn, and $80,600 with the pre-revision $5,000 limit on the same plan', () => {
+        expect(TRACE_DAYS * CONTRACT_RISK).toBe(78_000);
+        expect(profitDebitedOverHorizon(current)).toBeCloseTo(78_000, 6);
+        expect(profitDebitedOverHorizon(preRevision)).toBeCloseTo(80_600, 6);
+        expect(tracedProfitDebited(currentTrace)).toBeCloseTo(78_000, 6);
+        expect(tracedProfitDebited(preRevisionTrace)).toBeCloseTo(80_600, 6);
     });
 
-    it('takes the whole -$347.50 on day 30, the first session on the unlocked $15,000 tier: its winner is capped at the $2,500 limit where the $5,000 limit let the 5% risk of about $2,847.50 through', () => {
-        const day = currentTrace[firstTierSession];
-        const preRevisionDay = preRevisionTrace[firstTierSession];
+    it('unlocks the tier at the day-21 close, the 10th Active Trading Day since $15,600 of profit on day 12, so days 22 to 30 run at $2,500 against the pre-revision $5,000', () => {
+        const tierSessions = (trace: readonly LfaTraceDay[]) =>
+            trace
+                .slice(firstTierSession, drainSession + 1)
+                .map((day) => day.limit);
 
-        expect(day?.limit).toBe(2500);
-        expect(preRevisionDay?.limit).toBe(5000);
-        expect(day?.pnl).toBeCloseTo(2500, 9);
-        expect(preRevisionDay?.pnl).toBeCloseTo(2847.5, 2);
-        expect(
-            (day?.debited ?? 0) - (preRevisionDay?.debited ?? 0),
-        ).toBeCloseTo(-347.5, 9);
+        expect(currentTrace[firstTierSession - 1]?.limit).toBe(2000);
+        expect(new Set(tierSessions(currentTrace))).toStrictEqual(
+            new Set([2500]),
+        );
+        expect(new Set(tierSessions(preRevisionTrace))).toStrictEqual(
+            new Set([5000]),
+        );
+    });
+
+    it('takes the whole -$2,600 on days 24 and 25: 5% of the $52,900 and $54,200 cushions is $2,645 and $2,710, two contracts under the $5,000 limit but one under the $2,500 room, and the second contract reaches the payouts of days 25 and 30', () => {
+        const pnlOn = (trace: readonly LfaTraceDay[]) =>
+            [firstSplitSession, firstSplitSession + 1].map(
+                (index) => trace[index]?.pnl,
+            );
+        const debitGap = (index: number) =>
+            (currentTrace[index]?.debited ?? 0) -
+            (preRevisionTrace[index]?.debited ?? 0);
+
+        expect(pnlOn(currentTrace)).toStrictEqual([
+            CONTRACT_RISK,
+            CONTRACT_RISK,
+        ]);
+        expect(pnlOn(preRevisionTrace)).toStrictEqual([
+            2 * CONTRACT_RISK,
+            2 * CONTRACT_RISK,
+        ]);
+        expect(debitGap(firstSplitSession + 1)).toBe(-CONTRACT_RISK);
+        expect(debitGap(drainSession)).toBe(-CONTRACT_RISK);
         expect(
             tracedProfitDebited(currentTrace) -
                 tracedProfitDebited(preRevisionTrace),
-        ).toBeCloseTo(-347.5, 6);
+        ).toBeCloseTo(-2 * CONTRACT_RISK, 6);
     });
 
-    it('matches every session before day 30 exactly', () => {
+    it('matches every session before day 22 exactly, and the P&L and payouts of days 22 and 23, where 5% of the cushion is below two contracts', () => {
         expect(currentTrace.slice(0, firstTierSession)).toStrictEqual(
             preRevisionTrace.slice(0, firstTierSession),
         );
+        expect(moneyBefore(currentTrace, firstSplitSession)).toStrictEqual(
+            moneyBefore(preRevisionTrace, firstSplitSession),
+        );
     });
 
-    it('re-merges after day 30 up to the sub-cent residue that whole-cent payouts leave: the same limits, P&L within a tenth of a cent, and one cent paid a day apart (days 33 and 34) that nets to zero', () => {
-        const after = currentTrace.slice(firstTierSession + 1);
-        const preRevisionAfter = preRevisionTrace.slice(firstTierSession + 1);
-        const debitGaps = after.map(
-            (day, index) =>
-                day.debited - (preRevisionAfter[index]?.debited ?? 0),
-        );
-        const centMovedOnDays = debitGaps.flatMap((gap, index) =>
-            Math.abs(gap) > 0 ? [firstTierSession + 2 + index] : [],
-        );
+    it('re-merges after the day-30 drain to $10,000: the Safeguard holds both at $2,000, and every later session wins and pays one $1,300 contract', () => {
+        const after = currentTrace.slice(drainSession + 1);
 
-        expect(after.map((day) => day.limit)).toStrictEqual(
-            preRevisionAfter.map((day) => day.limit),
-        );
-        expect(after.every((day) => day.limit === 2000)).toBe(true);
-        for (const [index, day] of after.entries()) {
-            expect(
-                Math.abs(day.pnl - (preRevisionAfter[index]?.pnl ?? 0)),
-            ).toBeLessThan(0.001);
-        }
-        expect(centMovedOnDays).toStrictEqual([33, 34]);
-        expect(debitGaps.every((gap) => Math.abs(gap) < 0.011)).toBe(true);
-        expect(debitGaps.reduce((sum, gap) => sum + gap, 0)).toBeCloseTo(0, 9);
+        expect(after).toStrictEqual(preRevisionTrace.slice(drainSession + 1));
+        expect(
+            after.every(
+                (day) =>
+                    day.limit === 2000 &&
+                    day.pnl === CONTRACT_RISK &&
+                    day.debited === CONTRACT_RISK,
+            ),
+        ).toBe(true);
     });
 });

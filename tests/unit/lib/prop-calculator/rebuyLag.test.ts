@@ -117,16 +117,24 @@ describe('rebuyLagDays adds empty slot time to the monthly-net denominator', () 
         const withLag = simulate(toyInputs({ rebuyLagDays: 4 }));
 
         const {
+            estimates: baseEstimates,
             expectedMonthlyNet: baseMonthlyNet,
             expectedMonthlyRealizedNet: baseMonthlyRealizedNet,
             ...baseRest
         } = base;
         const {
+            estimates: lagEstimates,
             expectedMonthlyNet: lagMonthlyNet,
             expectedMonthlyRealizedNet: lagMonthlyRealizedNet,
             ...lagRest
         } = withLag;
         expect(lagRest).toStrictEqual(baseRest);
+        expect({
+            ...lagEstimates,
+            expectedMonthlyNet: baseEstimates.expectedMonthlyNet,
+            expectedMonthlyRealizedNet:
+                baseEstimates.expectedMonthlyRealizedNet,
+        }).toStrictEqual(baseEstimates);
         expect(lagMonthlyNet).not.toBe(baseMonthlyNet);
         expect(lagMonthlyRealizedNet).not.toBe(baseMonthlyRealizedNet);
     });

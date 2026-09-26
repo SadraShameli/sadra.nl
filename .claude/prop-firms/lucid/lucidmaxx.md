@@ -2,8 +2,8 @@
 
 **Sources:** `https://support.lucidtrading.com/en/articles/13891785-lucidmaxx-overview` ("LucidMaxx Overview"), `https://support.lucidtrading.com/en/articles/14315460-lucidmaxx-eval-rules` ("LucidMaxx Eval Rules"), `https://support.lucidtrading.com/en/articles/14315468-lucidmaxx-cooldown` ("LucidMaxx Cooldown"), `https://support.lucidtrading.com/en/articles/14316866-lucidmaxx-eval-pricing` ("LucidMaxx Eval Pricing"). All fetched directly via raw HTTP on 2026-09-19, none through an LLM summarization pass. See `live.md` for the shared drawdown mechanic this file cross-references rather than repeats.
 
-**Last Verified:** 2026-09-20
-**Last Updated:** 2026-09-20
+**Last Verified:** 2026-09-26 (Evaluation table and Pricing Mechanics section, independently re-confirmed against a fresh fetch of all three dedicated LucidMaxx sources; other content 2026-09-20)
+**Last Updated:** 2026-09-26
 
 ## Overview
 
@@ -40,6 +40,8 @@ LucidMaxx's own eval/reset price is not fixed per size; it moves with a trader's
 - **Clearing live drawdown** (surviving to the live account's own Starting Live Drawdown without breaching): the trader keeps their current, lower pricing tier permanently, "even if the account is later lost" once that threshold was reached ("LucidMaxx Eval Pricing").
 - **Blowing a live account without clearing drawdown**: the trader moves into a progressively higher pricing tier, as shown in the Evaluation table's own One-Time Eval Fee row above.
 - **No discounts, no promotions**: "No discounts are offered on LucidMaxx evaluations... The listed price is the final price paid... cannot be reduced through promotions" ("LucidMaxx Eval Pricing").
+
+**Independently re-confirmed 2026-09-26** (PT-71c firm-catalog recheck, 15:44 UTC, verifier 15:48 UTC): a fresh fetch of "LucidMaxx Eval Pricing" (14316866), "LucidMaxx Overview" (13891785), and "LucidMaxx Eval Rules" (14315460) reproduced the identical per-tier Tier 1-4 pricing figures in the Evaluation table above ($110/$130/$155/$175 at 25K through $425/$510/$595/$680 at 150K) and the no-discount rule above, with no changes to any figure.
 
 ## Sim Funded
 
@@ -122,11 +124,11 @@ LucidMaxx is designed as a long-term, repeatable cycle rather than a one-time pr
 
 ---
 
-**Last Updated:** 2026-09-20
+**Last Updated:** 2026-09-26
 
 **Sources:**
 
-- `https://support.lucidtrading.com/en/articles/13891785-lucidmaxx-overview`, "LucidMaxx Overview." Source of the invite-only qualification gate, LucidMaxx status criteria, benefits list, live payout structure (90/10, daily, uncapped, no minimums), and the 5-account limit.
-- `https://support.lucidtrading.com/en/articles/14315460-lucidmaxx-eval-rules`, "LucidMaxx Eval Rules." Source of the per-size Evaluation table (Profit Target, Max Loss Limit, 40% Consistency, 5-day minimum) and the "same as the standard Lucid live structure" drawdown cross-reference.
+- `https://support.lucidtrading.com/en/articles/13891785-lucidmaxx-overview`, "LucidMaxx Overview." Source of the invite-only qualification gate, LucidMaxx status criteria, benefits list, live payout structure (90/10, daily, uncapped, no minimums), and the 5-account limit. Re-fetched 2026-09-26 (PT-71c firm-catalog recheck, 15:44 UTC, verifier 15:48 UTC): unchanged.
+- `https://support.lucidtrading.com/en/articles/14315460-lucidmaxx-eval-rules`, "LucidMaxx Eval Rules." Source of the per-size Evaluation table (Profit Target, Max Loss Limit, 40% Consistency, 5-day minimum) and the "same as the standard Lucid live structure" drawdown cross-reference. Re-fetched 2026-09-26, same recheck: unchanged.
 - `https://support.lucidtrading.com/en/articles/14315468-lucidmaxx-cooldown`, "LucidMaxx Cooldown." Source of the repeatable-cycle framing, the 2-week cooldown mechanic and its multi-account timing rule, and the reckless-trading escalation clause.
-- `https://support.lucidtrading.com/en/articles/14316866-lucidmaxx-eval-pricing`, "LucidMaxx Eval Pricing." Source of the dynamic 4-tier pricing table by account size and prior blown-live-account count, and the no-discount/no-promotion pricing rules.
+- `https://support.lucidtrading.com/en/articles/14316866-lucidmaxx-eval-pricing`, "LucidMaxx Eval Pricing." Source of the dynamic 4-tier pricing table by account size and prior blown-live-account count, and the no-discount/no-promotion pricing rules. Re-fetched 2026-09-26, same recheck: all sixteen per-tier dollar figures unchanged.

@@ -104,6 +104,7 @@ export interface FundedStateValueConfig {
     readonly meanHorizonDays?: number;
     readonly minRetainedCushion?: number;
     readonly payoutRegimeCap?: number;
+    readonly payoutRequestSize?: Dollars;
     readonly plan: Plan;
     readonly positionSizing?: null | PositionSizingConfig;
     readonly rrRatio: number;
@@ -316,6 +317,7 @@ interface FundedSolveContext {
     readonly lockedThreshold: number;
     readonly offsetBucketCount: number;
     readonly payoutRegimeCap: number;
+    readonly payoutRequestSize: Dollars | undefined;
     readonly peakRatchet: PeakRatchet;
     readonly plan: Plan;
     readonly positionSizing: null | PositionSizingConfig;
@@ -577,6 +579,15 @@ function buildFundedSolveContext(
     const retainedCushion = plan.resolveRetainedCushion(
         config.minRetainedCushion,
     );
+    const payoutRequestSize = config.payoutRequestSize;
+    if (
+        payoutRequestSize !== undefined &&
+        !(Number.isFinite(payoutRequestSize) && payoutRequestSize > 0)
+    ) {
+        throw new Error(
+            `${plan.label}: payoutRequestSize must be a finite number > 0, got ${payoutRequestSize}`,
+        );
+    }
     const feePerAttempt = config.feePerAttempt;
     const bustTerminalValue = config.evalInitialValue - feePerAttempt;
 
@@ -711,6 +722,7 @@ function buildFundedSolveContext(
         retainedCushion,
     );
     const isBaselineAlwaysTheFloor =
+        payoutRequestSize === undefined &&
         !plan.canLeaveBalanceAbovePayoutFloor() &&
         lockedPayoutFloor >= startingBalance &&
         !isUnlockedPostPayoutReachable;
@@ -825,6 +837,7 @@ function buildFundedSolveContext(
         freshStartHorizonCredit: freshStartHorizonCreditOf(
             plan,
             retainedCushion,
+            payoutRequestSize,
         ),
         fundedResetFee:
             plan.fundedReset === null
@@ -844,6 +857,7 @@ function buildFundedSolveContext(
         lockedThreshold,
         offsetBucketCount,
         payoutRegimeCap,
+        payoutRequestSize,
         peakRatchet,
         plan,
         positionSizing,
@@ -1251,7 +1265,7 @@ function dayCloseOutcome(
     tracker.recordSessionClose(state);
     const payout = tracker.tryPayout({
         minRetainedCushion: context.retainedCushion,
-        payoutRequestSize: undefined,
+        payoutRequestSize: context.payoutRequestSize,
         plan,
         state,
     });
@@ -1302,6 +1316,7 @@ function dayCloseOutcome(
                 ? 0
                 : tracker.closeoutCredit({
                       minRetainedCushion: context.retainedCushion,
+                      payoutRequestSize: context.payoutRequestSize,
                       plan,
                       state,
                   }),
@@ -1427,11 +1442,13 @@ function decodePair(
 function freshStartHorizonCreditOf(
     plan: Plan,
     retainedCushion: number,
+    payoutRequestSize: Dollars | undefined,
 ): number {
     const state = plan.initialState();
     plan.beginFundedPhase(state);
     return newFundedCycleTracker(state).closeoutCredit({
         minRetainedCushion: retainedCushion,
+        payoutRequestSize,
         plan,
         state,
     });

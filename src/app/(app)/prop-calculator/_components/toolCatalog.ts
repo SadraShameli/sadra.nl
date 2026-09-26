@@ -176,7 +176,7 @@ const TOOL_DEFINITIONS = {
     [ToolId.Rules]: statelessTool({
         blurb: 'Browse the modeled rules of every plan: drawdown, daily loss limit, consistency, payout structure and fees.',
         group: ToolGroup.Compare,
-        hasPage: false,
+        hasPage: true,
         icon: BookOpen,
         label: 'Plan rules',
         route: routes.propCalculator.rules,

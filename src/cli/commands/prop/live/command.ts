@@ -70,6 +70,10 @@ export function describeLucidDailyTransitionProfit(plan: LivePlan): string {
     return `Lucid Daily live only: sim profit above the buffer at the live transition, paid out once at the ${describeTraderShare(plan.payoutTiers)} split and capped at ${formatCurrency(LUCID_DAILY_LIVE_TRANSITION_PAYOUT_CAP)} (shown as a one-off credit, never annualized). Omit for a live account with no transition credit`;
 }
 
+const LIVE_SIZING = `live risk is a percent of the drawdown cushion placed in whole contracts at that stop (with --instrument, default ${commonSimArguments.instrument.default}), at least one contract and at most the live contract limit`;
+
+const LIVE_STOP_POINTS_REFUSAL = `prop live needs --stop-points: ${LIVE_SIZING}. Add --stop-points.`;
+
 export const liveArguments = {
     ...commonSimArguments,
     ...commissionArgument,
@@ -100,6 +104,10 @@ export const liveArguments = {
     'request-size': {
         description:
             "Per payout request: a dollar amount, or 'all' to withdraw everything down to one cent above the drawdown floor. Default: withdraw only the excess above one full drawdown of cushion. On a live plan with a seed Reserve, released seed Reserve is held back until every increment is released, and 'all' also withdraws the starting seed above the floor; any withdrawal of seed or Reserve is reported as capital returned, never annualized",
+        type: 'string',
+    },
+    'stop-points': {
+        description: `Required stop distance in points: ${LIVE_SIZING}`,
         type: 'string',
     },
     'transition-profit': {
@@ -221,7 +229,7 @@ export function parseLiveSimInputs(
     arguments_: LiveArguments,
     buildLivePlan: LivePlanBuilder,
 ): LiveSimInputs {
-    const stopPoints = arguments_['stop-points'];
+    const stopPoints = readLiveStopPoints(arguments_['stop-points']);
     const plan = buildLivePlan(
         readCushionPercent(
             arguments_['cushion-percent-pre-lock'],
@@ -251,10 +259,7 @@ export function parseLiveSimInputs(
         plan,
         rrRatio: readPositiveNumber(arguments_.rr, 'rr'),
         seed: readInteger(arguments_.seed, 'seed'),
-        stopPoints:
-            stopPoints === undefined
-                ? undefined
-                : readPositiveNumber(stopPoints, 'stop-points'),
+        stopPoints,
         tradesPerDay: readPositiveInteger(arguments_.tpd, 'tpd'),
         trials: readPositiveInteger(arguments_.trials, 'trials'),
         winrate: readFraction(arguments_.winrate, 'winrate'),
@@ -342,8 +347,7 @@ function describeWithdrawalsAtHorizon(
 export default defineCommand({
     args: liveArguments,
     meta: {
-        description:
-            'Simulate a standalone live-capital account (--firm), sized by percent of drawdown cushion instead of a static risk ladder.',
+        description: `Simulate a standalone live-capital account (--firm), sized by percent of drawdown cushion instead of a static risk ladder. Live sizing needs --stop-points: ${LIVE_SIZING}.`,
         name: 'live',
     },
     run(context) {
@@ -400,6 +404,11 @@ function readCushionPercent(
         ),
         preLock: readPercentAsFraction(rawPreLock, 'cushion-percent-pre-lock'),
     };
+}
+
+function readLiveStopPoints(raw: string | undefined): number {
+    if (raw === undefined) throw new TypeError(LIVE_STOP_POINTS_REFUSAL);
+    return readPositiveNumber(raw, 'stop-points');
 }
 
 function resolveRequestSize(

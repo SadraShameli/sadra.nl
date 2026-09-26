@@ -1,6 +1,7 @@
 import { type ArgsDef, defineCommand } from 'citty';
 
 import {
+    commonSimArguments,
     copyAccountsArgument,
     type CouponDiscountArguments,
     couponDiscountArguments,
@@ -9,6 +10,7 @@ import {
     readCouponDiscountPercents,
     readFraction,
     readInteger,
+    readNonNegativeNumber,
     readPositiveInteger,
     readPositiveNumber,
     readRebuyLagDays,
@@ -24,10 +26,13 @@ import {
     type CouponDiscounts,
     type DayPolicy,
     describeFundedResetTerms,
+    type Dollars,
+    dollars,
     type Fraction0to1,
     fundedResetDpModelSentence,
     fundedResetsBeforeFirstPayout,
     isEvalDpEligible,
+    minimumPayoutRequest,
     type Plan,
     RenewalCycleObjective,
     type SimInputs,
@@ -36,6 +41,7 @@ import {
     TRADING_DAYS_PER_YEAR,
 } from '~/lib/prop-calculator';
 import {
+    type AverageRewardConfig,
     RateSearchStatus,
     solveAverageRewardPolicy,
 } from '~/lib/prop-calculator/core/AverageRewardSolver';
@@ -55,7 +61,13 @@ import {
 export interface DpArguments
     extends
         CouponDiscountArguments,
-        Pick<TradingArguments, 'early-withdrawal' | 'funded-reset'> {
+        Pick<
+            TradingArguments,
+            | 'early-withdrawal'
+            | 'funded-reset'
+            | 'request-size'
+            | 'retain-cushion'
+        > {
     'copy-accounts': string;
     'eval-days': string;
     'funded-days': string;
@@ -73,6 +85,8 @@ export interface DpInputs {
     fundedHorizonDays: number;
     maxEvalDays: number;
     maxSolves: number;
+    minRetainedCushion: number;
+    payoutRequestSize: Dollars | undefined;
     rebuyLagDays: number;
     rrRatio: number;
     seed: number;
@@ -96,6 +110,41 @@ export function bundleRenewalNote(
         : `${objective.plan.label}: with ${objective.copyAccounts} copy-traded accounts, this DP and its simulate() cross-check re-buy all of them together at every renewal and apply the ${formatPercent(bundlePercent / 100)} bundle discount to each renewal cycle's first eval fee and activation fee. The cash-flow timeline instead runs each account slot on its own and gives the bundle discount only to each slot's first purchase, so the two differ on repeat purchases. Which one matches the firm's checkout for a re-purchase is an open question.`;
 }
 
+export function dpPayoutRequestBelowMinimumWarning(
+    plan: Plan,
+    inputs: DpInputs,
+): null | string {
+    const requested = inputs.payoutRequestSize;
+    const minimum = minimumPayoutRequest(plan);
+    return requested === undefined || requested >= minimum
+        ? null
+        : `${plan.label}: --request-size ${formatCurrency(requested)} is below the plan's minimum payout request of ${formatCurrency(minimum)}, so the DP and the empirical run never take a regular payout at this size. Both still credit up to ${formatCurrency(requested)} of the withdrawable balance at every horizon exit, because that closeout credit does not check the minimum, so the funded value below comes only from the horizon credit. Use --request-size ${formatCurrency(minimum)} or more, or leave the flag out to request the whole withdrawable amount.`;
+}
+
+export function dpPayoutSettingsLine(plan: Plan, inputs: DpInputs): string {
+    const request =
+        inputs.payoutRequestSize === undefined
+            ? 'the whole withdrawable amount'
+            : formatCurrency(inputs.payoutRequestSize);
+    return `payouts in the DP and the empirical run: retained cushion ${formatCurrency(plan.resolveRetainedCushion(inputs.minRetainedCushion))} (the larger of --retain-cushion ${formatCurrency(inputs.minRetainedCushion)} and the plan floor ${formatCurrency(plan.defaultRetainedCushion())}), payout request ${request}`;
+}
+
+export function dpSolverConfig(
+    inputs: DpInputs,
+    objective: RenewalCycleObjective,
+): AverageRewardConfig {
+    return {
+        fundedGrid: {
+            minRetainedCushion: inputs.minRetainedCushion,
+            payoutRequestSize: inputs.payoutRequestSize,
+        },
+        maxSolves: inputs.maxSolves,
+        objective,
+        rrRatio: inputs.rrRatio,
+        winrate: inputs.winrate,
+    };
+}
+
 export function empiricalSimInputs(
     inputs: DpInputs,
     plan: Plan,
@@ -109,6 +158,8 @@ export function empiricalSimInputs(
         fundedHorizonDays: inputs.fundedHorizonDays,
         maxAttempts: EMPIRICAL_MAX_ATTEMPTS,
         maxEvalDays: inputs.maxEvalDays,
+        minRetainedCushion: inputs.minRetainedCushion,
+        payoutRequestSize: inputs.payoutRequestSize,
         plan,
         rebuyLagDays: inputs.rebuyLagDays,
         riskPerTrade: 1,
@@ -178,6 +229,7 @@ export function fundedValueIterationLine(
 }
 
 export function readDpInputs(arguments_: DpArguments): DpInputs {
+    const requestSize = arguments_['request-size'];
     return {
         copyAccounts: readPositiveInteger(
             arguments_['copy-accounts'],
@@ -190,6 +242,14 @@ export function readDpInputs(arguments_: DpArguments): DpInputs {
         ),
         maxEvalDays: readPositiveInteger(arguments_['eval-days'], 'eval-days'),
         maxSolves: readPositiveInteger(arguments_.iterations, 'iterations'),
+        minRetainedCushion: readNonNegativeNumber(
+            arguments_['retain-cushion'],
+            'retain-cushion',
+        ),
+        payoutRequestSize:
+            requestSize === undefined
+                ? undefined
+                : dollars(readPositiveNumber(requestSize, 'request-size')),
         rebuyLagDays: readRebuyLagDays(arguments_['rebuy-lag-days']),
         rrRatio: readPositiveNumber(arguments_.rr, 'rr'),
         seed: readInteger(arguments_.seed, 'seed'),
@@ -272,6 +332,8 @@ export const dpArguments = {
         type: 'string',
     },
     ...rebuyLagDaysArgument,
+    'request-size': commonSimArguments['request-size'],
+    'retain-cushion': tradingArguments['retain-cushion'],
     rr: {
         default: '2',
         description: 'Reward to risk ratio',
@@ -339,23 +401,28 @@ export default defineCommand({
             }
 
             const inputs = readDpInputs(context.args);
-            const { copyAccounts, maxSolves, rrRatio, winrate } = inputs;
+            const { copyAccounts } = inputs;
             const objective = renewalObjective(inputs, plan);
             const bundleNote = bundleRenewalNote(objective);
             if (bundleNote !== null) {
                 ui.muted(`${bundleNote}\n`);
+            }
+            ui.muted(`${dpPayoutSettingsLine(plan, inputs)}\n`);
+            const requestWarning = dpPayoutRequestBelowMinimumWarning(
+                plan,
+                inputs,
+            );
+            if (requestWarning !== null) {
+                ui.warn(requestWarning);
             }
 
             spinner = ui
                 .spinner(`solving average-reward DP for ${plan.label}`)
                 .start();
             const started = performance.now();
-            const solution = solveAverageRewardPolicy({
-                maxSolves,
-                objective,
-                rrRatio,
-                winrate,
-            });
+            const solution = solveAverageRewardPolicy(
+                dpSolverConfig(inputs, objective),
+            );
             const elapsed = (performance.now() - started) / 1000;
             const solvesUsed = solution.trace.length;
             const totalStates =

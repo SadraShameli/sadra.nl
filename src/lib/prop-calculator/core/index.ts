@@ -88,6 +88,11 @@ export {
     StaticDrawdown,
 } from './DrawdownStrategy';
 export {
+    evalStartStateIssue,
+    remainingEvalSessions,
+    subscriptionElapsedDaysIssue,
+} from './EvalStartState';
+export {
     computeEvalStateValue,
     type EvalStateValueConfig,
     type EvalStateValueResult,
@@ -118,11 +123,18 @@ export {
 export { FirmId, parseFirmId } from './FirmId';
 export {
     describePayoutDayGate,
+    type EligiblePayout,
+    type FundedCycleSeed,
+    fundedCycleSeedSchema,
     type FundedCycleTracker,
+    type FundedPayoutOptions,
     newFundedCycleTracker,
     newFundedCycleTrackerAfterReset,
     type OneTimeEarlyWithdrawal,
     PayoutDayGateBasis,
+    type PayoutEvaluation,
+    PayoutEvaluationKind,
+    restoreFundedCycleTracker,
     sessionDaysForCalendarDays,
     withOneTimeEarlyWithdrawalTaken,
 } from './FundedPayoutCycle';
@@ -158,6 +170,7 @@ export {
     defaultLadderGridMax,
     enumerateDay,
     LADDER_EVAL_PASS_FLOOR,
+    type LadderAttemptStats,
     ladderFrontier,
     type LadderGridConfig,
     ladderGridConfigSchema,
@@ -179,6 +192,25 @@ export {
     validateLadderGrid,
 } from './LadderSearch';
 export {
+    addCalendarYears,
+    addIsoDays,
+    dayNumberOf,
+    daysInIsoMonth,
+    ISO_DATE_LENGTH,
+    IsoDateError,
+    isoDateOfDay,
+    isoDaysBetween,
+    isoMonthOf,
+    isoYearOf,
+    isWeekendDay,
+    MS_PER_DAY,
+    todayIsoDate,
+    UtcWeekday,
+    utcWeekdayOfDay,
+    weekdaysInRange,
+} from './lib/isoDate';
+export {
+    ceilToWholeCents,
     CENT_ROUNDING_TOLERANCE_IN_CENTS,
     CENTS_PER_DOLLAR,
     type ContractCount,
@@ -192,7 +224,9 @@ export {
     type Fraction0to1,
     fractionSchema,
     isAtOrBelowWithinCentTolerance,
+    nonNegativeDollarsSchema,
     ONE_CENT,
+    payoutRequestSizeSchema,
     percent,
     type Percent0to100,
     percentSchema,
@@ -238,6 +272,23 @@ export {
     QualifyingDaysMilestonePayoutCap,
 } from './PayoutCap';
 export { PayoutFloorEffect } from './PayoutFloorEffect';
+export {
+    accountConclusionGate,
+    type AccountConclusionGate,
+    type AccountConclusionSource,
+    PayoutGate,
+} from './PayoutGate';
+export {
+    DEFAULT_PAYOUT_REQUEST_POLICY,
+    effectivePayoutRequest,
+    fullPayoutRequest,
+    minimumPayoutRequest,
+    type PayoutMinimumSource,
+    PayoutRequestPolicy,
+    PayoutRequestPolicyError,
+    type PayoutRequestSource,
+    reachablePayoutRequest,
+} from './PayoutRequestPolicy';
 export {
     type PayoutCountSplitTier,
     PayoutCountTieredPayoutSplit,
@@ -296,12 +347,20 @@ export {
     wholeContractRisk,
 } from './PositionSizing';
 export {
+    applyPayoutFloorEffect,
+    postPayoutThreshold,
+} from './PostPayoutThreshold';
+export {
     RenewalCycleObjective,
     type RenewalCycleObjectiveInit,
 } from './RenewalCycleObjective';
 export {
+    type AttemptDaySamples,
+    type CurrentAttemptInputs,
     replacementEconomics,
     type ReplacementEconomics,
+    replacementEconomicsFromState,
+    type ReplacementFromStateInputs,
     type ReplacementInputs,
 } from './Replacement';
 export {

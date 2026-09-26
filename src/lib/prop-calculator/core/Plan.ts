@@ -57,6 +57,10 @@ import {
     payoutFloorEffectName,
 } from './PayoutFloorEffect';
 import {
+    accountConclusionGate,
+    type AccountConclusionSource,
+} from './PayoutGate';
+import {
     type PayoutCountSplitTier,
     PayoutCountTieredPayoutSplit,
     type PayoutLadder,
@@ -186,6 +190,8 @@ export abstract class Plan {
     readonly isInstantFunded: boolean;
 
     readonly label: string;
+
+    readonly lifetimeConclusion: AccountConclusionSource;
 
     readonly maxConsecutiveIdleDays: null | number;
 
@@ -507,6 +513,11 @@ export abstract class Plan {
                 `${this.label}: payoutLadder.steps must not be empty`,
             );
         }
+        this.lifetimeConclusion = lifetimeConclusionOf(
+            this.maxLifetimePayoutDollars,
+            this.maxLifetimePayouts,
+            this.payoutLadder,
+        );
 
         this.payoutMethodFee = init.payoutMethodFee ?? dollars(0);
         this.payoutProfitPool =
@@ -818,20 +829,12 @@ export abstract class Plan {
     }
 
     isAccountConcluded(payoutsIssued: number, cumulativePayout = 0): boolean {
-        if (
-            this.maxLifetimePayoutDollars !== null &&
-            cumulativePayout >= this.maxLifetimePayoutDollars
-        ) {
-            return true;
-        }
-        if (this.maxLifetimePayouts !== null) {
-            return payoutsIssued >= this.maxLifetimePayouts;
-        }
-        const ladder = this.payoutLadder;
         return (
-            ladder !== null &&
-            ladder.capsAtLastStep !== true &&
-            payoutsIssued >= ladder.steps.length
+            accountConclusionGate(
+                this.lifetimeConclusion,
+                payoutsIssued,
+                cumulativePayout,
+            ) !== null
         );
     }
 
@@ -1052,4 +1055,24 @@ function assertDistinctThresholds(
         }
         seenThresholds.add(tier.thresholdProfit);
     }
+}
+
+function lifetimeConclusionOf(
+    maxLifetimePayoutDollars: Dollars | null,
+    maxLifetimePayouts: null | number,
+    payoutLadder: null | PayoutLadder,
+): AccountConclusionSource {
+    const exhaustingLadder =
+        payoutLadder === null || payoutLadder.capsAtLastStep === true
+            ? null
+            : payoutLadder;
+    const isCountBinding =
+        maxLifetimePayouts !== null &&
+        (exhaustingLadder === null ||
+            maxLifetimePayouts <= exhaustingLadder.steps.length);
+    return {
+        maxLifetimePayoutDollars,
+        maxLifetimePayouts: isCountBinding ? maxLifetimePayouts : null,
+        payoutLadder: isCountBinding ? null : exhaustingLadder,
+    };
 }

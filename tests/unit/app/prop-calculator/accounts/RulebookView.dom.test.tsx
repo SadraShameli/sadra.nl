@@ -586,3 +586,148 @@ describe('RulebookView when the rulebook cannot be read', () => {
         expect(fundedRiskInput()).toBeNull();
     });
 });
+
+describe('RulebookView v2 sections', () => {
+    let container: HTMLDivElement;
+    let root: Root;
+
+    beforeEach(() => {
+        vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        harness.rulebookQuery = answered(DEFAULT_RULEBOOK);
+        harness.upsert.mockClear();
+        harness.toastError.mockClear();
+        harness.toastSuccess.mockClear();
+        container = document.createElement('div');
+        document.body.append(container);
+        root = createRoot(container);
+        act(() => {
+            root.render(<RulebookView tradingPlan={READY_PLAN} />);
+        });
+    });
+
+    afterEach(() => {
+        act(() => {
+            root.unmount();
+        });
+        container.remove();
+        vi.unstubAllGlobals();
+    });
+
+    function labelled(label: string): HTMLLabelElement {
+        const element = [...container.querySelectorAll('label')].find(
+            (candidate) => candidate.textContent.startsWith(label),
+        );
+        if (element === undefined) throw new Error(`no label ${label}`);
+        return element;
+    }
+
+    function inputLabelled(label: string): HTMLInputElement {
+        const input = container.querySelector(
+            `#${CSS.escape(labelled(label).htmlFor)}`,
+        );
+        if (!(input instanceof HTMLInputElement)) {
+            throw new TypeError(`no input labelled ${label}`);
+        }
+        return input;
+    }
+
+    function itemOf(label: string): HTMLElement {
+        const item = labelled(label).parentElement;
+        if (item === null) {
+            throw new TypeError(`no form item for ${label}`);
+        }
+        return item;
+    }
+
+    async function save() {
+        await act(async () => {
+            requireButton(container, 'Save rulebook').click();
+            await new Promise((resolve) => setTimeout(resolve, 0));
+        });
+    }
+
+    it('renders a fieldset for every v2 section', () => {
+        const titles = [
+            ...container.querySelectorAll('[data-slot="card-title"]'),
+        ].map((title) => title.textContent);
+        expect(titles).toEqual(
+            expect.arrayContaining([
+                'Bankroll and scaling',
+                'Samples',
+                'Targets',
+                'Plausibility',
+                'Alerts',
+                'Display',
+                'Live transfer (your assumption, not a firm rule)',
+            ]),
+        );
+    });
+
+    it("leaves the loss-risk and sample thresholds empty, naming the video author's values only as help text", () => {
+        expect(inputLabelled('Loss-risk threshold').value).toBe('');
+        expect(inputLabelled('Eval attempts before').value).toBe('');
+        expect(inputLabelled('Funded accounts before').value).toBe('');
+        expect(itemOf('Loss-risk threshold').textContent).toContain(
+            "0.5% (the video author's choice, not a default)",
+        );
+        expect(itemOf('Eval attempts before').textContent).toContain(
+            "50 (the video author's choice, not a default)",
+        );
+        expect(itemOf('Loss-risk threshold').textContent).toContain(
+            'Empty means not set.',
+        );
+    });
+
+    it('shows the defaults that are set and the risk display unit', () => {
+        expect(inputLabelled('Days between rounds').value).toBe('14');
+        expect(inputLabelled('Typical edge up to').value).toBe('0.3');
+        expect(inputLabelled('Strong edge up to').value).toBe('0.35');
+        expect(itemOf('Show risk as').textContent).toContain('Account dollars');
+        expect(inputLabelled('My Funded Futures').value).toBe('');
+    });
+
+    it('saves the thresholds and firm hazards the user sets, as fractions', async () => {
+        typeInto(inputLabelled('Loss-risk threshold'), '0.5');
+        typeInto(inputLabelled('Eval attempts before'), '50');
+        typeInto(inputLabelled('My Funded Futures'), '10');
+        await save();
+
+        expect(harness.upsert).toHaveBeenCalledTimes(1);
+        expect(harness.upsert).toHaveBeenCalledWith({
+            ...DEFAULT_RULEBOOK,
+            bankroll: {
+                ...DEFAULT_RULEBOOK.bankroll,
+                lossRiskThreshold: 0.005,
+            },
+            liveTransfer: { hazardPerPaidPayoutByFirm: { mffu: 0.1 } },
+            samples: { ...DEFAULT_RULEBOOK.samples, minEvalAttempts: 50 },
+        });
+    });
+
+    it('blocks a 100% firm hazard and states the bound in percent', async () => {
+        typeInto(inputLabelled('My Funded Futures'), '100');
+        await save();
+
+        expect(harness.upsert).not.toHaveBeenCalled();
+        expect(itemOf('My Funded Futures').textContent).toContain(
+            'Enter a percentage below 100%',
+        );
+    });
+
+    it('keeps the documented rule label when only v2 fields change', () => {
+        typeInto(inputLabelled('Typical edge up to'), '0.2');
+        typeInto(inputLabelled('Accounts you can trade per day'), '8');
+        expect(container.textContent).toContain('Matches the skill');
+        expect(container.textContent).toContain('your documented rule');
+    });
+
+    it('blocks a save with an inverted plausibility pair on the typical field', async () => {
+        typeInto(inputLabelled('Typical edge up to'), '0.5');
+        await save();
+
+        expect(harness.upsert).not.toHaveBeenCalled();
+        expect(itemOf('Typical edge up to').textContent).toContain(
+            'must not exceed the strong one',
+        );
+    });
+});

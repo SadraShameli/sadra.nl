@@ -5,10 +5,6 @@ import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
 import {
-    ContractUnit,
-    describeDll,
-    describeFundedContracts,
-    describeShare,
     describeStopRule,
     formatDaysToPass,
     hasEvalPass,
@@ -55,6 +51,12 @@ import {
     type Plan,
     type PlanId,
 } from '~/lib/prop-calculator';
+import {
+    ContractUnit,
+    describeDll,
+    describeFundedContracts,
+    describeShare,
+} from '~/lib/prop-calculator/describe';
 
 const ARGS = {
     ...planArguments,

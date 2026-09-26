@@ -6,6 +6,9 @@ import { describe, expect, it, vi } from 'vitest';
 import optimizeDp, {
     bundleRenewalNote,
     dpArguments,
+    dpPayoutRequestBelowMinimumWarning,
+    dpPayoutSettingsLine,
+    dpSolverConfig,
     EMPIRICAL_MAX_ATTEMPTS,
     empiricalSimInputs,
     empiricalSummaryLines,
@@ -21,12 +24,18 @@ import optimizeDp, {
     resolveDpPlan,
 } from '~/cli/commands/prop/optimize/dp/command';
 import {
+    commonSimArguments,
+    tradingArguments,
+} from '~/cli/commands/prop/shared';
+import { formatCurrency } from '~/lib/format';
+import {
     ApexVariant,
     type DayPolicy,
     dollars,
     E8FuturesVariant,
     FirmId,
     MffuVariant,
+    minimumPayoutRequest,
     type Plan,
     PolicySizing,
     type SimOutputs,
@@ -341,14 +350,16 @@ function resolvedDpPlan(argv: string[]): Plan {
     return resolveDpPlan(parseArgs<typeof dpArguments>(argv, dpArguments));
 }
 
+const SHARED_RETAIN_CUSHION_FLAG = 'retain-cushion';
+
 describe('optimize dp prose uses no double-hyphen dash (WP24)', () => {
-    it('writes the funded gap warnings and every flag description without a -- dash', async () => {
+    it('writes the funded gap warnings and every flag description it owns without a -- dash (the shared --retain-cushion description lives in shared.ts, whose wording PT-47b rewrites)', async () => {
         const arguments_ = await resolveArguments();
         const texts = [
             fundedDpModelGapWarning(mffProPlan()) ?? '',
-            ...Object.values(arguments_).map(
-                (argument) => argument.description ?? '',
-            ),
+            ...Object.entries(arguments_)
+                .filter(([name]) => name !== SHARED_RETAIN_CUSHION_FLAG)
+                .map(([, argument]) => argument.description ?? ''),
         ];
 
         expect(texts[0]).not.toBe('');
@@ -519,6 +530,8 @@ describe('optimize dp flag bounds', () => {
         ['iterations', '2.5', /--iterations must be a whole number >= 1/],
         ['copy-accounts', '0', /--copy-accounts must be a whole number >= 1/],
         ['eval-discount', '101', /--eval-discount/],
+        ['request-size', '0', /--request-size must be a number > 0/],
+        ['retain-cushion', '-1', /--retain-cushion must be a number >= 0/],
     ])('rejects --%s %s, naming the flag', (flag, value, message) => {
         expect(() => parseDpInputs([`--${flag}=${value}`])).toThrow(message);
     });
@@ -530,6 +543,8 @@ describe('optimize dp flag bounds', () => {
             fundedHorizonDays: 252,
             maxEvalDays: 40,
             maxSolves: 12,
+            minRetainedCushion: 0,
+            payoutRequestSize: undefined,
             rebuyLagDays: 0,
             rrRatio: 2,
             seed: 42,
@@ -537,6 +552,250 @@ describe('optimize dp flag bounds', () => {
             winrate: 0.4,
         });
     });
+});
+
+describe('optimize dp takes the shared --retain-cushion and --request-size flags into the solve and the empirical run (PT-47a, F-150)', () => {
+    const policy: DayPolicy = {
+        ladder: [200],
+        maxLossesPerDay: null,
+        sizing: PolicySizing.ContractCapped,
+        stopRule: { kind: DayStopRuleKind.None },
+    };
+
+    it('reuses the shared flag definitions', () => {
+        expect(dpArguments['retain-cushion']).toBe(
+            tradingArguments['retain-cushion'],
+        );
+        expect(dpArguments['request-size']).toBe(
+            commonSimArguments['request-size'],
+        );
+    });
+
+    it('reads both flags', () => {
+        const inputs = parseDpInputs([
+            '--retain-cushion=2500',
+            '--request-size=500',
+        ]);
+        expect(inputs.minRetainedCushion).toBe(2500);
+        expect(inputs.payoutRequestSize).toBe(500);
+    });
+
+    it('hands the retained cushion and request size to the funded grid of the solver config', () => {
+        const inputs = parseDpInputs([
+            '--retain-cushion=2500',
+            '--request-size=500',
+        ]);
+        const objective = renewalObjective(inputs, topStepNoFeeStandardPlan());
+        const config = dpSolverConfig(inputs, objective);
+        expect(config.fundedGrid?.minRetainedCushion).toBe(2500);
+        expect(config.fundedGrid?.payoutRequestSize).toBe(500);
+        expect(config.objective).toBe(objective);
+        expect(config.maxSolves).toBe(inputs.maxSolves);
+        expect(config.rrRatio).toBe(inputs.rrRatio);
+        expect(config.winrate).toBe(inputs.winrate);
+    });
+
+    it('leaves the request size undefined and the cushion at 0 without the flags, so the solve keeps the plan-default cushion and the whole withdrawable request', () => {
+        const inputs = parseDpInputs([]);
+        const config = dpSolverConfig(
+            inputs,
+            renewalObjective(inputs, topStepNoFeeStandardPlan()),
+        );
+        expect(config.fundedGrid?.minRetainedCushion).toBe(0);
+        expect(config.fundedGrid?.payoutRequestSize).toBeUndefined();
+    });
+
+    it('carries the same two settings into the empirical simulate() inputs', () => {
+        const inputs = parseDpInputs([
+            '--retain-cushion=2500',
+            '--request-size=500',
+        ]);
+        const simInputs = empiricalSimInputs(
+            inputs,
+            topStepNoFeeStandardPlan(),
+            { evalDayPolicy: policy, fundedDayPolicy: policy },
+        );
+        expect(simInputs.minRetainedCushion).toBe(2500);
+        expect(simInputs.payoutRequestSize).toBe(500);
+        expect(
+            empiricalSimInputs(parseDpInputs([]), topStepNoFeeStandardPlan(), {
+                evalDayPolicy: policy,
+                fundedDayPolicy: policy,
+            }).payoutRequestSize,
+        ).toBeUndefined();
+    });
+
+    it('names the resolved retained cushion and the request size in one line', () => {
+        const plan = resolvedDpPlan([
+            '--firm',
+            'mffu',
+            '--variant',
+            'rapid-eod',
+        ]);
+        expect(plan.defaultRetainedCushion()).toBe(2000);
+        expect(
+            dpPayoutSettingsLine(
+                plan,
+                parseDpInputs(['--retain-cushion=2500', '--request-size=500']),
+            ),
+        ).toBe(
+            'payouts in the DP and the empirical run: retained cushion $2,500 (the larger of --retain-cushion $2,500 and the plan floor $2,000), payout request $500',
+        );
+        expect(dpPayoutSettingsLine(plan, parseDpInputs([]))).toBe(
+            'payouts in the DP and the empirical run: retained cushion $2,000 (the larger of --retain-cushion $0 and the plan floor $2,000), payout request the whole withdrawable amount',
+        );
+    });
+
+    it('run() hands the solver and simulate() the same cushion and request size, and prints the settings line', async () => {
+        const argv = [
+            '--firm',
+            'mffu',
+            '--variant',
+            'rapid-eod',
+            '--retain-cushion',
+            '2500',
+            '--request-size',
+            '500',
+            '--eval-days',
+            '2',
+            '--funded-days',
+            '2',
+            '--iterations',
+            '1',
+            '--trials',
+            '10',
+        ];
+        vi.mocked(solveAverageRewardPolicy).mockClear();
+        vi.mocked(simulate).mockClear();
+
+        const { stdout } = await capturedRun(argv);
+
+        const solverGrids = vi
+            .mocked(solveAverageRewardPolicy)
+            .mock.calls.map(([config]) => ({
+                minRetainedCushion: config.fundedGrid?.minRetainedCushion,
+                payoutRequestSize: config.fundedGrid?.payoutRequestSize,
+            }));
+        const simulated = vi.mocked(simulate).mock.calls.map(([inputs]) => ({
+            minRetainedCushion: inputs.minRetainedCushion,
+            payoutRequestSize: inputs.payoutRequestSize,
+        }));
+        expect(solverGrids).toStrictEqual([
+            { minRetainedCushion: 2500, payoutRequestSize: 500 },
+        ]);
+        expect(simulated).toStrictEqual(solverGrids);
+        expect(stdout).toContain(
+            'payouts in the DP and the empirical run: retained cushion $2,500',
+        );
+    }, 600_000);
+});
+
+function belowMinimumWarningText(plan: Plan, requested: number): string {
+    const minimum = formatCurrency(minimumPayoutRequest(plan));
+    return `${plan.label}: --request-size ${formatCurrency(requested)} is below the plan's minimum payout request of ${minimum}, so the DP and the empirical run never take a regular payout at this size. Both still credit up to ${formatCurrency(requested)} of the withdrawable balance at every horizon exit, because that closeout credit does not check the minimum, so the funded value below comes only from the horizon credit. Use --request-size ${minimum} or more, or leave the flag out to request the whole withdrawable amount.`;
+}
+
+describe('optimize dp warns when --request-size is below the plan minimum payout request (PT-47a review)', () => {
+    it('names the plan minimum and the horizon-credit-only value for MFF Pro 50K at one dollar below its minimum', () => {
+        const plan = mffProPlan();
+        const minimum = minimumPayoutRequest(plan);
+        expect(minimum).toBeGreaterThan(1);
+        const requested = minimum - 1;
+
+        expect(
+            dpPayoutRequestBelowMinimumWarning(
+                plan,
+                parseDpInputs([`--request-size=${requested}`]),
+            ),
+        ).toBe(belowMinimumWarningText(plan, requested));
+    });
+
+    it('stays silent at the plan minimum, above it, and without --request-size', () => {
+        const plan = mffProPlan();
+        const minimum = minimumPayoutRequest(plan);
+
+        expect(
+            dpPayoutRequestBelowMinimumWarning(
+                plan,
+                parseDpInputs([`--request-size=${minimum}`]),
+            ),
+        ).toBeNull();
+        expect(
+            dpPayoutRequestBelowMinimumWarning(
+                plan,
+                parseDpInputs([`--request-size=${minimum + 500}`]),
+            ),
+        ).toBeNull();
+        expect(
+            dpPayoutRequestBelowMinimumWarning(plan, parseDpInputs([])),
+        ).toBeNull();
+    });
+
+    it('reads the payout ladder minimum before the plan minimum, like the payout gate', () => {
+        const plan = mffBuilderPlan();
+        const ladderMinimum = plan.payoutLadder?.minRequestAmount;
+        expect(ladderMinimum).toBeGreaterThan(1);
+        expect(minimumPayoutRequest(plan)).toBe(ladderMinimum);
+        const requested = (ladderMinimum ?? 0) - 1;
+
+        expect(
+            dpPayoutRequestBelowMinimumWarning(
+                plan,
+                parseDpInputs([`--request-size=${requested}`]),
+            ),
+        ).toBe(belowMinimumWarningText(plan, requested));
+    });
+
+    it('writes the warning without a -- dash or an em dash', () => {
+        const plan = mffProPlan();
+        const warning =
+            dpPayoutRequestBelowMinimumWarning(
+                plan,
+                parseDpInputs(['--request-size=1']),
+            ) ?? '';
+
+        expect(warning).not.toBe('');
+        expect(warning).not.toContain(' -- ');
+        expect(warning).not.toContain('\u{2014}');
+    });
+
+    it('run() prints the warning before solving when the request is below the plan minimum', async () => {
+        const plan = resolvedDpPlan([
+            '--firm',
+            'mffu',
+            '--variant',
+            'rapid-eod',
+        ]);
+        const minimum = minimumPayoutRequest(plan);
+        expect(minimum).toBeGreaterThan(1);
+        const requested = minimum - 1;
+        const argv = [
+            '--firm',
+            'mffu',
+            '--variant',
+            'rapid-eod',
+            '--request-size',
+            String(requested),
+            '--eval-days',
+            '2',
+            '--funded-days',
+            '2',
+            '--iterations',
+            '1',
+            '--trials',
+            '10',
+        ];
+
+        const { stdout } = await capturedRun(argv);
+
+        const warningAt = stdout.indexOf(
+            belowMinimumWarningText(plan, requested),
+        );
+        expect(warningAt).toBeGreaterThanOrEqual(0);
+        expect(warningAt).toBeLessThan(
+            stdout.indexOf('DP-predicted average reward'),
+        );
+    }, 600_000);
 });
 
 describe('optimize dp empirical summary (D2)', () => {

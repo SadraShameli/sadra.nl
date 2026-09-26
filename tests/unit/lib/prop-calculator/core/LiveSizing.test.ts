@@ -173,7 +173,9 @@ describe('resolveLiveAffordableRoom resolves the live room once, never below zer
 
 describe('resolveAffordableRoomWithin only takes a daily loss room resolveDailyLossRoom made, from the core barrel (WP39f)', () => {
     it('brands the daily loss room so a raw number cannot skip the cent tolerance clamp', () => {
-        expectTypeOf(resolveDailyLossRoom).returns.toEqualTypeOf<DailyLossRoom>();
+        expectTypeOf(
+            resolveDailyLossRoom,
+        ).returns.toEqualTypeOf<DailyLossRoom>();
         expectTypeOf(resolveAffordableRoomWithin)
             .parameter(1)
             .toEqualTypeOf<DailyLossRoom>();

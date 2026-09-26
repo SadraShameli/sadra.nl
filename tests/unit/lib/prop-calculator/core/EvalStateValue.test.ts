@@ -10,7 +10,6 @@ import {
     type DayPolicy,
     DayStopRuleKind,
     dollars,
-    EodTrailingDrawdown,
     FirmId,
     fraction,
     INSTRUMENTS,
@@ -28,6 +27,8 @@ import { LucidTrading } from '~/lib/prop-calculator/firms/lucid/LucidTrading';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 import { simulate } from '~/lib/prop-calculator/simulator';
 
+import { baseBuilderPlan, toyDpConfig, toyPlan } from '../evalStateValueToy';
+
 function apexIntradayPlan(): Plan {
     const plan = new ApexTraderFunding().findPlan({
         accountSize: 50_000,
@@ -35,16 +36,6 @@ function apexIntradayPlan(): Plan {
         variant: ApexVariant.Intraday,
     });
     if (!plan) throw new Error('Apex Intraday 50K plan not found');
-    return plan;
-}
-
-function baseBuilderPlan(): Plan {
-    const plan = new MyFundedFutures().findPlan({
-        accountSize: 50_000,
-        firm: FirmId.Mffu,
-        variant: MffuVariant.Builder,
-    });
-    if (!plan) throw new Error('MFF Builder 50K plan not found');
     return plan;
 }
 
@@ -76,37 +67,6 @@ function rapidEodPlan(): Plan {
     });
     if (!plan) throw new Error('MFF Rapid EOD 50K plan not found');
     return plan;
-}
-
-function toyDpConfig(
-    plan: Plan,
-    maxEvalDays: number,
-    maxActionDollars: number,
-) {
-    return {
-        actionStepDollars: 50,
-        cushionStepDollars: 50,
-        maxActionDollars,
-        maxEvalDays,
-        plan,
-        profitStepDollars: 50,
-        rrRatio: 2,
-        tradesPerDay: 1,
-        winrate: fraction(0.5),
-    };
-}
-
-function toyPlan(profitTarget: number): Plan {
-    return baseBuilderPlan().withOverrides({
-        accountSize: dollars(1000),
-        consistency: null,
-        contractLimits: undefined,
-        drawdown: new EodTrailingDrawdown({ amount: dollars(100) }),
-        evalDailyLossLimit: { kind: DailyLossLimitKind.None },
-        maxEvalTradingDays: undefined,
-        minTradingDays: 0,
-        profitTarget: dollars(profitTarget),
-    });
 }
 
 describe('computeEvalStateValue backward induction, hand-computable toy cases', () => {

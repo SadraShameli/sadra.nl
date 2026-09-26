@@ -34,6 +34,11 @@ export {
     type StagedAccount,
 } from './AccountStageOnDate';
 export { AccountStatus } from './AccountStatus';
+export {
+    BankrollTransferKind,
+    bankrollTransferKindLabel,
+} from './BankrollTransferKind';
+export { BustCause, bustCauseLabel } from './BustCause';
 export { DashboardBalanceConvention } from './DashboardBalanceConvention';
 export {
     COUNT_ENTRY_MESSAGE,
@@ -50,6 +55,14 @@ export {
     feePrefillDefaultKind,
     type FeePrefillPlan,
 } from './FeePrefill';
+export {
+    FirmEngagementReason,
+    firmEngagementReasonLabel,
+} from './FirmEngagementReason';
+export {
+    FirmEngagementStatus,
+    firmEngagementStatusLabel,
+} from './FirmEngagementStatus';
 export {
     addCalendarYears,
     addIsoDays,
@@ -117,6 +130,12 @@ export {
     UnresolvedPlanReason,
 } from './PlanKey';
 export {
+    ReportedPayoutBasis,
+    reportedPayoutBasisLabel,
+} from './ReportedPayoutBasis';
+export { RoundStatus, roundStatusLabel } from './RoundStatus';
+export { RuleViolationKind, ruleViolationKindLabel } from './RuleViolationKind';
+export {
     checkSnapshotEntry,
     liveStartEntryIssues,
     type SnapshotEntryAccount,
@@ -143,3 +162,4 @@ export {
     usdCentsToDollars,
     usdCentsToText,
 } from './UsdCents';
+export { ViolationSource, violationSourceLabel } from './ViolationSource';

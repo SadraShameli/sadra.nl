@@ -12,14 +12,30 @@ import {
     PROP_MUTATION_WINDOW_MS,
     PROP_MUTATIONS_PER_WINDOW,
     PROP_QUOTA_LIMITS,
+    PropQuotaExceededError,
+    PropQuotaGuard,
 } from '~/lib/prop-accounts/server';
 import {
     PropLimitRejection,
+    PropMutationRejection,
     PropQuota,
     PropRecord,
 } from '~/lib/schemas/propAccountOutputs';
+import {
+    propMutationProcedure,
+    PropMutationRejectionError,
+    PropRouterBucket,
+} from '~/server/api/routers/propAccounts/mutationGuard';
+import { createCallerFactory, createTRPCRouter } from '~/server/api/trpc';
 
-import { type FakeRow, type IssuedQuery, readTable } from '../fakeDatabase';
+import {
+    assertUserScopedWhere,
+    createFakeDatabase,
+    FakeDatabaseError,
+    type FakeRow,
+    type IssuedQuery,
+    readTable,
+} from '../fakeDatabase';
 import {
     accountCreateInput,
     accountRow,
@@ -529,4 +545,210 @@ describe('propAccounts quotas', () => {
         await caller.rulebook.get();
         expect(rateLimit).not.toHaveBeenCalled();
     });
+});
+
+const VIDEO_QUOTAS: readonly {
+    readonly label: string;
+    readonly limit: number;
+    readonly quota: PropQuota;
+    readonly table: string;
+}[] = [
+    {
+        label: 'bankroll transfers',
+        limit: 5000,
+        quota: PropQuota.BankrollTransfers,
+        table: 'sadranl_prop_bankroll_transfer',
+    },
+    {
+        label: 'external firms',
+        limit: 100,
+        quota: PropQuota.ExternalFirms,
+        table: 'sadranl_prop_external_firm',
+    },
+    {
+        label: 'firm statuses',
+        limit: 200,
+        quota: PropQuota.FirmEngagements,
+        table: 'sadranl_prop_firm_engagement',
+    },
+    {
+        label: 'firm statements',
+        limit: 5000,
+        quota: PropQuota.FirmStatements,
+        table: 'sadranl_prop_firm_statement',
+    },
+    {
+        label: 'rounds',
+        limit: 500,
+        quota: PropQuota.Rounds,
+        table: 'sadranl_prop_round',
+    },
+    {
+        label: 'rule violations',
+        limit: 20_000,
+        quota: PropQuota.Violations,
+        table: 'sadranl_prop_rule_violation',
+    },
+];
+
+function probeCaller(
+    procedure: ReturnType<typeof propMutationProcedure>,
+    fail: () => never,
+) {
+    const probe = createTRPCRouter({ run: procedure.mutation(fail) });
+    const { database, queries } = createFakeDatabase(tableResponder());
+    const caller = createCallerFactory(probe)({
+        db: database,
+        headers: new Headers(),
+        session: SIGNED_IN as never,
+    });
+    return { caller, probe, queries };
+}
+
+describe('propAccounts video record quotas', () => {
+    it.each(VIDEO_QUOTAS)(
+        'caps $quota at $limit per user',
+        ({ limit, quota }) => {
+            expect(PROP_QUOTA_LIMITS[quota]).toBe(limit);
+        },
+    );
+
+    it.each(VIDEO_QUOTAS)(
+        'counts $quota on its own table for the caller only and fails loud at the cap',
+        async ({ label, limit, quota, table }) => {
+            const { database, queries } = createFakeDatabase(
+                tableResponder({}, { [table]: limit }),
+            );
+            const guard = await PropQuotaGuard.acquire(database, USER_ID);
+            await expect(guard.assertWithin(quota, 1)).rejects.toThrow(
+                new PropQuotaExceededError(quota, limit),
+            );
+            await expect(guard.assertWithin(quota, 0)).resolves.toBeUndefined();
+            const counts = queries.filter((query) => isCount(query));
+            expect(counts).toHaveLength(2);
+            for (const count of counts) {
+                expect(readTable(count)).toBe(table);
+                assertUserScopedWhere(count, USER_ID);
+            }
+            expect(new PropQuotaExceededError(quota, limit).message).toBe(
+                `You can keep at most ${limit} ${label}`,
+            );
+        },
+    );
+});
+
+describe('propAccounts video record buckets and rejections', () => {
+    it.each([
+        [PropRouterBucket.Bankroll, 'prop-accounts:bankroll'],
+        [PropRouterBucket.ExternalFirm, 'prop-accounts:external-firm'],
+        [PropRouterBucket.FirmEngagement, 'prop-accounts:firm-engagement'],
+        [PropRouterBucket.FirmStatement, 'prop-accounts:firm-statement'],
+        [PropRouterBucket.Round, 'prop-accounts:round'],
+        [PropRouterBucket.Violation, 'prop-accounts:violation'],
+    ] as const)(
+        'rate-limits the %s bucket per user as %s',
+        async (bucket, name) => {
+            const { caller } = probeCaller(
+                propMutationProcedure(bucket),
+                () => {
+                    throw new Error('stop');
+                },
+            );
+            await rejectionOf(caller.run());
+            expect(rateLimit.mock.calls.map(([options]) => options)).toEqual([
+                {
+                    bucket: name,
+                    key: USER_ID,
+                    max: PROP_MUTATIONS_PER_WINDOW,
+                    windowMs: PROP_MUTATION_WINDOW_MS,
+                },
+            ]);
+        },
+    );
+
+    it.each([
+        [PropMutationRejection.DecisionOfOtherAccount, 'BAD_REQUEST'],
+        [PropMutationRejection.FutureDate, 'BAD_REQUEST'],
+        [PropMutationRejection.RecordInUse, 'CONFLICT'],
+        [PropMutationRejection.ReferenceNotOwned, 'NOT_FOUND'],
+        [PropMutationRejection.RoundBudgetExceeded, 'CONFLICT'],
+        [PropMutationRejection.RoundClosed, 'CONFLICT'],
+    ] as const)(
+        'maps the %s rejection to %s with its typed reason and message',
+        async (reason, code) => {
+            const { caller, probe } = probeCaller(
+                propMutationProcedure(PropRouterBucket.Round),
+                () => {
+                    throw new PropMutationRejectionError(
+                        reason,
+                        'Why it failed',
+                    );
+                },
+            );
+            const shape = errorShapeOf(await rejectionOf(caller.run()), probe);
+            expect(shape.data.code).toBe(code);
+            expect(shape.message).toBe('Why it failed');
+            expect(shape.data.propRejection).toEqual({
+                lifecycleRejection: null,
+                limit: null,
+                quota: null,
+                reason,
+                record: null,
+                recordId: null,
+            });
+        },
+    );
+
+    it.each([
+        [
+            'prop_payout_approved_after_request_ck',
+            'A payout cannot be approved before it was requested',
+        ],
+        [
+            'prop_payout_paid_after_approval_ck',
+            'A payout cannot be paid before it was approved',
+        ],
+    ])(
+        'names the %s check violation as a BAD_REQUEST the user can act on',
+        async (constraint, message) => {
+            const { caller, probe } = probeCaller(
+                propMutationProcedure(PropRouterBucket.Payout),
+                () => {
+                    throw new FakeDatabaseError('23514', constraint);
+                },
+            );
+            const shape = errorShapeOf(await rejectionOf(caller.run()), probe);
+            expect(shape.data.code).toBe('BAD_REQUEST');
+            expect(shape.message).toBe(message);
+        },
+    );
+
+    it.each([
+        [
+            'prop_external_firm_user_name_idx',
+            'One of your firms already has this name',
+        ],
+        ['prop_round_user_label_idx', 'A round with this label already exists'],
+        [
+            'prop_firm_engagement_user_firm_idx',
+            'This firm already has a status; change that one instead',
+        ],
+        [
+            'prop_firm_engagement_user_external_firm_idx',
+            'This firm already has a status; change that one instead',
+        ],
+    ])(
+        'names the %s unique violation as a CONFLICT the user can act on',
+        async (constraint, message) => {
+            const { caller, probe } = probeCaller(
+                propMutationProcedure(PropRouterBucket.Round),
+                () => {
+                    throw new FakeDatabaseError('23505', constraint);
+                },
+            );
+            const shape = errorShapeOf(await rejectionOf(caller.run()), probe);
+            expect(shape.data.code).toBe('CONFLICT');
+            expect(shape.message).toBe(message);
+        },
+    );
 });

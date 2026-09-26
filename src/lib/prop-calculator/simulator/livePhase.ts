@@ -1,10 +1,6 @@
 import { resetForNewDay } from '../core/AccountState';
 import { TRADING_DAYS_PER_YEAR } from '../core/constants';
-import {
-    placeWholeContractTrade,
-    RungSizing,
-    type SizedTrade,
-} from '../core/DayPolicy';
+import { placeWholeContractTrade, RungSizing } from '../core/DayPolicy';
 import {
     dollars,
     type Dollars,
@@ -17,12 +13,13 @@ import {
     resolveLiveAffordableRoom,
     resolveLiveTradeRisk,
 } from '../core/LiveSizing';
-import {
-    type PositionSizingConfig,
-    resolvePositionSizing,
-} from '../core/PositionSizing';
+import { type PositionSizingConfig } from '../core/PositionSizing';
 import { mulberry32, type Rng } from '../rng';
 import { median, percentile } from '../stats';
+import {
+    PercentSizingScope,
+    requirePositionSizing,
+} from './dayPolicyValidation';
 import { SIM_DEFAULTS } from './SimDefaults';
 import {
     type LiveDayRunOptions,
@@ -37,7 +34,7 @@ interface LiveHorizonOptions {
     idleDayProbability?: number;
     payoutRequestSize: number | undefined;
     plan: LivePlan;
-    positionSizing: null | PositionSizingConfig;
+    positionSizing: PositionSizingConfig;
     retainedCushion: Dollars;
     rng: Rng;
     rrRatio: number;
@@ -166,20 +163,17 @@ export function runLiveDay(options: LiveDayRunOptions): {
                 state.todayPnL,
                 commission,
             );
-            const { rewardRisk, risk } =
-                positionSizing === null
-                    ? unsizedLiveTrade(intendedRisk, room)
-                    : placeWholeContractTrade({
-                          intendedRisk,
-                          maxContracts: plan.maxContractsFor(
-                              state,
-                              positionSizing.instrument,
-                          ),
-                          positionSizing,
-                          room,
-                          roomKind,
-                          rungSizing: RungSizing.CapToCushion,
-                      });
+            const { rewardRisk, risk } = placeWholeContractTrade({
+                intendedRisk,
+                maxContracts: plan.maxContractsFor(
+                    state,
+                    positionSizing.instrument,
+                ),
+                positionSizing,
+                room,
+                roomKind,
+                rungSizing: RungSizing.CapToCushion,
+            });
             if (risk <= 0) break;
 
             const isWon = rng() < winrate;
@@ -314,7 +308,10 @@ export function simulateLiveAccount(inputs: LiveSimInputs): LiveOutputs {
         payoutRequestSizeInput,
     );
     const winrate = fraction(winrateInput);
-    const positionSizing = resolvePositionSizing(instrument, stopPoints);
+    const positionSizing = requirePositionSizing(PercentSizingScope.Live, {
+        instrument,
+        stopPoints,
+    });
     const rng = mulberry32(seed);
 
     let bustedCount = 0;
@@ -378,9 +375,4 @@ export function simulateLiveAccount(inputs: LiveSimInputs): LiveOutputs {
         medianDaysToBust: median(daysToBustValues),
         medianDaysToFirstWithdrawal: median(daysToFirstWithdrawalValues),
     };
-}
-
-function unsizedLiveTrade(intendedRisk: number, room: number): SizedTrade {
-    const risk = Math.min(intendedRisk, room);
-    return { rewardRisk: risk, risk };
 }

@@ -20,13 +20,14 @@ import {
     tradingPlanSourceFrom,
     TradingPlanSourceKind,
 } from '~/app/(app)/prop-calculator/accounts/rulebook/rulebookFromTradingPlan';
-import { DayStopRuleKind, fraction } from '~/lib/prop-calculator';
+import { DayStopRuleKind, FirmId, fraction } from '~/lib/prop-calculator';
 import {
     DEFAULT_RULEBOOK,
     documentedRuleLabel,
     EvalSizingMode,
     LadderFractionSource,
     ReviewWeekday,
+    RiskDisplayUnit,
     rulebookDeviation,
     type RulebookParameters,
     rulebookSchema,
@@ -117,6 +118,45 @@ describe('rulebookFromTradingPlan', () => {
                 takeProfitCents: 30_000,
             },
         });
+    });
+
+    it('keeps the v2 sections, set or at their defaults, through an import', () => {
+        const fromDefaults = rulebookFromTradingPlan(
+            DEFAULT_RULEBOOK,
+            risk({ fundedDollars: 150, maxTradesPerWindow: 3 }),
+        );
+        expect(fromDefaults.rulebook.bankroll.roundGapDays).toBe(14);
+        expect(fromDefaults.rulebook.samples).toEqual(DEFAULT_RULEBOOK.samples);
+        expect(fromDefaults.rulebook.plausibility).toEqual(
+            DEFAULT_RULEBOOK.plausibility,
+        );
+        const base: RulebookParameters = {
+            ...customRulebook(),
+            bankroll: {
+                ...DEFAULT_RULEBOOK.bankroll,
+                lossRiskThreshold: 0.01,
+            },
+            liveTransfer: { hazardPerPaidPayoutByFirm: { mffu: 0.1 } },
+        };
+        const imported = rulebookFromTradingPlan(
+            base,
+            risk({ fundedDollars: 150, maxTradesPerWindow: 3 }),
+        );
+        expect(imported.rulebook.bankroll.lossRiskThreshold).toBe(0.01);
+        expect(imported.rulebook.liveTransfer).toEqual({
+            hazardPerPaidPayoutByFirm: { mffu: 0.1 },
+        });
+        expect(imported.deviation.after).toEqual(
+            rulebookDeviation({
+                ...base,
+                execution: { maxTradesPerWindow: 3 },
+                funded: {
+                    ...base.funded,
+                    riskCents: 15_000,
+                    takeProfitCents: 30_000,
+                },
+            }),
+        );
     });
 
     it('does not mutate the rulebook it was given', () => {
@@ -594,10 +634,25 @@ describe('rulebook form values', () => {
     it('round-trips a rulebook with every parameter changed', () => {
         const custom: RulebookParameters = {
             alerts: {
+                dayLossBankrollFraction: 0.15,
                 evalDaysRemainingWarning: 3,
                 evalNearFloorDrawdownFraction: 0.07,
+                firmProfitConcentrationCount: 4,
+                firmProfitConcentrationShare: 0.55,
                 fundedNearFloorRiskMultiple: 2.5,
+                payoutReadyLossFraction: 0.35,
+                payoutReadyRiskAboveRungCents: 7550,
             },
+            bankroll: {
+                accountsPerSession: 6,
+                dailyAccountCapacity: 15,
+                defaultRoundBudgetCents: 300_025,
+                lossRiskThreshold: 0.0125,
+                objectiveSwitchCents: 400_000,
+                roundGapDays: 21,
+                sessionHoursPerDay: 3.5,
+            },
+            display: { riskUnit: RiskDisplayUnit.EvAtStake },
             eval: {
                 generalDerivation: {
                     escalation: 1.25,
@@ -625,12 +680,33 @@ describe('rulebook form values', () => {
                     preLock: fraction(0.035),
                 },
             },
+            liveTransfer: {
+                hazardPerPaidPayoutByFirm: {
+                    [FirmId.Apex]: 0.2,
+                    [FirmId.Tradeify]: 0.035,
+                },
+            },
             payout: {
                 allowBelowHardRule2: true,
                 requestCents: 100_000,
                 retainedCushionCents: 150_000,
             },
-            review: { fundedStaleDays: 10, weekday: ReviewWeekday.Friday },
+            plausibility: {
+                strongMaxExpectancyR: 0.45,
+                typicalMaxExpectancyR: 0.2,
+            },
+            review: {
+                fundedStaleDays: 10,
+                monthlyPayoutTargetCents: 750_000,
+                targetMonthlyMultiple: 2.25,
+                weekday: ReviewWeekday.Friday,
+            },
+            samples: {
+                minClosedRounds: 4,
+                minEvalAttempts: 30,
+                minFundedAccounts: 20,
+                minTrades: 150,
+            },
             schemaVersion: DEFAULT_RULEBOOK.schemaVersion,
             strategy: { rr: 2.5, tradesPerDayMax: 5, winrate: 0.37 },
         };

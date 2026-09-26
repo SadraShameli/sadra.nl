@@ -8,10 +8,16 @@ import {
 } from '../core/PlacedFundedRisk';
 import {
     isBelowOneContract,
+    type PositionSizingConfig,
     resolvePositionSizing,
 } from '../core/PositionSizing';
 import { TradingPhase } from '../core/TradingPhase';
 import { type SimInputs } from './types';
+
+export enum PercentSizingScope {
+    Funded = 'funded',
+    Live = 'live',
+}
 
 export type DeclaredSizingInputs = Pick<SimInputs, 'instrument' | 'stopPoints'>;
 
@@ -53,8 +59,9 @@ const simInputsSizingSchema = z
             if (positionSizing === null) {
                 context.addIssue({
                     code: 'custom',
-                    message:
-                        'fundedCushionPercent needs position sizing: set stopPoints (a positive stop distance in points) and instrument, so percent-of-cushion risk is placed in whole contracts, at least one and at most the funded contract limit.',
+                    message: positionSizingRequiredIssue(
+                        PercentSizingScope.Funded,
+                    ),
                     path: ['stopPoints'],
                 });
             }
@@ -154,6 +161,22 @@ export function assertSimInputsSized(inputs: SimInputsSizingInputs): void {
     if (issue !== null) throw new Error(`${SIM_INPUTS_REFUSAL_PREFIX}${issue}`);
 }
 
+export function requirePositionSizing(
+    scope: PercentSizingScope,
+    inputs: DeclaredSizingInputs,
+): PositionSizingConfig {
+    const positionSizing = resolvePositionSizing(
+        inputs.instrument,
+        inputs.stopPoints,
+    );
+    if (positionSizing === null) {
+        throw new Error(
+            `${SIM_INPUTS_REFUSAL_PREFIX}${positionSizingRequiredIssue(scope)}`,
+        );
+    }
+    return positionSizing;
+}
+
 export function simInputsSizingIssue(
     inputs: SimInputsSizingInputs,
 ): null | string {
@@ -176,6 +199,17 @@ function issueText(error: z.ZodError): string {
     return error.issues.map((issue) => issue.message).join(' ');
 }
 
+function percentSizingField(scope: PercentSizingScope): string {
+    switch (scope) {
+        case PercentSizingScope.Funded: {
+            return 'fundedCushionPercent';
+        }
+        case PercentSizingScope.Live: {
+            return 'live cushionPercent';
+        }
+    }
+}
+
 function phaseArticle(phase: TradingPhase): string {
     switch (phase) {
         case TradingPhase.Eval: {
@@ -185,6 +219,10 @@ function phaseArticle(phase: TradingPhase): string {
             return 'a';
         }
     }
+}
+
+function positionSizingRequiredIssue(scope: PercentSizingScope): string {
+    return `${percentSizingField(scope)} needs position sizing: set stopPoints (a positive stop distance in points) and instrument, so percent-of-cushion risk is placed in whole contracts, at least one and at most the ${scope} contract limit.`;
 }
 
 function throwInvalidSimInputs(error: z.ZodError): never {

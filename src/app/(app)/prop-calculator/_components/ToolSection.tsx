@@ -1,12 +1,13 @@
 import { type ReactNode } from 'react';
 
+import { type FirmId } from '~/lib/prop-calculator';
 import { type LegacySection } from '~/lib/site/legacyCalculatorLinks';
 import { cn } from '~/lib/utilities';
 
 interface ToolSectionProperties {
     children: ReactNode;
     className?: string;
-    id: LegacySection;
+    id: `rules-${FirmId}` | LegacySection;
     srOnlyHeading?: boolean;
     title: string;
 }

@@ -53,9 +53,12 @@ export {
     type ModeledLiveBuilder,
     type ModeledLiveTransition,
 } from './LivePlanApplicability';
+export { RiskDisplayUnit } from './RiskDisplayUnit';
 export {
     type AlertThresholds,
+    type BankrollParameters,
     DEFAULT_RULEBOOK,
+    type DisplayPreferences,
     EvalSizingMode,
     type EvalSizingParameters,
     type ExecutionParameters,
@@ -67,12 +70,14 @@ export {
     LADDER_FRACTION_SUM_TOLERANCE,
     LadderFractionSource,
     type LiveSizingParameters,
+    type LiveTransferAssumptions,
     type PayoutParameters,
     type ReviewParameters,
     ReviewWeekday,
     RULEBOOK_SCHEMA_VERSION,
     type RulebookParameters,
     rulebookSchema,
+    type SampleThresholds,
     type StrategyAssumptions,
     withRulebookDefaults,
 } from './Rulebook';
@@ -86,7 +91,10 @@ export {
     fundedRuleContextSchema,
     type LiveRuleContext,
     liveRuleContextSchema,
+    type PlanPhaseStage,
     type RuleContext,
+    ruleContextAt,
+    type RuleContextCaps,
     ruleContextSchema,
 } from './RuleContext';
 export { RuleSource } from './RuleSource';

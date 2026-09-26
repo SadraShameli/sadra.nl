@@ -41,15 +41,21 @@ import { protectedProcedure } from '~/server/api/trpc';
 
 export enum PropRouterBucket {
     Account = 'account',
+    Bankroll = 'bankroll',
     CopyGroup = 'copy-group',
     Decision = 'decision',
     Edge = 'edge',
     Event = 'event',
+    ExternalFirm = 'external-firm',
     Fee = 'fee',
+    FirmEngagement = 'firm-engagement',
+    FirmStatement = 'firm-statement',
     Payout = 'payout',
+    Round = 'round',
     Rulebook = 'rulebook',
     Scenario = 'scenario',
     Snapshot = 'snapshot',
+    Violation = 'violation',
 }
 
 enum PostgresErrorCode {
@@ -99,10 +105,24 @@ export class PropMutationRejectionError
 const RATE_LIMIT_BUCKET_PREFIX = 'prop-accounts';
 const MAX_CAUSE_DEPTH = 5;
 
+const FIRM_STATUS_EXISTS =
+    'This firm already has a status; change that one instead';
+
+const CHECK_CONSTRAINT_MESSAGES: Readonly<Record<string, string>> = {
+    prop_payout_approved_after_request_ck:
+        'A payout cannot be approved before it was requested',
+    prop_payout_paid_after_approval_ck:
+        'A payout cannot be paid before it was approved',
+};
+
 const UNIQUE_CONSTRAINT_MESSAGES: Readonly<Record<string, string>> = {
     prop_account_user_label_active_idx:
         'An active account with this label already exists; pick another label or archive the other account',
     prop_copy_group_user_name_idx: 'A copy group with this name already exists',
+    prop_external_firm_user_name_idx: 'One of your firms already has this name',
+    prop_firm_engagement_user_external_firm_idx: FIRM_STATUS_EXISTS,
+    prop_firm_engagement_user_firm_idx: FIRM_STATUS_EXISTS,
+    prop_round_user_label_idx: 'A round with this label already exists',
     prop_saved_scenario_user_name_idx:
         'A saved scenario with this name already exists',
 };
@@ -261,7 +281,11 @@ function fromDatabaseError(
             return new TRPCError({
                 cause,
                 code: 'BAD_REQUEST',
-                message: `A value is outside what the database accepts (check ${error.constraint ?? 'unknown'}); dates must be real days from 2000 through 2100 and amounts within range`,
+                message:
+                    (error.constraint === null
+                        ? undefined
+                        : CHECK_CONSTRAINT_MESSAGES[error.constraint]) ??
+                    `A value is outside what the database accepts (check ${error.constraint ?? 'unknown'}); dates must be real days from 2000 through 2100 and amounts within range`,
             });
         }
         case PostgresErrorCode.ForeignKeyViolation: {
@@ -295,15 +319,8 @@ function fromDatabaseError(
 
 function fromRejection(error: PropMutationRejectionError): TRPCError {
     switch (error.reason) {
-        case PropMutationRejection.DuplicateImportLabel:
-        case PropMutationRejection.DuplicateSnapshot:
-        case PropMutationRejection.MixedStageCopyGroup: {
-            return new TRPCError({
-                cause: error,
-                code: 'CONFLICT',
-                message: error.message,
-            });
-        }
+        case PropMutationRejection.DecisionOfOtherAccount:
+        case PropMutationRejection.FutureDate:
         case PropMutationRejection.ImplausibleSnapshot:
         case PropMutationRejection.LifecycleTransition:
         case PropMutationRejection.MissingSnapshotField:
@@ -313,6 +330,25 @@ function fromRejection(error: PropMutationRejectionError): TRPCError {
             return new TRPCError({
                 cause: error,
                 code: 'BAD_REQUEST',
+                message: error.message,
+            });
+        }
+        case PropMutationRejection.DuplicateImportLabel:
+        case PropMutationRejection.DuplicateSnapshot:
+        case PropMutationRejection.MixedStageCopyGroup:
+        case PropMutationRejection.RecordInUse:
+        case PropMutationRejection.RoundBudgetExceeded:
+        case PropMutationRejection.RoundClosed: {
+            return new TRPCError({
+                cause: error,
+                code: 'CONFLICT',
+                message: error.message,
+            });
+        }
+        case PropMutationRejection.ReferenceNotOwned: {
+            return new TRPCError({
+                cause: error,
+                code: 'NOT_FOUND',
                 message: error.message,
             });
         }

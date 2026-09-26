@@ -2,7 +2,7 @@
 
 **Sources:** Rapid Pro & Daily Challenge FAQ collection (helpfutures.fundednext.com/en/articles/15877643, 15878166, 15878178, 15878201, 15878210) and the firm-wide Trading Rules/General FAQ collection (articles 14298225, 14298201, 14262297, 14298245, 14298328, 14298542, 14261075, 14260538, 14256665): see full list with per-article update dates under Sources below., <https://helpfutures.fundednext.com/en/articles/15900277-road-to-live-trading-rapid-challenge> (Road To Live Trading - Rapid Challenge, updated August 15, 2026), `https://fundednext.com/futures` (checkout page product config, fetched live 2026-09-23; shows the after-code price, not the no-code price), `https://api.fundednext.com/api/new-checkout/plan-bundle-calculate` (checkout API, `plan_id: 92/93/94`, fetched live 2026-09-23; source of the no-code 25K/50K/100K pricing)
 
-**Last Verified:** 2026-09-23
+**Last Verified:** 2026-09-26 (checkout API `plan_id 92/93/94` re-checked live; no-code prices $159.98/$299.98/$499.98 unchanged from the 2026-09-23 revision)
 **Last Updated:** 2026-09-26
 
 ## Overview

@@ -9,6 +9,7 @@ import {
     type UsdCents,
     usdCents,
 } from '~/lib/prop-accounts/core';
+import { ratioEstimate } from '~/lib/prop-calculator/stats';
 
 import {
     isTransitionDateKnown,
@@ -176,29 +177,16 @@ function isSlotOpening(transition: LifecycleTransition): boolean {
 function pooledEstimate(
     months: readonly MonthlySlotNet[],
 ): CentsEstimate | null {
-    const n = months.length;
-    if (n === 0) return null;
-    let totalNet = 0;
-    let totalSlotMonths = 0;
-    for (const month of months) {
-        totalNet += month.net;
-        totalSlotMonths += month.slotMonths;
-    }
-    const ratio = totalNet / totalSlotMonths;
-    if (n < MIN_MONTHS_FOR_SE) {
-        return { standardError: null, value: roundCents(ratio) };
-    }
-    let squaredResiduals = 0;
-    for (const month of months) {
-        const residual = month.net - ratio * month.slotMonths;
-        squaredResiduals += residual * residual;
-    }
-    const meanSlotMonths = totalSlotMonths / n;
-    const residualVariance = squaredResiduals / (n - 1);
+    if (months.length === 0) return null;
+    const pooled = ratioEstimate(
+        months.map((month) => month.net),
+        months.map((month) => month.slotMonths),
+    );
     return {
-        standardError: roundCents(
-            Math.sqrt(residualVariance / n) / meanSlotMonths,
-        ),
-        value: roundCents(ratio),
+        standardError:
+            months.length < MIN_MONTHS_FOR_SE
+                ? null
+                : roundCents(pooled.standardError),
+        value: roundCents(pooled.value),
     };
 }

@@ -35,6 +35,7 @@ import {
     accountUpdateSchema,
     importAccountsSchema,
 } from '~/lib/schemas/propAccounts';
+import { stableJson } from '~/lib/stableJson';
 import { createTRPCRouter } from '~/server/api/trpc';
 import { propAccount, propAccountEvent } from '~/server/db/schemas/prop';
 
@@ -519,16 +520,4 @@ async function insertAccounts(
 
 function ownedAccount(id: string, userId: string) {
     return and(eq(propAccount.id, id), eq(propAccount.userId, userId));
-}
-
-function stableJson(value: unknown): string {
-    return JSON.stringify(value, (_key, nested: unknown) =>
-        typeof nested === 'object' && nested !== null && !Array.isArray(nested)
-            ? Object.fromEntries(
-                  Object.entries(nested).toSorted(([a], [b]) =>
-                      a < b ? -1 : Number(a > b),
-                  ),
-              )
-            : nested,
-    );
 }

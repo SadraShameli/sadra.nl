@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    accountConclusionGate,
     AffordableRoomKind,
     ContractLimitKind,
     contracts,
@@ -16,6 +17,7 @@ import {
     PayoutCapScheduleKind,
     PayoutCountTieredPayoutCap,
     PayoutFloorEffect,
+    PayoutGate,
     PayoutProfitPool,
     percent,
     type Plan,
@@ -119,6 +121,108 @@ describe('Plan.withMaxLifetimePayouts', () => {
         expect(uncapped.payoutLadder).toBeNull();
         expect(uncapped.maxLifetimePayouts).toBeNull();
         expect(uncapped.isAccountConcluded(9999)).toBe(false);
+    });
+});
+
+describe('Plan.lifetimeConclusion is the one lifetime-conclusion rule', () => {
+    const lucidLadder = lucidDirect.payoutLadder;
+    if (lucidLadder === null)
+        throw new Error('LucidDirect has no payoutLadder');
+    const exhaustingLadder = { ...lucidLadder, capsAtLastStep: undefined };
+
+    it('concludes a withOverrides count beyond a non-capping ladder where the ladder runs out, as the funded tracker does', () => {
+        const beyond = lucidDirect.withOverrides({
+            maxLifetimePayouts: 8,
+            payoutLadder: exhaustingLadder,
+        });
+        expect(beyond.maxLifetimePayouts).toBe(8);
+        expect(beyond.payoutLadder?.steps.length).toBe(5);
+        expect(beyond.isAccountConcluded(4)).toBe(false);
+        expect(beyond.isAccountConcluded(5)).toBe(true);
+        expect(beyond.isAccountConcluded(7)).toBe(true);
+        expect(accountConclusionGate(beyond.lifetimeConclusion, 5, 0)).toBe(
+            PayoutGate.LadderExhausted,
+        );
+    });
+
+    it('keeps the count when it ends the account at or before a non-capping ladder', () => {
+        for (const count of [2, 5]) {
+            const plan = lucidDirect.withOverrides({
+                maxLifetimePayouts: count,
+                payoutLadder: exhaustingLadder,
+            });
+            expect(plan.isAccountConcluded(count - 1)).toBe(false);
+            expect(plan.isAccountConcluded(count)).toBe(true);
+            expect(
+                accountConclusionGate(plan.lifetimeConclusion, count, 0),
+            ).toBe(PayoutGate.AccountConcluded);
+        }
+    });
+
+    it('describes the count limit, the binding ladder and the dollar cap', () => {
+        const dollarCap = dollars(100_000);
+        expect(
+            lucidDirect.withOverrides({
+                maxLifetimePayoutDollars: dollarCap,
+                maxLifetimePayouts: 8,
+                payoutLadder: exhaustingLadder,
+            }).lifetimeConclusion,
+        ).toStrictEqual({
+            maxLifetimePayoutDollars: dollarCap,
+            maxLifetimePayouts: null,
+            payoutLadder: exhaustingLadder,
+        });
+        expect(
+            lucidDirect.withOverrides({
+                maxLifetimePayouts: 3,
+                payoutLadder: exhaustingLadder,
+            }).lifetimeConclusion,
+        ).toStrictEqual({
+            maxLifetimePayoutDollars: null,
+            maxLifetimePayouts: 3,
+            payoutLadder: null,
+        });
+        expect(
+            lucidDirect.withMaxLifetimePayouts(null).lifetimeConclusion,
+        ).toStrictEqual({
+            maxLifetimePayoutDollars: null,
+            maxLifetimePayouts: null,
+            payoutLadder: null,
+        });
+    });
+
+    it('agrees with accountConclusionGate on every registry plan and the synthetic shapes', () => {
+        const plans = [
+            ...ALL_FIRMS.flatMap((firm) => firm.plans),
+            lucidDirect.withOverrides({
+                maxLifetimePayouts: 8,
+                payoutLadder: exhaustingLadder,
+            }),
+            lucidDirect.withMaxLifetimePayouts(8),
+            lucidDirect.withOverrides({
+                maxLifetimePayoutDollars: dollars(1000),
+                payoutLadder: exhaustingLadder,
+            }),
+        ];
+        for (const plan of plans) {
+            for (let payoutsIssued = 0; payoutsIssued <= 12; payoutsIssued++) {
+                for (const cumulativePayout of [0, 999.99, 1000, 100_000]) {
+                    expect(
+                        plan.isAccountConcluded(
+                            payoutsIssued,
+                            cumulativePayout,
+                        ),
+                        `${plan.label}: ${payoutsIssued} payouts, $${cumulativePayout}`,
+                    ).toBe(
+                        accountConclusionGate(
+                            plan.lifetimeConclusion,
+                            payoutsIssued,
+                            cumulativePayout,
+                        ) !== null,
+                    );
+                }
+            }
+        }
     });
 });
 

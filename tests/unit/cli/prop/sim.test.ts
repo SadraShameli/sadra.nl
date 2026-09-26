@@ -1,6 +1,7 @@
 import { parseArgs } from 'citty';
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 
+import { liveArguments } from '~/cli/commands/prop/live/command';
 import optimizeFunded from '~/cli/commands/prop/optimize/funded/command';
 import {
     pathGranularityComparisonArgument,
@@ -25,8 +26,11 @@ import {
 } from '~/lib/format';
 import {
     ApexVariant,
+    buildApexLivePlan,
     DailyLossLimitBreachEffect,
+    dollars,
     FirmId,
+    fraction,
     InstrumentSymbol,
     oneContractRisk,
     placedFundedRisk,
@@ -35,15 +39,16 @@ import {
     PolicySizing,
     type PositionSizingConfig,
     resolveAffordableRoomWithin,
+    resolveDailyLossRoom,
     resolvePositionSizing,
     RoiBasis,
-    resolveDailyLossRoom,
     RungSizing,
     type SimOutputs,
     simulate,
     type SizedTrade,
 } from '~/lib/prop-calculator';
 import { findFirm } from '~/lib/prop-calculator/firms';
+import { runLiveDay } from '~/lib/prop-calculator/simulator';
 
 import { flagsNamedButNotAccepted } from './helpFlags';
 
@@ -264,12 +269,24 @@ describe('sim --ladder builds a contract-capped eval policy (T33, U18)', () => {
 describe('sim --stop-points help (T33, WP40)', () => {
     const help = simArguments['stop-points'].description;
 
-    it('names funded and live flat risk, ladder rungs and percent of cushion as placed in whole contracts, with eval risk only capped (WP40, WP43d)', () => {
+    it('names funded flat risk, funded ladder rungs and funded or live percent of cushion as placed in whole contracts, with eval risk only capped (WP40, WP43d, WP43f)', () => {
         expect(help).toContain(
-            'eval risk is capped at the eval contract limit, and funded and live risk (flat risk, ladder rungs and percent of cushion) is placed in whole contracts, at most the contract limit.',
+            'eval risk is capped at the eval contract limit, and funded flat risk, funded ladder rungs and funded or live percent of cushion are placed in whole contracts, at most the contract limit.',
+        );
+        expect(help).not.toContain(
+            'funded and live risk (flat risk, ladder rungs and percent of cushion)',
         );
         expect(help).toContain(
             'a funded flat risk or ladder rung below one contract is refused',
+        );
+    });
+
+    it('says only funded flat risk and funded ladder rungs are rounded down, so eval rungs read as contract-capped (WP43e)', () => {
+        expect(help).toContain(
+            'Funded flat risk and funded ladder rungs are rounded down, and a funded flat risk or ladder rung below one contract is refused; percent risk takes at least one contract.',
+        );
+        expect(help).not.toContain(
+            'Flat risk and ladder rungs are rounded down',
         );
     });
 
@@ -278,13 +295,39 @@ describe('sim --stop-points help (T33, WP40)', () => {
         expect(help).not.toContain('on any whole-contract row');
     });
 
-    it('states the room rule in its general form: skip below one contract when a lockout daily loss limit is tighter, one busting contract otherwise, no trade without room (N-74, T33, WP43c, WP43d)', () => {
+    it('states the room rule in its general form: skip below one contract when a lockout daily loss limit is tighter, one busting contract otherwise unless skipping unaffordable funded trades, which live trading never does, no trade without room (N-74, T33, WP43c, WP43d, WP43g)', () => {
         expect(help).toContain(
-            'When the room left for a whole-contract trade is below one contract, the trade is skipped and the day ends if a daily loss limit that only locks the day is the tighter limit (its room is below the drawdown cushion); otherwise one contract is still taken and its loss, capped at the room, busts the account, unless unaffordable trades are set to be skipped. When no room is left at all, no trade is placed and the day ends.',
+            'When the room left for a whole-contract trade is below one contract, the trade is skipped and the day ends if a daily loss limit that only locks the day is the tighter limit (its room is below the drawdown cushion); otherwise one contract is still taken and its loss, capped at the room, busts the account, unless unaffordable funded trades are set to be skipped (a live trade always takes the one contract). When no room is left at all, no trade is placed and the day ends.',
         );
         expect(help).not.toContain(
             'is not placed, and the day ends, when a lockout daily loss limit leaves less room than one contract.',
         );
+    });
+
+    it('prop live has no way to skip an unaffordable trade, so the skip exception names funded trades only (WP43g)', () => {
+        expect(Object.keys(liveArguments)).not.toContain('unaffordable');
+        expect(Object.keys(liveArguments)).toContain('stop-points');
+    });
+
+    it('the live simulator caps to the cushion rather than skipping, so a live trade with room below one contract still takes the contract and busts, as the help says (WP43h)', () => {
+        const plan = buildApexLivePlan();
+        const state = plan.initialState();
+        state.balance = state.threshold + 5;
+        const positionSizing = resolvePositionSizing(InstrumentSymbol.NQ, 10);
+        if (positionSizing === null) throw new Error('NQ sizing missing');
+        expect(oneContractRisk(positionSizing)).toBeGreaterThan(5);
+        const day = runLiveDay({
+            commission: dollars(0),
+            plan,
+            positionSizing,
+            rng: () => 0.999,
+            rrRatio: 2,
+            state,
+            tradesPerDay: 1,
+            winrate: fraction(0),
+        });
+        expect(day.traded).toBe(true);
+        expect(day.busted).toBe(true);
     });
 
     it('names no flag prop sim lacks (WP43d)', async () => {

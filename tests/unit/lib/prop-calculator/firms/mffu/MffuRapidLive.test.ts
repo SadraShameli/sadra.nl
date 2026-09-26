@@ -7,12 +7,18 @@ import {
     INSTRUMENTS,
     InstrumentSymbol,
     type LiveAccountState,
+    points,
 } from '~/lib/prop-calculator/core';
 import { buildMffuRapidLivePlan } from '~/lib/prop-calculator/firms/mffu/MffuRapidLive';
 import { type Rng } from '~/lib/prop-calculator/rng';
 import { runLiveHorizon } from '~/lib/prop-calculator/simulator';
 
 const alwaysWins: Rng = () => 0;
+
+const ONE_NQ_AT_100 = {
+    instrument: INSTRUMENTS[InstrumentSymbol.NQ],
+    stopPoints: points(5),
+};
 
 function stateAt(overrides: Partial<LiveAccountState>): LiveAccountState {
     return { ...createInitialLiveAccountState(0, -2000), ...overrides };
@@ -136,13 +142,13 @@ describe('MFFU Rapid Live withdrawals (no buffer, daily, $0 floor)', () => {
         ).toBe(300);
     });
 
-    it('withdraws before the lock when draining to the floor, where the $0 payoutFloor sits well above the trailing threshold: the first $300 on day 3 once the excess reaches the $250 live minimum, $1,716.993 over 22 days with no bust', () => {
+    it('withdraws before the lock when draining to the floor, where the $0 payoutFloor sits well above the trailing threshold: in whole $100 NQ contracts (one contract even when 5% of the $1,700 cushion left after a drain is $85) the first $300 on day 3 once the excess reaches the $250 live minimum, then $300 every third day, 0.9 x 7 x $300 = $1,890 over 22 days with no bust', () => {
         const result = runLiveHorizon({
             commission: dollars(0),
             horizonDays: 22,
             payoutRequestSize: undefined,
             plan: buildMffuRapidLivePlan(),
-            positionSizing: null,
+            positionSizing: ONE_NQ_AT_100,
             retainedCushion: dollars(0),
             rng: alwaysWins,
             rrRatio: 1,
@@ -152,16 +158,16 @@ describe('MFFU Rapid Live withdrawals (no buffer, daily, $0 floor)', () => {
 
         expect(result.daysToFirstWithdrawal).toBe(3);
         expect(result.busted).toBe(false);
-        expect(result.totalWithdrawn).toBeCloseTo(1716.993, 6);
+        expect(result.totalWithdrawn).toBeCloseTo(0.9 * 7 * 300, 6);
     });
 
-    it('does not bust after a post-lock drain-to-floor withdrawal: 20 winning trades on day 1 lock the Max Loss Limit at $0, the withdrawal leaves one cent above it, and day 2 keeps trading', () => {
+    it('does not bust after a post-lock drain-to-floor withdrawal: 20 winning $100 NQ contracts on day 1 (5% of a cushion under $4,000 is below two) lock the Max Loss Limit at $0, the $1,999.99 withdrawal leaves one cent above it, and days 2 to 5 each win 20 contracts from that cent (one contract even on a one-cent cushion, T33) and withdraw $2,000', () => {
         const result = runLiveHorizon({
             commission: dollars(0),
             horizonDays: 5,
             payoutRequestSize: undefined,
             plan: buildMffuRapidLivePlan(),
-            positionSizing: null,
+            positionSizing: ONE_NQ_AT_100,
             retainedCushion: dollars(0),
             rng: alwaysWins,
             rrRatio: 1,
@@ -172,6 +178,9 @@ describe('MFFU Rapid Live withdrawals (no buffer, daily, $0 floor)', () => {
         expect(result.busted).toBe(false);
         expect(result.daysToBust).toBeNull();
         expect(result.daysToFirstWithdrawal).toBe(1);
-        expect(result.totalWithdrawn).toBeGreaterThan(0.9 * 3306);
+        expect(result.totalWithdrawn).toBeCloseTo(
+            0.9 * (1999.99 + 4 * 2000),
+            6,
+        );
     });
 });

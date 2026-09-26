@@ -18,6 +18,7 @@ import { type ReplacementInputs } from '../core/Replacement';
 import { type Roi } from '../core/Roi';
 import { type TradingPhase } from '../core/TradingPhase';
 import { type Rng } from '../rng';
+import { type Estimate, type UncertainValue } from '../stats';
 import {
     type LossStreak,
     type PhaseStats,
@@ -185,7 +186,7 @@ export interface LiveDayRunOptions {
     commission: Dollars;
     idleDayProbability?: number;
     plan: LivePlan;
-    positionSizing: null | PositionSizingConfig;
+    positionSizing: PositionSizingConfig;
     rng: Rng;
     rrRatio: number;
     state: LiveAccountState;
@@ -211,13 +212,13 @@ export interface LiveSimInputs {
     commissionPerRoundTrip?: number;
     horizonDays: number;
     idleDayProbability?: number;
-    instrument?: InstrumentSymbol;
+    instrument: InstrumentSymbol;
     payoutRequestSize?: number;
     plan: LivePlan;
     retainedCushion?: number;
     rrRatio: number;
     seed: number;
-    stopPoints?: number;
+    stopPoints: number;
     tradesPerDay: number;
     trials: number;
     winrate: number;
@@ -244,6 +245,26 @@ export interface PortfolioSimInputs extends SimInputs {
     accounts: number;
     correlation: CorrelationMode;
     groups: number;
+}
+
+export interface SimEstimates {
+    anyPayoutGivenFundedProbability: UncertainValue;
+    attemptPassProbability: Estimate;
+    attemptPaysProbability: Estimate;
+    costPerAttempt: Estimate;
+    evalPassProbability: Estimate;
+    expectedAttempts: Estimate;
+    expectedGrossPayout: Estimate;
+    expectedHorizonCredit: Estimate;
+    expectedMonthlyNet: Estimate;
+    expectedMonthlyRealizedNet: Estimate;
+    expectedNet: Estimate;
+    expectedNetPerAttempt: Estimate;
+    expectedPayoutCount: Estimate;
+    expectedPayoutPerFundedAccount: UncertainValue;
+    fundedBustProbability: Estimate;
+    fundedSurvivalProbability: Estimate;
+    payoutsPerFundedAccount: UncertainValue;
 }
 
 export interface SimInputs {
@@ -279,10 +300,15 @@ export interface SimInputs {
 
 export interface SimOutputs {
     accountSize: number;
+    anyPayoutGivenFundedProbability: number;
+    attemptPassProbability: number;
+    attemptPaysProbability: number;
     averageRiskPerTrade: number;
     breakEvenFundedProfit: number;
     bustProbability: number;
+    copyAccounts: number;
     costBreakdown: CostBreakdown;
+    costPerAttempt: number;
     costPerDrawdownDollar: number;
     costPerFundedAccount: number;
     daysToPassP5: number;
@@ -292,6 +318,7 @@ export interface SimOutputs {
     daysToPassP95: number;
     daysToPassValues: number[];
     drawdownAmount: number;
+    estimates: SimEstimates;
     evalPassProbability: number;
     expectancyDollars: number;
     expectancyR: number;
@@ -306,6 +333,7 @@ export interface SimOutputs {
     expectedMonthlyNet: number;
     expectedMonthlyRealizedNet: number;
     expectedNet: number;
+    expectedNetPerAttempt: number;
     expectedPayoutCount: number;
     expectedPayoutPerFundedAccount: number;
     expectedSpendP90: number;
@@ -317,6 +345,8 @@ export interface SimOutputs {
     finalBalanceP95: number;
     finalBalances: number[];
     fundedBustProbability: number;
+    fundedPayoutCountDistribution: number[];
+    fundedPayoutValues: number[];
     fundedSurvivalProbability: number;
     inactivityClosureProbability: number;
     initialThreshold: number;
@@ -324,6 +354,8 @@ export interface SimOutputs {
     maxDrawdownP95: number;
     maxLosingStreakP50: number;
     maxLosingStreakP95: number;
+    netValues: number[];
+    payoutsPerFundedAccount: number;
     profitFactor: number;
     profitTarget: number;
     risk5LossesPercent: number;

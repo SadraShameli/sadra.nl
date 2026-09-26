@@ -20,6 +20,7 @@ import {
 import {
     ALL_FIRMS,
     type FirmId,
+    minimumPayoutRequest,
     NO_PLAN_OPT_INS,
     type Plan,
     PlanAvailability,
@@ -305,8 +306,7 @@ export function personalPayoutOverrideNotice(
     overrideCents: undefined | UsdCents,
 ): null | string {
     if (overrideCents === undefined) return null;
-    const minimum =
-        plan.payoutLadder?.minRequestAmount ?? plan.minPayoutRequest;
+    const minimum = minimumPayoutRequest(plan);
     const override = usdCentsToDollars(overrideCents);
     if (override < minimum) {
         return `The firm minimum ${formatCurrency(minimum, Number.isSafeInteger(minimum) ? 0 : CENTS_FRACTION_DIGITS)} is above your ${formatUsdCents(overrideCents)}, so every request uses the firm minimum instead.`;

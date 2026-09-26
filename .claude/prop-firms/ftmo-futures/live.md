@@ -3,13 +3,15 @@
 **Sources:** <https://ftmo.com/en/futures/how-it-works/> (Step 3 "Live Funded Account" summary: invitation-only trigger, one-time buffer, daily payouts, no payout cap, 90/10, market data fee; updated 2026-09-14), <https://ftmo.com/en/futures/faq/who-is-eligible-for-a-live-funded-account/> (discretion of the Trading Department and the Live-Funded-specific restricted-country list; updated 2026-08-31), FTMO Futures Evaluation Terms and Conditions (Global) at <https://storage.googleapis.com/ftmo-futures-legal-prod/global/terms-and-conditions-3/terms-and-conditions-3-v5.pdf> (dated 31 August 2026). See full Sources list at the bottom for every article checked.
 
 **Last Verified:** 2026-09-21
-**Last Updated:** 2026-09-21
+**Last Updated:** 2026-09-26
 
 ## Overview
 
 The Live Funded Account is Phase 3 of the FTMO Futures journey, shared identically by Growth and Pro at every size, and documented once here rather than duplicated in [growth.md](./growth.md) or [pro.md](./pro.md) (both link to this file). Per the FAQ "Who is an FTMO Trader, and how do I become one?": "Phase 3: Live Funded Account. After building a track record of approved payouts, a small group of top-performing, consistent traders may be invited, at FTMO's discretion, to trade an FTMO Futures Live Funded Account with real capital as an FTMO Live Funded Trader." It is a real-money account, not a further simulated stage: "A small number of top-performing traders may later be moved to a Live Funded Account, which is a real-money account, where futures trading is done with actual capital" (FAQ, "How does a Sim-Funded Account work from the technical side?"). It is never granted on the strength of a trader's history outside FTMO's own programme: "it is not possible to obtain a Sim-Funded or Live Funded Account based on any external trading track record" (FAQ, "How to Start?"), and separately, "A Live Funded Account is not granted based on any past trading track record" (FAQ, "Who is an FTMO Trader..."). How It Works frames the stage's own remaining rule-set at its narrowest of the whole programme: "The only Trading Objective left is your Max Drawdown."
 
 This file documents only what the two cited source bundles state about the Live Funded Account itself. Growth and Pro are also offered at $100K and $150K in addition to the $50K size this repo's tree otherwise documents (see growth.md's and pro.md's own Not Confirmed sections). The only cited statement linking the Live Funded Account to the trader's earlier choices is T&C Cl. 3.2, which ties it to the Order's Options (the Evaluation version and Initial Simulated Capital selected at purchase) without giving any figure or formula: "The Options you select also provide the basis for the subsequent Sim-Funded Account and Live Funded Account (see Clause 6 (FTMO Futures Trader Programme)). Once you finalise the Order, you may not change Options for that Order." No source states what "the basis" means in dollar terms, so this file carries no size-specific figure, confirmed or excluded. No dollar figure for a starting balance, drawdown amount, Daily Loss Limit, one-time buffer, or market data fee is stated anywhere in the cited sources. See "Live Funded Account: Trading Objectives and Risk Parameters" and "Not Confirmed By This Source" below. Because no such figure is confirmed, this file contains no Worked Example: fabricating one from an unconfirmed number would violate this file's own sourcing standard, so none is included.
+
+The invitation-only, discretionary, no-published-numeric-trigger framing above was reconfirmed against a live re-fetch of How It Works on 2026-09-26 (PT-71c catalog recheck; HTTP 200, page text unchanged from the 2026-09-21 read). That recheck did not surface a dollar figure for size, drawdown, Daily Loss Limit, buffer, or market data fee either; every "Unconfirmed" item below stands as it did on 2026-09-21. This file's own Last Verified date above is left at 2026-09-21, not bumped to reflect that partial recheck, since only How It Works was re-fetched this pass; the FAQ, T&C, and country-list content cited elsewhere in this file were not re-fetched (reused from the 2026-09-21 read, per the R-V5 catalog recheck row).
 
 ## Eligibility and Invitation
 
@@ -99,11 +101,11 @@ The engine model at `src/lib/prop-calculator/firms/ftmo-futures/FtmoFutures.ts` 
 
 ---
 
-**Last Updated:** 2026-09-21
+**Last Updated:** 2026-09-26
 **Sources:**
 
 - <https://ftmo.com/en/futures/> (updated 2026-09-21)
-- <https://ftmo.com/en/futures/how-it-works/> (updated 2026-09-14)
+- <https://ftmo.com/en/futures/how-it-works/> (updated 2026-09-14; re-fetched 2026-09-26, unchanged, PT-71c catalog recheck)
 - <https://ftmo.com/en/futures/forbidden-trading-practices/> (updated 2026-09-11)
 - <https://ftmo.com/en/futures/faq/who-is-eligible-for-a-live-funded-account/> (updated 2026-08-31)
 - <https://ftmo.com/en/futures/faq/who-is-an-ftmo-trader-and-how-do-i-become-one/> (updated 2026-09-13)

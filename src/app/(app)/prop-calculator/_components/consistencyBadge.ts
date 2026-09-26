@@ -1,10 +1,9 @@
 import { type Plan } from '~/lib/prop-calculator';
+import { planConsistencyLabels } from '~/lib/prop-calculator/describe';
 
 export function describeConsistencyBadge(plan: Plan): null | string {
-    const evalLabel = plan.isInstantFunded
-        ? null
-        : (plan.evalConsistencyRule()?.shareLabel() ?? null);
-    const fundedLabel = plan.fundedConsistencyRule()?.shareLabel() ?? null;
+    const { eval: evalLabel, funded: fundedLabel } =
+        planConsistencyLabels(plan);
     if (evalLabel === fundedLabel) return evalLabel;
     const parts = [
         ...(evalLabel === null ? [] : [`Eval ${evalLabel}`]),

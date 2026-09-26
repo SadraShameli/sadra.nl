@@ -482,9 +482,9 @@ describe('idleDayProbability round-trip through the URL (PT-11j)', () => {
             idleDayProbability: 0.1,
         });
 
-        expect(
-            parameters.get(CalculatorUrlParameter.IdleDayProbability),
-        ).toBe('0.100');
+        expect(parameters.get(CalculatorUrlParameter.IdleDayProbability)).toBe(
+            '0.100',
+        );
         expect(
             parameters.has(CalculatorUrlParameter.LegacyIdleDayProbability),
         ).toBe(false);

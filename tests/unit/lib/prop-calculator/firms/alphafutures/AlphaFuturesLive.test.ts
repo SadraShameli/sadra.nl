@@ -5,12 +5,18 @@ import {
     fraction,
     INSTRUMENTS,
     InstrumentSymbol,
+    points,
 } from '~/lib/prop-calculator/core';
 import { buildAlphaFuturesLivePlan } from '~/lib/prop-calculator/firms/alphafutures/AlphaFuturesLive';
 import { type Rng } from '~/lib/prop-calculator/rng';
 import { runLiveHorizon } from '~/lib/prop-calculator/simulator';
 
 const alwaysWins: Rng = () => 0;
+
+const ONE_NQ_AT_100 = {
+    instrument: INSTRUMENTS[InstrumentSymbol.NQ],
+    stopPoints: points(5),
+};
 
 describe('buildAlphaFuturesLivePlan contract limits', () => {
     it.each([
@@ -50,14 +56,14 @@ describe('buildAlphaFuturesLivePlan Maximum Loss Limit', () => {
         expect(state.threshold).toBe(0);
     });
 
-    it('pays out at the default one-drawdown cushion once profit clears the drawdown: locks on day 20, then $200 a day paying $160 from day 21, for $1,600 over 30 days', () => {
+    it('pays out at the default one-drawdown cushion once profit clears the drawdown, in whole $100 NQ contracts (one at 5% of the $2,000 cushion before the lock, two at 10% after it): locks on day 20, then $200 a day paying $160 from day 21, for $1,600 over 30 days', () => {
         const plan = buildAlphaFuturesLivePlan();
         const result = runLiveHorizon({
             commission: dollars(0),
             horizonDays: 30,
             payoutRequestSize: undefined,
             plan,
-            positionSizing: null,
+            positionSizing: ONE_NQ_AT_100,
             retainedCushion: plan.resolveRetainedCushion(undefined),
             rng: alwaysWins,
             rrRatio: 1,

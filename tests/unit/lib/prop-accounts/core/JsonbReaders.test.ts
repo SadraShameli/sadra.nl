@@ -215,7 +215,7 @@ describe('jsonb schema typing', () => {
         );
         expect(
             Object.keys(accountEventDetailSchema.shape).toSorted(byName),
-        ).toEqual(['changes', 'note']);
+        ).toEqual(['bustCause', 'changes', 'note']);
         expectTypeOf<
             z.output<typeof personalRulesSchema>
         >().toExtend<PersonalRules>();

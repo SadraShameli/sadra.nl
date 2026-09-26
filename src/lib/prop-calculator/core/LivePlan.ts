@@ -20,6 +20,7 @@ import {
     type Fraction0to1,
     isAtOrBelowWithinCentTolerance,
     ONE_CENT,
+    payoutRequestSizeSchema,
 } from './lib/units';
 import {
     createInitialLiveAccountState,
@@ -30,7 +31,12 @@ import {
     PayoutFloorEffect,
     payoutFloorEffectName,
 } from './PayoutFloorEffect';
+import { reachablePayoutRequest } from './PayoutRequestPolicy';
 import { type PayoutTier, walkPayoutTiers } from './PayoutTiers';
+import {
+    applyPayoutFloorEffect,
+    postPayoutThreshold,
+} from './PostPayoutThreshold';
 import { type UntrackedTierProfitContext } from './TierBasis';
 
 export interface LiveCushionPercent {
@@ -237,23 +243,12 @@ export class LivePlan {
     }
 
     private floorAfterWithdrawal(state: LiveAccountState): number {
-        switch (this.payoutFloorEffect) {
-            case PayoutFloorEffect.LockAtPlanFloor:
-            case PayoutFloorEffect.MoveToLockedFloor: {
-                return (
-                    this.liveDrawdown?.prospectiveLockThreshold(
-                        state,
-                        this.payoutFloorEffect,
-                    ) ?? state.threshold
-                );
-            }
-            case PayoutFloorEffect.None: {
-                return state.threshold;
-            }
-            case PayoutFloorEffect.ReleaseFloor: {
-                return this.startingBalance;
-            }
-        }
+        return postPayoutThreshold(
+            this.liveDrawdown,
+            state,
+            this.payoutFloorEffect,
+            this.startingBalance,
+        );
     }
 
     private restrictedPayoutGate(
@@ -375,12 +370,7 @@ export class LivePlan {
                 `${this.label}: payoutRequestSize must be a finite number > 0 or omitted, got ${requested}`,
             );
         }
-        if (requested < this.minPayoutRequest) {
-            throw new Error(
-                `${this.label}: a payout request of $${requested} is below the $${this.minPayoutRequest} minimum payout request, so it could never be paid`,
-            );
-        }
-        return requested;
+        return reachablePayoutRequest(this, requested);
     }
 
     seedReserveTerms(): LiveSeedReserve | null {
@@ -439,23 +429,12 @@ export class LivePlan {
     withdraw(state: LiveAccountState, amount: number): void {
         state.balance -= amount;
         state.qualifyingDaysAtLastPayout = state.qualifyingDays;
-        switch (this.payoutFloorEffect) {
-            case PayoutFloorEffect.LockAtPlanFloor: {
-                this.liveDrawdown?.forceLock(state);
-                break;
-            }
-            case PayoutFloorEffect.MoveToLockedFloor: {
-                this.liveDrawdown?.moveToLock(state);
-                break;
-            }
-            case PayoutFloorEffect.None: {
-                break;
-            }
-            case PayoutFloorEffect.ReleaseFloor: {
-                this.liveDrawdown?.release(state, this.startingBalance);
-                break;
-            }
-        }
+        applyPayoutFloorEffect(
+            this.liveDrawdown,
+            state,
+            this.payoutFloorEffect,
+            this.startingBalance,
+        );
     }
 }
 
@@ -556,7 +535,6 @@ export class ReserveLivePlan extends LivePlan {
 
 const retainedCushionSchema = z.number().nonnegative();
 const minPayoutRequestSchema = z.number().nonnegative();
-const payoutRequestSizeSchema = z.number().positive();
 const seedReserveSchema = z
     .object({
         amount: z.number().nonnegative(),

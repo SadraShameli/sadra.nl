@@ -1,4 +1,9 @@
-import { type SimInputs, type SimOutputs } from '~/lib/prop-calculator';
+import {
+    fraction,
+    type SimInputs,
+    type SimOutputs,
+} from '~/lib/prop-calculator';
+import { fullKellyFraction } from '~/lib/prop-calculator/economics';
 
 export enum KellyIndexStatus {
     NoEdge = 'no-edge',
@@ -46,7 +51,7 @@ export function kellySizing(
     { rrRatio, winrate }: KellySizingInputs,
     { accountSize, averageRiskPerTrade }: KellySizingResult,
 ): KellySizing {
-    const fullKelly = rrRatio > 0 ? (winrate * (rrRatio + 1) - 1) / rrRatio : 0;
+    const fullKelly = fullKellyFraction(fraction(winrate), rrRatio).value ?? 0;
     const currentRiskFraction =
         hasTakenTrades(averageRiskPerTrade) && accountSize > 0
             ? averageRiskPerTrade / accountSize

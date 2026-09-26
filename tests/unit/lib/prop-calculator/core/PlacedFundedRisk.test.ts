@@ -285,6 +285,38 @@ describe('placedFundedRiskAt caps at the MFF Pro 50K funded limit of 5 micros an
     });
 });
 
+describe('placedFundedRisk and placedFundedRiskAt take a null plan as no plan', () => {
+    const mnqAtTenSizing = resolvePositionSizing(InstrumentSymbol.MNQ, 10);
+
+    it('places $150 at 7 MNQ = $140, uncapped, with a null plan, the same as with no plan', () => {
+        if (mnqAtTenSizing === null) throw new Error('no sizing');
+        expect(placedFundedRiskAt(150, mnqAtTenSizing, null)).toStrictEqual(
+            placedFundedRiskAt(150, mnqAtTenSizing),
+        );
+        expect(placedFundedRiskAt(150, mnqAtTenSizing, null)).toMatchObject({
+            contracts: 7,
+            isCapped: false,
+            risk: 140,
+        });
+    });
+
+    it('resolves the sizing and places uncapped with a null plan', () => {
+        const inputs = {
+            instrument: InstrumentSymbol.MNQ,
+            riskPerTrade: 150,
+            stopPoints: 10,
+        };
+        expect(placedFundedRisk(inputs, null)).toStrictEqual(
+            placedFundedRisk(inputs),
+        );
+        expect(placedFundedRisk(inputs, null)).toMatchObject({
+            contracts: 7,
+            isCapped: false,
+            risk: 140,
+        });
+    });
+});
+
 describe('FUNDED_START_TIER_CONTRACT_LIMIT is the one cap phrase the CLI and the web print (WP39f)', () => {
     it('names the funded contract limit at the start tier, from the prop-calculator barrel', () => {
         expect(FUNDED_START_TIER_CONTRACT_LIMIT).toBe(

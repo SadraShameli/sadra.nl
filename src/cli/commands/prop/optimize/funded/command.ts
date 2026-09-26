@@ -13,42 +13,32 @@ import {
 } from '~/cli/commands/prop/shared';
 import { ui } from '~/cli/ui';
 import {
-    formatConjunctionList,
-    formatCurrency,
-    formatPercent,
-} from '~/lib/format';
-import {
-    ContractLimitKind,
     type DayStopRule,
-    formatOneContractRisk,
-    formatWholeCentDollars,
-    fraction,
-    FUNDED_START_TIER_CONTRACT_LIMIT,
-    fundedContractLimit,
-    type PlacedFundedRisk,
-    placedFundedRiskAt,
     type Plan,
-    policySizingOf,
     type PositionSizingConfig,
     resolvePositionSizing,
-    SIM_DEFAULTS,
-    type SimInputs,
-    simInputsSizingIssue,
-    type SimOutputs,
-    simulate,
     TRADING_DAYS_PER_MONTH,
-    TradingPhase,
 } from '~/lib/prop-calculator';
-
-export enum FundedSortKey {
-    Cycle = 'cycle',
-    Monthly = 'monthly',
-}
-
-export interface Candidate {
-    label: string;
-    overrides: Partial<SimInputs>;
-}
+import {
+    buildFundedCandidates,
+    type BuiltFundedCandidates,
+    DEFAULT_FUNDED_FLAT_CANDIDATES,
+    DEFAULT_FUNDED_PERCENT_CANDIDATES,
+    flatsBelowOneContractNote,
+    FUNDED_SORT_KEYS,
+    type FundedCandidate,
+    FundedCandidateBuildKind,
+    FundedCandidateRefusal,
+    type FundedCandidateRefusalDetail,
+    fundedFlatCandidateSchema,
+    fundedPercentCandidateSchema,
+    fundedPlacementNotes,
+    fundedRowCells,
+    fundedSortDescription,
+    FundedSortKey,
+    ladderRungsBelowOneContractText,
+    runFundedCandidateSweep,
+} from '~/lib/prop-calculator/optimize';
 
 export interface FundedCandidateArguments {
     flat: string;
@@ -56,29 +46,9 @@ export interface FundedCandidateArguments {
     percent?: string;
 }
 
-type CandidateSizingOverrides = Pick<
-    SimInputs,
-    'fundedCushionPercent' | 'fundedRiskPerTrade'
->;
-
-interface FlatCandidates {
-    belowOneContract: number[];
-    placed: number[];
-}
-
-interface ScoredCandidate {
-    candidate: Candidate;
-    out: SimOutputs;
-}
-
-const DEFAULT_PERCENT_CANDIDATES = '5,7.5,10,15';
+const DEFAULT_PERCENT_CANDIDATES = DEFAULT_FUNDED_PERCENT_CANDIDATES.join(',');
 
 const MIN_POLICY_COLUMN_WIDTH = 16;
-
-const SORT_KEYS: readonly FundedSortKey[] = [
-    FundedSortKey.Monthly,
-    FundedSortKey.Cycle,
-];
 
 export default defineCommand({
     args: {
@@ -86,7 +56,7 @@ export default defineCommand({
         ...tradingArguments,
         ...singlePathGranularityArgument,
         flat: {
-            default: '150,200,250,300,400,500',
+            default: DEFAULT_FUNDED_FLAT_CANDIDATES.join(','),
             description:
                 "Comma-separated flat $/trade funded-phase candidates. Pass '' to skip flat candidates.",
             type: 'string',
@@ -102,9 +72,8 @@ export default defineCommand({
         },
         sort: {
             default: FundedSortKey.Monthly,
-            description:
-                "monthly (default): steady-state expected net per month for one account slot ((per-run net + horizon credit) divided by expected days per run, i.e. the slot is refilled after every failed eval, funded bust or horizon end; the 'monthly ex-credit' column leaves the credit out) -- the only key valid for ranking plans. cycle: expected net from THIS ONE simulated run only (whatever --eval-days/--funded-days bound it to) -- use this for a short, fixed-horizon goal you do not intend to repeat indefinitely.",
-            options: [...SORT_KEYS],
+            description: `monthly (default): steady-state expected net per month for one account slot, or for the --copy-accounts slots together when that is above 1 ((per-run net + horizon credit) x ${TRADING_DAYS_PER_MONTH} / expected days per run, where the days per run include --rebuy-lag-days of empty slot time per eval attempt and the slot is refilled after every failed eval, funded bust or horizon end; the 'monthly ex-credit' column leaves the credit out) -- the only key valid for ranking plans. cycle: expected net from THIS ONE simulated run only (whatever --eval-days/--funded-days bound it to) -- use this for a short, fixed-horizon goal you do not intend to repeat indefinitely. With --copy-accounts above 1, the per-cycle net, horizon credit and monthly figures are summed over the copy-traded account slots (one slot x --copy-accounts).`,
+            options: [...FUNDED_SORT_KEYS],
             type: 'enum',
         },
     },
@@ -124,7 +93,7 @@ export default defineCommand({
                 base.instrument,
                 base.stopPoints,
             );
-            const candidates = readFundedCandidates(
+            const build = readFundedCandidateBuild(
                 context.args,
                 inputs.dayStop,
                 positionSizing,
@@ -135,41 +104,26 @@ export default defineCommand({
                 .spinner(
                     fundedSweepProgress(
                         plan.label,
-                        candidates.length,
+                        build.candidates.length,
                         inputs.trials,
                     ),
                 )
                 .start();
 
-            const rows: ScoredCandidate[] = candidates.map((candidate) => {
-                const out = simulate({ ...base, ...candidate.overrides });
-                return { candidate, out };
-            });
-
-            rows.sort((a, b) => {
-                switch (sort) {
-                    case FundedSortKey.Cycle: {
-                        return b.out.expectedNet - a.out.expectedNet;
-                    }
-                    case FundedSortKey.Monthly: {
-                        return (
-                            b.out.expectedMonthlyNet - a.out.expectedMonthlyNet
-                        );
-                    }
-                }
-            });
+            const rows = runFundedCandidateSweep(base, build.candidates, sort);
 
             spinner.succeed(fundedSweepSummary(plan.label, rows.length));
 
             ui.heading(plan.label);
             for (const note of fundedSizingNotes(
                 context.args,
+                build,
                 positionSizing,
                 plan,
             )) {
                 ui.note(note);
             }
-            ui.muted(sortDescription(sort, base));
+            ui.muted(fundedSortDescription(sort, base));
             ui.muted(
                 `  survivors = trials (out of ${inputs.trials}) that passed eval and never busted funded (reached the horizon or the account concluded) -- a result backed by very few survivors is driven by a small, noisy sample and should not be trusted at face value\n`,
             );
@@ -204,22 +158,6 @@ export default defineCommand({
     },
 });
 
-export function fundedRowCells(
-    label: string,
-    out: SimOutputs,
-    trials: number,
-): string[] {
-    return [
-        label,
-        formatCurrency(out.expectedNet),
-        formatCurrency(out.expectedHorizonCredit),
-        formatCurrency(out.expectedMonthlyNet),
-        formatCurrency(out.expectedMonthlyRealizedNet),
-        formatPercent(out.fundedBustProbability),
-        `${survivorCount(out, trials)}/${trials}`,
-    ];
-}
-
 export function fundedSweepProgress(
     planLabel: string,
     policyCount: number,
@@ -240,112 +178,43 @@ export function readFundedCandidates(
     stopRule: DayStopRule,
     positionSizing: null | PositionSizingConfig = null,
     plan?: Plan,
-): Candidate[] {
-    const fundedLadder = readLadder(
-        arguments_['funded-ladder'],
-        'funded-ladder',
-    );
-    const flat = readFlatCandidates(arguments_, positionSizing);
-    const candidates = [
-        ...flat.placed.map((dollar): Candidate => ({
-            label: flatLabel(dollar, positionSizing, plan),
-            overrides: flatOverrides(dollar),
-        })),
-        ...readPercentCandidates(arguments_, positionSizing),
-        ...(fundedLadder
-            ? [ladderCandidate(fundedLadder, stopRule, positionSizing, plan)]
-            : []),
-    ];
-    if (candidates.length === 0) {
-        const belowOneContract = flatBelowOneContractNote(
-            flat.belowOneContract,
-            positionSizing,
-        );
-        throw new Error(
-            `No funded policies to test: give at least one of --flat, --percent or --funded-ladder${belowOneContract === null ? '' : `. ${belowOneContract}`}`,
-        );
-    }
-    return candidates;
+): FundedCandidate[] {
+    return readFundedCandidateBuild(
+        arguments_,
+        stopRule,
+        positionSizing,
+        plan ?? null,
+    ).candidates;
 }
 
-export function sortDescription(sort: FundedSortKey, base: SimInputs): string {
-    switch (sort) {
-        case FundedSortKey.Cycle: {
-            return `  ranked by per-cycle expected net for THIS run only (${base.maxEvalDays}-day eval cap + ${base.fundedHorizonDays}-day funded horizon, no assumption you repeat this indefinitely)\n`;
-        }
-        case FundedSortKey.Monthly: {
-            const rebuyLagDays = base.rebuyLagDays ?? SIM_DEFAULTS.rebuyLagDays;
-            return `  ranked by steady-state expected net per month for one account slot: monthly net = (per-cycle net + horizon credit) x ${TRADING_DAYS_PER_MONTH} / slot days, where slot days are the expected days per run (slot refilled after every failed eval, funded bust or ${base.fundedHorizonDays}-day horizon end, plus ${rebuyLagDays} rebuy-lag-days of empty slot time per new eval attempt); the horizon credit is one more payout request for an account still open at the horizon, net of the split and the payout method fee: its withdrawable balance capped by the ladder step, request size, profit share and request caps, and capped by the payout profit pool (cycle profit since the last payout on cycle-pool plans) only when there is no payout ladder and no payout profit share; a payout ladder that denies an unaffordable step credits 0 when the step is above what the account could withdraw (its withdrawable balance, or its profit share if lower), and the credit is 0 once a lifetime payout cap is reached or the payout ladder is exhausted; the credit ignores the payout day and qualifying-day gate, the consistency rule, the minimum payout profit and the minimum request, since continued trading would clear them; monthly ex-credit = per-cycle net x ${TRADING_DAYS_PER_MONTH} / slot days, leaving the horizon credit out\n`;
-        }
-    }
-}
-
-export function survivorCount(
-    out: Pick<SimOutputs, 'fundedSurvivalProbability'>,
-    trials: number,
-): number {
-    return Math.round(out.fundedSurvivalProbability * trials);
-}
-
-function candidateSizingIssue(
-    overrides: CandidateSizingOverrides,
+function fundedCandidateRefusalMessage(
+    refusal: FundedCandidateRefusalDetail,
+    arguments_: FundedCandidateArguments,
     positionSizing: null | PositionSizingConfig,
-): null | string {
-    return simInputsSizingIssue({
-        ...overrides,
-        instrument: positionSizing?.instrument.symbol,
-        riskPerTrade: overrides.fundedRiskPerTrade ?? 0,
-        stopPoints: positionSizing?.stopPoints,
-    });
-}
-
-function collapsedFlatNotes(
-    dollars: readonly number[],
-    positionSizing: PositionSizingConfig,
-    plan: Plan,
-): string[] {
-    if (hasTieredFundedContractLimit(plan, positionSizing)) return [];
-    const groups = Map.groupBy(dollars, (dollar) =>
-        placementText(
-            [placedFundedRiskAt(dollar, positionSizing, plan)],
-            positionSizing,
-        ),
-    );
-    return [...groups]
-        .filter(([, group]) => group.length > 1)
-        .map(
-            ([placement, group]) =>
-                `flat ${formatConjunctionList(group.map((dollar) => formatWholeCentDollars(dollar)))} place the same ${placement}, so their rows are one policy`,
-        );
-}
-
-function flatBelowOneContractNote(
-    belowOneContract: readonly number[],
-    positionSizing: null | PositionSizingConfig,
-): null | string {
-    if (positionSizing === null || belowOneContract.length === 0) return null;
-    const dollars = belowOneContract
-        .map((dollar) => formatWholeCentDollars(dollar))
-        .join(', ');
-    return `flat ${dollars} left out: below one ${positionSizing.instrument.symbol} contract's risk at a ${positionSizing.stopPoints} point stop (${formatOneContractRisk(positionSizing)}), and funded flat risk is rounded down to whole contracts, never up`;
-}
-
-function flatLabel(
-    dollar: number,
-    positionSizing: null | PositionSizingConfig,
-    plan: Plan | undefined,
 ): string {
-    return positionSizing === null
-        ? `flat $${dollar}`
-        : `flat $${dollar} (${placementLabel([dollar], positionSizing, plan)})`;
-}
-
-function flatOverrides(dollar: number): CandidateSizingOverrides {
-    return { fundedCushionPercent: undefined, fundedRiskPerTrade: dollar };
+    switch (refusal.kind) {
+        case FundedCandidateRefusal.InvalidLists: {
+            return `Invalid funded candidates: ${refusal.issues}`;
+        }
+        case FundedCandidateRefusal.LadderRungBelowOneContract: {
+            return `Invalid --funded-ladder "${refusal.ladder.join(',')}": ${ladderRungsBelowOneContractText(refusal.rungsBelowOneContract, refusal.positionSizing)}`;
+        }
+        case FundedCandidateRefusal.NoCandidates: {
+            const belowOneContract = flatsBelowOneContractNote(
+                refusal.flatsBelowOneContract,
+                positionSizing,
+            );
+            return `No funded policies to test: give at least one of --flat, --percent or --funded-ladder${belowOneContract === null ? '' : `. ${belowOneContract}`}`;
+        }
+        case FundedCandidateRefusal.PercentNeedsStop: {
+            return `--percent "${arguments_.percent ?? refusal.percent.join(',')}" needs --stop-points: percent-of-cushion risk is placed in whole contracts at that stop (with --instrument, default NQ). Add --stop-points, or pass --percent '' to skip percent candidates.`;
+        }
+    }
 }
 
 function fundedSizingNotes(
     arguments_: FundedCandidateArguments,
+    build: BuiltFundedCandidates,
     positionSizing: null | PositionSizingConfig,
     plan: Plan,
 ): string[] {
@@ -356,87 +225,7 @@ function fundedSizingNotes(
               ]
             : [];
     }
-    const flat = readFlatCandidates(arguments_, positionSizing);
-    const belowOneContract = flatBelowOneContractNote(
-        flat.belowOneContract,
-        positionSizing,
-    );
-    return [
-        ...(belowOneContract === null ? [] : [belowOneContract]),
-        `flat, percent and ladder rows are placed in whole ${positionSizing.instrument.symbol} contracts at a ${positionSizing.stopPoints} point stop; a flat or ladder label shows the placement at ${FUNDED_START_TIER_CONTRACT_LIMIT} (a tiered plan can place more later), and the affordable room can cut it further`,
-        ...collapsedFlatNotes(flat.placed, positionSizing, plan),
-    ];
-}
-
-function hasTieredFundedContractLimit(
-    plan: Plan,
-    positionSizing: PositionSizingConfig,
-): boolean {
-    return (
-        fundedContractLimit(
-            plan.contractLimits,
-            positionSizing.instrument.isMicro,
-        )?.kind === ContractLimitKind.Tiered
-    );
-}
-
-function ladderCandidate(
-    ladder: readonly number[],
-    stopRule: DayStopRule,
-    positionSizing: null | PositionSizingConfig,
-    plan: Plan | undefined,
-): Candidate {
-    const rungs = ladder.join('/');
-    const overrides = {
-        fundedCushionPercent: undefined,
-        fundedDayPolicy: {
-            ladder,
-            maxLossesPerDay: null,
-            sizing: policySizingOf(TradingPhase.Funded),
-            stopRule,
-        },
-        fundedRiskPerTrade: undefined,
-    } satisfies Partial<SimInputs>;
-    if (positionSizing === null) {
-        return { label: `ladder ${rungs}`, overrides };
-    }
-    const belowOneContract = ladder.filter(
-        (rung) =>
-            candidateSizingIssue(flatOverrides(rung), positionSizing) !== null,
-    );
-    if (belowOneContract.length > 0) {
-        throw new Error(
-            `Invalid --funded-ladder "${ladder.join(',')}": ${belowOneContract.map((rung) => formatWholeCentDollars(rung)).join(', ')} below one ${positionSizing.instrument.symbol} contract's risk at a ${positionSizing.stopPoints} point stop (${formatOneContractRisk(positionSizing)}), and funded ladder rungs are rounded down to whole contracts, never up. Raise the rung, or use a micro instrument or a tighter stop.`,
-        );
-    }
-    return {
-        label: `ladder ${rungs} (${placementLabel(ladder, positionSizing, plan)})`,
-        overrides,
-    };
-}
-
-function placementLabel(
-    dollars: readonly number[],
-    positionSizing: PositionSizingConfig,
-    plan: Plan | undefined,
-): string {
-    const uncapped = dollars.map((dollar) =>
-        placedFundedRiskAt(dollar, positionSizing),
-    );
-    const placed = dollars.map((dollar) =>
-        placedFundedRiskAt(dollar, positionSizing, plan),
-    );
-    const capped = placed.some((placement) => placement.isCapped)
-        ? `, capped at ${placementText(placed, positionSizing)} by ${FUNDED_START_TIER_CONTRACT_LIMIT}`
-        : '';
-    return `${placementText(uncapped, positionSizing)}${capped}`;
-}
-
-function placementText(
-    placed: readonly PlacedFundedRisk[],
-    positionSizing: PositionSizingConfig,
-): string {
-    return `${placed.map((placement) => placement.contracts).join('/')} ${positionSizing.instrument.symbol} = ${placed.map((placement) => formatWholeCentDollars(placement.risk)).join('/')}`;
+    return fundedPlacementNotes(build, positionSizing, plan);
 }
 
 function readCandidateFamily(
@@ -450,48 +239,51 @@ function readCandidateFamily(
         : readNumberList(raw, name, itemSchema, expectation);
 }
 
-function readFlatCandidates(
+function readFundedCandidateBuild(
     arguments_: FundedCandidateArguments,
+    stopRule: DayStopRule,
     positionSizing: null | PositionSizingConfig,
-): FlatCandidates {
-    const dollars = readCandidateFamily(
+    plan: null | Plan,
+): BuiltFundedCandidates {
+    const fundedLadder = readLadder(
+        arguments_['funded-ladder'],
+        'funded-ladder',
+    );
+    const flat = readCandidateFamily(
         arguments_.flat,
         'flat',
-        z.number().positive(),
+        fundedFlatCandidateSchema,
         'a dollar amount > 0',
     );
-    const isPlaced = (dollar: number): boolean =>
-        candidateSizingIssue(flatOverrides(dollar), positionSizing) === null;
-    return {
-        belowOneContract: dollars.filter((dollar) => !isPlaced(dollar)),
-        placed: dollars.filter(isPlaced),
-    };
-}
-
-function readPercentCandidates(
-    arguments_: FundedCandidateArguments,
-    positionSizing: null | PositionSizingConfig,
-): Candidate[] {
-    const { percent } = arguments_;
-    const candidates = readCandidateFamily(
-        percent ?? DEFAULT_PERCENT_CANDIDATES,
-        'percent',
-        z.number().positive().max(100),
-        'a percent in (0, 100]',
-    ).map((pct): Candidate => ({
-        label: `${pct}% cushion`,
-        overrides: {
-            fundedCushionPercent: fraction(pct / 100),
-            fundedRiskPerTrade: undefined,
-        },
-    }));
-    const isRefused = candidates.some(
-        (candidate) =>
-            candidateSizingIssue(candidate.overrides, positionSizing) !== null,
-    );
-    if (!isRefused) return candidates;
-    if (percent === undefined) return [];
-    throw new Error(
-        `--percent "${percent}" needs --stop-points: percent-of-cushion risk is placed in whole contracts at that stop (with --instrument, default NQ). Add --stop-points, or pass --percent '' to skip percent candidates.`,
-    );
+    const percent =
+        arguments_.percent === undefined
+            ? undefined
+            : readCandidateFamily(
+                  arguments_.percent,
+                  'percent',
+                  fundedPercentCandidateSchema,
+                  'a percent in (0, 100]',
+              );
+    const build = buildFundedCandidates({
+        flat,
+        fundedLadder,
+        percent,
+        plan,
+        positionSizing,
+        stopRule,
+    });
+    switch (build.kind) {
+        case FundedCandidateBuildKind.Built: {
+            return build;
+        }
+        case FundedCandidateBuildKind.Refused: {
+            throw new Error(
+                fundedCandidateRefusalMessage(
+                    build.refusal,
+                    arguments_,
+                    positionSizing,
+                ),
+            );
+        }
+    }
 }

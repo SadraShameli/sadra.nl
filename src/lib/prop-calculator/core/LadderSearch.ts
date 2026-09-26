@@ -20,15 +20,23 @@ import {
     shouldStopDay,
 } from './DayPolicy';
 import { type DrawdownStrategy } from './DrawdownStrategy';
+import {
+    remainingEvalSessions,
+    subscriptionElapsedDaysIssue,
+} from './EvalStartState';
 import { type CouponDiscounts, monthlySubscriptionFee } from './FeeSchedule';
-import { type ContractCount } from './lib/units';
+import { CENTS_PER_DOLLAR, type ContractCount } from './lib/units';
 import { type Plan } from './Plan';
 import {
     capRiskToContractLimit,
     evalContractLimit,
     type PositionSizingConfig,
 } from './PositionSizing';
-import { replacementEconomics } from './Replacement';
+import {
+    type AttemptDaySamples,
+    replacementEconomics,
+    replacementEconomicsFromState,
+} from './Replacement';
 import { applyTrade, closeTradingDay, recordBestDay } from './TradingDayLedger';
 import { TradingPhase } from './TradingPhase';
 
@@ -44,6 +52,13 @@ export interface DayOutcome {
     worstPnL: number;
 }
 
+export interface LadderAttemptStats {
+    meanDaysOnFail: number;
+    meanDaysOnPass: number;
+    passRate: number;
+    passRateStandardError: number;
+}
+
 export interface LadderGridConfig {
     lo: number;
     max: number;
@@ -56,6 +71,7 @@ export interface LadderScore {
     costPerFundedStandardError: number;
     expectedDaysToFunded: number;
     expectedDaysToFundedStandardError: number;
+    freshAttempt?: LadderAttemptStats;
     ladder: readonly number[];
     meanDaysOnFail: number;
     meanDaysOnPass: number;
@@ -75,14 +91,53 @@ export interface LadderScoreConfig {
     rungSizing: RungSizing;
     seedOffset: number;
     sims: number;
+    startState?: AccountState;
     stopRule: DayPolicy['stopRule'];
+    subscriptionElapsedDays?: number;
     winrate: number;
 }
 
 export const LADDER_EVAL_PASS_FLOOR = 0.02;
 const DEFAULT_CUSHION_BUCKET_DOLLARS = 50;
 const LADDER_TRIAL_SUBSTREAM = 0;
-const CENTS = 100;
+
+interface AttemptSummary {
+    estimates: readonly Estimate[];
+    samples: AttemptDaySamples;
+    stats: LadderAttemptStats;
+}
+
+interface AttemptTally {
+    daysOnFailSquaredSum: number;
+    daysOnFailSum: number;
+    daysOnPassSquaredSum: number;
+    daysOnPassSum: number;
+    failDays: number[];
+    passDays: number[];
+}
+
+interface LadderAttempt {
+    endDay: number;
+    isPassed: boolean;
+}
+
+interface LadderCosting {
+    discounts: CouponDiscounts | undefined;
+    plan: Plan;
+}
+
+interface ResolvedStart {
+    remainingSessions: number;
+    state: AccountState;
+    subscriptionElapsedDays: number;
+}
+
+const UNSCORABLE_COSTS = {
+    costPerFunded: Infinity,
+    costPerFundedStandardError: Infinity,
+    expectedDaysToFunded: Infinity,
+    expectedDaysToFundedStandardError: Infinity,
+} as const;
 
 export interface LadderSearchOptions {
     grid: LadderGridConfig;
@@ -430,6 +485,7 @@ export function scoreLadder(
         stopRule,
         winrate,
     } = config;
+    const start = resolveStart(config);
     const evalDayCap = plan.evalDayCap(maxDays);
     const drawdown = plan.drawdownFor(TradingPhase.Eval);
     const contractLimit =
@@ -446,7 +502,8 @@ export function scoreLadder(
     );
     const lockBucketCap = uncappedThreshold * rrRatio + cushionBucketDollars;
     const lockAtProfit = drawdown.lock?.atProfit ?? 0;
-    const uncappedCushionIndex = Math.ceil(uncappedThreshold * CENTS) + 1;
+    const uncappedCushionIndex =
+        Math.ceil(uncappedThreshold * CENTS_PER_DOLLAR) + 1;
     const cappedLockIndex = Math.ceil(lockBucketCap / cushionBucketDollars);
     const distributionCaches = new Map<
         null | number,
@@ -479,7 +536,7 @@ export function scoreLadder(
         const cushionBucket =
             cushionIndex === uncappedCushionIndex
                 ? uncappedThreshold
-                : cushionIndex / CENTS;
+                : cushionIndex / CENTS_PER_DOLLAR;
         const lockBucket =
             lockIndex === cappedLockIndex
                 ? lockBucketCap
@@ -511,120 +568,37 @@ export function scoreLadder(
         return computed;
     };
 
-    const passDays: number[] = [];
-    const failDays: number[] = [];
-    let daysOnPassSum = 0;
-    let daysOnPassSquaredSum = 0;
-    let daysOnFailSum = 0;
-    let daysOnFailSquaredSum = 0;
-
-    for (let sim = 0; sim < sims; sim++) {
-        const attempt = runLadderAttempt(
-            plan,
-            evalDayCap,
-            distributionFor,
-            trialRng(sim),
-        );
-        if (attempt.isPassed) {
-            passDays.push(attempt.endDay);
-            daysOnPassSum += attempt.endDay;
-            daysOnPassSquaredSum += attempt.endDay ** 2;
-        } else {
-            failDays.push(attempt.endDay);
-            daysOnFailSum += attempt.endDay;
-            daysOnFailSquaredSum += attempt.endDay ** 2;
-        }
-    }
-    const passes = passDays.length;
-    const fails = failDays.length;
-
-    const passRate = passes / Math.max(1, sims);
-    const meanDaysOnPass = passes > 0 ? daysOnPassSum / passes : 0;
-    const meanDaysOnFail = fails > 0 ? daysOnFailSum / fails : 0;
-    const passRateStandardError = binomialStandardError(passRate, sims);
-
-    if (passRate < LADDER_EVAL_PASS_FLOOR) {
-        return {
-            costPerFunded: Infinity,
-            costPerFundedStandardError: Infinity,
-            expectedDaysToFunded: Infinity,
-            expectedDaysToFundedStandardError: Infinity,
-            ladder,
-            meanDaysOnFail,
-            meanDaysOnPass,
-            passRate,
-            passRateStandardError,
-        };
-    }
-
-    const attemptDays = { failDays, passDays };
-    const daysAt = (values: readonly number[]) =>
-        replacementEconomics({
-            discounts,
-            evalPassRate: Math.min(1, values[0] ?? passRate),
-            fees: plan.fees,
-            meanDaysOnFail: values[2] ?? meanDaysOnFail,
-            meanDaysOnPass: values[1] ?? meanDaysOnPass,
-        }).daysPerFundedAccount;
-    const billedCosts = new Map<number, number>();
-    const billedCostAt = (evalPassRate: number): number => {
-        const cached = billedCosts.get(evalPassRate);
-        if (cached !== undefined) return cached;
-        const cost = replacementEconomics({
-            attemptDays,
-            discounts,
-            evalPassRate,
-            fees: plan.fees,
-            meanDaysOnFail,
-            meanDaysOnPass,
-        }).costPerFundedAccount;
-        billedCosts.set(evalPassRate, cost);
-        return cost;
-    };
-    const subscriptionPerDay =
-        monthlySubscriptionFee(plan.fees, discounts) / TRADING_DAYS_PER_MONTH;
-    const costAt = (values: readonly number[]): number => {
-        const evalPassRate = Math.min(1, values[0] ?? passRate);
-        return (
-            billedCostAt(evalPassRate) +
-            subscriptionPerDay *
-                (daysAt(values) -
-                    daysAt([evalPassRate, meanDaysOnPass, meanDaysOnFail]))
-        );
-    };
-    const estimates: readonly Estimate[] = [
-        { standardError: passRateStandardError, value: passRate },
-        {
-            standardError: meanStandardError(
-                daysOnPassSum,
-                daysOnPassSquaredSum,
-                passes,
+    const fresh = summarizeAttempts(
+        tallyAttempts(sims, (sim) =>
+            runLadderAttempt(
+                plan,
+                evalDayCap,
+                distributionFor,
+                trialRng(sim),
+                plan.initialState(),
             ),
-            value: meanDaysOnPass,
-        },
-        {
-            standardError: meanStandardError(
-                daysOnFailSum,
-                daysOnFailSquaredSum,
-                fails,
-            ),
-            value: meanDaysOnFail,
-        },
-    ];
-    return {
-        costPerFunded: billedCostAt(passRate),
-        costPerFundedStandardError: propagatedStandardError(costAt, estimates),
-        expectedDaysToFunded: daysAt([passRate]),
-        expectedDaysToFundedStandardError: propagatedStandardError(
-            daysAt,
-            estimates,
         ),
-        ladder,
-        meanDaysOnFail,
-        meanDaysOnPass,
-        passRate,
-        passRateStandardError,
-    };
+        sims,
+    );
+    const costing: LadderCosting = { discounts, plan };
+    if (start === null) return freshLadderScore(ladder, costing, fresh);
+    const current = summarizeAttempts(
+        tallyAttempts(sims, (trial) =>
+            runLadderAttempt(
+                plan,
+                start.remainingSessions,
+                distributionFor,
+                trialRng(sims + trial),
+                { ...start.state },
+            ),
+        ),
+        sims,
+    );
+    return fromStateLadderScore(ladder, costing, {
+        current,
+        fresh,
+        subscriptionElapsedDays: start.subscriptionElapsedDays,
+    });
 }
 
 export function validateLadderGrid(config: LadderGridConfig): LadderGridConfig {
@@ -647,7 +621,144 @@ export function validateLadderGrid(config: LadderGridConfig): LadderGridConfig {
 }
 
 function cushionCents(cushion: number): number {
-    return cushion > 0 ? Math.max(1, Math.round(cushion * CENTS)) : 0;
+    return cushion > 0
+        ? Math.max(1, Math.round(cushion * CENTS_PER_DOLLAR))
+        : 0;
+}
+
+function freshLadderScore(
+    ladder: readonly number[],
+    costing: LadderCosting,
+    fresh: AttemptSummary,
+): LadderScore {
+    const { discounts, plan } = costing;
+    const { estimates, samples, stats } = fresh;
+    const { meanDaysOnFail, meanDaysOnPass, passRate } = stats;
+
+    if (passRate < LADDER_EVAL_PASS_FLOOR) {
+        return { ...UNSCORABLE_COSTS, ladder, ...stats };
+    }
+
+    const daysAt = (values: readonly number[]) =>
+        replacementEconomics({
+            discounts,
+            evalPassRate: Math.min(1, values[0] ?? passRate),
+            fees: plan.fees,
+            meanDaysOnFail: values[2] ?? meanDaysOnFail,
+            meanDaysOnPass: values[1] ?? meanDaysOnPass,
+        }).daysPerFundedAccount;
+    const billedCosts = new Map<number, number>();
+    const billedCostAt = (evalPassRate: number): number => {
+        const cached = billedCosts.get(evalPassRate);
+        if (cached !== undefined) return cached;
+        const cost = replacementEconomics({
+            attemptDays: samples,
+            discounts,
+            evalPassRate,
+            fees: plan.fees,
+            meanDaysOnFail,
+            meanDaysOnPass,
+        }).costPerFundedAccount;
+        billedCosts.set(evalPassRate, cost);
+        return cost;
+    };
+    const subscriptionPerDay = subscriptionFeePerDay(costing);
+    const costAt = (values: readonly number[]): number => {
+        const evalPassRate = Math.min(1, values[0] ?? passRate);
+        return (
+            billedCostAt(evalPassRate) +
+            subscriptionPerDay *
+                (daysAt(values) -
+                    daysAt([evalPassRate, meanDaysOnPass, meanDaysOnFail]))
+        );
+    };
+    return {
+        costPerFunded: billedCostAt(passRate),
+        costPerFundedStandardError: propagatedStandardError(costAt, estimates),
+        expectedDaysToFunded: daysAt([passRate]),
+        expectedDaysToFundedStandardError: propagatedStandardError(
+            daysAt,
+            estimates,
+        ),
+        ladder,
+        ...stats,
+    };
+}
+
+function fromStateLadderScore(
+    ladder: readonly number[],
+    costing: LadderCosting,
+    attempts: {
+        current: AttemptSummary;
+        fresh: AttemptSummary;
+        subscriptionElapsedDays: number;
+    },
+): LadderScore {
+    const { discounts, plan } = costing;
+    const { current, fresh, subscriptionElapsedDays } = attempts;
+    const reported = { freshAttempt: fresh.stats, ladder, ...current.stats };
+    if (
+        current.stats.passRate < 1 &&
+        fresh.stats.passRate < LADDER_EVAL_PASS_FLOOR
+    ) {
+        return { ...UNSCORABLE_COSTS, ...reported };
+    }
+
+    const estimates = [...current.estimates, ...fresh.estimates];
+    const center = estimates.map((estimate) => estimate.value);
+    const economicsAt = (values: readonly number[], isSampled: boolean) => {
+        const at = (index: number) => values[index] ?? center[index] ?? 0;
+        return replacementEconomicsFromState({
+            current: {
+                attemptDays: isSampled ? current.samples : undefined,
+                meanDaysOnFail: at(2),
+                meanDaysOnPass: at(1),
+                passRate: Math.min(1, at(0)),
+                subscriptionElapsedDays,
+            },
+            fresh: {
+                attemptDays: isSampled ? fresh.samples : undefined,
+                discounts,
+                evalPassRate: Math.min(1, at(3)),
+                fees: plan.fees,
+                meanDaysOnFail: at(5),
+                meanDaysOnPass: at(4),
+            },
+        });
+    };
+    const daysAt = (values: readonly number[]) =>
+        economicsAt(values, false).daysPerFundedAccount;
+    const billedCosts = new Map<string, number>();
+    const billedCostAt = (values: readonly number[]): number => {
+        const key = `${String(values[0])},${String(values[3])}`;
+        const cached = billedCosts.get(key);
+        if (cached !== undefined) return cached;
+        const cost = economicsAt(values, true).costPerFundedAccount;
+        billedCosts.set(key, cost);
+        return cost;
+    };
+    const subscriptionPerDay = subscriptionFeePerDay(costing);
+    const costAt = (values: readonly number[]): number => {
+        const probabilities = center.map((value, index) =>
+            index === 0 || index === 3
+                ? Math.min(1, values[index] ?? value)
+                : value,
+        );
+        return (
+            billedCostAt(probabilities) +
+            subscriptionPerDay * (daysAt(values) - daysAt(probabilities))
+        );
+    };
+    return {
+        costPerFunded: billedCostAt(center),
+        costPerFundedStandardError: propagatedStandardError(costAt, estimates),
+        expectedDaysToFunded: daysAt(center),
+        expectedDaysToFundedStandardError: propagatedStandardError(
+            daysAt,
+            estimates,
+        ),
+        ...reported,
+    };
 }
 
 function ladderGridValueCount(config: LadderGridConfig): number {
@@ -658,6 +769,27 @@ function ladderGridValueCount(config: LadderGridConfig): number {
     );
 }
 
+function resolveStart(config: LadderScoreConfig): null | ResolvedStart {
+    const { maxDays, plan, startState, subscriptionElapsedDays } = config;
+    if (startState === undefined) {
+        if (subscriptionElapsedDays !== undefined) {
+            throw new RangeError('subscriptionElapsedDays needs a startState');
+        }
+        return null;
+    }
+    const remainingSessions = remainingEvalSessions(plan, startState, maxDays);
+    const billedDays = subscriptionElapsedDays ?? startState.elapsedDays ?? 0;
+    const issue = subscriptionElapsedDaysIssue(startState, billedDays);
+    if (issue !== null) {
+        throw new RangeError(`invalid eval start state: ${issue}`);
+    }
+    return {
+        remainingSessions,
+        state: startState,
+        subscriptionElapsedDays: billedDays,
+    };
+}
+
 function runLadderAttempt(
     plan: Plan,
     dayCap: number,
@@ -666,9 +798,9 @@ function runLadderAttempt(
         dailyLossLimit: null | number,
     ) => DayDistribution,
     rng: Rng,
-): { endDay: number; isPassed: boolean } {
+    state: AccountState,
+): LadderAttempt {
     const phase = TradingPhase.Eval;
-    const state = plan.initialState();
     const dailyLossLimitConfig = plan.dailyLossLimitFor(phase);
     const hasDailyLossLimit =
         dailyLossLimitConfig.kind !== DailyLossLimitKind.None;
@@ -717,6 +849,85 @@ function sampleDay(distribution: DayDistribution, u: number): DayOutcome {
             worstPnL: 0,
         }
     );
+}
+
+function subscriptionFeePerDay(costing: LadderCosting): number {
+    return (
+        monthlySubscriptionFee(costing.plan.fees, costing.discounts) /
+        TRADING_DAYS_PER_MONTH
+    );
+}
+
+function summarizeAttempts(tally: AttemptTally, sims: number): AttemptSummary {
+    const {
+        daysOnFailSquaredSum,
+        daysOnFailSum,
+        daysOnPassSquaredSum,
+        daysOnPassSum,
+        failDays,
+        passDays,
+    } = tally;
+    const passes = passDays.length;
+    const fails = failDays.length;
+    const passRate = passes / Math.max(1, sims);
+    const meanDaysOnPass = passes > 0 ? daysOnPassSum / passes : 0;
+    const meanDaysOnFail = fails > 0 ? daysOnFailSum / fails : 0;
+    const passRateStandardError = binomialStandardError(passRate, sims);
+    return {
+        estimates: [
+            { standardError: passRateStandardError, value: passRate },
+            {
+                standardError: meanStandardError(
+                    daysOnPassSum,
+                    daysOnPassSquaredSum,
+                    passes,
+                ),
+                value: meanDaysOnPass,
+            },
+            {
+                standardError: meanStandardError(
+                    daysOnFailSum,
+                    daysOnFailSquaredSum,
+                    fails,
+                ),
+                value: meanDaysOnFail,
+            },
+        ],
+        samples: { failDays, passDays },
+        stats: {
+            meanDaysOnFail,
+            meanDaysOnPass,
+            passRate,
+            passRateStandardError,
+        },
+    };
+}
+
+function tallyAttempts(
+    count: number,
+    attempt: (index: number) => LadderAttempt,
+): AttemptTally {
+    const tally: AttemptTally = {
+        daysOnFailSquaredSum: 0,
+        daysOnFailSum: 0,
+        daysOnPassSquaredSum: 0,
+        daysOnPassSum: 0,
+        failDays: [],
+        passDays: [],
+    };
+    for (let index = 0; index < count; index++) {
+        const { endDay, isPassed } = attempt(index);
+        if (isPassed) {
+            tally.passDays.push(endDay);
+            tally.daysOnPassSum += endDay;
+            tally.daysOnPassSquaredSum += endDay ** 2;
+        } else {
+            tally.failDays.push(endDay);
+            tally.daysOnFailSum += endDay;
+            tally.daysOnFailSquaredSum += endDay ** 2;
+        }
+    }
+    return tally;
 }
 
 const DEFAULT_TOP_N = 25;

@@ -1,18 +1,14 @@
 import type { ArgsDef } from 'citty';
 
 import { parseArgs } from 'citty';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
 import optimizeFunded, {
     type FundedCandidateArguments,
-    fundedRowCells,
-    FundedSortKey,
     fundedSweepProgress,
     fundedSweepSummary,
     readFundedCandidates,
-    sortDescription,
-    survivorCount,
 } from '~/cli/commands/prop/optimize/funded/command';
 import {
     planResolver,
@@ -43,6 +39,12 @@ import {
     TRADING_DAYS_PER_MONTH,
     TradingPhase,
 } from '~/lib/prop-calculator';
+import {
+    fundedRowCells,
+    FundedSortKey,
+    fundedSortDescription as sortDescription,
+    survivorCount,
+} from '~/lib/prop-calculator/optimize';
 import { simInputsSizingIssue } from '~/lib/prop-calculator/simulator';
 
 async function resolveArguments(): Promise<ArgsDef> {
@@ -112,16 +114,37 @@ describe('optimize funded --sort options', () => {
         expect(() => parseArgs(['--sort', 'lifetime'], arguments_)).toThrow();
     });
 
-    it('defines monthly in --help with the horizon credit, like the printed ranking note (N-72)', async () => {
+    it('defines monthly in --help with the monthly factor, the rebuy lag per eval attempt, the horizon credit and the --copy-accounts total, like the printed ranking note (N-72, WP43g)', async () => {
         const arguments_ = await resolveArguments();
-        const description = arguments_.sort?.description ?? '';
-        expect(description).toContain(
-            '(per-run net + horizon credit) divided by expected days per run',
+        expect(arguments_.sort?.description).toBe(
+            `monthly (default): steady-state expected net per month for one account slot, or for the --copy-accounts slots together when that is above 1 ((per-run net + horizon credit) x ${TRADING_DAYS_PER_MONTH} / expected days per run, where the days per run include --rebuy-lag-days of empty slot time per eval attempt and the slot is refilled after every failed eval, funded bust or horizon end; the 'monthly ex-credit' column leaves the credit out) -- the only key valid for ranking plans. cycle: expected net from THIS ONE simulated run only (whatever --eval-days/--funded-days bound it to) -- use this for a short, fixed-horizon goal you do not intend to repeat indefinitely. With --copy-accounts above 1, the per-cycle net, horizon credit and monthly figures are summed over the copy-traded account slots (one slot x --copy-accounts).`,
         );
-        expect(description).toContain(
-            "the 'monthly ex-credit' column leaves the credit out",
+    });
+});
+
+describe('optimize funded --sort help takes the monthly factor from TRADING_DAYS_PER_MONTH (N-72, WP43g)', () => {
+    afterEach(() => {
+        vi.doUnmock('~/lib/prop-calculator');
+        vi.resetModules();
+    });
+
+    it('prints the mocked trading days per month instead of a duplicated literal', async () => {
+        const mockedTradingDaysPerMonth = TRADING_DAYS_PER_MONTH + 1;
+        vi.resetModules();
+        vi.doMock('~/lib/prop-calculator', async (importOriginal) => ({
+            ...(await importOriginal<object>()),
+            TRADING_DAYS_PER_MONTH: mockedTradingDaysPerMonth,
+        }));
+        const { default: mockedCommand } =
+            await import('~/cli/commands/prop/optimize/funded/command');
+        const resolvable = mockedCommand.args;
+        if (!resolvable) throw new Error('optimize funded command has no args');
+        const resolved = await (typeof resolvable === 'function'
+            ? resolvable()
+            : resolvable);
+        expect(resolved.sort.description).toContain(
+            `(per-run net + horizon credit) x ${mockedTradingDaysPerMonth} / expected days per run,`,
         );
-        expect(description).not.toContain('per-run net divided by');
     });
 });
 
@@ -145,56 +168,17 @@ function registryPlan(): Plan {
 }
 
 describe('optimize funded --sort monthly description', () => {
-    it('states that monthly net adds the horizon credit to the per-cycle net and that monthly ex-credit leaves it out (N-72)', () => {
-        const description = sortDescription(
-            FundedSortKey.Monthly,
-            baseSimInputs(0),
-        );
-        expect(description).toContain(
-            `monthly net = (per-cycle net + horizon credit) x ${TRADING_DAYS_PER_MONTH} / slot days`,
-        );
-        expect(description).toContain(
-            `monthly ex-credit = per-cycle net x ${TRADING_DAYS_PER_MONTH} / slot days, leaving the horizon credit out`,
+    it('prints the whole monthly ranking note: slot days, the capped horizon credit and its pool since funding, a funded reset or the last payout (N-71, N-72, WP43g)', () => {
+        expect(sortDescription(FundedSortKey.Monthly, baseSimInputs(0))).toBe(
+            `  ranked by steady-state expected net per month for one account slot: monthly net = (per-cycle net + horizon credit) x ${TRADING_DAYS_PER_MONTH} / slot days, where slot days are the expected days per run (slot refilled after every failed eval, funded bust or 252-day horizon end, plus 0 rebuy-lag-days of empty slot time per eval attempt); the horizon credit is one more payout request for an account still open at the horizon, net of the split and the payout method fee: its withdrawable balance capped by the ladder step, request size, profit share and request caps, and capped by the payout profit pool (cycle profit since funding, a funded reset or the last payout on cycle-pool plans, account profit on account-profit plans) only when there is no payout ladder and no payout profit share; a payout ladder that denies an unaffordable step credits 0 when the step is above what the account could withdraw (its withdrawable balance, or its profit share if lower), and the credit is 0 once a lifetime payout cap is reached or the payout ladder is exhausted; the credit ignores the payout day and qualifying-day gate, the consistency rule, the minimum payout profit and the minimum request, since continued trading would clear them; monthly ex-credit = per-cycle net x ${TRADING_DAYS_PER_MONTH} / slot days, leaving the horizon credit out\n`,
         );
     });
 
-    it('states the configured rebuy lag and the horizon credit', () => {
-        const description = sortDescription(
-            FundedSortKey.Monthly,
-            baseSimInputs(3),
-        );
-        expect(description).toContain('rebuy-lag-days');
-        expect(description).toContain('3');
-        expect(description.toLowerCase()).toContain('credit');
-        expect(description.toLowerCase()).toContain('withdrawable');
-    });
-
-    it('names the payout profit pool and the lifetime payout cutoff among the horizon credit caps (N-72)', () => {
-        const description = sortDescription(
-            FundedSortKey.Monthly,
-            baseSimInputs(0),
-        );
-        expect(description).toContain(
-            'capped by the payout profit pool (cycle profit since the last payout on cycle-pool plans) only when there is no payout ladder and no payout profit share',
-        );
-        expect(description).toContain(
-            '0 once a lifetime payout cap is reached or the payout ladder is exhausted',
-        );
-    });
-
-    it('says a denying payout ladder credits 0 below its step and that the timing gates are ignored (N-71, N-72, WP43)', () => {
-        const description = sortDescription(
-            FundedSortKey.Monthly,
-            baseSimInputs(0),
-        );
-        expect(description).toContain(
-            'a payout ladder that denies an unaffordable step credits 0 when the step is above what the account could withdraw (its withdrawable balance, or its profit share if lower)',
-        );
-        expect(description).not.toContain(
-            'when the withdrawable room is below the step',
-        );
-        expect(description).toContain(
-            'the credit ignores the payout day and qualifying-day gate, the consistency rule, the minimum payout profit and the minimum request',
+    it('states the configured rebuy lag for every eval attempt', () => {
+        expect(
+            sortDescription(FundedSortKey.Monthly, baseSimInputs(3)),
+        ).toContain(
+            'plus 3 rebuy-lag-days of empty slot time per eval attempt);',
         );
     });
 
@@ -210,21 +194,38 @@ describe('optimize funded --sort monthly description', () => {
             trials: 100,
             winrate: 0.4,
         });
-        expect(description).toContain('0 rebuy-lag-days');
+        expect(description).toContain(
+            'plus 0 rebuy-lag-days of empty slot time per eval attempt);',
+        );
+    });
+
+    it('the engine adds the rebuy lag for the first eval attempt too, so the note says per eval attempt, not per new one (WP43g)', () => {
+        const inputs = { ...baseSimInputs(0), maxAttempts: 1 };
+        const noLag = simulate(inputs);
+        const lagDays = 5;
+        const lagged = simulate({ ...inputs, rebuyLagDays: lagDays });
+        const perSlot = noLag.expectedNet + noLag.expectedHorizonCredit;
+        expect(perSlot).not.toBe(0);
+        const trialDays =
+            (perSlot * TRADING_DAYS_PER_MONTH) / noLag.expectedMonthlyNet;
+        expect(lagged.expectedAttempts).toBe(1);
+        expect(lagged.expectedMonthlyNet).toBeCloseTo(
+            (perSlot * TRADING_DAYS_PER_MONTH) / (trialDays + lagDays),
+            6,
+        );
+    });
+});
+
+describe('optimize funded --rebuy-lag-days help counts every eval attempt, as the engine and the monthly note do (N-72, WP43h)', () => {
+    it('says the slot sits empty for every eval attempt, the first included', async () => {
+        const arguments_ = await resolveArguments();
+        expect(arguments_['rebuy-lag-days']?.description).toBe(
+            'days an account slot sits empty for every eval attempt, the first included: rebuy, credential delivery, activation review',
+        );
     });
 });
 
 describe('the monthly sort note credit details match the engine (N-71, N-72, WP43b)', () => {
-    it('says the credit is net of the payout method fee as well as the split, as Plan.payoutFromProfit subtracts it', () => {
-        const description = sortDescription(
-            FundedSortKey.Monthly,
-            baseSimInputs(0),
-        );
-        expect(description).toContain(
-            'net of the split and the payout method fee',
-        );
-    });
-
     it('closeoutCredit subtracts the payout method fee from the capped request, so the note has to say so', () => {
         const target = ALL_FIRMS.flatMap((firm) => firm.plans).find(
             (plan) => plan.payoutMethodFee > 0,
@@ -1176,5 +1177,27 @@ describe('optimize funded labels show the placement at the funded start-tier con
         );
         expect(result.stdout).not.toContain('one policy');
         expect(result.stdout).not.toContain('place the same');
+    });
+});
+
+describe('the monthly sort note names both payout pool branches and the copy-account multiplier (N-71, N-72, WP43f)', () => {
+    it('the account-profit pool branch it names exists in the plan data', () => {
+        expect(
+            ALL_FIRMS.flatMap((firm) => firm.plans).some(
+                (plan) =>
+                    plan.payoutProfitPool === PayoutProfitPool.AccountProfit,
+            ),
+        ).toBe(true);
+    });
+
+    it('names the --copy-accounts count the net and credit are summed over when it is above one', () => {
+        const description = sortDescription(FundedSortKey.Monthly, {
+            ...baseSimInputs(0),
+            copyAccounts: 3,
+        });
+        expect(description).toContain(
+            'ranked by steady-state expected net per month for 3 copy-traded account slots together (the per-cycle net, horizon credit and monthly figures are one slot x 3):',
+        );
+        expect(description).not.toContain('for one account slot');
     });
 });

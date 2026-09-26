@@ -67,7 +67,7 @@ export function fundedStartContractLimit(
 
 export function placedFundedRisk(
     inputs: PlacedFundedRiskInputs,
-    plan?: Plan,
+    plan: null | Plan = null,
 ): null | PlacedFundedRisk {
     const positionSizing = resolvePositionSizing(
         inputs.instrument,
@@ -85,7 +85,7 @@ export function placedFundedRisk(
 export function placedFundedRiskAt(
     fundedRisk: number,
     positionSizing: PositionSizingConfig,
-    plan?: Plan,
+    plan: null | Plan = null,
 ): PlacedFundedRisk {
     const placeableRisk = isBelowOneContract(fundedRisk, positionSizing)
         ? 0
@@ -94,9 +94,7 @@ export function placedFundedRiskAt(
     const risk = wholeContractRisk(
         placeableRisk,
         positionSizing,
-        plan === undefined
-            ? null
-            : fundedStartContractLimit(plan, positionSizing),
+        plan === null ? null : fundedStartContractLimit(plan, positionSizing),
     );
     return {
         contracts: contracts(

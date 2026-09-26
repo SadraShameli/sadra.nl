@@ -8,7 +8,11 @@ export {
     type SimInputsSizingInputs,
     simInputsSizingIssue,
 } from './dayPolicyValidation';
-export { simulate, simulatePortfolio } from './engine';
+export {
+    FUNDED_PAYOUT_COUNT_TAIL_BUCKET,
+    simulate,
+    simulatePortfolio,
+} from './engine';
 export { runEvalAttempt, runEvalWithRetries } from './evalPhase';
 export {
     FundedStage,
@@ -48,6 +52,7 @@ export {
     type LiveSimInputs,
     type MultiAccountResult,
     type PortfolioSimInputs,
+    type SimEstimates,
     type SimInputs,
     type SimOutputs,
     type TrialOutcome,

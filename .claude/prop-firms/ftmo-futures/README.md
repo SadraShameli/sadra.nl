@@ -2,7 +2,7 @@
 
 **Firm website:** `https://ftmo.com/en/futures/` (purchase and login at `https://futures.ftmo.com/en/`)
 **Last Verified:** `2026-09-21`
-**Last Updated:** `2026-09-24`
+**Last Updated:** `2026-09-26`
 **Source:** see each plan's own file; firm-wide claims below are cross-checked against every plan file's own table, and where a rule comes from a firm-wide FAQ that no plan file restates, that is said explicitly (see Firm-Wide Rules).
 
 ## Overview
@@ -18,7 +18,7 @@ By explicit instruction for this pass, **only the $50K size of each product is d
 
 ## Live Accounts
 
-- **[Live Funded Account](live.md)**: shared by `growth.md` and `pro.md` (both transition into the same invitation-only stage). Documented from the firm's own statements only: offered at FTMO Trading's sole discretion after FTMO "validates your Sim-Funded trading"; a one-time buffer must be cleared before the first payout, then payouts are daily with no payout cap at the same 90/10 split; a market data fee applies with one exchange covered; no inactivity rule; a separate Live-Funded-only restricted-country list applies (reproduced in full in `live.md`). No dollar figure for its size, drawdown, Daily Loss Limit, buffer, or market data fee is stated by any source, so `live.md` carries no numbers and no worked example.
+- **[Live Funded Account](live.md)**: shared by `growth.md` and `pro.md` (both transition into the same invitation-only stage). Documented from the firm's own statements only: offered at FTMO Trading's sole discretion after FTMO "validates your Sim-Funded trading"; a one-time buffer must be cleared before the first payout, then payouts are daily with no payout cap at the same 90/10 split; a market data fee applies with one exchange covered; no inactivity rule; a separate Live-Funded-only restricted-country list applies (reproduced in full in `live.md`). No dollar figure for its size, drawdown, Daily Loss Limit, buffer, or market data fee is stated by any source, so `live.md` carries no numbers and no worked example. This discretionary, no-published-numeric-trigger framing was reconfirmed via a live re-fetch of How It Works on 2026-09-26 (PT-71c catalog recheck; unchanged).
 
 ## Firm-Wide Rules
 
@@ -95,7 +95,8 @@ Every cell above traces back to the matching row in that plan's own file. Where 
 
 ## Documentation Scope
 
-- **$100K and $150K sizes are not documented**, by explicit instruction for this pass. They exist for both products, and the firm's Comparison Table publishes distinct figures for each (Profit Target, Max Drawdown, Daily Loss Limit, Max Contracts, subscription, Reset Fee, Payout Cap, Payout Eligibility). The pasted rules-page sources used for `growth.md` and `pro.md` were captured with the 50K size selected; the live page carries all sizes in one document, and a future pass can extend the tree from it.
+- **This file's Last Verified date is left at 2026-09-21**, not bumped to 2026-09-26, even though the 2026-09-26 PT-71c catalog recheck reconfirmed pricing, Reset Fees, and the Live Funded Account's invitation-only framing (see `growth.md`, `pro.md`, `live.md`, and the paragraphs above). That recheck did not touch `## Firm-Wide Rules` or `## Key Cross-Plan Differences` beyond the price/Reset Fee/live-trigger cells already called out, so this file's date reflects only what was actually re-checked.
+- **$100K and $150K sizes are not documented**, by explicit instruction for this pass. They exist for both products, and the firm's Comparison Table publishes distinct figures for each (Profit Target, Max Drawdown, Daily Loss Limit, Max Contracts, subscription, Reset Fee, Payout Cap, Payout Eligibility). The pasted rules-page sources used for `growth.md` and `pro.md` were captured with the 50K size selected; the live page carries all sizes in one document, and a future pass can extend the tree from it. As of the 2026-09-26 PT-71c catalog recheck of `https://ftmo.com/en/futures/#pricing` and the Comparison Table (both HTTP 200), the price and Reset Fee for those sizes are now sourced even though the rest of their rule set is not: Growth 100K $169/month, $159 Reset Fee; Growth 150K $229/month, $219 Reset Fee; Pro 100K $199/month, $189 Reset Fee; Pro 150K $269/month, $259 Reset Fee (see `growth.md`'s and `pro.md`'s own Not Confirmed sections for the exact quotes).
 - **FTMO's CFD products** (the "FTMO Challenge," 1-Step/2-Step, Premium Programme, Scaling Plan) are a separate product line under separate terms and are not covered; the futures FAQ notes "you use a single login for FTMO Futures and other FTMO products."
 - **The FTMO Futures Sim-Funded Account Terms & Conditions** governs the Sim-Funded stage (and, per the Evaluation T&C, the Live Funded offer) but is not publicly linked anywhere on the site; it is signed after passing, and FTMO says "If you are interested in a sample of the contract, please contact us." Every Sim-Funded and Live Funded rule in this tree therefore rests on the rules page, the FAQ, and the Evaluation T&C's references to that document, not on the document itself. Named here rather than left silent.
 - **The US Terms and Conditions PDF** (the second document on the T&C page, for FTMO US / JV Prop Corporation) was not read; the Global Evaluation T&C governs a Netherlands-resident trader and was read in full.

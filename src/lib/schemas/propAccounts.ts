@@ -5,9 +5,13 @@ import {
     AccountStage,
     addCalendarYears,
     addIsoDays,
+    BankrollTransferKind,
+    BustCause,
     DashboardBalanceConvention,
     describeLifecycleRejection,
     FeeKind,
+    FirmEngagementReason,
+    FirmEngagementStatus,
     isAccountDate,
     latestIsoDateAnywhere,
     MAX_ACCOUNT_DATE_YEAR,
@@ -19,6 +23,8 @@ import {
     planKeyShape,
     positiveUsdCentsSchema,
     refinePlanKey,
+    ReportedPayoutBasis,
+    RuleViolationKind,
     SnapshotSource,
     usdCentsSchema,
     validateStageForPlan,
@@ -347,6 +353,7 @@ export const snapshotBulkCreateSchema = z
     });
 
 const payoutEditableShape = {
+    approvedOn: accountDateSchema.nullable(),
     grossCents: positiveUsdCentsSchema,
     netCents: nonNegativeUsdCentsSchema.nullable(),
     note: ledgerNoteSchema.nullable(),
@@ -356,6 +363,7 @@ const payoutEditableShape = {
 };
 
 interface PayoutConsistencyFields {
+    readonly approvedOn?: null | string;
     readonly grossCents: number;
     readonly netCents: null | number;
     readonly paidOn: null | string;
@@ -389,6 +397,29 @@ function refinePayoutConsistency(
             path: ['paidOn'],
         });
     }
+    if (
+        payout.approvedOn !== undefined &&
+        payout.approvedOn !== null &&
+        payout.approvedOn < payout.requestedOn
+    ) {
+        context.addIssue({
+            code: 'custom',
+            message: 'a payout cannot be approved before it was requested',
+            path: ['approvedOn'],
+        });
+    }
+    if (
+        payout.approvedOn !== undefined &&
+        payout.approvedOn !== null &&
+        payout.paidOn !== null &&
+        payout.paidOn < payout.approvedOn
+    ) {
+        context.addIssue({
+            code: 'custom',
+            message: 'a payout cannot be paid before it was approved',
+            path: ['paidOn'],
+        });
+    }
     if (payout.netCents !== null && payout.netCents > payout.grossCents) {
         context.addIssue({
             code: 'custom',
@@ -402,6 +433,7 @@ export const payoutCreateSchema = z
     .object({
         ...payoutEditableShape,
         accountId: idSchema,
+        approvedOn: payoutEditableShape.approvedOn.optional(),
         netCents: payoutEditableShape.netCents.default(null),
         note: payoutEditableShape.note.default(null),
         paidOn: payoutEditableShape.paidOn.default(null),
@@ -409,7 +441,11 @@ export const payoutCreateSchema = z
     .superRefine(refinePayoutConsistency);
 
 export const payoutUpdateSchema = z
-    .strictObject({ ...payoutEditableShape, id: idSchema })
+    .strictObject({
+        ...payoutEditableShape,
+        approvedOn: payoutEditableShape.approvedOn.optional(),
+        id: idSchema,
+    })
     .superRefine(refinePayoutConsistency);
 
 const feeEditableShape = {
@@ -442,11 +478,22 @@ const EVENT_NOTE_REQUIREMENT: Readonly<
 export const eventRecordSchema = z
     .strictObject({
         accountId: idSchema,
+        bustCause: z.enum(BustCause).optional(),
         kind: z.enum(AccountEventKind).exclude(['Edited', 'Purchased']),
         note: eventNoteSchema.nullable().default(null),
         occurredOn: accountDateSchema,
     })
     .superRefine((event, context) => {
+        if (
+            event.bustCause !== undefined &&
+            event.kind !== AccountEventKind.Busted
+        ) {
+            context.addIssue({
+                code: 'custom',
+                message: 'only a bust has a bust cause',
+                path: ['bustCause'],
+            });
+        }
         const requirement = EVENT_NOTE_REQUIREMENT[event.kind];
         if (
             requirement !== undefined &&
@@ -532,6 +579,202 @@ export const decisionCreateSchema = z.object({
 
 export const decisionRecordActualSchema = z.object({
     actualRiskCents: nonNegativeUsdCentsSchema,
+    id: idSchema,
+});
+
+export const bankrollTransferCreateSchema = z.object({
+    amountCents: positiveUsdCentsSchema,
+    kind: z.enum(BankrollTransferKind),
+    note: ledgerNoteSchema.nullable().default(null),
+    occurredOn: accountDateSchema,
+});
+
+export const bankrollTransferUpdateSchema = z.strictObject({
+    amountCents: positiveUsdCentsSchema,
+    id: idSchema,
+    kind: z.enum(BankrollTransferKind),
+    note: ledgerNoteSchema.nullable(),
+    occurredOn: accountDateSchema,
+});
+
+const externalFirmNameSchema = singleLineTextSchema(MAX_ACCOUNT_LABEL_LENGTH);
+
+export const externalFirmCreateSchema = z.object({
+    name: externalFirmNameSchema,
+    notes: accountNotesSchema.nullable().default(null),
+});
+
+export const externalFirmUpdateSchema = z.strictObject({
+    id: idSchema,
+    name: externalFirmNameSchema,
+    notes: accountNotesSchema.nullable(),
+});
+
+interface FirmColumns {
+    readonly externalFirmId: null | string;
+    readonly firmId: FirmId | null;
+}
+
+function refineAtMostOneFirm(
+    firm: FirmColumns,
+    context: z.RefinementCtx,
+): void {
+    if (firm.firmId !== null && firm.externalFirmId !== null) {
+        context.addIssue({
+            code: 'custom',
+            message:
+                'pick either a listed firm or one of your own firms, not both',
+            path: ['externalFirmId'],
+        });
+    }
+}
+
+function refineExactlyOneFirm(
+    firm: FirmColumns,
+    context: z.RefinementCtx,
+): void {
+    refineAtMostOneFirm(firm, context);
+    if (firm.firmId === null && firm.externalFirmId === null) {
+        context.addIssue({
+            code: 'custom',
+            message: 'pick a listed firm or one of your own firms',
+            path: ['firmId'],
+        });
+    }
+}
+
+const firmColumnsShape = {
+    externalFirmId: idSchema.nullable(),
+    firmId: z.enum(FirmId).nullable(),
+};
+
+const roundEditableShape = {
+    ...firmColumnsShape,
+    budgetCents: positiveUsdCentsSchema.nullable(),
+    label: accountLabelSchema,
+    notes: accountNotesSchema.nullable(),
+    openedOn: accountDateSchema,
+};
+
+export const roundCreateSchema = z
+    .object({
+        ...roundEditableShape,
+        budgetCents: roundEditableShape.budgetCents.default(null),
+        externalFirmId: roundEditableShape.externalFirmId.default(null),
+        firmId: roundEditableShape.firmId.default(null),
+        notes: roundEditableShape.notes.default(null),
+    })
+    .superRefine(refineAtMostOneFirm);
+
+export const roundUpdateSchema = z
+    .strictObject({ ...roundEditableShape, id: idSchema })
+    .superRefine(refineAtMostOneFirm);
+
+export const roundCloseSchema = z.object({
+    closedOn: accountDateSchema,
+    id: idSchema,
+});
+
+export const roundAssignSchema = z.object({
+    accountId: idSchema,
+    overrideRoundBudget: z.boolean().default(false),
+    roundId: idSchema.nullable(),
+});
+
+export const firmEngagementSetSchema = z
+    .object({
+        externalFirmId: firmColumnsShape.externalFirmId.default(null),
+        firmId: firmColumnsShape.firmId.default(null),
+        note: ledgerNoteSchema.nullable().default(null),
+        reason: z.enum(FirmEngagementReason).nullable().default(null),
+        sentLiveOn: accountDateSchema.nullable().default(null),
+        sinceOn: accountDateSchema,
+        status: z.enum(FirmEngagementStatus),
+    })
+    .superRefine((engagement, context) => {
+        refineExactlyOneFirm(engagement, context);
+        const isActive = engagement.status === FirmEngagementStatus.Active;
+        if (!isActive && engagement.reason === null) {
+            context.addIssue({
+                code: 'custom',
+                message: 'a paused or retired firm needs a reason',
+                path: ['reason'],
+            });
+        }
+        if (isActive && engagement.reason !== null) {
+            context.addIssue({
+                code: 'custom',
+                message: 'an active firm has no pause or retirement reason',
+                path: ['reason'],
+            });
+        }
+        const isSentLive = engagement.reason === FirmEngagementReason.SentLive;
+        if (isSentLive && engagement.sentLiveOn === null) {
+            context.addIssue({
+                code: 'custom',
+                message: 'a firm retired for sending you live needs the date',
+                path: ['sentLiveOn'],
+            });
+        }
+        if (!isSentLive && engagement.sentLiveOn !== null) {
+            context.addIssue({
+                code: 'custom',
+                message: 'only a firm that sent you live has a sent-live date',
+                path: ['sentLiveOn'],
+            });
+        }
+        if (
+            engagement.sentLiveOn !== null &&
+            engagement.sentLiveOn > engagement.sinceOn
+        ) {
+            context.addIssue({
+                code: 'custom',
+                message:
+                    'the sent-live date cannot be after the date this status began',
+                path: ['sentLiveOn'],
+            });
+        }
+    });
+
+const firmStatementEditableShape = {
+    asOf: accountDateSchema,
+    basis: z.enum(ReportedPayoutBasis),
+    note: ledgerNoteSchema.nullable(),
+    reportedPayoutCents: nonNegativeUsdCentsSchema,
+};
+
+export const firmStatementCreateSchema = z
+    .object({
+        ...firmStatementEditableShape,
+        externalFirmId: firmColumnsShape.externalFirmId.default(null),
+        firmId: firmColumnsShape.firmId.default(null),
+        note: firmStatementEditableShape.note.default(null),
+    })
+    .superRefine(refineExactlyOneFirm);
+
+export const firmStatementUpdateSchema = z.strictObject({
+    ...firmStatementEditableShape,
+    id: idSchema,
+});
+
+const violationEditableShape = {
+    costCents: usdCentsSchema.nullable(),
+    decisionId: idSchema.nullable(),
+    kind: z.enum(RuleViolationKind),
+    note: ledgerNoteSchema.nullable(),
+    occurredOn: accountDateSchema,
+};
+
+export const violationCreateSchema = z.strictObject({
+    ...violationEditableShape,
+    accountId: idSchema,
+    costCents: violationEditableShape.costCents.default(null),
+    decisionId: violationEditableShape.decisionId.default(null),
+    note: violationEditableShape.note.default(null),
+});
+
+export const violationUpdateSchema = z.strictObject({
+    ...violationEditableShape,
     id: idSchema,
 });
 

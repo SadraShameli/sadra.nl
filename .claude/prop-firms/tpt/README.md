@@ -48,7 +48,7 @@ Confirmed independently across Test, PRO, and PRO+ unless a narrower scope is st
 
 ### Approved Futures Instruments (CME / CBOT / NYMEX / COMEX)
 
-Per "Approved Instruments & Permitted Products List." No EUREX products; no plain "ZB" or "ZQ" symbol exists on TPT's own list (see each plan file's own Not Confirmed note on the "30-Year Bond" prohibited-news mapping to UB).
+Per "Approved Instruments & Permitted Products List." No EUREX products; no plain "ZB" or "ZQ" symbol exists on TPT's own list. An earlier version of this note pointed to each plan file's own Not Confirmed section for a "30-Year Bond" prohibited-news symbol mapping to UB; that product-specific news restriction no longer appears in either "PRO Account Rules" or "PRO+ Account Rules" (both re-fetched live 2026-09-26, `updated_at` 2026-09-22), so the mapping claim has been removed from `test-pro.md` and `pro-plus-live.md` rather than repeated here.
 
 | Symbol | Product Name                                            | Exchange |
 | ------ | ------------------------------------------------------- | -------- |

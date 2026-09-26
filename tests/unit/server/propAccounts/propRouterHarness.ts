@@ -131,6 +131,7 @@ export function accountRow(overrides: FakeRow = {}): FakeRow {
         plan_serial: key.planSerial,
         purchased_on: '2026-09-01',
         replaces_account_id: null,
+        round_id: null,
         stage: AccountStage.Eval,
         status: AccountStatus.Active,
         tags: [],
@@ -224,6 +225,7 @@ export function feeRow(overrides: FakeRow = {}): FakeRow {
 export function payoutRow(overrides: FakeRow = {}): FakeRow {
     return {
         account_id: IDS.account,
+        approved_on: null,
         created_at: CREATED_AT,
         gross_cents: 50_000,
         id: IDS.payout,

@@ -1,5 +1,7 @@
 'use client';
 
+import { useMemo } from 'react';
+
 import {
     CorrelationMode,
     type MultiAccountResult,
@@ -36,12 +38,17 @@ const DEBOUNCE_MS = 600;
 const TRIALS_BASE = 400;
 const TRIALS_INDEPENDENT = 250;
 const EMPTY_RESULTS = new Map<string, MultiAccountResult>();
+const EMPTY_LAB_RESULTS = new Map<string, LabResult>();
+
+type LabResult = Omit<MultiAccountResult, 'theoreticalPassProb'> & {
+    theoreticalPassProb: number | undefined;
+};
 
 export function useLabSimulation(arguments_: Arguments): {
     error: null | string;
     pending: boolean;
     refused: SizingRefusal<LabScenario>[];
-    results: Map<string, MultiAccountResult>;
+    results: Map<string, LabResult>;
 } {
     const {
         activationDiscountPercent = 0,
@@ -140,8 +147,12 @@ export function useLabSimulation(arguments_: Arguments): {
         },
         EMPTY_RESULTS,
     );
+    const labResults = useMemo(
+        () => toLabResults(computation.result),
+        [computation.result],
+    );
     const isPending = scenarios.length > 0 && computation.pending;
-    const results = scenarios.length === 0 ? EMPTY_RESULTS : computation.result;
+    const results = scenarios.length === 0 ? EMPTY_LAB_RESULTS : labResults;
 
     return {
         error: computation.error,
@@ -197,4 +208,20 @@ function buildCacheKey(fields: {
         })),
         seed: fields.seed,
     });
+}
+
+function toLabResults(
+    computed: Map<string, MultiAccountResult>,
+): Map<string, LabResult> {
+    return new Map(
+        [...computed].map(([id, result]) => [
+            id,
+            {
+                ...result,
+                theoreticalPassProb: Number.isFinite(result.theoreticalPassProb)
+                    ? result.theoreticalPassProb
+                    : undefined,
+            },
+        ]),
+    );
 }

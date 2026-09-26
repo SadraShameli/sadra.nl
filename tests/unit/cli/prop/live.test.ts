@@ -1,6 +1,6 @@
 import type { ArgsDef } from 'citty';
 
-import { parseArgs } from 'citty';
+import { parseArgs, renderUsage } from 'citty';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import liveCommand, {
@@ -56,6 +56,11 @@ const HAND_COMPUTED_APEX_RUN = [
     '1',
 ];
 
+const LIVE_STOP = ['--stop-points', '10'];
+const APEX_ONE_NQ_AT_150 = ['--stop-points', '7.5'];
+const ONE_NQ_AT_100 = ['--stop-points', '5'];
+const TOPSTEP_ONE_NQ_AT_450 = ['--stop-points', '22.5'];
+
 function apexBuilder(): LivePlanBuilder {
     const builder = findLivePlanBuilder(FirmId.Apex);
     if (!builder) throw new Error('Apex has no live plan builder');
@@ -76,6 +81,13 @@ function parseLive(
         parseArgs<typeof liveArguments>(argv, liveArguments),
         builder,
     );
+}
+
+function parseSizedLive(
+    argv: string[],
+    builder: LivePlanBuilder = apexBuilder(),
+): LiveSimInputs {
+    return parseLive([...argv, ...LIVE_STOP], builder);
 }
 
 async function resolveCommandArguments(): Promise<ArgsDef> {
@@ -125,41 +137,42 @@ describe('prop live declared arguments', () => {
 
 describe('parseLiveSimInputs --idle-day-probability', () => {
     it('defaults to 0 when the flag is omitted', () => {
-        expect(parseLive([]).idleDayProbability).toBe(0);
+        expect(parseSizedLive([]).idleDayProbability).toBe(0);
     });
 
     it('parses a space-separated 0 as 0, not 1', () => {
         expect(
-            parseLive(['--idle-day-probability', '0']).idleDayProbability,
+            parseSizedLive(['--idle-day-probability', '0']).idleDayProbability,
         ).toBe(0);
     });
 
     it('parses 0.25', () => {
         expect(
-            parseLive(['--idle-day-probability', '0.25']).idleDayProbability,
+            parseSizedLive(['--idle-day-probability', '0.25'])
+                .idleDayProbability,
         ).toBe(0.25);
     });
 
     it.each(['1.5', '-0.1'])('rejects %s', (value) => {
-        expect(() => parseLive([`--idle-day-probability=${value}`])).toThrow(
-            /--idle-day-probability must be a fraction in \[0, 1\]/,
-        );
+        expect(() =>
+            parseSizedLive([`--idle-day-probability=${value}`]),
+        ).toThrow(/--idle-day-probability must be a fraction in \[0, 1\]/);
     });
 });
 
 describe('parseLiveSimInputs --commission', () => {
     it('defaults to 0 per round trip', () => {
-        expect(parseLive([]).commissionPerRoundTrip).toBe(0);
+        expect(parseSizedLive([]).commissionPerRoundTrip).toBe(0);
     });
 
     it('reaches commissionPerRoundTrip', () => {
-        expect(parseLive(['--commission', '10']).commissionPerRoundTrip).toBe(
-            10,
-        );
+        expect(
+            parseSizedLive(['--commission', '10']).commissionPerRoundTrip,
+        ).toBe(10);
     });
 
     it('rejects a negative commission', () => {
-        expect(() => parseLive(['--commission=-1'])).toThrow(
+        expect(() => parseSizedLive(['--commission=-1'])).toThrow(
             /--commission must be a number >= 0/,
         );
     });
@@ -167,7 +180,7 @@ describe('parseLiveSimInputs --commission', () => {
 
 describe('parseLiveSimInputs cushion percents', () => {
     it('converts 5 and 10 percent to fractions, not raw percents', () => {
-        const inputs = parseLive([
+        const inputs = parseSizedLive([
             '--cushion-percent-pre-lock',
             '5',
             '--cushion-percent-post-lock',
@@ -182,7 +195,7 @@ describe('parseLiveSimInputs cushion percents', () => {
     });
 
     it('converts 50 and 100 percent to 0.5 and 1', () => {
-        const inputs = parseLive([
+        const inputs = parseSizedLive([
             '--cushion-percent-pre-lock',
             '50',
             '--cushion-percent-post-lock',
@@ -195,20 +208,22 @@ describe('parseLiveSimInputs cushion percents', () => {
     });
 
     it('defaults to 5 percent pre-lock and 10 percent post-lock', () => {
-        expect(parseLive([]).plan.cushionPercent).toStrictEqual({
+        expect(parseSizedLive([]).plan.cushionPercent).toStrictEqual({
             postLock: 0.1,
             preLock: 0.05,
         });
     });
 
     it('rejects a post-lock percent above 100', () => {
-        expect(() => parseLive(['--cushion-percent-post-lock', '150'])).toThrow(
+        expect(() =>
+            parseSizedLive(['--cushion-percent-post-lock', '150']),
+        ).toThrow(
             /--cushion-percent-post-lock must be a percent in \[0, 100\]/,
         );
     });
 
     it('rejects a negative pre-lock percent', () => {
-        expect(() => parseLive(['--cushion-percent-pre-lock=-1'])).toThrow(
+        expect(() => parseSizedLive(['--cushion-percent-pre-lock=-1'])).toThrow(
             /--cushion-percent-pre-lock must be a percent in \[0, 100\]/,
         );
     });
@@ -228,9 +243,14 @@ describe('parseLiveSimInputs bounded readers', () => {
             '0',
             /--request-size must be a positive amount or 'all'/,
         ],
-        ['stop-points', '-2', /--stop-points must be a number > 0/],
     ])('rejects --%s %s', (flag, value, message) => {
-        expect(() => parseLive([`--${flag}=${value}`])).toThrow(message);
+        expect(() => parseSizedLive([`--${flag}=${value}`])).toThrow(message);
+    });
+
+    it('rejects --stop-points -2', () => {
+        expect(() => parseLive(['--stop-points=-2'])).toThrow(
+            /--stop-points must be a number > 0/,
+        );
     });
 
     it('maps every declared flag onto LiveSimInputs', () => {
@@ -268,10 +288,8 @@ describe('parseLiveSimInputs bounded readers', () => {
         expect(inputs.plan.label).toBe(buildApexLivePlan().label);
     });
 
-    it('leaves the optional request size and stop distance unset when omitted', () => {
-        const inputs = parseLive([]);
-        expect(inputs.payoutRequestSize).toBeUndefined();
-        expect(inputs.stopPoints).toBeUndefined();
+    it('leaves the optional request size unset when omitted', () => {
+        expect(parseSizedLive([]).payoutRequestSize).toBeUndefined();
     });
 });
 
@@ -307,13 +325,13 @@ describe('readLiveWithdrawal (D4: keep one drawdown of cushion unless --request-
     });
 
     it("routes '--request-size all' through parseLiveSimInputs as retainedCushion 0", () => {
-        const inputs = parseLive(['--request-size', 'all']);
+        const inputs = parseSizedLive(['--request-size', 'all']);
         expect(inputs.retainedCushion).toBe(0);
         expect(inputs.payoutRequestSize).toBeUndefined();
     });
 
     it('keeps retainedCushion unset for a numeric --request-size', () => {
-        const inputs = parseLive(['--request-size', '500']);
+        const inputs = parseSizedLive(['--request-size', '500']);
         expect(inputs.payoutRequestSize).toBe(500);
         expect(inputs.retainedCushion).toBeUndefined();
     });
@@ -352,7 +370,7 @@ describe('describeLiveWithdrawal', () => {
                 'withdraw: everything down to one cent above the floor (--request-size all)',
         },
     ])('describes $argv as "$expected"', ({ argv, expected }) => {
-        const inputs = parseLive(argv, mffuBuilder());
+        const inputs = parseSizedLive(argv, mffuBuilder());
         expect(describeLiveWithdrawal(inputs)).toBe(expected);
     });
 });
@@ -375,7 +393,7 @@ describe('describeLiveWithdrawal on a live plan with a seed Reserve (TopStep LFA
                 'withdraw: everything down to one cent above the floor (--request-size all), seed included as capital returned; released seed Reserve is held back until all 4 increments are out',
         },
     ])('describes $argv as "$expected"', ({ argv, expected }) => {
-        const inputs = parseLive(argv, topStepBuilder());
+        const inputs = parseSizedLive(argv, topStepBuilder());
         expect(describeLiveWithdrawal(inputs)).toBe(expected);
     });
 });
@@ -413,7 +431,11 @@ describe('prop live --firm apex Live levels and minimum payout request', () => {
 
     it('fails loud on --request-size 400 while parsing, naming the flag, since $400 is below the $500 Apex Live minimum and could never be paid', () => {
         expect(() =>
-            parseLive([...HAND_COMPUTED_APEX_RUN, '--request-size', '400']),
+            parseSizedLive([
+                ...HAND_COMPUTED_APEX_RUN,
+                '--request-size',
+                '400',
+            ]),
         ).toThrow(
             '--request-size 400: Apex Live: a payout request of $400 is below the $500 minimum payout request, so it could never be paid',
         );
@@ -421,15 +443,24 @@ describe('prop live --firm apex Live levels and minimum payout request', () => {
 
     it('accepts --request-size 500, exactly the Apex Live minimum', () => {
         expect(
-            parseLive([...HAND_COMPUTED_APEX_RUN, '--request-size', '500'])
-                .payoutRequestSize,
+            parseLive([
+                ...HAND_COMPUTED_APEX_RUN,
+                ...APEX_ONE_NQ_AT_150,
+                '--request-size',
+                '500',
+            ]).payoutRequestSize,
         ).toBe(500);
     });
 
     it('accepts --request-size 400 on MFFU Rapid Live, above its $250 live minimum', () => {
         expect(
             parseLive(
-                [...HAND_COMPUTED_APEX_RUN, '--request-size', '400'],
+                [
+                    ...HAND_COMPUTED_APEX_RUN,
+                    ...ONE_NQ_AT_100,
+                    '--request-size',
+                    '400',
+                ],
                 mffuBuilder(),
             ).payoutRequestSize,
         ).toBe(400);
@@ -437,7 +468,7 @@ describe('prop live --firm apex Live levels and minimum payout request', () => {
 
     it('fails loud on --request-size 200 on MFFU Rapid Live, below the firm-wide $250 minimum live withdrawal (N-41)', () => {
         expect(() =>
-            parseLive(
+            parseSizedLive(
                 [...HAND_COMPUTED_APEX_RUN, '--request-size', '200'],
                 mffuBuilder(),
             ),
@@ -447,72 +478,90 @@ describe('prop live --firm apex Live levels and minimum payout request', () => {
     });
 });
 
-describe('prop live end to end on the hand-computed Apex run', () => {
-    it('withdraws nothing by day 22, since the $50 and $355 excess over the $3,100 safety net are under the $500 minimum request', () => {
+describe('prop live end to end on the hand-computed Apex run in whole $150 NQ contracts (--stop-points 7.5)', () => {
+    it('withdraws nothing by day 22, since the $50 and $350 excess over the $3,100 safety net are under the $500 minimum request', () => {
         const out = simulateLiveAccount(
-            parseLive([...HAND_COMPUTED_APEX_RUN, '--horizon-days', '22']),
+            parseLive([
+                ...HAND_COMPUTED_APEX_RUN,
+                ...APEX_ONE_NQ_AT_150,
+                '--horizon-days',
+                '22',
+            ]),
         );
         expect(out.cumulativeWithdrawalsP50).toBe(0);
         expect(out.liveBustProbability).toBe(0);
     });
 
-    it('withdraws $690.50 on day 23, paying $621.45, with no idle flag', () => {
+    it('withdraws $650 on day 23, paying $585, with no idle flag', () => {
         const out = simulateLiveAccount(
-            parseLive([...HAND_COMPUTED_APEX_RUN, '--horizon-days', '23']),
+            parseLive([
+                ...HAND_COMPUTED_APEX_RUN,
+                ...APEX_ONE_NQ_AT_150,
+                '--horizon-days',
+                '23',
+            ]),
         );
-        expect(out.cumulativeWithdrawalsP50).toBeCloseTo(621.45, 8);
+        expect(out.cumulativeWithdrawalsP50).toBeCloseTo(585, 8);
         expect(out.medianDaysToFirstWithdrawal).toBe(23);
         expect(out.liveBustProbability).toBe(0);
     });
 
-    it('withdraws the same $621.45 with a space-separated --idle-day-probability 0', () => {
+    it('withdraws the same $585 with a space-separated --idle-day-probability 0', () => {
         const out = simulateLiveAccount(
             parseLive([
                 ...HAND_COMPUTED_APEX_RUN,
+                ...APEX_ONE_NQ_AT_150,
                 '--horizon-days',
                 '23',
                 '--idle-day-probability',
                 '0',
             ]),
         );
-        expect(out.cumulativeWithdrawalsP50).toBeCloseTo(621.45, 8);
+        expect(out.cumulativeWithdrawalsP50).toBeCloseTo(585, 8);
         expect(out.medianDaysToFirstWithdrawal).toBe(23);
     });
 
-    it('charges --commission 10 per round trip: $678.78 by day 25 instead of $1,188.45', () => {
+    it('charges --commission 10 per round trip: $630 by day 25 instead of $1,125', () => {
         const out = simulateLiveAccount(
             parseLive([
                 ...HAND_COMPUTED_APEX_RUN,
+                ...APEX_ONE_NQ_AT_150,
                 '--horizon-days',
                 '25',
                 '--commission',
                 '10',
             ]),
         );
-        expect(out.cumulativeWithdrawalsP50).toBeCloseTo(678.78, 8);
+        expect(out.cumulativeWithdrawalsP50).toBeCloseTo(630, 8);
         expect(out.medianDaysToFirstWithdrawal).toBe(25);
         expect(out.liveBustProbability).toBe(0);
     });
 });
 
-describe('prop live end to end on the hand-computed MFFU Rapid Live run', () => {
-    it('keeps one $2,000 drawdown of cushion by default: 0% bust and $3,780 over 40 days, first withdrawal on day 22 under the $250 live minimum', () => {
-        const out = simulateLiveAccount(
-            parseLive(
-                [...HAND_COMPUTED_APEX_RUN, '--horizon-days', '40'],
-                mffuBuilder(),
-            ),
-        );
-        expect(out.liveBustProbability).toBe(0);
-        expect(out.cumulativeWithdrawalsP50).toBeCloseTo(3780, 6);
-        expect(out.medianDaysToFirstWithdrawal).toBe(22);
-    });
-
-    it("drains to the $0 floor with '--request-size all': $3,163.995 from day 3, the first day the excess reaches the $250 live minimum, with no bust", () => {
+describe('prop live end to end on the hand-computed MFFU Rapid Live run in whole $100 NQ contracts (--stop-points 5)', () => {
+    it('keeps one $2,000 drawdown of cushion by default: 0% bust and $3,600 over 40 days, first withdrawal on day 22 under the $250 live minimum', () => {
         const out = simulateLiveAccount(
             parseLive(
                 [
                     ...HAND_COMPUTED_APEX_RUN,
+                    ...ONE_NQ_AT_100,
+                    '--horizon-days',
+                    '40',
+                ],
+                mffuBuilder(),
+            ),
+        );
+        expect(out.liveBustProbability).toBe(0);
+        expect(out.cumulativeWithdrawalsP50).toBeCloseTo(3600, 6);
+        expect(out.medianDaysToFirstWithdrawal).toBe(22);
+    });
+
+    it("drains to the $0 floor with '--request-size all': $3,510 from day 3, the first day the excess reaches the $250 live minimum, with no bust", () => {
+        const out = simulateLiveAccount(
+            parseLive(
+                [
+                    ...HAND_COMPUTED_APEX_RUN,
+                    ...ONE_NQ_AT_100,
                     '--horizon-days',
                     '40',
                     '--request-size',
@@ -522,7 +571,7 @@ describe('prop live end to end on the hand-computed MFFU Rapid Live run', () => 
             ),
         );
         expect(out.liveBustProbability).toBe(0);
-        expect(out.cumulativeWithdrawalsP50).toBeCloseTo(3163.995, 6);
+        expect(out.cumulativeWithdrawalsP50).toBeCloseTo(3510, 6);
         expect(out.medianDaysToFirstWithdrawal).toBe(3);
     });
 });
@@ -551,6 +600,7 @@ describe('prop live summary rows (N-46)', () => {
     it('shows the LucidDaily transition credit on its own line and annualizes only the recurring withdrawals', () => {
         const argv = [
             ...HAND_COMPUTED_APEX_RUN,
+            ...ONE_NQ_AT_100,
             '--horizon-days',
             '25',
             '--request-size',
@@ -569,7 +619,12 @@ describe('prop live summary rows (N-46)', () => {
 
     it('leaves the credit line out for a live plan without one', () => {
         const { rows } = rowsFor(
-            [...HAND_COMPUTED_APEX_RUN, '--horizon-days', '25'],
+            [
+                ...HAND_COMPUTED_APEX_RUN,
+                ...APEX_ONE_NQ_AT_150,
+                '--horizon-days',
+                '25',
+            ],
             apexBuilder(),
         );
 
@@ -577,22 +632,24 @@ describe('prop live summary rows (N-46)', () => {
             false,
         );
         expect(rows.get('annual rate (scaled from 25d)')).toBe(
-            formatCurrency((1188.45 / 25) * TRADING_DAYS_PER_YEAR),
+            formatCurrency((1125 / 25) * TRADING_DAYS_PER_YEAR),
         );
     });
 
     it('defaults --horizon-days to one trading year', () => {
-        expect(parseLive([]).horizonDays).toBe(TRADING_DAYS_PER_YEAR);
+        expect(parseSizedLive([]).horizonDays).toBe(TRADING_DAYS_PER_YEAR);
     });
 });
 
 describe('prop live capital and liquidation rows (WP18f R-5, R-12)', () => {
-    const topStepFiveDayProfit = 9000 * 1.05 ** 5 - 9000;
+    const topStepFiveDayProfit = 5 * 450;
+    const topStepFiveDayDrain = (10_000 + topStepFiveDayProfit) / 2;
 
-    it('shows seed withdrawn in drain mode on its own not-annualized line and annualizes only the trading profit', () => {
+    it('shows seed withdrawn in drain mode on its own not-annualized line and annualizes only the trading profit: one $450 NQ contract a day wins $2,250 in 5 days and the day-5 drain of $6,125 holds $3,875 of seed', () => {
         const { rows } = rowsFor(
             [
                 ...HAND_COMPUTED_APEX_RUN,
+                ...TOPSTEP_ONE_NQ_AT_450,
                 '--horizon-days',
                 '5',
                 '--request-size',
@@ -602,7 +659,7 @@ describe('prop live capital and liquidation rows (WP18f R-5, R-12)', () => {
         );
 
         expect(rows.get('expected capital returned (not annualized)')).toBe(
-            formatCurrency(0.9 * (6243.26 - topStepFiveDayProfit)),
+            formatCurrency(0.9 * (topStepFiveDayDrain - topStepFiveDayProfit)),
         );
         expect(rows.get('annual rate (scaled from 5d)')).toBe(
             formatCurrency(
@@ -628,6 +685,7 @@ describe('prop live capital and liquidation rows (WP18f R-5, R-12)', () => {
                 '100',
                 '--request-size',
                 'all',
+                ...TOPSTEP_ONE_NQ_AT_450,
             ],
             topStepBuilder(),
         );
@@ -641,7 +699,12 @@ describe('prop live capital and liquidation rows (WP18f R-5, R-12)', () => {
 
     it('leaves both lines out for a live plan that only ever pays profit', () => {
         const { rows } = rowsFor(
-            [...HAND_COMPUTED_APEX_RUN, '--horizon-days', '25'],
+            [
+                ...HAND_COMPUTED_APEX_RUN,
+                ...APEX_ONE_NQ_AT_150,
+                '--horizon-days',
+                '25',
+            ],
             apexBuilder(),
         );
 
@@ -676,11 +739,17 @@ describe('prop live percentile rows name the one-off money they include (WP18f r
         '10',
         '--horizon-days',
         '100',
+        ...TOPSTEP_ONE_NQ_AT_450,
     ];
 
     it('keeps the plain label for a live plan that only ever pays profit', () => {
         const { out, rows } = rowsFor(
-            [...HAND_COMPUTED_APEX_RUN, '--horizon-days', '25'],
+            [
+                ...HAND_COMPUTED_APEX_RUN,
+                ...APEX_ONE_NQ_AT_150,
+                '--horizon-days',
+                '25',
+            ],
             apexBuilder(),
         );
 
@@ -698,6 +767,7 @@ describe('prop live percentile rows name the one-off money they include (WP18f r
         const { out, rows } = rowsFor(
             [
                 ...HAND_COMPUTED_APEX_RUN,
+                ...ONE_NQ_AT_100,
                 '--horizon-days',
                 '25',
                 '--request-size',
@@ -717,6 +787,7 @@ describe('prop live percentile rows name the one-off money they include (WP18f r
         const { out, rows } = rowsFor(
             [
                 ...HAND_COMPUTED_APEX_RUN,
+                ...TOPSTEP_ONE_NQ_AT_450,
                 '--horizon-days',
                 '5',
                 '--request-size',
@@ -751,6 +822,7 @@ describe('prop live percentile rows name the one-off money they include (WP18f r
         const inputs = parseLive(
             [
                 ...HAND_COMPUTED_APEX_RUN,
+                ...ONE_NQ_AT_100,
                 '--horizon-days',
                 '25',
                 '--request-size',
@@ -776,7 +848,12 @@ describe('prop live percentile rows name the one-off money they include (WP18f r
 
     it('names capital returned and the liquidation payout together', () => {
         const inputs = parseLive(
-            [...HAND_COMPUTED_APEX_RUN, '--horizon-days', '25'],
+            [
+                ...HAND_COMPUTED_APEX_RUN,
+                ...APEX_ONE_NQ_AT_150,
+                '--horizon-days',
+                '25',
+            ],
             apexBuilder(),
         );
         const out = simulateLiveAccount(inputs);
@@ -812,7 +889,12 @@ describe('the root prop-calculator barrel re-exports the live transition builder
 });
 
 describe('prop live --transition-profit maps the Lucid Daily live variant (N-54)', () => {
-    const argv = [...HAND_COMPUTED_APEX_RUN, '--horizon-days', '25'];
+    const argv = [
+        ...HAND_COMPUTED_APEX_RUN,
+        ...ONE_NQ_AT_100,
+        '--horizon-days',
+        '25',
+    ];
 
     it('builds the Lucid live plan with the Daily transition credit: $14,000 of sim profit above the buffer pays $12,600 once', () => {
         const { rows } = rowsFor(
@@ -888,7 +970,11 @@ describe('prop live --request-size minimum has one source of truth, the plan (WP
         const plan = buildApexLivePlan(TOPSTEP_CUSHION);
 
         expect(() =>
-            parseLive([...HAND_COMPUTED_APEX_RUN, '--request-size', '400']),
+            parseSizedLive([
+                ...HAND_COMPUTED_APEX_RUN,
+                '--request-size',
+                '400',
+            ]),
         ).toThrow(`--request-size 400: ${planMessageFor(plan, 400)}`);
     });
 
@@ -896,7 +982,7 @@ describe('prop live --request-size minimum has one source of truth, the plan (WP
         const plan = topStepBuilder()(TOPSTEP_CUSHION);
 
         expect(() =>
-            parseLive(
+            parseSizedLive(
                 [...HAND_COMPUTED_APEX_RUN, '--request-size', '100'],
                 topStepBuilder(),
             ),
@@ -906,7 +992,12 @@ describe('prop live --request-size minimum has one source of truth, the plan (WP
     it('accepts --request-size 125 on the TopStep LFA, exactly its minimum', () => {
         expect(
             parseLive(
-                [...HAND_COMPUTED_APEX_RUN, '--request-size', '125'],
+                [
+                    ...HAND_COMPUTED_APEX_RUN,
+                    ...TOPSTEP_ONE_NQ_AT_450,
+                    '--request-size',
+                    '125',
+                ],
                 topStepBuilder(),
             ).payoutRequestSize,
         ).toBe(125);
@@ -998,5 +1089,133 @@ describe('prop live --transition-profit help is built when the arguments are res
 describe('prop live --help names only flags prop live accepts (WP43d)', () => {
     it('names no flag prop live lacks, such as --unaffordable, --percent or --funded-ladder', async () => {
         expect(await flagsNamedButNotAccepted(liveCommand)).toStrictEqual([]);
+    });
+});
+
+const LIVE_STOP_POINTS_REFUSAL =
+    'prop live needs --stop-points: live risk is a percent of the drawdown cushion placed in whole contracts at that stop (with --instrument, default NQ), at least one contract and at most the live contract limit. Add --stop-points.';
+
+async function capturedLiveRun(argv: string[]): Promise<{
+    exitCode: typeof process.exitCode;
+    stderr: string;
+    stdout: string;
+}> {
+    const written: string[] = [];
+    const writtenError: string[] = [];
+    const write = vi
+        .spyOn(process.stdout, 'write')
+        .mockImplementation((chunk: string | Uint8Array) => {
+            written.push(String(chunk));
+            return true;
+        });
+    const writeError = vi
+        .spyOn(process.stderr, 'write')
+        .mockImplementation((chunk: string | Uint8Array) => {
+            writtenError.push(String(chunk));
+            return true;
+        });
+    const exitCode = process.exitCode;
+    let runExitCode: typeof process.exitCode;
+    process.exitCode = undefined;
+    try {
+        await liveCommand.run?.({
+            args: parseArgs<typeof liveArguments>(argv, liveArguments),
+            cmd: liveCommand,
+            rawArgs: argv,
+        });
+    } finally {
+        runExitCode = process.exitCode;
+        write.mockRestore();
+        writeError.mockRestore();
+        process.exitCode = exitCode;
+    }
+    return {
+        exitCode: runExitCode,
+        stderr: writtenError.join(''),
+        stdout: written.join(''),
+    };
+}
+
+describe('prop live needs --stop-points: live percent-of-cushion risk is placed in whole contracts (N-76, T33)', () => {
+    it('refuses to parse without --stop-points, naming --stop-points and --instrument', () => {
+        expect(() => parseLive([])).toThrow(LIVE_STOP_POINTS_REFUSAL);
+    });
+
+    it('refuses even when --instrument is given without --stop-points', () => {
+        expect(() => parseLive(['--instrument', InstrumentSymbol.MNQ])).toThrow(
+            LIVE_STOP_POINTS_REFUSAL,
+        );
+    });
+
+    it('checks --stop-points before building the live plan, so the plan builder never runs without it (WP44b)', () => {
+        const builder = vi.fn(apexBuilder());
+
+        expect(() => parseLive([], builder)).toThrow(LIVE_STOP_POINTS_REFUSAL);
+        expect(builder).not.toHaveBeenCalled();
+    });
+
+    it('names the missing --stop-points before a --request-size below the plan minimum (WP44b)', () => {
+        expect(() => parseLive(['--request-size', '400'])).toThrow(
+            LIVE_STOP_POINTS_REFUSAL,
+        );
+    });
+
+    it('names the missing --stop-points before an out-of-range cushion percent (WP44b)', () => {
+        expect(() => parseLive(['--cushion-percent-post-lock', '150'])).toThrow(
+            LIVE_STOP_POINTS_REFUSAL,
+        );
+    });
+
+    it('rejects a non-positive --stop-points before reading the cushion percents (WP44b)', () => {
+        expect(() =>
+            parseLive([
+                '--stop-points',
+                '-2',
+                '--cushion-percent-post-lock',
+                '150',
+            ]),
+        ).toThrow(/--stop-points must be a number > 0/);
+    });
+
+    it('exits 1 without --stop-points, prints why and never starts the simulation', async () => {
+        const run = await capturedLiveRun(['--trials', '1']);
+
+        expect(run.exitCode).toBe(1);
+        expect(run.stderr).toContain(LIVE_STOP_POINTS_REFUSAL);
+        expect(run.stdout).not.toContain('bust probability');
+    });
+
+    it('runs with --stop-points and --instrument, and Apex Live at 5% / 10% of the cushion busts in some trials at a 10 point MNQ stop, where fractional sizing printed 0.0%', () => {
+        const out = simulateLiveAccount(
+            parseLive([
+                '--trials',
+                '300',
+                '--stop-points',
+                '10',
+                '--instrument',
+                InstrumentSymbol.MNQ,
+            ]),
+        );
+
+        expect(out.liveBustProbability).toBeGreaterThan(0);
+    });
+
+    it('says in --help that live sizing is a percent of the cushion placed in whole contracts and needs --stop-points', async () => {
+        const usage = await renderUsage(liveCommand);
+
+        expect(usage).toContain('whole contracts');
+        expect(usage).toContain('needs --stop-points');
+        expect(usage).not.toContain('\u{2014}');
+    });
+
+    it('describes --stop-points as required for prop live, never as optional or uncapped', async () => {
+        const description = liveArguments['stop-points'].description;
+        const usage = await renderUsage(liveCommand);
+
+        expect(description).toContain('Required');
+        expect(description).toContain('whole contracts');
+        expect(description).toContain('--instrument');
+        expect(description).not.toContain('\u{2014}');
+        expect(usage).not.toContain('Omit to leave risk uncapped');
     });
 });

@@ -1,13 +1,20 @@
 import { z } from 'zod';
 
 import {
+    type AccountState,
     type ContractCount,
     contractCountSchema,
+    contractLimitAt,
     type Dollars,
+    dollars,
     dollarsSchema,
     type Fraction0to1,
+    INSTRUMENTS,
     InstrumentSymbol,
     isAtOrBelowWithinCentTolerance,
+    type Plan,
+    resolveDailyLossLimit,
+    TradingPhase,
 } from '../core';
 import { type CappedAmount, SizingConstraint } from './DocumentedSizing';
 import { liveFractionSchema } from './Rulebook';
@@ -36,7 +43,14 @@ export interface LiveRuleContext extends SharedRuleContext {
     readonly thresholdLocked: boolean;
 }
 
+export type PlanPhaseStage = SizingStage.Eval | SizingStage.Funded;
+
 export type RuleContext = EvalRuleContext | FundedRuleContext | LiveRuleContext;
+
+export interface RuleContextCaps {
+    readonly instrument: InstrumentSymbol | null;
+    readonly personalDll: Dollars | null;
+}
 
 interface SharedRuleContext {
     readonly contractLimit: ContractCount | null;
@@ -140,6 +154,73 @@ export function profitCeiling(context: RuleContext): CappedAmount | null {
     }
 }
 
+export function ruleContextAt(
+    plan: Plan,
+    stage: SizingStage.Eval,
+    state: AccountState,
+    caps: RuleContextCaps,
+): EvalRuleContext;
+export function ruleContextAt(
+    plan: Plan,
+    stage: SizingStage.Funded,
+    state: AccountState,
+    caps: RuleContextCaps,
+): FundedRuleContext;
+export function ruleContextAt(
+    plan: Plan,
+    stage: PlanPhaseStage,
+    state: AccountState,
+    caps: RuleContextCaps,
+): EvalRuleContext | FundedRuleContext;
+export function ruleContextAt(
+    plan: Plan,
+    stage: PlanPhaseStage,
+    state: AccountState,
+    caps: RuleContextCaps,
+): EvalRuleContext | FundedRuleContext {
+    const phase = planPhaseOf(stage);
+    const dllRoom = resolveDailyLossLimit(
+        plan.dailyLossLimitFor(phase),
+        plan.dailyLossLimitContext(state),
+    );
+    const shared: SharedRuleContext = {
+        contractLimit:
+            caps.instrument === null
+                ? null
+                : contractLimitAt(
+                      plan.contractLimits,
+                      phase,
+                      INSTRUMENTS[caps.instrument].isMicro,
+                      plan.tierProfitContext(state),
+                  ),
+        cushion: dollars(state.balance - state.threshold),
+        dayStartDllRoom: dllRoom === null ? null : dollars(dllRoom),
+        instrument: caps.instrument,
+        personalDll: caps.personalDll,
+    };
+    switch (stage) {
+        case SizingStage.Eval: {
+            const consistency = plan.evalConsistencyRule();
+            return {
+                ...shared,
+                consistencyDailyCap:
+                    consistency === null
+                        ? null
+                        : dollars(
+                              consistency.maxBestDayShare * plan.profitTarget,
+                          ),
+                remainingProfitToTarget: dollars(
+                    plan.profitTarget - plan.accountProfit(state),
+                ),
+                stage,
+            };
+        }
+        case SizingStage.Funded: {
+            return { ...shared, stage };
+        }
+    }
+}
+
 export function tighterOf(
     current: CappedAmount | null,
     amount: Dollars | null,
@@ -149,4 +230,15 @@ export function tighterOf(
     return current === null || amount < current.amount
         ? { amount, constraint }
         : current;
+}
+
+function planPhaseOf(stage: PlanPhaseStage): TradingPhase {
+    switch (stage) {
+        case SizingStage.Eval: {
+            return TradingPhase.Eval;
+        }
+        case SizingStage.Funded: {
+            return TradingPhase.Funded;
+        }
+    }
 }

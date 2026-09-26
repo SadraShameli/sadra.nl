@@ -1,0 +1,1 @@
+ALTER TABLE "sadranl_prop_rule_violation" ADD CONSTRAINT "prop_rule_violation_decision_fk" FOREIGN KEY ("decision_id","account_id","user_id") REFERENCES "public"."sadranl_prop_sizing_decision"("id","account_id","user_id") ON DELETE no action ON UPDATE no action;

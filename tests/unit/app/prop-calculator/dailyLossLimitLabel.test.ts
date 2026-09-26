@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { dailyLossLimitLabel } from '~/app/(app)/prop-calculator/_components/dailyLossLimitLabel';
 import {
+    ALL_FIRMS,
     APEX_LIVE_DAILY_LOSS_LIMIT,
     contracts,
     DailyLossLimitKind,
@@ -69,5 +70,207 @@ describe('web daily loss limit badge label', () => {
         expect(dailyLossLimitLabel({ kind: DailyLossLimitKind.None })).toBe(
             null,
         );
+    });
+});
+
+describe('web daily loss limit badge label for every registry plan (PT-31a pin)', () => {
+    it('keeps the eval and funded labels of every plan', () => {
+        const labels = Object.fromEntries(
+            ALL_FIRMS.flatMap((firm) => firm.plans).map((plan) => [
+                `${plan.id.firm} ${plan.label}`,
+                [
+                    dailyLossLimitLabel(plan.evalDailyLossLimit),
+                    dailyLossLimitLabel(plan.fundedDailyLossLimit),
+                ],
+            ]),
+        );
+        expect(labels).toMatchInlineSnapshot(`
+          {
+            "alphafutures $50K · Advanced": [
+              null,
+              null,
+            ],
+            "alphafutures $50K · Standard": [
+              null,
+              "$1,000",
+            ],
+            "alphafutures $50K · Zero": [
+              "$1,000",
+              "$1,000",
+            ],
+            "apex $50K · EOD trailing": [
+              "$1,000",
+              "$1,000–$3,000 (scales)",
+            ],
+            "apex $50K · Intraday trailing": [
+              null,
+              "$1,000–$3,000 (scales)",
+            ],
+            "e8futures $50K · Signature": [
+              null,
+              "$1,000",
+            ],
+            "e8futures $50K · Zero MAX (100% payout)": [
+              null,
+              null,
+            ],
+            "e8futures $50K · Zero MAX (80% payout)": [
+              null,
+              null,
+            ],
+            "e8futures $50K · Zero Starter (100% payout)": [
+              null,
+              null,
+            ],
+            "e8futures $50K · Zero Starter (80% payout)": [
+              null,
+              null,
+            ],
+            "ftmo-futures $50K · Growth": [
+              null,
+              "$1,000",
+            ],
+            "ftmo-futures $50K · Pro": [
+              "$1,000",
+              "$1,000",
+            ],
+            "fundednext $50K · FNL:003 Instant": [
+              null,
+              null,
+            ],
+            "fundednext $50K · Flex": [
+              null,
+              null,
+            ],
+            "fundednext $50K · Legacy": [
+              null,
+              null,
+            ],
+            "fundednext $50K · Rapid Daily": [
+              "$1,000",
+              "$1,000",
+            ],
+            "fundednext $50K · Rapid Pro": [
+              null,
+              null,
+            ],
+            "fundednext $50K · Rapid Pro (DLL Add-On)": [
+              "$1,000",
+              "$1,000",
+            ],
+            "lucid $50K · LucidDaily (EOD)": [
+              null,
+              null,
+            ],
+            "lucid $50K · LucidDaily (EOD, DLL)": [
+              "$1,200",
+              "$1,200",
+            ],
+            "lucid $50K · LucidDaily (Intraday)": [
+              null,
+              null,
+            ],
+            "lucid $50K · LucidDaily (Intraday, DLL)": [
+              "$1,200",
+              "$1,200",
+            ],
+            "lucid $50K · LucidDirect": [
+              "$1,200",
+              "$1,200 → 60% of peak",
+            ],
+            "lucid $50K · LucidFlex": [
+              null,
+              null,
+            ],
+            "lucid $50K · LucidFlex (DLL)": [
+              "$1,200",
+              "$1,200",
+            ],
+            "lucid $50K · LucidMaxx": [
+              null,
+              null,
+            ],
+            "lucid $50K · LucidPro": [
+              "$1,200",
+              "$1,200 → 60% of peak",
+            ],
+            "lucid $50K · LucidPro (no DLL)": [
+              null,
+              null,
+            ],
+            "mffu $50K · Builder": [
+              "$1,000",
+              "$1,000",
+            ],
+            "mffu $50K · Pro": [
+              null,
+              null,
+            ],
+            "mffu $50K · Rapid": [
+              null,
+              null,
+            ],
+            "mffu $50K · Rapid EOD": [
+              null,
+              null,
+            ],
+            "topstep $50K · No-fee path · Consistency XFA": [
+              null,
+              null,
+            ],
+            "topstep $50K · No-fee path · Consistency XFA · DLL": [
+              "$1,000",
+              "$1,000",
+            ],
+            "topstep $50K · No-fee path · Standard XFA": [
+              null,
+              null,
+            ],
+            "topstep $50K · No-fee path · Standard XFA · DLL": [
+              "$1,000",
+              "$1,000",
+            ],
+            "topstep $50K · Pro Account": [
+              "$1,000",
+              "$1,000",
+            ],
+            "topstep $50K · Standard path · Consistency XFA": [
+              null,
+              null,
+            ],
+            "topstep $50K · Standard path · Consistency XFA · DLL": [
+              "$1,000",
+              "$1,000",
+            ],
+            "topstep $50K · Standard path · Standard XFA": [
+              null,
+              null,
+            ],
+            "topstep $50K · Standard path · Standard XFA · DLL": [
+              "$1,000",
+              "$1,000",
+            ],
+            "tpt $50K · Test → PRO": [
+              null,
+              null,
+            ],
+            "tradeify $50K · Growth": [
+              "$1,250",
+              "$1,250–$2,000 (scales)",
+            ],
+            "tradeify $50K · Lightning Funded": [
+              "$1,250–$2,000 (scales)",
+              "$1,250–$2,000 (scales)",
+            ],
+            "tradeify $50K · Select Daily": [
+              null,
+              "$1,000",
+            ],
+            "tradeify $50K · Select Flex": [
+              null,
+              null,
+            ],
+          }
+        `);
     });
 });

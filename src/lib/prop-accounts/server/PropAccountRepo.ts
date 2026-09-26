@@ -56,13 +56,25 @@ import {
     type PropAccountRow,
     propAccountSnapshot,
     type PropAccountSnapshotRow,
+    propBankrollTransfer,
+    type PropBankrollTransferRow,
     propCopyGroup,
     type PropCopyGroupRow,
+    propExternalFirm,
+    type PropExternalFirmRow,
     propFee,
     type PropFeeRow,
+    propFirmEngagement,
+    type PropFirmEngagementRow,
+    propFirmStatement,
+    type PropFirmStatementRow,
     propPayout,
     type PropPayoutRow,
+    propRound,
+    type PropRoundRow,
     propRulebook,
+    propRuleViolation,
+    type PropRuleViolationRow,
     propSavedScenario,
     type PropSavedScenarioRow,
     propSizingDecision,
@@ -196,6 +208,56 @@ export class PropAccountRepo {
         return row !== undefined;
     }
 
+    async isExternalFirmInUse(id: string): Promise<boolean> {
+        const [round] = await this.database
+            .select({ id: propRound.id })
+            .from(propRound)
+            .where(
+                and(
+                    eq(propRound.userId, this.userId),
+                    eq(propRound.externalFirmId, id),
+                ),
+            )
+            .limit(1);
+        if (round !== undefined) return true;
+        const [engagement] = await this.database
+            .select({ id: propFirmEngagement.id })
+            .from(propFirmEngagement)
+            .where(
+                and(
+                    eq(propFirmEngagement.userId, this.userId),
+                    eq(propFirmEngagement.externalFirmId, id),
+                ),
+            )
+            .limit(1);
+        if (engagement !== undefined) return true;
+        const [statement] = await this.database
+            .select({ id: propFirmStatement.id })
+            .from(propFirmStatement)
+            .where(
+                and(
+                    eq(propFirmStatement.userId, this.userId),
+                    eq(propFirmStatement.externalFirmId, id),
+                ),
+            )
+            .limit(1);
+        return statement !== undefined;
+    }
+
+    async isRoundInUse(id: string): Promise<boolean> {
+        const [row] = await this.database
+            .select({ id: propAccount.id })
+            .from(propAccount)
+            .where(
+                and(
+                    eq(propAccount.userId, this.userId),
+                    eq(propAccount.roundId, id),
+                ),
+            )
+            .limit(1);
+        return row !== undefined;
+    }
+
     async latestLifecycleEventOn(accountId: string): Promise<null | string> {
         const [row] = await this.database
             .select({ occurredOn: propAccountEvent.occurredOn })
@@ -273,6 +335,24 @@ export class PropAccountRepo {
         );
     }
 
+    async listAccountRefsInRound(roundId: string): Promise<OwnedAccountRef[]> {
+        const rows = await this.database
+            .select(ACCOUNT_REF_COLUMNS)
+            .from(propAccount)
+            .where(
+                and(
+                    eq(propAccount.userId, this.userId),
+                    eq(propAccount.roundId, roundId),
+                ),
+            )
+            .limit(PROP_QUOTA_LIMITS[PropQuota.Accounts] + 1);
+        return boundedRows(
+            rows,
+            PROP_QUOTA_LIMITS[PropQuota.Accounts],
+            PropRecord.Account,
+        );
+    }
+
     async listAccountsReplacing(accountId: string): Promise<OwnedAccountRef[]> {
         const rows = await this.database
             .select(ACCOUNT_REF_COLUMNS)
@@ -288,6 +368,24 @@ export class PropAccountRepo {
             rows,
             PROP_QUOTA_LIMITS[PropQuota.Accounts],
             PropRecord.Account,
+        );
+    }
+
+    async listBankrollTransfers(): Promise<PropBankrollTransferRow[]> {
+        const rows = await this.database
+            .select()
+            .from(propBankrollTransfer)
+            .where(eq(propBankrollTransfer.userId, this.userId))
+            .orderBy(
+                desc(propBankrollTransfer.occurredOn),
+                desc(propBankrollTransfer.createdAt),
+                desc(propBankrollTransfer.id),
+            )
+            .limit(PROP_QUOTA_LIMITS[PropQuota.BankrollTransfers] + 1);
+        return boundedRows(
+            rows,
+            PROP_QUOTA_LIMITS[PropQuota.BankrollTransfers],
+            PropRecord.BankrollTransfer,
         );
     }
 
@@ -376,6 +474,20 @@ export class PropAccountRepo {
         );
     }
 
+    async listExternalFirms(): Promise<PropExternalFirmRow[]> {
+        const rows = await this.database
+            .select()
+            .from(propExternalFirm)
+            .where(eq(propExternalFirm.userId, this.userId))
+            .orderBy(asc(propExternalFirm.name), asc(propExternalFirm.id))
+            .limit(PROP_QUOTA_LIMITS[PropQuota.ExternalFirms] + 1);
+        return boundedRows(
+            rows,
+            PROP_QUOTA_LIMITS[PropQuota.ExternalFirms],
+            PropRecord.ExternalFirm,
+        );
+    }
+
     async listFees(accountId?: string): Promise<PropFeeRow[]> {
         const rows = await this.database
             .select()
@@ -401,6 +513,42 @@ export class PropAccountRepo {
         );
     }
 
+    async listFirmEngagements(): Promise<PropFirmEngagementRow[]> {
+        const rows = await this.database
+            .select()
+            .from(propFirmEngagement)
+            .where(eq(propFirmEngagement.userId, this.userId))
+            .orderBy(
+                desc(propFirmEngagement.sinceOn),
+                desc(propFirmEngagement.createdAt),
+                desc(propFirmEngagement.id),
+            )
+            .limit(PROP_QUOTA_LIMITS[PropQuota.FirmEngagements] + 1);
+        return boundedRows(
+            rows,
+            PROP_QUOTA_LIMITS[PropQuota.FirmEngagements],
+            PropRecord.FirmEngagement,
+        );
+    }
+
+    async listFirmStatements(): Promise<PropFirmStatementRow[]> {
+        const rows = await this.database
+            .select()
+            .from(propFirmStatement)
+            .where(eq(propFirmStatement.userId, this.userId))
+            .orderBy(
+                desc(propFirmStatement.asOf),
+                desc(propFirmStatement.createdAt),
+                desc(propFirmStatement.id),
+            )
+            .limit(PROP_QUOTA_LIMITS[PropQuota.FirmStatements] + 1);
+        return boundedRows(
+            rows,
+            PROP_QUOTA_LIMITS[PropQuota.FirmStatements],
+            PropRecord.FirmStatement,
+        );
+    }
+
     async listPayouts(accountId?: string): Promise<PropPayoutRow[]> {
         const rows = await this.database
             .select()
@@ -423,6 +571,24 @@ export class PropAccountRepo {
             rows,
             PROP_QUOTA_LIMITS[PropQuota.Payouts],
             PropRecord.Payout,
+        );
+    }
+
+    async listRounds(): Promise<PropRoundRow[]> {
+        const rows = await this.database
+            .select()
+            .from(propRound)
+            .where(eq(propRound.userId, this.userId))
+            .orderBy(
+                desc(propRound.openedOn),
+                desc(propRound.createdAt),
+                desc(propRound.id),
+            )
+            .limit(PROP_QUOTA_LIMITS[PropQuota.Rounds] + 1);
+        return boundedRows(
+            rows,
+            PROP_QUOTA_LIMITS[PropQuota.Rounds],
+            PropRecord.Round,
         );
     }
 
@@ -462,6 +628,31 @@ export class PropAccountRepo {
             rows,
             PROP_QUOTA_LIMITS[PropQuota.Snapshots],
             PropRecord.Snapshot,
+        );
+    }
+
+    async listViolations(accountId?: string): Promise<PropRuleViolationRow[]> {
+        const rows = await this.database
+            .select()
+            .from(propRuleViolation)
+            .where(
+                and(
+                    eq(propRuleViolation.userId, this.userId),
+                    accountId === undefined
+                        ? undefined
+                        : eq(propRuleViolation.accountId, accountId),
+                ),
+            )
+            .orderBy(
+                desc(propRuleViolation.occurredOn),
+                desc(propRuleViolation.createdAt),
+                desc(propRuleViolation.id),
+            )
+            .limit(PROP_QUOTA_LIMITS[PropQuota.Violations] + 1);
+        return boundedRows(
+            rows,
+            PROP_QUOTA_LIMITS[PropQuota.Violations],
+            PropRecord.Violation,
         );
     }
 
@@ -523,6 +714,25 @@ export class PropAccountRepo {
         return owned;
     }
 
+    async loadOwnedBankrollTransferOrThrow(
+        id: string,
+    ): Promise<PropBankrollTransferRow> {
+        const [row] = await this.database
+            .select()
+            .from(propBankrollTransfer)
+            .where(
+                and(
+                    eq(propBankrollTransfer.id, id),
+                    eq(propBankrollTransfer.userId, this.userId),
+                ),
+            )
+            .limit(1);
+        if (row === undefined) {
+            throw new PropRecordNotFoundError(PropRecord.BankrollTransfer);
+        }
+        return row;
+    }
+
     async loadOwnedCopyGroupOrThrow(id: string): Promise<PropCopyGroupRow> {
         const [row] = await this.database
             .select()
@@ -557,6 +767,25 @@ export class PropAccountRepo {
         return row;
     }
 
+    async loadOwnedExternalFirmOrThrow(
+        id: string,
+    ): Promise<PropExternalFirmRow> {
+        const [row] = await this.database
+            .select()
+            .from(propExternalFirm)
+            .where(
+                and(
+                    eq(propExternalFirm.id, id),
+                    eq(propExternalFirm.userId, this.userId),
+                ),
+            )
+            .limit(1);
+        if (row === undefined) {
+            throw new PropRecordNotFoundError(PropRecord.ExternalFirm);
+        }
+        return row;
+    }
+
     async loadOwnedFeeOrThrow(id: string): Promise<PropFeeRow> {
         const [row] = await this.database
             .select()
@@ -565,6 +794,44 @@ export class PropAccountRepo {
             .limit(1);
         if (row === undefined) {
             throw new PropRecordNotFoundError(PropRecord.Fee);
+        }
+        return row;
+    }
+
+    async loadOwnedFirmEngagementOrThrow(
+        id: string,
+    ): Promise<PropFirmEngagementRow> {
+        const [row] = await this.database
+            .select()
+            .from(propFirmEngagement)
+            .where(
+                and(
+                    eq(propFirmEngagement.id, id),
+                    eq(propFirmEngagement.userId, this.userId),
+                ),
+            )
+            .limit(1);
+        if (row === undefined) {
+            throw new PropRecordNotFoundError(PropRecord.FirmEngagement);
+        }
+        return row;
+    }
+
+    async loadOwnedFirmStatementOrThrow(
+        id: string,
+    ): Promise<PropFirmStatementRow> {
+        const [row] = await this.database
+            .select()
+            .from(propFirmStatement)
+            .where(
+                and(
+                    eq(propFirmStatement.id, id),
+                    eq(propFirmStatement.userId, this.userId),
+                ),
+            )
+            .limit(1);
+        if (row === undefined) {
+            throw new PropRecordNotFoundError(PropRecord.FirmStatement);
         }
         return row;
     }
@@ -579,6 +846,22 @@ export class PropAccountRepo {
             .limit(1);
         if (row === undefined) {
             throw new PropRecordNotFoundError(PropRecord.Payout);
+        }
+        return row;
+    }
+
+    async loadOwnedRoundOrThrow(
+        id: string,
+        isLocked = false,
+    ): Promise<PropRoundRow> {
+        const query = this.database
+            .select()
+            .from(propRound)
+            .where(and(eq(propRound.id, id), eq(propRound.userId, this.userId)))
+            .limit(1);
+        const [row] = isLocked ? await query.for('update') : await query;
+        if (row === undefined) {
+            throw new PropRecordNotFoundError(PropRecord.Round);
         }
         return row;
     }
@@ -619,6 +902,23 @@ export class PropAccountRepo {
             .limit(1);
         if (row === undefined) {
             throw new PropRecordNotFoundError(PropRecord.Snapshot);
+        }
+        return row;
+    }
+
+    async loadOwnedViolationOrThrow(id: string): Promise<PropRuleViolationRow> {
+        const [row] = await this.database
+            .select()
+            .from(propRuleViolation)
+            .where(
+                and(
+                    eq(propRuleViolation.id, id),
+                    eq(propRuleViolation.userId, this.userId),
+                ),
+            )
+            .limit(1);
+        if (row === undefined) {
+            throw new PropRecordNotFoundError(PropRecord.Violation);
         }
         return row;
     }
@@ -816,13 +1116,19 @@ function capitalized(text: string): string {
 function narrowingHint(record: PropRecord): string {
     switch (record) {
         case PropRecord.Account:
+        case PropRecord.BankrollTransfer:
         case PropRecord.CopyGroup:
         case PropRecord.Decision:
+        case PropRecord.ExternalFirm:
         case PropRecord.Fee:
+        case PropRecord.FirmEngagement:
+        case PropRecord.FirmStatement:
         case PropRecord.Payout:
+        case PropRecord.Round:
         case PropRecord.Rulebook:
         case PropRecord.Scenario:
-        case PropRecord.Snapshot: {
+        case PropRecord.Snapshot:
+        case PropRecord.Violation: {
             return `remove some ${record} entries to get back under the limit`;
         }
         case PropRecord.Event: {
@@ -920,12 +1226,18 @@ function storedRecordRemedy(record: PropRecord): string {
         case PropRecord.Account: {
             return STORED_DATA_OWNER_REPAIR;
         }
+        case PropRecord.BankrollTransfer:
         case PropRecord.CopyGroup:
         case PropRecord.Decision:
+        case PropRecord.ExternalFirm:
         case PropRecord.Fee:
+        case PropRecord.FirmEngagement:
+        case PropRecord.FirmStatement:
         case PropRecord.Payout:
+        case PropRecord.Round:
         case PropRecord.Scenario:
-        case PropRecord.Snapshot: {
+        case PropRecord.Snapshot:
+        case PropRecord.Violation: {
             return `Remove the ${record} and enter it again, or contact the site owner`;
         }
         case PropRecord.Event: {

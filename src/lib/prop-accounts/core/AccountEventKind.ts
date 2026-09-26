@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { AccountStage } from './AccountStage';
+import { BustCause } from './BustCause';
 
 export enum AccountEventKind {
     Busted = 'busted',
@@ -28,6 +29,7 @@ export interface AccountEventChange {
 export type AccountEventChangeValue = boolean | null | number | string;
 
 export interface AccountEventDetail {
+    readonly bustCause?: BustCause;
     readonly changes: readonly AccountEventChange[];
     readonly note: null | string;
 }
@@ -51,6 +53,7 @@ const changeSchema = z.object({
 });
 
 export const accountEventDetailSchema = z.object({
+    bustCause: z.enum(BustCause).optional(),
     changes: z
         .array(changeSchema)
         .max(MAX_EVENT_CHANGES)

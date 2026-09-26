@@ -54,6 +54,10 @@ export interface EvalStateValueResult {
     readonly dayPolicy: DayPolicy;
     readonly initialValue: number;
     readonly reachedStateCount: number;
+    readonly riskAtReachedState: (
+        state: AccountState,
+        tradeIndexToday: number,
+    ) => null | number;
 }
 
 interface OuterState {
@@ -591,36 +595,64 @@ export function computeEvalStateValue(
         tradingDays: 0,
     });
 
-    function computeRisk(state: AccountState, tradeIndexToday: number): number {
-        const day = state.elapsedDays ?? 0;
-        const todayPnL = state.todayPnL;
-        const cushionAtDayStart = state.balance - state.threshold - todayPnL;
-        const {
-            bestDay: bestDayBucket,
-            cushion: cushionBucket,
-            idleDays: idleDaysBucket,
-            peakBand: peakBandBucket,
-            thresholdOffset: thresholdOffsetBucket,
-            tradingDays: tradingDaysBucket,
-        } = bucketOuterState(state, cushionAtDayStart);
-        const key = outerKey({
-            bestDay: bestDayBucket,
-            cushion: cushionBucket,
+    function dayStartKey(state: AccountState, day: number): number {
+        const dayStart = lastDayCloseOf(state);
+        return outerKey({
+            ...bucketOuterState(
+                dayStart,
+                dayStart.balance - dayStart.threshold,
+            ),
             day,
-            idleDays: idleDaysBucket,
             isLocked: state.thresholdLocked,
-            peakBand: peakBandBucket,
-            thresholdOffset: thresholdOffsetBucket,
-            tradingDays: tradingDaysBucket,
         });
-        const policyTables = policy.get(key);
-        if (!policyTables) return 0;
-        const currentCushion = state.balance - state.threshold;
+    }
+
+    function riskFromTables(
+        policyTables: readonly (readonly number[])[],
+        state: AccountState,
+        tradeIndexToday: number,
+    ): number {
         return (
             policyTables[tradeIndexToday]?.[
-                cushionBucketIndex(currentCushion)
+                cushionBucketIndex(state.balance - state.threshold)
             ] ?? 0
         );
+    }
+
+    function computeRisk(state: AccountState, tradeIndexToday: number): number {
+        const policyTables = policy.get(
+            dayStartKey(state, state.elapsedDays ?? 0),
+        );
+        return policyTables
+            ? riskFromTables(policyTables, state, tradeIndexToday)
+            : 0;
+    }
+
+    function riskAtReachedState(
+        state: AccountState,
+        tradeIndexToday: number,
+    ): null | number {
+        const day = state.elapsedDays;
+        if (day === undefined || !Number.isSafeInteger(day) || day < 0) {
+            throw new Error(
+                `${plan.label}: riskAtReachedState needs the state's elapsedDays (the eval DP day index) as a non-negative integer, got ${String(day)}`,
+            );
+        }
+        if (!Number.isSafeInteger(tradeIndexToday) || tradeIndexToday < 0) {
+            throw new Error(
+                `${plan.label}: riskAtReachedState needs a non-negative integer trade index, got ${String(tradeIndexToday)}`,
+            );
+        }
+        if (
+            plan.isBust(state, TradingPhase.Eval) ||
+            plan.isPassed(lastDayCloseOf(state))
+        ) {
+            return null;
+        }
+        const policyTables = policy.get(dayStartKey(state, day));
+        return policyTables === undefined
+            ? null
+            : riskFromTables(policyTables, state, tradeIndexToday);
     }
 
     const dayPolicy = computedDayPolicy(
@@ -634,6 +666,7 @@ export function computeEvalStateValue(
         dayPolicy,
         initialValue,
         reachedStateCount: memo.size,
+        riskAtReachedState,
     };
 }
 
@@ -670,4 +703,8 @@ function clampRange(value: number, max: number): number {
 
 function floorStep(value: number, step: number): number {
     return step <= 0 ? value : Math.floor(value / step) * step;
+}
+
+function lastDayCloseOf(state: AccountState): AccountState {
+    return { ...state, balance: state.balance - state.todayPnL, todayPnL: 0 };
 }

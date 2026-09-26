@@ -6,17 +6,10 @@ import { ui } from '~/cli/ui';
 import { formatCurrency, NOT_APPLICABLE } from '~/lib/format';
 import {
     ALL_FIRMS,
-    type ConsistencyRule,
-    type ContractLimitConfig,
-    ContractLimitKind,
     type CouponDiscounts,
-    type DailyLossLimitConfig,
-    type DailyLossLimitDescriptor,
-    DailyLossLimitShape,
     type DayPolicy,
     type DayStopRule,
     DayStopRuleKind,
-    describeDailyLossLimit,
     describeFundedResetTerms,
     findFirm,
     FirmId,
@@ -46,11 +39,6 @@ import {
     type TradingFirm,
     withPlanOptIns,
 } from '~/lib/prop-calculator';
-
-export enum ContractUnit {
-    Micro = 'micro',
-    Mini = 'mini',
-}
 
 export interface CouponDiscountArguments {
     'activation-discount': string;
@@ -440,7 +428,8 @@ export const monteCarloArguments = {
     rr: { default: '2', description: 'Reward to risk ratio', type: 'string' },
     seed: { default: '42', description: 'RNG seed', type: 'string' },
     'stop-points': {
-        description: `Stop distance in points - enables contract-limit enforcement (caps risk to what --instrument allows) and places funded flat risk, funded ladder rows (optimize funded --funded-ladder) and percent-of-cushion risk in whole contracts, at most the funded contract limit. Flat risk and ladder rungs are rounded down, and a funded flat risk or ladder rung below one contract is refused; percent risk takes at least one contract. When the room left for a funded whole-contract trade (flat, funded ladder or percent) is below one contract, the trade is not placed and the day ends if a lockout daily loss limit is the tighter limit (its room is below the drawdown cushion); otherwise (no daily loss limit, a terminating one, or a drawdown cushion at or below the daily loss room) one contract is still taken and its loss, capped at the room, busts the account, unless --unaffordable ${RungSizing.SkipIfUnaffordable} skips the trade and ends the day. Required for --percent in optimize funded. Omit to leave risk uncapped`,
+        description:
+            'Stop distance in points. Enables contract-limit sizing at --instrument: eval risk is capped at the eval contract limit, and funded flat risk, funded ladder rungs and funded or live percent of cushion are placed in whole contracts, at most the contract limit. Funded flat risk and funded ladder rungs are rounded down, and a funded flat risk or ladder rung below one contract is refused; percent risk takes at least one contract. When the room left for a whole-contract trade is below one contract, the trade is skipped and the day ends if a daily loss limit that only locks the day is the tighter limit (its room is below the drawdown cushion); otherwise one contract is still taken and its loss, capped at the room, busts the account, unless unaffordable funded trades are set to be skipped (a live trade always takes the one contract). When no room is left at all, no trade is placed and the day ends. Omit to leave risk uncapped',
         type: 'string',
     },
     trials: {
@@ -472,7 +461,7 @@ export const rebuyLagDaysArgument = {
     'rebuy-lag-days': {
         default: '0',
         description:
-            'days an account slot sits empty per new eval attempt: rebuy, credential delivery, activation review',
+            'days an account slot sits empty for every eval attempt, the first included: rebuy, credential delivery, activation review',
         type: 'string',
     },
 } satisfies ArgsDef;
@@ -598,7 +587,7 @@ export const evalPolicyArguments = {
     },
     unaffordable: {
         default: RungSizing.CapToCushion,
-        description: 'Unaffordable rung: capToCushion or skipIfUnaffordable',
+        description: `How a trade whose placed risk exceeds the room left (the lower of the drawdown cushion and the daily loss room) is handled: ${RungSizing.CapToCushion} cuts it to the room (a whole-contract trade keeps the whole contracts that fit; --stop-points says when one contract is still taken if none fits); ${RungSizing.SkipIfUnaffordable} skips the trade and ends the day, so a whole-contract trade whose one contract does not fit the room is skipped too`,
         options: Object.values(RungSizing),
         type: 'enum',
     },
@@ -691,35 +680,6 @@ export const planArguments = {
         type: 'string',
     },
 } satisfies ArgsDef;
-
-export function describeDll(
-    config: DailyLossLimitConfig,
-    isTerminating: boolean,
-): string {
-    const shape = describeDllShape(describeDailyLossLimit(config));
-    return isTerminating ? `${shape} (hard)` : shape;
-}
-
-export function describeFundedContracts(
-    config: ContractLimitConfig | null,
-    unit: ContractUnit,
-): string {
-    if (config === null) return `? ${unit}`;
-    switch (config.kind) {
-        case ContractLimitKind.Flat: {
-            return `${config.maxContracts} ${unit}`;
-        }
-        case ContractLimitKind.Tiered: {
-            return `up to ${config.tiers.at(-1)?.maxContracts ?? '?'} ${unit} (tiered)`;
-        }
-    }
-}
-
-export function describeShare(
-    rule: ConsistencyRule | null | undefined,
-): string {
-    return rule === null || rule === undefined ? 'none' : rule.shareLabel();
-}
 
 export function formatDaysToPass(
     out: Pick<SimOutputs, 'evalPassProbability'>,
@@ -851,33 +811,6 @@ export function readPositiveNumber(raw: unknown, name: string): number {
 
 export function readRebuyLagDays(raw: unknown): number {
     return readNonNegativeNumber(raw, 'rebuy-lag-days');
-}
-
-function describeDllShape(descriptor: DailyLossLimitDescriptor): string {
-    switch (descriptor.kind) {
-        case DailyLossLimitShape.Fixed: {
-            return `$${descriptor.amount}`;
-        }
-        case DailyLossLimitShape.None: {
-            return 'none';
-        }
-        case DailyLossLimitShape.Range: {
-            return `$${descriptor.min}-$${descriptor.max}`;
-        }
-        case DailyLossLimitShape.RangeWithUnlimitedTier: {
-            const limited =
-                descriptor.max <= descriptor.min
-                    ? `$${descriptor.min}`
-                    : `$${descriptor.min}-$${descriptor.max}`;
-            return `${limited}, none on some tiers`;
-        }
-        case DailyLossLimitShape.ShareOfPeak: {
-            return `${descriptor.share * 100}% peak`;
-        }
-        case DailyLossLimitShape.Staged: {
-            return `${describeDllShape(descriptor.before)} -> ${describeDllShape(descriptor.after)}`;
-        }
-    }
 }
 
 export const MAX_PATH_GRANULARITY = 200;

@@ -117,6 +117,29 @@ These six re-verifications are the basis for `eod.md`'s, `intraday.md`'s, `READM
 
 **Correction to this file's own "no machine-readable date" claim above.** Each of the six pages above does carry a `dateModified` field in its embedded schema.org JSON-LD (not displayed anywhere on the rendered page, which is presumably why the 2026-09-19 pass read it as absent). This is now confirmed for these six specific articles only; the remaining 60 cited help-center pages have not been re-checked for the same embedded field and still read "not stated" below. Do not assume every article in this tree lacks a `dateModified` value; it has only been disproven for the six listed above.
 
+## 2026-09-26 recheck attempt (PT-71c catalog/live-trigger recheck, all blocked)
+
+A repo-wide catalog and live-transfer-trigger recheck (`.claude/plans/prop-tools-2026-09-25/firm-catalog-recheck.md`, its "Apex Trader Funding" section) attempted to re-fetch Apex's own pages live on 2026-09-26, rather than continue relying on the 2026-09-23 user paste below. Every URL attempted returned an HTTP 403 from Cloudflare, on both the researcher's pass (15:44 UTC) and the independent verifier's re-check one minute later (15:45 UTC); `robots.txt` was the only path that resolved. No new figure was obtained by this attempt, and no `Last Verified` date anywhere in this tree changes as a result: a failed fetch is not a re-verification, per this skill's own rule.
+
+Blocked URLs (Cloudflare 403, cf-ray codes as logged by the recheck):
+
+- `https://apextraderfunding.com/` (homepage product-picker catalog): cf-ray `a41363d19dcc1c89-AMS`; verifier re-check cf-ray `a41365282c7566c2-AMS`.
+- `https://apextraderfunding.com/pricing/`: cf-ray `a41363d21d5506c8-AMS`; verifier cf-ray `a4136528bfd966f3-AMS`.
+- `https://apextraderfunding.com/help-center/billing/evaluation-plan-fees-and-access-explained/`: cf-ray `a41363d4094d7748-AMS`; verifier cf-ray `a41365292f58f546-AMS`.
+- `https://apextraderfunding.com/help-center/getting-started/apex-live-prop-trading-program-faq/`: cf-ray `a41363d39eb55d56-AMS`; verifier cf-ray `a413652979b555e3-AMS`.
+- `https://apextraderfunding.com/legacy-products/` (the Legacy Accounts site product page itself, `legacy.md`'s own cited source for the $167/$197/$297/$497/$597/$697 tiers): not part of the original 15:44/15:45 UTC pass above, re-probed separately on 2026-09-26 at 16:01 UTC as part of the adversarial-verification fix-up for this file; both tries returned HTTP 403 (cf-ray `a4137c501a014e5c-AMS`, `a4137c509ed3d0c1-AMS`).
+
+**Open items (needs-paste), none of which changes a documented figure:**
+
+- Whether the EOD ($590 eval / $90 PA activation) and Intraday ($249 eval / $59 PA activation) prices used in `eod.md`/`intraday.md` are still current: still resting solely on the 2026-09-23 user paste of `window.productPickerConfig`, not re-confirmed live by this attempt.
+- Whether the 5-Pack Evaluation Bundles and the "No Activation Fee" path are still sold at the prices this tree documents: unreachable, since the catalog and pricing pages that would confirm or update either are Cloudflare-blocked.
+- Whether the Legacy subscription line (`legacy.md`) is still sold under its "Available Now – Limited Time" promotion at the $167/$197/$297/$497/$597/$697 tiers: unreachable. The page that actually settles this is `https://apextraderfunding.com/legacy-products/` itself, the "Legacy Accounts (site product page)" row cited above and `legacy.md`'s own source for those tiers, not the homepage catalog or `/pricing/` (the homepage `window.productPickerConfig` catalog carries no Legacy entries at all). `/legacy-products/` is also Cloudflare-blocked, per the 16:01 UTC re-probe logged above.
+- Whether the Second Chance Eval-to-Live $199 requalification price (`live.md`) is still current: the recheck's own quote matches the 2026-09-23 paste verbatim, but the live FAQ page itself returned 403, so the figure remains paste-sourced only, not independently re-confirmed by this attempt.
+
+**R-V5 live-transfer triggers, re-affirmed without new information.** The recheck's live-trigger rows for the EOD PA, Intraday PA, and Apex Live itself reuse a same-day (2026-09-26), paste-based row from a separate plan document (`firm-policy-recheck.md`, its own PT-35 step) rather than a fresh live fetch, and that row's own verifier note records the live FAQ page as still 403 at verification time, "so the paste is not confirmed current." The trigger content it reports (a discretionary move to live with no count/balance threshold, "these are monitoring guidelines, not automatic qualification rules," and the $4,500-profit rule for opening additional live accounts) already matches this tree's `live.md` ("Path to Live (Selection Criteria)") and `eod.md`/`intraday.md` ("Live Transition") sections verbatim. No figure changed; this recheck did not surface a published live-transfer threshold that this tree was missing, nor contradict the "discretionary, no published threshold" status already documented.
+
+This corroborates, rather than supersedes, this file's own header note that `apextraderfunding.com` "returns HTTP 403 to curl and to any non-browser fetch": the 2026-09-26 attempt confirms the same is still true of the main marketing/help-center domain, not only of the older `support.apextraderfunding.com` Zendesk host noted under "Not fetched, and unresolved" above.
+
 ## Known unresolved source conflicts (not fetch failures: do not re-attempt these URLs)
 
 - **Catalog `reset_fee`, currently 65** ("Evaluation Plan Fees and Access Explained" states "There are no reset fees"). Read as 80 in the 2026-09-19 dump; the 2026-09-23 user-pasted snapshot (`dateModified` 2026-08-25) shows 65 instead, superseding the earlier figure. Tables carry the help-center value (no resets) either way. Flagged in `eod.md` and `intraday.md`.

@@ -1,7 +1,6 @@
 import { type ArgsDef, defineCommand, parseArgs } from 'citty';
 
 import {
-    describeShare,
     describeStopRule,
     evalPolicyArguments,
     monteCarloArguments,
@@ -41,6 +40,7 @@ import {
     runLadderSearch,
     validateLadderGrid,
 } from '~/lib/prop-calculator';
+import { describeShare } from '~/lib/prop-calculator/describe';
 
 type LadderArguments = LadderGridArguments &
     Partial<Record<UnsupportedLadderFlag, unknown>> &

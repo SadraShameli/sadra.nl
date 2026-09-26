@@ -751,3 +751,38 @@ function subscriptionPartOfCost(plan: Plan, out: SimOutputs): number {
         plan.fees.activation
     );
 }
+
+describe('SimOutputs carries the copy-account count the run resolved, so every copy total is labelled from the run it describes (N-71, N-72, WP43h)', () => {
+    const single = simulate(characterizationInputs(MFFU_RAPID_EOD));
+
+    it('reports one account when the input leaves the copy count out', () => {
+        expect(single.copyAccounts).toBe(1);
+    });
+
+    it.each([1, 3, 7])(
+        'reports the %s copy accounts it was given, and its totals are that multiple of the one-account run',
+        (copyAccounts) => {
+            const copies = simulate({
+                ...characterizationInputs(MFFU_RAPID_EOD),
+                copyAccounts,
+            });
+            expect(copies.copyAccounts).toBe(copyAccounts);
+            expect(copies.expectedGrossPayout).toBeCloseTo(
+                single.expectedGrossPayout * copyAccounts,
+                6,
+            );
+            expect(copies.expectedTotalCost).toBeCloseTo(
+                single.expectedTotalCost * copyAccounts,
+                6,
+            );
+            expect(copies.expectedNet).toBeCloseTo(
+                single.expectedNet * copyAccounts,
+                6,
+            );
+            expect(copies.expectedMonthlyNet).toBeCloseTo(
+                single.expectedMonthlyNet * copyAccounts,
+                6,
+            );
+        },
+    );
+});

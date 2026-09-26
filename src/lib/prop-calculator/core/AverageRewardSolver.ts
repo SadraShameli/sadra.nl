@@ -42,12 +42,7 @@ export interface AverageRewardTracePoint {
     readonly ratePerDay: number;
 }
 
-interface CycleEvaluation extends RatePoint {
-    readonly evalResult: EvalStateValueResult;
-    readonly fundedResult: FundedStateValueResult;
-}
-
-type EvalGridConfig = Pick<
+export type EvalGridConfig = Pick<
     EvalStateValueConfig,
     | 'actionStepDollars'
     | 'commission'
@@ -60,7 +55,7 @@ type EvalGridConfig = Pick<
     | 'tradesPerDay'
 >;
 
-type FundedGridConfig = Pick<
+export type FundedGridConfig = Pick<
     FundedStateValueConfig,
     | 'actionStepMultiple'
     | 'commission'
@@ -73,11 +68,17 @@ type FundedGridConfig = Pick<
     | 'maxPreLockOffsetMultiple'
     | 'minRetainedCushion'
     | 'payoutRegimeCap'
+    | 'payoutRequestSize'
     | 'positionSizing'
     | 'rungSizing'
     | 'stopRule'
     | 'tradesPerDay'
 >;
+
+interface CycleEvaluation extends RatePoint {
+    readonly evalResult: EvalStateValueResult;
+    readonly fundedResult: FundedStateValueResult;
+}
 
 interface RateBracket {
     readonly hi: number;

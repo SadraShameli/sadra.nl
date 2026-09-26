@@ -4,10 +4,13 @@ import {
     CENTS_PER_DOLLAR,
     type DayStopRule,
     DayStopRuleKind,
+    FirmId,
     fraction,
     type LiveCushionPercent,
     MAX_LADDER_SLOTS,
 } from '../core';
+import { type PlausibilityThresholds } from '../economics';
+import { RiskDisplayUnit } from './RiskDisplayUnit';
 
 export enum EvalSizingMode {
     Ladder = 'ladder',
@@ -34,9 +37,28 @@ export const HARD_RULE_2_MIN_RETAINED_CUSHION_CENTS = 200_000;
 export const LADDER_FRACTION_SUM_TOLERANCE = 1e-9;
 
 export interface AlertThresholds {
+    readonly dayLossBankrollFraction: null | number;
     readonly evalDaysRemainingWarning: number;
     readonly evalNearFloorDrawdownFraction: number;
+    readonly firmProfitConcentrationCount: null | number;
+    readonly firmProfitConcentrationShare: null | number;
     readonly fundedNearFloorRiskMultiple: number;
+    readonly payoutReadyLossFraction: null | number;
+    readonly payoutReadyRiskAboveRungCents: null | number;
+}
+
+export interface BankrollParameters {
+    readonly accountsPerSession: null | number;
+    readonly dailyAccountCapacity: null | number;
+    readonly defaultRoundBudgetCents: null | number;
+    readonly lossRiskThreshold: null | number;
+    readonly objectiveSwitchCents: null | number;
+    readonly roundGapDays: number;
+    readonly sessionHoursPerDay: null | number;
+}
+
+export interface DisplayPreferences {
+    readonly riskUnit: RiskDisplayUnit;
 }
 
 export interface EvalSizingParameters {
@@ -78,6 +100,12 @@ export interface LiveSizingParameters {
     readonly cushionPercent: LiveCushionPercent;
 }
 
+export interface LiveTransferAssumptions {
+    readonly hazardPerPaidPayoutByFirm: Readonly<
+        Partial<Record<FirmId, number>>
+    >;
+}
+
 export interface PayoutParameters {
     readonly allowBelowHardRule2: boolean;
     readonly requestCents: number;
@@ -86,19 +114,33 @@ export interface PayoutParameters {
 
 export interface ReviewParameters {
     readonly fundedStaleDays: number;
+    readonly monthlyPayoutTargetCents: null | number;
+    readonly targetMonthlyMultiple: null | number;
     readonly weekday: ReviewWeekday;
 }
 
 export interface RulebookParameters {
     readonly alerts: AlertThresholds;
+    readonly bankroll: BankrollParameters;
+    readonly display: DisplayPreferences;
     readonly eval: EvalSizingParameters;
     readonly execution: ExecutionParameters;
     readonly funded: FundedSizingParameters;
     readonly live: LiveSizingParameters;
+    readonly liveTransfer: LiveTransferAssumptions;
     readonly payout: PayoutParameters;
+    readonly plausibility: Readonly<PlausibilityThresholds>;
     readonly review: ReviewParameters;
+    readonly samples: SampleThresholds;
     readonly schemaVersion: typeof RULEBOOK_SCHEMA_VERSION;
     readonly strategy: StrategyAssumptions;
+}
+
+export interface SampleThresholds {
+    readonly minClosedRounds: null | number;
+    readonly minEvalAttempts: null | number;
+    readonly minFundedAccounts: null | number;
+    readonly minTrades: null | number;
 }
 
 export interface StrategyAssumptions {
@@ -109,10 +151,25 @@ export interface StrategyAssumptions {
 
 export const DEFAULT_RULEBOOK: RulebookParameters = {
     alerts: {
+        dayLossBankrollFraction: null,
         evalDaysRemainingWarning: 5,
         evalNearFloorDrawdownFraction: 0.25,
+        firmProfitConcentrationCount: null,
+        firmProfitConcentrationShare: null,
         fundedNearFloorRiskMultiple: 2,
+        payoutReadyLossFraction: null,
+        payoutReadyRiskAboveRungCents: null,
     },
+    bankroll: {
+        accountsPerSession: null,
+        dailyAccountCapacity: null,
+        defaultRoundBudgetCents: null,
+        lossRiskThreshold: null,
+        objectiveSwitchCents: null,
+        roundGapDays: 14,
+        sessionHoursPerDay: null,
+    },
+    display: { riskUnit: RiskDisplayUnit.AccountDollars },
     eval: {
         generalDerivation: { escalation: 1.5, firstRungFraction: 0.2 },
         ladderFractionSource: LadderFractionSource.GeneralDerivation,
@@ -131,12 +188,25 @@ export const DEFAULT_RULEBOOK: RulebookParameters = {
     live: {
         cushionPercent: { postLock: fraction(0.1), preLock: fraction(0.05) },
     },
+    liveTransfer: { hazardPerPaidPayoutByFirm: {} },
     payout: {
         allowBelowHardRule2: false,
         requestCents: 50_000,
         retainedCushionCents: HARD_RULE_2_MIN_RETAINED_CUSHION_CENTS,
     },
-    review: { fundedStaleDays: 7, weekday: ReviewWeekday.Monday },
+    plausibility: { strongMaxExpectancyR: 0.35, typicalMaxExpectancyR: 0.3 },
+    review: {
+        fundedStaleDays: 7,
+        monthlyPayoutTargetCents: null,
+        targetMonthlyMultiple: null,
+        weekday: ReviewWeekday.Monday,
+    },
+    samples: {
+        minClosedRounds: null,
+        minEvalAttempts: null,
+        minFundedAccounts: null,
+        minTrades: null,
+    },
     schemaVersion: RULEBOOK_SCHEMA_VERSION,
     strategy: { rr: 2, tradesPerDayMax: 4, winrate: 0.4 },
 };
@@ -147,6 +217,11 @@ const MAX_DAY_COUNT = 365;
 const MAX_ESCALATION = 10;
 const MAX_RR = 20;
 const MAX_RISK_MULTIPLE = 10;
+const MAX_LOSS_RISK_THRESHOLD = 0.5;
+const MAX_SAMPLE_MINIMUM = 10_000;
+const MAX_ACCOUNT_COUNT = 200;
+const MAX_SESSION_HOURS = 16;
+const MAX_TARGET_MULTIPLE = 100;
 const UNION_DISCRIMINANT_KEY = 'kind';
 
 export function fundedStopRuleToDayStopRule(rule: FundedStopRule): DayStopRule {
@@ -211,6 +286,14 @@ const ladderFractionsSchema = z
 
 const riskMultipleSchema = z.number().positive().max(MAX_RISK_MULTIPLE);
 
+const unitFractionSchema = z.number().gt(0).max(1);
+
+const accountCountSchema = z.number().int().min(1).max(MAX_ACCOUNT_COUNT);
+
+const sampleMinimumSchema = z.number().int().min(1).max(MAX_SAMPLE_MINIMUM);
+
+const expectancyRSchema = z.number().positive().max(MAX_RR);
+
 const fundedStopRuleSchema = z.discriminatedUnion('kind', [
     z.object({ kind: z.literal(DayStopRuleKind.None) }),
     z.object({ kind: z.literal(DayStopRuleKind.FirstWin) }),
@@ -226,9 +309,24 @@ const fundedStopRuleSchema = z.discriminatedUnion('kind', [
 ]);
 
 const alertThresholdsSchema = z.object({
+    dayLossBankrollFraction: unitFractionSchema.nullable(),
     evalDaysRemainingWarning: z.number().int().min(0).max(MAX_DAY_COUNT),
-    evalNearFloorDrawdownFraction: z.number().gt(0).max(1),
+    evalNearFloorDrawdownFraction: unitFractionSchema,
+    firmProfitConcentrationCount: accountCountSchema.nullable(),
+    firmProfitConcentrationShare: unitFractionSchema.nullable(),
     fundedNearFloorRiskMultiple: riskMultipleSchema,
+    payoutReadyLossFraction: unitFractionSchema.nullable(),
+    payoutReadyRiskAboveRungCents: positiveCentsSchema.nullable(),
+});
+
+const bankrollSchema = z.object({
+    accountsPerSession: accountCountSchema.nullable(),
+    dailyAccountCapacity: accountCountSchema.nullable(),
+    defaultRoundBudgetCents: positiveCentsSchema.nullable(),
+    lossRiskThreshold: z.number().gt(0).max(MAX_LOSS_RISK_THRESHOLD).nullable(),
+    objectiveSwitchCents: positiveCentsSchema.nullable(),
+    roundGapDays: z.number().int().min(1).max(MAX_DAY_COUNT),
+    sessionHoursPerDay: z.number().gt(0).max(MAX_SESSION_HOURS).nullable(),
 });
 
 const evalSizingSchema = z.object({
@@ -263,9 +361,33 @@ const payoutSchema = z.object({
     retainedCushionCents: z.number().int().min(0).max(MAX_AMOUNT_CENTS),
 });
 
+const liveTransferSchema = z.object({
+    hazardPerPaidPayoutByFirm: z
+        .partialRecord(z.enum(FirmId), openUnitIntervalSchema)
+        .readonly(),
+});
+
+const plausibilitySchema = z.object({
+    strongMaxExpectancyR: expectancyRSchema,
+    typicalMaxExpectancyR: expectancyRSchema,
+});
+
 const reviewSchema = z.object({
     fundedStaleDays: z.number().int().min(1).max(MAX_DAY_COUNT),
+    monthlyPayoutTargetCents: positiveCentsSchema.nullable(),
+    targetMonthlyMultiple: z
+        .number()
+        .positive()
+        .max(MAX_TARGET_MULTIPLE)
+        .nullable(),
     weekday: z.enum(ReviewWeekday),
+});
+
+const samplesSchema = z.object({
+    minClosedRounds: sampleMinimumSchema.nullable(),
+    minEvalAttempts: sampleMinimumSchema.nullable(),
+    minFundedAccounts: sampleMinimumSchema.nullable(),
+    minTrades: sampleMinimumSchema.nullable(),
 });
 
 const strategySchema = z.object({
@@ -277,12 +399,17 @@ const strategySchema = z.object({
 export const rulebookSchema = z
     .object({
         alerts: alertThresholdsSchema,
+        bankroll: bankrollSchema,
+        display: z.object({ riskUnit: z.enum(RiskDisplayUnit) }),
         eval: evalSizingSchema,
         execution: z.object({ maxTradesPerWindow: tradeCountSchema }),
         funded: fundedSizingSchema,
         live: liveSizingSchema,
+        liveTransfer: liveTransferSchema,
         payout: payoutSchema,
+        plausibility: plausibilitySchema,
         review: reviewSchema,
+        samples: samplesSchema,
         schemaVersion: z.literal(RULEBOOK_SCHEMA_VERSION),
         strategy: strategySchema,
     })
@@ -296,6 +423,15 @@ export const rulebookSchema = z
                 code: 'custom',
                 message: `retained cushion below $${HARD_RULE_2_MIN_RETAINED_CUSHION_CENTS / CENTS_PER_DOLLAR} breaks Hard Rule 2; set allowBelowHardRule2 to keep it`,
                 path: ['payout', 'retainedCushionCents'],
+            });
+        }
+        const { strongMaxExpectancyR, typicalMaxExpectancyR } =
+            rulebook.plausibility;
+        if (typicalMaxExpectancyR > strongMaxExpectancyR) {
+            context.addIssue({
+                code: 'custom',
+                message: `the typical expectancy ceiling (${typicalMaxExpectancyR}R) must not exceed the strong one (${strongMaxExpectancyR}R)`,
+                path: ['plausibility', 'typicalMaxExpectancyR'],
             });
         }
         const overshoot = hardRule4Violation(rulebook);

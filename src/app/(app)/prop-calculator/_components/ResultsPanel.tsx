@@ -281,7 +281,9 @@ export default function ResultsPanel({
                                 <>
                                     <p>{kpiDescriptions.monthlyNet}</p>
                                     <p className="mt-2 font-mono text-xs">
-                                        Gross{' '}
+                                        {result.copyAccounts > 1
+                                            ? `Total over ${result.copyAccounts} copy-traded accounts: gross`
+                                            : 'Gross'}{' '}
                                         {formatCurrency(
                                             result.expectedGrossPayout,
                                         )}{' '}

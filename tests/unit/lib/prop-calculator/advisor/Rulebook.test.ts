@@ -1,9 +1,17 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import { type z } from 'zod';
+import { z } from 'zod';
 
-import { DayStopRuleKind, MAX_LADDER_SLOTS } from '~/lib/prop-calculator';
+import {
+    DayStopRuleKind,
+    FirmId,
+    fraction,
+    MAX_LADDER_SLOTS,
+} from '~/lib/prop-calculator';
 import {
     DEFAULT_RULEBOOK,
+    documentedRuleLabel,
     EvalMaxRiskRule,
     EvalSizingMode,
     type FundedStopRule,
@@ -11,17 +19,88 @@ import {
     HARD_RULE_2_MIN_RETAINED_CUSHION_CENTS,
     LadderFractionSource,
     ReviewWeekday,
+    RiskDisplayUnit,
     RULEBOOK_SCHEMA_VERSION,
+    rulebookDeviation,
     type RulebookParameters,
     rulebookSchema,
+    withRulebookDefaults,
 } from '~/lib/prop-calculator/advisor';
+import {
+    edgePlausibility,
+    PlausibilityLevel,
+    type PlausibilityThresholds,
+} from '~/lib/prop-calculator/economics';
+
+const PROP_CALCULATOR_SOURCE = path.join(
+    process.cwd(),
+    'src',
+    'lib',
+    'prop-calculator',
+);
 
 function byName(a: string, b: string): number {
     return a.localeCompare(b);
 }
 
+function defaultPlausibilityAt(
+    winrate: number,
+    rrRatio: number,
+): PlausibilityLevel | undefined {
+    return edgePlausibility({
+        rrRatio,
+        thresholds: DEFAULT_RULEBOOK.plausibility,
+        winrate: fraction(winrate),
+    }).value?.level;
+}
+
+function filesDefining(pattern: RegExp): string[] {
+    return readdirSync(PROP_CALCULATOR_SOURCE, { recursive: true })
+        .map(String)
+        .filter((name) => name.endsWith('.ts'))
+        .filter((name) =>
+            pattern.test(
+                readFileSync(path.join(PROP_CALCULATOR_SOURCE, name), 'utf8'),
+            ),
+        )
+        .map((name) => name.split(path.sep).join('/'));
+}
+
 function isValid(candidate: unknown): boolean {
     return rulebookSchema.safeParse(candidate).success;
+}
+
+function storedV1(): Record<string, unknown> {
+    const draft = structuredClone(DEFAULT_RULEBOOK);
+    return {
+        ...without(draft, [
+            'bankroll',
+            'display',
+            'liveTransfer',
+            'plausibility',
+            'samples',
+        ]),
+        alerts: without(draft.alerts, [
+            'dayLossBankrollFraction',
+            'firmProfitConcentrationCount',
+            'firmProfitConcentrationShare',
+            'payoutReadyLossFraction',
+            'payoutReadyRiskAboveRungCents',
+        ]),
+        review: without(draft.review, [
+            'monthlyPayoutTargetCents',
+            'targetMonthlyMultiple',
+        ]),
+    };
+}
+
+function without(
+    record: object,
+    keys: readonly string[],
+): Record<string, unknown> {
+    return Object.fromEntries(
+        Object.entries(record).filter(([key]) => !keys.includes(key)),
+    );
 }
 
 function withSection(
@@ -113,18 +192,73 @@ describe('DEFAULT_RULEBOOK', () => {
         expect(DEFAULT_RULEBOOK.execution).toEqual({ maxTradesPerWindow: 1 });
     });
 
-    it('reviews on Monday and flags funded snapshots older than 7 days', () => {
+    it('reviews on Monday and flags funded snapshots older than 7 days, with no payout targets set', () => {
         expect(DEFAULT_RULEBOOK.review).toEqual({
             fundedStaleDays: 7,
+            monthlyPayoutTargetCents: null,
+            targetMonthlyMultiple: null,
             weekday: ReviewWeekday.Monday,
         });
     });
 
-    it('carries the U16 alert thresholds', () => {
+    it('carries the U16 alert thresholds and leaves every newer alert off', () => {
         expect(DEFAULT_RULEBOOK.alerts).toEqual({
+            dayLossBankrollFraction: null,
             evalDaysRemainingWarning: 5,
             evalNearFloorDrawdownFraction: 0.25,
+            firmProfitConcentrationCount: null,
+            firmProfitConcentrationShare: null,
             fundedNearFloorRiskMultiple: 2,
+            payoutReadyLossFraction: null,
+            payoutReadyRiskAboveRungCents: null,
+        });
+    });
+
+    it('leaves every bankroll threshold unset and groups rounds by 14-day purchase gaps', () => {
+        expect(DEFAULT_RULEBOOK.bankroll).toEqual({
+            accountsPerSession: null,
+            dailyAccountCapacity: null,
+            defaultRoundBudgetCents: null,
+            lossRiskThreshold: null,
+            objectiveSwitchCents: null,
+            roundGapDays: 14,
+            sessionHoursPerDay: null,
+        });
+    });
+
+    it('leaves every sample minimum unset', () => {
+        expect(DEFAULT_RULEBOOK.samples).toEqual({
+            minClosedRounds: null,
+            minEvalAttempts: null,
+            minFundedAccounts: null,
+            minTrades: null,
+        });
+    });
+
+    it('calls expectancy typical up to 0.30R and strong up to 0.35R, outside the strategy section', () => {
+        expect(DEFAULT_RULEBOOK.plausibility).toEqual({
+            strongMaxExpectancyR: 0.35,
+            typicalMaxExpectancyR: 0.3,
+        });
+        expect(Object.keys(DEFAULT_RULEBOOK.strategy)).not.toContain(
+            'typicalMaxExpectancyR',
+        );
+    });
+
+    it('shows risk in account dollars', () => {
+        expect(DEFAULT_RULEBOOK.display).toEqual({
+            riskUnit: RiskDisplayUnit.AccountDollars,
+        });
+        expect(Object.values(RiskDisplayUnit).toSorted(byName)).toEqual(
+            ['account-dollars', 'ev-at-stake', 'fee-equivalent'].toSorted(
+                byName,
+            ),
+        );
+    });
+
+    it('prices no live-transfer hazard for any firm', () => {
+        expect(DEFAULT_RULEBOOK.liveTransfer).toEqual({
+            hazardPerPaidPayoutByFirm: {},
         });
     });
 
@@ -536,6 +670,298 @@ describe('rulebookSchema', () => {
     });
 });
 
+describe('rulebookSchema v2 sections', () => {
+    it('accepts null for every threshold that is off until the user sets it', () => {
+        expect(isValid(structuredClone(DEFAULT_RULEBOOK))).toBe(true);
+        expect(
+            rulebookSchema.parse(structuredClone(DEFAULT_RULEBOOK)).bankroll
+                .lossRiskThreshold,
+        ).toBeNull();
+    });
+
+    it('bounds the loss-risk threshold to (0, 0.5]', () => {
+        expect(
+            isValid(withSection('bankroll', { lossRiskThreshold: 0.005 })),
+        ).toBe(true);
+        expect(
+            isValid(withSection('bankroll', { lossRiskThreshold: 0.5 })),
+        ).toBe(true);
+        for (const value of [0, -0.1, 0.5 + 1e-6, 1]) {
+            expect(
+                isValid(withSection('bankroll', { lossRiskThreshold: value })),
+            ).toBe(false);
+        }
+    });
+
+    it('bounds every sample minimum to whole numbers from 1 to 10,000', () => {
+        for (const key of [
+            'minEvalAttempts',
+            'minFundedAccounts',
+            'minTrades',
+            'minClosedRounds',
+        ]) {
+            expect(isValid(withSection('samples', { [key]: 1 }))).toBe(true);
+            expect(isValid(withSection('samples', { [key]: 10_000 }))).toBe(
+                true,
+            );
+            for (const value of [0, 10_001, 1.5, -1]) {
+                expect(isValid(withSection('samples', { [key]: value }))).toBe(
+                    false,
+                );
+            }
+        }
+    });
+
+    it('bounds the daily capacity and accounts per session to whole numbers from 1 to 200', () => {
+        for (const key of ['dailyAccountCapacity', 'accountsPerSession']) {
+            expect(isValid(withSection('bankroll', { [key]: 1 }))).toBe(true);
+            expect(isValid(withSection('bankroll', { [key]: 200 }))).toBe(true);
+            for (const value of [0, 201, 2.5]) {
+                expect(isValid(withSection('bankroll', { [key]: value }))).toBe(
+                    false,
+                );
+            }
+        }
+    });
+
+    it('bounds session hours to (0, 16]', () => {
+        expect(
+            isValid(withSection('bankroll', { sessionHoursPerDay: 2.5 })),
+        ).toBe(true);
+        expect(
+            isValid(withSection('bankroll', { sessionHoursPerDay: 16 })),
+        ).toBe(true);
+        for (const value of [0, -1, 16.01]) {
+            expect(
+                isValid(withSection('bankroll', { sessionHoursPerDay: value })),
+            ).toBe(false);
+        }
+    });
+
+    it('stores bankroll, target and alert money as positive whole cents under the $100,000 cap', () => {
+        const fields: readonly [keyof RulebookParameters, string][] = [
+            ['bankroll', 'objectiveSwitchCents'],
+            ['bankroll', 'defaultRoundBudgetCents'],
+            ['review', 'monthlyPayoutTargetCents'],
+            ['alerts', 'payoutReadyRiskAboveRungCents'],
+        ];
+        for (const [section, key] of fields) {
+            expect(isValid(withSection(section, { [key]: 50_000 }))).toBe(true);
+            expect(isValid(withSection(section, { [key]: 10_000_000 }))).toBe(
+                true,
+            );
+            for (const value of [0, -100, 500.5, 10_000_001]) {
+                expect(isValid(withSection(section, { [key]: value }))).toBe(
+                    false,
+                );
+            }
+        }
+    });
+
+    it('bounds the alert fractions to (0, 1]', () => {
+        for (const key of [
+            'payoutReadyLossFraction',
+            'dayLossBankrollFraction',
+            'firmProfitConcentrationShare',
+        ]) {
+            expect(isValid(withSection('alerts', { [key]: 1 }))).toBe(true);
+            expect(isValid(withSection('alerts', { [key]: 0.25 }))).toBe(true);
+            for (const value of [0, -0.1, 1.01]) {
+                expect(isValid(withSection('alerts', { [key]: value }))).toBe(
+                    false,
+                );
+            }
+        }
+    });
+
+    it('bounds the firm concentration count, the round gap and the target multiple', () => {
+        expect(
+            isValid(withSection('alerts', { firmProfitConcentrationCount: 3 })),
+        ).toBe(true);
+        for (const value of [0, 1.5, 201]) {
+            expect(
+                isValid(
+                    withSection('alerts', {
+                        firmProfitConcentrationCount: value,
+                    }),
+                ),
+            ).toBe(false);
+        }
+        expect(isValid(withSection('bankroll', { roundGapDays: 1 }))).toBe(
+            true,
+        );
+        expect(isValid(withSection('bankroll', { roundGapDays: 365 }))).toBe(
+            true,
+        );
+        for (const value of [0, 366, 2.5, null]) {
+            expect(
+                isValid(withSection('bankroll', { roundGapDays: value })),
+            ).toBe(false);
+        }
+        expect(
+            isValid(withSection('review', { targetMonthlyMultiple: 1.5 })),
+        ).toBe(true);
+        for (const value of [0, -1, Infinity]) {
+            expect(
+                isValid(
+                    withSection('review', { targetMonthlyMultiple: value }),
+                ),
+            ).toBe(false);
+        }
+    });
+
+    it('rejects a typical expectancy threshold above the strong one on the typical field', () => {
+        const inverted = rulebookSchema.safeParse(
+            withSection('plausibility', {
+                strongMaxExpectancyR: 0.3,
+                typicalMaxExpectancyR: 0.35,
+            }),
+        );
+        expect(inverted.success).toBe(false);
+        expect(inverted.error?.issues).toEqual([
+            expect.objectContaining({
+                path: ['plausibility', 'typicalMaxExpectancyR'],
+            }),
+        ]);
+        expect(
+            isValid(
+                withSection('plausibility', {
+                    strongMaxExpectancyR: 0.3,
+                    typicalMaxExpectancyR: 0.3,
+                }),
+            ),
+        ).toBe(true);
+        for (const value of [0, -0.1, null]) {
+            expect(
+                isValid(
+                    withSection('plausibility', {
+                        typicalMaxExpectancyR: value,
+                    }),
+                ),
+            ).toBe(false);
+        }
+    });
+
+    it('rejects an unknown risk display unit', () => {
+        expect(
+            isValid(
+                withSection('display', {
+                    riskUnit: RiskDisplayUnit.FeeEquivalent,
+                }),
+            ),
+        ).toBe(true);
+        expect(isValid(withSection('display', { riskUnit: 'euros' }))).toBe(
+            false,
+        );
+    });
+
+    it('accepts a live-transfer hazard for one firm, which an exhaustive enum record would reject', () => {
+        const oneFirm = withSection('liveTransfer', {
+            hazardPerPaidPayoutByFirm: { [FirmId.Mffu]: 0.1 },
+        });
+        expect(rulebookSchema.parse(oneFirm).liveTransfer).toEqual({
+            hazardPerPaidPayoutByFirm: { [FirmId.Mffu]: 0.1 },
+        });
+        expect(
+            z
+                .record(z.enum(FirmId), z.number())
+                .safeParse({ [FirmId.Mffu]: 0.1 }).success,
+        ).toBe(false);
+    });
+
+    it('bounds a live-transfer hazard to (0, 1) and rejects an unknown firm', () => {
+        for (const value of [0, 1, -0.1, 1.5]) {
+            expect(
+                isValid(
+                    withSection('liveTransfer', {
+                        hazardPerPaidPayoutByFirm: { [FirmId.Apex]: value },
+                    }),
+                ),
+            ).toBe(false);
+        }
+        expect(
+            isValid(
+                withSection('liveTransfer', {
+                    hazardPerPaidPayoutByFirm: { notAFirm: 0.1 },
+                }),
+            ),
+        ).toBe(false);
+    });
+});
+
+describe('withRulebookDefaults and the v2 sections', () => {
+    it('reads a stored rulebook from before the v2 sections as the v2 defaults', () => {
+        const stored = storedV1();
+        expect(Object.keys(stored)).not.toContain('bankroll');
+        expect(rulebookSchema.parse(withRulebookDefaults(stored))).toEqual(
+            DEFAULT_RULEBOOK,
+        );
+    });
+
+    it('keeps stored v2 values and fills the rest of the section', () => {
+        const merged = rulebookSchema.parse(
+            withRulebookDefaults({
+                ...storedV1(),
+                bankroll: { lossRiskThreshold: 0.01 },
+                liveTransfer: {
+                    hazardPerPaidPayoutByFirm: { [FirmId.TopStep]: 0.05 },
+                },
+            }),
+        );
+        expect(merged.bankroll).toEqual({
+            ...DEFAULT_RULEBOOK.bankroll,
+            lossRiskThreshold: 0.01,
+        });
+        expect(merged.liveTransfer.hazardPerPaidPayoutByFirm).toEqual({
+            [FirmId.TopStep]: 0.05,
+        });
+    });
+
+    it('keeps the schema version at 1', () => {
+        expect(RULEBOOK_SCHEMA_VERSION).toBe(1);
+    });
+});
+
+describe('the documented rule label and the v2 sections', () => {
+    const edits: readonly [keyof RulebookParameters, string, unknown][] = [
+        ['bankroll', 'objectiveSwitchCents', 500_000],
+        ['bankroll', 'lossRiskThreshold', 0.005],
+        ['bankroll', 'dailyAccountCapacity', 10],
+        ['bankroll', 'sessionHoursPerDay', 3],
+        ['bankroll', 'accountsPerSession', 5],
+        ['bankroll', 'defaultRoundBudgetCents', 200_000],
+        ['bankroll', 'roundGapDays', 7],
+        ['samples', 'minEvalAttempts', 50],
+        ['samples', 'minFundedAccounts', 50],
+        ['samples', 'minTrades', 200],
+        ['samples', 'minClosedRounds', 3],
+        ['review', 'monthlyPayoutTargetCents', 1_000_000],
+        ['review', 'targetMonthlyMultiple', 2],
+        ['plausibility', 'typicalMaxExpectancyR', 0.25],
+        ['plausibility', 'strongMaxExpectancyR', 0.4],
+        ['alerts', 'payoutReadyLossFraction', 0.5],
+        ['alerts', 'payoutReadyRiskAboveRungCents', 10_000],
+        ['alerts', 'dayLossBankrollFraction', 0.1],
+        ['alerts', 'firmProfitConcentrationCount', 3],
+        ['alerts', 'firmProfitConcentrationShare', 0.5],
+        ['display', 'riskUnit', RiskDisplayUnit.FeeEquivalent],
+        ['liveTransfer', 'hazardPerPaidPayoutByFirm', { [FirmId.Mffu]: 0.1 }],
+    ];
+
+    it.each(edits)(
+        'stays your documented rule when %s.%s is edited',
+        (section, key, value) => {
+            const edited = rulebookSchema.parse(
+                withSection(section, { [key]: value }),
+            );
+            expect(Reflect.get(edited[section] as object, key)).toEqual(value);
+            expect(documentedRuleLabel(rulebookDeviation(edited))).toBe(
+                documentedRuleLabel([]),
+            );
+        },
+    );
+});
+
 describe('rulebookSchema typing', () => {
     it('keeps its object shape visible and its output assignable to RulebookParameters', () => {
         expect(Object.keys(rulebookSchema.shape).toSorted(byName)).toEqual(
@@ -544,6 +970,30 @@ describe('rulebookSchema typing', () => {
         expectTypeOf<
             z.output<typeof rulebookSchema>
         >().toExtend<RulebookParameters>();
+    });
+});
+
+describe('the plausibility thresholds contract', () => {
+    it('defines the thresholds type once, in the economics library', () => {
+        expect(filesDefining(/interface PlausibilityThresholds\b/)).toEqual([
+            'economics/EdgePlausibility.ts',
+        ]);
+        expect(
+            readFileSync(
+                path.join(PROP_CALCULATOR_SOURCE, 'advisor', 'index.ts'),
+                'utf8',
+            ),
+        ).not.toMatch(/\bPlausibilityThresholds\b/);
+        expectTypeOf<RulebookParameters['plausibility']>().toEqualTypeOf<
+            Readonly<PlausibilityThresholds>
+        >();
+    });
+
+    it('feeds the default plausibility section straight into the edge plausibility check', () => {
+        expect(defaultPlausibilityAt(0.4, 2)).toBe(PlausibilityLevel.Typical);
+        expect(defaultPlausibilityAt(0.7, 1)).toBe(
+            PlausibilityLevel.Implausible,
+        );
     });
 });
 
