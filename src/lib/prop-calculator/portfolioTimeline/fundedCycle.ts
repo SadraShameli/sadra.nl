@@ -1,5 +1,6 @@
 import { evalPhaseCost } from '../core/FeeSchedule';
 import {
+    assertNonNegativeSafeInteger,
     assertPositiveSafeInteger,
     newPhaseStats,
     type PayoutSink,
@@ -13,8 +14,6 @@ import {
     type PayoutEvent,
 } from './types';
 
-const MAX_EVAL_ATTEMPTS_PER_CARD = 25;
-
 class PayoutLog implements PayoutSink {
     readonly events: PayoutEvent[] = [];
 
@@ -27,6 +26,7 @@ export function runEvalToFundedCycle(
     options: EvalToFundedCycleOptions,
 ): CardResult {
     const {
+        cardDayBudget,
         commission,
         discounts,
         evalDayPolicy,
@@ -44,11 +44,8 @@ export function runEvalToFundedCycle(
         winrate,
     } = options;
     assertPositiveSafeInteger(maxEvalDays, 'maxEvalDays');
-    if (!Number.isSafeInteger(maxFundedDays) || maxFundedDays < 0) {
-        throw new Error(
-            `maxFundedDays must be a non-negative safe integer, got ${maxFundedDays}`,
-        );
-    }
+    assertNonNegativeSafeInteger(cardDayBudget, 'cardDayBudget');
+    assertNonNegativeSafeInteger(maxFundedDays, 'maxFundedDays');
 
     const totals = new TradeTotals();
     const retryResult = runEvalWithRetries({
@@ -56,8 +53,8 @@ export function runEvalToFundedCycle(
         dayPolicy: evalDayPolicy,
         discounts,
         idleDayProbability,
-        maxAttempts: MAX_EVAL_ATTEMPTS_PER_CARD,
         maxEvalDays,
+        maxTotalEvalDays: cardDayBudget,
         plan,
         positionSizing,
         rng,
@@ -67,7 +64,8 @@ export function runEvalToFundedCycle(
         totals,
         winrate,
     });
-    const { attemptsUsed, failedAttemptDays, resetFeesPaid } = retryResult;
+    const { attemptsUsed, failedAttemptDays, resetFeesPaid, retryCharges } =
+        retryResult;
     let totalDays = retryResult.daysElapsed;
     const billableEvalDays = retryResult.daysElapsed;
 
@@ -80,6 +78,7 @@ export function runEvalToFundedCycle(
                 discounts,
             ),
             evalDays: billableEvalDays,
+            evalRetryCharges: retryCharges,
             fundedResetCharges: [],
             payouts: [],
             totalDays,
@@ -130,6 +129,7 @@ export function runEvalToFundedCycle(
             discounts,
         ),
         evalDays: billableEvalDays,
+        evalRetryCharges: retryCharges,
         fundedResetCharges: fundedResets,
         payouts: sink.events,
         totalDays,

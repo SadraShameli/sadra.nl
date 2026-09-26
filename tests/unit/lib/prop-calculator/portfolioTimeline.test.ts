@@ -278,6 +278,7 @@ describe('N-13: the portfolio timeline fails loud on a trial count, day budget, 
             });
             expect(() =>
                 runEvalToFundedCycle({
+                    cardDayBudget: 0,
                     commission: dollars(0),
                     discounts: undefined,
                     evalDayPolicy: policy,

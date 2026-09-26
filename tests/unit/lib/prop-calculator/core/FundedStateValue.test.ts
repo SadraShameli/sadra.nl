@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { ALL_FIRMS } from '~/lib/prop-calculator';
 import {
+    AlphaFuturesVariant,
     ApexVariant,
     ConsistencyRule,
     ConsistencyScope,
@@ -26,9 +27,11 @@ import {
     PayoutDayGateBasis,
     PayoutFloorEffect,
     type Plan,
+    type PlanOptIns,
     points,
     replacementEconomics,
     TierBasis,
+    withPlanOptIns,
 } from '~/lib/prop-calculator/core';
 import { solveAverageRewardPolicy } from '~/lib/prop-calculator/core/AverageRewardSolver';
 import {
@@ -38,6 +41,7 @@ import {
     FundedWorkerSession,
     isFundedDpEligible,
     warmFirmsRegistryCache,
+    withRegistryPlanOptIns,
 } from '~/lib/prop-calculator/core/FundedStateValue';
 import { RenewalCycleObjective } from '~/lib/prop-calculator/core/RenewalCycleObjective';
 import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFunding';
@@ -236,13 +240,13 @@ function tinySoloActionConfig(plan: Plan) {
 }
 
 describe(
-    'computeFundedStateValue terminal-value formula — regression: must not ' +
+    'computeFundedStateValue terminal-value formula, regression: must not ' +
         "double-count Replacement.ts's costPerFundedAccount",
     () => {
         it(
             'bustTerminalValue is exactly evalInitialValue - feePerAttempt, per ' +
                 "the plan's V(bust_funded) = -feePerAttempt + V_eval(initial) " +
-                "recursion — never evalInitialValue minus Replacement.ts's " +
+                "recursion, never evalInitialValue minus Replacement.ts's " +
                 'costPerFundedAccount, which already bakes in the 1/passRate ' +
                 "expected-retry-count that this DP's own recursion reproduces " +
                 'on its own; plugging in both would double-count the same ' +
@@ -305,7 +309,7 @@ describe(
 );
 
 describe(
-    'computeFundedStateValue vs simulate() — full simulate()-level ' +
+    'computeFundedStateValue vs simulate(), full simulate()-level ' +
         'integration test (a hand-designed, one-payout-and-conclude toy ' +
         'funded plan with a single trade/day and a single action size, so ' +
         "the DP's own predicted V(initial) is exactly hand-computable: " +
@@ -396,7 +400,7 @@ describe(
 );
 
 describe(
-    'computeFundedStateValue vs FundedPayoutCycle.tryPayout — regression: ' +
+    'computeFundedStateValue vs FundedPayoutCycle.tryPayout, regression: ' +
         'the funded DP must model minDaysAfterPassForPayout exactly as ' +
         'FundedCycleTracker.tryPayout enforces it, not bypass the gate with a fabricated ' +
         'permanently-unlocked qualifyingDays (the D14 bug: buildState used ' +
@@ -419,8 +423,8 @@ describe(
         '3 at cushion $100, where the gate is already permanently satisfied ' +
         'and the account either pays out $200 and concludes (win) or busts ' +
         '(loss, cushion $100 to $0 again). Hand-solving this three-level ' +
-        'chain backward — V(day3)=0.5*200=100, V(day2)=0.5*300+0.5*(0+' +
-        'V(day3))=200, V(day1)=0.5*V(day2)=100 — gives V(initial)=100. A DP ' +
+        'chain backward, V(day3)=0.5*200=100, V(day2)=0.5*300+0.5*(0+' +
+        'V(day3))=200, V(day1)=0.5*V(day2)=100, gives V(initial)=100. A DP ' +
         'that bypasses the gate (as the pre-fix engine did) instead cashes ' +
         'out immediately on the day-1 win (cycleProfit $200, withdrawable ' +
         '$100, concludes for $100) and busts on the day-1 loss, giving the ' +
@@ -429,7 +433,7 @@ describe(
         it(
             "computeFundedStateValue's V(initial) for the qualifying-day-" +
                 "gated toy is exactly 100, not the gate-bypassing engine's " +
-                '50 — the qualifying-day gate makes the DP wait for a ' +
+                '50, the qualifying-day gate makes the DP wait for a ' +
                 'bigger, later cycleProfit instead of cashing out on day 1, ' +
                 'a real, hand-verified prediction change no unfixed engine ' +
                 'could produce for this plan',
@@ -466,7 +470,7 @@ describe(
                 'dayPolicy reproduces V(initial)=100 empirically: expected ' +
                 'gross payout plus bust-probability-weighted ' +
                 'bustTerminalValue matches the fixed-DP prediction within ' +
-                'Monte Carlo tolerance at 50,000 trials — simulate() always ' +
+                'Monte Carlo tolerance at 50,000 trials, simulate() always ' +
                 'enforced the real minDaysAfterPassForPayout gate through ' +
                 "FundedPayoutCycle's shared tryPayout, so this also " +
                 "proves the DP's own newly gate-aware policy (unchanged " +
@@ -511,8 +515,8 @@ describe(
 );
 
 describe(
-    "computeFundedStateValue vs TopStep's tiered fundedMinis ContractLimits " +
-        "— the one documented break in scale invariance: bestActionAt's " +
+    "computeFundedStateValue vs TopStep's tiered fundedMinis ContractLimits: " +
+        "the one documented break in scale invariance: bestActionAt's " +
         'candidateRisks must never choose a risk that implies more ' +
         'contracts than the $0/$1,500/$2,000 profit tier allows, end to ' +
         "end through the DP's own solved policy table, not just through " +
@@ -756,7 +760,7 @@ describe('isFundedDpEligible scope cut', () => {
 
     it(
         'a real, currently idle-limited funded plan (MFF Rapid EOD 50K, ' +
-            'maxConsecutiveIdleDays=7) is DP-eligible — isFundedDpEligible ' +
+            'maxConsecutiveIdleDays=7) is DP-eligible, isFundedDpEligible ' +
             'never excluded on maxConsecutiveIdleDays to begin with (it ' +
             'only checks drawdown kind, the peak-share daily-loss-limit ' +
             'dependency, and whether the plan has a funded drawdown lock ' +
@@ -836,7 +840,7 @@ describe('isFundedDpEligible scope cut', () => {
 });
 
 describe(
-    'FundedStateValueResult.unconvergedLevelCount — surfaces a level that ' +
+    'FundedStateValueResult.unconvergedLevelCount, surfaces a level that ' +
         'hit the maxIterationsPerLevel sweep cap without converging, which ' +
         'was silently swallowed before this change',
     () => {
@@ -1279,7 +1283,7 @@ describe('idle-days DP state dimension', () => {
             '(winrate 0.5, feePerAttempt 0) was measured against the ' +
             'unmodified pre-idle-days engine at initialValue=50, ' +
             'reachedStateCount=105, risk@0=100 (matching the existing ' +
-            'hand-derived one-payout toy case above) — asserting those ' +
+            'hand-derived one-payout toy case above), asserting those ' +
             'exact, previously-measured figures here pins the ' +
             'post-change engine to produce identical output for every ' +
             'plan that never sets the field. reachedStateCount is now 15, ' +
@@ -1322,9 +1326,9 @@ describe('idle-days DP state dimension', () => {
             'cushion to exactly 0 and busts, worth bustTerminalValue=-200 ' +
             'from feePerAttempt=200) makes trading a real expected loss: ' +
             'V(trade) = 0.1*100 + 0.9*(-200) = -170. An idle-blind engine ' +
-            "has no way to ever bust from idling — its 'stay idle forever' " +
+            "has no way to ever bust from idling, its 'stay idle forever' " +
             'action is a pure zero-reward self-loop from the initial ' +
-            'value-iteration seed of 0 — so it reports idling as strictly ' +
+            'value-iteration seed of 0, so it reports idling as strictly ' +
             'better than trading (0 > -170) and picks it, hand-verified ' +
             'directly below by clearing maxConsecutiveIdleDays to null on ' +
             'the identical config. But maxConsecutiveIdleDays=1 busts on ' +
@@ -1496,18 +1500,18 @@ describe('cycleBestDayProfit DP state dimension', () => {
     it(
         "hand-verified boundary proof that the fix's isViolated check is " +
             'real, not a no-op: a one-payout toy (win locks-and-would-pay-' +
-            'out a same-day $100 profit — a 100%-concentrated cycle, ' +
+            'out a same-day $100 profit, a 100%-concentrated cycle, ' +
             'bestDayProfit === cycleProfit === 200 exactly, hand-traced ' +
             "from the plan's own $100 drawdown/action/rr=2 setup) sits " +
             'exactly on a consistency-share boundary: ' +
             'isViolated(200,200) = 200/200=1.0 > maxBestDayShare. At ' +
             'maxBestDayShare=1.0, 1.0 > 1.0 is false (never violated), so ' +
             'the day-1 payout is allowed exactly as in the no-rule ' +
-            'baseline — initialValue must come out byte-identical to the ' +
+            'baseline, initialValue must come out byte-identical to the ' +
             'no-rule case (50, from the existing one-payout-toy test ' +
             'above). At maxBestDayShare=0.9999, the identical trade path ' +
             'now has 1.0 > 0.9999 (violated), so the DP is forced to deny ' +
-            'the day-1 payout and continue — a real, hand-predicted ' +
+            'the day-1 payout and continue, a real, hand-predicted ' +
             'behavior change that an unfixed engine (bestDayProfit ' +
             'hardcoded to 0, so isViolated(0, x) is always false) could ' +
             'never produce for any maxBestDayShare',
@@ -1800,6 +1804,7 @@ function fundedCycleAfter(
     return {
         cycleBestDayProfit: 0,
         dayGateProgress: 0,
+        fundedResetsUsed: 0,
         lastPayoutBalance,
         payoutsIssued,
     };
@@ -2046,7 +2051,7 @@ describe('computeFundedStateValue enforces the Apex PA Level daily loss limit on
 });
 
 describe('cycleBaselineFineRangeMultiple sets how finely the post-payout baseline is gridded (T11)', () => {
-    it('FTMO Futures Growth 50K converges at fine range multiples 0, 1 and 6 and keeps its pinned values, which are not monotone in the multiple: a finer grid never rounds the baseline higher (FundedCycleBaselineGrid.test), yet multiple 0 is worth about $36 more than multiple 1, a gap that stays the same at convergence tolerance 0.01. WP17e re-pinned them: each is within its stated error bound of the fixed point that both the pre-WP17e Jacobi sweeps and the WP17e solver reach at tolerance 0.0001 (15,348.18, 15,311.85 and 15,801.29; the pre-WP17e defaults 15,314.98, 15,279.16 and 15,768.73 each stopped about $32.5 short)', async () => {
+    it('FTMO Futures Growth 50K converges at fine range multiples 0, 1 and 6 and keeps its pinned values, which are not monotone in the multiple: a finer grid never rounds the baseline higher (FundedCycleBaselineGrid.test), yet multiple 0 is worth about $20 more than multiple 1, a gap that stays the same at the fixed point. Re-pinned for T32 (the end-of-horizon credit is one capped request, not the whole balance above the floor): each is within its stated error bound of the fixed point the solver reaches at tolerance 0.0001 (14,434.82, 14,415.15 and 15,074.60); the same runs with only the pre-T32 whole-balance credit restored reproduce the WP17e pins 15,348.41, 15,312.21 and 15,801.07 exactly, so the credit is the only move', async () => {
         const [coarse, landed, exact] = [
             await ftmoGrowthCoarse(0),
             await ftmoGrowthCoarse(1),
@@ -2055,13 +2060,13 @@ describe('cycleBaselineFineRangeMultiple sets how finely the post-payout baselin
         for (const result of [coarse, landed, exact]) {
             expect(result.unconvergedLevelCount).toBe(0);
         }
-        expect(coarse.initialValue).toBeCloseTo(15_348.406138592327, 6);
-        expect(landed.initialValue).toBeCloseTo(15_312.20886492497, 6);
-        expect(exact.initialValue).toBeCloseTo(15_801.072821411984, 6);
+        expect(coarse.initialValue).toBeCloseTo(14_434.573089830497, 6);
+        expect(landed.initialValue).toBeCloseTo(14_414.82874384173, 6);
+        expect(exact.initialValue).toBeCloseTo(15_074.421238294104, 6);
         for (const [result, fixedPoint] of [
-            [coarse, 15_348.182807425268],
-            [landed, 15_311.854472110455],
-            [exact, 15_801.291301419926],
+            [coarse, 14_434.8181546761],
+            [landed, 14_415.146182514178],
+            [exact, 15_074.597963135726],
         ] as const) {
             expect(
                 Math.abs(result.initialValue - fixedPoint),
@@ -2223,40 +2228,47 @@ describe('computeFundedStateValue warm-starts from an earlier solve of the same 
     });
 });
 
+const TOY_RATE_SEARCH_FUNDED_GRID = {
+    actionStepMultiple: 0.5,
+    cushionStepMultiple: 0.5,
+    cycleBestDayBucketCount: 1,
+    maxActionMultiple: 1,
+    tradesPerDay: 1,
+};
+
+function toyRateSearch(maxSolves: number, fundedWorkers?: FundedWorkerSession) {
+    const plan = multiPayoutToyPlan().withOverrides({
+        isInstantFunded: false,
+        profitTarget: dollars(50),
+    });
+    const solution = solveAverageRewardPolicy({
+        evalGrid: {
+            actionStepDollars: 50,
+            cushionStepDollars: 50,
+            maxActionDollars: 50,
+            profitStepDollars: 50,
+            tradesPerDay: 1,
+        },
+        fundedGrid: TOY_RATE_SEARCH_FUNDED_GRID,
+        fundedWorkers,
+        maxSolves,
+        objective: new RenewalCycleObjective({
+            fundedHorizonDays: 60,
+            maxEvalDays: 1,
+            plan,
+            rebuyLagDays: 0,
+        }),
+        rrRatio: 2,
+        winrate: fraction(0.5),
+    });
+    return { plan, solution };
+}
+
 describe('solveAverageRewardPolicy warm-starts each funded solve from the last two solves (WP17e follow-up)', () => {
     it('extrapolates every state value linearly in the rate through the last two solves, so the chosen rate solves in fewer sweeps than a cold funded solve at that rate, at the same value within both bounds', () => {
-        const plan = multiPayoutToyPlan().withOverrides({
-            isInstantFunded: false,
-            profitTarget: dollars(50),
-        });
-        const fundedGrid = {
-            actionStepMultiple: 0.5,
-            cushionStepMultiple: 0.5,
-            cycleBestDayBucketCount: 1,
-            maxActionMultiple: 1,
-            tradesPerDay: 1,
-        };
-        const solution = solveAverageRewardPolicy({
-            evalGrid: {
-                actionStepDollars: 50,
-                cushionStepDollars: 50,
-                maxActionDollars: 50,
-                profitStepDollars: 50,
-                tradesPerDay: 1,
-            },
-            fundedGrid,
-            maxSolves: 6,
-            objective: new RenewalCycleObjective({
-                fundedHorizonDays: 60,
-                maxEvalDays: 1,
-                plan,
-                rebuyLagDays: 0,
-            }),
-            rrRatio: 2,
-            winrate: fraction(0.5),
-        });
+        const { plan, solution } = toyRateSearch(6);
         const cold = computeFundedStateValue({
-            ...fundedGrid,
+            ...TOY_RATE_SEARCH_FUNDED_GRID,
             dayCost: solution.ratePerDay,
             evalInitialValue: 0,
             feePerAttempt: dollars(0),
@@ -2333,38 +2345,9 @@ describe('FundedWorkerSession keeps one worker pool across funded solves of the 
     }, 600_000);
 
     it('lets the rate search share one session across all its funded solves', () => {
-        const plan = multiPayoutToyPlan().withOverrides({
-            isInstantFunded: false,
-            profitTarget: dollars(50),
-        });
         const session = new FundedWorkerSession();
         try {
-            const solution = solveAverageRewardPolicy({
-                evalGrid: {
-                    actionStepDollars: 50,
-                    cushionStepDollars: 50,
-                    maxActionDollars: 50,
-                    profitStepDollars: 50,
-                    tradesPerDay: 1,
-                },
-                fundedGrid: {
-                    actionStepMultiple: 0.5,
-                    cushionStepMultiple: 0.5,
-                    cycleBestDayBucketCount: 1,
-                    maxActionMultiple: 1,
-                    tradesPerDay: 1,
-                },
-                fundedWorkers: session,
-                maxSolves: 3,
-                objective: new RenewalCycleObjective({
-                    fundedHorizonDays: 60,
-                    maxEvalDays: 1,
-                    plan,
-                    rebuyLagDays: 0,
-                }),
-                rrRatio: 2,
-                winrate: fraction(0.5),
-            });
+            const { solution } = toyRateSearch(3, session);
 
             expect(solution.trace.length).toBe(3);
             expect(session.solveCount).toBe(3);
@@ -2372,4 +2355,229 @@ describe('FundedWorkerSession keeps one worker pool across funded solves of the 
             session.release();
         }
     });
+});
+
+function coarseAlphaConfig(plan: Plan) {
+    return {
+        actionStepMultiple: 0.5,
+        cushionStepMultiple: 0.5,
+        cycleBestDayBucketCount: 2,
+        evalInitialValue: 0,
+        feePerAttempt: dollars(0),
+        maxActionMultiple: 1,
+        maxCushionMultiple: 2,
+        meanHorizonDays: 20,
+        payoutRegimeCap: 1,
+        plan,
+        rrRatio: 2,
+        tradesPerDay: 1,
+        winrate: 0.5,
+    };
+}
+
+function coarseMffuProConfig(plan: Plan) {
+    return {
+        ...coarseAlphaConfig(plan),
+        actionStepMultiple: 0.25,
+        cushionStepMultiple: 0.25,
+        maxCushionMultiple: 3,
+        meanHorizonDays: 40,
+    };
+}
+
+async function registryAlphaStandard(): Promise<Plan> {
+    await warmFirmsRegistryCache();
+    const plan = ALL_FIRMS.find(
+        (firm) => firm.id === FirmId.AlphaFutures,
+    )?.findPlan({
+        accountSize: 50_000,
+        firm: FirmId.AlphaFutures,
+        variant: AlphaFuturesVariant.Standard,
+    });
+    if (!plan) throw new Error('Alpha Futures Standard 50K plan not found');
+    return plan;
+}
+
+async function registryMffuPro(): Promise<Plan> {
+    await warmFirmsRegistryCache();
+    const plan = ALL_FIRMS.find((firm) => firm.id === FirmId.Mffu)?.findPlan({
+        accountSize: 50_000,
+        firm: FirmId.Mffu,
+        variant: MffuVariant.Pro,
+    });
+    if (!plan) throw new Error('MFFU Pro 50K plan not found');
+    return plan;
+}
+
+describe('an opted-in registry plan keeps the worker pool (optimize dp --funded-reset and --early-withdrawal)', () => {
+    const RESET_TAKEN: PlanOptIns = {
+        takesFundedReset: true,
+        takesOneTimeEarlyWithdrawal: false,
+    };
+
+    it('recognizes the opted-in registry plan by its registry id, and never a look-alike built with withOverrides', async () => {
+        const registry = await registryAlphaStandard();
+        const optedIn = withRegistryPlanOptIns(registry, RESET_TAKEN);
+
+        expect(optedIn.takesFundedReset).toBe(true);
+        expect(findRegistryPlanId(optedIn)).toStrictEqual(registry.id);
+        expect(
+            findRegistryPlanId(withPlanOptIns(registry, RESET_TAKEN)),
+        ).toBeNull();
+        expect(
+            withRegistryPlanOptIns(registry, {
+                takesFundedReset: false,
+                takesOneTimeEarlyWithdrawal: false,
+            }),
+        ).toBe(registry);
+    });
+
+    it('solves it on workers that rebuild the same opt-ins, to exactly the single-threaded value', async () => {
+        const registry = await registryAlphaStandard();
+        const pooled = computeFundedStateValue(
+            coarseAlphaConfig(withRegistryPlanOptIns(registry, RESET_TAKEN)),
+        );
+        const alone = computeFundedStateValue(
+            coarseAlphaConfig(withPlanOptIns(registry, RESET_TAKEN)),
+        );
+
+        expect(pooled.workerCount > 0).toBe(availableParallelism() > 1);
+        expect(alone.workerCount).toBe(0);
+        expect(pooled.initialValue).toBe(alone.initialValue);
+    }, 600_000);
+
+    it('rebuilds the early withdrawal opt-in on the workers, whose own payouts take it: the pooled value equals the single-threaded one and differs from the plan without the opt-in', async () => {
+        const registry = await registryMffuPro();
+        const earlyWithdrawalTaken: PlanOptIns = {
+            takesFundedReset: false,
+            takesOneTimeEarlyWithdrawal: true,
+        };
+        const pooled = computeFundedStateValue(
+            coarseMffuProConfig(
+                withRegistryPlanOptIns(registry, earlyWithdrawalTaken),
+            ),
+        );
+        const alone = computeFundedStateValue(
+            coarseMffuProConfig(withPlanOptIns(registry, earlyWithdrawalTaken)),
+        );
+        const withoutOptIn = computeFundedStateValue(
+            coarseMffuProConfig(registry),
+        );
+
+        expect(pooled.workerCount > 0).toBe(availableParallelism() > 1);
+        expect(withoutOptIn.workerCount > 0).toBe(availableParallelism() > 1);
+        expect(alone.workerCount).toBe(0);
+        expect(pooled.initialValue).toBe(alone.initialValue);
+        expect(pooled.initialValue).not.toBeCloseTo(
+            withoutOptIn.initialValue,
+            2,
+        );
+    }, 600_000);
+
+    it('never hands a same-grid plan the workers cannot rebuild to a shared session pool: it solves single-threaded to its own value', async () => {
+        const registry = await registryMffuPro();
+        const lookAlike = withPlanOptIns(registry, {
+            takesFundedReset: false,
+            takesOneTimeEarlyWithdrawal: true,
+        });
+        const session = new FundedWorkerSession();
+        try {
+            const first = computeFundedStateValue(
+                coarseMffuProConfig(registry),
+                session,
+            );
+            const second = computeFundedStateValue(
+                coarseMffuProConfig(lookAlike),
+                session,
+            );
+
+            expect(first.workerCount > 0).toBe(availableParallelism() > 1);
+            expect(second.workerCount).toBe(0);
+            expect(second.initialValue).toBe(
+                computeFundedStateValue(coarseMffuProConfig(lookAlike))
+                    .initialValue,
+            );
+            expect(second.initialValue).not.toBeCloseTo(first.initialValue, 2);
+        } finally {
+            session.release();
+        }
+    }, 600_000);
+});
+
+function topStepOffRegistryPlan(): Plan {
+    const plan = ALL_FIRMS.find((candidate) => candidate.id === FirmId.TopStep)
+        ?.plans[0];
+    if (!plan) throw new Error('TopStep firm not registered');
+    return plan.withOverrides({});
+}
+
+describe('FundedStateValue reports the coarse cycle-baseline rounding (R1-7, U1)', () => {
+    const coarseConfig = {
+        actionStepMultiple: 0.5,
+        cushionStepMultiple: 0.5,
+        dayCost: 5,
+        evalInitialValue: 0,
+        feePerAttempt: dollars(0),
+        maxActionMultiple: 1,
+        maxCushionMultiple: 3,
+        maxPreLockOffsetMultiple: 1,
+        meanHorizonDays: 100,
+        payoutRegimeCap: 1,
+        rrRatio: 2,
+        tradesPerDay: 1,
+        winrate: 0.4,
+    };
+
+    it('reports where the baseline grid switches from the cushion step to the coarse drawdown step at the default fine range, and where the grid tops out', () => {
+        const plan = topStepOffRegistryPlan();
+        expect(plan.fundedDrawdown.amount).toBe(2000);
+
+        const result = computeFundedStateValue({ ...coarseConfig, plan });
+
+        expect(result.cycleBaselineRounding).toStrictEqual({
+            coarseFromDollars: 2000,
+            coarseStepDollars: 2000,
+            topDollars: 6000,
+        });
+    }, 120_000);
+
+    it('reports no rounding once the fine range covers the whole baseline grid', () => {
+        const result = computeFundedStateValue({
+            ...coarseConfig,
+            cycleBaselineFineRangeMultiple: 3,
+            plan: topStepOffRegistryPlan(),
+        });
+
+        expect(result.cycleBaselineRounding).toBeNull();
+    }, 120_000);
+
+    it('reports no rounding when the cushion step already equals the coarse step', () => {
+        const result = computeFundedStateValue({
+            ...coarseConfig,
+            actionStepMultiple: 1,
+            cushionStepMultiple: 1,
+            plan: topStepOffRegistryPlan(),
+        });
+
+        expect(result.cycleBaselineRounding).toBeNull();
+    }, 120_000);
+
+    it('reports no rounding at payoutRegimeCap 0, where no level after a payout tracks a baseline', () => {
+        const result = computeFundedStateValue({
+            ...coarseConfig,
+            payoutRegimeCap: 0,
+            plan: topStepOffRegistryPlan(),
+        });
+
+        expect(result.cycleBaselineRounding).toBeNull();
+    }, 120_000);
+
+    it('reports no rounding for MFF Rapid EOD, whose baseline grid collapses to the payout floor', () => {
+        const plan = rapidEodPlan();
+        expect(plan.canLeaveBalanceAbovePayoutFloor()).toBe(false);
+
+        const result = computeFundedStateValue({ ...coarseConfig, plan });
+
+        expect(result.cycleBaselineRounding).toBeNull();
+    }, 120_000);
 });

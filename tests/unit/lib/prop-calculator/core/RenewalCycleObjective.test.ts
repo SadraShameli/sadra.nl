@@ -422,6 +422,27 @@ describe('copyAccounts applies the bundle discount to each fresh purchase, as th
         expect(objective.activationCost()).toBe(100);
     });
 
+    it.each([1, 4, 5, 7, 10])(
+        'N-62: at %d copies the objective takes its purchase discounts from plan.purchaseDiscounts for that copy count and prices every renewal cycle entry and activation with them through plan.feesUntilPass and plan.totalCostThroughDay',
+        (copyAccounts) => {
+            const plan = feeToyPlan(fees);
+            const discounts = {
+                activationPercent: percent(10),
+                evalPercent: percent(25),
+            };
+            const bundled = plan.purchaseDiscounts(discounts, copyAccounts);
+            const objective = toyObjective(plan, { copyAccounts, discounts });
+            expect(objective.purchaseDiscounts).toStrictEqual(bundled);
+            expect(objective.entryCost(2)).toBe(
+                plan.feesUntilPass(0, bundled) + 2 * 3,
+            );
+            expect(objective.activationCost()).toBe(
+                plan.totalCostThroughDay(0, bundled) -
+                    plan.feesUntilPass(0, bundled),
+            );
+        },
+    );
+
     it('omitting copyAccounts prices a single account', () => {
         const objective = toyObjective(feeToyPlan(fees));
         expect(objective.entryCost(0)).toBe(200);

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import zxcvbn from 'zxcvbn';
 
 import { ROLE_VALUES } from '~/lib/auth/roles';
+import { callbackUrlSchema } from '~/lib/site/privateRoutes';
 
 export const roleSchema = z.enum(ROLE_VALUES);
 
@@ -28,10 +29,7 @@ export const displayNameSchema = z
     .min(1, 'Name cannot be empty')
     .max(256);
 
-export const callbackUrlSchema = z
-    .string()
-    .max(512)
-    .regex(/^\/(?!\/)/, 'Must be a same-origin path');
+export { callbackUrlSchema } from '~/lib/site/privateRoutes';
 export const optionalCallbackUrlSchema = callbackUrlSchema.optional();
 
 export const loginInputSchema = z.object({

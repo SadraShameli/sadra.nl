@@ -68,7 +68,7 @@ export default async function HomePage() {
                             label={homepageContent.ctaLabel}
                         />
                         <HeroToolChip
-                            href={routes.propCalculator}
+                            href={routes.propCalculator.index}
                             label="Prop firm calculator"
                         />
                         <HeroToolChip

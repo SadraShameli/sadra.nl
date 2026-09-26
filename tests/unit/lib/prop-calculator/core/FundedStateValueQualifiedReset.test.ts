@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import {
+    type AccountState,
     AlphaFuturesVariant,
     DailyLossLimitKind,
     describeFundedResetTerms,
@@ -8,7 +9,9 @@ import {
     EodTrailingDrawdown,
     FirmId,
     fraction,
+    type FundedCycleSnapshot,
     FundedResetEligibility,
+    fundedResetsBeforeFirstPayout,
     MffuVariant,
     percent,
     type Plan,
@@ -31,6 +34,8 @@ import { simulate } from '~/lib/prop-calculator/simulator';
 const RESET_FEE = 20;
 const BUST_TERMINAL_VALUE = -40;
 const SIM_TRIALS = 20_000;
+const LAYERED_WINRATE = 0.25;
+const LAYERED_SIM_TRIALS = 40_000;
 
 function alphaZero(): Plan {
     const plan = new AlphaFutures().findPlan({
@@ -58,6 +63,16 @@ function dpConfig(
         winrate: 0.5,
         ...overrides,
     };
+}
+
+function fundedStartState(plan: Plan): AccountState {
+    const state = plan.initialState();
+    plan.beginFundedPhase(state);
+    return state;
+}
+
+function layeredToyPlan(): Plan {
+    return resetToyPlan({ maxConsecutiveIdleDays: undefined });
 }
 
 function rapidEodPlan(): Plan {
@@ -111,6 +126,31 @@ function resetToyPlan(
         takesFundedReset: true,
         ...overrides,
     });
+}
+
+function riskWithDayGateProgress(
+    dayGateProgress: number,
+    payoutsIssued: number,
+): { label: string; risk: () => number | undefined } {
+    const plan = resetToyPlan({ maxLifetimePayouts: 2 });
+    const result = computeFundedStateValue(dpConfig(plan));
+    const state = fundedStartState(plan);
+    if (payoutsIssued > 0) {
+        state.threshold = 1000;
+        state.thresholdLocked = true;
+        state.balance = 1100;
+    }
+    return {
+        label: plan.label,
+        risk: () =>
+            result.dayPolicy.computeRisk?.(state, 0, {
+                cycleBestDayProfit: 0,
+                dayGateProgress,
+                fundedResetsUsed: 0,
+                lastPayoutBalance: state.balance,
+                payoutsIssued,
+            }),
+    };
 }
 
 describe('computeFundedStateValue models an opted-in funded reset exactly (N-34 DP half)', () => {
@@ -214,20 +254,255 @@ describe('fundedDpModelGaps no longer reports the funded reset as unmodeled', ()
         );
     });
 
-    it('reports only that the policy after a reset cannot see the reset count, carrying the plan policy so its text comes from the plan data', () => {
+    it('reports no reset gap at all now that the day policy picks its reset layer (N-34)', () => {
         const zeroTaken = withFundedResetTaken(alphaZero(), true);
         const policy = zeroTaken.fundedReset;
         if (policy === null) throw new Error('Alpha Zero has no reset policy');
 
-        expect(fundedDpModelGaps(zeroTaken)).toStrictEqual([
-            {
-                kind: FundedDpModelGapKind.FundedResetPolicyIgnoresResetCount,
-                policy,
-            },
-        ]);
+        expect(Object.values(FundedDpModelGapKind)).not.toContain(
+            'funded-reset-policy-ignores-reset-count',
+        );
+        expect(fundedDpModelGaps(zeroTaken)).toStrictEqual([]);
         expect(fundedDpModelGaps(alphaZero())).toStrictEqual([]);
         expect(describeFundedResetTerms(policy)).toContain('$499');
     });
+});
+
+describe('fundedResetsBeforeFirstPayout is the one source for whether a funded reset applies before the first payout', () => {
+    it('counts the resets the plan allows before its first payout: 2 on the toy, 0 without the opt-in', () => {
+        expect(fundedResetsBeforeFirstPayout(resetToyPlan())).toBe(2);
+        expect(
+            fundedResetsBeforeFirstPayout(
+                resetToyPlan({ takesFundedReset: false }),
+            ),
+        ).toBe(0);
+        expect(fundedResetsBeforeFirstPayout(rapidEodPlan())).toBe(0);
+    });
+
+    it('drives the payout regime cap 0 rejection only when a reset applies before the first payout', () => {
+        const withoutOptIn = resetToyPlan({ takesFundedReset: false });
+
+        expect(() =>
+            computeFundedStateValue(
+                dpConfig(resetToyPlan(), { payoutRegimeCap: 0 }),
+            ),
+        ).toThrow(/payoutRegimeCap 0 is not allowed/);
+        expect(
+            computeFundedStateValue(
+                dpConfig(withoutOptIn, { payoutRegimeCap: 0 }),
+            ).unconvergedLevelCount,
+        ).toBe(0);
+    });
+});
+
+describe('the funded DP day policy picks the reset layer from the reset count (N-34)', () => {
+    it('trades in the layers that still have a reset and idles in the last one, where a trade is worth -5.00 against 0.00 for idling', () => {
+        const plan = layeredToyPlan();
+        const result = computeFundedStateValue(
+            dpConfig(plan, { winrate: LAYERED_WINRATE }),
+        );
+        const riskAfterResets = (fundedResetsUsed: number) =>
+            result.dayPolicy.computeRisk?.(fundedStartState(plan), 0, {
+                cycleBestDayProfit: 0,
+                dayGateProgress: 0,
+                fundedResetsUsed,
+                lastPayoutBalance: plan.accountSize,
+                payoutsIssued: 0,
+            });
+
+        expect(result.initialValue).toBeCloseTo(17.5, 9);
+        expect([0, 1, 2].map(riskAfterResets)).toStrictEqual([100, 100, 0]);
+        expect(result.dayPolicy.computeRisk?.(fundedStartState(plan), 0)).toBe(
+            100,
+        );
+    });
+
+    it('rejects a funded cycle snapshot without a reset count at compile time instead of silently using the layer 0 policy', () => {
+        expectTypeOf<{
+            readonly cycleBestDayProfit: number;
+            readonly dayGateProgress: number;
+            readonly lastPayoutBalance: number;
+            readonly payoutsIssued: number;
+        }>().not.toExtend<FundedCycleSnapshot>();
+        expectTypeOf<
+            FundedCycleSnapshot['fundedResetsUsed']
+        >().toEqualTypeOf<number>();
+    });
+
+    it('reads a call without a funded cycle snapshot as 0 resets used, on a plan with and without reset layers', () => {
+        for (const plan of [
+            layeredToyPlan(),
+            resetToyPlan({ takesFundedReset: false }),
+        ]) {
+            const result = computeFundedStateValue(
+                dpConfig(plan, { winrate: LAYERED_WINRATE }),
+            );
+            const withoutSnapshot = result.dayPolicy.computeRisk?.(
+                fundedStartState(plan),
+                0,
+            );
+
+            expect(withoutSnapshot).toBeTypeOf('number');
+            expect(withoutSnapshot).toBe(
+                result.dayPolicy.computeRisk?.(fundedStartState(plan), 0, {
+                    cycleBestDayProfit: 0,
+                    dayGateProgress: 0,
+                    fundedResetsUsed: 0,
+                    lastPayoutBalance: plan.accountSize,
+                    payoutsIssued: 0,
+                }),
+            );
+        }
+    });
+
+    it.each([-1, 0.5, 2.5, NaN, Infinity])(
+        'fails loud on a reset count of %s instead of clamping it to a layer',
+        (fundedResetsUsed) => {
+            const plan = layeredToyPlan();
+            const result = computeFundedStateValue(
+                dpConfig(plan, { winrate: LAYERED_WINRATE }),
+            );
+
+            expect(() =>
+                result.dayPolicy.computeRisk?.(fundedStartState(plan), 0, {
+                    cycleBestDayProfit: 0,
+                    dayGateProgress: 0,
+                    fundedResetsUsed,
+                    lastPayoutBalance: plan.accountSize,
+                    payoutsIssued: 0,
+                }),
+            ).toThrow(
+                `${plan.label}: FundedStateValue computeRisk needs a non-negative integer reset count, got ${fundedResetsUsed}`,
+            );
+        },
+    );
+
+    it.each([-1, 0.5, NaN, Infinity])(
+        'fails loud on a reset count of %s after the first payout too, with the same message',
+        (fundedResetsUsed) => {
+            const plan = layeredToyPlan();
+            const result = computeFundedStateValue(
+                dpConfig(plan, { winrate: LAYERED_WINRATE }),
+            );
+
+            expect(() =>
+                result.dayPolicy.computeRisk?.(fundedStartState(plan), 0, {
+                    cycleBestDayProfit: 0,
+                    dayGateProgress: 0,
+                    fundedResetsUsed,
+                    lastPayoutBalance: plan.accountSize,
+                    payoutsIssued: 1,
+                }),
+            ).toThrow(
+                `${plan.label}: FundedStateValue computeRisk needs a non-negative integer reset count, got ${fundedResetsUsed}`,
+            );
+        },
+    );
+
+    it.each([-1, 0.5, 2.5, NaN, Infinity])(
+        'fails loud on a payout count of %s instead of reading it as a payout regime',
+        (payoutsIssued) => {
+            const plan = layeredToyPlan();
+            const result = computeFundedStateValue(
+                dpConfig(plan, { winrate: LAYERED_WINRATE }),
+            );
+
+            expect(() =>
+                result.dayPolicy.computeRisk?.(fundedStartState(plan), 0, {
+                    cycleBestDayProfit: 0,
+                    dayGateProgress: 0,
+                    fundedResetsUsed: 0,
+                    lastPayoutBalance: plan.accountSize,
+                    payoutsIssued,
+                }),
+            ).toThrow(
+                `${plan.label}: FundedStateValue computeRisk needs a non-negative integer payout count, got ${payoutsIssued}`,
+            );
+        },
+    );
+
+    it.each([0, 1])(
+        'reads a valid day gate progress of 0 after %i payout(s) without throwing',
+        (payoutsIssued) => {
+            expect(riskWithDayGateProgress(0, payoutsIssued).risk()).toBeTypeOf(
+                'number',
+            );
+        },
+    );
+
+    it.each([
+        { dayGateProgress: -1, payoutsIssued: 0 },
+        { dayGateProgress: 0.5, payoutsIssued: 0 },
+        { dayGateProgress: 2.5, payoutsIssued: 0 },
+        { dayGateProgress: NaN, payoutsIssued: 0 },
+        { dayGateProgress: Infinity, payoutsIssued: 0 },
+        { dayGateProgress: -1, payoutsIssued: 1 },
+        { dayGateProgress: 0.5, payoutsIssued: 1 },
+    ])(
+        'fails loud on a day gate progress of $dayGateProgress after $payoutsIssued payout(s) instead of flooring or clamping it to a key',
+        ({ dayGateProgress, payoutsIssued }) => {
+            const { label, risk } = riskWithDayGateProgress(
+                dayGateProgress,
+                payoutsIssued,
+            );
+
+            expect(risk).toThrow(
+                `${label}: FundedStateValue computeRisk needs a non-negative integer day gate progress, got ${dayGateProgress}`,
+            );
+        },
+    );
+
+    it('saturates a day gate progress past the gate at the last key, by design, instead of throwing', () => {
+        const plan = resetToyPlan({ minDaysAfterPassForPayout: 2 });
+        const result = computeFundedStateValue(dpConfig(plan));
+        const riskAtProgress = (dayGateProgress: number) =>
+            result.dayPolicy.computeRisk?.(fundedStartState(plan), 0, {
+                cycleBestDayProfit: 0,
+                dayGateProgress,
+                fundedResetsUsed: 0,
+                lastPayoutBalance: plan.accountSize,
+                payoutsIssued: 0,
+            });
+
+        expect(riskAtProgress(2)).toBeTypeOf('number');
+        expect(riskAtProgress(3)).toBe(riskAtProgress(2));
+        expect(riskAtProgress(1_000_000)).toBe(riskAtProgress(2));
+    });
+
+    it('agrees with a real simulate() run of its own policy, which idles once both resets are used instead of trading into a -5.00 bust', () => {
+        const plan = layeredToyPlan();
+        const result = computeFundedStateValue(
+            dpConfig(plan, { winrate: LAYERED_WINRATE }),
+        );
+        const out = simulate({
+            fundedDayPolicy: result.dayPolicy,
+            fundedHorizonDays: 20,
+            maxEvalDays: 1,
+            plan,
+            riskPerTrade: 100,
+            rrRatio: 2,
+            seed: 11,
+            tradesPerDay: 1,
+            trials: LAYERED_SIM_TRIALS,
+            winrate: LAYERED_WINRATE,
+        });
+        const empiricalValue =
+            out.expectedGrossPayout -
+            out.costBreakdown.fundedResetFeesTotal +
+            out.fundedBustProbability * result.bustTerminalValue;
+        const perTrialVariance =
+            0.25 * 100 ** 2 +
+            0.1875 * 80 ** 2 +
+            0.5625 * (-40) ** 2 -
+            17.5 ** 2;
+        const standardError = Math.sqrt(perTrialVariance / LAYERED_SIM_TRIALS);
+
+        expect(
+            Math.abs(empiricalValue - result.initialValue),
+        ).toBeLessThanOrEqual(4 * standardError);
+        expect(out.fundedBustProbability).toBe(0);
+        expect(out.expectedFundedResets).toBeCloseTo(1.3125, 1);
+    }, 60_000);
 });
 
 describe('solveAverageRewardPolicy solves the funded reset inside its own funded DP', () => {

@@ -1,6 +1,7 @@
 export * from './core';
 export {
     ALL_FIRMS,
+    APEX_LIVE_DAILY_LOSS_LIMIT,
     APEX_LIVE_DEFAULT_CUSHION_PERCENT,
     buildApexLivePlan,
     buildFundedNextLivePlan,

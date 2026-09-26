@@ -8,8 +8,10 @@ import {
     simulatePortfolio,
 } from '~/lib/prop-calculator';
 
+import { ComputationId } from './ComputationId';
 import { toCouponDiscounts } from './couponDiscounts';
 import { gamblersRuinAsymmetric } from './lab/labMath';
+import { partitionBySizing, type SizingRefusal } from './simulationFailure';
 import { type LabScenario } from './types';
 import { useDebouncedComputation } from './useDebouncedSimulation';
 
@@ -36,7 +38,9 @@ const TRIALS_INDEPENDENT = 250;
 const EMPTY_RESULTS = new Map<string, MultiAccountResult>();
 
 export function useLabSimulation(arguments_: Arguments): {
+    error: null | string;
     pending: boolean;
+    refused: SizingRefusal<LabScenario>[];
     results: Map<string, MultiAccountResult>;
 } {
     const {
@@ -73,16 +77,21 @@ export function useLabSimulation(arguments_: Arguments): {
         seed,
     });
 
-    const computation = useDebouncedComputation<
-        Map<string, MultiAccountResult>
-    >(
+    const sizing = partitionBySizing(scenarios, (sc) => ({
+        instrument: sc.instrument ?? undefined,
+        riskPerTrade: sc.riskPerTrade,
+        stopPoints: sc.stopPoints ?? undefined,
+    }));
+
+    const computation = useDebouncedComputation(
+        ComputationId.StrategyLab,
         key,
         DEBOUNCE_MS,
         () => {
             const next = new Map<string, MultiAccountResult>();
             const dd = plan.drawdown.amount;
             const target = plan.profitTarget;
-            for (const sc of scenarios) {
+            for (const sc of sizing.accepted) {
                 const trials =
                     sc.correlation === CorrelationMode.Independent
                         ? TRIALS_INDEPENDENT
@@ -134,7 +143,12 @@ export function useLabSimulation(arguments_: Arguments): {
     const isPending = scenarios.length > 0 && computation.pending;
     const results = scenarios.length === 0 ? EMPTY_RESULTS : computation.result;
 
-    return { pending: isPending, results };
+    return {
+        error: computation.error,
+        pending: isPending,
+        refused: sizing.refused,
+        results,
+    };
 }
 
 function buildCacheKey(fields: {

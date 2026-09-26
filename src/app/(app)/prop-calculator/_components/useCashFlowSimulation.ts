@@ -13,6 +13,7 @@ import {
     simulatePortfolioTimeline,
 } from '~/lib/prop-calculator/portfolioTimeline';
 
+import { ComputationId } from './ComputationId';
 import { simInputsCacheKey } from './simInputsCacheKey';
 import { useDebouncedComputation } from './useDebouncedSimulation';
 
@@ -38,6 +39,7 @@ export interface CashFlowSimulationArguments {
 
 interface UseCashFlowSimulationReturn {
     effectiveTradesPerDay: number;
+    error: null | string;
     isTradesPerDayCapped: boolean;
     pending: boolean;
     result: null | PortfolioTimelineResult;
@@ -93,35 +95,40 @@ export function useCashFlowSimulation(
 
     const key = cashFlowSimulationCacheKey(arguments_);
 
-    const { pending, result } =
-        useDebouncedComputation<null | PortfolioTimelineResult>(
-            key,
-            DEBOUNCE_MS,
-            () =>
-                simulatePortfolioTimeline({
-                    accounts,
-                    commissionPerRoundTrip,
-                    dayBudget,
-                    dayStop,
-                    discounts,
-                    evalDayPolicy,
-                    maxEvalDays,
-                    minRetainedCushion,
-                    payoutRequestSize,
-                    plan,
-                    riskPerTrade,
-                    rrRatio,
-                    rungSizing,
-                    seed,
-                    tradesPerDay: effectiveTradesPerDay,
-                    trials,
-                    winrate,
-                }),
-            null,
-            true,
-        );
+    const { error, pending, result } = useDebouncedComputation(
+        ComputationId.CashFlow,
+        key,
+        DEBOUNCE_MS,
+        () =>
+            simulatePortfolioTimeline({
+                accounts,
+                commissionPerRoundTrip,
+                dayBudget,
+                dayStop,
+                discounts,
+                evalDayPolicy,
+                maxEvalDays,
+                minRetainedCushion,
+                payoutRequestSize,
+                plan,
+                riskPerTrade,
+                rrRatio,
+                rungSizing,
+                seed,
+                tradesPerDay: effectiveTradesPerDay,
+                trials,
+                winrate,
+            }),
+        null,
+    );
 
-    return { effectiveTradesPerDay, isTradesPerDayCapped, pending, result };
+    return {
+        effectiveTradesPerDay,
+        error,
+        isTradesPerDayCapped,
+        pending,
+        result,
+    };
 }
 
 function effectiveCashFlowTradesPerDay(tradesPerDay: number): number {

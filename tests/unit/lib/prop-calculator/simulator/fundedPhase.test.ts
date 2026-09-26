@@ -8,6 +8,7 @@ import {
     FirmId,
     fraction,
     type FundedCycleSnapshot,
+    FundedResetEligibility,
     MffuVariant,
     type Plan,
 } from '~/lib/prop-calculator/core';
@@ -86,6 +87,7 @@ describe('the funded day loop hands the day policy the balance left after the la
                 fundedCycle: {
                     cycleBestDayProfit: 0,
                     dayGateProgress: 0,
+                    fundedResetsUsed: 0,
                     lastPayoutBalance: 1000,
                     payoutsIssued: 0,
                 },
@@ -95,6 +97,7 @@ describe('the funded day loop hands the day policy the balance left after the la
                 fundedCycle: {
                     cycleBestDayProfit: 100,
                     dayGateProgress: 1,
+                    fundedResetsUsed: 0,
                     lastPayoutBalance: 1000,
                     payoutsIssued: 0,
                 },
@@ -104,6 +107,7 @@ describe('the funded day loop hands the day policy the balance left after the la
                 fundedCycle: {
                     cycleBestDayProfit: 100,
                     dayGateProgress: 2,
+                    fundedResetsUsed: 0,
                     lastPayoutBalance: 1000,
                     payoutsIssued: 0,
                 },
@@ -113,11 +117,51 @@ describe('the funded day loop hands the day policy the balance left after the la
                 fundedCycle: {
                     cycleBestDayProfit: 0,
                     dayGateProgress: 0,
+                    fundedResetsUsed: 0,
                     lastPayoutBalance: 1150,
                     payoutsIssued: 1,
                 },
             },
         ]);
+    });
+});
+
+describe('the funded day loop hands the day policy how many funded resets were used (N-34)', () => {
+    it('counts 0, 1 and 2 across the reset layers of an account that busts every day', () => {
+        const recorded: (number | undefined)[] = [];
+        const dayPolicy = computedDayPolicy(
+            (_state, _tradeIndexToday, fundedCycle) => {
+                recorded.push(fundedCycle?.fundedResetsUsed);
+                return 100;
+            },
+            1,
+        );
+
+        const out = simulate({
+            fundedDayPolicy: dayPolicy,
+            fundedHorizonDays: 50,
+            maxEvalDays: 1,
+            plan: payoutCapToyPlan().withOverrides({
+                fundedReset: {
+                    eligibility: FundedResetEligibility.NoPayoutEverRequested,
+                    fee: dollars(20),
+                    label: 'Toy Reset',
+                    maxPerAccount: 2,
+                    windowCalendarDays: 7,
+                },
+                takesFundedReset: true,
+            }),
+            riskPerTrade: 100,
+            rrRatio: 1,
+            seed: 7,
+            tradesPerDay: 1,
+            trials: 1,
+            winrate: fraction(0),
+        });
+
+        expect(recorded).toStrictEqual([0, 1, 2]);
+        expect(out.expectedFundedResets).toBe(2);
+        expect(out.fundedBustProbability).toBe(1);
     });
 });
 

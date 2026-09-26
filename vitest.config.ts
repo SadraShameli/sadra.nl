@@ -20,9 +20,26 @@ export default defineConfig({
             provider: 'v8',
             reporter: ['text', 'html'],
         },
-        environment: 'node',
         exclude: ['**/node_modules/**', '**/.next/**', 'tests/e2e/**'],
-        include: ['tests/unit/**/*.test.ts'],
-        isolate: false,
+        projects: [
+            {
+                extends: true,
+                test: {
+                    environment: 'node',
+                    include: ['tests/unit/**/*.test.ts'],
+                    isolate: false,
+                    name: 'unit',
+                },
+            },
+            {
+                extends: true,
+                test: {
+                    environment: 'happy-dom',
+                    include: ['tests/unit/**/*.dom.test.tsx'],
+                    isolate: true,
+                    name: 'dom',
+                },
+            },
+        ],
     },
 });

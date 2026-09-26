@@ -24,15 +24,25 @@ import {
     type TradingFirm,
     withPlanOptIns,
 } from '~/lib/prop-calculator';
+import { simInputsSizingIssue } from '~/lib/prop-calculator/simulator';
 import { cn } from '~/lib/utilities';
 
+import { ComputationId } from './ComputationId';
 import { panelDescriptions } from './kpiDescriptions';
 import { bestExpectedMonthlyNet, scoreByExpectedMonthlyNet } from './scoring';
 import { simInputsCacheKey, SimInputsKeyField } from './simInputsCacheKey';
+import { SimulationFailureNotice } from './SimulationFailureNotice';
 import { useDebouncedComputation } from './useDebouncedSimulation';
 
 const DEBOUNCE_MS = 700;
 const MAX_TRIALS = 500;
+
+export interface Row {
+    firm: TradingFirm;
+    out: SimOutputs;
+    plan: Plan;
+    score: number;
+}
 
 interface FirmComparisonTableProperties {
     activeFirmId: FirmId;
@@ -40,13 +50,6 @@ interface FirmComparisonTableProperties {
     firms: readonly TradingFirm[];
     planOptIns: PlanOptIns;
     targetAccountSize: number;
-}
-
-interface Row {
-    firm: TradingFirm;
-    out: SimOutputs;
-    plan: Plan;
-    score: number;
 }
 
 export default function FirmComparisonTable({
@@ -57,7 +60,12 @@ export default function FirmComparisonTable({
     targetAccountSize,
 }: FirmComparisonTableProperties) {
     const key = buildCacheKey(baseInputs, targetAccountSize, planOptIns);
-    const { pending, result: rows } = useDebouncedComputation<Row[]>(
+    const {
+        error,
+        pending,
+        result: rows,
+    } = useDebouncedComputation(
+        ComputationId.FirmComparison,
         key,
         DEBOUNCE_MS,
         () => {
@@ -83,6 +91,7 @@ export default function FirmComparisonTable({
             }));
         },
         [],
+        simInputsSizingIssue(baseInputs),
     );
 
     const columns = useMemo<DataTableColumn<Row>[]>(
@@ -195,25 +204,29 @@ export default function FirmComparisonTable({
                         : `closest plan to $${(targetAccountSize / 1000).toFixed(0)}K`}
                 </span>
             </div>
-            <DataTable<Row>
-                className="app-prop-calculator__firm-comparison-table text-xs tabular-nums"
-                columns={columns}
-                data={rows}
-                emptyState={
-                    <EmptyState
-                        icon={Building2}
-                        title={pending ? 'Computing…' : 'No matching plans'}
-                    />
-                }
-                initialSorting={[{ desc: true, id: 'monthlyNet' }]}
-                pageSize={null}
-                rowClassName={(r) =>
-                    r.firm.id === activeFirmId
-                        ? 'bg-primary/10 font-semibold text-foreground'
-                        : undefined
-                }
-                rowId={(r) => r.firm.id}
-            />
+            {error === null ? (
+                <DataTable<Row>
+                    className="app-prop-calculator__firm-comparison-table text-xs tabular-nums"
+                    columns={columns}
+                    data={rows}
+                    emptyState={
+                        <EmptyState
+                            icon={Building2}
+                            title={pending ? 'Computing…' : 'No matching plans'}
+                        />
+                    }
+                    initialSorting={[{ desc: true, id: 'monthlyNet' }]}
+                    pageSize={null}
+                    rowClassName={(r) =>
+                        r.firm.id === activeFirmId
+                            ? 'bg-primary/10 font-semibold text-foreground'
+                            : undefined
+                    }
+                    rowId={(r) => r.firm.id}
+                />
+            ) : (
+                <SimulationFailureNotice message={error} />
+            )}
         </Card>
     );
 }

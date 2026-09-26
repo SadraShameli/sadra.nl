@@ -13,6 +13,7 @@ import {
     newFundedCycleTracker,
     PayoutCapScheduleKind,
     PayoutCountTieredPayoutCap,
+    PayoutFloorEffect,
     PayoutProfitPool,
     percent,
     type Plan,
@@ -797,6 +798,86 @@ describe('Plan.canLeaveBalanceAbovePayoutFloor', () => {
         expect(
             rapidEod.withOverrides(overrides).canLeaveBalanceAbovePayoutFloor(),
         ).toBe(true);
+    });
+
+    const mffPro = registeredPlan({
+        accountSize: 50_000,
+        firm: FirmId.Mffu,
+        variant: MffuVariant.Pro,
+    });
+
+    it('is true for the MFF Pro early-withdrawal opt-in, which keeps 40% of the profit in the account and so can leave the balance above the payout floor', () => {
+        const optedIn = mffPro.withOverrides({
+            takesOneTimeEarlyWithdrawal: true,
+        });
+        expect(optedIn.oneTimeEarlyWithdrawal?.maxProfitShare).toBeLessThan(1);
+        expect(optedIn.canLeaveBalanceAbovePayoutFloor()).toBe(true);
+    });
+
+    const withdrawsAllProfit = mffPro.withOverrides({
+        oneTimeEarlyWithdrawal: {
+            maxProfitShare: fraction(1),
+            minRequest: dollars(1000),
+        },
+        takesOneTimeEarlyWithdrawal: true,
+    });
+
+    it('is true, not a throw, for an early withdrawal of 100% of the profit, because a plan the constructor accepts must not crash later inside a DP solve', () => {
+        expect(withdrawsAllProfit.canLeaveBalanceAbovePayoutFloor()).toBe(true);
+    });
+
+    it('is right to say true at a 100% share: that withdrawal leaves exactly the starting balance, which is above the payout floor whenever the floor sits below the starting balance, as on a plan with no retained-cushion buffer', () => {
+        const unlockedFloor = rapidEod.withOverrides({
+            minRetainedCushionOverride: dollars(0),
+            oneTimeEarlyWithdrawal: {
+                maxProfitShare: fraction(1),
+                minRequest: dollars(1000),
+            },
+            takesOneTimeEarlyWithdrawal: true,
+        });
+        expect(unlockedFloor.payoutFloorEffect).toBe(PayoutFloorEffect.None);
+        const state = unlockedFloor.initialState();
+        unlockedFloor.beginFundedPhase(state);
+        const tracker = newFundedCycleTracker(state);
+        state.balance = state.startingBalance + 1000;
+        state.qualifyingDays = unlockedFloor.minDaysAfterPassForPayout;
+        const minRetainedCushion =
+            unlockedFloor.resolveRetainedCushion(undefined);
+
+        const payout = tracker.tryPayout({
+            minRetainedCushion,
+            payoutRequestSize: undefined,
+            plan: unlockedFloor,
+            state,
+        });
+
+        expect(payout?.debited).toBe(1000);
+        expect(state.balance).toBe(state.startingBalance);
+        expect(
+            unlockedFloor.payoutBalanceFloor(state, minRetainedCushion),
+        ).toBeLessThan(state.balance);
+        expect(unlockedFloor.canLeaveBalanceAbovePayoutFloor()).toBe(true);
+    });
+
+    it('still answers true at a 100% early-withdrawal share when another payout rule already leaves the balance above the floor', () => {
+        expect(
+            withdrawsAllProfit
+                .withOverrides({ payoutRequestCap: dollars(1000) })
+                .canLeaveBalanceAbovePayoutFloor(),
+        ).toBe(true);
+    });
+
+    it('is false for a 100% early-withdrawal share the trader has not opted into', () => {
+        expect(
+            withdrawsAllProfit
+                .withOverrides({ takesOneTimeEarlyWithdrawal: false })
+                .canLeaveBalanceAbovePayoutFloor(),
+        ).toBe(false);
+    });
+
+    it('stays false for MFF Pro without the opt-in, which drains every payout to the floor', () => {
+        expect(mffPro.takesOneTimeEarlyWithdrawal).toBe(false);
+        expect(mffPro.canLeaveBalanceAbovePayoutFloor()).toBe(false);
     });
 });
 

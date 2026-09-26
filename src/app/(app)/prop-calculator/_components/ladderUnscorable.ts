@@ -1,7 +1,7 @@
 import { formatPercent } from '~/lib/format';
 import { LADDER_EVAL_PASS_FLOOR } from '~/lib/prop-calculator';
 
-import { type LadderSearchRun } from './useLadderSearch';
+import { type LadderSearchRun } from './ladderSearchTypes';
 
 export function describeUnscorableLadderRun(
     run: Pick<LadderSearchRun, 'laddersScored' | 'unscorableCount'>,

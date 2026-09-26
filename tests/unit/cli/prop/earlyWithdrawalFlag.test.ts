@@ -31,9 +31,7 @@ describe('--early-withdrawal (N-64, T30: the MFF Pro one-time early withdrawal i
             default: false,
             type: 'boolean',
         });
-        expect(parseTradingInputs([]).takesOneTimeEarlyWithdrawal).toBe(
-            false,
-        );
+        expect(parseTradingInputs([]).takesOneTimeEarlyWithdrawal).toBe(false);
         expect(
             parseTradingInputs(['--early-withdrawal'])
                 .takesOneTimeEarlyWithdrawal,

@@ -3,7 +3,7 @@
 **Sources:** <https://helpfutures.fundednext.com/en/articles/16847874-what-is-the-fundednext-futures-fnl-003-50k-instant-account> (updated 2026-09-08), <https://helpfutures.fundednext.com/en/articles/16847903-what-is-the-perpetual-consistency-rule-and-how-does-it-work> (updated 2026-09-08), <https://helpfutures.fundednext.com/en/articles/16847913-what-are-the-requirements-for-requesting-a-performance-reward-on-the-fundednext-futures-fnl-003-50k-instant-account> (updated 2026-09-09), <https://helpfutures.fundednext.com/en/articles/14298225-what-is-the-maximum-loss-limit-at-fundednext-futures-and-how-does-it-work> (updated 2026-09-08). See full Sources list at the bottom for every article checked.
 
 **Last Verified:** 2026-09-19
-**Last Updated:** 2026-09-19
+**Last Updated:** 2026-09-26
 
 ## Overview
 
@@ -89,7 +89,7 @@ No live-transition path is stated anywhere in this file's own cited sources for 
 
 ---
 
-**Last Updated:** 2026-09-19
+**Last Updated:** 2026-09-26
 
 **Sources:**
 
@@ -103,6 +103,6 @@ No live-transition path is stated anywhere in this file's own cited sources for 
 - <https://helpfutures.fundednext.com/en/articles/14298328-is-there-any-inactivity-period-in-fundednext-futures> (updated 2026-07-06): firm-wide Inactivity Rule; does not name FNL:003 (see Not Confirmed).
 - <https://helpfutures.fundednext.com/en/articles/14261075-how-many-accounts-can-i-hold-with-fundednext-futures-and-what-is-the-maximum-allocation-available> (updated 2026-09-01): corroborates the standard 5-account FundedNext Account allocation cap that FNL:003 is explicitly excluded from.
 - <https://helpfutures.fundednext.com/en/articles/14262297-what-is-the-contract-limit-policy-at-fundednext-futures> (updated 2026-07-10): checked; confirms FNL:003 is absent from the firm-wide contract-limit tables, establishing the plan's own article as the sole source for its 3 Mini / 30 Micro limit.
-- <https://helpfutures.fundednext.com/en/articles/14260538-what-are-the-reset-conditions-and-fees-at-fundednext-futures> (updated 2026-09-03): checked; confirms FNL:003 is absent from the Reset Fees table, corroborating "no reset available at any stage."
+- <https://helpfutures.fundednext.com/en/articles/14260538-what-are-the-reset-conditions-and-fees-at-fundednext-futures> (updated 2026-09-25; re-fetched live 2026-09-26, HTTP 200, dateModified 2026-09-25T11:12:25Z): checked; confirms FNL:003 is absent from the Reset Fees table (its rows list only Legacy, Flex, Rapid Pro, Rapid Pro with Add-On and Rapid Daily), corroborating "no reset available at any stage."
 - <https://helpfutures.fundednext.com/en/articles/14298201-what-is-the-daily-loss-limit-at-fundednext-futures-how-do-i-calculate-my-daily-loss-limit> (updated 2026-07-11): checked; confirms FNL:003 is absent from every Daily Loss Limit table (see Not Confirmed).
 - <https://helpfutures.fundednext.com/en/articles/14255182-when-am-i-eligible-for-kyc-verification-in-fundednext-futures> (updated 2026-07-31): firm-wide KYC policy, corroborates the plan's own "KYC before first Performance Reward" statement.

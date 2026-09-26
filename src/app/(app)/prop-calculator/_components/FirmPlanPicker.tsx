@@ -75,9 +75,7 @@ export default function FirmPlanPicker({
                 </label>
                 <Select
                     onValueChange={(v) => {
-                        const next = firm.plans.find(
-                            (p) => serializePlanId(p.id) === v,
-                        );
+                        const next = firm.findPlanBySerial(v);
                         if (next) onPlanChange(next);
                     }}
                     value={serializePlanId(plan.id)}

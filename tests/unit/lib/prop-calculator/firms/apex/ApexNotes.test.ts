@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { ApexVariant, FirmId } from '~/lib/prop-calculator/core';
+import { isFundedDpEligible } from '~/lib/prop-calculator/core/FundedStateValue';
 import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFunding';
 
 const notes = new ApexTraderFunding().notes;
@@ -104,5 +106,65 @@ describe('Apex Live note (WP12b handoff, pasted Live Prop Trading Program FAQ, d
         expect(note).toContain('Bonus Vault');
         expect(note).toContain('90 days');
         expect(note).toContain('not modeled');
+    });
+});
+
+describe('Apex notes match the current engine (WP26 notes audit)', () => {
+    const firm = new ApexTraderFunding();
+
+    function apexPlan(variant: ApexVariant) {
+        const plan = firm.findPlan({
+            accountSize: 50_000,
+            firm: FirmId.Apex,
+            variant,
+        });
+        if (plan === undefined) throw new Error(`no Apex 50K ${variant}`);
+        return plan;
+    }
+
+    it('says an unset minPayoutRequest defaults to $0 and the ladder minimum is read first', () => {
+        const note = noteContaining('minPayoutRequest is set explicitly');
+        expect(note).not.toContain("inherit minPayoutProfit's");
+        expect(note).toContain('minPayoutRequest defaults to $0');
+        for (const variant of [ApexVariant.Eod, ApexVariant.Intraday]) {
+            const plan = apexPlan(variant);
+            expect(plan.minPayoutRequest).toBe(
+                plan.payoutLadder?.minRequestAmount,
+            );
+        }
+    });
+
+    it('says the eval phase inherits the 30-day idle rule because Apex sets no evalMaxConsecutiveIdleDays override', () => {
+        const note = noteContaining(
+            'Inactivity Policy on Performance Accounts',
+        );
+        expect(note).not.toContain('no eval/funded split');
+        expect(note).toContain(
+            "Apex does not set Plan's evalMaxConsecutiveIdleDays override",
+        );
+        expect(note).not.toContain(' -- ');
+    });
+
+    it('describes the payoutFloor floor rule and names the live plans that set it', () => {
+        const note = noteContaining('payoutFloor');
+        expect(note).not.toContain(
+            'none of which have a confirmed distinct payout floor',
+        );
+        expect(note).toContain(
+            'TptLive.ts, MffuRapidLive.ts and AlphaFuturesLive.ts set it to dollars(0)',
+        );
+        expect(note).toContain(
+            'the floor is the higher of payoutFloor and that cushion floor',
+        );
+    });
+
+    it('limits the funded DP Level DLL claim to the EOD PA, since the Intraday PA is not funded-DP eligible', () => {
+        const note = noteContaining('Scaling Levels (PA) Explained');
+        expect(note).toContain(
+            'For the EOD PA, the funded DP behind `optimize dp`',
+        );
+        expect(note).toContain('the Intraday PA is not funded-DP eligible');
+        expect(isFundedDpEligible(apexPlan(ApexVariant.Eod))).toBe(true);
+        expect(isFundedDpEligible(apexPlan(ApexVariant.Intraday))).toBe(false);
     });
 });

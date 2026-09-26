@@ -1,7 +1,7 @@
 'use client';
 
 import { FlaskConical } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '~/components/ui/Button';
 import { Card } from '~/components/ui/Card';
@@ -12,33 +12,68 @@ import { formatCurrency, formatPercent, NOT_APPLICABLE } from '~/lib/format';
 import {
     ALL_INSTRUMENTS,
     type DayPolicy,
-    type DayStopRule,
-    DayStopRuleKind,
+    DEFAULT_RUNG_SIZING,
     defaultLadderGridMax,
     evalContractLimit,
     INSTRUMENTS,
-    InstrumentSymbol,
+    type InstrumentSymbol,
+    type LadderGridConfig,
     type LadderScore,
     ladderSum,
     MAX_LADDER_SLOTS,
     minStopPoints,
     resolvePositionSizing,
-    RungSizing,
-    SIM_DEFAULTS,
+    type RungSizing,
     type SimInputs,
 } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
+import { useCalculatorActions, useLabSlots } from './CalculatorProvider';
 import LadderFrontierChartView from './charts/LadderFrontierChartView';
 import DayStopRulePicker from './DayStopRulePicker';
 import { describeLadderIgnoredInputs } from './ladderIgnoredInputs';
+import {
+    displayedLadderSlot,
+    initialLadderLabForm,
+    isActiveLadderRow,
+    labViewForSlot,
+    LadderLabViewKind,
+    type LadderRowAction,
+    ladderRowAction,
+    LadderRowActionKind,
+    ladderSearchInputsFor,
+    settledSlotEvent,
+} from './ladderLabRestore';
+import {
+    type LadderDisplayInstrument,
+    type LadderLabForm,
+    LadderSlotEvent,
+    ladderSlotFor,
+} from './ladderResultSlot';
+import {
+    LadderRunPhase,
+    type LadderSearchInputs,
+    type LadderSearchState,
+} from './ladderSearchTypes';
 import { describeUnscorableLadderRun } from './ladderUnscorable';
-import { LadderRunPhase, useLadderSearch } from './useLadderSearch';
+import {
+    RUNG_SIZING_LABELS,
+    RUNG_SIZING_OPTIONS,
+    RUNG_SIZING_OUTCOMES,
+    UNAFFORDABLE_RUNG_LABEL,
+} from './rungSizingLabels';
+import { useLadderSearch } from './useLadderSearch';
 
 interface LadderLabPanelProperties {
     activePolicy: DayPolicy | null;
     baseInputs: SimInputs;
     onApply: (policy: DayPolicy | null) => void;
+}
+
+interface LatestLadderRun {
+    displayInstrument: LadderDisplayInstrument;
+    runInputs: LadderSearchInputs | null;
+    search: LadderSearchState;
 }
 
 export default function LadderLabPanel({
@@ -47,19 +82,12 @@ export default function LadderLabPanel({
     onApply,
 }: LadderLabPanelProperties) {
     const {
-        commissionPerRoundTrip,
-        copyAccounts,
-        discounts,
         idleDayProbability,
         instrument: sizingInstrument,
         maxAttempts,
-        maxEvalDays,
         plan,
         rebuyLagDays,
-        rrRatio,
-        seed,
         stopPoints,
-        winrate,
     } = baseInputs;
     const ignoredInputsNote = describeLadderIgnoredInputs({
         idleDayProbability,
@@ -68,21 +96,88 @@ export default function LadderLabPanel({
     });
     const cushion = plan.drawdown.amount;
     const positionSizing = resolvePositionSizing(sizingInstrument, stopPoints);
-    const [lo, setLo] = useState(100);
-    const [max, setMax] = useState(defaultLadderGridMax(cushion));
-    const [step, setStep] = useState(100);
-    const [slots, setSlots] = useState(4);
-    const [sims, setSims] = useState(4000);
-    const [instrument, setInstrument] = useState<'' | InstrumentSymbol>(
-        InstrumentSymbol.NQ,
+    const { ladderSlot } = useLabSlots();
+    const { setRungSizing, writeLadderSlot } = useCalculatorActions();
+    const activeRungSizing = baseInputs.rungSizing ?? DEFAULT_RUNG_SIZING;
+    const [form, setForm] = useState<LadderLabForm>(() =>
+        initialLadderLabForm(ladderSlot, cushion, activeRungSizing),
     );
-    const [stopRule, setStopRule] = useState<DayStopRule>({
-        kind: DayStopRuleKind.DayGreen,
+    const {
+        displayInstrument: instrument,
+        grid: { lo, max, slots, step },
+        rungSizing,
+        sims,
+        stopRule,
+    } = form;
+    const { cancel, run, runInputs, state } = useLadderSearch();
+
+    const latestRun = useRef<LatestLadderRun>({
+        displayInstrument: instrument,
+        runInputs,
+        search: state,
     });
-    const [rungSizing, setSizingMode] = useState<RungSizing>(
-        RungSizing.CapToCushion,
+    useEffect(() => {
+        latestRun.current = {
+            displayInstrument: instrument,
+            runInputs,
+            search: state,
+        };
+    }, [instrument, runInputs, state]);
+
+    useEffect(() => {
+        const event = settledSlotEvent(state.phase);
+        if (event === null || runInputs === null) return;
+        writeLadderSlot(
+            event,
+            ladderSlotFor(
+                event,
+                state,
+                runInputs,
+                latestRun.current.displayInstrument,
+            ),
+        );
+    }, [runInputs, state, writeLadderSlot]);
+
+    useEffect(() => {
+        const latest = latestRun;
+        return () => {
+            const {
+                displayInstrument,
+                runInputs: inputs,
+                search,
+            } = latest.current;
+            if (inputs === null) return;
+            writeLadderSlot(
+                LadderSlotEvent.Unmounted,
+                ladderSlotFor(
+                    LadderSlotEvent.Unmounted,
+                    search,
+                    inputs,
+                    displayInstrument,
+                ),
+            );
+        };
+    }, [writeLadderSlot]);
+
+    const currentInputs = useMemo(
+        () => ladderSearchInputsFor(baseInputs, form),
+        [baseInputs, form],
     );
-    const { cancel, run, state } = useLadderSearch();
+    const displayedSlot = useMemo(
+        () => displayedLadderSlot(state, runInputs, instrument, ladderSlot),
+        [instrument, ladderSlot, runInputs, state],
+    );
+    const view = useMemo(
+        () => labViewForSlot(displayedSlot, currentInputs),
+        [currentInputs, displayedSlot],
+    );
+
+    function setGrid(patch: Partial<LadderGridConfig>) {
+        setForm((current) => ({
+            ...current,
+            grid: { ...current.grid, ...patch },
+        }));
+    }
 
     const aliasingFrom = defaultLadderGridMax(cushion);
     const isAliasingRisk = max > aliasingFrom;
@@ -93,13 +188,15 @@ export default function LadderLabPanel({
             ? null
             : evalContractLimit(plan.contractLimits, instrumentSpec.isMicro);
 
-    const succeeded = state.phase === LadderRunPhase.Succeeded ? state : null;
+    const scored =
+        view.kind === LadderLabViewKind.Restored ||
+        view.kind === LadderLabViewKind.InputsChanged
+            ? view
+            : null;
     const unscorableNote =
-        succeeded === null
-            ? null
-            : describeUnscorableLadderRun(succeeded.result);
+        scored === null ? null : describeUnscorableLadderRun(scored.result);
     const rows = useMemo(() => {
-        const result = succeeded?.result;
+        const result = scored?.result;
         if (!result) return [];
         const seen = new Set<string>();
         const merged: LadderScore[] = [];
@@ -114,7 +211,7 @@ export default function LadderLabPanel({
             merged.push(score);
         }
         return merged;
-    }, [succeeded?.result]);
+    }, [scored?.result]);
 
     const columns = useMemo<DataTableColumn<LadderScore>[]>(
         () => [
@@ -206,42 +303,43 @@ export default function LadderLabPanel({
                 id: 'minStop',
             },
             {
-                cell: ({ row }) => {
-                    const isActive =
-                        activePolicy !== null &&
-                        activePolicy.ladder.join(',') ===
-                            row.original.ladder.join(',');
-                    return (
-                        <button
-                            className="text-xs text-muted-foreground underline"
-                            onClick={() =>
-                                onApply(
-                                    isActive
-                                        ? null
-                                        : {
-                                              ladder: [...row.original.ladder],
-                                              maxLossesPerDay: null,
-                                              stopRule,
-                                          },
-                                )
-                            }
-                            type="button"
-                        >
-                            {isActive ? 'Clear' : 'Apply'}
-                        </button>
-                    );
-                },
+                cell: ({ row }) => (
+                    <LadderRowButton
+                        action={ladderRowAction(
+                            view,
+                            row.original,
+                            activePolicy,
+                            activeRungSizing,
+                        )}
+                        onApply={(policy, sizing) => {
+                            onApply(policy);
+                            setRungSizing(sizing);
+                        }}
+                        onClear={() => onApply(null)}
+                    />
+                ),
                 enableSorting: false,
                 header: '',
                 id: 'apply',
             },
         ],
-        [activePolicy, contractCap, onApply, pointValue, stopRule],
+        [
+            activePolicy,
+            activeRungSizing,
+            contractCap,
+            onApply,
+            pointValue,
+            setRungSizing,
+            view,
+        ],
     );
 
     return (
         <Card
-            className={cn('app-prop-calculator__ladder-lab', 'px-5 py-4')}
+            className={cn(
+                'app-prop-calculator__ladder-lab',
+                'scroll-mt-26 px-5 py-4',
+            )}
             id="ladder-lab"
         >
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -253,9 +351,15 @@ export default function LadderLabPanel({
                         scores each one on three separate axes: expected days to
                         funded, cost per funded account, and eval pass rate.
                         They have different winners, so all three are shown
-                        rather than blended into one score. Each rung is capped
-                        to the cushion remaining before it, and ladders that
-                        clamp to the same effective strategy are de-duplicated.
+                        rather than blended into one score. Ladders that clamp
+                        to the same effective strategy are de-duplicated. Each
+                        rung follows the unaffordable rung choice:
+                        {RUNG_SIZING_OPTIONS.map((option) => (
+                            <span className="mt-1 block" key={option}>
+                                {RUNG_SIZING_LABELS[option]}:{' '}
+                                {RUNG_SIZING_OUTCOMES[option]}
+                            </span>
+                        ))}
                     </InfoPopover>
                 </div>
                 <div className="flex items-center gap-2">
@@ -283,28 +387,7 @@ export default function LadderLabPanel({
                     ) : (
                         <Button
                             className="h-7 px-2.5 text-xs"
-                            onClick={() =>
-                                run({
-                                    commission:
-                                        commissionPerRoundTrip ??
-                                        SIM_DEFAULTS.commissionPerRoundTrip,
-                                    copyAccounts:
-                                        copyAccounts ??
-                                        SIM_DEFAULTS.copyAccounts,
-                                    discounts,
-                                    grid: { lo, max, slots, step },
-                                    instrument: sizingInstrument,
-                                    maxDays: maxEvalDays,
-                                    plan,
-                                    rrRatio,
-                                    rungSizing,
-                                    seed,
-                                    sims,
-                                    stopPoints,
-                                    stopRule,
-                                    winrate,
-                                })
-                            }
+                            onClick={() => run(currentInputs)}
                             size="sm"
                             type="button"
                             variant="outline"
@@ -316,18 +399,32 @@ export default function LadderLabPanel({
             </div>
 
             <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-                <NumberField label="Min rung" onChange={setLo} value={lo} />
-                <NumberField label="Max rung" onChange={setMax} value={max} />
-                <NumberField label="Step" onChange={setStep} value={step} />
+                <NumberField
+                    label="Min rung"
+                    onChange={(value) => setGrid({ lo: value })}
+                    value={lo}
+                />
+                <NumberField
+                    label="Max rung"
+                    onChange={(value) => setGrid({ max: value })}
+                    value={max}
+                />
+                <NumberField
+                    label="Step"
+                    onChange={(value) => setGrid({ step: value })}
+                    value={step}
+                />
                 <NumberField
                     label="Rungs"
                     max={MAX_LADDER_SLOTS}
-                    onChange={setSlots}
+                    onChange={(value) => setGrid({ slots: value })}
                     value={slots}
                 />
                 <NumberField
                     label="Sims per ladder"
-                    onChange={setSims}
+                    onChange={(value) =>
+                        setForm((current) => ({ ...current, sims: value }))
+                    }
                     value={sims}
                 />
                 <div className="flex flex-col gap-1">
@@ -341,9 +438,11 @@ export default function LadderLabPanel({
                         className="h-8 rounded-md border bg-transparent px-2 text-xs"
                         id="ladder-lab-instrument"
                         onChange={(event) =>
-                            setInstrument(
-                                event.target.value as '' | InstrumentSymbol,
-                            )
+                            setForm((current) => ({
+                                ...current,
+                                displayInstrument: event.target.value as
+                                    '' | InstrumentSymbol,
+                            }))
                         }
                         value={instrument}
                     >
@@ -364,26 +463,42 @@ export default function LadderLabPanel({
                     </span>
                     <DayStopRulePicker
                         compact
-                        onChange={setStopRule}
+                        onChange={(value) =>
+                            setForm((current) => ({
+                                ...current,
+                                stopRule: value,
+                            }))
+                        }
                         value={stopRule}
                     />
                 </div>
                 <label className="flex flex-col gap-1">
                     <span className="text-xs text-muted-foreground">
-                        Unaffordable rung
+                        {UNAFFORDABLE_RUNG_LABEL}
                     </span>
                     <select
                         className="h-8 rounded-md border bg-transparent px-2 text-xs"
                         onChange={(event) =>
-                            setSizingMode(event.target.value as RungSizing)
+                            setForm((current) => ({
+                                ...current,
+                                rungSizing: event.target.value as RungSizing,
+                            }))
                         }
                         value={rungSizing}
                     >
-                        <option value="capToCushion">Cap to cushion</option>
-                        <option value="skipIfUnaffordable">Skip trade</option>
+                        {RUNG_SIZING_OPTIONS.map((option) => (
+                            <option key={option} value={option}>
+                                {RUNG_SIZING_LABELS[option]}
+                            </option>
+                        ))}
                     </select>
                 </label>
             </div>
+
+            <p className="mt-3 text-xs text-muted-foreground">
+                Apply also sets the unaffordable rung choice for every trade in
+                the simulation, eval and funded, not only for this ladder.
+            </p>
 
             <p className="mt-3 text-xs text-muted-foreground">
                 {positionSizing === null
@@ -411,16 +526,29 @@ export default function LadderLabPanel({
                 <p className="mt-3 text-xs text-rose-400">{state.reason}</p>
             )}
 
-            {succeeded && (
+            {view.kind === LadderLabViewKind.Cancelled && (
+                <p className="mt-3 text-xs text-amber-400">{view.notice}</p>
+            )}
+
+            {scored && (
                 <div className="mt-4 flex flex-col gap-5">
+                    {scored.kind === LadderLabViewKind.InputsChanged && (
+                        <p className="text-xs text-amber-400">
+                            {scored.notice}
+                        </p>
+                    )}
+
                     <p className="text-xs text-muted-foreground">
-                        Scored {succeeded.result.laddersScored} distinct ladders
-                        from a {succeeded.result.gridSize}-ladder grid (
-                        {succeeded.result.droppedAliasCount} aliases removed) in{' '}
-                        {(succeeded.progress.elapsedMs / 1000).toFixed(1)}s. The
-                        ± figures are one standard error of Monte Carlo noise;
-                        rows within about 2 SE of each other are statistically
-                        tied, so raise the sims per ladder to separate them.
+                        Scored {scored.result.laddersScored} distinct ladders
+                        from a {scored.result.gridSize}-ladder grid (
+                        {scored.result.droppedAliasCount} aliases removed) in{' '}
+                        {(scored.slot.result.progress.elapsedMs / 1000).toFixed(
+                            1,
+                        )}
+                        s. The ± figures are one standard error of Monte Carlo
+                        noise; rows within about 2 SE of each other are
+                        statistically tied, so raise the sims per ladder to
+                        separate them.
                     </p>
 
                     {unscorableNote !== null && (
@@ -434,7 +562,7 @@ export default function LadderLabPanel({
                             Efficient frontier
                         </h4>
                         <LadderFrontierChartView
-                            frontier={succeeded.result.frontier}
+                            frontier={scored.result.frontier}
                         />
                     </div>
 
@@ -449,9 +577,12 @@ export default function LadderLabPanel({
                             initialSorting={[{ desc: false, id: 'days' }]}
                             pageSize={15}
                             rowClassName={(r) =>
-                                activePolicy !== null &&
-                                activePolicy.ladder.join(',') ===
-                                    r.ladder.join(',')
+                                isActiveLadderRow(
+                                    view,
+                                    r,
+                                    activePolicy,
+                                    activeRungSizing,
+                                )
                                     ? 'bg-emerald-500/10'
                                     : undefined
                             }
@@ -462,6 +593,53 @@ export default function LadderLabPanel({
             )}
         </Card>
     );
+}
+
+function LadderRowButton({
+    action,
+    onApply,
+    onClear,
+}: {
+    action: LadderRowAction;
+    onApply: (policy: DayPolicy, rungSizing: RungSizing) => void;
+    onClear: () => void;
+}) {
+    switch (action.kind) {
+        case LadderRowActionKind.Apply: {
+            return (
+                <button
+                    className="text-xs text-muted-foreground underline"
+                    onClick={() => onApply(action.policy, action.rungSizing)}
+                    type="button"
+                >
+                    Apply
+                </button>
+            );
+        }
+        case LadderRowActionKind.Clear: {
+            return (
+                <button
+                    className="text-xs text-muted-foreground underline"
+                    onClick={onClear}
+                    type="button"
+                >
+                    Clear
+                </button>
+            );
+        }
+        case LadderRowActionKind.Unavailable: {
+            return (
+                <button
+                    className="text-xs text-muted-foreground/50"
+                    disabled
+                    title="Run the search again on the current inputs to apply a ladder"
+                    type="button"
+                >
+                    Apply
+                </button>
+            );
+        }
+    }
 }
 
 function NumberField({

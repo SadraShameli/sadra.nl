@@ -26,22 +26,34 @@ import {
     points,
     type RungSizing,
 } from '~/lib/prop-calculator';
+import { simInputsSizingIssue } from '~/lib/prop-calculator/simulator';
 import { cn } from '~/lib/utilities';
 
 import DayStopRulePicker from './DayStopRulePicker';
+import { EVAL_DISCOUNT_REBUY_NOTE } from './evalDiscountRebuyNote';
 import {
     describeActivationFee,
     describeEvalFee,
     describeMonthlySubscriptionFee,
     purchaseCouponDiscounts,
 } from './feePreview';
+import { inputHints } from './kpiDescriptions';
+import { describePlacedFundedRisk, placedFundedRisk } from './placedFundedRisk';
 import {
     describeResetFee,
     describeRetry,
     hasResetOption,
 } from './retryDescription';
 import { riskDollarsToPercent, riskPercentToDollars } from './riskConversion';
+import {
+    RUNG_SIZING_LABELS,
+    RUNG_SIZING_OPTIONS,
+    UNAFFORDABLE_RUNG_LABEL,
+} from './rungSizingLabels';
+import { tradingInputBounds } from './tradingInputBounds';
 import { SizingMode } from './types';
+
+const SIZING_HINT_ID = 'position-sizing-hint';
 
 interface TradingInputsProperties {
     activationDiscountPercent: number;
@@ -161,6 +173,7 @@ export default function TradingInputs({
     winrate,
 }: TradingInputsProperties) {
     const accountSize = plan.accountSize;
+    const bounds = tradingInputBounds();
     const earlyWithdrawal = plan.oneTimeEarlyWithdrawal;
     const fundedReset = plan.fundedReset;
     const purchaseDiscounts = purchaseCouponDiscounts(
@@ -203,6 +216,18 @@ export default function TradingInputs({
               );
     const isRiskCappedByContracts =
         feasibleRisk !== null && feasibleRisk < computedRisk;
+    const fundedSizing = {
+        instrument: instrument ?? undefined,
+        riskPerTrade: computedRisk,
+        stopPoints: stopPoints ?? undefined,
+    };
+    const sizingRefusal = simInputsSizingIssue(fundedSizing);
+    const placedRisk = placedFundedRisk({ ...fundedSizing, plan });
+    const isSizingHintShown = placedRisk !== null || sizingRefusal !== null;
+    const riskInputAria = {
+        'aria-describedby': isSizingHintShown ? SIZING_HINT_ID : undefined,
+        'aria-invalid': sizingRefusal !== null,
+    };
 
     return (
         <div
@@ -231,14 +256,14 @@ export default function TradingInputs({
                                 </label>
                                 <Input
                                     id="trials"
-                                    max={5000}
-                                    min={100}
+                                    max={bounds.trials.max}
+                                    min={bounds.trials.min}
                                     onChange={(event) =>
                                         onTrialsChange(
                                             Number(event.target.value),
                                         )
                                     }
-                                    step={100}
+                                    step={bounds.trials.step}
                                     type="number"
                                     value={trials}
                                 />
@@ -268,19 +293,19 @@ export default function TradingInputs({
                                 </label>
                                 <Input
                                     id="max-eval-days"
-                                    max={365}
-                                    min={10}
+                                    max={bounds.maxEvalDays.max}
+                                    min={bounds.maxEvalDays.min}
                                     onChange={(event) =>
                                         onMaxEvalDaysChange(
                                             Number(event.target.value),
                                         )
                                     }
-                                    step={5}
+                                    step={bounds.maxEvalDays.step}
                                     type="number"
                                     value={maxEvalDays}
                                 />
                                 <p className="mt-1 text-xs text-muted-foreground">
-                                    Trials that hit this limit count as timeouts
+                                    {inputHints.maxEvalDays}
                                 </p>
                             </div>
                             <div>
@@ -450,7 +475,7 @@ export default function TradingInputs({
                                     className="mb-1 block text-xs font-medium text-muted-foreground"
                                     htmlFor="rung-sizing"
                                 >
-                                    Unaffordable rung
+                                    {UNAFFORDABLE_RUNG_LABEL}
                                 </label>
                                 <select
                                     className="h-8 w-full rounded-md border bg-transparent px-2 text-xs"
@@ -462,12 +487,11 @@ export default function TradingInputs({
                                     }
                                     value={rungSizing}
                                 >
-                                    <option value="capToCushion">
-                                        Cap to cushion
-                                    </option>
-                                    <option value="skipIfUnaffordable">
-                                        Skip trade
-                                    </option>
+                                    {RUNG_SIZING_OPTIONS.map((option) => (
+                                        <option key={option} value={option}>
+                                            {RUNG_SIZING_LABELS[option]}
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
                         </div>
@@ -645,6 +669,7 @@ export default function TradingInputs({
                 </div>
                 {sizingMode === SizingMode.Dollar ? (
                     <Input
+                        {...riskInputAria}
                         max={accountSize}
                         min={1}
                         onChange={(event) =>
@@ -656,6 +681,7 @@ export default function TradingInputs({
                     />
                 ) : (
                     <Input
+                        {...riskInputAria}
                         max={5}
                         min={0.05}
                         onChange={(event) =>
@@ -729,6 +755,7 @@ export default function TradingInputs({
                                 Stop distance (points)
                             </label>
                             <Input
+                                {...riskInputAria}
                                 className="w-28"
                                 id="position-sizing-stop"
                                 min={0.25}
@@ -750,6 +777,22 @@ export default function TradingInputs({
                             ? `Capped to ${formatCurrency(feasibleRisk)}/trade in eval - ${evalContractCap ?? '?'} ${positionSizingSpec?.isMicro ? 'micro' : 'mini'} contract limit at a ${stopPoints}pt stop`
                             : `Fits within the eval contract limit at a ${stopPoints}pt stop`}
                     </p>
+                ) : null}
+                {isSizingHintShown ? (
+                    <div
+                        aria-live="polite"
+                        className="mt-1 flex flex-col gap-1 text-xs"
+                        id={SIZING_HINT_ID}
+                    >
+                        {placedRisk === null ? null : (
+                            <p className="text-muted-foreground">
+                                {describePlacedFundedRisk(placedRisk)}
+                            </p>
+                        )}
+                        {sizingRefusal === null ? null : (
+                            <p className="text-amber-400">{sizingRefusal}</p>
+                        )}
+                    </div>
                 ) : null}
             </div>
 
@@ -806,6 +849,9 @@ export default function TradingInputs({
                                 %
                             </span>
                         </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                            {EVAL_DISCOUNT_REBUY_NOTE}
+                        </p>
                     </div>
 
                     <div>

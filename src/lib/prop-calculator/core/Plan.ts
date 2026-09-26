@@ -16,10 +16,10 @@ import {
 import {
     DailyLossLimitBreachEffect,
     type DailyLossLimitConfig,
-    type DailyLossLimitContext,
     DailyLossLimitKind,
     dailyLossLimitTierBreakpoints,
     resolveDailyLossLimit,
+    type TrackedDailyLossLimitContext,
 } from './DailyLossLimit';
 import { resolveAffordableRisk } from './DayPolicy';
 import { type DrawdownStrategy } from './DrawdownStrategy';
@@ -39,6 +39,7 @@ import {
     type Dollars,
     dollars,
     type Fraction0to1,
+    isAtOrBelowWithinCentTolerance,
     percent,
     type ProfitShareMultiplier,
 } from './lib/units';
@@ -69,7 +70,7 @@ import { type PlanId } from './PlanId';
 import {
     TierBasis,
     tierBreakpoints,
-    type TierProfitContext,
+    type TrackedTierProfitContext,
 } from './TierBasis';
 import { TradingPhase } from './TradingPhase';
 
@@ -727,7 +728,7 @@ export abstract class Plan {
         );
     }
 
-    dailyLossLimitContext(state: AccountState): DailyLossLimitContext {
+    dailyLossLimitContext(state: AccountState): TrackedDailyLossLimitContext {
         return {
             ...this.tierProfitContext(state),
             isThresholdLocked: state.thresholdLocked,
@@ -798,7 +799,7 @@ export abstract class Plan {
         );
     }
 
-    tierProfitContext(state: AccountState): TierProfitContext {
+    tierProfitContext(state: AccountState): TrackedTierProfitContext {
         const profit = this.profitFor(state);
         return {
             peakDayCloseProfit: state.peakDayCloseProfit,
@@ -839,7 +840,10 @@ export abstract class Plan {
             this.dailyLossLimitFor(phase),
             this.dailyLossLimitContext(state),
         );
-        return limit !== null && state.todayPnL <= -limit;
+        return (
+            limit !== null &&
+            isAtOrBelowWithinCentTolerance(state.todayPnL, -limit)
+        );
     }
 
     clampedIdleDays(state: AccountState, phase: TradingPhase): number {
@@ -914,7 +918,9 @@ export abstract class Plan {
             this.payoutRequestCap !== null ||
             this.payoutBalanceShareCap !== null ||
             this.payoutCapOverride !== null ||
-            this.payoutProfitShare !== null
+            this.payoutProfitShare !== null ||
+            (this.takesOneTimeEarlyWithdrawal &&
+                this.oneTimeEarlyWithdrawal !== null)
         );
     }
 

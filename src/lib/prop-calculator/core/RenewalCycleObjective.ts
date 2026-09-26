@@ -72,7 +72,8 @@ export class RenewalCycleObjective {
             this.plan.feesUntilPass(failedAttemptDays, this.discounts) -
             this.plan.feesUntilPass(0, this.discounts);
         return (
-            monthlySubscriptionFee(this.plan.fees, this.discounts) * usedMonths -
+            monthlySubscriptionFee(this.plan.fees, this.discounts) *
+                usedMonths -
             billedDuringAttempt
         );
     }

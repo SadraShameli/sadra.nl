@@ -2,6 +2,8 @@ export { resolveDayPolicy, runDay } from './day';
 export {
     assertNoFundedDayPolicyConflict,
     type FundedDayPolicyConflictInputs,
+    type SimInputsSizingInputs,
+    simInputsSizingIssue,
 } from './dayPolicyValidation';
 export { simulate, simulatePortfolio } from './engine';
 export { runEvalAttempt, runEvalWithRetries } from './evalPhase';
@@ -47,4 +49,7 @@ export {
     type SimOutputs,
     type TrialOutcome,
 } from './types';
-export { assertPositiveSafeInteger } from './validation';
+export {
+    assertNonNegativeSafeInteger,
+    assertPositiveSafeInteger,
+} from './validation';

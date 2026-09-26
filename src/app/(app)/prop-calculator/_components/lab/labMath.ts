@@ -1,38 +1,3 @@
-export function binomialDistribution(N: number, p: number): number[] {
-    const out = Array.from({ length: N + 1 }, () => 0);
-    if (N <= 0) {
-        out[0] = 1;
-        return out;
-    }
-    const pp = Math.min(1, Math.max(0, p));
-    if (pp === 0) {
-        out[0] = 1;
-        return out;
-    }
-    if (pp === 1) {
-        out[N] = 1;
-        return out;
-    }
-    const logP = Math.log(pp);
-    const logQ = Math.log(1 - pp);
-    for (let k = 0; k <= N; k++) {
-        out[k] = Math.exp(logBinomCoef(N, k) + k * logP + (N - k) * logQ);
-    }
-    return out;
-}
-
-export function expectedMaxLossStreak(N: number, winrate: number): number {
-    if (N <= 0) return 0;
-    const q = 1 - winrate;
-    if (q <= 0) return 0;
-    if (q >= 1) return N;
-    const number_ = Math.log(N * winrate);
-    const den = Math.log(1 / q);
-    return !Number.isFinite(number_) || !Number.isFinite(den) || den <= 0
-        ? 0
-        : Math.max(0, number_ / den);
-}
-
 export function gamblersRuinAsymmetric(
     p: number,
     rr: number,
@@ -88,30 +53,10 @@ export function gamblersRuinAsymmetric(
     return previous[startIndex] ?? 0;
 }
 
-export function probAtLeastKofN(N: number, K: number, p: number): number {
-    if (K <= 0) return 1;
-    if (K > N) return 0;
-    const distribution = binomialDistribution(N, p);
-    let s = 0;
-    for (let k = K; k <= N; k++) s += distribution[k] ?? 0;
-    return s;
-}
-
 export function probStreakAtLeast(N: number, k: number, q: number): number {
     if (k <= 0) return 1;
     if (N < k || q <= 0) return 0;
     if (q >= 1) return 1;
     const expected = (N - k + 1) * Math.pow(q, k);
     return 1 - Math.exp(-expected);
-}
-
-function logBinomCoef(n: number, k: number): number {
-    if (k < 0 || k > n) return -Infinity;
-    if (k === 0 || k === n) return 0;
-    let s = 0;
-    const kk = Math.min(k, n - k);
-    for (let index = 1; index <= kk; index++) {
-        s += Math.log(n - kk + index) - Math.log(index);
-    }
-    return s;
 }

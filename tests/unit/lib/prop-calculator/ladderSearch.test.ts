@@ -326,7 +326,7 @@ describe('scoreLadder golden values (MFF Rapid EOD 50K, 40% WR, 1:2 R:R)', () =>
 });
 
 describe(
-    'scoreLadder carries real cushion across days — regression: a fixed ' +
+    'scoreLadder carries real cushion across days, regression: a fixed ' +
         "per-day cushion assumption (reusing day 1's full $2,000 room on " +
         'every later day regardless of losses already taken) silently ' +
         'overstated pass rate for any ladder whose own sum is well under ' +
@@ -685,7 +685,7 @@ describe('scoreLadder honours a terminating daily loss limit', () => {
     it(
         'a ladder whose rungs sum past the limit scores strictly worse under a ' +
             'hard limit than under an identical soft one, because reaching the ' +
-            'limit ends the account instead of ending the day — without this the ' +
+            'limit ends the account instead of ending the day, without this the ' +
             'ladder optimizer would keep recommending account-killing ladders ' +
             'that the simulator on the same screen reports as fatal',
         () => {

@@ -36,7 +36,11 @@ import {
     PayoutDayGateBasis,
     sessionDaysForCalendarDays,
 } from './FundedPayoutCycle';
-import { canTakeFundedReset, fundedResetFee } from './FundedReset';
+import {
+    canTakeFundedReset,
+    fundedResetFee,
+    fundedResetsBeforeFirstPayout,
+} from './FundedReset';
 import { type ContractCount, dollars, type Dollars } from './lib/units';
 import {
     awaitWorkerSignal,
@@ -48,6 +52,7 @@ import { PayoutFloorEffect } from './PayoutFloorEffect';
 import { type PeakRatchet } from './PeakRatchet';
 import { type Plan } from './Plan';
 import { type PlanId } from './PlanId';
+import { NO_PLAN_OPT_INS, type PlanOptIns, withPlanOptIns } from './PlanOptIns';
 import {
     capRiskToContractLimit,
     contractLimitAt,
@@ -60,6 +65,12 @@ export enum SweepVerdict {
     Continue = 'continue',
     Converged = 'converged',
     Extrapolate = 'extrapolate',
+}
+
+export interface FundedCycleBaselineRounding {
+    readonly coarseFromDollars: number;
+    readonly coarseStepDollars: number;
+    readonly topDollars: number;
 }
 
 export interface FundedStateValueConfig {
@@ -92,6 +103,7 @@ export interface FundedStateValueConfig {
 
 export interface FundedStateValueResult {
     readonly bustTerminalValue: number;
+    readonly cycleBaselineRounding: FundedCycleBaselineRounding | null;
     readonly dayPolicy: DayPolicy;
     readonly initialValue: number;
     readonly reachedStateCount: number;
@@ -105,6 +117,14 @@ export interface FundedStateValueResult {
 export interface SweepStep {
     readonly extrapolationFactor: number;
     readonly verdict: SweepVerdict;
+}
+
+export interface SweepToConvergenceOptions {
+    readonly extrapolate: (factor: number) => void;
+    readonly isMaxIterationsExplicit: boolean;
+    readonly maxIterations: number;
+    readonly monitor: ValueIterationMonitor;
+    readonly sweep: () => number;
 }
 
 const DEFAULT_ACTION_STEP_MULTIPLE = 0.05;
@@ -223,6 +243,7 @@ interface FundedLevel {
 
 interface FundedLevelSolve {
     readonly reachedStateCount: number;
+    readonly resetLayers: ReadonlyMap<number, FundedResetLayer>;
     readonly sweepCount: number;
     readonly unconvergedLevelCount: number;
     readonly valueErrorBound: number;
@@ -240,6 +261,11 @@ interface FundedPair {
     readonly idleDays: number;
     readonly qualifyingDays: number;
     readonly ratchet: number;
+}
+
+interface FundedResetLayer {
+    readonly breachValueBeforeFirstPayout: number;
+    readonly regimeZeroValues: Float64Array;
 }
 
 interface FundedSkeletonRow {
@@ -293,6 +319,12 @@ interface FundedSolveContext {
     readonly winrate: number;
 }
 
+interface FundedValueRange {
+    readonly base: number;
+    readonly copyOffset: number;
+    readonly length: number;
+}
+
 interface FundedWorkerConfigure {
     readonly config: SerializableFundedConfig;
     readonly kind: FundedWorkerMessageKind.Configure;
@@ -336,11 +368,14 @@ interface IdleGroupShape {
 
 type SerializableFundedConfig = Omit<FundedStateValueConfig, 'plan'> & {
     readonly planId: PlanId;
+    readonly planOptIns: PlanOptIns;
 };
+
+const registryPlanOptIns = new WeakMap<Plan, PlanOptIns>();
 
 const firmsRegistryCache: {
     module: null | typeof FirmsModule;
-    warmPromise: null | Promise<void>;
+    warmPromise: null | Promise<Error | null>;
 } = { module: null, warmPromise: null };
 
 export function defaultPayoutRegimeCap(plan: Plan): number {
@@ -353,20 +388,70 @@ export function defaultPayoutRegimeCap(plan: Plan): number {
 }
 
 export function findRegistryPlanId(plan: Plan): null | PlanId {
-    void warmFirmsRegistryCache();
-    if (firmsRegistryCache.module === null) return null;
-    const firm = firmsRegistryCache.module.findFirm(plan.id.firm);
-    if (firm === undefined) return null;
-    return firm.plans.includes(plan) ? plan.id : null;
+    return registryPlanOptIns.has(plan) || isRegistryPlan(plan)
+        ? plan.id
+        : null;
 }
 
-export async function warmFirmsRegistryCache(): Promise<void> {
+export function sweepToConvergence(options: SweepToConvergenceOptions): number {
+    const {
+        extrapolate,
+        isMaxIterationsExplicit,
+        maxIterations,
+        monitor,
+        sweep,
+    } = options;
+    const sweepCap = (): number =>
+        isMaxIterationsExplicit
+            ? maxIterations
+            : Math.max(maxIterations, monitor.plainSweepDeadline);
+    let sweeps = 0;
+    while (sweeps < sweepCap()) {
+        const step = monitor.record(sweep());
+        sweeps++;
+        if (step.verdict === SweepVerdict.Converged) break;
+        if (step.verdict === SweepVerdict.Extrapolate && sweeps < sweepCap()) {
+            extrapolate(step.extrapolationFactor);
+        }
+    }
+    return sweeps;
+}
+
+export async function warmFirmsRegistryCache(): Promise<Error | null> {
     firmsRegistryCache.warmPromise ??= (async () => {
         try {
             firmsRegistryCache.module = await import('../firms');
-        } catch {}
+            return null;
+        } catch (error) {
+            return error instanceof Error ? error : new Error(String(error));
+        }
     })();
-    await firmsRegistryCache.warmPromise;
+    return firmsRegistryCache.warmPromise;
+}
+
+export function withRegistryPlanOptIns(plan: Plan, optIns: PlanOptIns): Plan {
+    const optedIn = withPlanOptIns(plan, optIns);
+    if (optedIn !== plan && isRegistryPlan(plan)) {
+        registryPlanOptIns.set(optedIn, optIns);
+    }
+    return optedIn;
+}
+
+function assertFundedCycleSnapshotCounts(
+    plan: Plan,
+    fundedCycle: FundedCycleSnapshot,
+): void {
+    for (const [noun, count] of [
+        ['reset count', fundedCycle.fundedResetsUsed],
+        ['payout count', fundedCycle.payoutsIssued],
+        ['day gate progress', fundedCycle.dayGateProgress],
+    ] as const) {
+        if (!(Number.isSafeInteger(count) && count >= 0)) {
+            throw new Error(
+                `${plan.label}: FundedStateValue computeRisk needs a non-negative integer ${noun}, got ${count}`,
+            );
+        }
+    }
 }
 
 function breachOutcome(
@@ -970,10 +1055,10 @@ function contractionSweepCap(
 }
 
 function createFundedWorkerSolver(init: FundedWorkerInit): FundedWorkerSolver {
-    const { planId, ...settings } = init.config;
+    const { planId, planOptIns, ...settings } = init.config;
     const config: FundedStateValueConfig = {
         ...settings,
-        plan: reconstructPlanFromRegistry(planId),
+        plan: withPlanOptIns(reconstructPlanFromRegistry(planId), planOptIns),
     };
     const snapshot = new Float64Array(init.snapshotSAB);
     const context = buildFundedSolveContext(config, (key) => {
@@ -1023,6 +1108,30 @@ function cycleBaselineRadixAt(
 
 function cycleBaselineRadixFor(regime: number, gridSize: number): number {
     return regime === 0 ? 1 : gridSize;
+}
+
+function cycleBaselineRoundingOf(
+    context: FundedSolveContext,
+): FundedCycleBaselineRounding | null {
+    const isBaselineTracked = Array.from(
+        { length: context.payoutRegimeCap },
+        (_, index) => index + 1,
+    ).some(
+        (regime) =>
+            !isLevelSkipped(context, regime, true) ||
+            !isLevelSkipped(context, regime, false),
+    );
+    if (!isBaselineTracked) return null;
+    const grid = context.cycleBaselineGrid;
+    const topDollars = grid.dollarsAt(grid.size - 1);
+    for (let index = 1; index < grid.size; index++) {
+        const coarseFromDollars = grid.dollarsAt(index - 1);
+        const coarseStepDollars = grid.dollarsAt(index) - coarseFromDollars;
+        if (coarseStepDollars > context.cushionStepDollars + BUCKET_EPSILON) {
+            return { coarseFromDollars, coarseStepDollars, topDollars };
+        }
+    }
+    return null;
 }
 
 function cycleBestDayIndex(
@@ -1313,17 +1422,7 @@ function fundedResetLayerCountOf(plan: Plan, payoutRegimeCap: number): number {
             );
         }
     }
-    let layerCount = 0;
-    while (
-        canTakeFundedReset(plan, {
-            closedForInactivity: false,
-            payoutsIssued: 0,
-            resetsUsed: layerCount,
-        })
-    ) {
-        layerCount++;
-    }
-    return layerCount;
+    return fundedResetsBeforeFirstPayout(plan);
 }
 
 function groupCountAt(context: FundedSolveContext, regime: number): number {
@@ -1426,6 +1525,15 @@ function isLevelSkippedFor(
         regime > 0 &&
         (plan.isAccountConcluded(regime) ||
             (!isLocked && !isUnlockedPostPayoutReachable))
+    );
+}
+
+function isRegistryPlan(plan: Plan): boolean {
+    void warmFirmsRegistryCache();
+    return (
+        firmsRegistryCache.module
+            ?.findFirm(plan.id.firm)
+            ?.plans.includes(plan) === true
     );
 }
 
@@ -1612,8 +1720,83 @@ function reconstructPlanFromRegistry(planId: PlanId): Plan {
     return plan;
 }
 
+function regimeZeroRanges(context: FundedSolveContext): FundedValueRange[] {
+    const levels: { cushionBucketCount: number; level: FundedLevel }[] = [
+        {
+            cushionBucketCount: context.lockedCushionBucketCount,
+            level: {
+                isLocked: true,
+                regime: 0,
+                thresholdDollars: context.lockedThreshold,
+            },
+        },
+        ...Array.from({ length: context.offsetBucketCount }, (_, offset) => ({
+            cushionBucketCount: context.unlockedCushionBucketCount,
+            level: {
+                isLocked: false,
+                regime: 0,
+                thresholdDollars:
+                    context.initialThreshold +
+                    offset * context.cushionStepDollars,
+            },
+        })),
+    ];
+    let copyOffset = 0;
+    return levels
+        .map(({ cushionBucketCount, level }) => {
+            const length =
+                groupCountAt(context, 0) *
+                context.idleKeyRadix *
+                cushionBucketCount;
+            const range = {
+                base: levelBaseKey(context, level),
+                copyOffset,
+                length,
+            };
+            copyOffset += length;
+            return range;
+        })
+        .toSorted((a, b) => a.base - b.base);
+}
+
+function regimeZeroValuesOf(
+    context: FundedSolveContext,
+    values: Float64Array,
+): Float64Array {
+    const ranges = regimeZeroRanges(context);
+    const copy = new Float64Array(
+        ranges.reduce((total, range) => total + range.length, 0),
+    );
+    for (const range of ranges) {
+        copy.set(
+            values.subarray(range.base, range.base + range.length),
+            range.copyOffset,
+        );
+    }
+    return copy;
+}
+
 function requireFirmsModule(): typeof FirmsModule {
     return tsxRequire('../firms', import.meta.url) as typeof FirmsModule;
+}
+
+function resetLayerContext(
+    context: FundedSolveContext,
+    values: Float64Array,
+    resetLayer: FundedResetLayer,
+): FundedSolveContext {
+    const ranges = regimeZeroRanges(context);
+    const { regimeZeroValues } = resetLayer;
+    return {
+        ...context,
+        breachValueBeforeFirstPayout: resetLayer.breachValueBeforeFirstPayout,
+        readValue: (key) => {
+            const range = valueRangeContaining(ranges, key);
+            return range === null
+                ? (values[key] ?? 0)
+                : (regimeZeroValues[range.copyOffset + key - range.base] ?? 0);
+        },
+    };
 }
 
 function resolveCycleBestDayGrid(options: {
@@ -1666,11 +1849,7 @@ function resolvePayoutRegimeCap(plan: Plan, payoutRegimeCap: number): number {
             ? 'its calendar payout day gate restarts at each payout, and a regime cap of 0 would restore the post-payout gate progress as if no payout had happened'
             : plan.takesOneTimeEarlyWithdrawal
               ? 'it takes the one-time early withdrawal, which a regime cap of 0 would let the trader take again after every payout'
-              : canTakeFundedReset(plan, {
-                      closedForInactivity: false,
-                      payoutsIssued: 0,
-                      resetsUsed: 0,
-                  })
+              : fundedResetsBeforeFirstPayout(plan) > 0
                 ? 'it takes a funded reset, allowed only before the first payout, and a regime cap of 0 cannot tell a breach before the first payout from one after it'
                 : null;
     if (conflict !== null) {
@@ -2000,6 +2179,7 @@ function solveFundedLevels(
     let reachedStateCount = 0;
     let sweepCount = 0;
     let valueErrorBound = 0;
+    const resetLayers = new Map<number, FundedResetLayer>();
 
     const workerPool =
         workers === null
@@ -2086,38 +2266,18 @@ function solveFundedLevels(
                 contraction,
                 convergenceTolerance,
             );
-            const sweepCapForThisLevel = (): number =>
-                isMaxIterationsPerLevelExplicit
-                    ? maxIterationsPerLevel
-                    : Math.max(
-                          maxIterationsPerLevel,
-                          monitor.plainSweepDeadline,
-                      );
-            for (
-                let iteration = 0;
-                iteration < sweepCapForThisLevel();
-                iteration++
-            ) {
-                const maxDelta = sweepLevel(
-                    level,
-                    cushionBucketCount,
-                    workingBucketCount,
-                );
-                sweepCount++;
-                if (iteration === 0) reachedStateCount += stateCount;
-                const step = monitor.record(maxDelta);
-                if (step.verdict === SweepVerdict.Converged) break;
-                if (
-                    step.verdict === SweepVerdict.Extrapolate &&
-                    iteration + 1 < sweepCapForThisLevel()
-                ) {
-                    extrapolateLevel(
-                        level,
-                        stateCount,
-                        step.extrapolationFactor,
-                    );
-                }
-            }
+            const levelSweeps = sweepToConvergence({
+                extrapolate: (factor) => {
+                    extrapolateLevel(level, stateCount, factor);
+                },
+                isMaxIterationsExplicit: isMaxIterationsPerLevelExplicit,
+                maxIterations: maxIterationsPerLevel,
+                monitor,
+                sweep: () =>
+                    sweepLevel(level, cushionBucketCount, workingBucketCount),
+            });
+            sweepCount += levelSweeps;
+            if (levelSweeps > 0) reachedStateCount += stateCount;
             if (!monitor.isConverged) unconvergedLevelCount++;
             valueErrorBound += monitor.errorBound;
         }
@@ -2176,6 +2336,13 @@ function solveFundedLevels(
                 true,
                 layer < topLayer && mainContext.horizonHazard === 0,
             );
+            if (layer > 0) {
+                resetLayers.set(layer, {
+                    breachValueBeforeFirstPayout:
+                        mainContext.breachValueBeforeFirstPayout,
+                    regimeZeroValues: regimeZeroValuesOf(mainContext, values),
+                });
+            }
         }
     } finally {
         if (workers === null) workerPool?.terminate();
@@ -2183,6 +2350,7 @@ function solveFundedLevels(
 
     return {
         reachedStateCount,
+        resetLayers,
         sweepCount,
         unconvergedLevelCount,
         valueErrorBound,
@@ -2309,7 +2477,12 @@ function toSerializableConfig(
     config: FundedStateValueConfig,
 ): SerializableFundedConfig {
     const { plan, ...settings } = config;
-    return { ...settings, planId: plan.id, warmStartValues: undefined };
+    return {
+        ...settings,
+        planId: plan.id,
+        planOptIns: registryPlanOptIns.get(plan) ?? NO_PLAN_OPT_INS,
+        warmStartValues: undefined,
+    };
 }
 
 function tradeOutcome(
@@ -2414,6 +2587,27 @@ function unlockedKey(
             context.unlockedCushionBucketCount +
         cushionIndex
     );
+}
+
+function valueRangeContaining(
+    ranges: readonly FundedValueRange[],
+    key: number,
+): FundedValueRange | null {
+    let low = 0;
+    let high = ranges.length - 1;
+    while (low <= high) {
+        const middle = (low + high) >> 1;
+        const range = ranges[middle];
+        if (range === undefined) return null;
+        if (key < range.base) {
+            high = middle - 1;
+        } else if (key >= range.base + range.length) {
+            low = middle + 1;
+        } else {
+            return range;
+        }
+    }
+    return null;
 }
 
 function warmStartValuesFor(
@@ -2606,6 +2800,10 @@ export class FundedWorkerSession {
         snapshot: Float64Array,
     ): FundedWorkerPool | null {
         this.solves++;
+        if (findRegistryPlanId(config.plan) === null) {
+            this.release();
+            return null;
+        }
         if (this.pool?.fits(context)) {
             this.pool.configure(config, snapshot);
             return this.pool;
@@ -2731,7 +2929,7 @@ export function computeFundedStateValue(
     const { plan } = config;
     if (!isFundedDpEligible(plan)) {
         throw new Error(
-            `${plan.label}: not eligible for FundedStateValue DP (call isFundedDpEligible first) -- its funded drawdown is intraday-trailing, its funded daily loss limit scales continuously with peak-day-close profit (PeakProfitShare), it has no funded drawdown lock and no ReleaseFloor payout floor effect, or its payoutCapOverride is a QualifyingDaysMilestonePayoutCap (keyed on cumulative qualifying days, which this DP cannot track exactly)`,
+            `${plan.label}: not eligible for FundedStateValue DP (call isFundedDpEligible first): its funded drawdown is intraday-trailing, its funded daily loss limit scales continuously with peak-day-close profit (PeakProfitShare), it has no funded drawdown lock and no ReleaseFloor payout floor effect, or its payoutCapOverride is a QualifyingDaysMilestonePayoutCap (keyed on cumulative qualifying days, which this DP cannot track exactly)`,
         );
     }
     const stopRule: DayStopRule = config.stopRule ?? {
@@ -2770,7 +2968,19 @@ export function computeFundedStateValue(
 
     const initialValue = values[initialStateKey(mainContext)] ?? 0;
 
-    const policyCache = new Map<number, number[][][]>();
+    const layerPolicies = Array.from(
+        { length: mainContext.fundedResetLayerCount + 1 },
+        (_, layer) => {
+            const resetLayer = levelSolve.resetLayers.get(layer);
+            return {
+                cache: new Map<number, number[][][]>(),
+                context:
+                    resetLayer === undefined
+                        ? mainContext
+                        : resetLayerContext(mainContext, values, resetLayer),
+            };
+        },
+    );
 
     function cycleBaselineIndexFor(
         regime: number,
@@ -2788,10 +2998,26 @@ export function computeFundedStateValue(
         tradeIndexToday: number,
         fundedCycle?: FundedCycleSnapshot,
     ): number {
+        if (fundedCycle !== undefined) {
+            assertFundedCycleSnapshotCounts(plan, fundedCycle);
+        }
         const regime = Math.min(
             fundedCycle?.payoutsIssued ?? 0,
             payoutRegimeCap,
         );
+        const resetLayer =
+            regime === 0 && fundedCycle !== undefined
+                ? Math.min(
+                      fundedCycle.fundedResetsUsed,
+                      mainContext.fundedResetLayerCount,
+                  )
+                : 0;
+        const layerPolicy = layerPolicies[resetLayer];
+        if (layerPolicy === undefined) {
+            throw new Error(
+                `${plan.label}: FundedStateValue computeRisk has no policy for reset layer ${resetLayer}`,
+            );
+        }
         if (isLevelSkipped(mainContext, regime, state.thresholdLocked)) {
             throw new Error(
                 `${plan.label}: FundedStateValue computeRisk was asked for a ${state.thresholdLocked ? 'locked' : 'unlocked'} state after ${regime} payout(s), which this plan can never reach (the account concludes there, or a payout always locks it), so no policy was solved for it`,
@@ -2809,7 +3035,7 @@ export function computeFundedStateValue(
             idleDays: plan.clampedIdleDays(state, TradingPhase.Funded),
             qualifyingDays: Math.min(
                 mainContext.qualifyingDayKeyRadix - 1,
-                Math.max(0, Math.floor(fundedCycle?.dayGateProgress ?? 0)),
+                fundedCycle?.dayGateProgress ?? 0,
             ),
             ratchet: mainContext.peakRatchet.committedBandOf(state),
         };
@@ -2852,10 +3078,10 @@ export function computeFundedStateValue(
                   pair,
                   cushionStartIndex,
               );
-        let policyTables = policyCache.get(cacheKey);
+        let policyTables = layerPolicy.cache.get(cacheKey);
         if (policyTables === undefined) {
             policyTables = solveDayTreeOnce(
-                mainContext,
+                layerPolicy.context,
                 {
                     ...level,
                     ...pair,
@@ -2865,7 +3091,7 @@ export function computeFundedStateValue(
                 workingBucketCount,
                 FundedDayTreePurpose.Policy,
             ).policyTables;
-            policyCache.set(cacheKey, policyTables);
+            layerPolicy.cache.set(cacheKey, policyTables);
         }
         const reach = mainContext.peakRatchet.reachBandOf(state) - pair.ratchet;
         return (
@@ -2883,6 +3109,7 @@ export function computeFundedStateValue(
 
     return {
         bustTerminalValue: mainContext.bustTerminalValue,
+        cycleBaselineRounding: cycleBaselineRoundingOf(mainContext),
         dayPolicy,
         initialValue,
         reachedStateCount: levelSolve.reachedStateCount,

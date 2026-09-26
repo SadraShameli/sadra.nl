@@ -3,9 +3,19 @@ import { describe, expect, it } from 'vitest';
 import {
     E8FuturesVariant,
     FirmId,
+    FtmoFuturesVariant,
+    FundedNextVariant,
+    InstrumentSymbol,
+    TradeifyVariant,
     TradingFirm,
+    TradingPhase,
 } from '~/lib/prop-calculator/core';
-import { ALL_FIRMS, findFirm } from '~/lib/prop-calculator/firms';
+import {
+    ALL_FIRMS,
+    buildMffuRapidLivePlan,
+    findFirm,
+    LIVE_PLAN_BUILDERS,
+} from '~/lib/prop-calculator/firms';
 import { E8Futures } from '~/lib/prop-calculator/firms/e8futures/E8Futures';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 
@@ -163,18 +173,50 @@ describe('TradingFirm.notes (live-verified 2026-09-10, MFFU only)', () => {
         ).toBe(true);
     });
 
-    it('Apex documents the SAVENOW scope caveat with its confirmed percentage and exclusion warning, the March 1, 2026 fee-model change, and the unconfirmed 5-Pack bundle', () => {
+    it('Apex documents the SAVENOW scope with its confirmed percentage, the March 1, 2026 fee-model change, and the product-picker 5-Pack bundle prices', () => {
         const notes = findFirm(FirmId.Apex)?.notes ?? [];
         expect(notes.some((note) => note.includes('up to 90% off'))).toBe(true);
-        expect(
-            notes.some((note) =>
-                note.includes('excluded from resets and PA activation fees'),
-            ),
-        ).toBe(true);
         expect(notes.some((note) => note.includes('March 1, 2026'))).toBe(true);
         expect(
             notes.some((note) => note.includes('5-Pack Evaluation Bundle')),
         ).toBe(true);
+    });
+
+    it('Apex drops the unsourced SAVENOW exclusion from resets and PA activation fees and cites the Coupon Codes article instead (N-33)', () => {
+        const notes = findFirm(FirmId.Apex)?.notes ?? [];
+        const savenowNote = notes.find((note) => note.includes('SAVENOW'));
+        for (const note of notes) {
+            expect(note).not.toContain(
+                'excluded from resets and PA activation fees',
+            );
+        }
+        expect(savenowNote).toContain(
+            "No source read states whether SAVENOW also discounts the PA activation fee: the Coupon Codes help article says 'coupon codes cannot be applied retroactively'",
+        );
+        expect(savenowNote).toContain(
+            'a discounted PA Activation Fee does not travel with an Evaluation purchased during a promotion',
+        );
+        expect(savenowNote).toContain(
+            'Apex sells no resets (a failed Evaluation is re-bought), so under decision T9 the --eval-discount percentage prices those re-buys too',
+        );
+    });
+
+    it('Apex says a re-buy after the SAVENOW expiry is still priced at the --eval-discount rate under T9, so it is under-priced (N-33)', () => {
+        const savenowNote = findFirm(FirmId.Apex)?.notes.find((note) =>
+            note.includes('SAVENOW'),
+        );
+        expect(savenowNote).toContain(
+            'The simulation has no calendar dates, so a re-buy made after the code expires on 2026-09-27 is still priced at the --eval-discount rate under decision T9, below the no-code price it would then cost: keeping the SAVENOW percentage under-prices every such re-buy',
+        );
+    });
+
+    it('Apex lists the No Activation Fee Intraday 5-Pack prices from the product picker (N-33)', () => {
+        const packNote = findFirm(FirmId.Apex)?.notes.find((note) =>
+            note.includes('5-Pack Evaluation Bundle'),
+        );
+        expect(packNote).toContain(
+            'No Activation Fee Intraday 25K $2,950, 50K $3,450, 100K $4,450, 150K $8,950',
+        );
     });
 
     it('TopStep documents the Responsible Trading Discount as a structural price variant, not a coupon code', () => {
@@ -539,6 +581,423 @@ describe('TradingFirm.notes (live-verified 2026-09-10, MFFU only)', () => {
         ).toBe(true);
         expect(
             notes.some((note) => note.includes('$328/$428 (80%/100% payout)')),
+        ).toBe(true);
+    });
+
+    it('the Alpha Qualified Reset note states how optimize dp values the reset, never that it does not model it (N-34, WP24)', () => {
+        const notes = findFirm(FirmId.AlphaFutures)?.notes ?? [];
+        const resetNote = notes.find((note) =>
+            note.startsWith('The Qualified Account Reset'),
+        );
+
+        expect(resetNote).toBeDefined();
+        expect(resetNote).not.toContain('does not model the reset');
+        expect(resetNote).toContain(
+            "optimize dp values the Qualified Reset exactly: a breach before the first payout is worth the next reset layer's start value less the discounted reset fee, and an inactivity closure is never reset",
+        );
+    });
+
+    it('no firm note names the deleted tryFundedPayout; payout notes name FundedCycleTracker.tryPayout instead (WP24)', () => {
+        const notes = ALL_FIRMS.flatMap((firm) => firm.notes);
+
+        expect(notes.some((note) => note.includes('tryFundedPayout'))).toBe(
+            false,
+        );
+        for (const firmId of [FirmId.E8Futures, FirmId.Lucid]) {
+            expect(
+                (findFirm(firmId)?.notes ?? []).some((note) =>
+                    note.includes('FundedCycleTracker.tryPayout'),
+                ),
+            ).toBe(true);
+        }
+    });
+});
+
+function firmNotes(firmId: FirmId): readonly string[] {
+    const firm = findFirm(firmId);
+    if (firm === undefined) throw new Error(`firm ${firmId} not registered`);
+    return firm.notes;
+}
+
+function firmPlans(firmId: FirmId): TradingFirm['plans'] {
+    const firm = findFirm(firmId);
+    if (firm === undefined) throw new Error(`firm ${firmId} not registered`);
+    return firm.plans;
+}
+
+function hasNoteContaining(firmId: FirmId, phrase: string): boolean {
+    return firmNotes(firmId).some((note) => note.includes(phrase));
+}
+
+function noteOf(firmId: FirmId, marker: string): string {
+    const note = firmNotes(firmId).find((candidate) =>
+        candidate.includes(marker),
+    );
+    if (note === undefined) {
+        throw new Error(`no ${firmId} note contains "${marker}"`);
+    }
+    return note;
+}
+
+describe('firm notes match the current engine (WP26 notes audit)', () => {
+    it('no firm note says an unset minPayoutRequest inherits minPayoutProfit, since the Plan default is $0', () => {
+        const offenders = ALL_FIRMS.filter((firm) =>
+            firm.notes.some((note) => note.includes('inherit minPayoutProfit')),
+        ).map((firm) => firm.id);
+
+        expect(offenders).toStrictEqual([]);
+        for (const firmId of [
+            FirmId.Apex,
+            FirmId.Lucid,
+            FirmId.Mffu,
+            FirmId.Tradeify,
+        ]) {
+            expect(
+                hasNoteContaining(firmId, 'minPayoutRequest defaults to $0') ||
+                    hasNoteContaining(firmId, 'default to $0'),
+            ).toBe(true);
+        }
+    });
+
+    it('no firm note says the engine lacks an eval/funded idle-day split, and the notes that rely on it name evalMaxConsecutiveIdleDays', () => {
+        const offenders = ALL_FIRMS.filter((firm) =>
+            firm.notes.some(
+                (note) =>
+                    note.includes('no eval/funded split') ||
+                    note.includes('no eval/funded phase split'),
+            ),
+        ).map((firm) => firm.id);
+
+        expect(offenders).toStrictEqual([]);
+        for (const [firmId, idleDays] of [
+            [FirmId.Apex, 30],
+            [FirmId.TopStep, 30],
+            [FirmId.Tradeify, 7],
+        ] as const) {
+            expect(
+                hasNoteContaining(firmId, 'evalMaxConsecutiveIdleDays'),
+            ).toBe(true);
+            const plans = firmPlans(firmId).filter(
+                (plan) => !plan.isInstantFunded,
+            );
+            expect(plans.length).toBeGreaterThan(0);
+            for (const plan of plans) {
+                expect(plan.maxConsecutiveIdleDaysFor(TradingPhase.Eval)).toBe(
+                    idleDays,
+                );
+                expect(
+                    plan.maxConsecutiveIdleDaysFor(TradingPhase.Funded),
+                ).toBe(idleDays);
+            }
+        }
+    });
+
+    it('no firm note uses an em dash', () => {
+        const offenders = ALL_FIRMS.filter((firm) =>
+            firm.notes.some((note) => note.includes('\u{2014}')),
+        ).map((firm) => firm.id);
+
+        expect(offenders).toStrictEqual([]);
+    });
+
+    it('Alpha Futures live note counts the other live-plan firms from the registry and describes the shared payoutFloor settings and the DLL choice', () => {
+        const note = noteOf(FirmId.AlphaFutures, 'AlphaFuturesLive.ts');
+        const otherLiveFirms = LIVE_PLAN_BUILDERS.keys()
+            .filter((firmId) => firmId !== FirmId.AlphaFutures)
+            .toArray();
+
+        expect(note).toContain(`used by ${otherLiveFirms.length} other firms`);
+        expect(note).toContain('the same two settings TptLive.ts uses');
+        expect(note).not.toContain('more permissive formula than TptLive.ts');
+        expect(note).not.toContain('XOR');
+        expect(note).toContain(
+            'LivePlan itself accepts a liveDailyLossLimit alongside liveDrawdown',
+        );
+        expect(note).not.toContain(' -- ');
+    });
+
+    it('Alpha Futures DIRECT35 note calls it a third typed code applied to no list price', () => {
+        const note = noteOf(FirmId.AlphaFutures, 'DIRECT35');
+
+        expect(note).toContain('a third typed code, DIRECT35 (35% off)');
+        expect(note).not.toContain('sitewide TRADINGVIEW figure');
+        expect(note).toContain('not applied to the list prices');
+    });
+
+    it('E8 Zero lock note puts the lock on the Performance-stage fundedDrawdown only', () => {
+        const note = noteOf(FirmId.E8Futures, 'LockAtPlanFloor added on top');
+
+        expect(note).toContain(
+            "E8 Zero's Performance-stage drawdown (fundedDrawdown) locks",
+        );
+        expect(note).toContain('the Challenge-stage drawdown never locks');
+        expect(note).not.toContain(' -- ');
+    });
+
+    it('FTMO retry note names plan.retryFee and the reset-or-re-buy choice, not fees.reset alone', () => {
+        const note = noteOf(FirmId.FtmoFutures, 'runEvalWithRetries');
+
+        expect(note).toContain('charges plan.retryFee on every failed');
+        expect(note).toContain('retryPath');
+        expect(note).not.toContain('charges fees.reset');
+        expect(note).toContain('--monthly-discount');
+    });
+
+    it('FTMO daily loss limit note lists two open gaps and states the commission-aware per-trade cap', () => {
+        const note = noteOf(FirmId.FtmoFutures, 'DailyLossLimitBreachEffect');
+
+        expect(note).toContain(
+            'Two gaps remain and must not be read as fixed.',
+        );
+        expect(note).not.toContain('Three gaps remain');
+        expect(note).not.toContain('one round-trip commission past the limit');
+        expect(note).toContain('closes exactly on the $1,000 limit');
+        expect(note).not.toContain('(3)');
+        expect(note).not.toContain('sums past $1,000');
+    });
+
+    it('FTMO retained-cushion note says a run can raise the $2,000 floor but never lower it', () => {
+        const note = noteOf(FirmId.FtmoFutures, 'minRetainedCushionOverride');
+
+        expect(note).not.toContain('so any run can lower it');
+        expect(note).toContain('never lower it below $2,000');
+        for (const variant of [
+            FtmoFuturesVariant.Growth,
+            FtmoFuturesVariant.Pro,
+        ]) {
+            const plan = findFirm(FirmId.FtmoFutures)?.findPlan({
+                accountSize: 50_000,
+                firm: FirmId.FtmoFutures,
+                variant,
+            });
+            expect(plan?.resolveRetainedCushion(0)).toBe(2000);
+        }
+    });
+
+    it('FundedNext notes state the current Rapid Daily limits, the Rapid Pro day gate basis, the Flex comparisons and the uncapped CLI copy count', () => {
+        const notes = firmNotes(FirmId.FundedNext);
+        for (const stale of [
+            'MyFundedFutures Pro=10',
+            "Rapid Daily's equivalent contract-limit figures were not visible on the same page pass and are left unset",
+            'the highest split of any plan modeled in this codebase',
+            'mirroring the identical pattern already used by Legacy/Rapid Pro/Rapid Daily',
+            'With maxFundedAccounts at 5 only the 5th-account 15% can apply in the engine',
+        ]) {
+            expect(notes.some((note) => note.includes(stale))).toBe(false);
+        }
+        for (const current of [
+            'PayoutDayGateBasis.QualifyingDaysSincePassOrPayout',
+            'the highest split of any FundedNext funded plan modeled here',
+            'the same figures Rapid Pro uses',
+            "the CLI's --copy-accounts is not capped at maxFundedAccounts",
+        ]) {
+            expect(notes.some((note) => note.includes(current))).toBe(true);
+        }
+    });
+
+    it('FundedNext Flex holds the highest trader share of any FundedNext funded plan, as its note says', () => {
+        const firm = findFirm(FirmId.FundedNext);
+        const flex = firm?.findPlan({
+            accountSize: 50_000,
+            firm: FirmId.FundedNext,
+            variant: FundedNextVariant.Flex,
+        });
+        const shares = (firm?.plans ?? []).flatMap((plan) =>
+            plan.payoutTiers.map((tier) => tier.traderShare),
+        );
+
+        expect(flex?.payoutTiers[0]?.traderShare).toBe(Math.max(...shares));
+    });
+
+    it('Lucid notes match the ProNoDll, LucidLive, LucidDirect, LucidMaxx and LucidDaily code', () => {
+        const notes = firmNotes(FirmId.Lucid);
+        for (const stale of [
+            'both LucidVariant.Pro and LucidVariant.ProNoDll therefore share',
+            "keys LucidLive's tiered contract limits on raw balance",
+            'Corrected to 5, the same payout-cadence-never-wired',
+            'left unset (the sensible default',
+            '$0 minPayoutRequest floor of $500',
+            'closing the exact gap the previous note flagged',
+            '(see their own notes above)',
+            'across every plan and every DLL/drawdown variant;',
+            'rather than left to silently inherit',
+            'fell back to TierBasis.LiveProfit',
+        ]) {
+            expect(notes.some((note) => note.includes(stale))).toBe(false);
+        }
+        for (const current of [
+            'LucidVariant.ProNoDll gets flatDailyLossLimitOf(null)',
+            'read at the session open through TierBasis.SessionOpenProfit',
+            'so the engine now sets it to 0',
+            'evalDailyLossLimit, a required field, is set to DailyLossLimitKind.None',
+            'the $500 minPayoutRequest floor',
+            'an earlier version of the previous note flagged as deliberately unbuilt',
+            '(see their own notes below)',
+            'while LucidMaxx, added later, leaves contractLimits unset',
+        ]) {
+            expect(notes.some((note) => note.includes(current))).toBe(true);
+        }
+    });
+
+    it('the Lucid live note says the lower COMEX limits cannot apply, because the engine has no COMEX instrument, only ES, MNQ and NQ (N-68, N-5)', () => {
+        const note = noteOf(FirmId.Lucid, 'LucidLive (live.md)');
+
+        expect(Object.values(InstrumentSymbol)).toStrictEqual([
+            InstrumentSymbol.ES,
+            InstrumentSymbol.MNQ,
+            InstrumentSymbol.NQ,
+        ]);
+        expect(note).toContain(
+            'the engine has no COMEX instrument (its instruments are ES, MNQ and NQ only), so the lower COMEX limits cannot apply to any modeled trade',
+        );
+        expect(note).not.toContain('overstates the size available on metals');
+    });
+
+    it('TopStep notes describe the current withdrawableAmount, the FTMO cushion override and the Consistency day gate', () => {
+        const notes = firmNotes(FirmId.TopStep);
+        for (const stale of [
+            'Replaced with LivePlan.withdrawableAmount(state),',
+            "so every other firm's conservative floor is unaffected",
+            'or a 40% consistency check with no profit floor at all',
+        ]) {
+            expect(notes.some((note) => note.includes(stale))).toBe(false);
+        }
+        for (const current of [
+            'Replaced with LivePlan.withdrawableAmount(state, retainedCushion)',
+            'FTMO Futures also sets its own override',
+            '3 trading days plus a 40% consistency check',
+        ]) {
+            expect(notes.some((note) => note.includes(current))).toBe(true);
+        }
+    });
+
+    it('Take Profit Trader notes name the unset fundedReset and LivePlan.maxContractsFor', () => {
+        const notes = firmNotes(FirmId.Tpt);
+
+        expect(
+            notes.some((note) =>
+                note.includes(
+                    "this engine's replacement model for a busted funded account is already a fresh eval cycle",
+                ),
+            ),
+        ).toBe(false);
+        expect(
+            notes.some((note) =>
+                note.includes('this plan sets no fundedReset'),
+            ),
+        ).toBe(true);
+        expect(
+            (findFirm(FirmId.Tpt)?.plans ?? []).every(
+                (plan) => plan.fundedReset === null,
+            ),
+        ).toBe(true);
+        expect(
+            notes.some((note) =>
+                note.includes('LivePlan.contractLimits, branching'),
+            ),
+        ).toBe(false);
+        expect(
+            notes.some((note) => note.includes('LivePlan.maxContractsFor')),
+        ).toBe(true);
+    });
+
+    it('Tradeify notes describe the Lucid DLL toggle as modeled and the Lightning reset figure as display-only', () => {
+        const notes = firmNotes(FirmId.Tradeify);
+        for (const stale of [
+            "the same judgement call already made for Lucid's DLL toggle",
+            "MyFundedFutures' Flex DLL add-on",
+            'reused as the effective cost of purchasing a replacement account',
+            'was not independently re-audited this pass',
+        ]) {
+            expect(notes.some((note) => note.includes(stale))).toBe(false);
+        }
+        expect(
+            notes.some((note) =>
+                note.includes('that the engine never charges'),
+            ),
+        ).toBe(true);
+        const lightning = findFirm(FirmId.Tradeify)?.findPlan({
+            accountSize: 50_000,
+            firm: FirmId.Tradeify,
+            variant: TradeifyVariant.Lightning,
+        });
+        expect(lightning?.isInstantFunded).toBe(true);
+    });
+});
+
+describe('MFF T17 note and FundedNext reset offer-basis disclosure (WP32: N-19, N-49)', () => {
+    it('MFF Rapid Live states that a balance exactly on the MLL closes the account (decision T17), and the live plan does so', () => {
+        const note = noteOf(
+            FirmId.Mffu,
+            'Rapid Live (modeled in MffuRapidLive.ts',
+        );
+        expect(note).toContain(
+            'a balance exactly on the MLL is a closure in this engine (decision T17)',
+        );
+        const plan = buildMffuRapidLivePlan();
+        const state = plan.initialState();
+        state.threshold = 0;
+        state.thresholdLocked = true;
+        state.balance = 0;
+        expect(plan.isBust(state)).toBe(true);
+        state.balance = 0.01;
+        expect(plan.isBust(state)).toBe(false);
+    });
+
+    it("FundedNext's fee note says article 14260538's worked example frames the Flex $77.99 reset as the offer price plus $8", () => {
+        const note = noteOf(
+            FirmId.FundedNext,
+            'FundedNext 50K fees are the no-code checkout price',
+        );
+        expect(note).toContain(
+            "article 14260538's own worked example frames the Flex 50K $77.99 reset as the $69.99 offer price plus $8",
+        );
+        expect(note).toContain(
+            'a reset bought without a promo code may cost more',
+        );
+    });
+
+    it('the Flex note carries the same offer-basis caveat on its $77.99 reset, which is the modeled fee', () => {
+        const note = noteOf(
+            FirmId.FundedNext,
+            'Flex is a fourth FundedNext Futures product',
+        );
+        expect(note).toContain(
+            "$77.99 reset fee (article 14260538's published Reset Price, apparently an offer-basis price; see the fee note)",
+        );
+        const flex = findFirm(FirmId.FundedNext)?.findPlan({
+            accountSize: 50_000,
+            firm: FirmId.FundedNext,
+            variant: FundedNextVariant.Flex,
+        });
+        expect(flex?.fees.reset).toBe(77.99);
+    });
+
+    it("no FundedNext note claims the reset article's worked examples use older figures than its table", () => {
+        expect(
+            hasNoteContaining(
+                FirmId.FundedNext,
+                'worked examples use older figures than its own table',
+            ),
+        ).toBe(false);
+        const note = noteOf(
+            FirmId.FundedNext,
+            'The FundedNext reset fee is not the eval fee',
+        );
+        expect(note).toContain(
+            'The Flex example uses the current Flex eval and reset figures, framed as the offer price plus a fixed amount',
+        );
+    });
+
+    it('FundedNext notes cite the reset article at its 2026-09-25 revision', () => {
+        expect(
+            hasNoteContaining(FirmId.FundedNext, 'dateModified 2026-09-03'),
+        ).toBe(false);
+        expect(
+            hasNoteContaining(
+                FirmId.FundedNext,
+                "14260538's Reset Price column (dateModified 2026-09-25",
+            ),
         ).toBe(true);
     });
 });

@@ -439,7 +439,7 @@ export const monteCarloArguments = {
     seed: { default: '42', description: 'RNG seed', type: 'string' },
     'stop-points': {
         description:
-            'Stop distance in points - enables contract-limit enforcement (caps risk to what --instrument allows), omit to leave risk uncapped',
+            'Stop distance in points - enables contract-limit enforcement (caps risk to what --instrument allows) and places funded flat and percent-of-cushion risk in whole contracts, at most the funded contract limit. Flat risk is rounded down, and a funded flat risk below one contract is refused; percent risk takes at least one contract. Required for --percent in optimize funded. Omit to leave risk uncapped',
         type: 'string',
     },
     trials: {
@@ -523,7 +523,7 @@ export const couponDiscountArguments = {
     'eval-discount': {
         default: '0',
         description:
-            'Coupon discount percent [0,100] off the one-time evaluation fee',
+            'Coupon discount percent [0,100] off the evaluation fee. It prices the first purchase and every re-buy after a failed attempt alike, so a code whose repeat purchase costs more than its first purchase (e.g. FundedNext RAPID) under-prices each retry; prop plans prints the firm notes',
         type: 'string',
     },
     'monthly-discount': {

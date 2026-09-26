@@ -11,7 +11,12 @@ export {
     ConsistencyScope,
     ConsistencyViolationEffect,
 } from './ConsistencyRule';
-export { TRADING_DAYS_PER_MONTH, TRADING_DAYS_PER_YEAR } from './constants';
+export {
+    CALENDAR_DAYS_PER_WEEK,
+    SESSION_DAYS_PER_CALENDAR_WEEK,
+    TRADING_DAYS_PER_MONTH,
+    TRADING_DAYS_PER_YEAR,
+} from './constants';
 export {
     type ContractLimitConfig,
     ContractLimitKind,
@@ -36,7 +41,9 @@ export {
     hasPeakShareDependency,
     resolveDailyLossLimit,
     scaleDailyLossLimit,
+    type TrackedDailyLossLimitContext,
 } from './DailyLossLimit';
+export { type DatedCharge } from './DatedCharge';
 export {
     canonicaliseLadder,
     computedDayPolicy,
@@ -51,14 +58,19 @@ export {
     ladderRungSchema,
     ladderRungsSchema,
     ladderSum,
+    placeWholeContractTrade,
     PNL_ONLY_STOP_RULE_KINDS,
+    PolicySizing,
+    policySizingOf,
     resolveAffordableRisk,
     resolveFundedTradeRisk,
     resolveTradeRisk,
     RungSizing,
     shouldStopDay,
+    type SizedTrade,
     stopLossCountSchema,
     stopTargetDollarsSchema,
+    type WholeContractTradeOptions,
 } from './DayPolicy';
 export {
     DrawdownKind,
@@ -102,6 +114,7 @@ export {
     describePayoutDayGate,
     type FundedCycleTracker,
     newFundedCycleTracker,
+    newFundedCycleTrackerAfterReset,
     type OneTimeEarlyWithdrawal,
     PayoutDayGateBasis,
     sessionDaysForCalendarDays,
@@ -112,11 +125,12 @@ export {
     describeFundedReset,
     describeFundedResetTerms,
     FUNDED_RESET_MECHANICS,
-    type FundedResetCharge,
     type FundedResetContext,
+    fundedResetDpModelSentence,
     FundedResetEligibility,
     fundedResetFee,
     type FundedResetPolicy,
+    fundedResetsBeforeFirstPayout,
     withFundedResetTaken,
 } from './FundedReset';
 export {
@@ -159,6 +173,8 @@ export {
     validateLadderGrid,
 } from './LadderSearch';
 export {
+    CENT_ROUNDING_TOLERANCE_IN_CENTS,
+    CENTS_PER_DOLLAR,
     type ContractCount,
     contractCountSchema,
     contracts,
@@ -169,6 +185,7 @@ export {
     fraction,
     type Fraction0to1,
     fractionSchema,
+    isAtOrBelowWithinCentTolerance,
     ONE_CENT,
     percent,
     type Percent0to100,
@@ -253,8 +270,10 @@ export {
     capRiskToContractLimit,
     contractLimitAt,
     evalContractLimit,
+    oneContractRisk,
     type PositionSizingConfig,
     resolvePositionSizing,
+    wholeContractRisk,
 } from './PositionSizing';
 export {
     RenewalCycleObjective,

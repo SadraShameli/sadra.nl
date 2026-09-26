@@ -16,7 +16,7 @@ const columns: Column[] = [
         heading: 'Tools',
         links: [
             { href: routes.portfolio, label: 'Portfolio' },
-            { href: routes.propCalculator, label: 'Prop calculator' },
+            { href: routes.propCalculator.index, label: 'Prop calculator' },
             { href: routes.tradeChecklist.index, label: 'Trade checklist' },
         ],
     },

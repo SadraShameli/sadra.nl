@@ -7,9 +7,13 @@ import {
     EodTrailingDrawdown,
     FirmId,
     fraction,
+    InstrumentSymbol,
     MffuVariant,
+    oneContractRisk,
     type Plan,
+    type PositionSizingConfig,
     replacementEconomics,
+    resolvePositionSizing,
     RetryKind,
 } from '~/lib/prop-calculator/core';
 import {
@@ -26,6 +30,8 @@ const WINRATE = fraction(0.5);
 const MAX_EVAL_DAYS = 1;
 const FUNDED_HORIZON_DAYS = 252;
 const MAX_SOLVES = 10;
+const K1_INSTRUMENT = InstrumentSymbol.MNQ;
+const K1_STOP_POINTS = 12.5;
 
 const EVAL_GRID = {
     actionStepDollars: 50,
@@ -127,6 +133,23 @@ function jointToyPlan(fees: JointToyFees, options: JointToyOptions = {}): Plan {
         ],
         profitTarget: dollars(options.profitTarget ?? 50),
     });
+}
+
+function k1PositionSizing(): PositionSizingConfig {
+    const positionSizing = resolvePositionSizing(K1_INSTRUMENT, K1_STOP_POINTS);
+    if (positionSizing === null) throw new Error('MNQ sizing did not resolve');
+    return positionSizing;
+}
+
+function multiDayToyObjective(): RenewalCycleObjective {
+    return buildObjective(
+        jointToyPlan(
+            { activation: 0, oneTimeEval: 10 },
+            { evalDrawdownAmount: 200, profitTarget: 200 },
+        ),
+        0,
+        20,
+    );
 }
 
 function onlyAfterOneDay(value: number): (days: number) => number {
@@ -542,12 +565,17 @@ describe(
     () => {
         it(
             'MFF Rapid EOD 50K: the average-reward DP policy beats the ' +
-                "best flat/percent candidate's expectedMonthlyNet, " +
+                "best flat/percent candidate's expectedMonthlyNet, every " +
+                'candidate placed in whole MNQ micros at a 12.5 point stop ' +
+                '($25 each, T33: percent-of-cushion needs a stop, and each ' +
+                'flat candidate is a whole number of contracts, at least ' +
+                'one, so it trades exactly as before), ' +
                 "measured both by the DP's own solved rate AND by " +
                 "simulate()'s empirical monthly net driven by the exact " +
                 'same policy, the same double check the original K1 ' +
                 'harness applied',
             () => {
+                const contractRisk = oneContractRisk(k1PositionSizing());
                 const plan = rapidEodPlan();
                 const rrRatio = 2;
                 const winrate = 0.4;
@@ -560,6 +588,12 @@ describe(
 
                 const flatCandidates = [200, 250, 300, 400];
                 const percentCandidates = [0.05, 0.075, 0.1, 0.15];
+                for (const risk of flatCandidates) {
+                    expect(Number.isSafeInteger(risk / contractRisk)).toBe(
+                        true,
+                    );
+                    expect(risk).toBeGreaterThanOrEqual(contractRisk);
+                }
 
                 let bestFlatMonthlyNet = -Infinity;
                 for (const evalRisk of flatCandidates) {
@@ -567,12 +601,14 @@ describe(
                         const out = simulate({
                             fundedHorizonDays,
                             fundedRiskPerTrade: fundedRisk,
+                            instrument: K1_INSTRUMENT,
                             maxEvalDays,
                             plan,
                             rebuyLagDays,
                             riskPerTrade: evalRisk,
                             rrRatio,
                             seed,
+                            stopPoints: K1_STOP_POINTS,
                             tradesPerDay,
                             trials: flatSweepTrials,
                             winrate,
@@ -587,12 +623,14 @@ describe(
                     const out = simulate({
                         fundedCushionPercent: fraction(percent),
                         fundedHorizonDays,
+                        instrument: K1_INSTRUMENT,
                         maxEvalDays,
                         plan,
                         rebuyLagDays,
                         riskPerTrade: 250,
                         rrRatio,
                         seed,
+                        stopPoints: K1_STOP_POINTS,
                         tradesPerDay,
                         trials: flatSweepTrials,
                         winrate,
@@ -738,6 +776,85 @@ describe('solveAverageRewardPolicy convergence', () => {
             expect(solution.ratePerDay).toBeCloseTo(11 / 1.5, 6);
         },
     );
+});
+
+describe('solveAverageRewardPolicy solve budget: the rate search from rate 0 on a multi-day joint toy (F=10, A=0, L=0, $200 eval drawdown and target, 20-day eval cap, $50 to $200 eval bets), whose eval policy changes with the rate, so h is convex and nonlinear and the search needs 7 solves', () => {
+    const RATE_TOLERANCE_PER_DAY = 0.05;
+    const ROOT_ROUNDING_DOLLARS = 1e-9;
+    const MULTI_DAY_TOY_SOLVES = 7;
+
+    function solveToy(maxSolves: number) {
+        return solveAverageRewardPolicy(
+            buildConfig(multiDayToyObjective(), {
+                evalGrid: { ...EVAL_GRID, maxActionDollars: 200 },
+                maxSolves,
+                rateTolerancePerDay: RATE_TOLERANCE_PER_DAY,
+                startRatePerDay: 0,
+            }),
+        );
+    }
+
+    it(`converges in ${MULTI_DAY_TOY_SOLVES} solves, so every cap from 2 to 6 below cuts a search that is still running`, () => {
+        const solution = solveToy(MAX_SOLVES);
+
+        expect(solution.status).toBe(RateSearchStatus.Converged);
+        expect(solution.trace).toHaveLength(MULTI_DAY_TOY_SOLVES);
+    });
+
+    it.each([2, 3, 4, 5, 6])(
+        'the trace at maxSolves %d stops at the cap and is the prefix of the trace at maxSolves + 4, so the cap truncates the path and never alters it',
+        (maxSolves) => {
+            const capped = solveToy(maxSolves);
+            const longer = solveToy(maxSolves + 4).trace;
+
+            expect(capped.status).toBe(RateSearchStatus.SolveCapReached);
+            expect(capped.trace).toHaveLength(maxSolves);
+            expect(capped.trace).toEqual(longer.slice(0, maxSolves));
+        },
+    );
+
+    it('approaches the root from one side over the whole path: every trace point has cycleValue >= 0 (up to float rounding at the root), h falls strictly at every step, and every step moves the rate up', () => {
+        const { status, trace } = solveToy(MAX_SOLVES);
+
+        expect(status).toBe(RateSearchStatus.Converged);
+        expect(trace[0]?.ratePerDay).toBe(0);
+        for (const point of trace) {
+            expect(point.cycleValue).toBeGreaterThanOrEqual(
+                -ROOT_ROUNDING_DOLLARS,
+            );
+        }
+        for (const [index, point] of trace.entries()) {
+            const previous = trace[index - 1];
+            if (previous === undefined) continue;
+            expect(point.ratePerDay).toBeGreaterThan(previous.ratePerDay);
+            expect(point.cycleValue).toBeLessThan(previous.cycleValue);
+        }
+    });
+
+    it('the cap lags by exactly one solve: maxSolves n - 1 reaches the cap and n converges, with the final step or the last point rate bounds within the rate tolerance', () => {
+        const needed = solveToy(MAX_SOLVES).trace.length;
+        const objective = multiDayToyObjective();
+        const underBudget = solveToy(needed - 1);
+        const atBudget = solveToy(needed);
+        const last = atBudget.trace.at(-1);
+        const previous = atBudget.trace.at(-2);
+        if (last === undefined || previous === undefined) {
+            throw new Error('expected at least two trace points');
+        }
+        const finalStep = Math.abs(last.ratePerDay - previous.ratePerDay);
+        const lastBoundsWidth =
+            Math.abs(last.cycleValue) *
+            (1 / objective.minCycleDays() -
+                1 / objective.maxExpectedCycleDays());
+
+        expect(underBudget.status).toBe(RateSearchStatus.SolveCapReached);
+        expect(underBudget.trace).toHaveLength(needed - 1);
+        expect(atBudget.status).toBe(RateSearchStatus.Converged);
+        expect(atBudget.trace).toHaveLength(needed);
+        expect(Math.min(finalStep, lastBoundsWidth)).toBeLessThanOrEqual(
+            RATE_TOLERANCE_PER_DAY,
+        );
+    });
 });
 
 describe('solveAverageRewardPolicy input validation', () => {

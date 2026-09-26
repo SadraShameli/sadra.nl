@@ -54,17 +54,17 @@ const BASE_DLL_TIER: DllTier = {
 const DLL_TIERS: readonly DllTier[] = [
     BASE_DLL_TIER,
     {
-        dailyLossLimit: dollars(5000),
+        dailyLossLimit: dollars(2500),
         maxContracts: contracts(5),
         minProfit: dollars(15_000),
     },
     {
-        dailyLossLimit: dollars(5500),
+        dailyLossLimit: dollars(3000),
         maxContracts: contracts(5),
         minProfit: dollars(20_000),
     },
     {
-        dailyLossLimit: dollars(6000),
+        dailyLossLimit: dollars(3500),
         maxContracts: contracts(5),
         minProfit: dollars(50_000),
     },

@@ -18,6 +18,7 @@ import {
     type Dollars,
     floorToWholeCents,
     type Fraction0to1,
+    isAtOrBelowWithinCentTolerance,
     ONE_CENT,
 } from './lib/units';
 import {
@@ -309,7 +310,10 @@ export class LivePlan {
 
     isDayLockedOut(state: LiveAccountState): boolean {
         const limit = this.dailyLossLimitFor(state);
-        return limit !== null && state.todayPnL <= -limit;
+        return (
+            limit !== null &&
+            isAtOrBelowWithinCentTolerance(state.todayPnL, -limit)
+        );
     }
 
     maxContractsFor(

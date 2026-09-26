@@ -211,7 +211,8 @@ describe('ladder scores carry standard errors', () => {
         expect(scores).toHaveLength(90);
         expect(Math.max(...days) - Math.min(...days)).toBeGreaterThan(10);
         const belowFloor = scores.filter(
-            (score) => !(score.costPerFundedStandardError > costNoiseFloor(score)),
+            (score) =>
+                !(score.costPerFundedStandardError > costNoiseFloor(score)),
         );
         expect(belowFloor.map((score) => score.ladder)).toStrictEqual([]);
     }, 60_000);

@@ -108,12 +108,12 @@ function toyPlan(profitTarget: number): Plan {
     });
 }
 
-describe('computeEvalStateValue backward induction — hand-computable toy cases', () => {
+describe('computeEvalStateValue backward induction, hand-computable toy cases', () => {
     it(
         'accountSize 1000 / drawdown 100 (cushion 100, threshold 900) / ' +
             'profitTarget 50 / one slot / one day: betting $50 at 1:2 either ' +
             'reaches profit 200 (pass) or drops to profit -50 without busting ' +
-            '(cushion 50 > 0), then times out — a terminal-value-only closed ' +
+            '(cushion 50 > 0), then times out, a terminal-value-only closed ' +
             'form (V(pass)=1, V(timeout)=0) collapses to V(initial) = winrate',
         () => {
             const plan = toyPlan(50);
@@ -134,7 +134,7 @@ describe('computeEvalStateValue backward induction — hand-computable toy cases
             'thresholdOffset=0, reached after a day-1 loss) = 0 (no single day-2 ' +
             'trade reaches profit 250 from there), so day 1 betting $50 or $100 ' +
             'both give 0.5*0.5 + 0.5*0 = 0.25, strictly beating the 0 from not ' +
-            'betting on day 1 — V(initial) = 0.25 exactly, threading the real ' +
+            'betting on day 1, V(initial) = 0.25 exactly, threading the real ' +
             'EodTrailingDrawdown ratchet and the bust-vs-timeout distinction ' +
             'through two linked days',
         () => {
@@ -190,7 +190,7 @@ describe('computeEvalStateValue backward induction — hand-computable toy cases
             'ever sees it (contractLimitAt(..., TradingPhase.Eval, ...) ' +
             'then capRiskToContractLimit, the literal engine functions, in ' +
             "the engine's own order), so neither win ($100 profit) nor lose " +
-            '(-$50) reaches the $150 target within the one-day cap — ' +
+            '(-$50) reaches the $150 target within the one-day cap, ' +
             "V(initial) = 0, strictly less than the uncapped $100 bet's " +
             'winrate-only V = 0.5, proving the contract-limit cap actually ' +
             "changed the DP's decision, not just that it ran without throwing",
@@ -223,17 +223,17 @@ describe('computeEvalStateValue backward induction — hand-computable toy cases
 });
 
 describe(
-    'computeEvalStateValue vs simulate() — real-plan integration ' +
+    'computeEvalStateValue vs simulate(), real-plan integration ' +
         "(pass-probability level: L1's terminalValueAtPass defaults to 1, " +
         "so V(initial) is a pass-probability functional, not yet L2's " +
-        'dollar-valued expectedNet — that requires wiring V(pass) to ' +
+        'dollar-valued expectedNet, that requires wiring V(pass) to ' +
         "V_funded, which is L2's job per the plan's own sequencing note)",
     () => {
         it(
             "a DP-driven run's empirical simulate() pass rate matches the " +
                 "DP's own predicted V(initial state) within Monte Carlo " +
                 'tolerance, for a real registered plan (MFF Rapid EOD 50K, ' +
-                'not a synthetic toy) — a short horizon and coarser grid ' +
+                'not a synthetic toy), a short horizon and coarser grid ' +
                 'steps keep this fast; the toy suite above already proves ' +
                 'the backward induction itself is exact at fine resolution, ' +
                 'so this test only has to prove the DP-to-simulate() wiring ' +
@@ -279,7 +279,7 @@ describe(
 );
 
 describe(
-    'L1 validation harness — DP-computed policy vs the current static ' +
+    'L1 validation harness, DP-computed policy vs the current static ' +
         "ladder, both driven through the real simulate(), per the plan's " +
         'own "do not trust the DP math in isolation" requirement (pass-' +
         "rate metric only at this L1 stage; L2's expectedNet comparison " +
@@ -290,7 +290,7 @@ describe(
                 'documented speed-optimal static ladder ([400, 600, 800, 200], ' +
                 "the same ladder scored in ladderSearch.test.ts's golden " +
                 "values) by well over the plan's own 3-percentage-point " +
-                'adopt threshold, at matched seed/trial count — an explicit ' +
+                'adopt threshold, at matched seed/trial count, an explicit ' +
                 'adopt verdict, not an assumed one',
             () => {
                 const plan = rapidEodPlan();
@@ -434,12 +434,12 @@ describe('isEvalDpEligible / computeEvalStateValue scope cut', () => {
 
     it(
         'a real, currently idle-limited eval plan (MFF Rapid EOD 50K, ' +
-            'maxConsecutiveIdleDays=7) is DP-eligible — isEvalDpEligible ' +
+            'maxConsecutiveIdleDays=7) is DP-eligible, isEvalDpEligible ' +
             'never excluded on maxConsecutiveIdleDays to begin with (it only ' +
             'checks drawdown kind and the peak-share daily-loss-limit ' +
             'dependency), so this pins idle-limited plans as eligible while ' +
             "confirming the other exclusion categories (Apex's " +
-            'IntradayTrailingDrawdown, peak-share DLL — both covered by the ' +
+            'IntradayTrailingDrawdown, peak-share DLL, both covered by the ' +
             'scope-cut cases above) stay excluded, independent of ' +
             'maxConsecutiveIdleDays',
         () => {
@@ -467,7 +467,7 @@ describe('idle-days DP state dimension', () => {
             '(toyPlan(250), 2-day cap, actionGrid [50,100]) was measured ' +
             'against the unmodified pre-idle-days engine at ' +
             'initialValue=0.25, reachedStateCount=17, risk@0=50 (matching ' +
-            "the existing hand-derived 'two linked days' toy case above) — " +
+            "the existing hand-derived 'two linked days' toy case above), " +
             'asserting those exact, previously-measured figures here pins ' +
             'the post-change engine to produce identical output for every ' +
             'plan that never sets the field',
@@ -490,30 +490,30 @@ describe('idle-days DP state dimension', () => {
     it(
         'accountSize 1000 / drawdown 100 / profitTarget 0 / minTradingDays ' +
             '0 (deliberately already satisfied on its own, so it cannot ' +
-            'itself force any trading — this isolates the idle-days effect ' +
+            'itself force any trading, this isolates the idle-days effect ' +
             'from the separate tradingDays gate covered by its own ' +
             'describe block below) / maxConsecutiveIdleDays 1 / 2-day cap / ' +
             'one $50-at-1:2 slot per day: with minTradingDays 0, idling is ' +
             'a free, guaranteed pass (profit stays 0 >= profitTarget 0) ' +
-            'whenever nothing else forces a trade — proven directly below ' +
+            'whenever nothing else forces a trade, proven directly below ' +
             'by clearing maxConsecutiveIdleDays to null on the identical ' +
             'config (V=1, decided at the very first day close, no need to ' +
             'reach the 2-day cap at all). But maxConsecutiveIdleDays=1 ' +
             'busts on the very first idle day, so the real engine is ' +
-            'forced to trade day 1 instead: hand backward induction — day1 ' +
+            'forced to trade day 1 instead: hand backward induction, day1 ' +
             'win (p=0.5, profit +$100, EodTrailingDrawdown ratchets ' +
             'threshold 900->1000) passes immediately (profit 100 >= 0, ' +
             'V=1); day1 loss (p=0.5, profit -$50, threshold stays 900, ' +
             'cushion 50) is not yet passing (profit -50 < 0) and, since ' +
             'idling day 2 would immediately bust too, is forced to trade ' +
-            'again — day2 win (profit 50 >= 0, V=1) or lose (balance 900 ' +
-            '== threshold 900, V=0), a coin flip — total V(initial) = ' +
+            'again, day2 win (profit 50 >= 0, V=1) or lose (balance 900 ' +
+            '== threshold 900, V=0), a coin flip, total V(initial) = ' +
             '0.5*1 + 0.5*(0.5*1 + 0.5*0) = 0.75, a real bust the old, ' +
             'idle-blind DP would have missed entirely (it would have ' +
             'reported the impossible-in-practice V=1). (This test used to ' +
             'set minTradingDays 2 instead of 0 and relied on the ' +
             'tradingDays-counts-every-calendar-day bug to make its own ' +
-            'idle-blind reference point read V=1 — fixing that bug (see ' +
+            'idle-blind reference point read V=1, fixing that bug (see ' +
             "the 'tradingDays DP state dimension' describe block) made " +
             'minTradingDays 2 force the same two trading days on its own, ' +
             'independent of maxConsecutiveIdleDays, collapsing both arms of ' +
@@ -550,11 +550,11 @@ describe('tradingDays DP state dimension', () => {
     it(
         'accountSize 1000 / drawdown 100 / profitTarget 0 / minTradingDays ' +
             '1 / maxConsecutiveIdleDays null / 1-day cap / one $50-at-1:2 ' +
-            "slot: pins tradingDays to simulator/day.ts's real semantics — " +
+            "slot: pins tradingDays to simulator/day.ts's real semantics, " +
             '`state.tradingDays += 1` only `if (isTraded)` (day.ts:186-189), ' +
             'never unconditionally per calendar day. Idling day 0 reaches ' +
             'the 1-day cap having traded zero real days, so tradingDays ' +
-            'stays 0 and minTradingDays 1 is never satisfied — V(idle ' +
+            'stays 0 and minTradingDays 1 is never satisfied, V(idle ' +
             'branch) = 0 (times out, does not pass), even though profit is ' +
             'a trivially-passing 0 and one full calendar day elapsed. The ' +
             'prior bug (`state.tradingDays = day + 1` unconditionally, ' +
@@ -564,7 +564,7 @@ describe('tradingDays DP state dimension', () => {
             "risks the plan's $100 drawdown for a real shot at passing: " +
             'win reaches profit 100 with tradingDays 1, passing ' +
             'immediately (V=1); lose reaches profit -50, fails the profit ' +
-            'target, and the 1-day cap times out (V=0) — so trading is ' +
+            'target, and the 1-day cap times out (V=0), so trading is ' +
             "worth exactly the winrate (0.5), strictly beating idling's 0, " +
             'and the DP must correctly prefer it over the free-looking, ' +
             'actually-dead-end idle action',
@@ -591,10 +591,10 @@ describe('tradingDays DP state dimension', () => {
             'any real trade ever happens), confirming the 0.5 result above ' +
             'comes specifically from the minTradingDays gate rejecting an ' +
             'idle-only day, not from some other difference in this config, ' +
-            'and that the new tradingDays dimension is a true no-op — ' +
+            'and that the new tradingDays dimension is a true no-op, ' +
             'exactly the "collapses to a smaller/no-op range once the cap ' +
             'is reached" pattern already used for idleDays and ' +
-            "payoutRegimeCap — whenever a plan doesn't set minTradingDays",
+            "payoutRegimeCap, whenever a plan doesn't set minTradingDays",
         () => {
             const plan = toyPlan(0).withOverrides({
                 maxConsecutiveIdleDays: undefined,
@@ -616,7 +616,7 @@ describe('elapsedDays DP state dimension', () => {
         'accountSize 1000 / drawdown 100 / profitTarget 0 / minTradingDays ' +
             '1 / maxConsecutiveIdleDays 3 / 2-day cap / one $50-at-1:2 ' +
             "slot: computeRisk's within-day lookup must key off real " +
-            'elapsed calendar days, not off state.tradingDays — the two ' +
+            'elapsed calendar days, not off state.tradingDays, the two ' +
             'diverge the moment a real day passes without a trade (e.g. an ' +
             'idle day forced externally by idleDayProbability, independent ' +
             "of what this day's own policy would have recommended). A " +
@@ -627,8 +627,8 @@ describe('elapsedDays DP state dimension', () => {
             'day left before the 2-day cap and minTradingDays 1 still ' +
             'unmet, idling again guarantees a timeout, exactly the ' +
             "reasoning the 'tradingDays DP state dimension' block above " +
-            'proves for day 0 itself. The bug this pins — computeRisk ' +
-            'substituting state.tradingDays for elapsed days — would ' +
+            'proves for day 0 itself. The bug this pins, computeRisk ' +
+            'substituting state.tradingDays for elapsed days, would ' +
             'instead build a day=0/idleDays=1 lookup key that the backward ' +
             'induction never populates (day 0 only ever has idleDays 0), ' +
             'silently falling back to a phantom "skip" recommendation (0) ' +

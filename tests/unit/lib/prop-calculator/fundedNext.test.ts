@@ -7,6 +7,10 @@ import {
     initialEvalFee,
     newFundedCycleTracker,
     percent,
+    resetFee,
+    retryFee,
+    RetryKind,
+    retryPath,
 } from '~/lib/prop-calculator/core';
 import { TradingPhase } from '~/lib/prop-calculator/core/TradingPhase';
 import { FundedNext } from '~/lib/prop-calculator/firms/fundednext/FundedNext';
@@ -349,6 +353,158 @@ describe('FundedNext fee and coupon notes stay consistent with the no-code check
         expect(couponNote).toContain('repeat purchase $174.99');
         expect(couponNote).toContain('15834431');
         expect(couponNote).toContain('--eval-discount');
+    });
+
+    it('pins the disclosure that one percentage cannot split the first and repeat purchase (N-47)', () => {
+        expect(couponNote).toContain(
+            'one discount percentage cannot model the first-purchase and repeat-purchase split exactly',
+        );
+    });
+
+    it("gives the DLL Add-On's own first-purchase percentage, $119.99 against the modeled $259.98 (N-47)", () => {
+        expect(couponNote).toContain(
+            '--eval-discount 53.85 approximates it on the Rapid Pro with DLL Add-On 50K ($119.99 against the modeled $259.98)',
+        );
+    });
+
+    it('says --eval-discount also prices every re-buy (T9), so each RAPID-modeled retry is under-priced, with the figures per plan (N-47)', () => {
+        expect(couponNote).toContain(
+            'Under decision T9 the --eval-discount percentage also prices every re-buy',
+        );
+        expect(couponNote).toContain(
+            'Rapid Pro 50K $161.99 against $174.99 at 46%',
+        );
+        expect(couponNote).toContain(
+            'Rapid Daily 50K $170.99 against $189.99 at 43%',
+        );
+        expect(couponNote).toContain(
+            'Rapid Pro with DLL Add-On 50K $119.98 against $134.99 at 53.85%',
+        );
+        expect(couponNote).toContain('about $13 to $19 low per retry');
+    });
+
+    it.each([
+        {
+            firstPurchase: 161.99,
+            percentOff: 46,
+            repeatPurchase: 174.99,
+            variant: FundedNextVariant.RapidPro,
+        },
+        {
+            firstPurchase: 170.99,
+            percentOff: 43,
+            repeatPurchase: 189.99,
+            variant: FundedNextVariant.RapidDaily,
+        },
+        {
+            firstPurchase: 119.98,
+            percentOff: 53.85,
+            repeatPurchase: 134.99,
+            variant: FundedNextVariant.RapidProDllAddOn,
+        },
+    ])(
+        'prices a $variant retry at --eval-discount $percentOff like the note says: $firstPurchase, under the $repeatPurchase repeat price (N-47)',
+        ({ firstPurchase, percentOff, repeatPurchase, variant }) => {
+            const plan = planFor(variant);
+            const discounts = {
+                activationPercent: percent(0),
+                evalPercent: percent(percentOff),
+            };
+            expect(initialEvalFee(plan.fees, discounts)).toBeCloseTo(
+                firstPurchase,
+                2,
+            );
+            expect(retryFee(plan.fees, discounts)).toBeCloseTo(
+                firstPurchase,
+                2,
+            );
+            expect(retryFee(plan.fees, discounts)).toBeLessThan(repeatPurchase);
+        },
+    );
+
+    it('says --eval-discount 46 and 43 slightly over-price the RAPID first purchase, with the exact percentages (N-47)', () => {
+        expect(couponNote).toContain(
+            "--eval-discount 46 and 43 slightly over-price RAPID's first purchase: $161.99 against $159.99 on Rapid Pro 50K and $170.99 against $169.99 on Rapid Daily 50K (the exact percentages are 46.67 and 43.33)",
+        );
+    });
+
+    it('extends the T9 retry consequence to FNFLEX: $71.01 per Flex retry at 47%, about $7 under the $77.99 reset from the 3rd purchase (N-47)', () => {
+        expect(couponNote).toContain(
+            "FNFLEX has the same first-vs-repeat split: article 14878751 prices the Flex 50K with the code at $69.99 for the 'First 2 Purchases' and $79.99 from '3 Purchases Onward'",
+        );
+        expect(couponNote).toContain(
+            'with --eval-discount 47 the first purchase and every Flex retry are priced at $71.01 (the discounted re-buy is cheaper than the $77.99 reset), about $1 above the $69.99 code price of the first 2 purchases (the exact percentage is 47.76), while from the 3rd purchase the cheapest real retry is the $77.99 reset, so each of those retries is about $7 low',
+        );
+    });
+
+    it.each([
+        {
+            codePrice: 159.99,
+            exactPercentOff: 46.67,
+            modeledPrice: 161.99,
+            percentOff: 46,
+            variant: FundedNextVariant.RapidPro,
+        },
+        {
+            codePrice: 169.99,
+            exactPercentOff: 43.33,
+            modeledPrice: 170.99,
+            percentOff: 43,
+            variant: FundedNextVariant.RapidDaily,
+        },
+        {
+            codePrice: 69.99,
+            exactPercentOff: 47.76,
+            modeledPrice: 71.01,
+            percentOff: 47,
+            variant: FundedNextVariant.Flex,
+        },
+    ])(
+        'prices the $variant first purchase at --eval-discount $percentOff like the note says: $modeledPrice, above the $codePrice code price, whose exact percentage is $exactPercentOff (N-47)',
+        ({ codePrice, exactPercentOff, modeledPrice, percentOff, variant }) => {
+            const plan = planFor(variant);
+            const discounts = {
+                activationPercent: percent(0),
+                evalPercent: percent(percentOff),
+            };
+            expect(initialEvalFee(plan.fees, discounts)).toBeCloseTo(
+                modeledPrice,
+                2,
+            );
+            expect(initialEvalFee(plan.fees, discounts)).toBeGreaterThan(
+                codePrice,
+            );
+            expect((1 - codePrice / plan.fees.oneTimeEval) * 100).toBeCloseTo(
+                exactPercentOff,
+                2,
+            );
+        },
+    );
+
+    it('prices every Flex retry at --eval-discount 47 as the $71.01 re-buy, about $1 high on the 2nd purchase and about $7 low from the 3rd like the note says (N-47)', () => {
+        const flex = planFor(FundedNextVariant.Flex);
+        const discounts = {
+            activationPercent: percent(0),
+            evalPercent: percent(47),
+        };
+        const firstTwoCodePrice = 69.99;
+        const fromThirdCodePrice = 79.99;
+        const publishedReset = resetFee(flex.fees);
+        const modeledRetry = retryFee(flex.fees, discounts);
+
+        expect(retryPath(flex.fees, discounts)).toBe(RetryKind.Rebuy);
+        expect(modeledRetry).toBeCloseTo(71.01, 2);
+        expect(publishedReset).toBe(77.99);
+        expect(
+            Math.round(
+                modeledRetry - Math.min(firstTwoCodePrice, publishedReset),
+            ),
+        ).toBe(1);
+        expect(
+            Math.round(
+                Math.min(fromThirdCodePrice, publishedReset) - modeledRetry,
+            ),
+        ).toBe(7);
     });
 
     it('drops every claim that a coupon is already inside the modeled price', () => {

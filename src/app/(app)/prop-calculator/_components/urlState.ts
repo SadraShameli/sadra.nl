@@ -77,10 +77,7 @@ export function decodeState(
     const firm = parsedFirmId
         ? firms.find((f) => f.id === parsedFirmId)
         : undefined;
-    const plan =
-        firm && planSerial
-            ? firm.plans.find((p) => serializePlanId(p.id) === planSerial)
-            : undefined;
+    const plan = firm && planSerial ? firm.findPlanBySerial(planSerial) : null;
 
     const scalarFields = calculatorScalarFieldsSchema.parse(
         Object.fromEntries(parameters),
@@ -166,9 +163,7 @@ export function decodeState(
                     .map((wire): null | PortfolioEntry => {
                         const wireFirmId = parseFirmId(wire.firmId);
                         const firm = firms.find((f) => f.id === wireFirmId);
-                        const plan = firm?.plans.find(
-                            (p) => serializePlanId(p.id) === wire.planId,
-                        );
+                        const plan = firm?.findPlanBySerial(wire.planId);
                         return !firm || !plan
                             ? null
                             : {

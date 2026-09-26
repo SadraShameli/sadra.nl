@@ -50,6 +50,13 @@
       "when": 1783626515607,
       "tag": "0006_redundant_blue_shield",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790385084456,
+      "tag": "0007_careless_miss_america",
+      "breakpoints": true
     }
   ]
 }

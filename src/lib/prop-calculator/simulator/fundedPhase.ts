@@ -1,13 +1,11 @@
+import { type DatedCharge } from '../core/DatedCharge';
 import { type CouponDiscounts } from '../core/FeeSchedule';
 import {
     type FundedCycleTracker,
     newFundedCycleTracker,
+    newFundedCycleTrackerAfterReset,
 } from '../core/FundedPayoutCycle';
-import {
-    canTakeFundedReset,
-    type FundedResetCharge,
-    fundedResetFee,
-} from '../core/FundedReset';
+import { canTakeFundedReset, fundedResetFee } from '../core/FundedReset';
 import { TradingPhase } from '../core/TradingPhase';
 import { runDay } from './day';
 import { newPhaseStats } from './PhaseStats';
@@ -39,7 +37,7 @@ export interface FundedDaysOptions extends Omit<
 export interface FundedDaysResult {
     closedForInactivity: boolean;
     daysElapsed: number;
-    fundedResets: FundedResetCharge[];
+    fundedResets: DatedCharge[];
     stage: FundedStage;
     tracker: FundedCycleTracker;
 }
@@ -86,7 +84,7 @@ export function runFundedDays(options: FundedDaysOptions): FundedDaysResult {
     } = options;
     let tracker = newFundedCycleTracker(state);
     let daysElapsed = 0;
-    const fundedResets: FundedResetCharge[] = [];
+    const fundedResets: DatedCharge[] = [];
     let dayOptions = {
         commission,
         dayPolicy,
@@ -125,7 +123,10 @@ export function runFundedDays(options: FundedDaysOptions): FundedDaysResult {
                     fee: fundedResetFee(policy, discounts),
                 });
                 plan.beginFundedPhase(state);
-                tracker = newFundedCycleTracker(state);
+                tracker = newFundedCycleTrackerAfterReset(
+                    state,
+                    fundedResets.length,
+                );
                 dayOptions = { ...dayOptions, tracker };
                 continue;
             }
@@ -237,7 +238,12 @@ export function runFundedHorizon(
 
     const horizonCredit =
         stage === FundedStage.HorizonReached
-            ? tracker.closeoutCredit({ minRetainedCushion, plan, state })
+            ? tracker.closeoutCredit({
+                  minRetainedCushion,
+                  payoutRequestSize,
+                  plan,
+                  state,
+              })
             : 0;
 
     return {

@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -8,6 +10,7 @@ import {
     dollars,
     FirmId,
     FUNDED_RESET_MECHANICS,
+    fundedResetDpModelSentence,
     FundedResetEligibility,
     fundedResetFee,
     type FundedResetPolicy,
@@ -18,10 +21,8 @@ import {
     withFundedResetTaken,
     withPlanOptIns,
 } from '~/lib/prop-calculator';
-import {
-    FundedDpModelGapKind,
-    fundedDpModelGaps,
-} from '~/lib/prop-calculator/core/FundedDpModelGaps';
+import * as core from '~/lib/prop-calculator/core';
+import { fundedDpModelGaps } from '~/lib/prop-calculator/core/FundedDpModelGaps';
 import { AlphaFutures } from '~/lib/prop-calculator/firms/alphafutures/AlphaFutures';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 
@@ -247,30 +248,80 @@ describe('describeFundedReset', () => {
     });
 });
 
-describe('the funded DP models an opted-in funded reset and discloses only that its day policy cannot see the reset count', () => {
-    it('reports the day-policy gap with the plan policy for Alpha Zero with the opt-in', () => {
-        const zeroTaken = withFundedResetTaken(
-            alphaPlan(AlphaFuturesVariant.Zero),
-            true,
+describe('fundedResetDpModelSentence is the one sentence on how the funded DP values a reset (N-34, WP27b)', () => {
+    const leadIn = 'This DP values every reset exactly';
+
+    it('prints the lead-in, then the layer value, the inactivity rule and the layer-picking day policy, without em dashes', () => {
+        expect(fundedResetDpModelSentence(leadIn)).toBe(
+            "This DP values every reset exactly: a breach before the first payout is worth the next reset layer's start value less the discounted reset fee, and an inactivity closure is never reset. Its day policy picks the layer from the resets already used, so the empirical run takes the same decisions the DP valued.",
         );
-        expect(fundedDpModelGaps(zeroTaken)).toContainEqual({
-            kind: FundedDpModelGapKind.FundedResetPolicyIgnoresResetCount,
-            policy: zeroTaken.fundedReset,
-        });
+        expect(fundedResetDpModelSentence(leadIn)).not.toContain('\u{2014}');
     });
 
-    it('reports no reset gap without the opt-in, or on a plan without a reset', () => {
-        for (const plan of [
-            alphaPlan(AlphaFuturesVariant.Zero),
-            withFundedResetTaken(alphaPlan(AlphaFuturesVariant.Advanced), true),
-        ]) {
-            expect(
-                fundedDpModelGaps(plan).some(
-                    (gap) =>
-                        gap.kind ===
-                        FundedDpModelGapKind.FundedResetPolicyIgnoresResetCount,
+    it.each(['', ' '.repeat(3), '\t\n'])(
+        'rejects the empty or whitespace-only lead-in %j, which would print the bare fragment',
+        (blankLeadIn) => {
+            expect(() => fundedResetDpModelSentence(blankLeadIn)).toThrow(
+                `fundedResetDpModelSentence needs a non-empty lead-in, got ${JSON.stringify(blankLeadIn)}`,
+            );
+        },
+    );
+
+    it.each([
+        'This DP values every reset exactly:',
+        'This DP values every reset exactly: ',
+    ])(
+        'rejects the lead-in %j ending in a colon, which would print a doubled colon',
+        (colonLeadIn) => {
+            expect(() => fundedResetDpModelSentence(colonLeadIn)).toThrow(
+                `fundedResetDpModelSentence adds the colon itself, so the lead-in must not end in one, got ${JSON.stringify(colonLeadIn)}`,
+            );
+        },
+    );
+
+    it('leaves no bare fragment in the barrels, so no caller prints it without a lead-in', () => {
+        expect(Object.keys(core)).not.toContain('FUNDED_RESET_DP_MODEL');
+        expect(Object.keys(core)).toContain('fundedResetDpModelSentence');
+    });
+
+    it('is not part of the sim mechanics text, which describes the simulator only', () => {
+        expect(FUNDED_RESET_MECHANICS).not.toContain(
+            'a breach before the first payout is worth',
+        );
+    });
+});
+
+describe('the funded DP models an opted-in funded reset with no reset gap left to disclose (N-34)', () => {
+    it('reports no gap for Alpha Zero with or without the opt-in', () => {
+        const zero = alphaPlan(AlphaFuturesVariant.Zero);
+
+        expect(
+            fundedDpModelGaps(withFundedResetTaken(zero, true)),
+        ).toStrictEqual([]);
+        expect(fundedDpModelGaps(zero)).toStrictEqual([]);
+    });
+
+    it('reports the same gaps with and without the opt-in on a plan without a reset', () => {
+        const advanced = alphaPlan(AlphaFuturesVariant.Advanced);
+
+        expect(
+            fundedDpModelGaps(withFundedResetTaken(advanced, true)),
+        ).toStrictEqual(fundedDpModelGaps(advanced));
+    });
+});
+
+describe('one dated-charge type name (N-12, WP37a)', () => {
+    it('leaves no FundedResetCharge alias of DatedCharge anywhere in src', () => {
+        const root = path.resolve(import.meta.dirname, '../../../../../src');
+        const users = readdirSync(root, { recursive: true })
+            .map(String)
+            .filter((name) => /\.tsx?$/.test(name))
+            .filter((name) =>
+                /\bFundedResetCharge\b/.test(
+                    readFileSync(path.join(root, name), 'utf8'),
                 ),
-            ).toBe(false);
-        }
+            );
+
+        expect(users).toEqual([]);
     });
 });

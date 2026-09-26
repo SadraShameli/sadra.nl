@@ -90,7 +90,7 @@ describe('MFF Rapid (no ladder, intraday-trailing drawdown): payout keeps growin
 });
 
 describe(
-    'ladder + 50% profit-share cap (synthetic — reconstructs the discontinued ' +
+    'ladder + 50% profit-share cap (synthetic, reconstructs the discontinued ' +
         "MFFU Flex plan's mechanics via withOverrides on Rapid EOD): plateaus " +
         'once the ladder is exhausted, never busts',
     () => {

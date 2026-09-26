@@ -1,11 +1,17 @@
+import { type DatedCharge } from '../core/DatedCharge';
 import {
     DayStopRuleKind,
     DEFAULT_RUNG_SIZING,
     flatDayPolicy,
+    PolicySizing,
 } from '../core/DayPolicy';
 import { dollars, fraction } from '../core/lib/units';
 import { resolvePositionSizing } from '../core/PositionSizing';
-import { assertPositiveSafeInteger, SIM_DEFAULTS } from '../simulator';
+import {
+    assertPositiveSafeInteger,
+    SIM_DEFAULTS,
+    simInputsSizingIssue,
+} from '../simulator';
 import { runEvalToFundedCycle } from './fundedCycle';
 import {
     type AccountTimelineInputs,
@@ -14,6 +20,25 @@ import {
 } from './types';
 
 const MAX_CARDS_PER_TIMELINE = 2000;
+
+class DatedChargeCursor {
+    private index = 0;
+    private paid = 0;
+
+    constructor(private readonly charges: readonly DatedCharge[]) {}
+
+    paidThrough(day: number): number {
+        for (
+            let charge = this.charges[this.index];
+            charge !== undefined && charge.dayOffset <= day;
+            charge = this.charges[this.index]
+        ) {
+            this.paid += charge.fee;
+            this.index += 1;
+        }
+        return this.paid;
+    }
+}
 
 export function runAccountTimeline(
     inputs: AccountTimelineInputs,
@@ -43,13 +68,32 @@ export function runAccountTimeline(
             ? undefined
             : dollars(payoutRequestSize);
     const winrate = fraction(winrateInput);
-    const flatPolicy = flatDayPolicy(
-        inputs.riskPerTrade,
-        inputs.tradesPerDay,
-        inputs.dayStop ?? { kind: DayStopRuleKind.None },
-    );
-    const evalDayPolicy = inputs.evalDayPolicy ?? flatPolicy;
-    const fundedDayPolicy = inputs.fundedDayPolicy ?? flatPolicy;
+    const sizingIssue = simInputsSizingIssue({
+        fundedDayPolicy: inputs.fundedDayPolicy,
+        instrument,
+        riskPerTrade: inputs.riskPerTrade,
+        stopPoints,
+    });
+    if (sizingIssue !== null) {
+        throw new Error(`runAccountTimeline: ${sizingIssue}`);
+    }
+    const stopRule = inputs.dayStop ?? { kind: DayStopRuleKind.None };
+    const evalDayPolicy =
+        inputs.evalDayPolicy ??
+        flatDayPolicy(
+            inputs.riskPerTrade,
+            inputs.tradesPerDay,
+            stopRule,
+            PolicySizing.ContractCapped,
+        );
+    const fundedDayPolicy =
+        inputs.fundedDayPolicy ??
+        flatDayPolicy(
+            inputs.riskPerTrade,
+            inputs.tradesPerDay,
+            stopRule,
+            PolicySizing.WholeContracts,
+        );
 
     assertPositiveSafeInteger(dayBudget, 'dayBudget');
     assertPositiveSafeInteger(maxEvalDays, 'maxEvalDays');
@@ -69,6 +113,7 @@ export function runAccountTimeline(
         const remainingDays = dayBudget - cardStart;
 
         const card = runEvalToFundedCycle({
+            cardDayBudget: remainingDays,
             commission,
             discounts: cardsRun === 1 ? initialPurchaseDiscounts : discounts,
             evalDayPolicy,
@@ -86,31 +131,35 @@ export function runAccountTimeline(
             winrate,
         });
 
+        if (card.totalDays === 0) {
+            throw new Error(
+                `runAccountTimeline: a card used no trading days (${plan.label} allows ${plan.evalDayCap(maxEvalDays)} eval days per attempt), so the timeline cannot advance`,
+            );
+        }
+
         const spendBeforeCard = spendSoFar;
+        const evalRetrySpendTotal = card.evalRetryCharges.reduce(
+            (sum, charge) => sum + charge.fee,
+            0,
+        );
+        const spreadEvalCost = card.evalCost - evalRetrySpendTotal;
+        const evalRetries = new DatedChargeCursor(card.evalRetryCharges);
+        const fundedResets = new DatedChargeCursor(card.fundedResetCharges);
         let payoutIndex = 0;
-        let fundedResetIndex = 0;
-        let fundedResetSpend = 0;
 
         for (
             let d = 1;
             d <= card.totalDays && cardStart + d <= dayBudget;
             d++
         ) {
-            while (
-                fundedResetIndex < card.fundedResetCharges.length &&
-                card.fundedResetCharges[fundedResetIndex]?.dayOffset === d
-            ) {
-                fundedResetSpend +=
-                    card.fundedResetCharges[fundedResetIndex]?.fee ?? 0;
-                fundedResetIndex += 1;
-            }
             spendSoFar =
                 spendBeforeCard +
-                fundedResetSpend +
+                evalRetries.paidThrough(d) +
+                fundedResets.paidThrough(d) +
                 (card.evalDays > 0
-                    ? (card.evalCost * Math.min(d, card.evalDays)) /
+                    ? (spreadEvalCost * Math.min(d, card.evalDays)) /
                       card.evalDays
-                    : card.evalCost);
+                    : spreadEvalCost);
             while (
                 payoutIndex < card.payouts.length &&
                 card.payouts[payoutIndex]?.dayOffset === d

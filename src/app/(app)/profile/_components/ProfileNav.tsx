@@ -1,5 +1,6 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
 import {
     Dumbbell,
     LineChart,
@@ -81,6 +82,7 @@ export function ProfileNav({
     name,
 }: ProfileNavProperties) {
     const router = useRouter();
+    const queryClient = useQueryClient();
     const [pending, startTransition] = useTransition();
     const items: NavItem[] = [
         ACCOUNT_ITEM,
@@ -144,6 +146,7 @@ export function ProfileNav({
                     onClick={() =>
                         startTransition(async () => {
                             await authClient.signOut();
+                            queryClient.clear();
                             router.push(routes.home);
                             router.refresh();
                         })

@@ -11,6 +11,8 @@ import {
 import { type DayStopRule, DayStopRuleKind } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
+import { DAY_STOP_KIND_LABELS } from './describeDayStopRule';
+
 interface DayStopRulePickerProperties {
     compact?: boolean;
     onChange: (rule: DayStopRule) => void;
@@ -18,14 +20,6 @@ interface DayStopRulePickerProperties {
 }
 
 type Kind = DayStopRule['kind'];
-
-const KIND_LABEL: Record<Kind, string> = {
-    'after-k-losses': 'Stop after K losses',
-    'after-target': 'Stop after $ target',
-    'day-green': 'Stop when day is green',
-    'first-win': 'Stop after first win',
-    none: 'No stop',
-};
 
 export default function DayStopRulePicker({
     compact = false,
@@ -87,9 +81,9 @@ export default function DayStopRulePicker({
                     <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                    {(Object.keys(KIND_LABEL) as Kind[]).map((k) => (
+                    {Object.values(DayStopRuleKind).map((k) => (
                         <SelectItem key={k} value={k}>
-                            {KIND_LABEL[k]}
+                            {DAY_STOP_KIND_LABELS[k]}
                         </SelectItem>
                     ))}
                 </SelectContent>

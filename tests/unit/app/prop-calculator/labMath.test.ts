@@ -7,3 +7,11 @@ describe('lab math leaves the account group split to the engine', () => {
         expect(labMath).not.toHaveProperty('groupedPassDistribution');
     });
 });
+
+describe('lab math exports only what the web panels import (WP24)', () => {
+    it('drops the binomial helpers and the expectedMaxLossStreak copy that nothing imports', () => {
+        expect(
+            Object.keys(labMath).toSorted((a, b) => a.localeCompare(b)),
+        ).toStrictEqual(['gamblersRuinAsymmetric', 'probStreakAtLeast']);
+    });
+});

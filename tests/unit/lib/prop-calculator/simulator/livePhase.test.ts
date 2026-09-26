@@ -1015,7 +1015,7 @@ describe('runLiveHorizon on TopStep numbers ($1,000 auto-liquidation floor, Rese
         expect(result.totalWithdrawn).toBeCloseTo(14_275.305, 6);
     });
 
-    it('returns the whole $40,000 Reserve once all four increments are out, as capital, never as recurring income: over 60 winning days the default debits $49,131.46 of trading profit (the $5,000 tier holds after profit payouts, N-57, and applies only after 10 Active Trading Days at $15,000, N-59) and $40,000 of released Reserve, and the 60-day annual rate carries only the profit', () => {
+    it('returns the whole $40,000 Reserve once all four increments are out, as capital, never as recurring income: over 60 winning days the default debits $48,783.96 of trading profit (the $2,500 tier holds after profit payouts, N-57, and applies only after 10 Active Trading Days at $15,000, N-59) and $40,000 of released Reserve, and the 60-day annual rate carries only the profit', () => {
         const horizonDays = 60;
         const out = simulateLiveAccount({
             horizonDays,
@@ -1026,7 +1026,7 @@ describe('runLiveHorizon on TopStep numbers ($1,000 auto-liquidation floor, Rese
             trials: 1,
             winrate: 1,
         });
-        const profitDebited = 49_131.460093;
+        const profitDebited = 48_783.960093;
 
         expect(out.expectedCapitalReturned).toBeCloseTo(0.9 * 40_000, 3);
         expect(out.expectedAnnualWithdrawalRate).toBeCloseTo(
@@ -1899,7 +1899,7 @@ function loseOneTopStepTrade(
 }
 
 describe('WP18g: the TopStep LFA per-trade loss cap follows net trading profit and the Daily Loss Limit Safeguard (N-57, N-58, help.topstep.com article 11748475)', () => {
-    it('caps one losing trade at the $5,000 tier after the $40,000 Reserve is returned on $15,000 of trading profit, not at the $2,000 base tier', () => {
+    it('caps one losing trade at the $2,500 tier after the $40,000 Reserve is returned on $15,000 of trading profit, not at the $2,000 base tier', () => {
         const plan = buildTopStepLivePlan(TOPSTEP_FULL_CUSHION);
         const state = plan.initialState();
         closeTopStepSessions(
@@ -1915,8 +1915,8 @@ describe('WP18g: the TopStep LFA per-trade loss cap follows net trading profit a
 
         loseOneTopStepTrade(plan, state);
 
-        expect(state.todayPnL).toBeCloseTo(-5000, 9);
-        expect(state.balance).toBeCloseTo(20_000, 9);
+        expect(state.todayPnL).toBeCloseTo(-2500, 9);
+        expect(state.balance).toBeCloseTo(22_500, 9);
     });
 
     it('caps one losing trade at the $1,000 Safeguard limit after a session closes at $4,500, although the $3,500 above the floor is at risk', () => {
@@ -1962,7 +1962,7 @@ describe('WP18h: the TopStep LFA per-trade loss cap moves to a higher tier only 
         expect(state.balance).toBeCloseTo(23_000, 9);
     });
 
-    it('caps it at the $5,000 tier on the session after the 10th Active Trading Day at $15,000', () => {
+    it('caps it at the $2,500 tier on the session after the 10th Active Trading Day at $15,000', () => {
         const plan = buildTopStepLivePlan(TOPSTEP_FULL_CUSHION);
         const state = plan.initialState();
         closeTopStepSessions(plan, state, [15_000]);
@@ -1970,10 +1970,10 @@ describe('WP18h: the TopStep LFA per-trade loss cap moves to a higher tier only 
 
         loseOneTopStepTrade(plan, state);
 
-        expect(state.todayPnL).toBeCloseTo(-5000, 9);
+        expect(state.todayPnL).toBeCloseTo(-2500, 9);
     });
 
-    it('never raises the cap within a session: after a $15,000 winning trade the next losing trade takes the day down to the -$2,000 base limit, not the -$5,000 of the tier live profit has reached', () => {
+    it('never raises the cap within a session: after a $15,000 winning trade the next losing trade takes the day down to the -$2,000 base limit, not the -$2,500 of the tier live profit has reached', () => {
         const plan = buildTopStepLivePlan(TOPSTEP_FULL_CUSHION);
         const state = plan.initialState();
         let draw = 0;
@@ -1991,5 +1991,74 @@ describe('WP18h: the TopStep LFA per-trade loss cap moves to a higher tier only 
         });
 
         expect(state.todayPnL).toBeCloseTo(-2000, 9);
+    });
+});
+
+function apexLiveTrade(
+    state: LiveAccountState,
+    isWon: boolean,
+    stopPoints: number,
+): number {
+    const before = state.balance;
+    runLiveDay({
+        commission: dollars(0),
+        plan: buildApexLivePlan(),
+        positionSizing: {
+            instrument: INSTRUMENTS[InstrumentSymbol.MNQ],
+            stopPoints: points(stopPoints),
+        },
+        rng: isWon ? alwaysWins : alwaysLoses,
+        rrRatio: 2,
+        state,
+        tradesPerDay: 1,
+        winrate: fraction(isWon ? 1 : 0),
+    });
+    return state.balance - before;
+}
+
+describe('runLiveDay places live percent-of-cushion risk in whole contracts like the funded phase (T33, R8)', () => {
+    it('rounds 5% of the $3,000 Apex Live cushion ($150) down to 18 MNQ micros at a 4 point stop: a $144 loss or a $288 win, never the fractional $150', () => {
+        expect(
+            apexLiveTrade(buildApexLivePlan().initialState(), false, 4),
+        ).toBe(-144);
+        expect(apexLiveTrade(buildApexLivePlan().initialState(), true, 4)).toBe(
+            288,
+        );
+    });
+
+    it('takes one MNQ micro when it exceeds the $5 room left above the liquidation level: the loss stops at the room, the win pays on one micro', () => {
+        const losing = apexSessionAt(105);
+        const result = runLiveDay({
+            commission: dollars(0),
+            plan: buildApexLivePlan(),
+            positionSizing: {
+                instrument: INSTRUMENTS[InstrumentSymbol.MNQ],
+                stopPoints: points(4),
+            },
+            rng: alwaysLoses,
+            rrRatio: 2,
+            state: losing,
+            tradesPerDay: 1,
+            winrate: fraction(0),
+        });
+        expect(losing.balance).toBe(100);
+        expect(result.busted).toBe(true);
+
+        expect(apexLiveTrade(apexSessionAt(105), true, 4)).toBe(16);
+    });
+
+    it('keeps the fractional percent risk when no stop is given, since the risk is then not placed in contracts', () => {
+        const state = buildApexLivePlan().initialState();
+        runLiveDay({
+            commission: dollars(0),
+            plan: buildApexLivePlan(),
+            positionSizing: null,
+            rng: alwaysLoses,
+            rrRatio: 2,
+            state,
+            tradesPerDay: 1,
+            winrate: fraction(0),
+        });
+        expect(state.balance).toBe(-150);
     });
 });

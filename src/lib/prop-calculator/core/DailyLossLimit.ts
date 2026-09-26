@@ -80,6 +80,10 @@ export interface DllTier {
     minProfit: number;
 }
 
+export interface TrackedDailyLossLimitContext extends DailyLossLimitContext {
+    readonly peakIntradayProfit: number;
+}
+
 abstract class DailyLossLimit {
     abstract describe(): DailyLossLimitDescriptor;
 

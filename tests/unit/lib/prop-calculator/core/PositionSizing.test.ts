@@ -211,6 +211,58 @@ describe('capRiskToContractLimit', () => {
     });
 });
 
+describe('wholeContractRisk', () => {
+    const MNQ: PositionSizingConfig = {
+        instrument: INSTRUMENTS[InstrumentSymbol.MNQ],
+        stopPoints: points(10),
+    };
+
+    it('rounds an intended risk below one micro up to one micro (MNQ at 10 points is $20 a contract)', () => {
+        expect(core.wholeContractRisk(12.5, MNQ, contracts(40))).toBe(20);
+    });
+
+    it('rounds an intended risk down to whole micros', () => {
+        expect(core.wholeContractRisk(59, MNQ, contracts(40))).toBe(40);
+    });
+
+    it('caps an intended risk at the contract limit', () => {
+        expect(core.wholeContractRisk(1e12, MNQ, contracts(40))).toBe(800);
+    });
+
+    it.each([12.5, 59, 1234.5, 1e6])(
+        'rounds %d down to whole micros with at least one micro when there is no contract limit',
+        (intended) => {
+            expect(core.wholeContractRisk(intended, MNQ, null)).toBe(
+                Math.max(1, Math.floor(intended / 20)) * 20,
+            );
+        },
+    );
+
+    it('gives 0 when the contract limit is zero', () => {
+        expect(core.wholeContractRisk(500, MNQ, contracts(0))).toBe(0);
+    });
+
+    it('gives 0 when no risk is intended', () => {
+        expect(core.wholeContractRisk(0, MNQ, contracts(40))).toBe(0);
+    });
+
+    it('rounds an NQ risk below one contract up to one contract ($200 at 10 points)', () => {
+        expect(core.wholeContractRisk(150, NQ, contracts(4))).toBe(200);
+    });
+
+    it('caps an NQ risk at the mini contract limit', () => {
+        expect(core.wholeContractRisk(1e6, NQ, contracts(4))).toBe(800);
+    });
+
+    it('is a no-op when the instrument/stop pair implies zero risk per contract', () => {
+        const degenerate: PositionSizingConfig = {
+            instrument: { ...NQ.instrument, pointValue: 0 },
+            stopPoints: points(10),
+        };
+        expect(core.wholeContractRisk(150, degenerate, contracts(4))).toBe(150);
+    });
+});
+
 describe('evalContractLimit', () => {
     const topstep = new TopStep();
     const plan = topstep.plans[0];
@@ -556,5 +608,20 @@ describe('runDay: a cumulative funded tier holds after a pullback', () => {
         runSingleTradeDay(plan, state, 0.99);
 
         expect(state.balance - state.startingBalance).toBe(-1000);
+    });
+});
+
+describe('oneContractRisk', () => {
+    it('is $20 for one MNQ micro at a 10 point stop', () => {
+        expect(
+            core.oneContractRisk({
+                instrument: INSTRUMENTS[InstrumentSymbol.MNQ],
+                stopPoints: points(10),
+            }),
+        ).toBe(20);
+    });
+
+    it('is $200 for one NQ mini at a 10 point stop', () => {
+        expect(core.oneContractRisk(NQ)).toBe(200);
     });
 });

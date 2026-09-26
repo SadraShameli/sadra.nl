@@ -6,7 +6,13 @@ import { useEffect, useState } from 'react';
 import { Button } from '~/components/ui/Button';
 import { cn } from '~/lib/utilities';
 
-export default function ShareLinkButton() {
+interface ShareLinkButtonProperties {
+    buildLink: (origin: string, pathname: string) => string;
+}
+
+export default function ShareLinkButton({
+    buildLink,
+}: ShareLinkButtonProperties) {
     const [copied, setCopied] = useState(false);
 
     useEffect(() => {
@@ -18,7 +24,9 @@ export default function ShareLinkButton() {
     const handleCopy = async () => {
         if (typeof window === 'undefined') return;
         try {
-            await navigator.clipboard.writeText(window.location.href);
+            await navigator.clipboard.writeText(
+                buildLink(window.location.origin, window.location.pathname),
+            );
             setCopied(true);
         } catch {
             return;

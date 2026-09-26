@@ -4,6 +4,7 @@ import {
     contractLimitAt,
     ContractLimitKind,
     contracts,
+    type DailyLossLimitContext,
     dollars,
     FirmId,
     flatDayPolicy,
@@ -23,6 +24,7 @@ import {
     type TierProfitContext,
     tierProfitFor,
     TopStepVariant,
+    type TrackedDailyLossLimitContext,
     type TrackedTierProfitContext,
     TradeifyVariant,
     TradingPhase,
@@ -443,6 +445,20 @@ describe('the intraday peak is a required part of the tier context (N-15 follow-
         expectTypeOf(
             tierContextFromProfits(0),
         ).toEqualTypeOf<UntrackedTierProfitContext>();
+    });
+
+    it('types the Plan tier and daily loss limit contexts as tracked, since AccountState always tracks the intraday peak (N-15(a), WP24)', () => {
+        expectTypeOf<
+            ReturnType<Plan['tierProfitContext']>
+        >().toEqualTypeOf<TrackedTierProfitContext>();
+        expectTypeOf<
+            ReturnType<Plan['dailyLossLimitContext']>
+        >().toEqualTypeOf<TrackedDailyLossLimitContext>();
+        expectTypeOf<
+            TrackedDailyLossLimitContext['peakIntradayProfit']
+        >().toEqualTypeOf<number>();
+        expectTypeOf<TrackedDailyLossLimitContext>().toExtend<DailyLossLimitContext>();
+        expectTypeOf<TrackedDailyLossLimitContext>().toExtend<TrackedTierProfitContext>();
     });
 
     it('resolves a funded contract tier on PeakIntradayProfit from the full tier context', () => {

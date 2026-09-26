@@ -1,6 +1,6 @@
 import { type FirmId } from './FirmId';
 import { Plan, type PlanInit } from './Plan';
-import { arePlanIdsEqual, type PlanId } from './PlanId';
+import { arePlanIdsEqual, type PlanId, serializePlanId } from './PlanId';
 
 class ConcretePlan extends Plan {}
 
@@ -17,6 +17,10 @@ export abstract class TradingFirm {
 
     findPlan(planId: PlanId): Plan | undefined {
         return this.plans.find((p) => arePlanIdsEqual(p.id, planId));
+    }
+
+    findPlanBySerial(serial: string): null | Plan {
+        return this.plans.find((p) => serializePlanId(p.id) === serial) ?? null;
     }
 
     maxFundedAccounts(plan: Plan): number {

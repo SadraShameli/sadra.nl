@@ -70,7 +70,7 @@ describe('Plan.isInstantFunded', () => {
         expect(apexEod().isInstantFunded).toBe(false);
     });
 
-    it('is an authored flag, not derived — withOverrides does not flip it back off', () => {
+    it('is an authored flag, not derived, withOverrides does not flip it back off', () => {
         const withRealTarget = lightning().withOverrides({
             profitTarget: dollars(3000),
         });

@@ -188,10 +188,7 @@ describe('web monthly subscription preview uses the engine subscription fee', ()
             monthlySubscriptionPercent: percent(20),
         };
 
-        expect(monthlySubscriptionFee(fees, discounts)).toBeCloseTo(
-            111.2,
-            10,
-        );
+        expect(monthlySubscriptionFee(fees, discounts)).toBeCloseTo(111.2, 10);
         expect(describeMonthlySubscriptionFee(fees, discounts)).toBe(
             '$139 → $111',
         );

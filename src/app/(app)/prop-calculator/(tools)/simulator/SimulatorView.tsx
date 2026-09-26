@@ -1,0 +1,134 @@
+'use client';
+
+import dynamic from 'next/dynamic';
+
+import { CalculatorInputsForm } from '~/app/(app)/prop-calculator/_components/CalculatorInputsForm';
+import {
+    useBaseResult,
+    useCalculatorActions,
+    useCalculatorInputs,
+    useLabSlots,
+} from '~/app/(app)/prop-calculator/_components/CalculatorProvider';
+import { kpiDescriptions } from '~/app/(app)/prop-calculator/_components/kpiDescriptions';
+import {
+    PanelSkeleton,
+    PanelSkeletonSize,
+} from '~/app/(app)/prop-calculator/_components/PanelSkeleton';
+import PercentileBar from '~/app/(app)/prop-calculator/_components/PercentileBar';
+import { SimulationFailureNotice } from '~/app/(app)/prop-calculator/_components/SimulationFailureNotice';
+import { ToolId } from '~/app/(app)/prop-calculator/_components/toolCatalog';
+import { ToolPageHeading } from '~/app/(app)/prop-calculator/_components/ToolPageHeading';
+import { ToolSection } from '~/app/(app)/prop-calculator/_components/ToolSection';
+import { formatCompactCurrency, formatDays } from '~/lib/format';
+import { simInputsSizingIssue } from '~/lib/prop-calculator/simulator';
+import { LegacySection } from '~/lib/site/legacyCalculatorLinks';
+
+const ResultsPanel = dynamic(
+    () => import('~/app/(app)/prop-calculator/_components/ResultsPanel'),
+    { loading: () => <PanelSkeleton size={PanelSkeletonSize.Aside} /> },
+);
+
+const ChartPanel = dynamic(
+    () => import('~/app/(app)/prop-calculator/_components/ChartPanel'),
+    { loading: () => <PanelSkeleton /> },
+);
+
+export function SimulatorView() {
+    const { simInputs, state } = useCalculatorInputs();
+    const { isPending, result } = useBaseResult();
+    const refusal = simInputsSizingIssue(simInputs);
+    const refusalNotice =
+        refusal === null ? null : <SimulationFailureNotice message={refusal} />;
+    const { chartType, pinned } = useLabSlots();
+    const actions = useCalculatorActions();
+
+    return (
+        <>
+            <ToolPageHeading toolId={ToolId.Simulator} />
+            <div className="mb-10 flex flex-col gap-6">
+                <ToolSection
+                    className="gap-6"
+                    id={LegacySection.Simulator}
+                    title="Inputs and results"
+                >
+                    <CalculatorInputsForm
+                        aside={
+                            refusalNotice ??
+                            (result === null ? (
+                                <PanelSkeleton size={PanelSkeletonSize.Aside} />
+                            ) : (
+                                <ResultsPanel
+                                    isPending={isPending}
+                                    onPin={() => actions.pinScenario(result)}
+                                    onUnpin={actions.unpinScenario}
+                                    pinned={pinned?.result ?? null}
+                                    plan={state.plan}
+                                    result={result}
+                                />
+                            ))
+                        }
+                    />
+                </ToolSection>
+
+                <ToolSection
+                    className="gap-3"
+                    id={LegacySection.Charts}
+                    title="Charts"
+                >
+                    {refusalNotice ??
+                        (result === null ? (
+                            <>
+                                <div className="grid gap-3 md:grid-cols-2">
+                                    <PanelSkeleton
+                                        size={PanelSkeletonSize.Bar}
+                                    />
+                                    <PanelSkeleton
+                                        size={PanelSkeletonSize.Bar}
+                                    />
+                                </div>
+                                <PanelSkeleton />
+                            </>
+                        ) : (
+                            <>
+                                <div className="grid gap-3 md:grid-cols-2">
+                                    <PercentileBar
+                                        description={
+                                            kpiDescriptions.finalBalance
+                                        }
+                                        formatValue={formatCompactCurrency}
+                                        label="Final balance distribution"
+                                        p5={result.finalBalanceP5}
+                                        p25={result.finalBalanceP25}
+                                        p50={result.finalBalanceP50}
+                                        p75={result.finalBalanceP75}
+                                        p95={result.finalBalanceP95}
+                                        referenceLine={{
+                                            label: 'Starting balance',
+                                            value: state.plan.accountSize,
+                                        }}
+                                    />
+                                    <PercentileBar
+                                        description={kpiDescriptions.daysToPass}
+                                        formatValue={formatDays}
+                                        label="Days to pass distribution"
+                                        p5={result.daysToPassP5}
+                                        p25={result.daysToPassP25}
+                                        p50={result.daysToPassP50}
+                                        p75={result.daysToPassP75}
+                                        p95={result.daysToPassP95}
+                                    />
+                                </div>
+                                <ChartPanel
+                                    chartType={chartType}
+                                    maxEvalDays={state.maxEvalDays}
+                                    onChartTypeChange={actions.setChartType}
+                                    result={result}
+                                    totalTrials={state.trials}
+                                />
+                            </>
+                        ))}
+                </ToolSection>
+            </div>
+        </>
+    );
+}

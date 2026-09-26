@@ -110,7 +110,7 @@ describe('runDay: opt-in idle-day closure', () => {
     it(
         'genuinely produces an idle day for a plan with no closure rule at all, since ' +
             'idleDayProbability models the trader choosing not to trade that day, not ' +
-            "whether a firm's inactivity rule exists to punish it — a subscription-billed " +
+            "whether a firm's inactivity rule exists to punish it, a subscription-billed " +
             "eval's elapsed-day cost must reflect a skipped day even when nothing can " +
             'ever close the account for taking one (this used to be a true no-op, which ' +
             'silently forced every such eval to trade every single day)',
@@ -224,7 +224,7 @@ describe('runDay: opt-in idle-day closure', () => {
         expect(seventh.closedForInactivity).toBe(true);
     });
 
-    it('a traded day resets the streak — needs a fresh 7-in-a-row after any trade, not a cumulative count', () => {
+    it('a traded day resets the streak, needs a fresh 7-in-a-row after any trade, not a cumulative count', () => {
         const plan = mffuRapidEod();
         const state = plan.initialState();
         const { stats } = freshStats(state.startingBalance);
@@ -264,7 +264,7 @@ describe('runDay: opt-in idle-day closure', () => {
 
     it(
         'a cushion-exhausted RungSizing.SkipIfUnaffordable day also counts toward the streak, ' +
-            'even with idleDayProbability at 0 — a day with zero trades counts regardless of why',
+            'even with idleDayProbability at 0, a day with zero trades counts regardless of why',
         () => {
             const plan = mffuRapidEod().withOverrides({
                 maxConsecutiveIdleDays: 2,

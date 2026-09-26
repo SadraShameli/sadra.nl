@@ -1,9 +1,9 @@
 # Take Profit Trader PRO+ (Live) ($25,000 / $50,000 / $75,000 / $100,000 / $150,000 PRO-Origin Sizes)
 
-**Sources:** <https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/15171929948829-Advantages-of-PRO> (2026-09-01), <https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/15171978600349-PRO-Account-Upgrade-Process-Overview-and-Guidelines> (2026-09-01), <https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/15172006753821-PRO-Account-Rules> (2026-09-01), <https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/36429526878237-PRO-Development-Accounts> (2026-09-01) : see the full Sources list at the bottom for every article used.
+**Sources:** <https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/15171929948829-Advantages-of-PRO> (2026-09-01), <https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/15171978600349-PRO-Account-Upgrade-Process-Overview-and-Guidelines> (2026-09-01), <https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/15172006753821-PRO-Account-Rules> (2026-09-22), <https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/36429526878237-PRO-Development-Accounts> (2026-09-01) : see the full Sources list at the bottom for every article used.
 
-**Last Verified:** 2026-09-23 for PRO+ Development Accounts; other sources as previously verified on 2026-09-20.
-**Last Updated:** 2026-09-23
+**Last Verified:** 2026-09-26 for PRO+ Account Rules and the PRO+ Account Upgrade Process article; 2026-09-23 for PRO+ Development Accounts; other sources as previously verified on 2026-09-20.
+**Last Updated:** 2026-09-26
 
 ## Overview
 
@@ -91,7 +91,7 @@ This example uses a literal $0 starting balance throughout, matching TPT's own s
 2. **Day 1:** closes $500 in realized profit. EOD balance = $500. Per the source's own $500 example, the floor trails up by the same $500: −$2,000 → **−$1,500**.
 3. **Day 2:** closes a further $700 in profit. Cumulative EOD balance = $1,200. Floor = balance − $2,000 = $1,200 − $2,000 = **−$800**.
 4. **Day 3:** closes a further $800 in profit. Cumulative EOD balance = $2,000 : exactly this size's own $2,000 EOD Drawdown amount. Floor = $2,000 − $2,000 = $0. Because cumulative profit has now reached the EOD Drawdown amount, the floor **locks permanently at $0** and stops trailing from here on, per "stopping once it reaches $0, where it will remain."
-5. **Day 4:** closes a $300 loss. EOD balance falls to $1,700, but the locked floor does not move : it stays at **$0**. The account must close at or above $0 every day from now on.
+5. **Day 4:** closes a $300 loss. EOD balance falls to $1,700, but the locked floor does not move : it stays at **$0**. From here the balance must stay above $0 at all times, open positions included, not only at the close: PRO+ Account Rule 2 says the account balance, "including open positions," "must not reach or exceed the maximum EOD drawdown limit," so a balance of exactly $0 is already a breach.
 6. **Day 5:** closes a further $1,900 loss. EOD balance falls to −$200, at or below the locked $0 floor. This breaches the EOD Drawdown and closes the PRO+ account. Per the account-loss provision (see Eligibility & Upgrade Process above), this account's own $200 negative balance is deducted from the $5,000 frozen PRO profit first, leaving $4,800, which then releases for withdrawal under the standard PRO 80/20 split.
 
 ## Payouts
@@ -207,13 +207,13 @@ PRO+ (including its PRO+ Development variant) is Take Profit Trader's final, rea
 
 ---
 
-**Last Updated:** 2026-09-23
+**Last Updated:** 2026-09-26
 
 **Sources:**
 
 - <https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/15171929948829-Advantages-of-PRO>, "Advantages of PRO+" (2026-09-01). Source of the PRO+ definition, eligibility-invitation language, 90/10 split, direct-exchange-routing, no-buffer-requirement, and EOD Drawdown labeling.
 - <https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/15171978600349-PRO-Account-Upgrade-Process-Overview-and-Guidelines>, "PRO+ Account Upgrade Process – Overview and Guidelines" (2026-09-01). Primary source for the eligibility review criteria, the upgrade process, the Market Data Update window, the $5,000 freeze mechanic, the $0-start/carried-drawdown mechanic, the trailing/locking description, and the account-loss provision.
-- <https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/15172006753821-PRO-Account-Rules>, "PRO+ Account Rules" (2026-09-01). Source of the six PRO+ Account Rules: eligible instruments/hours, EOD Drawdown, Weekly Trading Requirement, No Counter Positions, Avoid Limit Up/Down, and Prohibited News windows.
+- <https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/15172006753821-PRO-Account-Rules>, "PRO+ Account Rules" (2026-09-22; re-fetched live 2026-09-26 via the Zendesk API, HTTP 200, `updated_at` 2026-09-22T12:36:54Z, rule 2 wording unchanged). Source of the six PRO+ Account Rules: eligible instruments/hours, EOD Drawdown, Weekly Trading Requirement, No Counter Positions, Avoid Limit Up/Down, and Prohibited News windows.
 - <https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/36429526878237-PRO-Development-Accounts>, "PRO+ Development Accounts" (2026-09-01). Source of the full PRO+ Development table, placement criteria, and the ~60-day path back to standard PRO+.
 - <https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/30166235705629-Resetting-A-PRO-Account>, "Resetting A PRO+ Account" (2026-09-01). Source of the Resetting PRO+ section.
 - <https://takeprofittraderhelp.zendesk.com/hc/en-us/articles/15172012844957-Commissions-for-PRO>, "Commissions for PRO+" (2026-09-01). Source of the PRO+ commission deferral to NinjaTrader/Tradovate.

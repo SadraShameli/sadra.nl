@@ -25,6 +25,10 @@ import {
     type Plan,
     simulate,
 } from '~/lib/prop-calculator';
+import {
+    findRegistryPlanId,
+    warmFirmsRegistryCache,
+} from '~/lib/prop-calculator/core/FundedStateValue';
 import { AlphaFutures } from '~/lib/prop-calculator/firms/alphafutures/AlphaFutures';
 
 const ARGS = { ...planArguments, ...tradingArguments } satisfies ArgsDef;
@@ -137,7 +141,7 @@ describe('--funded-reset (N-34, T31: the Alpha Qualified Reset is an opt-in, off
 });
 
 describe('optimize dp takes --funded-reset into its own solve (T31, N-34 DP half)', () => {
-    it('opts the plan in, and the only reset line left states the plan terms from the plan data and the day-policy limit, never that the DP ignores the reset', () => {
+    it('opts the plan in and prints no reset gap line, since the DP values every reset and its day policy sees the reset count (N-34)', () => {
         const plan = resolvedDpPlan([
             '--firm',
             'alphafutures',
@@ -145,16 +149,24 @@ describe('optimize dp takes --funded-reset into its own solve (T31, N-34 DP half
             'zero',
             '--funded-reset',
         ]);
-        const policy = plan.fundedReset;
-        if (policy === null) throw new Error('Alpha Zero has no reset policy');
-        const warning = fundedDpModelGapWarning(plan) ?? '';
 
         expect(plan.takesFundedReset).toBe(true);
-        expect(warning).toContain(describeFundedResetTerms(policy));
-        expect(warning).toContain('values every reset exactly');
-        expect(warning).not.toContain('does not model');
-        expect(warning).not.toContain('only before any payout');
-        expect(warning).not.toContain('\u{2014}');
+        expect(plan.fundedReset).not.toBeNull();
+        expect(fundedDpModelGapWarning(plan)).toBeNull();
+    });
+
+    it('keeps the opted-in plan recognizable as a registry plan, so its DP solve keeps the worker pool', async () => {
+        await warmFirmsRegistryCache();
+        const plan = resolvedDpPlan([
+            '--firm',
+            'alphafutures',
+            '--variant',
+            'standard',
+            '--funded-reset',
+        ]);
+
+        expect(plan.takesFundedReset).toBe(true);
+        expect(findRegistryPlanId(plan)).toStrictEqual(plan.id);
     });
 
     it('keeps both opt-ins independent and off by default', () => {

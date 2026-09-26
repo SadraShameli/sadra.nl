@@ -8,6 +8,7 @@ import {
     type LiveCushionPercent,
     LivePlan,
     PayoutFloorEffect,
+    TierBasis,
 } from '~/lib/prop-calculator/core';
 
 import { lockThresholdAt } from '../shared';
@@ -47,6 +48,7 @@ export function buildLucidLivePlan(
         contractLimits: {
             micros: {
                 kind: ContractLimitKind.Tiered,
+                tierBasis: TierBasis.SessionOpenProfit,
                 tiers: [
                     { maxContracts: contracts(20), minBalance: dollars(0) },
                     {
@@ -61,6 +63,7 @@ export function buildLucidLivePlan(
             },
             minis: {
                 kind: ContractLimitKind.Tiered,
+                tierBasis: TierBasis.SessionOpenProfit,
                 tiers: [
                     { maxContracts: contracts(2), minBalance: dollars(0) },
                     {

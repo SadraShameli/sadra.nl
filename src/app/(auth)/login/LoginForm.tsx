@@ -18,14 +18,14 @@ import {
 import { Input } from '~/components/ui/Input';
 import { authClient } from '~/lib/auth/client';
 import { type LoginInput, loginInputSchema } from '~/lib/schemas/auth';
-import { routes } from '~/lib/site/routes';
+import { readCallbackUrl } from '~/lib/site/privateRoutes';
 
 export function LoginForm() {
     const router = useRouter();
     const [pending, startTransition] = useTransition();
     const [topError, setTopError] = useState<null | string>(null);
     const searchParameters = useSearchParams();
-    const callbackUrl = searchParameters.get('callbackUrl') ?? routes.home;
+    const callbackUrl = readCallbackUrl(searchParameters);
 
     const form = useForm<LoginInput>({
         defaultValues: { callbackUrl, email: '', password: '' },

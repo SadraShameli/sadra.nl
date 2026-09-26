@@ -7,16 +7,27 @@ import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import InfoPopover from '~/components/ui/InfoPopover';
 import { formatCompactCurrency, formatPercent } from '~/lib/format';
 import { type SimInputs, simulate } from '~/lib/prop-calculator';
+import { simInputsSizingIssue } from '~/lib/prop-calculator/simulator';
 import { cn } from '~/lib/utilities';
 
+import { ComputationId } from './ComputationId';
 import { panelDescriptions } from './kpiDescriptions';
 import { simInputsCacheKey, SimInputsKeyField } from './simInputsCacheKey';
+import { SimulationFailureNotice } from './SimulationFailureNotice';
 import { useDebouncedComputation } from './useDebouncedSimulation';
 
 enum SensitivityMetric {
     EvalPass = 'eval-pass',
     FundedSurvival = 'funded-survive',
     MonthlyNet = 'net',
+}
+
+export interface Cell {
+    evalPass: number;
+    fundedSurvival: number;
+    monthlyNet: number;
+    rr: number;
+    winrate: number;
 }
 
 interface HeatmapRow {
@@ -28,14 +39,6 @@ const WINRATES = [0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6] as const;
 const RR_RATIOS = [1, 1.5, 2, 2.5, 3, 3.5, 4] as const;
 const DEBOUNCE_MS = 700;
 const MAX_TRIALS = 300;
-
-interface Cell {
-    evalPass: number;
-    fundedSurvival: number;
-    monthlyNet: number;
-    rr: number;
-    winrate: number;
-}
 
 interface HeatmapCardProperties {
     cells: Cell[];
@@ -66,7 +69,9 @@ export default function SensitivityHeatmap({
     currentRR,
     currentWinrate,
 }: SensitivityHeatmapProperties) {
-    const { cells, pending } = useSensitivityGrid(baseInputs);
+    const { cells, error, pending } = useSensitivityGrid(baseInputs);
+
+    if (error !== null) return <SimulationFailureNotice message={error} />;
 
     return (
         <div
@@ -301,10 +306,16 @@ function nearest<T extends number>(target: number, options: readonly T[]): T {
 
 function useSensitivityGrid(baseInputs: SimInputs): {
     cells: Cell[];
+    error: null | string;
     pending: boolean;
 } {
     const key = buildCacheKey(baseInputs);
-    const { pending, result: cells } = useDebouncedComputation<Cell[]>(
+    const {
+        error,
+        pending,
+        result: cells,
+    } = useDebouncedComputation(
+        ComputationId.Sensitivity,
         key,
         DEBOUNCE_MS,
         () => {
@@ -330,7 +341,8 @@ function useSensitivityGrid(baseInputs: SimInputs): {
             return out;
         },
         [],
+        simInputsSizingIssue(baseInputs),
     );
 
-    return { cells, pending };
+    return { cells, error, pending };
 }

@@ -5,17 +5,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     buildLadderGrid,
     canonicaliseGrid,
-    type CouponDiscounts,
-    type DayStopRule,
-    type InstrumentSymbol,
     ladderFrontier,
-    type LadderGridConfig,
     LadderGridError,
     type LadderGridLabels,
     type LadderScore,
-    type Plan,
     resolveCopyAccounts,
-    type RungSizing,
 } from '~/lib/prop-calculator';
 
 import {
@@ -24,6 +18,11 @@ import {
     type LadderWorkerResponse,
     LadderWorkerResponseKind,
 } from '../_workers/ladderWorkerMessages';
+import {
+    LadderRunPhase,
+    type LadderSearchInputs,
+    type LadderSearchState,
+} from './ladderSearchTypes';
 
 const BLOCK_SIZE = 20;
 const MAX_WORKERS = 16;
@@ -36,60 +35,6 @@ const LADDER_GRID_FIELD_LABELS: LadderGridLabels = {
     step: 'Step',
 };
 
-export enum LadderRunPhase {
-    Cancelled = 'cancelled',
-    Failed = 'failed',
-    Idle = 'idle',
-    Running = 'running',
-    Succeeded = 'succeeded',
-}
-
-export interface LadderProgress {
-    completed: number;
-    elapsedMs: number;
-    etaMs: null | number;
-    total: number;
-}
-
-export interface LadderSearchInputs {
-    commission: number;
-    copyAccounts: number;
-    discounts: CouponDiscounts | undefined;
-    grid: LadderGridConfig;
-    instrument: InstrumentSymbol | undefined;
-    maxDays: number;
-    plan: Plan;
-    rrRatio: number;
-    rungSizing: RungSizing;
-    seed: number;
-    sims: number;
-    stopPoints: number | undefined;
-    stopRule: DayStopRule;
-    winrate: number;
-}
-
-export interface LadderSearchRun {
-    byCost: readonly LadderScore[];
-    byPassRate: readonly LadderScore[];
-    bySpeed: readonly LadderScore[];
-    droppedAliasCount: number;
-    frontier: readonly LadderScore[];
-    gridSize: number;
-    laddersScored: number;
-    unscorableCount: number;
-}
-
-export type LadderSearchState =
-    | { phase: LadderRunPhase.Cancelled; progress: LadderProgress }
-    | { phase: LadderRunPhase.Failed; reason: string }
-    | { phase: LadderRunPhase.Idle }
-    | { phase: LadderRunPhase.Running; progress: LadderProgress }
-    | {
-          phase: LadderRunPhase.Succeeded;
-          progress: LadderProgress;
-          result: LadderSearchRun;
-      };
-
 const IDLE: LadderSearchState = { phase: LadderRunPhase.Idle };
 
 export function describeLadderGridFailure(error: unknown): string {
@@ -101,6 +46,7 @@ export function describeLadderGridFailure(error: unknown): string {
 
 export function useLadderSearch() {
     const [state, setState] = useState<LadderSearchState>(IDLE);
+    const [runInputs, setRunInputs] = useState<LadderSearchInputs | null>(null);
     const workersReference = useRef<Worker[]>([]);
     const cancelReference = useRef(false);
     const runIdReference = useRef(0);
@@ -136,6 +82,7 @@ export function useLadderSearch() {
             teardown();
             runIdReference.current += 1;
             const runId = runIdReference.current;
+            setRunInputs(inputs);
 
             const cushion = inputs.plan.drawdown.amount;
             const discounts = inputs.plan.purchaseDiscounts(
@@ -319,5 +266,5 @@ export function useLadderSearch() {
         [teardown],
     );
 
-    return { cancel, run, state };
+    return { cancel, run, runInputs, state };
 }

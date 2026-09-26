@@ -62,6 +62,9 @@ line.
 - `bun run typecheck`, `bun run lint`, `bun run stylelint`, `bun run test`
   (Vitest) are backend-side checks — safe to run freely. `bun run check` /
   `bun run verify` chain all of them plus `knip`.
+- **Run Vitest from the repo root** (`bunx vitest run tests/unit/...`), never
+  from inside `tests/`: from a subfolder it skips `vitest.config.ts` (the `~/`
+  alias fails) and writes its cache to a nested `node_modules/.vite`.
 - **Never run `bun run dev` / `bun run build` / `next dev` / `next build`
   yourself, and never drive the app with a browser automation tool** — the
   user runs their own dev server and verifies UI changes themselves. Verify

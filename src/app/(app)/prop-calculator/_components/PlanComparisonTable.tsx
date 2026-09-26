@@ -23,30 +23,33 @@ import {
     type TradingFirm,
     withPlanOptIns,
 } from '~/lib/prop-calculator';
+import { simInputsSizingIssue } from '~/lib/prop-calculator/simulator';
 import { cn } from '~/lib/utilities';
 
+import { ComputationId } from './ComputationId';
 import { panelDescriptions } from './kpiDescriptions';
 import { ptddColor } from './metricColors';
 import { bestExpectedMonthlyNet, scoreByExpectedMonthlyNet } from './scoring';
 import { simInputsCacheKey, SimInputsKeyField } from './simInputsCacheKey';
+import { SimulationFailureNotice } from './SimulationFailureNotice';
 import { useDebouncedComputation } from './useDebouncedSimulation';
 
 const DEBOUNCE_MS = 600;
 const MAX_TRIALS = 500;
+
+export interface Row {
+    isBest: boolean;
+    out: SimOutputs;
+    plan: Plan;
+    ptdd: number;
+    score: number;
+}
 
 interface PlanComparisonTableProperties {
     activePlan: Plan;
     baseInputs: Omit<SimInputs, 'plan'>;
     firm: TradingFirm;
     planOptIns: PlanOptIns;
-}
-
-interface Row {
-    isBest: boolean;
-    out: SimOutputs;
-    plan: Plan;
-    ptdd: number;
-    score: number;
 }
 
 export default function PlanComparisonTable({
@@ -56,7 +59,12 @@ export default function PlanComparisonTable({
     planOptIns,
 }: PlanComparisonTableProperties) {
     const key = buildCacheKey(baseInputs, firm.id, planOptIns);
-    const { pending, result: rows } = useDebouncedComputation<Row[]>(
+    const {
+        error,
+        pending,
+        result: rows,
+    } = useDebouncedComputation(
+        ComputationId.PlanComparison,
         key,
         DEBOUNCE_MS,
         () => {
@@ -82,6 +90,7 @@ export default function PlanComparisonTable({
             }));
         },
         [],
+        simInputsSizingIssue(baseInputs),
     );
 
     const columns = useMemo<DataTableColumn<Row>[]>(
@@ -191,24 +200,28 @@ export default function PlanComparisonTable({
                         : `${rows.length} plan${rows.length === 1 ? '' : 's'}`}
                 </span>
             </div>
-            <DataTable<Row>
-                className="app-prop-calculator__plan-comparison-table text-xs tabular-nums"
-                columns={columns}
-                data={rows}
-                emptyState={
-                    <EmptyState
-                        icon={Layers}
-                        title={pending ? 'Computing…' : 'No plans'}
-                    />
-                }
-                pageSize={null}
-                rowClassName={(r) =>
-                    r.plan === activePlan
-                        ? 'bg-primary/10 font-semibold text-foreground'
-                        : undefined
-                }
-                rowId={(r) => JSON.stringify(r.plan.id)}
-            />
+            {error === null ? (
+                <DataTable<Row>
+                    className="app-prop-calculator__plan-comparison-table text-xs tabular-nums"
+                    columns={columns}
+                    data={rows}
+                    emptyState={
+                        <EmptyState
+                            icon={Layers}
+                            title={pending ? 'Computing…' : 'No plans'}
+                        />
+                    }
+                    pageSize={null}
+                    rowClassName={(r) =>
+                        r.plan === activePlan
+                            ? 'bg-primary/10 font-semibold text-foreground'
+                            : undefined
+                    }
+                    rowId={(r) => JSON.stringify(r.plan.id)}
+                />
+            ) : (
+                <SimulationFailureNotice message={error} />
+            )}
         </Card>
     );
 }

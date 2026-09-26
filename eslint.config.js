@@ -96,6 +96,7 @@ export default tseslint.config(
                     ignore: [/^\[.+\]/u, /\.d\.ts$/u],
                 },
             ],
+            'unicorn/name-replacements': 'off',
             'unicorn/no-array-callback-reference': 'off',
             'unicorn/no-array-reduce': 'off',
             'unicorn/no-nested-ternary': 'off',
@@ -104,7 +105,6 @@ export default tseslint.config(
             'unicorn/number-literal-case': 'off',
             'unicorn/prefer-global-this': 'off',
             'unicorn/prefer-spread': 'off',
-            'unicorn/prevent-abbreviations': 'off',
         },
     },
     {
@@ -119,9 +119,9 @@ export default tseslint.config(
         rules: {
             'no-empty': ['error', { allowEmptyCatch: true }],
             'perfectionist/sort-classes': 'off',
+            'unicorn/name-replacements': 'off',
             'unicorn/no-null': 'off',
             'unicorn/prefer-module': 'off',
-            'unicorn/prevent-abbreviations': 'off',
         },
     },
     {

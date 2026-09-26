@@ -4,7 +4,7 @@
 
 - help.topstep.com, Live Funded Account® collection, Article ID 10657969, "Live Funded Account Parameters" (last updated 2026-09-17)
 - help.topstep.com, Live Funded Account® collection, Article ID 13747178, "Live Funded Account Call Up and Call Down Process" (last updated 2026-08-11)
-- help.topstep.com, Live Funded Account® collection, Article ID 11748475, "Dynamic Live Risk Expansion" (last updated 2026-07-17)
+- help.topstep.com, Live Funded Account® collection, Article ID 11748475, "Dynamic Live Risk Expansion" (last updated 2026-09-24)
 - help.topstep.com, Live Funded Account® collection, Article ID 8284229, "What are the costs in the Live Funded Account?" (last updated 2026-06-16)
 - help.topstep.com, Live Funded Account® collection, Article ID 15764697, "The Topstep Octagon" (last updated 2026-09-03)
 - help.topstep.com, Live Funded Account® collection, Article ID 11177768, "TopstepX™ Live Performance Bonus" (last updated 2026-07-01, article now documents the bonus's own retirement)
@@ -17,8 +17,8 @@
 
 Note on citation completeness: the two source bundles this file was drafted from (`bundle-live.txt`, `bundle-firmwide.txt`) give each article's ID, title, collection, and last-updated timestamp, but no literal article URL. Citations above are by ID and title rather than a fabricated URL; do not treat any URL constructed from these IDs as confirmed.
 
-**Last Verified:** 2026-09-24
-**Last Updated:** 2026-09-24
+**Last Verified:** 2026-09-26 (article 11748475 re-fetched live; every other article 2026-09-24)
+**Last Updated:** 2026-09-26
 
 ## Overview
 
@@ -73,7 +73,7 @@ Per "Dynamic Live Risk Expansion": "Your net profit determines your Tier. Spend 
 - Active Trading Day: "Any day you place at least 1 trade — even a single micro contract. No minimum P/L required."
 - "Only profits made in the Live Funded Account count. Your Express Funded Account® transfer balance and Payouts don't affect your Tier."
 
-Expansion table (net profit in the LFA → Daily Loss Limit → Maximum Position Size), directly from the source's own "Expansion Table":
+Expansion table (net profit in the LFA → Daily Loss Limit → Maximum Position Size), directly from the source's own "Expansion Table". Its first three Daily Loss Limit rows are maxima ("Up to"), reached only by the $150K account; the per-account figures follow the table:
 
 | Net Profit in LFA | Daily Loss Limit | Maximum Position Size        |
 | ----------------- | ---------------- | ---------------------------- |
@@ -84,6 +84,16 @@ Expansion table (net profit in the LFA → Daily Loss Limit → Maximum Position
 | $200,000          | Up to $20,000    | Up to 50 lots                |
 | $550,000          | Up to $50,000    | Up to 70 lots                |
 | $1,000,000        | Up to $100,000   | Up to 100 lots               |
+
+Per-account Daily Loss Limits for the first three tiers, verbatim from the 2026-09-24 revision of the article (dateModified 2026-09-24T14:00:24Z, fetched live 2026-09-26): "For the first three tiers, +$500 is added to your starting Daily Loss Limit for each tier you achieve:"
+
+| Net Profit in LFA | $50K account (starts at $2,000) | $100K account (starts at $3,000) | $150K account (starts at $4,500) |
+| ----------------- | ------------------------------- | -------------------------------- | -------------------------------- |
+| $15,000           | $2,500                          | $3,500                           | $5,000                           |
+| $20,000           | $3,000                          | $4,000                           | $5,500                           |
+| $50,000           | $3,500                          | $4,500                           | $6,000                           |
+
+From $100,000 the accounts share one table: "Once an account reaches $100k in net profit, Daily Loss Limits and Maximum Position Sizes align across all account types (as shown in Tier 4+)."
 
 Source's own note on the "unchanged" rows, verbatim (including its own duplicated "with"): "Position Limits remain at the max for each account size (5 lots for $50Ks, 10 lots for $100Ks, 15 lots for $150Ks) until the account reaches Tier 4 with with $100K in profit."
 
@@ -220,15 +230,16 @@ Read in full and checked line by line against both source bundles, then re-check
 3. **Reserve / Capital Expansion.** `TopStepLivePlan` now extends `ReserveLivePlan`, with `seedReserve` set from `computeTopStepLiveReserve` (the 80%-held-back share) and `RESERVE_INCREMENTS = 4`, `RESERVE_PROFIT_TARGET = dollars(3000)`, a 5-session review interval, and a 2-session deposit lag. A review approves at most one 25% increment once net trading P&L since the last release reaches the $3,000 target (the $50K figure from the Capital Expansion table above); the increment lands 2 sessions later and is added to both `balance` and `startingBalance`, matching "Funds deposited within 1-2 business days" and "additional funds are released from your Reserve into your unlocked balance." A released increment is held back from withdrawal until all four are out, matching "Once 100% of your balance has been unlocked, you may withdraw those funds as well."
 4. **The $1,000 auto-liquidation floor.** `liveDrawdown` is now `new StaticDrawdown({ amount: dollars(startingBalance - AUTO_LIQUIDATION_BALANCE) })` with `AUTO_LIQUIDATION_BALANCE = dollars(1000)`, and `TopStepLivePlan.payoutOnLiquidation` returns the remaining balance, matching "The remaining balance would then be sent as a final Payout" (live-verified 2026-09-24). `simulator/livePhase.ts` reports this as a one-off, non-annualized figure, separate from the recurring trading-profit withdrawal rate. The engine closes at the breaching trade rather than at end of day; the source's own "may be"/"will be" and real-time-vs-EOD wording is still ambiguous either way (see Not Confirmed), so this is a documented engine choice, not a resolved firm fact.
 5. **Daily Loss Limit Safeguard.** `BALANCE_SAFEGUARDS` now encodes both thresholds ($10,000 → $2,000 DLL / 5 lots; $5,000 → $1,000 DLL / 3 lots), applied through `dailyLossLimitFor`/`maxContractsFor` and tightened at every session close; the safeguard only relaxes on a session count divisible by 5 (a Friday close, on the engine's own Monday-start assumption), matching "These limits update on Fridays and return to standard levels once your balance rises back above the thresholds" (live-verified 2026-09-24).
-6. **Tier basis after returned capital.** `TopStepLivePlan.tierProfitOf` now adds back every withdrawal (seed and Reserve alike) on top of `balance - startingBalance`, and a Reserve release adds to `startingBalance` too, so neither a payout nor a capital return moves the tier. This matches "Only profits made in the Live Funded Account count. Your Express Funded Account® transfer balance and Payouts don't affect your Tier." (article 11748475, dateModified 2026-07-17, live-verified 2026-09-24).
+6. **Tier basis after returned capital.** `TopStepLivePlan.tierProfitOf` now adds back every withdrawal (seed and Reserve alike) on top of `balance - startingBalance`, and a Reserve release adds to `startingBalance` too, so neither a payout nor a capital return moves the tier. This matches "Only profits made in the Live Funded Account count. Your Express Funded Account® transfer balance and Payouts don't affect your Tier." (article 11748475, dateModified 2026-09-24, live-verified 2026-09-26).
 7. **Tier timing (10 Active Trading Days, end of day).** The engine now gates each tier behind 10 active-trading-day session closes, one tier at a time, resetting the counter on a drop out of the tier being earned, evaluated once per session close rather than intraday. This matches "Your Daily Loss Limit increases at end of day after 10 Active Trading Days in the new Tier," "You must move one Tier at a time. No skipping," and "If you drop out of a Tier before 10 days, the counter resets when you re-enter it." (article 11748475, live-verified 2026-09-24). Three readings are the engine's own, not directly stated by the source: the day a profit first closes in a new tier counts as that tier's first Active Trading Day; while profit sits several tiers up, active days count toward the next tier only; and a previously-earned tier lost at a close must be re-earned with a fresh 10 days.
 8. **90/10 trader share.** Now cited: help.topstep.com's "Topstep Payout Policy" article (8284233, dateModified 2026-09-03) states, under the section covering both the XFA and the LFA, "Minimum Payout: $125" and "90/10 profit split — you keep 90%" (live-verified 2026-09-24). This confirms `TOPSTEP_PAYOUT_POLICY.traderShare` (shared by `TopStep.ts` and `TopStepLive.ts`) for ordinary trading-profit Payouts. It does not confirm the split applies to the seed/Reserve capital-return channel or the $1,000-floor liquidation payout, both of which the engine also pays out through the same 90/10 `payoutTiers`; see Not Confirmed.
 9. **Micro-to-mini.** The engine's contract-limit config is the same object for both micros and minis on the LFA, i.e. no ratio conversion, matching help.topstep.com article 8284223 ("What is the Scaling Plan?", dateModified 2026-07-16, live-verified 2026-09-24): "The Micro to Mini ratio functionality is available for the Trading Combine and Express Funded Account. It is not currently available for the Live Funded Account."
+10. **50K tier Daily Loss Limits (N-67).** `DLL_TIERS` used $5,000 / $5,500 / $6,000 for the $15,000 / $20,000 / $50,000 tiers, the $150K account's figures (the Expansion Table's "Up to" maxima). The article's 2026-09-24 revision (dateModified 2026-09-24T14:00:24Z, fetched live 2026-09-26) states the $50K figures: "$50K Account (Starts at $2,000 DLL):", "$15k Profit -> $2,500 DLL", "$20k Profit -> $3,000 DLL", "$50k Profit -> $3,500 DLL". `DLL_TIERS` now uses $2,500 / $3,000 / $3,500. The Safeguard's $2,000 DLL at a tradable balance of $10,000 or below is therefore $500 under the first tier, not $3,000.
 
 **Confirmed correct (checked, not just assumed):**
 
 - `computeTopStepLiveStartingBalance`'s formula, `Math.max(MIN_STARTING_BALANCE, STARTING_BALANCE_SHARE * Math.min(cumulativeXfaBalance, accountSizeTier))` with `MIN_STARTING_BALANCE = 10_000` and `STARTING_BALANCE_SHARE = 0.2`, matches the source's own rule exactly: "Your starting balance is 20% of your cumulative XFA balance — but capped at your Account Size, with any excess forfeited (not banked into Reserve). If 20% of the capped amount doesn't reach $10,000, Topstep supplements from that same capped amount to meet the $10,000 minimum.", for the one tier ($50K) it is able to model.
-- `DLL_TIERS`' profit thresholds and values ($15K/$20K/$50K/$100K/$200K/$550K/$1M net profit → $5,000/$5,500/$6,000/$10,000/$20,000/$50,000/$100,000 DLL, with 30/50/70/100-lot caps at the four highest tiers, and the base tier at $2,000 DLL / 5 contracts / $0 profit) match the source's Expansion Table and the $50K "Starting Daily Loss Limit and Maximum Position Size" row exactly.
+- `DLL_TIERS`' profit thresholds and values ($15K/$20K/$50K/$100K/$200K/$550K/$1M net profit → $2,500/$3,000/$3,500/$10,000/$20,000/$50,000/$100,000 DLL, with 30/50/70/100-lot caps at the four highest tiers, and the base tier at $2,000 DLL / 5 contracts / $0 profit) match the article's $50K per-tier lines, its shared Tier 4+ rows and the $50K "Starting Daily Loss Limit and Maximum Position Size" row exactly (re-checked live 2026-09-26 against the 2026-09-24 revision).
 
 ## Not Confirmed By This Source
 
@@ -243,13 +254,13 @@ Read in full and checked line by line against both source bundles, then re-check
 
 ---
 
-**Last Updated:** 2026-09-24
+**Last Updated:** 2026-09-26
 **Sources:**
 
 - help.topstep.com, Article ID 8284233, "Topstep Payout Policy" (updated 2026-09-03). Source of the LFA payout cadence, the $125 minimum, the uncapped 50%-of-balance maximum, and the full-100%-payout note. Located by a 2026-09-19 re-audit; it had not previously been cited by this file. Re-verified live 2026-09-24: confirms the 90/10 trader-share split for the LFA ("90/10 profit split — you keep 90%"), used to resolve this file's previously-unconfirmed Profit Split row (see Engine Cross-Check).
 - help.topstep.com, Article ID 10657969, "Live Funded Account Parameters" (updated 2026-09-17). Re-verified live 2026-09-24: confirms the Reserve mechanic, the $1,000 auto-liquidation floor and final-payout language, and the Daily Loss Limit Safeguard table, all now modeled in `TopStepLive.ts` (see Engine Cross-Check).
 - help.topstep.com, Article ID 13747178, "Live Funded Account Call Up and Call Down Process" (updated 2026-08-11)
-- help.topstep.com, Article ID 11748475, "Dynamic Live Risk Expansion" (updated 2026-07-17). Re-verified live 2026-09-24: confirms the tier-timing rules (10 Active Trading Days, end of day, one tier at a time) and the "Payouts don't affect your Tier" statement, now modeled in `TopStepLive.ts`.
+- help.topstep.com, Article ID 11748475, "Dynamic Live Risk Expansion" (updated 2026-09-24). Re-verified live 2026-09-24: confirms the tier-timing rules (10 Active Trading Days, end of day, one tier at a time) and the "Payouts don't affect your Tier" statement, now modeled in `TopStepLive.ts`. Re-fetched live 2026-09-26 (dateModified 2026-09-24T14:00:24Z): the revision adds the per-account "+$500 ... for each tier" lines, so the $50K tiers are $2,500 / $3,000 / $3,500 (N-67).
 - help.topstep.com, Article ID 8284229, "What are the costs in the Live Funded Account?" (updated 2026-06-16)
 - help.topstep.com, Article ID 15764697, "The Topstep Octagon" (updated 2026-09-03)
 - help.topstep.com, Article ID 11177768, "TopstepX™ Live Performance Bonus" (updated 2026-07-01)

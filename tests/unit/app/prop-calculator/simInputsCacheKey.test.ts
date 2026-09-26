@@ -289,6 +289,16 @@ describe('portfolio panel cache key (WP23: built on simInputsCacheKey)', () => {
         },
     );
 
+    it('changes the key when two portfolios with equal contents have different entry ids, since results are joined by entry id', () => {
+        expect(
+            portfolioCacheKey(
+                base,
+                [{ ...baseEntry, id: 'entry-2' }],
+                NO_PLAN_OPT_INS,
+            ),
+        ).not.toBe(baseKey);
+    });
+
     it('keeps the key when only the per-entry overrides of the shared inputs change', () => {
         expect(
             portfolioCacheKey(

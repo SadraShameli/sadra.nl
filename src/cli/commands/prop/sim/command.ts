@@ -18,7 +18,18 @@ import {
     formatOptionalPercent,
     formatPercent,
 } from '~/lib/format';
-import { type Plan, type SimOutputs, simulate } from '~/lib/prop-calculator';
+import {
+    type ContractCount,
+    contractLimitAt,
+    oneContractRisk,
+    type Plan,
+    type PositionSizingConfig,
+    resolvePositionSizing,
+    type SimOutputs,
+    simulate,
+    TradingPhase,
+    wholeContractRisk,
+} from '~/lib/prop-calculator';
 
 export interface GranularityRow {
     out: SimOutputs;
@@ -54,15 +65,14 @@ export default defineCommand({
         try {
             const plan = planResolver.resolveOne(context.args);
             const inputs = TradingInputs.parse(context.args);
-            spinner = ui
-                .spinner(`${plan.label} · ${inputs.trials} trials`)
-                .start();
+            const label = simSpinnerLabel(plan.label, inputs.trials);
+            spinner = ui.spinner(label).start();
 
             const out = simulate(inputs.toSimInputs(plan));
-            spinner.succeed(`${plan.label} · ${inputs.trials} trials`);
+            spinner.succeed(label);
 
             ui.heading(plan.label);
-            const [riskLine, runLine] = simHeaderLines(inputs);
+            const [riskLine, runLine] = simHeaderLines(inputs, plan);
             ui.muted(riskLine);
             ui.muted(`${runLine}\n`);
 
@@ -131,6 +141,7 @@ export function granularityTableRow({
 
 export function simHeaderLines(
     inputs: TradingInputs,
+    plan?: Plan,
 ): readonly [risk: string, run: string] {
     const fundedRisk = inputs.fundedRiskPerTrade ?? inputs.riskPerTrade;
     const fundedRr = inputs.fundedRrRatio ?? inputs.rrRatio;
@@ -139,9 +150,13 @@ export function simHeaderLines(
         ? `ladder [${inputs.ladder.join(', ')}]`
         : `flat $${inputs.riskPerTrade} x${inputs.tradesPerDay}/day`;
     return [
-        `  eval risk ${evalRisk} stop ${describeStopRule(inputs.dayStop)} | funded flat $${fundedRisk} x${fundedTpd}/day 1:${fundedRr}`,
+        `  eval risk ${evalRisk} stop ${describeStopRule(inputs.dayStop)} | funded flat $${fundedRisk}${placedFundedRisk(inputs, fundedRisk, plan)} x${fundedTpd}/day 1:${fundedRr}`,
         `  ${(inputs.winrate * 100).toFixed(0)}% WR | eval 1:${inputs.rrRatio} | max attempts ${inputs.maxAttempts} | seed ${inputs.seed} | ${inputs.fundedHorizonDays} funded days`,
     ];
+}
+
+export function simSpinnerLabel(planLabel: string, trials: number): string {
+    return `${planLabel}: ${trials} trials`;
 }
 
 export function simSummaryRows(out: SimOutputs): readonly SummaryRow[] {
@@ -185,4 +200,56 @@ export function simSummaryRows(out: SimOutputs): readonly SummaryRow[] {
         ['max drawdown (p95)', formatCurrency(out.maxDrawdownP95)],
         ['loss streak (p95)', out.maxLosingStreakP95.toFixed(0)],
     ];
+}
+
+function formatPlacedDollars(amount: number): string {
+    const cents = Math.round(amount * 100);
+    return formatCurrency(cents / 100, cents % 100 === 0 ? 0 : 2);
+}
+
+function fundedStartContractLimit(
+    plan: Plan,
+    positionSizing: PositionSizingConfig,
+): ContractCount | null {
+    const state = plan.initialState();
+    plan.beginFundedPhase(state);
+    return contractLimitAt(
+        plan.contractLimits,
+        TradingPhase.Funded,
+        positionSizing.instrument.isMicro,
+        plan.tierProfitContext(state),
+    );
+}
+
+function placedCapNote(
+    plan: Plan | undefined,
+    placed: number,
+    uncapped: number,
+): string {
+    if (plan === undefined) return ', before any contract limit';
+    return placed < uncapped
+        ? ', capped at the funded contract limit at the start tier'
+        : '';
+}
+
+function placedFundedRisk(
+    inputs: TradingInputs,
+    fundedRisk: number,
+    plan: Plan | undefined,
+): string {
+    const positionSizing = resolvePositionSizing(
+        inputs.instrument,
+        inputs.stopPoints,
+    );
+    if (positionSizing === null) return '';
+    const uncapped = wholeContractRisk(fundedRisk, positionSizing, null);
+    const placed = wholeContractRisk(
+        fundedRisk,
+        positionSizing,
+        plan === undefined
+            ? null
+            : fundedStartContractLimit(plan, positionSizing),
+    );
+    const contractCount = Math.round(placed / oneContractRisk(positionSizing));
+    return ` (placed ${formatPlacedDollars(placed)}: ${contractCount} ${positionSizing.instrument.symbol} at ${positionSizing.stopPoints} pt${placedCapNote(plan, placed, uncapped)})`;
 }

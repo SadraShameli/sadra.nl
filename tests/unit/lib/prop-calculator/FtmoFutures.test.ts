@@ -516,7 +516,7 @@ describe('idle days are simulable in FTMO Futures Evaluation (no closure rule, b
     it(
         'a forced idle day advances no trade and never closes the account, since ' +
             'evalMaxConsecutiveIdleDays is null (no rule stated), but the day still ' +
-            'happens — a subscription-billed Evaluation must be able to reflect a ' +
+            'happens, a subscription-billed Evaluation must be able to reflect a ' +
             'skipped day, not silently trade through it',
         () => {
             for (const plan of [growth, pro]) {
@@ -566,7 +566,7 @@ describe('the FTMO Futures retry note matches the T29 retry loop', () => {
 
     it('says every failed attempt is retried, a timeout of the modeled eval horizon as well as a bust', () => {
         expect(retryNote).toContain(
-            'charges fees.reset on every failed Evaluation attempt except the terminal one, a bust or a timeout alike',
+            'charges plan.retryFee on every failed Evaluation attempt except the terminal one, a bust or a timeout alike',
         );
         expect(retryNote).toContain('--eval-days');
         expect(retryNote).not.toContain('on every bust except');

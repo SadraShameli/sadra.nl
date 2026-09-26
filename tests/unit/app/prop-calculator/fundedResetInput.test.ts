@@ -142,7 +142,10 @@ describe('web calculator input for the Alpha Qualified Reset (N-34, T31 opt-in)'
         const base = {
             fundedHorizonDays: 60,
             maxEvalDays: 60,
-            plan: withFundedResetTaken(alphaPlan(AlphaFuturesVariant.Zero), true),
+            plan: withFundedResetTaken(
+                alphaPlan(AlphaFuturesVariant.Zero),
+                true,
+            ),
             rrRatio: 2,
             seed: 1,
             tradesPerDay: 1,

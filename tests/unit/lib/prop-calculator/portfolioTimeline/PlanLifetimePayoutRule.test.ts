@@ -56,6 +56,7 @@ const apexEod50k = planFor({
 function runCard(plan: Plan): CardResult {
     const dayPolicy = flatDayPolicy(500, 1, { kind: DayStopRuleKind.None });
     return runEvalToFundedCycle({
+        cardDayBudget: 60,
         commission: dollars(0),
         discounts: undefined,
         evalDayPolicy: dayPolicy,

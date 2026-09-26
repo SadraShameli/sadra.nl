@@ -48,6 +48,7 @@ import {
 } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
+import { ComputationId } from './ComputationId';
 import { toCouponDiscounts } from './couponDiscounts';
 import {
     describeActivationFee,
@@ -55,11 +56,19 @@ import {
     describeMonthlySubscriptionFee,
     purchaseCouponDiscounts,
 } from './feePreview';
+import { KPI_ACCENT_TEXT_CLASS, KpiAccent, roiAccent } from './kpiAccent';
 import { panelDescriptions } from './kpiDescriptions';
 import { portfolioCacheKey } from './portfolioCacheKey';
 import { describeResetFee, hasResetOption } from './retryDescription';
+import { partitionBySizing, type SizingRefusal } from './simulationFailure';
+import { SimulationFailureNotice } from './SimulationFailureNotice';
 import { type PortfolioEntry } from './types';
 import { useDebouncedComputation } from './useDebouncedSimulation';
+
+export interface SimmedEntry {
+    entry: PortfolioEntry;
+    out: SimOutputs;
+}
 
 interface PortfolioPanelProperties {
     baseInputs: Omit<SimInputs, 'plan'>;
@@ -78,11 +87,6 @@ interface PortfolioTableRow {
     sim: SimmedEntry | undefined;
 }
 
-interface SimmedEntry {
-    entry: PortfolioEntry;
-    out: SimOutputs;
-}
-
 const DEBOUNCE_MS = 600;
 const MAX_TRIALS = 500;
 const EMPTY_SIMMED: SimmedEntry[] = [];
@@ -97,13 +101,18 @@ export default function PortfolioPanel({
     portfolio,
 }: PortfolioPanelProperties) {
     const key = portfolioCacheKey(baseInputs, portfolio, planOptIns);
-    const computation = useDebouncedComputation<SimmedEntry[]>(
+    const sizing = partitionBySizing(portfolio, (entry) => ({
+        ...baseInputs,
+        ...entryPositionSizing(baseInputs, entry),
+    }));
+    const computation = useDebouncedComputation(
+        ComputationId.Planner,
         key,
         DEBOUNCE_MS,
         () => {
             const trials = Math.min(MAX_TRIALS, baseInputs.trials);
             const results: SimmedEntry[] = [];
-            for (const entry of portfolio) {
+            for (const entry of sizing.accepted) {
                 const firm = firms.find((f) => f.id === entry.firmId);
                 const plan = firm?.findPlan(entry.planId);
                 if (!plan) continue;
@@ -111,9 +120,8 @@ export default function PortfolioPanel({
                     ...baseInputs,
                     copyAccounts: entry.count,
                     discounts: toCouponDiscounts(entry),
-                    instrument: entry.instrument ?? baseInputs.instrument,
+                    ...entryPositionSizing(baseInputs, entry),
                     plan: withPlanOptIns(plan, planOptIns),
-                    stopPoints: entry.stopPoints ?? baseInputs.stopPoints,
                     trials,
                 });
                 results.push({ entry, out });
@@ -186,9 +194,9 @@ export default function PortfolioPanel({
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                     <h3 className="text-sm font-semibold">
-                        Multi-firm portfolio
+                        Multi-firm planner
                     </h3>
-                    <InfoPopover title="Multi-firm portfolio">
+                    <InfoPopover title="Multi-firm planner">
                         {panelDescriptions.portfolio}
                     </InfoPopover>
                 </div>
@@ -228,15 +236,26 @@ export default function PortfolioPanel({
                 </p>
             ) : (
                 <div className="flex flex-col gap-4">
+                    {sizing.refused.map((refusal) => (
+                        <SimulationFailureNotice
+                            key={refusal.item.id}
+                            message={describeRefusedEntry(firms, refusal)}
+                        />
+                    ))}
+                    <SimulationFailureNotice message={computation.error} />
                     {totals && (
                         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
                             <SummaryCard
+                                accent={
+                                    totals.monthlyNet > 0
+                                        ? KpiAccent.Positive
+                                        : KpiAccent.Negative
+                                }
                                 info={{
                                     body: "Expected $ profit per month across all portfolio accounts after fees. Each row's expected monthly net × its account count, summed. Averaged over pass and bust outcomes.",
                                     title: 'Combined monthly net',
                                 }}
                                 label="Combined monthly net"
-                                positive={totals.monthlyNet > 0}
                                 value={formatCurrency(totals.monthlyNet)}
                             />
                             <SummaryCard
@@ -265,18 +284,7 @@ export default function PortfolioPanel({
                                 label="Total accounts"
                                 value={String(totals.totalAccounts)}
                             />
-                            <SummaryCard
-                                info={{
-                                    body: 'Annualised net profit divided by total eval cost, expressed as a percentage. = (combined monthly net × 12) ÷ total eval cost. Above 0 % means the portfolio is expected to be net profitable over the year, after fees.',
-                                    title: 'Annual ROI on fees',
-                                }}
-                                label="Annual ROI on fees"
-                                positive={
-                                    totals.roi.value !== null &&
-                                    totals.roi.value > 0
-                                }
-                                value={formatOptionalPercent(totals.roi.value)}
-                            />
+                            <PortfolioRoiCard roi={totals.roi} />
                         </div>
                     )}
                     <PortfolioTable
@@ -293,6 +301,20 @@ export default function PortfolioPanel({
                 </div>
             )}
         </Card>
+    );
+}
+
+export function PortfolioRoiCard({ roi }: { roi: Roi }) {
+    return (
+        <SummaryCard
+            accent={roiAccent(roi)}
+            info={{
+                body: 'Annualised net profit divided by total eval cost, expressed as a percentage. = (combined monthly net × 12) ÷ total eval cost. Above 0 % means the portfolio is expected to be net profitable over the year, after fees. Shows n/a when the total eval cost is $0, since a return on no outlay has no ratio.',
+                title: 'Annual ROI on fees',
+            }}
+            label="Annual ROI on fees"
+            value={formatOptionalPercent(roi.value)}
+        />
     );
 }
 
@@ -610,6 +632,28 @@ function CouponCell({
     );
 }
 
+function describeRefusedEntry(
+    firms: readonly TradingFirm[],
+    refusal: SizingRefusal<PortfolioEntry>,
+): string {
+    const firm = firms.find((f) => f.id === refusal.item.firmId);
+    const plan = firm?.findPlan(refusal.item.planId);
+    const label = [firm?.displayName, plan?.label]
+        .filter((part) => part !== undefined)
+        .join(' ');
+    return `Not simulated and left out of the totals, ${label}: ${refusal.issue}`;
+}
+
+function entryPositionSizing(
+    baseInputs: Omit<SimInputs, 'plan'>,
+    entry: PortfolioEntry,
+): Pick<SimInputs, 'instrument' | 'stopPoints'> {
+    return {
+        instrument: entry.instrument ?? baseInputs.instrument,
+        stopPoints: entry.stopPoints ?? baseInputs.stopPoints,
+    };
+}
+
 function FirmCell({
     firm,
     firms,
@@ -663,9 +707,7 @@ function PlanCell({
     row: PortfolioTableRow;
 }) {
     function handlePlanChange(serialized: string) {
-        const found = firm.plans.find(
-            (p) => serializePlanId(p.id) === serialized,
-        );
+        const found = firm.findPlanBySerial(serialized);
         if (!found) return;
         onUpdate(row.entry.id, {
             count: Math.min(row.entry.count, firm.maxFundedAccounts(found)),
@@ -1067,14 +1109,14 @@ function PositionSizingCell({
 }
 
 function SummaryCard({
+    accent = KpiAccent.Neutral,
     info,
     label,
-    positive,
     value,
 }: {
+    accent?: KpiAccent;
     info?: { body: string; title: string };
     label: string;
-    positive?: boolean;
     value: string;
 }) {
     return (
@@ -1091,11 +1133,7 @@ function SummaryCard({
                 <p
                     className={cn(
                         'font-mono text-sm font-semibold',
-                        positive === true
-                            ? 'text-emerald-400'
-                            : positive === false
-                              ? 'text-rose-400'
-                              : 'text-foreground',
+                        KPI_ACCENT_TEXT_CLASS[accent],
                     )}
                 >
                     {value}

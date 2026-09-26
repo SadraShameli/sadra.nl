@@ -2,32 +2,32 @@ import { type Metadata } from 'next';
 
 import { cn } from '~/lib/utilities';
 
-import CalculatorShell from './_components/CalculatorShell';
+import { HubLegacySectionRedirect } from './_components/HubLegacySectionRedirect';
+import { HubToolCards } from './_components/HubToolCards';
+import { buildHubMetadata } from './_components/pageMetadata';
 
-export const metadata: Metadata = {
-    description:
-        'Interactive Monte Carlo calculator for futures prop firms: model pass probability, days to pass, total cost, and expected monthly net for Apex, Take Profit Trader, Tradeify, Lucid, My Funded Futures, and TopStep.',
-    title: 'Prop Firm Calculator',
-};
+export const metadata: Metadata = buildHubMetadata();
 
 export default function PropertyCalculatorPage() {
     return (
         <main
             className={cn('app-prop-calculator', 'container pt-spacing pb-24')}
         >
-            <header className="mb-8">
+            <HubLegacySectionRedirect />
+            <header className="mb-10">
                 <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
                     Futures Prop Firm Calculator
                 </h1>
                 <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
-                    Pick a firm, plan, and account size. Tune your winrate, RR,
-                    and trade frequency. The simulator runs a Monte Carlo
-                    against each firm&apos;s real drawdown, daily-loss, and
-                    consistency rules to estimate pass odds, costs, and payouts.
+                    Pick a tool. The simulations run a Monte Carlo against each
+                    firm&apos;s real drawdown, daily-loss, and consistency
+                    rules. Your inputs carry over between tools; pinned
+                    scenarios and lab results reset when you leave the tools and
+                    come back here.
                 </p>
             </header>
 
-            <CalculatorShell />
+            <HubToolCards />
         </main>
     );
 }

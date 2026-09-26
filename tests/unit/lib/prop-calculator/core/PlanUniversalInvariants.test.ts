@@ -292,10 +292,8 @@ describe.each(
             const overshootMargin =
                 Math.abs(targetLockedThreshold - start) + amount + 1000;
             const overshootBalance =
-                Math.max(
-                    start + trigger,
-                    targetLockedThreshold + amount,
-                ) + overshootMargin;
+                Math.max(start + trigger, targetLockedThreshold + amount) +
+                overshootMargin;
             const ratchetedThreshold = overshootBalance - amount;
             if (ratchetedThreshold <= targetLockedThreshold) return;
 

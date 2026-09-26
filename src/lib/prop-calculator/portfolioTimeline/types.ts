@@ -1,10 +1,10 @@
+import { type DatedCharge } from '../core/DatedCharge';
 import {
     type DayPolicy,
     type DayStopRule,
     type RungSizing,
 } from '../core/DayPolicy';
 import { type CouponDiscounts } from '../core/FeeSchedule';
-import { type FundedResetCharge } from '../core/FundedReset';
 import { type InstrumentSymbol } from '../core/Instruments';
 import { type Dollars, type Fraction0to1 } from '../core/lib/units';
 import { type Plan } from '../core/Plan';
@@ -46,12 +46,14 @@ export interface CardResult {
     attemptsUsed: number;
     evalCost: number;
     evalDays: number;
-    fundedResetCharges: readonly FundedResetCharge[];
+    evalRetryCharges: readonly DatedCharge[];
+    fundedResetCharges: readonly DatedCharge[];
     payouts: readonly PayoutEvent[];
     totalDays: number;
 }
 
 export interface EvalToFundedCycleOptions {
+    cardDayBudget: number;
     commission: Dollars;
     discounts: CouponDiscounts | undefined;
     evalDayPolicy: DayPolicy;

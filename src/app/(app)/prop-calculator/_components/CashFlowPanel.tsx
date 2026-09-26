@@ -21,6 +21,8 @@ import CashFlowBandChartView from './charts/CashFlowBandChartView';
 import CashFlowPaybackChartView from './charts/CashFlowPaybackChartView';
 import { clampInt } from './clamp';
 import { KPI_ACCENT_TEXT_CLASS } from './kpiAccent';
+import { panelDescriptions } from './kpiDescriptions';
+import { SimulationFailureNotice } from './SimulationFailureNotice';
 import StatCard from './StatCard';
 import {
     CASH_FLOW_MAX_TRADES_PER_DAY,
@@ -81,26 +83,31 @@ export default function CashFlowPanel({
         MIN_ACCOUNTS,
     );
 
-    const { effectiveTradesPerDay, isTradesPerDayCapped, pending, result } =
-        useCashFlowSimulation({
-            accounts: effectiveAccounts,
-            commissionPerRoundTrip,
-            dayBudget: horizon.days,
-            dayStop,
-            discounts,
-            evalDayPolicy,
-            maxEvalDays,
-            minRetainedCushion,
-            payoutRequestSize,
-            plan,
-            riskPerTrade,
-            rrRatio,
-            rungSizing,
-            seed,
-            tradesPerDay,
-            trials,
-            winrate,
-        });
+    const {
+        effectiveTradesPerDay,
+        error,
+        isTradesPerDayCapped,
+        pending,
+        result,
+    } = useCashFlowSimulation({
+        accounts: effectiveAccounts,
+        commissionPerRoundTrip,
+        dayBudget: horizon.days,
+        dayStop,
+        discounts,
+        evalDayPolicy,
+        maxEvalDays,
+        minRetainedCushion,
+        payoutRequestSize,
+        plan,
+        riskPerTrade,
+        rrRatio,
+        rungSizing,
+        seed,
+        tradesPerDay,
+        trials,
+        winrate,
+    });
 
     const finalNet50 = result?.netP50.at(-1) ?? 0;
     const finalNet10 = result?.netP10.at(-1) ?? 0;
@@ -121,16 +128,7 @@ export default function CashFlowPanel({
                         Cash Flow Over Time
                     </h3>
                     <InfoPopover title="Cash Flow Over Time">
-                        Projects your realistic, rules-aware cash flow: buy an
-                        eval, retry at full price on failure (no discounted
-                        resets), then, once funded, cycle through the payout
-                        ladder with qualifying days, the safety net, and the
-                        consistency rule all enforced, repeating for every new
-                        card bought after an account closes or busts. It never
-                        holds more funded accounts at once than the firm allows
-                        on this plan. The shaded band shows the P10–P90 spread
-                        of cumulative net (payouts − spend) across simulated
-                        trials; the bold line is the median.
+                        {panelDescriptions.cashFlow}
                     </InfoPopover>
                 </div>
                 <div className="flex gap-2">
@@ -316,10 +314,12 @@ export default function CashFlowPanel({
                             </div>
                         </div>
                     </>
-                ) : (
+                ) : error === null ? (
                     <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
                         Computing cash flow…
                     </div>
+                ) : (
+                    <SimulationFailureNotice message={error} />
                 )}
             </div>
         </Card>

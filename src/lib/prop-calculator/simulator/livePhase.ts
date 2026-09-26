@@ -1,6 +1,11 @@
 import { resetForNewDay } from '../core/AccountState';
 import { TRADING_DAYS_PER_YEAR } from '../core/constants';
 import {
+    placeWholeContractTrade,
+    RungSizing,
+    type SizedTrade,
+} from '../core/DayPolicy';
+import {
     dollars,
     type Dollars,
     fraction,
@@ -13,7 +18,6 @@ import {
     resolveLiveTradeRisk,
 } from '../core/LiveSizing';
 import {
-    capRiskToContractLimit,
     type PositionSizingConfig,
     resolvePositionSizing,
 } from '../core/PositionSizing';
@@ -156,27 +160,29 @@ export function runLiveDay(options: LiveDayRunOptions): {
             const cushion = state.balance - state.threshold;
             const cushionPercent = plan.cushionPercentFor(state);
             const intendedRisk = resolveLiveTradeRisk(cushion, cushionPercent);
-            const contractCappedRisk =
-                positionSizing === null
-                    ? intendedRisk
-                    : capRiskToContractLimit(
-                          intendedRisk,
-                          positionSizing,
-                          plan.maxContractsFor(
-                              state,
-                              positionSizing.instrument,
-                          ),
-                      );
-            const risk = capRiskToRemainingDailyLoss(
-                contractCappedRisk,
+            const room = capRiskToRemainingDailyLoss(
+                cushion,
                 plan.dailyLossLimitFor(state),
                 state.todayPnL,
                 commission,
             );
+            const { rewardRisk, risk } =
+                positionSizing === null
+                    ? unsizedLiveTrade(intendedRisk, room)
+                    : placeWholeContractTrade({
+                          intendedRisk,
+                          maxContracts: plan.maxContractsFor(
+                              state,
+                              positionSizing.instrument,
+                          ),
+                          positionSizing,
+                          room,
+                          rungSizing: RungSizing.CapToCushion,
+                      });
             if (risk <= 0) break;
 
             const isWon = rng() < winrate;
-            const tradeGross = isWon ? rrRatio * risk : -risk;
+            const tradeGross = isWon ? rrRatio * rewardRisk : -risk;
             const pnl = tradeGross - commission;
             state.balance += pnl;
             state.todayPnL += pnl;
@@ -371,4 +377,9 @@ export function simulateLiveAccount(inputs: LiveSimInputs): LiveOutputs {
         medianDaysToBust: median(daysToBustValues),
         medianDaysToFirstWithdrawal: median(daysToFirstWithdrawalValues),
     };
+}
+
+function unsizedLiveTrade(intendedRisk: number, room: number): SizedTrade {
+    const risk = Math.min(intendedRisk, room);
+    return { rewardRisk: risk, risk };
 }

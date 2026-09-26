@@ -1,4 +1,5 @@
 import { type AccountState } from '../core/AccountState';
+import { type DatedCharge } from '../core/DatedCharge';
 import {
     type DayPolicy,
     type DayStopRule,
@@ -91,10 +92,10 @@ export interface EvalDayRunOptions extends DayRunCommonOptions {
     phase: TradingPhase.Eval;
 }
 
-export interface EvalWithRetriesOptions extends EvalAttemptOptions {
-    discounts?: CouponDiscounts;
-    maxAttempts: number;
-}
+export type EvalWithRetriesOptions = EvalAttemptOptions &
+    EvalRetryLimit & {
+        discounts?: CouponDiscounts;
+    };
 
 export interface EvalWithRetriesResult {
     attempt: EvalAttemptResult;
@@ -102,6 +103,7 @@ export interface EvalWithRetriesResult {
     daysElapsed: number;
     failedAttemptDays: number[];
     resetFeesPaid: number;
+    retryCharges: readonly DatedCharge[];
     terminalOutcome: 'busted' | 'timed-out' | null;
 }
 
@@ -227,6 +229,7 @@ export interface MultiAccountResult {
     expectedDaysToPass: number;
     expectedMaxLossStreak: number;
     expectedMonthlyNet: number;
+    expectedMonthlyRealizedNet: number;
     expectedNet: number;
     meanTradesPerDay: number;
     pAtLeast: AtLeastProbabilities;
@@ -301,6 +304,7 @@ export interface SimOutputs {
     expectedGrossSpend: number;
     expectedHorizonCredit: number;
     expectedMonthlyNet: number;
+    expectedMonthlyRealizedNet: number;
     expectedNet: number;
     expectedPayoutCount: number;
     expectedPayoutPerFundedAccount: number;
@@ -399,3 +403,7 @@ interface DayRunCommonOptions {
     stats: PhaseStats;
     winrate: Fraction0to1;
 }
+
+type EvalRetryLimit =
+    | { maxAttempts: number; maxTotalEvalDays?: number }
+    | { maxAttempts?: number; maxTotalEvalDays: number };

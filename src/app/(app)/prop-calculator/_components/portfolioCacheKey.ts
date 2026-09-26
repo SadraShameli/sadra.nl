@@ -28,6 +28,7 @@ export function portfolioCacheKey(
                 count: entry.count,
                 evalDiscount: entry.evalDiscountPercent,
                 firmId: entry.firmId,
+                id: entry.id,
                 instrument: entry.instrument,
                 linkAct: entry.linkActivationDiscount,
                 msubDiscount: entry.monthlySubscriptionDiscountPercent,

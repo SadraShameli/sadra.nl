@@ -1,3 +1,4 @@
+import { type DatedCharge } from '../core/DatedCharge';
 import { recordBestDay } from '../core/TradingDayLedger';
 import { TradingPhase } from '../core/TradingPhase';
 import { runDay } from './day';
@@ -105,6 +106,7 @@ export function runEvalWithRetries(
         intradayPathStepsPerR,
         maxAttempts,
         maxEvalDays,
+        maxTotalEvalDays,
         plan,
         positionSizing,
         rng,
@@ -114,10 +116,16 @@ export function runEvalWithRetries(
         totals,
         winrate,
     } = options;
+    if (maxAttempts === undefined && maxTotalEvalDays === undefined) {
+        throw new Error(
+            'runEvalWithRetries needs maxAttempts or maxTotalEvalDays to bound its retries',
+        );
+    }
     let daysElapsed = 0;
     let attemptsUsed = 0;
     let resetFeesPaid = 0;
     const failedAttemptDays: number[] = [];
+    const retryCharges: DatedCharge[] = [];
 
     for (;;) {
         attemptsUsed += 1;
@@ -145,14 +153,22 @@ export function runEvalWithRetries(
                 daysElapsed,
                 failedAttemptDays,
                 resetFeesPaid,
+                retryCharges,
                 terminalOutcome: null,
             };
         }
 
         failedAttemptDays.push(attempt.days);
 
-        if (attemptsUsed < maxAttempts) {
-            resetFeesPaid += plan.retryFee(discounts);
+        const isWithinAttemptCap =
+            maxAttempts === undefined || attemptsUsed < maxAttempts;
+        const isWithinDayBudget =
+            maxTotalEvalDays === undefined ||
+            (attempt.days > 0 && daysElapsed < maxTotalEvalDays);
+        if (isWithinAttemptCap && isWithinDayBudget) {
+            const fee = plan.retryFee(discounts);
+            resetFeesPaid += fee;
+            retryCharges.push({ dayOffset: daysElapsed, fee });
             continue;
         }
 
@@ -162,6 +178,7 @@ export function runEvalWithRetries(
             daysElapsed,
             failedAttemptDays,
             resetFeesPaid,
+            retryCharges,
             terminalOutcome:
                 attempt.outcome === 'busted' ? 'busted' : 'timed-out',
         };

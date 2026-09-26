@@ -14,13 +14,14 @@ import {
 import {
     computeFundedStateValue,
     type FundedStateValueConfig,
+    sweepToConvergence,
     SweepVerdict,
     ValueIterationMonitor,
     warmFirmsRegistryCache,
 } from '~/lib/prop-calculator/core/FundedStateValue';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 
-const FTMO_GROWTH_COARSE_FIXED_POINT = 61_833.38278569897;
+const FTMO_GROWTH_COARSE_FIXED_POINT = 60_708.764374278806;
 const HORIZON_DAYS = 252;
 const PRE_WP17E_FTMO_SWEEPS = 2152;
 const TIGHT_TOLERANCE = 1e-7;
@@ -99,7 +100,7 @@ describe('computeFundedStateValue converges to its fixed point within the stated
         },
     );
 
-    it('values FTMO Futures Growth 50K at the coarse probe grid within $1 of the fixed point both solvers reach at tolerance 0.0001 ($61,833.38 here, $61,833.37 from the pre-WP17e Jacobi sweeps), in under half the 2,152 sweeps the pre-WP17e default took to stop $165.52 short of it', async () => {
+    it('values FTMO Futures Growth 50K at the coarse probe grid within $1 of the fixed point the solver reaches at tolerance 0.0001 ($60,708.76), in under half the 2,152 sweeps the pre-WP17e default took. Re-derived for T32: the end-of-horizon credit is one capped request, not the whole balance above the floor; with only the pre-T32 credit restored the tolerance 0.0001 run reproduces the old $61,833.38 fixed point exactly, so the credit is the only move', async () => {
         await warmFirmsRegistryCache();
         const plan = ALL_FIRMS.find(
             (firm) => firm.id === FirmId.FtmoFutures,
@@ -287,5 +288,65 @@ describe('ValueIterationMonitor states an explicit stopping rule and error bound
         expect(() => new ValueIterationMonitor(contraction, tolerance)).toThrow(
             RangeError,
         );
+    });
+});
+
+describe('sweepToConvergence, the per-level loop the funded solver runs, follows the extended plain-sweep deadline (WP17e LOW, WP24)', () => {
+    const CONTRACTION = 0.996;
+    const TOLERANCE = 1;
+    const DEFAULT_SWEEP_CAP = 200;
+    const FIRST_DELTA = 100;
+    const JUMP_DELTA = 72.9;
+
+    function overshootingLevel(isMaxIterationsExplicit: boolean) {
+        const monitor = new ValueIterationMonitor(CONTRACTION, TOLERANCE);
+        const scripted = [FIRST_DELTA, 90, 81, JUMP_DELTA];
+        const extrapolationFactors: number[] = [];
+        let delta = JUMP_DELTA;
+        let plainSweeps = 0;
+        const sweeps = sweepToConvergence({
+            extrapolate: (factor) => {
+                extrapolationFactors.push(factor);
+                delta = (CONTRACTION + (1 + CONTRACTION) * factor) * JUMP_DELTA;
+            },
+            isMaxIterationsExplicit,
+            maxIterations: DEFAULT_SWEEP_CAP,
+            monitor,
+            sweep: () => {
+                const next = scripted.shift();
+                if (next !== undefined) return next;
+                const current = delta;
+                plainSweeps++;
+                delta *=
+                    plainSweeps % 2 === 0 ? CONTRACTION : CONTRACTION - 0.001;
+                return current;
+            },
+        });
+        return { extrapolationFactors, monitor, sweeps };
+    }
+
+    it('keeps sweeping past the cap a first sweep alone would set once a jump overshoots, and converges inside the extended deadline', () => {
+        const { extrapolationFactors, monitor, sweeps } =
+            overshootingLevel(false);
+        const capFromFirstSweepOnly =
+            1 +
+            Math.ceil(
+                Math.log(
+                    TOLERANCE /
+                        ((CONTRACTION / (1 - CONTRACTION)) * FIRST_DELTA),
+                ) / Math.log(CONTRACTION),
+            );
+
+        expect(extrapolationFactors).toHaveLength(1);
+        expect(monitor.isConverged).toBe(true);
+        expect(sweeps).toBeGreaterThan(capFromFirstSweepOnly);
+        expect(sweeps).toBeLessThanOrEqual(monitor.plainSweepDeadline);
+    });
+
+    it('stops at an explicit sweep cap without converging', () => {
+        const { monitor, sweeps } = overshootingLevel(true);
+
+        expect(sweeps).toBe(DEFAULT_SWEEP_CAP);
+        expect(monitor.isConverged).toBe(false);
     });
 });

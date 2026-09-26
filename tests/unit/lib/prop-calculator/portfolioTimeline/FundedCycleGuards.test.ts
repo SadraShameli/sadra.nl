@@ -30,6 +30,7 @@ function rapidEod(): Plan {
 function runCard(maxFundedDays: number): CardResult {
     const policy = flatDayPolicy(250, 1, { kind: DayStopRuleKind.None });
     return runEvalToFundedCycle({
+        cardDayBudget: 60,
         commission: dollars(0),
         discounts: undefined,
         evalDayPolicy: policy,

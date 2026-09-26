@@ -1,7 +1,7 @@
 'use client';
 
 import { Target } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 
 import { Card } from '~/components/ui/Card';
 import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
@@ -22,26 +22,34 @@ import {
 } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
+import {
+    AppliedEvalLadderNotice,
+    EvalLadderScope,
+} from './AppliedEvalLadderNotice';
+import { ComputationId } from './ComputationId';
 import { panelDescriptions } from './kpiDescriptions';
+import { riskPercentToDollars } from './riskConversion';
 import { bestExpectedMonthlyNet } from './scoring';
 import { simInputsCacheKey, SimInputsKeyField } from './simInputsCacheKey';
+import { partitionBySizing } from './simulationFailure';
+import { SimulationFailureNotice } from './SimulationFailureNotice';
 import { useDebouncedComputation } from './useDebouncedSimulation';
 
 const RISK_LEVELS = [0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 4, 5] as const;
 const DEBOUNCE_MS = 500;
 const MAX_TRIALS = 500;
 
-interface OptimalRiskTableProperties {
-    baseInputs: Omit<SimInputs, 'riskPerTrade'>;
-    currentRiskPercent: number;
-    plan: Plan;
-}
-
-interface Row {
+export interface Row {
     accountSize: number;
     isBest: boolean;
     out: SimOutputs;
     riskPct: number;
+}
+
+interface OptimalRiskTableProperties {
+    baseInputs: Omit<SimInputs, 'riskPerTrade'>;
+    currentRiskPercent: number;
+    plan: Plan;
 }
 
 export default function OptimalRiskTable({
@@ -50,14 +58,23 @@ export default function OptimalRiskTable({
     plan,
 }: OptimalRiskTableProperties) {
     const key = buildCacheKey(baseInputs);
-    const { pending, result: rows } = useDebouncedComputation<Row[]>(
+    const accountSize = plan.accountSize;
+    const levels = partitionBySizing(RISK_LEVELS, (riskPct) => ({
+        ...baseInputs,
+        riskPerTrade: riskPercentToDollars(riskPct, accountSize),
+    }));
+    const {
+        error,
+        pending,
+        result: rows,
+    } = useDebouncedComputation(
+        ComputationId.OptimalRisk,
         key,
         DEBOUNCE_MS,
         () => {
-            const accountSize = plan.accountSize;
             const trials = Math.min(MAX_TRIALS, baseInputs.trials);
-            const partial = RISK_LEVELS.map((riskPct) => {
-                const riskDollars = (accountSize * riskPct) / 100;
+            const partial = levels.accepted.map((riskPct) => {
+                const riskDollars = riskPercentToDollars(riskPct, accountSize);
                 const out = simulate({
                     ...baseInputs,
                     evalDayPolicy: undefined,
@@ -74,6 +91,8 @@ export default function OptimalRiskTable({
         },
         [],
     );
+
+    const cardReference = useRef<HTMLDivElement>(null);
 
     const bestRow = useMemo(() => rows.find((r) => r.isBest) ?? null, [rows]);
 
@@ -155,7 +174,14 @@ export default function OptimalRiskTable({
     );
 
     return (
-        <Card className={cn('app-prop-calculator__optimal-risk', 'px-5 py-4')}>
+        <Card
+            className={cn(
+                'app-prop-calculator__optimal-risk',
+                'px-5 py-4 outline-none',
+            )}
+            ref={cardReference}
+            tabIndex={-1}
+        >
             <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <div className="flex items-center gap-2">
                     <h3 className="text-sm font-semibold">
@@ -174,6 +200,16 @@ export default function OptimalRiskTable({
                           )}`}
                 </span>
             </div>
+            <AppliedEvalLadderNotice
+                onCleared={() => cardReference.current?.focus()}
+                scope={EvalLadderScope.NotUsedHere}
+            />
+            <SimulationFailureNotice
+                message={describeRefusedLevels(
+                    levels.refused.map((refusal) => refusal.item),
+                )}
+            />
+            <SimulationFailureNotice message={error} />
             <DataTable<Row>
                 className="app-prop-calculator__optimal-risk-table text-xs tabular-nums"
                 columns={columns}
@@ -201,6 +237,12 @@ function buildCacheKey(inputs: Omit<SimInputs, 'riskPerTrade'>): string {
     return simInputsCacheKey(inputs, {
         omit: [SimInputsKeyField.EvalDayPolicy, SimInputsKeyField.RiskPerTrade],
     });
+}
+
+function describeRefusedLevels(riskPercents: readonly number[]): null | string {
+    if (riskPercents.length === 0) return null;
+    const levels = riskPercents.map((riskPct) => `${riskPct}%`).join(', ');
+    return `Not simulated: ${levels} (below one contract at the stop, so funded flat risk would never trade).`;
 }
 
 function nearestRisk(target: number): number {

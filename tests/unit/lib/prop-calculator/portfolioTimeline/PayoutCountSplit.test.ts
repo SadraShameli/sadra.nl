@@ -19,6 +19,7 @@ const alwaysWinRng: Rng = () => 0;
 function payoutAmounts(plan: Plan): number[] {
     const dayPolicy = flatDayPolicy(250, 1, { kind: DayStopRuleKind.None });
     return runEvalToFundedCycle({
+        cardDayBudget: 60,
         commission: dollars(0),
         discounts: undefined,
         evalDayPolicy: dayPolicy,

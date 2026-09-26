@@ -18,7 +18,7 @@ import {
     fraction,
 } from '~/lib/prop-calculator/core/lib/units';
 import { TierBasis } from '~/lib/prop-calculator/core/TierBasis';
-import { APEX_LIVE_DAILY_LOSS_LIMIT } from '~/lib/prop-calculator/firms/apex/ApexLive';
+import { APEX_LIVE_DAILY_LOSS_LIMIT } from '~/lib/prop-calculator/firms';
 
 function atProfit(profit: number): DailyLossLimitContext {
     return {
@@ -152,7 +152,7 @@ describe('resolveDailyLossLimit', () => {
         });
     });
 
-    describe('kind: tiered — no tiers', () => {
+    describe('kind: tiered, no tiers', () => {
         it('throws instead of silently behaving like no daily loss limit', () => {
             expect(() =>
                 resolveDailyLossLimit(
@@ -163,7 +163,7 @@ describe('resolveDailyLossLimit', () => {
         });
     });
 
-    describe('kind: tiered — 25K funded DLL table', () => {
+    describe('kind: tiered, 25K funded DLL table', () => {
         const config = {
             kind: DailyLossLimitKind.Tiered,
             tiers: FUNDED_TIERS_25K,
@@ -191,7 +191,7 @@ describe('resolveDailyLossLimit', () => {
         });
     });
 
-    describe('kind: tiered — 50K funded DLL table', () => {
+    describe('kind: tiered, 50K funded DLL table', () => {
         const config = {
             kind: DailyLossLimitKind.Tiered,
             tiers: FUNDED_TIERS_50K,
@@ -214,7 +214,7 @@ describe('resolveDailyLossLimit', () => {
         });
     });
 
-    describe('kind: tiered — 100K funded DLL table', () => {
+    describe('kind: tiered, 100K funded DLL table', () => {
         const config = {
             kind: DailyLossLimitKind.Tiered,
             tiers: FUNDED_TIERS_100K,
@@ -237,7 +237,7 @@ describe('resolveDailyLossLimit', () => {
         });
     });
 
-    describe('kind: tiered — 150K funded DLL table', () => {
+    describe('kind: tiered, 150K funded DLL table', () => {
         const config = {
             kind: DailyLossLimitKind.Tiered,
             tiers: FUNDED_TIERS_150K,

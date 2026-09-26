@@ -4,12 +4,18 @@ import {
     type DayStopRule,
     DayStopRuleKind,
     InstrumentSymbol,
+    oneContractRisk,
     type Plan,
+    resolvePositionSizing,
     RungSizing,
 } from '~/lib/prop-calculator/core';
 import { ALL_FIRMS } from '~/lib/prop-calculator/firms';
 import { mulberry32 } from '~/lib/prop-calculator/rng';
-import { type SimInputs, simulate } from '~/lib/prop-calculator/simulator';
+import {
+    type SimInputs,
+    simInputsSizingIssue,
+    simulate,
+} from '~/lib/prop-calculator/simulator';
 
 const COVERAGE_ARITY = 3;
 const MEANINGFUL_FUNDED_FRACTION = 0.2;
@@ -326,6 +332,34 @@ function pickBestCandidate(
     return bestRow;
 }
 
+function placeableSimInputs(
+    inputs: SimInputs,
+    onRefusalMismatch: (message: string) => void,
+): SimInputs {
+    const issue = simInputsSizingIssue(inputs);
+    if (issue === null) return inputs;
+    const expected = `Invalid SimInputs: ${issue}`;
+    try {
+        simulate(inputs);
+        onRefusalMismatch(`accepted a sub-contract funded risk: ${issue}`);
+    } catch (error) {
+        if (!(error instanceof Error) || error.message !== expected) {
+            onRefusalMismatch(
+                `refused with ${String(error)} instead of ${expected}`,
+            );
+        }
+    }
+    const positionSizing = resolvePositionSizing(
+        inputs.instrument,
+        inputs.stopPoints,
+    );
+    if (positionSizing === null) {
+        onRefusalMismatch(`refused without position sizing: ${issue}`);
+        return inputs;
+    }
+    return { ...inputs, fundedRiskPerTrade: oneContractRisk(positionSizing) };
+}
+
 function rowTupleKeys(
     row: readonly number[],
     dimensionCombos: readonly number[][],
@@ -352,11 +386,18 @@ describe(`combinatorial coverage: every ${COVERAGE_ARITY}-wise interaction of en
         expect(rows.length).toBeLessThan(fullCrossProduct);
     });
 
-    it(`every one of the ${rows.length} generated combinations produces structurally valid SimOutputs`, () => {
+    it(`every one of the ${rows.length} generated combinations produces structurally valid SimOutputs, a row whose funded flat risk is below one contract at its stop is refused with the simInputsSizingIssue text and then run at one contract (T33)`, () => {
         const failures: string[] = [];
 
         for (const [index, row] of rows.entries()) {
-            const inputs = buildSimInputs(row, 1000 + index);
+            const inputs = placeableSimInputs(
+                buildSimInputs(row, 1000 + index),
+                (message) => {
+                    failures.push(
+                        `row ${index} (${describeRow(row)}): ${message}`,
+                    );
+                },
+            );
             let out;
             try {
                 out = simulate(inputs);

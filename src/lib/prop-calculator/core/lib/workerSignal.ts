@@ -13,16 +13,16 @@ export function awaitWorkerSignal(
     timeoutMs: number,
     label: string,
 ): void {
-    const outcome = Atomics.wait(
-        flags,
-        workerIndex,
-        WorkerSignal.Pending,
-        timeoutMs,
-    );
-    if (outcome === 'timed-out') {
-        throw new Error(
-            `${label}: worker ${workerIndex} did not finish within ${timeoutMs} ms (it may have failed to load)`,
-        );
+    const pending: number = WorkerSignal.Pending;
+    const deadline = performance.now() + timeoutMs;
+    while (Atomics.load(flags, workerIndex) === pending) {
+        const remainingMs = deadline - performance.now();
+        if (remainingMs <= 0) {
+            throw new Error(
+                `${label}: worker ${workerIndex} did not finish within ${timeoutMs} ms (it may have failed to load)`,
+            );
+        }
+        Atomics.wait(flags, workerIndex, pending, remainingMs);
     }
     const failed: number = WorkerSignal.Failed;
     if (Atomics.load(flags, workerIndex) !== failed) return;

@@ -510,6 +510,7 @@ describe('N-45 at single funded DP states: a negative-edge policy trades only wh
                 result.dayPolicy.computeRisk?.(state, 0, {
                     cycleBestDayProfit,
                     dayGateProgress: 10,
+                    fundedResetsUsed: 0,
                     lastPayoutBalance,
                     payoutsIssued: 1,
                 }) ?? NaN
@@ -633,12 +634,14 @@ describe('N-34 notes: Alpha typed coupon codes and the opt-in Qualified Reset', 
             'same day',
             'inactivity closure',
             'cost per funded account',
-            'optimize dp',
-            'does not model',
         ]) {
             expect(resetNote).toContain(fact);
         }
+        expect(resetNote).toContain(
+            "The optimal-risk dynamic program optimize dp values the Qualified Reset exactly: a breach before the first payout is worth the next reset layer's start value less the discounted reset fee, and an inactivity closure is never reset. Its day policy picks the layer from the resets already used, so the empirical run takes the same decisions the DP valued.",
+        );
         expect(resetNote).not.toContain('not modeled yet');
+        expect(resetNote).not.toContain('does not model');
     });
 
     it('documents the inclusive 40% boundary and the net-losing cycle rule', () => {

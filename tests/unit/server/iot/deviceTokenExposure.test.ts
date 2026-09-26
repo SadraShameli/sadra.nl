@@ -7,10 +7,10 @@ import { locationRouter } from '~/server/api/routers/iot/location';
 import { createCallerFactory, createTRPCRouter } from '~/server/api/trpc';
 
 import {
-    createFakeIotDatabase,
+    createFakeDatabase,
     type FakeRow,
     type IssuedQuery,
-} from './fakeIotDatabase';
+} from '../fakeDatabase';
 
 vi.mock('~/environment', () => ({ environment: { NODE_ENV: 'test' } }));
 vi.mock('~/server/db', () => ({ db: {} }));
@@ -51,7 +51,7 @@ type LocationOutputs = inferRouterOutputs<typeof locationRouter>;
 type Session = null | { user: { email: string; id: string; role: string } };
 
 function callerFor(session: Session) {
-    const { database, queries } = createFakeIotDatabase(respond);
+    const { database, queries } = createFakeDatabase(respond);
     const router = createTRPCRouter({
         device: deviceRouter,
         location: locationRouter,
@@ -158,7 +158,7 @@ describe('device token exposure', () => {
     });
 
     it('admin device.listAdmin reports has_token false when no token was issued', async () => {
-        const { database } = createFakeIotDatabase((query) =>
+        const { database } = createFakeDatabase((query) =>
             query.text.includes('from "sadranl_device"')
                 ? [{ ...DEVICE_ROW, token_created_at: null, token_hash: null }]
                 : [],

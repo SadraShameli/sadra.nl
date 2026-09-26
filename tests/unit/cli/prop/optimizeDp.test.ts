@@ -4,15 +4,19 @@ import { parseArgs } from 'citty';
 import { describe, expect, it, vi } from 'vitest';
 
 import optimizeDp, {
+    bundleRenewalNote,
     dpArguments,
     EMPIRICAL_MAX_ATTEMPTS,
     empiricalSimInputs,
     empiricalSummaryLines,
     fundedConsistencyGridNote,
+    fundedCycleBaselineGapWarning,
     fundedDpModelGapWarning,
     fundedIneligibilityMessage,
+    fundedResetModelNote,
     fundedValueIterationLine,
     readDpInputs,
+    registryWarmUpFailureWarning,
     renewalObjective,
     resolveDpPlan,
 } from '~/cli/commands/prop/optimize/dp/command';
@@ -35,8 +39,16 @@ import {
     FundedNextVariant,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
-import { solveAverageRewardPolicy } from '~/lib/prop-calculator/core/AverageRewardSolver';
-import { isFundedDpEligible } from '~/lib/prop-calculator/core/FundedStateValue';
+import {
+    RateSearchStatus,
+    solveAverageRewardPolicy,
+} from '~/lib/prop-calculator/core/AverageRewardSolver';
+import {
+    computeFundedStateValue,
+    findRegistryPlanId,
+    isFundedDpEligible,
+    warmFirmsRegistryCache,
+} from '~/lib/prop-calculator/core/FundedStateValue';
 import { PayoutCountTieredPayoutCap } from '~/lib/prop-calculator/core/PayoutCap';
 import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFunding';
 import { E8Futures } from '~/lib/prop-calculator/firms/e8futures/E8Futures';
@@ -60,6 +72,17 @@ vi.mock(import('~/lib/prop-calculator'), async (importOriginal) => {
     const actual = await importOriginal();
     return { ...actual, simulate: vi.fn(actual.simulate) };
 });
+
+vi.mock(
+    import('~/lib/prop-calculator/core/FundedStateValue'),
+    async (importOriginal) => {
+        const actual = await importOriginal();
+        return {
+            ...actual,
+            warmFirmsRegistryCache: vi.fn(actual.warmFirmsRegistryCache),
+        };
+    },
+);
 
 function apexEodPlan(): Plan {
     const plan = new ApexTraderFunding().findPlan({
@@ -283,6 +306,9 @@ async function resolveArguments(): Promise<ArgsDef> {
     return resolved instanceof Promise ? resolved : resolved;
 }
 
+const GATE_D11_RATE_SEARCH_SOLVES = 9;
+const SPARE_RATE_SEARCH_SOLVES = 2;
+
 describe('optimize dp arguments', () => {
     it('defaults --rebuy-lag-days to 0', async () => {
         const arguments_ = await resolveArguments();
@@ -290,11 +316,17 @@ describe('optimize dp arguments', () => {
         expect(parsed['rebuy-lag-days']).toBe('0');
     });
 
-    it('still exposes --iterations as max rate-search solves', async () => {
+    it('defaults --iterations to 12 max rate-search solves', async () => {
         const arguments_ = await resolveArguments();
         expect(arguments_.iterations).toBeDefined();
         const parsed = parseArgs([], arguments_);
-        expect(parsed.iterations).toBe('8');
+        expect(parsed.iterations).toBe('12');
+    });
+
+    it(`defaults --iterations to at least ${SPARE_RATE_SEARCH_SOLVES} solves above the ${GATE_D11_RATE_SEARCH_SOLVES} that FTMO Growth and TopStep No-fee Standard need to converge at the gate-D11 inputs`, () => {
+        expect(Number(dpArguments.iterations.default)).toBeGreaterThanOrEqual(
+            GATE_D11_RATE_SEARCH_SOLVES + SPARE_RATE_SEARCH_SOLVES,
+        );
     });
 
     it('defaults --funded-days to one trading year, the shared TRADING_DAYS_PER_YEAR', () => {
@@ -307,6 +339,86 @@ describe('optimize dp arguments', () => {
 function resolvedDpPlan(argv: string[]): Plan {
     return resolveDpPlan(parseArgs<typeof dpArguments>(argv, dpArguments));
 }
+
+describe('optimize dp prose uses no double-hyphen dash (WP24)', () => {
+    it('writes the funded gap warnings and every flag description without a -- dash', async () => {
+        const arguments_ = await resolveArguments();
+        const texts = [
+            fundedDpModelGapWarning(mffProPlan()) ?? '',
+            ...Object.values(arguments_).map(
+                (argument) => argument.description ?? '',
+            ),
+        ];
+
+        expect(texts[0]).not.toBe('');
+        for (const text of texts) {
+            expect(text).not.toContain(' -- ');
+            expect(text).not.toContain('\u{2014}');
+        }
+    });
+});
+
+describe('optimize dp --funded-reset names the plan reset terms (N-34)', () => {
+    const alphaZeroArgv = ['--firm', 'alphafutures', '--variant', 'zero'];
+
+    it('prints the whole Alpha Zero Qualified Reset note, terms then DP model, when --funded-reset is passed', () => {
+        const note = fundedResetModelNote(
+            resolvedDpPlan([...alphaZeroArgv, '--funded-reset']),
+        );
+
+        expect(note).toBe(
+            "$50K · Zero: takes the Qualified Reset: $499 each, up to 2 per account, only while the account never requested a payout, within 7 calendar days of a breach. This DP values every reset exactly: a breach before the first payout is worth the next reset layer's start value less the discounted reset fee, and an inactivity closure is never reset. Its day policy picks the layer from the resets already used, so the empirical run takes the same decisions the DP valued.",
+        );
+    });
+
+    it('says nothing without the flag, or for a plan without a funded reset', () => {
+        expect(fundedResetModelNote(resolvedDpPlan(alphaZeroArgv))).toBeNull();
+        expect(
+            fundedResetModelNote(
+                resolvedDpPlan([
+                    '--firm',
+                    'mffu',
+                    '--variant',
+                    'rapid-eod',
+                    '--funded-reset',
+                ]),
+            ),
+        ).toBeNull();
+    });
+
+    it('prints the reset terms line from run() before the solve starts', async () => {
+        const argv = [...alphaZeroArgv, '--funded-reset'];
+        const written: string[] = [];
+        const write = vi
+            .spyOn(process.stdout, 'write')
+            .mockImplementation((chunk: string | Uint8Array) => {
+                written.push(String(chunk));
+                return true;
+            });
+        const writeError = vi
+            .spyOn(process.stderr, 'write')
+            .mockImplementation(() => true);
+        vi.mocked(solveAverageRewardPolicy).mockImplementationOnce(() => {
+            throw new Error('stop after the preamble');
+        });
+        const exitCode = process.exitCode;
+        try {
+            await optimizeDp.run?.({
+                args: parseArgs<typeof dpArguments>(argv, dpArguments),
+                cmd: optimizeDp,
+                rawArgs: argv,
+            });
+        } finally {
+            write.mockRestore();
+            writeError.mockRestore();
+            process.exitCode = exitCode;
+        }
+
+        const note = fundedResetModelNote(resolvedDpPlan(argv));
+        expect(note).not.toBeNull();
+        expect(written.some((chunk) => chunk.includes(note ?? ''))).toBe(true);
+    });
+});
 
 describe('optimize dp takes the MFF Pro one-time early withdrawal opt-in (N-64, T30)', () => {
     it('solves the opted-in rule when --early-withdrawal is passed', () => {
@@ -341,44 +453,6 @@ describe('optimize dp takes the MFF Pro one-time early withdrawal opt-in (N-64, 
         expect(plan.oneTimeEarlyWithdrawal).toBeNull();
         expect(plan.takesOneTimeEarlyWithdrawal).toBe(false);
     });
-});
-
-describe('optimize dp run() warms the firm registry before its first solve (N-63)', () => {
-    it('runs the very first funded solve on the worker pool instead of single-threaded', async () => {
-        const argv = [
-            '--firm',
-            'mffu',
-            '--variant',
-            'rapid-eod',
-            '--eval-days',
-            '2',
-            '--funded-days',
-            '2',
-            '--iterations',
-            '1',
-            '--trials',
-            '10',
-        ];
-        vi.mocked(solveAverageRewardPolicy).mockClear();
-        const exitCode = process.exitCode;
-        try {
-            await optimizeDp.run?.({
-                args: parseArgs<typeof dpArguments>(argv, dpArguments),
-                cmd: optimizeDp,
-                rawArgs: argv,
-            });
-        } finally {
-            process.exitCode = exitCode;
-        }
-
-        const [firstSolve] = vi.mocked(solveAverageRewardPolicy).mock.results;
-        expect(firstSolve?.type).toBe('return');
-        expect(
-            firstSolve?.type === 'return'
-                ? firstSolve.value.fundedResult.workerCount
-                : 0,
-        ).toBeGreaterThan(0);
-    }, 600_000);
 });
 
 describe('optimize dp run() hands the opted-in plan to both the DP objective and the empirical replay (N-64)', () => {
@@ -454,7 +528,7 @@ describe('optimize dp flag bounds', () => {
             discounts: undefined,
             fundedHorizonDays: 252,
             maxEvalDays: 40,
-            maxSolves: 8,
+            maxSolves: 12,
             rebuyLagDays: 0,
             rrRatio: 2,
             seed: 42,
@@ -587,5 +661,309 @@ describe('optimize dp prices the empirical cross-check like the DP (N-62)', () =
         );
         expect(lines).toContain('expected horizon credit per cycle: $400');
         expect(lines).toContain('gap vs DP-predicted monthly rate: $0');
+    });
+});
+
+async function capturedRun(argv: string[]): Promise<{
+    exitCode: typeof process.exitCode;
+    stderr: string;
+    stdout: string;
+}> {
+    const written: string[] = [];
+    const writtenError: string[] = [];
+    const write = vi
+        .spyOn(process.stdout, 'write')
+        .mockImplementation((chunk: string | Uint8Array) => {
+            written.push(String(chunk));
+            return true;
+        });
+    const writeError = vi
+        .spyOn(process.stderr, 'write')
+        .mockImplementation((chunk: string | Uint8Array) => {
+            writtenError.push(String(chunk));
+            return true;
+        });
+    const exitCode = process.exitCode;
+    let runExitCode: typeof process.exitCode;
+    process.exitCode = undefined;
+    try {
+        await optimizeDp.run?.({
+            args: parseArgs<typeof dpArguments>(argv, dpArguments),
+            cmd: optimizeDp,
+            rawArgs: argv,
+        });
+    } finally {
+        runExitCode = process.exitCode;
+        write.mockRestore();
+        writeError.mockRestore();
+        process.exitCode = exitCode;
+    }
+    return {
+        exitCode: runExitCode,
+        stderr: writtenError.join(''),
+        stdout: written.join(''),
+    };
+}
+
+function mockSolveStatus(status: RateSearchStatus): void {
+    vi.mocked(solveAverageRewardPolicy).mockImplementationOnce((config) => ({
+        ...solveAverageRewardPolicy(config),
+        status,
+    }));
+}
+
+describe('optimize dp run() exits 1 with the existing warning when the rate search hits the --iterations cap (N-73)', () => {
+    const smallArgv = [
+        '--firm',
+        'mffu',
+        '--variant',
+        'rapid-eod',
+        '--eval-days',
+        '2',
+        '--funded-days',
+        '2',
+        '--iterations',
+        '1',
+        '--trials',
+        '10',
+    ];
+
+    it('sets exit code 1 and warns that the rate search did not converge, pointing at --iterations', async () => {
+        mockSolveStatus(RateSearchStatus.SolveCapReached);
+
+        const { exitCode, stdout } = await capturedRun(smallArgv);
+
+        expect(exitCode).toBe(1);
+        expect(stdout).toContain(
+            'rate search did not converge (status=solve-cap-reached, unconverged funded levels=0), so treat the numbers above as unreliable; consider raising --iterations.',
+        );
+    }, 600_000);
+
+    it('leaves the exit code unset and prints no such warning when the rate search converges', async () => {
+        mockSolveStatus(RateSearchStatus.Converged);
+
+        const { exitCode, stdout } = await capturedRun(smallArgv);
+
+        expect(exitCode).toBeUndefined();
+        expect(stdout).not.toContain('rate search did not converge');
+    }, 600_000);
+});
+
+describe('optimize dp discloses the coarse cycle-baseline rounding (R1-7, U1)', () => {
+    it('names the rounding, its conservative bias within the grid, and the opposite bias above the grid top when the baseline grid turns coarse', () => {
+        expect(
+            fundedCycleBaselineGapWarning(topStepNoFeeStandardPlan(), {
+                cycleBaselineRounding: {
+                    coarseFromDollars: 2000,
+                    coarseStepDollars: 5000,
+                    topDollars: 12_000,
+                },
+            }),
+        ).toBe(
+            '$50K · No-fee path · Standard XFA: this DP tracks the balance left after each payout on a grid that turns coarse past its fine range (cycleBaselineFineRangeMultiple): from $2,000 above the locked payout floor it steps by $5,000 and rounds a post-payout balance up to the next step, up to the grid top at $12,000 above that floor. Within the grid, rounding up can only understate the profit the DP counts toward the next payout, never overstate it: a conservative bias toward smaller or later payouts. A post-payout balance above the grid top, which the cushion grid also truncates, is clamped down to the top level instead, so there the DP can overstate that profit. The empirical run below tracks the exact balance.',
+        );
+    });
+
+    it('says nothing when the whole baseline grid is on the fine step', () => {
+        expect(
+            fundedCycleBaselineGapWarning(topStepNoFeeStandardPlan(), {
+                cycleBaselineRounding: null,
+            }),
+        ).toBeNull();
+    });
+
+    it('prints the warning from run() after the solve, with the rounding the funded solve reported', async () => {
+        vi.mocked(solveAverageRewardPolicy).mockImplementationOnce((config) => {
+            const solution = solveAverageRewardPolicy(config);
+            return {
+                ...solution,
+                fundedResult: {
+                    ...solution.fundedResult,
+                    cycleBaselineRounding: {
+                        coarseFromDollars: 2000,
+                        coarseStepDollars: 5000,
+                        topDollars: 12_000,
+                    },
+                },
+            };
+        });
+        const { stdout } = await capturedRun([
+            '--firm',
+            'mffu',
+            '--variant',
+            'rapid-eod',
+            '--eval-days',
+            '2',
+            '--funded-days',
+            '2',
+            '--iterations',
+            '1',
+            '--trials',
+            '10',
+        ]);
+
+        expect(stdout).toContain(
+            'this DP tracks the balance left after each payout on a grid that turns coarse past its fine range (cycleBaselineFineRangeMultiple): from $2,000 above the locked payout floor it steps by $5,000 and rounds a post-payout balance up to the next step, up to the grid top at $12,000 above that floor.',
+        );
+        expect(stdout).toContain(
+            'A post-payout balance above the grid top, which the cushion grid also truncates, is clamped down to the top level instead, so there the DP can overstate that profit.',
+        );
+        expect(stdout.indexOf('funded value iteration:')).toBeLessThan(
+            stdout.indexOf('turns coarse past its fine range'),
+        );
+    }, 600_000);
+});
+
+describe('optimize dp discloses how it bundles copy-traded renewals (U16)', () => {
+    const tradeifyGrowthArgv = ['--firm', 'tradeify', '--variant', 'growth'];
+
+    it('says the DP and its cross-check re-buy every copy together with the bundle discount, unlike the cash-flow timeline', () => {
+        const objective = renewalObjective(
+            parseDpInputs(['--copy-accounts=5']),
+            resolvedDpPlan(tradeifyGrowthArgv),
+        );
+
+        expect(bundleRenewalNote(objective)).toBe(
+            "$50K · Growth: with 5 copy-traded accounts, this DP and its simulate() cross-check re-buy all of them together at every renewal and apply the 5.0% bundle discount to each renewal cycle's first eval fee and activation fee. The cash-flow timeline instead runs each account slot on its own and gives the bundle discount only to each slot's first purchase, so the two differ on repeat purchases. Which one matches the firm's checkout for a re-purchase is an open question.",
+        );
+    });
+
+    it('says nothing for a single account or a plan without a bundle discount', () => {
+        const tradeifyGrowth = resolvedDpPlan(tradeifyGrowthArgv);
+        const singleAccount = renewalObjective(
+            parseDpInputs([]),
+            tradeifyGrowth,
+        );
+        const noBundlePlan = renewalObjective(
+            parseDpInputs(['--copy-accounts=5']),
+            topStepNoFeeStandardPlan(),
+        );
+
+        expect(bundleRenewalNote(singleAccount)).toBeNull();
+        expect(bundleRenewalNote(noBundlePlan)).toBeNull();
+    });
+
+    it('prints the note from run() before the solve starts', async () => {
+        vi.mocked(solveAverageRewardPolicy).mockImplementationOnce(() => {
+            throw new Error('stop after the preamble');
+        });
+        const { stdout } = await capturedRun([
+            ...tradeifyGrowthArgv,
+            '--copy-accounts',
+            '5',
+        ]);
+
+        expect(stdout).toContain(
+            'this DP and its simulate() cross-check re-buy all of them together at every renewal',
+        );
+    });
+});
+
+describe('optimize dp --eval-discount help says it also prices every re-buy (N-47, T9)', () => {
+    it('states that the percentage applies to the first purchase and to every re-buy', () => {
+        expect(dpArguments['eval-discount'].description).toBe(
+            'Coupon discount percent [0,100] off the evaluation fee. It prices the first purchase and every re-buy after a failed attempt alike, so a code whose repeat purchase costs more than its first purchase (e.g. FundedNext RAPID) under-prices each retry; prop plans prints the firm notes',
+        );
+    });
+});
+
+const warmUpArgv = [
+    '--firm',
+    'mffu',
+    '--variant',
+    'rapid-eod',
+    '--eval-days',
+    '2',
+    '--funded-days',
+    '2',
+    '--iterations',
+    '1',
+    '--trials',
+    '10',
+];
+
+describe('optimize dp run() awaits the firm registry warm-up before its first solve, whatever ran before it (N-63)', () => {
+    it('finishes the warm-up before the first solve starts, even when the warm-up is slower than the solver setup', async () => {
+        const events: string[] = [];
+        vi.mocked(warmFirmsRegistryCache).mockImplementationOnce(async () => {
+            await new Promise((resolve) => setTimeout(resolve, 50));
+            events.push('warm-up finished');
+            return null;
+        });
+        vi.mocked(solveAverageRewardPolicy).mockImplementationOnce(() => {
+            events.push('first solve started');
+            throw new Error('stop at the first solve');
+        });
+
+        await capturedRun(warmUpArgv);
+
+        expect(events).toStrictEqual([
+            'warm-up finished',
+            'first solve started',
+        ]);
+    });
+
+    it('resolves the warm-up to null once the registry has loaded', async () => {
+        await expect(warmFirmsRegistryCache()).resolves.toBeNull();
+    });
+
+    it('warns on stderr that the solve falls back to one thread when the warm-up fails, and still solves', async () => {
+        vi.mocked(warmFirmsRegistryCache).mockResolvedValueOnce(
+            new Error('registry import failed'),
+        );
+        vi.mocked(solveAverageRewardPolicy).mockClear();
+        vi.mocked(solveAverageRewardPolicy).mockImplementationOnce(() => {
+            throw new Error('stop at the first solve');
+        });
+
+        const { stderr } = await capturedRun(warmUpArgv);
+
+        expect(stderr).toContain(
+            registryWarmUpFailureWarning(new Error('registry import failed')),
+        );
+        expect(vi.mocked(solveAverageRewardPolicy)).toHaveBeenCalledOnce();
+    });
+
+    it('names the warm-up error and says the results are unchanged, only slower', () => {
+        expect(
+            registryWarmUpFailureWarning(new Error('registry import failed')),
+        ).toBe(
+            'the firm registry warm-up failed (registry import failed), so this solve falls back to one thread: the results are unchanged, it only runs slower',
+        );
+    });
+});
+
+describe('optimize dp funded solve keeps the WP17c shared day skeleton and day-close cache (N-63)', () => {
+    it('computes at most 260 day-close outcomes (330 without the day-close tables, 932 with both the day-close tables and the idle-close cache off) and at most 30 skeleton risk lists (148 without the shared day skeleton) over 10+ sweeps of a small MFF Rapid EOD grid', () => {
+        const plan = resolvedDpPlan([
+            '--firm',
+            'mffu',
+            '--variant',
+            'rapid-eod',
+        ]).withOverrides({});
+        expect(findRegistryPlanId(plan)).toBeNull();
+        const dayCloses = vi.spyOn(plan, 'recordDayClosePeak');
+        const riskLists = vi.spyOn(plan, 'affordableRisk');
+
+        const result = computeFundedStateValue({
+            actionStepMultiple: 1,
+            cushionStepMultiple: 1,
+            dayCost: 5,
+            evalInitialValue: 0,
+            feePerAttempt: dollars(0),
+            maxActionMultiple: 1,
+            meanHorizonDays: 100,
+            payoutRegimeCap: 0,
+            plan,
+            rrRatio: 2,
+            tradesPerDay: 1,
+            winrate: 0.4,
+        });
+
+        expect(result.workerCount).toBe(0);
+        expect(result.reachedStateCount).toBe(210);
+        expect(result.sweepCount).toBeGreaterThanOrEqual(10);
+        expect(dayCloses.mock.calls.length).toBeLessThanOrEqual(260);
+        expect(riskLists.mock.calls.length).toBeLessThanOrEqual(30);
     });
 });

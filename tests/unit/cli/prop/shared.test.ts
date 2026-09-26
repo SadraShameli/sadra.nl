@@ -37,6 +37,7 @@ import * as sharedModule from '~/cli/commands/prop/shared';
 import { NOT_APPLICABLE } from '~/lib/format';
 import {
     AlphaFuturesVariant,
+    APEX_LIVE_DAILY_LOSS_LIMIT,
     ApexVariant,
     ConsistencyRule,
     ConsistencyScope,
@@ -54,7 +55,6 @@ import {
     type Plan,
     type PlanId,
 } from '~/lib/prop-calculator';
-import { APEX_LIVE_DAILY_LOSS_LIMIT } from '~/lib/prop-calculator/firms/apex/ApexLive';
 
 const ARGS = {
     ...planArguments,

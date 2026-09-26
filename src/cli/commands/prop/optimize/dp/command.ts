@@ -25,6 +25,8 @@ import {
     type DayPolicy,
     describeFundedResetTerms,
     type Fraction0to1,
+    fundedResetDpModelSentence,
+    fundedResetsBeforeFirstPayout,
     isEvalDpEligible,
     type Plan,
     RenewalCycleObjective,
@@ -32,7 +34,6 @@ import {
     type SimOutputs,
     simulate,
     TRADING_DAYS_PER_YEAR,
-    withPlanOptIns,
 } from '~/lib/prop-calculator';
 import {
     RateSearchStatus,
@@ -48,6 +49,7 @@ import {
     type FundedStateValueResult,
     isFundedDpEligible,
     warmFirmsRegistryCache,
+    withRegistryPlanOptIns,
 } from '~/lib/prop-calculator/core/FundedStateValue';
 
 export interface DpArguments
@@ -83,6 +85,15 @@ export const EMPIRICAL_MAX_ATTEMPTS = 1000;
 export interface DpPolicies {
     evalDayPolicy: DayPolicy;
     fundedDayPolicy: DayPolicy;
+}
+
+export function bundleRenewalNote(
+    objective: RenewalCycleObjective,
+): null | string {
+    const bundlePercent = objective.purchaseDiscounts?.bundlePercent ?? 0;
+    return bundlePercent <= 0
+        ? null
+        : `${objective.plan.label}: with ${objective.copyAccounts} copy-traded accounts, this DP and its simulate() cross-check re-buy all of them together at every renewal and apply the ${formatPercent(bundlePercent / 100)} bundle discount to each renewal cycle's first eval fee and activation fee. The cash-flow timeline instead runs each account slot on its own and gives the bundle discount only to each slot's first purchase, so the two differ on repeat purchases. Which one matches the firm's checkout for a re-purchase is an open question.`;
 }
 
 export function empiricalSimInputs(
@@ -132,6 +143,16 @@ export function fundedConsistencyGridNote(plan: Plan): null | string {
         : `${plan.label}: its funded best-day consistency rule (${rule.shareLabel()}) makes the account build up profit before each payout, but this DP's locked cushion grid stops at ${DEFAULT_MAX_CUSHION_MULTIPLE} drawdowns and truncates any balance above that. The best day is tracked on the cushion grid and rounded up between grid steps, but a day that ends above the grid top is truncated like the balance, which shrinks both that day's P&L and the cycle profit the rule compares it with. In those states the DP can pay out less than the real account, and it can also allow a payout the real rule denies or deny one it allows: neither direction is guaranteed there, so trust the empirical run below over the DP-predicted rate.`;
 }
 
+export function fundedCycleBaselineGapWarning(
+    plan: Plan,
+    result: Pick<FundedStateValueResult, 'cycleBaselineRounding'>,
+): null | string {
+    const rounding = result.cycleBaselineRounding;
+    return rounding === null
+        ? null
+        : `${plan.label}: this DP tracks the balance left after each payout on a grid that turns coarse past its fine range (cycleBaselineFineRangeMultiple): from ${formatCurrency(rounding.coarseFromDollars)} above the locked payout floor it steps by ${formatCurrency(rounding.coarseStepDollars)} and rounds a post-payout balance up to the next step, up to the grid top at ${formatCurrency(rounding.topDollars)} above that floor. Within the grid, rounding up can only understate the profit the DP counts toward the next payout, never overstate it: a conservative bias toward smaller or later payouts. A post-payout balance above the grid top, which the cushion grid also truncates, is clamped down to the top level instead, so there the DP can overstate that profit. The empirical run below tracks the exact balance.`;
+}
+
 export function fundedDpModelGapWarning(plan: Plan): null | string {
     const gaps = fundedDpModelGaps(plan);
     if (gaps.length === 0) return null;
@@ -141,6 +162,13 @@ export function fundedDpModelGapWarning(plan: Plan): null | string {
 
 export function fundedIneligibilityMessage(plan: Plan): string {
     return `${plan.label}: funded phase is not DP-eligible (intraday-trailing drawdown, a funded daily loss limit that scales continuously with peak-day-close profit (PeakProfitShare), no drawdown lock / ReleaseFloor payout effect, or a payout cap keyed on cumulative qualifying days (QualifyingDaysMilestonePayoutCap)).`;
+}
+
+export function fundedResetModelNote(plan: Plan): null | string {
+    const policy = plan.fundedReset;
+    return policy === null || fundedResetsBeforeFirstPayout(plan) === 0
+        ? null
+        : `${plan.label}: takes the ${describeFundedResetTerms(policy)}. ${fundedResetDpModelSentence('This DP values every reset exactly')}`;
 }
 
 export function fundedValueIterationLine(
@@ -170,6 +198,10 @@ export function readDpInputs(arguments_: DpArguments): DpInputs {
     };
 }
 
+export function registryWarmUpFailureWarning(error: Error): string {
+    return `the firm registry warm-up failed (${error.message}), so this solve falls back to one thread: the results are unchanged, it only runs slower`;
+}
+
 export function renewalObjective(
     inputs: DpInputs,
     plan: Plan,
@@ -188,7 +220,7 @@ export function resolveDpPlan(
     arguments_: Parameters<typeof planResolver.resolveOne>[0] &
         Pick<DpArguments, 'early-withdrawal' | 'funded-reset'>,
 ): Plan {
-    return withPlanOptIns(planResolver.resolveOne(arguments_), {
+    return withRegistryPlanOptIns(planResolver.resolveOne(arguments_), {
         takesFundedReset: arguments_['funded-reset'] ?? false,
         takesOneTimeEarlyWithdrawal: arguments_['early-withdrawal'] ?? false,
     });
@@ -196,17 +228,14 @@ export function resolveDpPlan(
 
 function describeFundedDpModelGap(gap: FundedDpModelGap): string {
     switch (gap.kind) {
-        case FundedDpModelGapKind.FundedResetPolicyIgnoresResetCount: {
-            return `takes the ${describeFundedResetTerms(gap.policy)}. This DP values every reset exactly, but the day policy it hands to the empirical run cannot see how many resets were used, so after a reset it keeps the decisions solved for an account with no reset used, and the empirical run can fall slightly short of the DP-predicted rate`;
-        }
         case FundedDpModelGapKind.LifetimeDollarCapIgnored: {
-            return `has a lifetime payout-dollar cap of ${formatCurrency(gap.maxLifetimePayoutDollars)} (maxLifetimePayoutDollars) that this DP ignores entirely -- it never restores FundedCycleTracker.cumulativePayout from any state, so it is optimistic about payouts past that total`;
+            return `has a lifetime payout-dollar cap of ${formatCurrency(gap.maxLifetimePayoutDollars)} (maxLifetimePayoutDollars) that this DP ignores entirely: it never restores FundedCycleTracker.cumulativePayout from any state, so it is optimistic about payouts past that total`;
         }
         case FundedDpModelGapKind.PayoutCountTierBeyondRegimeCap: {
-            return `has a payout-count-tiered payout cap tier starting at payout #${gap.fromPayoutIndex + 1}, beyond this DP's payout-count regime cap of ${gap.payoutRegimeCap} -- payout counts past the cap saturate at the cap bucket inside it, so that tier is not modeled exactly`;
+            return `has a payout-count-tiered payout cap tier starting at payout #${gap.fromPayoutIndex + 1}, beyond this DP's payout-count regime cap of ${gap.payoutRegimeCap}, and payout counts past the cap saturate at the cap bucket inside it, so that tier is not modeled exactly`;
         }
         case FundedDpModelGapKind.PayoutTriggeredLockPreLockOffsetSaturates: {
-            return `locks its funded drawdown only on the first payout (no profit trigger), so its floor can trail without bound before that payout while this DP's pre-lock offset grid stops at a fixed multiple of the drawdown -- offsets past it saturate at the top bucket, so the DP understates the balance (and the first payout) in those rare high-profit states before the first payout, making it slightly pessimistic`;
+            return `locks its funded drawdown only on the first payout (no profit trigger), so its floor can trail without bound before that payout while this DP's pre-lock offset grid stops at a fixed multiple of the drawdown. Offsets past it saturate at the top bucket, so the DP understates the balance (and the first payout) in those rare high-profit states before the first payout, making it slightly pessimistic`;
         }
     }
 }
@@ -226,7 +255,7 @@ export const dpArguments = {
     'eval-days': {
         default: '40',
         description:
-            'Maximum evaluation days before timeout. The DP’s eval state space grows directly with this (one full day-dimension per value tracked), so raising it well past how long the plan realistically takes to pass will make the solve dramatically slower -- 150 (a normal --eval-days default elsewhere in this CLI) is impractically slow here even after the DP performance fix. Check cli prop ladder’s own expected-days-to-funded figure for this plan first and set this a bit above that.',
+            'Maximum evaluation days before timeout. The DP’s eval state space grows directly with this (one full day-dimension per value tracked), so raising it well past how long the plan realistically takes to pass will make the solve dramatically slower: 150 (a normal --eval-days default elsewhere in this CLI) is impractically slow here even after the DP performance fix. Check cli prop ladder’s own expected-days-to-funded figure for this plan first and set this a bit above that.',
         type: 'string',
     },
     'funded-days': {
@@ -237,7 +266,7 @@ export const dpArguments = {
     },
     'funded-reset': tradingArguments['funded-reset'],
     iterations: {
-        default: '8',
+        default: '12',
         description:
             'Max rate-search solves (each is one eval plus one funded solve). Stops early once the average-reward rate converges.',
         type: 'string',
@@ -275,11 +304,14 @@ export default defineCommand({
     async run(context) {
         let spinner: ReturnType<typeof ui.spinner> | undefined;
         try {
-            await warmFirmsRegistryCache();
+            const warmUpFailure = await warmFirmsRegistryCache();
+            if (warmUpFailure !== null) {
+                ui.fail(registryWarmUpFailureWarning(warmUpFailure));
+            }
             const plan = resolveDpPlan(context.args);
             if (plan.isInstantFunded) {
                 ui.warn(
-                    `${plan.label} is instant-funded -- there is no eval phase for the DP to solve. Use a fixed funded-phase policy sweep instead (cli prop optimize funded).`,
+                    `${plan.label} is instant-funded, so there is no eval phase for the DP to solve. Use a fixed funded-phase policy sweep instead (cli prop optimize funded).`,
                 );
                 return;
             }
@@ -297,6 +329,10 @@ export default defineCommand({
             if (modelGapWarning !== null) {
                 ui.warn(modelGapWarning);
             }
+            const resetNote = fundedResetModelNote(plan);
+            if (resetNote !== null) {
+                ui.muted(`${resetNote}\n`);
+            }
             const consistencyNote = fundedConsistencyGridNote(plan);
             if (consistencyNote !== null) {
                 ui.muted(`${consistencyNote}\n`);
@@ -305,6 +341,10 @@ export default defineCommand({
             const inputs = readDpInputs(context.args);
             const { copyAccounts, maxSolves, rrRatio, winrate } = inputs;
             const objective = renewalObjective(inputs, plan);
+            const bundleNote = bundleRenewalNote(objective);
+            if (bundleNote !== null) {
+                ui.muted(`${bundleNote}\n`);
+            }
 
             spinner = ui
                 .spinner(`solving average-reward DP for ${plan.label}`)
@@ -329,7 +369,7 @@ export default defineCommand({
 
             ui.heading(plan.label);
             ui.muted(
-                '  DP-predicted average reward (from the value-iteration solver itself -- the geometric horizon hazard is an approximation, see empirical run below)\n',
+                '  DP-predicted average reward (from the value-iteration solver itself; the geometric horizon hazard is an approximation, see empirical run below)\n',
             );
             ui.note(`  status: ${solution.status}`);
             ui.note(
@@ -337,6 +377,13 @@ export default defineCommand({
             );
             ui.note(`  solves used: ${solvesUsed}`);
             ui.note(`  ${fundedValueIterationLine(solution.fundedResult)}`);
+            const cycleBaselineGapWarning = fundedCycleBaselineGapWarning(
+                plan,
+                solution.fundedResult,
+            );
+            if (cycleBaselineGapWarning !== null) {
+                ui.warn(cycleBaselineGapWarning);
+            }
             ui.muted(
                 '  rate-search trace (rate per day tried -> cycle value h at that rate):\n',
             );
@@ -354,7 +401,7 @@ export default defineCommand({
             );
 
             ui.muted(
-                `\n  empirical (real simulate() run driven end-to-end by the DP’s own policy, failed evals retried up to ${EMPIRICAL_MAX_ATTEMPTS} times at the retry fee like the DP, same coupons and copy count -- trust this over the predicted values above)\n`,
+                `\n  empirical (real simulate() run driven end-to-end by the DP’s own policy, failed evals retried up to ${EMPIRICAL_MAX_ATTEMPTS} times at the retry fee like the DP, same coupons and copy count; trust this over the predicted values above)\n`,
             );
             for (const line of empiricalSummaryLines(
                 out,
@@ -369,7 +416,7 @@ export default defineCommand({
             plan.beginFundedPhase(fundedSampleState);
 
             ui.muted(
-                '\n  sample risk at the very first day (this is NOT a fixed ladder -- it is one snapshot of a function that changes with balance/profit/day; re-run this command’s dashboard mentally as your account moves)\n',
+                '\n  sample risk at the very first day (this is NOT a fixed ladder: it is one snapshot of a function that changes with balance/profit/day; re-run this command’s dashboard mentally as your account moves)\n',
             );
             ui.note(
                 `  eval, day 1, trade 1-${solution.evalResult.dayPolicy.ladder.length}: ${sampleRisks(
@@ -393,7 +440,7 @@ export default defineCommand({
                 solution.fundedResult.unconvergedLevelCount > 0
             ) {
                 ui.warn(
-                    `${plan.label}: rate search did not converge (status=${solution.status}, unconverged funded levels=${solution.fundedResult.unconvergedLevelCount}) -- treat the numbers above as unreliable; consider raising --iterations.`,
+                    `${plan.label}: rate search did not converge (status=${solution.status}, unconverged funded levels=${solution.fundedResult.unconvergedLevelCount}), so treat the numbers above as unreliable; consider raising --iterations.`,
                 );
                 process.exitCode = 1;
             }

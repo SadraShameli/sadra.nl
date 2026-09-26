@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
+import { FirmId, MffuVariant } from '~/lib/prop-calculator/core';
+import {
+    FundedDpModelGapKind,
+    fundedDpModelGaps,
+} from '~/lib/prop-calculator/core/FundedDpModelGaps';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 
 const NOTES = new MyFundedFutures().notes;
@@ -85,5 +90,41 @@ describe('MyFundedFutures notes after the MFF Pro rechecks (live-recheck.md, 202
         for (const note of NOTES) {
             expect(note).not.toContain('\u{2014}');
         }
+    });
+});
+
+describe('MyFundedFutures notes match the current engine (WP26 notes audit)', () => {
+    const firm = new MyFundedFutures();
+
+    function mffPlan(variant: MffuVariant) {
+        const plan = firm.findPlan({
+            accountSize: 50_000,
+            firm: FirmId.Mffu,
+            variant,
+        });
+        if (plan === undefined) throw new Error(`no MFF 50K ${variant}`);
+        return plan;
+    }
+
+    it("says Builder's unset minPayoutRequest would default to $0, not inherit minPayoutProfit", () => {
+        const note = noteContaining("Builder's minPayoutRequest");
+        expect(note).not.toContain("inherit minPayoutProfit's");
+        expect(note).toContain('it would default to $0 (the Plan default)');
+        const builder = mffPlan(MffuVariant.Builder);
+        expect(builder.minPayoutRequest).toBe(
+            builder.payoutLadder?.minRequestAmount,
+        );
+    });
+
+    it('says the $100,000 lifetime cap stops new payouts only in the simulator and the funded DP ignores it', () => {
+        const note = noteContaining("Pro's $100,000 lifetime cap");
+        expect(note).not.toContain('payouts simply stop at the cap');
+        expect(note).toContain(
+            'the payout that crosses the cap left untrimmed',
+        );
+        expect(note).toContain('LifetimeDollarCapIgnored');
+        expect(
+            fundedDpModelGaps(mffPlan(MffuVariant.Pro)).map((gap) => gap.kind),
+        ).toContain(FundedDpModelGapKind.LifetimeDollarCapIgnored);
     });
 });

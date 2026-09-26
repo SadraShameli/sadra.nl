@@ -9,7 +9,7 @@ import { cn } from '~/lib/utilities';
 const quickLinks = [
     { href: routes.home, label: 'Home' },
     { href: routes.portfolio, label: 'Portfolio' },
-    { href: routes.propCalculator, label: 'Prop firm calculator' },
+    { href: routes.propCalculator.index, label: 'Prop firm calculator' },
     { href: routes.tradeChecklist.index, label: 'Trade checklist' },
     { href: routes.lifting.index, label: 'Lifting tracker' },
 ];

@@ -24,7 +24,7 @@ export const kpiDescriptions = {
     maxLosingStreak:
         "Longest run of consecutive losing trades observed in simulations. P95 = worst-case streak you'll see in 1 of 20 evaluation attempts.",
     monthlyNet:
-        'Expected $ profit per month after all fees, averaged across passes and busts, plus the withdrawable balance credited to accounts that survive to the funded horizon end. = (avg net + avg horizon credit) × 21 ÷ avg trial duration.',
+        'Expected $ profit per month after all fees, averaged across every trial, whether it passed, busted or timed out, plus the withdrawable balance credited to accounts that survive to the funded horizon end. = (avg net + avg horizon credit) × 21 ÷ avg trial duration.',
     profitFactor:
         'Total winnings divided by total losses across all trades. > 1.5 is healthy, < 1.0 is losing money.',
     risk5Losses:
@@ -34,12 +34,19 @@ export const kpiDescriptions = {
     roiOnCost:
         'Net profit divided by total fees paid, expressed as a percentage. = (avg net ÷ avg total cost) × 100. The dollar return on your fee outlay. Shows n/a when the total cost is $0, since a return on no outlay has no ratio.',
     totalCost:
-        'All-in fees paid per evaluation cycle, averaged across passes and busts. Includes resets when multi-attempt is on.',
+        'All-in fees paid per evaluation cycle, averaged across every trial, whether it passed, busted or timed out. When multi-attempt is on, includes a retry fee for each failed attempt, bust or timeout, that is followed by another attempt: a re-buy on plans where every retry is a re-buy (Apex, MFF Builder), otherwise the cheaper of a reset and a re-buy.',
     tradesPerPass:
         'Mean number of eval trades you take in trials that pass the evaluation, including accounts that later busted funded. Lower = faster pass, higher = slower grind.',
 } as const;
 
+export const inputHints = {
+    maxEvalDays:
+        'An attempt that hits this limit is a failed attempt: it is retried while attempts remain, and a trial counts as a timeout only if its last attempt times out',
+} as const;
+
 export const panelDescriptions = {
+    cashFlow:
+        "Projects your realistic, rules-aware cash flow: buy an eval and retry each failed attempt, bust or timeout, at the cheaper of a reset (after your reset discount) and a fresh re-buy (after your eval discount), or at the re-buy when the plan has no reset or every retry on it is a re-buy (Apex, MFF Builder), for as long as the timeline has days left; each retry fee is booked on the day its failed attempt ends, while the first eval fee, the subscription months and the activation are spread evenly over the card's eval days; the bundle discount applies only to each account slot's first card, on its first eval purchase and its activation, unlike the CLI's optimize dp, which re-buys copy-traded accounts together and applies the bundle to every renewal. Once funded, cycle through the payout ladder with qualifying days, the safety net, and the consistency rule all enforced, repeating for every new card bought after an account closes or busts. It never holds more funded accounts at once than the firm allows on this plan. The shaded band shows the P10–P90 spread of cumulative net (payouts − spend) across simulated trials; the bold line is the median.",
     'days-to-pass-hist':
         'Distribution of trading days needed to reach the profit target. Concentration near the median = consistent timing. A long right tail = some trials grind for many days before passing.',
     drawdown:

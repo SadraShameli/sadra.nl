@@ -12,6 +12,7 @@ import * as liftingSchema from './schemas/lifting';
 import * as mainSchema from './schemas/main';
 import * as notificationSchema from './schemas/notification';
 import * as observabilitySchema from './schemas/observability';
+import * as propSchema from './schemas/prop';
 import * as tradingSchema from './schemas/trading';
 
 export {
@@ -110,6 +111,7 @@ const database = drizzle(pool, {
         ...observabilitySchema,
         ...accountingSchema,
         ...liftingSchema,
+        ...propSchema,
         ...relationsModule,
     },
 });

@@ -207,6 +207,10 @@ export function simulate(inputs: SimInputs): SimOutputs {
         expectedNet + expectedHorizonCredit,
         slotDaysPerTrial,
     );
+    const expectedMonthlyRealizedNet = monthlyNetPerSlot(
+        expectedNet,
+        slotDaysPerTrial,
+    );
 
     const expectancyDollars =
         tradesTakenSum > 0
@@ -310,6 +314,7 @@ export function simulate(inputs: SimInputs): SimOutputs {
         expectedGrossSpend: expectedGrossSpend * m,
         expectedHorizonCredit: expectedHorizonCredit * m,
         expectedMonthlyNet: expectedMonthlyNet * m,
+        expectedMonthlyRealizedNet: expectedMonthlyRealizedNet * m,
         expectedNet: expectedNet * m,
         expectedPayoutCount,
         expectedPayoutPerFundedAccount,
@@ -497,6 +502,10 @@ export function simulatePortfolio(
         expectedNet + expectedHorizonCredit,
         slotDaysPerTrial,
     );
+    const expectedMonthlyRealizedNet = monthlyNetPerSlot(
+        expectedNet,
+        slotDaysPerTrial,
+    );
     const expectedDaysToPass =
         daysToPassCount > 0 ? daysToPassSum / daysToPassCount : 0;
     const expectedMaxLossStreak = maxStreakSum / trials;
@@ -509,6 +518,7 @@ export function simulatePortfolio(
         expectedDaysToPass,
         expectedMaxLossStreak,
         expectedMonthlyNet,
+        expectedMonthlyRealizedNet,
         expectedNet,
         meanTradesPerDay,
         pAtLeast: atLeastProbabilities(distribution),

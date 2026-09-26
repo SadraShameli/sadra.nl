@@ -13,21 +13,24 @@ import {
     type SimOutputs,
     simulate,
 } from '~/lib/prop-calculator';
+import { simInputsSizingIssue } from '~/lib/prop-calculator/simulator';
 import { cn } from '~/lib/utilities';
 
 import RuleStressBarChartView from './charts/RuleStressBarChartView';
+import { ComputationId } from './ComputationId';
 import { buildStressScenarios } from './ruleStressScenarios';
 import { simInputsCacheKey } from './simInputsCacheKey';
+import { SimulationFailureNotice } from './SimulationFailureNotice';
 import { useDebouncedComputation } from './useDebouncedSimulation';
 
-interface RuleStressTestPanelProperties {
-    baseInputs: SimInputs;
-}
-
-interface ScenarioRow {
+export interface ScenarioRow {
     isNoOp: boolean;
     label: string;
     out: SimOutputs;
+}
+
+interface RuleStressTestPanelProperties {
+    baseInputs: SimInputs;
 }
 
 const MAX_TRIALS = 500;
@@ -37,7 +40,12 @@ export default function RuleStressTestPanel({
     baseInputs,
 }: RuleStressTestPanelProperties) {
     const key = buildCacheKey(baseInputs);
-    const { pending, result: rows } = useDebouncedComputation<ScenarioRow[]>(
+    const {
+        error,
+        pending,
+        result: rows,
+    } = useDebouncedComputation(
+        ComputationId.RuleStress,
         key,
         DEBOUNCE_MS,
         () => {
@@ -50,6 +58,7 @@ export default function RuleStressTestPanel({
             }));
         },
         [],
+        simInputsSizingIssue(baseInputs),
     );
 
     const baseline = rows[0] ?? null;
@@ -184,10 +193,14 @@ export default function RuleStressTestPanel({
             </div>
 
             {rows.length === 0 ? (
-                <EmptyState
-                    description="Adjust your inputs to see how your edge holds up against tighter rules."
-                    title="No data yet"
-                />
+                error === null ? (
+                    <EmptyState
+                        description="Adjust your inputs to see how your edge holds up against tighter rules."
+                        title="No data yet"
+                    />
+                ) : (
+                    <SimulationFailureNotice message={error} />
+                )
             ) : (
                 <div className="flex flex-col gap-4">
                     <RuleStressBarChartView rows={chartRows} />

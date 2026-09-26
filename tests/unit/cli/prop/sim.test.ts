@@ -14,6 +14,7 @@ import {
     granularityTableRow,
     simArguments,
     simHeaderLines,
+    simSpinnerLabel,
     simSummaryRows,
 } from '~/cli/commands/prop/sim/command';
 import {
@@ -315,5 +316,16 @@ describe('sim --path-granularity help (R1-26)', () => {
             parseSimInputs(['--path-granularity', '4,10,25'])
                 .intradayPathStepsPerR,
         ).toStrictEqual([4, 10, 25]);
+    });
+});
+
+describe('prop sim spinner label (WP24)', () => {
+    it('separates the plan label from the trial count with a colon, so a label that already holds a middle dot does not get a second one', () => {
+        expect(simSpinnerLabel('$50K · Zero', 5000)).toBe(
+            '$50K · Zero: 5000 trials',
+        );
+        expect(simSpinnerLabel('$50K · Zero', 5000).split(' · ')).toHaveLength(
+            2,
+        );
     });
 });

@@ -1,5 +1,6 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 
 import {
@@ -19,9 +20,11 @@ import { routes } from '~/lib/site/routes';
 
 export function DeleteAccountDialog() {
     const router = useRouter();
+    const queryClient = useQueryClient();
 
     const onDelete = async () => {
         await authClient.deleteUser();
+        queryClient.clear();
         router.push(routes.home);
         router.refresh();
     };

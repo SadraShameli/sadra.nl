@@ -7,6 +7,7 @@ import {
     computedDayPolicy,
     computeEvalStateValue,
     type ComputeRisk,
+    contracts,
     DailyLossLimitKind,
     type DayPolicy,
     DayStopRuleKind,
@@ -15,12 +16,18 @@ import {
     flatDayPolicy,
     fraction,
     type FundedCycleSnapshot,
+    InstrumentSymbol,
     ladderRungSchema,
     ladderRungsSchema,
+    placeWholeContractTrade,
     type Plan,
     type PlanId,
+    PolicySizing,
+    policySizingOf,
+    type PositionSizingConfig,
     resolveAffordableRisk,
     resolveFundedTradeRisk,
+    resolvePositionSizing,
     RungSizing,
     stopLossCountSchema,
     stopTargetDollarsSchema,
@@ -409,10 +416,11 @@ describe('both dynamic programs keep every later trade of the day inside the rem
 });
 
 describe('ComputeRisk takes the funded cycle as one named snapshot', () => {
-    it('requires every funded cycle field, the last payout balance included, once a snapshot is passed', () => {
+    it('requires every funded cycle field once a snapshot is passed, the last payout balance and the funded reset count included (N-34)', () => {
         expectTypeOf<FundedCycleSnapshot>().toEqualTypeOf<{
             readonly cycleBestDayProfit: number;
             readonly dayGateProgress: number;
+            readonly fundedResetsUsed: number;
             readonly lastPayoutBalance: number;
             readonly payoutsIssued: number;
         }>();
@@ -426,6 +434,7 @@ describe('ComputeRisk takes the funded cycle as one named snapshot', () => {
         const fundedCycle: FundedCycleSnapshot = {
             cycleBestDayProfit: 400,
             dayGateProgress: 3,
+            fundedResetsUsed: 1,
             lastPayoutBalance: 51_250,
             payoutsIssued: 2,
         };
@@ -448,5 +457,137 @@ describe('ComputeRisk takes the funded cycle as one named snapshot', () => {
             winrate: fraction(1),
         });
         expect(received).toStrictEqual([fundedCycle, fundedCycle]);
+    });
+});
+
+describe('every day policy builder states how its risk is placed (T33, R4, R9)', () => {
+    it('builds a flat and a computed policy as ContractCapped unless WholeContracts is asked for, and says so on the policy', () => {
+        expect(flatDayPolicy(250, 2).sizing).toBe(PolicySizing.ContractCapped);
+        expect(computedDayPolicy(() => 250, 2).sizing).toBe(
+            PolicySizing.ContractCapped,
+        );
+        expect(
+            flatDayPolicy(250, 2, undefined, PolicySizing.WholeContracts)
+                .sizing,
+        ).toBe(PolicySizing.WholeContracts);
+        expect(
+            computedDayPolicy(
+                () => 250,
+                2,
+                undefined,
+                PolicySizing.WholeContracts,
+            ).sizing,
+        ).toBe(PolicySizing.WholeContracts);
+    });
+
+    it('reads a declared policy with no sizing field as ContractCapped, the only sizing a declared ladder has ever had', () => {
+        const declared: DayPolicy = {
+            ladder: [300, 600],
+            maxLossesPerDay: null,
+            stopRule: { kind: DayStopRuleKind.None },
+        };
+        expect(policySizingOf(declared)).toBe(PolicySizing.ContractCapped);
+        expect(
+            policySizingOf({
+                ...declared,
+                sizing: PolicySizing.WholeContracts,
+            }),
+        ).toBe(PolicySizing.WholeContracts);
+    });
+});
+
+function mnqAtTenPoints(): PositionSizingConfig {
+    const positionSizing = resolvePositionSizing(InstrumentSymbol.MNQ, 10);
+    if (positionSizing === null) throw new Error('MNQ sizing did not resolve');
+    return positionSizing;
+}
+
+describe('placeWholeContractTrade is the one whole-contract placement rule the funded and live phases share (T33, U18)', () => {
+    it('rounds the intended risk down to whole $20 MNQ micros when the room covers it', () => {
+        expect(
+            placeWholeContractTrade({
+                intendedRisk: 250,
+                maxContracts: null,
+                positionSizing: mnqAtTenPoints(),
+                room: 1000,
+                rungSizing: RungSizing.CapToCushion,
+            }),
+        ).toEqual({ rewardRisk: 240, risk: 240 });
+    });
+
+    it('takes one micro when the room is below one contract: the loss stops at the room and the win pays on the micro', () => {
+        expect(
+            placeWholeContractTrade({
+                intendedRisk: 250,
+                maxContracts: null,
+                positionSizing: mnqAtTenPoints(),
+                room: 10,
+                rungSizing: RungSizing.CapToCushion,
+            }),
+        ).toEqual({ rewardRisk: 20, risk: 10 });
+    });
+
+    it('sizes to the room, not the intended risk, when the room is between whole contracts', () => {
+        expect(
+            placeWholeContractTrade({
+                intendedRisk: 250,
+                maxContracts: null,
+                positionSizing: mnqAtTenPoints(),
+                room: 150,
+                rungSizing: RungSizing.CapToCushion,
+            }),
+        ).toEqual({ rewardRisk: 140, risk: 140 });
+    });
+
+    it('never places more contracts than the contract limit, and nothing at a limit of zero', () => {
+        const base = {
+            intendedRisk: 1000,
+            positionSizing: mnqAtTenPoints(),
+            room: 5000,
+            rungSizing: RungSizing.CapToCushion,
+        };
+        expect(
+            placeWholeContractTrade({ ...base, maxContracts: contracts(30) }),
+        ).toEqual({ rewardRisk: 600, risk: 600 });
+        expect(
+            placeWholeContractTrade({ ...base, maxContracts: contracts(0) }),
+        ).toEqual({
+            rewardRisk: 0,
+            risk: 0,
+        });
+    });
+
+    it('skips a whole-contract trade the room cannot cover when rungs skip, and takes it once the room does', () => {
+        const base = {
+            intendedRisk: 250,
+            maxContracts: null,
+            positionSizing: mnqAtTenPoints(),
+            rungSizing: RungSizing.SkipIfUnaffordable,
+        };
+        expect(placeWholeContractTrade({ ...base, room: 239 })).toEqual({
+            rewardRisk: 0,
+            risk: 0,
+        });
+        expect(placeWholeContractTrade({ ...base, room: 240 })).toEqual({
+            rewardRisk: 240,
+            risk: 240,
+        });
+    });
+
+    it('places nothing with no room or no intended risk', () => {
+        const base = {
+            maxContracts: null,
+            positionSizing: mnqAtTenPoints(),
+            rungSizing: RungSizing.CapToCushion,
+        };
+        for (const [intendedRisk, room] of [
+            [250, 0],
+            [250, -5],
+            [0, 1000],
+        ] as const) {
+            expect(
+                placeWholeContractTrade({ ...base, intendedRisk, room }),
+            ).toEqual({ rewardRisk: 0, risk: 0 });
+        }
     });
 });

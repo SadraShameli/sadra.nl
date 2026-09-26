@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import * as core from '~/lib/prop-calculator/core';
 import {
+    type AccountState,
     ApexVariant,
     closeTradingDay,
     ConsistencyBasis,
@@ -16,8 +17,10 @@ import {
     fraction,
     LucidVariant,
     MffuVariant,
+    newFundedCycleTrackerAfterReset,
     PayoutDayGateBasis,
     PayoutFloorEffect,
+    type Plan,
     profitShareMultiplier,
     sessionDaysForCalendarDays,
     TierBasis,
@@ -335,6 +338,7 @@ describe('closeoutCredit', () => {
         const target = plan(MffuVariant.RapidEod);
         const state = fundedState(3000, 50_100);
         const tracker = newFundedCycleTracker(state);
+        tracker.lastPayoutBalance = state.startingBalance;
 
         expect(
             tracker.closeoutCredit({
@@ -357,6 +361,7 @@ describe('closeoutCredit', () => {
         });
         const state = fundedState(3000, 50_100);
         const tracker = newFundedCycleTracker(state);
+        tracker.lastPayoutBalance = state.startingBalance;
         tracker.cycleBestDayProfit = 2900;
 
         expect(
@@ -445,6 +450,202 @@ describe('closeoutCredit', () => {
             payoutsIssued: tracker.payoutsIssued,
             qualifyingDaysAtLastPayout: tracker.qualifyingDaysAtLastPayout,
         }).toStrictEqual(trackerBefore);
+    });
+});
+
+function lockedStateAboveFloor(target: Plan, room: number) {
+    const state = target.initialState();
+    state.threshold = state.startingBalance + 100;
+    state.thresholdLocked = true;
+    state.qualifyingDays = 999;
+    state.balance = target.payoutBalanceFloor(state, 0) + room;
+    return state;
+}
+
+function lucidPlan(variant: LucidVariant) {
+    const found = lucid.findPlan({
+        accountSize: 50_000,
+        firm: FirmId.Lucid,
+        variant,
+    });
+    if (!found) throw new Error(`lucid ${variant} missing`);
+    return found;
+}
+
+describe('closeoutCredit per-request ceiling', () => {
+    const HUGE_ROOM = 1_000_000;
+
+    it.each([
+        [0, 2000],
+        [1, 2500],
+        [5, 2500],
+    ])(
+        'Lucid Pro no-DLL credits one ladder step at payoutsIssued %i, not the whole balance',
+        (payoutsIssued, step) => {
+            const target = lucidPlan(LucidVariant.ProNoDll);
+            const state = lockedStateAboveFloor(target, HUGE_ROOM);
+            const tracker = newFundedCycleTracker(state);
+            tracker.lastPayoutBalance = state.startingBalance;
+            tracker.payoutsIssued = payoutsIssued;
+
+            expect(
+                tracker.closeoutCredit({
+                    minRetainedCushion: 0,
+                    plan: target,
+                    state,
+                }),
+            ).toBeCloseTo(target.payoutFromProfit(step, payoutsIssued), 6);
+        },
+    );
+
+    it('Lucid Pro no-DLL credits 1800 then 2250 net of the 90% split', () => {
+        const target = lucidPlan(LucidVariant.ProNoDll);
+        const state = lockedStateAboveFloor(target, HUGE_ROOM);
+        const tracker = newFundedCycleTracker(state);
+        tracker.lastPayoutBalance = state.startingBalance;
+
+        expect(
+            tracker.closeoutCredit({
+                minRetainedCushion: 0,
+                plan: target,
+                state,
+            }),
+        ).toBeCloseTo(1800, 6);
+        tracker.payoutsIssued = 1;
+        expect(
+            tracker.closeoutCredit({
+                minRetainedCushion: 0,
+                plan: target,
+                state,
+            }),
+        ).toBeCloseTo(2250, 6);
+    });
+
+    it.each([
+        [0, 1800],
+        [1, 1800],
+        [2, 1800],
+        [3, 2250],
+        [4, 2250],
+        [5, 2250],
+        [6, 2250],
+    ])(
+        'Lucid Direct credits one ladder step at payoutsIssued %i',
+        (payoutsIssued, expected) => {
+            const target = lucidPlan(LucidVariant.Direct);
+            const state = lockedStateAboveFloor(target, HUGE_ROOM);
+            const tracker = newFundedCycleTracker(state);
+            tracker.lastPayoutBalance = state.startingBalance;
+            tracker.payoutsIssued = payoutsIssued;
+
+            expect(
+                tracker.closeoutCredit({
+                    minRetainedCushion: 0,
+                    plan: target,
+                    state,
+                }),
+            ).toBeCloseTo(expected, 6);
+        },
+    );
+
+    it.each([0, 3])(
+        'Lucid Daily EOD with a 500 dollar request size credits one 500 dollar request at payoutsIssued %i',
+        (payoutsIssued) => {
+            const target = lucidPlan(LucidVariant.DailyEod);
+            expect(target.payoutLadder).toBeNull();
+            const state = lockedStateAboveFloor(target, HUGE_ROOM);
+            const tracker = newFundedCycleTracker(state);
+            tracker.lastPayoutBalance = state.startingBalance;
+            tracker.payoutsIssued = payoutsIssued;
+
+            expect(
+                tracker.closeoutCredit({
+                    minRetainedCushion: 0,
+                    payoutRequestSize: 500,
+                    plan: target,
+                    state,
+                }),
+            ).toBeCloseTo(target.payoutFromProfit(500, payoutsIssued), 6);
+        },
+    );
+
+    it('Lucid Flex caps the credit at its profit share of the cycle profit', () => {
+        const target = lucidPlan(LucidVariant.Flex);
+        const share = target.payoutProfitShare;
+        if (share === null) throw new Error('lucid flex profit share missing');
+        expect(share).toBe(0.5);
+        const state = lockedStateAboveFloor(target, HUGE_ROOM);
+        const tracker = newFundedCycleTracker(state);
+        const cycleProfit = 1000;
+        tracker.lastPayoutBalance = state.balance - cycleProfit;
+        tracker.payoutsIssued = 1;
+        const withdrawable = tracker.withdrawableNow({
+            minRetainedCushion: 0,
+            plan: target,
+            state,
+        });
+        expect(withdrawable).toBeGreaterThan(share * cycleProfit);
+
+        expect(
+            tracker.closeoutCredit({
+                minRetainedCushion: 0,
+                plan: target,
+                state,
+            }),
+        ).toBeCloseTo(
+            target.payoutFromProfit(
+                Math.min(withdrawable, share * cycleProfit),
+                1,
+            ),
+            6,
+        );
+    });
+
+    it('Apex EOD (deniesIfUnaffordable) credits 0 when the withdrawable room is below the ladder step', () => {
+        const target = apex.findPlan({
+            accountSize: 50_000,
+            firm: FirmId.Apex,
+            variant: ApexVariant.Eod,
+        });
+        if (!target) throw new Error('apex eod missing');
+        const ladder = target.payoutLadder;
+        const step = ladder?.steps[0];
+        if (step === undefined || ladder?.deniesIfUnaffordable !== true) {
+            throw new Error('apex eod denying ladder missing');
+        }
+        const state = lockedStateAboveFloor(target, step - 100);
+        const tracker = newFundedCycleTracker(state);
+        tracker.lastPayoutBalance = state.startingBalance;
+        const withdrawable = tracker.withdrawableNow({
+            minRetainedCushion: 0,
+            plan: target,
+            state,
+        });
+        expect(withdrawable).toBeGreaterThan(0);
+        expect(withdrawable).toBeLessThan(step);
+
+        expect(
+            tracker.closeoutCredit({
+                minRetainedCushion: 0,
+                plan: target,
+                state,
+            }),
+        ).toBe(0);
+    });
+
+    it('caps a no-ladder credit at the cycle-profit pool', () => {
+        const target = plan(MffuVariant.RapidEod);
+        const state = fundedState(3000, 50_100);
+        const tracker = newFundedCycleTracker(state);
+        tracker.lastPayoutBalance = state.balance - 500;
+
+        expect(
+            tracker.closeoutCredit({
+                minRetainedCushion: 2000,
+                plan: target,
+                state,
+            }),
+        ).toBeCloseTo(target.payoutFromProfit(500, 0), 6);
     });
 });
 
@@ -593,7 +794,7 @@ describe('ladder payouts', () => {
 });
 
 describe(
-    'payout profit-share cap (synthetic — reconstructs the discontinued MFFU Flex ' +
+    'payout profit-share cap (synthetic, reconstructs the discontinued MFFU Flex ' +
         "plan's exact payout mechanics via withOverrides on Rapid EOD, since this " +
         'specific ladder + 50%-profit-share-cap combination is no longer exercised ' +
         'by any currently-sold MFFU plan)',
@@ -650,7 +851,7 @@ describe(
 );
 
 describe(
-    'payout-triggered early lock (synthetic — reconstructs the discontinued ' +
+    'payout-triggered early lock (synthetic, reconstructs the discontinued ' +
         "MFFU Flex plan's LockAtPlanFloor mechanics via withOverrides on Rapid EOD)",
     () => {
         it('forces the MLL to lock at starting+$100 on an early payout, before the natural threshold', () => {
@@ -1452,9 +1653,54 @@ describe('PayoutDayGateBasis.CalendarDaysSinceFirstTradeOrPayout (N-7)', () => {
         expect(tracker.cycleSnapshot(target, state)).toStrictEqual({
             cycleBestDayProfit: tracker.cycleBestDayProfit,
             dayGateProgress: 4,
+            fundedResetsUsed: 0,
             lastPayoutBalance: tracker.lastPayoutBalance,
             payoutsIssued: 0,
         });
+    });
+
+    it('snapshots the funded reset count the tracker was opened with, so the funded DP day policy picks the reset layer from the tracker alone (N-34)', () => {
+        const target = plan(MffuVariant.RapidEod);
+        const state = target.initialState();
+        target.beginFundedPhase(state);
+
+        expect(
+            newFundedCycleTracker(state).cycleSnapshot(target, state)
+                .fundedResetsUsed,
+        ).toBe(0);
+        expect(
+            newFundedCycleTrackerAfterReset(state, 2).cycleSnapshot(
+                target,
+                state,
+            ).fundedResetsUsed,
+        ).toBe(2);
+    });
+
+    it('opens a fresh-account tracker without a reset count and requires the count on the after-reset tracker, so a reset site cannot leave it out (N-34)', () => {
+        expectTypeOf(newFundedCycleTracker).parameters.toEqualTypeOf<
+            [AccountState]
+        >();
+        expectTypeOf(newFundedCycleTrackerAfterReset).parameters.toEqualTypeOf<
+            [AccountState, number]
+        >();
+    });
+
+    it('rejects an after-reset tracker whose reset count is not a positive whole number (N-34)', () => {
+        const target = plan(MffuVariant.RapidEod);
+        const state = target.initialState();
+        target.beginFundedPhase(state);
+
+        for (const fundedResetsUsed of [0, -1, 1.5, NaN]) {
+            expect(() =>
+                newFundedCycleTrackerAfterReset(state, fundedResetsUsed),
+            ).toThrow(RangeError);
+        }
+        expect(
+            newFundedCycleTrackerAfterReset(state, 1).cycleSnapshot(
+                target,
+                state,
+            ).fundedResetsUsed,
+        ).toBe(1);
     });
 
     it('snapshots qualifying days since the pass or the last payout for a qualifying-day gate, exactly as before', () => {
@@ -1500,5 +1746,85 @@ describe('one session-clock pattern: every caller records the session close, the
 
         expect(Object.keys(core)).not.toContain('tryFundedPayout');
         expect(Object.keys(payoutCycle)).not.toContain('tryFundedPayout');
+    });
+});
+
+describe('Lucid Daily EOD 50K payout pins: request-all is a reflecting barrier, a capped request leaves the excess (N-72, T32)', () => {
+    const LOCKED_THRESHOLD = 50_100;
+    const RETAINED_CUSHION = 2000;
+    const BARRIER = LOCKED_THRESHOLD + RETAINED_CUSHION;
+
+    function lockedDailyEod(balance: number) {
+        const target = lucidPlan(LucidVariant.DailyEod);
+        const state = target.initialState();
+        state.balance = balance;
+        state.threshold = LOCKED_THRESHOLD;
+        state.thresholdLocked = true;
+        state.qualifyingDays = 99;
+        const tracker = newFundedCycleTracker(state);
+        tracker.lastPayoutBalance = state.startingBalance;
+        tracker.qualifyingDaysAtLastPayout = 0;
+        tracker.recordSessionClose(state);
+        return { state, target, tracker };
+    }
+
+    it('debits 2,000 from 54,100 with no request size and leaves the balance on the 52,100 barrier', () => {
+        const { state, target, tracker } = lockedDailyEod(54_100);
+
+        const payout = tracker.tryPayout({
+            minRetainedCushion: RETAINED_CUSHION,
+            payoutRequestSize: undefined,
+            plan: target,
+            state,
+        });
+
+        expect(payout?.debited).toBe(2000);
+        expect(state.balance).toBe(BARRIER);
+    });
+
+    it('debits only the 500 request from 54,100 and leaves 53,600 in the account', () => {
+        const { state, target, tracker } = lockedDailyEod(54_100);
+
+        const payout = tracker.tryPayout({
+            minRetainedCushion: RETAINED_CUSHION,
+            payoutRequestSize: 500,
+            plan: target,
+            state,
+        });
+
+        expect(payout?.debited).toBe(500);
+        expect(state.balance).toBe(53_600);
+    });
+
+    it('credits one 500 request net of split at 60,000 with a 500 request size, not the 7,900 withdrawable above the barrier', () => {
+        const { state, target, tracker } = lockedDailyEod(60_000);
+        expect(
+            tracker.withdrawableNow({
+                minRetainedCushion: RETAINED_CUSHION,
+                plan: target,
+                state,
+            }),
+        ).toBe(60_000 - BARRIER);
+
+        expect(
+            tracker.closeoutCredit({
+                minRetainedCushion: RETAINED_CUSHION,
+                payoutRequestSize: 500,
+                plan: target,
+                state,
+            }),
+        ).toBeCloseTo(target.payoutFromProfit(500, 0), 9);
+    });
+
+    it('credits the whole 7,900 above the barrier net of split at 60,000 with no request size', () => {
+        const { state, target, tracker } = lockedDailyEod(60_000);
+
+        expect(
+            tracker.closeoutCredit({
+                minRetainedCushion: RETAINED_CUSHION,
+                plan: target,
+                state,
+            }),
+        ).toBeCloseTo(target.payoutFromProfit(60_000 - BARRIER, 0), 9);
     });
 });

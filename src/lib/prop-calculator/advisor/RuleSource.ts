@@ -1,0 +1,16 @@
+export enum RuleSource {
+    EvalLadder = 'THE OPTIMAL EVAL LADDER',
+    GeneralDerivation = 'General derivation for any plan',
+    HardRule1 = 'Hard Rule 1',
+    HardRule2 = 'Hard Rule 2',
+    HardRule3 = 'Hard Rule 3',
+    HardRule4 = 'Hard Rule 4',
+    HardRule5 = 'Hard Rule 5',
+    HardRule6 = 'Hard Rule 6',
+    HardRule7 = 'Hard Rule 7',
+    HardRule8 = 'Hard Rule 8',
+    HisNumbers = 'HIS NUMBERS',
+    LiveSizing = 'Live account (NOT replaceable)',
+    PayoutSize = 'PAYOUT SIZING',
+    ReassessmentCadence = 'Reassessment cadence',
+}

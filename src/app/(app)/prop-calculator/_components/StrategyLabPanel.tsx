@@ -25,8 +25,6 @@ import {
 import {
     ALL_INSTRUMENTS,
     CorrelationMode,
-    type DayStopRule,
-    DayStopRuleKind,
     type InstrumentSymbol,
     type Plan,
     type RungSizing,
@@ -35,6 +33,8 @@ import { cn } from '~/lib/utilities';
 
 import AccountsPassedDistributionChart from './AccountsPassedDistributionChart';
 import DayStopRulePicker from './DayStopRulePicker';
+import { DayStopRuleStyle, describeDayStopRule } from './describeDayStopRule';
+import { SimulationFailureNotice } from './SimulationFailureNotice';
 import { type LabScenario } from './types';
 import { useLabSimulation } from './useLabSimulation';
 
@@ -97,7 +97,7 @@ export default function StrategyLabPanel({
     scenarios,
     seed,
 }: StrategyLabPanelProperties) {
-    const { pending, results } = useLabSimulation({
+    const { error, pending, refused, results } = useLabSimulation({
         activationDiscountPercent,
         commissionPerRoundTrip,
         discountPercent: evalDiscountPercent,
@@ -214,6 +214,13 @@ export default function StrategyLabPanel({
                     </Button>
                 </div>
             </div>
+            {refused.map((refusal) => (
+                <SimulationFailureNotice
+                    key={refusal.item.id}
+                    message={`Not simulated, ${refusal.item.label}: ${refusal.issue}`}
+                />
+            ))}
+            <SimulationFailureNotice message={error} />
             <StrategyLabTable
                 onRemove={onRemove}
                 onUpdate={onUpdate}
@@ -239,7 +246,10 @@ export default function StrategyLabPanel({
                                     <span className="font-mono text-muted-foreground">
                                         {sc.accounts} accts •{' '}
                                         {CORRELATION_LABEL[sc.correlation]} •{' '}
-                                        {describeDayStop(sc.dayStop)}
+                                        {describeDayStopRule(
+                                            sc.dayStop,
+                                            DayStopRuleStyle.Compact,
+                                        )}
                                     </span>
                                 </div>
                                 <AccountsPassedDistributionChart
@@ -295,26 +305,6 @@ export default function StrategyLabPanel({
             )}
         </Card>
     );
-}
-
-function describeDayStop(rule: DayStopRule): string {
-    switch (rule.kind) {
-        case DayStopRuleKind.AfterKLosses: {
-            return `Stop ${rule.k}L`;
-        }
-        case DayStopRuleKind.AfterTarget: {
-            return `Stop $${rule.dollars}`;
-        }
-        case DayStopRuleKind.DayGreen: {
-            return 'Stop when green';
-        }
-        case DayStopRuleKind.FirstWin: {
-            return 'Stop on win';
-        }
-        case DayStopRuleKind.None: {
-            return 'Take all';
-        }
-    }
 }
 
 function ResultCell({

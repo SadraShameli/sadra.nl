@@ -38,12 +38,13 @@ describe('N-12: the cash-flow timeline prices eval retries on the D1 cheaper pat
     it('re-buys instead of paying a reset that costs more than a fresh eval', () => {
         const policy = flatDayPolicy(3000, 1, { kind: DayStopRuleKind.None });
         const card = runEvalToFundedCycle({
+            cardDayBudget: 30,
             commission: dollars(0),
             discounts: undefined,
             evalDayPolicy: policy,
             fundedDayPolicy: policy,
             maxEvalDays: 30,
-            maxFundedDays: 0,
+            maxFundedDays: 30,
             minRetainedCushion: dollars(0),
             payoutRequestSize: undefined,
             plan: apexWithFees(100, 500),

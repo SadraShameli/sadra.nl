@@ -82,6 +82,7 @@ export {
     buildAlphaFuturesLivePlan,
 } from './alphafutures/AlphaFuturesLive';
 export {
+    APEX_LIVE_DAILY_LOSS_LIMIT,
     APEX_LIVE_DEFAULT_CUSHION_PERCENT,
     buildApexLivePlan,
 } from './apex/ApexLive';

@@ -1,5 +1,5 @@
 import { resolveAffordableRisk } from './DayPolicy';
-import { type Fraction0to1, ONE_CENT } from './lib/units';
+import { type Fraction0to1 } from './lib/units';
 
 export function capRiskToRemainingDailyLoss(
     risk: number,
@@ -14,7 +14,7 @@ export function capRiskToRemainingDailyLoss(
         todayPnL,
         commission,
     );
-    return lossRoom < ONE_CENT ? 0 : Math.min(risk, lossRoom);
+    return lossRoom <= 0 ? 0 : Math.min(risk, lossRoom);
 }
 
 export function resolveLiveTradeRisk(

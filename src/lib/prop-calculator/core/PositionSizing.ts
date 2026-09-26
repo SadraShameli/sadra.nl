@@ -20,8 +20,7 @@ export function capRiskToContractLimit(
 ): number {
     if (maxContracts === null) return intendedRisk;
     if (maxContracts <= 0) return 0;
-    const riskPerContract =
-        positionSizing.instrument.pointValue * positionSizing.stopPoints;
+    const riskPerContract = oneContractRisk(positionSizing);
     if (riskPerContract <= 0) return intendedRisk;
     const impliedContracts = intendedRisk / riskPerContract;
     return impliedContracts <= maxContracts
@@ -57,6 +56,10 @@ export function evalContractLimit(
     return isMicro ? limits.evalMicros : limits.evalMinis;
 }
 
+export function oneContractRisk(positionSizing: PositionSizingConfig): number {
+    return positionSizing.instrument.pointValue * positionSizing.stopPoints;
+}
+
 export function resolvePositionSizing(
     instrument: InstrumentSymbol | undefined,
     stopPoints: number | undefined,
@@ -70,4 +73,23 @@ export function resolvePositionSizing(
               instrument: INSTRUMENTS[instrument],
               stopPoints: points(stopPoints),
           };
+}
+
+export function wholeContractRisk(
+    intendedRisk: number,
+    positionSizing: PositionSizingConfig,
+    maxContracts: ContractCount | null,
+): number {
+    if (intendedRisk <= 0) return 0;
+    const riskPerContract = oneContractRisk(positionSizing);
+    if (riskPerContract <= 0) return intendedRisk;
+    const wholeContracts = Math.max(
+        1,
+        Math.floor(intendedRisk / riskPerContract),
+    );
+    const placedContracts =
+        maxContracts === null
+            ? wholeContracts
+            : Math.min(wholeContracts, Math.max(0, maxContracts));
+    return placedContracts * riskPerContract;
 }

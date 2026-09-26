@@ -10,10 +10,10 @@ import { readingRouter } from '~/server/api/routers/iot/reading';
 import { createCallerFactory, createTRPCRouter } from '~/server/api/trpc';
 
 import {
-    createFakeIotDatabase,
+    createFakeDatabase,
     type FakeRow,
     type IssuedQuery,
-} from './fakeIotDatabase';
+} from '../fakeDatabase';
 
 const current = vi.hoisted((): { api: Record<string, unknown> } => ({
     api: {},
@@ -83,7 +83,7 @@ function respond(query: IssuedQuery): FakeRow[] {
 }
 
 function setup() {
-    const { database, queries } = createFakeIotDatabase(respond);
+    const { database, queries } = createFakeDatabase(respond);
     const caller = createCallerFactory(
         createTRPCRouter({
             device: deviceRouter,

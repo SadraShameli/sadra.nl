@@ -289,6 +289,7 @@ describe('R7: the cash-flow timeline books each reset fee on its own day', () =>
     it('returns the charges from the eval-to-funded cycle and keeps totalCost as the evaluation cost', () => {
         const plan = resetToy();
         const card = runEvalToFundedCycle({
+            cardDayBudget: 10,
             commission: dollars(0),
             discounts: undefined,
             evalDayPolicy: POLICY,

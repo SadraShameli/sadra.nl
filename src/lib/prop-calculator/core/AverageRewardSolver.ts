@@ -152,7 +152,10 @@ function searchRate(
                 meanHorizonDays: objective.fundedHorizonDays,
                 plan: objective.plan,
                 rrRatio: config.rrRatio,
-                warmStartValues: undefined,
+                warmStartValues: secantWarmStart(
+                    recentFundedValues,
+                    ratePerDay,
+                ),
                 winrate: config.winrate,
             },
             fundedWorkers,

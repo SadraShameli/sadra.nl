@@ -6,7 +6,7 @@
 - <https://help.myfundedfutures.com/en/articles/13286746-rapid-plan-reserve-program-performance-bonus-structure> (Updated: January 16, 2026)
 
 **Last Verified:** 2026-09-23
-**Last Updated:** 2026-09-24
+**Last Updated:** 2026-09-26
 
 ## Overview
 
@@ -37,9 +37,9 @@ Rapid Live accounts begin at $0 balance and operate under an end-of-day calculat
 
 Starting Rapid Live at $0 (matching the source's own "Initial Balance | $0"), consider the Rapid 50k tier with a $2,000 Max Loss Limit. The floor at any point is min($0, peak EOD profit so far − $2,000), per the source's own "Drawdown Floor | Max Loss threshold stops at $0": every step below re-derives from this formula and from the previous step's own numbers.
 
-Day 1: EOD balance closes at +$1,500 (a new peak profit). Since peak profit ($1,500) is still below the $2,000 Max Loss Limit, the floor is $1,500 − $2,000 = −$500. The account can close as low as −$500 the next day without breaching.
+Day 1: EOD balance closes at +$1,500 (a new peak profit). Since peak profit ($1,500) is still below the $2,000 Max Loss Limit, the floor is $1,500 − $2,000 = −$500. The account can close anywhere above −$500 the next day without breaching; a close exactly at −$500 reaches the limit.
 
-Day 2: EOD balance closes at +$2,300 (a new peak profit, now exceeding the $2,000 Max Loss Limit). The floor is min($0, $2,300 − $2,000) = min($0, $300) = $0: it locks at $0 rather than continuing to $300, because the source states the threshold "stops at $0." From this point forward, the account must close each trading day at or above $0 to remain active.
+Day 2: EOD balance closes at +$2,300 (a new peak profit, now exceeding the $2,000 Max Loss Limit). The floor is min($0, $2,300 − $2,000) = min($0, $300) = $0: it locks at $0 rather than continuing to $300, because the source states the threshold "stops at $0." From this point forward, the account must close each trading day above $0 to remain active: a close exactly at $0 reaches the Maximum Loss Limit, and "Reaching the Maximum Loss Limit results in immediate Live account closure." The engine treats a balance exactly on the limit as a closure (decision T17). Correction 2026-09-26: this line used to say "at or above $0 to remain active", which is this file's own paraphrase, not MFF's wording; the source (article 13134718, dateModified 2026-09-08T12:50:50Z, re-fetched 2026-09-26) says only "Max Loss threshold stops at $0" and "Reaching the Maximum Loss Limit results in immediate Live account closure."
 
 Day 3: EOD balance closes at +$1,800 (a decline from the $2,300 peak, due to trading losses). This is still above the locked $0 floor, so the account remains active. The floor itself does not move: it stays locked at $0 regardless of this decline, consistent with the source's own "Your Max Loss Limit trails based on your EOD balance until the MLL reaches $0." (i.e., it stops adjusting once at $0).
 
@@ -133,4 +133,4 @@ Following Live account closure due to Maximum Loss breach, a 21-day cooldown per
 - <https://help.myfundedfutures.com/en/articles/12109396-comprehensive-faq-live-accounts-at-myfunded-futures> (dateModified November 10, 2025), firm-wide "Comprehensive FAQ - Live Accounts" article, re-verified 2026-09-23. Cited only for the resolved $250 minimum-withdrawal figure discussed above (see README.md's Firm-Wide Rules for the same figure applied across the tree).
 - <https://myfundedfutures.com/plans/rapid>: no "last updated" date visible. Fetched live and independently verified via raw HTML/JSON (not WebFetch's summarization pass, which had misattributed this page's Sim-Funded payout data to the Live account, see the corrections above). Its "LIVE ACCOUNT" table corroborates Max Loss Limit, Drawdown Type, Drawdown Floor ("stops at $0"), Max Contracts, Payout Frequency, and Profit Split already confirmed in the Live Account Parameters table above; contributes only weak, non-affirmative context for the Daily Loss Limit gap (absent from that table, not stated as "none").
 
-**Last Updated:** 2026-09-24
+**Last Updated:** 2026-09-26
