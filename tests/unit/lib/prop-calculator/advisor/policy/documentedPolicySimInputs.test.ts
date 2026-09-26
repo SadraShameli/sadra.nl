@@ -5,17 +5,23 @@ import {
     type AccountState,
     ApexVariant,
     CENTS_PER_DOLLAR,
+    type ComputeRisk,
     DayStopRuleKind,
     dollars,
+    effectivePayoutRequest,
     FirmId,
     flatDayPolicy,
     fraction,
     FtmoFuturesVariant,
     InstrumentSymbol,
+    isAtOrBelowWithinCentTolerance,
     LucidVariant,
+    MffuVariant,
+    PayoutRequestPolicy,
     type Plan,
     type PlanId,
     policySizingOf,
+    resolveRiskAt,
     RungSizing,
     serializePlanId,
     SIM_INPUTS_REFUSAL_PREFIX,
@@ -31,6 +37,8 @@ import {
     EvalSizingMode,
     fundedStopRuleToDayStopRule,
     type RulebookParameters,
+    ruleContextAt,
+    SizingStage,
 } from '~/lib/prop-calculator/advisor';
 import {
     type DocumentedPolicySpec,
@@ -80,6 +88,11 @@ const ftmoPro = registryPlan({
     accountSize: 50_000,
     firm: FirmId.FtmoFutures,
     variant: FtmoFuturesVariant.Pro,
+});
+const mffPro = registryPlan({
+    accountSize: 50_000,
+    firm: FirmId.Mffu,
+    variant: MffuVariant.Pro,
 });
 
 const SEED = 42;
@@ -538,6 +551,44 @@ describe('toSimInputs: money fields', () => {
     });
 });
 
+describe('toSimInputs: payout request policy (PT-48b, F-148, PD-40)', () => {
+    it('raises the rulebook $500 request to MFF Pro\'s $1,000 minimum via effectivePayoutRequest', () => {
+        const inputs = toSimInputs(mffPro, specOf());
+
+        expect(DEFAULT_RULEBOOK.payout.requestCents / CENTS_PER_DOLLAR).toBe(
+            500,
+        );
+        expect(inputs.payoutRequestSize).toBe(1000);
+        expect(inputs.payoutRequestSize).toBe(
+            effectivePayoutRequest(mffPro, 500),
+        );
+    });
+
+    it('never lowers a request already above the plan minimum', () => {
+        expect(
+            toSimInputs(apexEod, specOf()).payoutRequestSize,
+        ).toBe(500);
+    });
+
+    it('raises a personal override below the plan minimum too', () => {
+        const inputs = toSimInputs(
+            mffPro,
+            specOf({ payoutRequestOverride: 200 }),
+        );
+
+        expect(inputs.payoutRequestSize).toBe(1000);
+    });
+
+    it('always declares the engine payout policy as FullRequestOnly', () => {
+        expect(toSimInputs(apexEod, specOf()).payoutRequestPolicy).toBe(
+            PayoutRequestPolicy.FullRequestOnly,
+        );
+        expect(toSimInputs(mffPro, specOf()).payoutRequestPolicy).toBe(
+            PayoutRequestPolicy.FullRequestOnly,
+        );
+    });
+});
+
 describe('toSimInputs: lifetime payout cap', () => {
     it('keeps the same plan instance without an override', () => {
         expect(toSimInputs(apexEod, specOf()).plan).toBe(apexEod);
@@ -626,5 +677,66 @@ describe('toSimInputs: boundary checks', () => {
         expect(() =>
             toSimInputs(apexEod, specOf({ commissionPerRoundTrip: -1 })),
         ).toThrow(ZodError);
+    });
+});
+
+describe("PD-33 invariant (PT-48b): documented risk stays inside resolveRiskAt's room", () => {
+    it('holds across a seeded 200-trial Apex EOD eval plus funded run', () => {
+        const inputs = toSimInputs(apexEod, specOf());
+        const evalDayPolicy = inputs.evalDayPolicy;
+        const computeRisk = evalDayPolicy?.computeRisk;
+        if (evalDayPolicy === undefined || computeRisk === undefined) {
+            throw new Error('expected a computed eval day policy');
+        }
+        let dayStartState: AccountState | null = null;
+        let checked = 0;
+        const wrapped: ComputeRisk = (state, index, cycle) => {
+            if (index === 0) dayStartState = { ...state };
+            const startedDay = dayStartState;
+            if (startedDay === null) {
+                throw new Error('missing day-start state');
+            }
+            const risk = computeRisk(state, index, cycle);
+            if (risk > 0) {
+                checked += 1;
+                const resolved = resolveRiskAt({
+                    commission: dollars(inputs.commissionPerRoundTrip ?? 0),
+                    intendedRisk: risk,
+                    phase: TradingPhase.Eval,
+                    plan: apexEod,
+                    positionSizing: null,
+                    rungSizing: RungSizing.CapToCushion,
+                    sizing: policySizingOf(TradingPhase.Eval),
+                    state,
+                });
+                expect(
+                    isAtOrBelowWithinCentTolerance(risk, resolved.affordable),
+                ).toBe(true);
+                const dayStartContext = ruleContextAt(
+                    apexEod,
+                    SizingStage.Eval,
+                    startedDay,
+                    { instrument: null, personalDll: null },
+                );
+                const room =
+                    dayStartContext.dayStartDllRoom === null
+                        ? dayStartContext.cushion
+                        : Math.min(
+                              dayStartContext.cushion,
+                              dayStartContext.dayStartDllRoom,
+                          );
+                const runningLoss = -state.todayPnL;
+                expect(isAtOrBelowWithinCentTolerance(runningLoss, room)).toBe(
+                    true,
+                );
+            }
+            return risk;
+        };
+        const wrappedEvalDayPolicy = { ...evalDayPolicy, computeRisk: wrapped };
+
+        expect(() =>
+            simulate({ ...inputs, evalDayPolicy: wrappedEvalDayPolicy }),
+        ).not.toThrow();
+        expect(checked).toBeGreaterThan(0);
     });
 });

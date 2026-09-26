@@ -1,12 +1,12 @@
 import {
-    AccountStatus,
     dayNumberOf,
+    isEndedStatus,
     weekdaysInRange,
 } from '~/lib/prop-accounts/core';
 import { type FirmId } from '~/lib/prop-calculator';
 
+import { attemptsOf } from './Attempts';
 import {
-    evalAttemptTally,
     fundedSince,
     type LedgerAccount,
     type PlanGroup,
@@ -38,6 +38,7 @@ export interface RebuyLagDefault {
 }
 
 export interface ReplacementStats {
+    readonly ledgerOnlyAccounts: number;
     readonly perPlan: readonly PlanReplacementStats[];
     readonly unresolvedAccounts: number;
 }
@@ -58,6 +59,7 @@ export function rebuyLagDefault(
 
 export function replacementStats(ledger: PortfolioLedger): ReplacementStats {
     return {
+        ledgerOnlyAccounts: ledger.ledgerOnlyAccounts.length,
         perPlan: ledger.planGroups().map((group) => planStats(ledger, group)),
         unresolvedAccounts: ledger.unresolvedAccounts.length,
     };
@@ -66,24 +68,10 @@ export function replacementStats(ledger: PortfolioLedger): ReplacementStats {
 function endedOn(account: LedgerAccount): null | string {
     let endedAt: null | string = null;
     for (const transition of account.transitions.toReversed()) {
-        if (!hasEnded(transition.to.status)) break;
+        if (!isEndedStatus(transition.to.status)) break;
         endedAt = transition.on;
     }
     return endedAt;
-}
-
-function hasEnded(status: AccountStatus): boolean {
-    switch (status) {
-        case AccountStatus.Active:
-        case AccountStatus.Suspended: {
-            return false;
-        }
-        case AccountStatus.Busted:
-        case AccountStatus.Closed:
-        case AccountStatus.Concluded: {
-            return true;
-        }
-    }
 }
 
 function planStats(
@@ -110,12 +98,10 @@ function planStats(
     const fundedAccounts = group.accounts.filter(
         (entry) => fundedSince(entry) !== null,
     ).length;
-    const attempts = group.plan.isInstantFunded
-        ? fundedAccounts
-        : group.accounts.reduce((sum, entry) => {
-              const tally = evalAttemptTally(entry);
-              return sum + tally.passes + tally.fails;
-          }, 0);
+    const attempts = group.accounts.reduce(
+        (sum, entry) => sum + attemptsOf(entry),
+        0,
+    );
     return {
         attempts,
         attemptsPerFundedAccount:

@@ -39,6 +39,7 @@ export default async function NewPropAccountPage({
     }
     void api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT);
     void api.propAccounts.copyGroup.list.prefetch();
+    void api.propAccounts.externalFirm.list.prefetch();
     return (
         <HydrateClient>
             <main

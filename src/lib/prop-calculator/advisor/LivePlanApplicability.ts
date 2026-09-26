@@ -8,6 +8,7 @@ import {
     FtmoFuturesVariant,
     FundedNextVariant,
     type LiveCushionPercent,
+    type LivePlan,
     LucidVariant,
     MffuVariant,
     type PlanId,
@@ -36,6 +37,8 @@ import {
     TPT_LIVE_DEFAULT_CUSHION_PERCENT,
     TRADEIFY_LIVE_DEFAULT_CUSHION_PERCENT,
 } from '../firms';
+import { type InputAssumptionKind } from './Assumption';
+import { AssumptionKind } from './AssumptionKind';
 
 export enum LiveApplicabilityKind {
     Builder = 'builder',
@@ -84,12 +87,17 @@ export interface LiveStartRange {
 
 export interface ModeledLiveBuilder {
     readonly approximation: LiveStateApproximation | null;
-    readonly builder: LivePlanBuilder;
+    readonly builder: (
+        cushionPercent: LiveCushionPercent,
+        reconstructionDefault?: Dollars,
+    ) => LivePlan;
     readonly defaultCushionPercent: LiveCushionPercent;
     readonly documentedStart: DocumentedLiveStart | null;
     readonly isVerified: boolean;
     readonly kind: LiveApplicabilityKind.Builder;
     readonly note: LiveApplicabilityNote | null;
+    readonly reconstructionDefault: Dollars | null;
+    readonly reconstructionDefaultAssumption: InputAssumptionKind | null;
 }
 
 export interface ModeledLiveTransition {
@@ -107,6 +115,8 @@ interface ModeledLiveBuilderInit {
     readonly documentedStart?: DocumentedLiveStart;
     readonly isVerified: boolean;
     readonly note?: LiveApplicabilityNote;
+    readonly reconstructionDefault?: Dollars;
+    readonly reconstructionDefaultAssumption?: InputAssumptionKind;
 }
 
 type TptAccountSize = Extract<PlanId, { firm: FirmId.Tpt }>['accountSize'];
@@ -124,6 +134,9 @@ function modeled(init: ModeledLiveBuilderInit): ModeledLiveBuilder {
         isVerified: init.isVerified,
         kind: LiveApplicabilityKind.Builder,
         note: init.note ?? null,
+        reconstructionDefault: init.reconstructionDefault ?? null,
+        reconstructionDefaultAssumption:
+            init.reconstructionDefaultAssumption ?? null,
     });
 }
 
@@ -180,6 +193,7 @@ const TOPSTEP_LFA = modeled({
     documentedStart: topStepLfaStart,
     isVerified: true,
     note: LiveApplicabilityNote.TopStepLfaEligibleJurisdictionAssumed,
+    reconstructionDefaultAssumption: AssumptionKind.TopStepLiveReserveDefaulted,
 });
 
 const TRADEIFY_ELITE_LIVE = modeled({

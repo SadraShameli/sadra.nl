@@ -13,8 +13,10 @@ import {
     DayStopRuleKind,
     FirmId,
     fraction,
+    type FundedCycleSeed,
     InstrumentSymbol,
     NO_PLAN_OPT_INS,
+    PayoutRequestPolicy,
     percent,
     type Plan,
     type PlanOptIns,
@@ -22,6 +24,8 @@ import {
     RungSizing,
     SIM_DEFAULTS,
     type SimInputs,
+    type SimStart,
+    TradingPhase,
     withPlanOptIns,
 } from '~/lib/prop-calculator';
 import { ALL_FIRMS, findFirm } from '~/lib/prop-calculator/firms';
@@ -64,6 +68,7 @@ const base: Required<SimInputs> = {
     maxAttempts: 3,
     maxEvalDays: 60,
     minRetainedCushion: 500,
+    payoutRequestPolicy: PayoutRequestPolicy.UpToRequest,
     payoutRequestSize: 1000,
     plan: alphaPlan(AlphaFuturesVariant.Zero),
     rebuyLagDays: 1,
@@ -105,6 +110,7 @@ const changed: Required<SimInputs> = {
     maxAttempts: 4,
     maxEvalDays: 90,
     minRetainedCushion: 750,
+    payoutRequestPolicy: PayoutRequestPolicy.FullRequestOnly,
     payoutRequestSize: 2000,
     plan: alphaPlan(AlphaFuturesVariant.Standard),
     rebuyLagDays: 2,
@@ -420,6 +426,68 @@ describe('cash flow simulation cache key (WP23: built on simInputsCacheKey)', ()
             cashFlowSimulationCacheKey({ ...cashFlowBase, tradesPerDay: 11 }),
         ).toBe(
             cashFlowSimulationCacheKey({ ...cashFlowBase, tradesPerDay: 12 }),
+        );
+    });
+});
+
+function fundedCycleSeed(overrides: Partial<FundedCycleSeed> = {}): FundedCycleSeed {
+    return {
+        calendarDayGateProgress: 0,
+        cumulativePayout: 0,
+        cycleBestDayProfit: 0,
+        fundedResetsUsed: 0,
+        lastPayoutBalance: base.plan.accountSize,
+        payoutsIssued: 0,
+        qualifyingDaysAtLastPayout: 0,
+        ...overrides,
+    };
+}
+
+describe('simInputsCacheKey covers the from-state start (PT-14b)', () => {
+    const evalStart: SimStart = {
+        phase: TradingPhase.Eval,
+        state: base.plan.initialState(),
+    };
+    const fundedStart: SimStart = {
+        phase: TradingPhase.Funded,
+        seed: fundedCycleSeed(),
+        state: base.plan.initialState(),
+    };
+
+    it('keys the same inputs the same with no start', () => {
+        expect(simInputsCacheKey(base)).toBe(simInputsCacheKey(base));
+    });
+
+    it('changes the key when start goes from omitted to an eval start', () => {
+        expect(simInputsCacheKey({ ...base, start: evalStart })).not.toBe(
+            simInputsCacheKey(base),
+        );
+    });
+
+    it('changes the key between an eval start and a funded start', () => {
+        expect(simInputsCacheKey({ ...base, start: evalStart })).not.toBe(
+            simInputsCacheKey({ ...base, start: fundedStart }),
+        );
+    });
+
+    it('changes the key when a field on the eval start state changes', () => {
+        const changedState: SimStart = {
+            phase: TradingPhase.Eval,
+            state: { ...evalStart.state, elapsedDays: 3, tradingDays: 3 },
+        };
+        expect(simInputsCacheKey({ ...base, start: evalStart })).not.toBe(
+            simInputsCacheKey({ ...base, start: changedState }),
+        );
+    });
+
+    it('changes the key when a field on the funded start seed changes', () => {
+        const changedSeed: SimStart = {
+            phase: TradingPhase.Funded,
+            seed: fundedCycleSeed({ payoutsIssued: 2 }),
+            state: fundedStart.state,
+        };
+        expect(simInputsCacheKey({ ...base, start: fundedStart })).not.toBe(
+            simInputsCacheKey({ ...base, start: changedSeed }),
         );
     });
 });

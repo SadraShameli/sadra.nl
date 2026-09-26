@@ -6,6 +6,8 @@ import {
     AccountStatus,
     compareText,
     FeeKind,
+    type FirmKey,
+    FirmKeyKind,
     type StoredFirmId,
 } from '~/lib/prop-accounts/core';
 import {
@@ -33,6 +35,10 @@ function economics(costPerFundedAccount: number): ReplacementEconomics {
         costPerFundedAccount,
         daysPerFundedAccount: 20,
     };
+}
+
+function modeledFirm(firmId: StoredFirmId) {
+    return { firmId, kind: FirmKeyKind.Modeled } as const;
 }
 
 describe('costAnalytics', () => {
@@ -76,9 +82,14 @@ describe('costAnalytics', () => {
         });
         expect(result.byFirm).toEqual(
             [
-                { firmId: EVAL_PLAN.firm.id, spend: 44_001 },
-                { firmId: OTHER_FIRM_EVAL_PLAN.firm.id, spend: 7000 },
-            ].toSorted((x, y) => compareText(x.firmId, y.firmId)),
+                { firmKey: modeledFirm(EVAL_PLAN.firm.id), spend: 44_001 },
+                {
+                    firmKey: modeledFirm(OTHER_FIRM_EVAL_PLAN.firm.id),
+                    spend: 7000,
+                },
+            ].toSorted((x, y) =>
+                compareText(x.firmKey.firmId, y.firmKey.firmId),
+            ),
         );
         expect(result.byMonth).toEqual([
             { month: '2026-09', spend: 35_001 },
@@ -209,7 +220,172 @@ describe('costAnalytics', () => {
         expect(result.unresolvedAccounts).toBe(1);
         expect(result.unresolvedSpend).toBe(8000);
         expect(result.byFirm).toEqual([
-            { firmId: EVAL_PLAN.firm.id, spend: 8000 },
+            { firmKey: modeledFirm(EVAL_PLAN.firm.id), spend: 8000 },
+        ]);
+    });
+
+    it('counts attempts and cost per attempt per plan, disclosing resets and rebuys separately', () => {
+        const attemptFailed = account(EVAL_PLAN, {
+            status: AccountStatus.Busted,
+        });
+        const attemptFunded = account(EVAL_PLAN, {
+            purchasedOn: '2026-09-05',
+            stage: AccountStage.Funded,
+        });
+        const result = costAnalytics(
+            ledger({
+                accounts: [attemptFailed, attemptFunded],
+                events: [
+                    purchased(attemptFailed),
+                    event(attemptFailed, AccountEventKind.Busted, '2026-09-04'),
+                    purchased(attemptFunded),
+                    event(
+                        attemptFunded,
+                        AccountEventKind.EvalPassed,
+                        '2026-09-20',
+                    ),
+                ],
+                fees: [
+                    fee(attemptFailed, FeeKind.EvalPurchase, 10_000, '2026-09-01'),
+                    fee(attemptFunded, FeeKind.EvalPurchase, 10_000, '2026-09-05'),
+                    fee(attemptFunded, FeeKind.Reset, 5000, '2026-09-10'),
+                ],
+            }),
+            new Map(),
+        );
+        const plan = result.perPlan.find(
+            (p) => p.planSerial === EVAL_PLAN.serial,
+        );
+        expect(plan).toMatchObject({
+            attempts: 2,
+            costPerAttempt: 12_500,
+            retryFeeAttempts: 1,
+        });
+    });
+
+    it('has no cost per attempt while the eval attempt is still open', () => {
+        const openEval = account(EVAL_PLAN);
+        const result = costAnalytics(
+            ledger({
+                accounts: [openEval],
+                events: [purchased(openEval)],
+                fees: [fee(openEval, FeeKind.EvalPurchase, 9000, '2026-09-01')],
+            }),
+            new Map(),
+        );
+        expect(result.perPlan[0]).toMatchObject({
+            attempts: 0,
+            costPerAttempt: null,
+            retryFeeAttempts: 0,
+        });
+    });
+
+    it('groups spend, attempts and cost per attempt by account size', () => {
+        const size = EVAL_PLAN.plan.id.accountSize;
+        const failed = account(EVAL_PLAN, { status: AccountStatus.Busted });
+        const funded = account(EVAL_PLAN, {
+            purchasedOn: '2026-09-02',
+            stage: AccountStage.Funded,
+        });
+        const result = costAnalytics(
+            ledger({
+                accounts: [failed, funded],
+                events: [
+                    purchased(failed),
+                    event(failed, AccountEventKind.Busted, '2026-09-04'),
+                    purchased(funded),
+                    event(funded, AccountEventKind.EvalPassed, '2026-09-10'),
+                ],
+                fees: [
+                    fee(failed, FeeKind.EvalPurchase, 5000, '2026-09-01'),
+                    fee(funded, FeeKind.EvalPurchase, 20_000, '2026-09-02'),
+                ],
+            }),
+            new Map(),
+        );
+        expect(result.byAccountSize).toEqual([
+            {
+                accountSize: size,
+                attempts: 2,
+                costPerAttempt: 12_500,
+                spend: 25_000,
+            },
+        ]);
+    });
+
+    it('groups attempts and cost per attempt by firm key', () => {
+        const a = account(EVAL_PLAN, { status: AccountStatus.Busted });
+        const b = account(OTHER_FIRM_EVAL_PLAN, {
+            purchasedOn: '2026-09-02',
+            stage: AccountStage.Funded,
+        });
+        const result = costAnalytics(
+            ledger({
+                accounts: [a, b],
+                events: [
+                    purchased(a),
+                    event(a, AccountEventKind.Busted, '2026-09-04'),
+                    purchased(b),
+                    event(b, AccountEventKind.EvalPassed, '2026-09-10'),
+                ],
+                fees: [
+                    fee(a, FeeKind.EvalPurchase, 5000, '2026-09-01'),
+                    fee(b, FeeKind.EvalPurchase, 8000, '2026-09-02'),
+                ],
+            }),
+            new Map(),
+        );
+        expect(result.byFirmAttemptCost).toEqual(
+            [
+                {
+                    attempts: 1,
+                    costPerAttempt: 5000,
+                    firmKey: modeledFirm(EVAL_PLAN.firm.id),
+                    retryFeeAttempts: 0,
+                },
+                {
+                    attempts: 1,
+                    costPerAttempt: 8000,
+                    firmKey: modeledFirm(OTHER_FIRM_EVAL_PLAN.firm.id),
+                    retryFeeAttempts: 0,
+                },
+            ].toSorted((x, y) => compareText(x.firmKey.firmId, y.firmKey.firmId)),
+        );
+    });
+
+    it('excludes fees paid toward a still-open reopened attempt from cost per attempt in every breakdown, not just per plan', () => {
+        const retrying = account(EVAL_PLAN);
+        const result = costAnalytics(
+            ledger({
+                accounts: [retrying],
+                events: [
+                    purchased(retrying),
+                    event(retrying, AccountEventKind.Busted, '2026-09-02'),
+                    event(retrying, AccountEventKind.Reopened, '2026-09-04'),
+                ],
+                fees: [
+                    fee(retrying, FeeKind.EvalPurchase, 10_000, '2026-09-01'),
+                    fee(retrying, FeeKind.Reset, 5000, '2026-09-04'),
+                ],
+            }),
+            new Map(),
+        );
+        const plan = result.perPlan.find(
+            (p) => p.planSerial === EVAL_PLAN.serial,
+        );
+        expect(plan).toMatchObject({
+            attempts: 1,
+            costPerAttempt: 10_000,
+        });
+        expect(result.byAccountSize).toEqual([
+            expect.objectContaining({
+                attempts: 1,
+                costPerAttempt: 10_000,
+                spend: 10_000,
+            }),
+        ]);
+        expect(result.byFirmAttemptCost).toEqual([
+            expect.objectContaining({ attempts: 1, costPerAttempt: 10_000 }),
         ]);
     });
 
@@ -223,10 +399,12 @@ describe('costAnalytics', () => {
             }),
             new Map(),
         );
-        expect(result.byFirm).toEqual([{ firmId: removed, spend: 9000 }]);
+        expect(result.byFirm).toEqual([
+            { firmKey: modeledFirm(removed), spend: 9000 },
+        ]);
         expect(result.perPlan).toEqual([]);
         expect(result.unresolvedSpend).toBe(9000);
-        expectTypeOf<FirmSpend['firmId']>().toEqualTypeOf<StoredFirmId>();
+        expectTypeOf<FirmSpend['firmKey']>().toEqualTypeOf<FirmKey>();
         expectTypeOf<PlanFundedCost['firmId']>().toEqualTypeOf<FirmId>();
     });
 });

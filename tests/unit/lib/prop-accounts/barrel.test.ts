@@ -1,6 +1,7 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import * as root from '~/lib/prop-accounts';
+import * as advice from '~/lib/prop-accounts/advice';
 import * as alerts from '~/lib/prop-accounts/alerts';
 import * as core from '~/lib/prop-accounts/core';
 import * as metrics from '~/lib/prop-accounts/metrics';
@@ -10,6 +11,7 @@ describe('the prop-accounts root barrel', () => {
         ['core', core],
         ['metrics', metrics],
         ['alerts', alerts],
+        ['advice', advice],
     ] as const)('re-exports every value of %s unchanged', (_name, module) => {
         const missing = Object.entries(module)
             .filter(
@@ -20,11 +22,12 @@ describe('the prop-accounts root barrel', () => {
         expect(missing).toEqual([]);
     });
 
-    it('exposes no export name twice across core, metrics and alerts', () => {
+    it('exposes no export name twice across core, metrics, alerts and advice', () => {
         const names = [
             ...Object.keys(core),
             ...Object.keys(metrics),
             ...Object.keys(alerts),
+            ...Object.keys(advice),
         ];
         const duplicates = names.filter(
             (name, index) => names.indexOf(name) !== index,

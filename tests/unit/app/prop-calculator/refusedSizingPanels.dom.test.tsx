@@ -17,6 +17,7 @@ import StrategyLabPanel from '~/app/(app)/prop-calculator/_components/StrategyLa
 import {
     type CalculatorState,
     ChartType,
+    LabLinkStatus,
     type LabScenario,
     type PortfolioEntry,
 } from '~/app/(app)/prop-calculator/_components/types';
@@ -521,6 +522,7 @@ describe('refused sizing in the web panels (PT-11f)', () => {
                     commissionPerRoundTrip={0}
                     evalDiscountPercent={0}
                     fundedHorizonDays={20}
+                    labLink={{ status: LabLinkStatus.Absent }}
                     linkActivationDiscount={false}
                     maxEvalDays={20}
                     minRetainedCushion={undefined}

@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-    accountConclusionGate,
     AffordableRoomKind,
+    ConsistencyBasis,
+    ConsistencyBoundary,
+    ConsistencyRule,
+    ConsistencyScope,
+    ConsistencyViolationEffect,
     ContractLimitKind,
     contracts,
     createInitialState,
@@ -11,11 +15,16 @@ import {
     dollars,
     FirmId,
     fraction,
+    LifetimeCapScope,
+    type LifetimePayoutCountGate,
+    lifetimePayoutCountLimit,
+    type LifetimePayoutCountLimit,
     MffuVariant,
     newFundedCycleTracker,
     ONE_CENT,
     PayoutCapScheduleKind,
     PayoutCountTieredPayoutCap,
+    PayoutEvaluationKind,
     PayoutFloorEffect,
     PayoutGate,
     PayoutProfitPool,
@@ -129,6 +138,35 @@ describe('Plan.lifetimeConclusion is the one lifetime-conclusion rule', () => {
     if (lucidLadder === null)
         throw new Error('LucidDirect has no payoutLadder');
     const exhaustingLadder = { ...lucidLadder, capsAtLastStep: undefined };
+    const conclusionGates: ReadonlySet<PayoutGate> = new Set([
+        PayoutGate.AccountConcluded,
+        PayoutGate.LadderExhausted,
+        PayoutGate.LifetimeDollarCapReached,
+    ]);
+
+    function trackerConclusion(
+        plan: Plan,
+        payoutsIssued: number,
+    ): null | PayoutGate {
+        const state = plan.initialState();
+        plan.beginFundedPhase(state);
+        state.balance = state.startingBalance + 10_000;
+        state.qualifyingDays = 99;
+        const tracker = newFundedCycleTracker(state);
+        tracker.lastPayoutBalance = state.startingBalance;
+        tracker.qualifyingDaysAtLastPayout = 0;
+        tracker.payoutsIssued = payoutsIssued;
+        const evaluation = tracker.evaluatePayout({
+            minRetainedCushion: 0,
+            payoutRequestSize: undefined,
+            plan,
+            state,
+        });
+        return evaluation.kind === PayoutEvaluationKind.Blocked &&
+            conclusionGates.has(evaluation.gate)
+            ? evaluation.gate
+            : null;
+    }
 
     it('concludes a withOverrides count beyond a non-capping ladder where the ladder runs out, as the funded tracker does', () => {
         const beyond = lucidDirect.withOverrides({
@@ -140,9 +178,10 @@ describe('Plan.lifetimeConclusion is the one lifetime-conclusion rule', () => {
         expect(beyond.isAccountConcluded(4)).toBe(false);
         expect(beyond.isAccountConcluded(5)).toBe(true);
         expect(beyond.isAccountConcluded(7)).toBe(true);
-        expect(accountConclusionGate(beyond.lifetimeConclusion, 5, 0)).toBe(
-            PayoutGate.LadderExhausted,
-        );
+        expect(beyond.conclusionGate(4)).toBeNull();
+        expect(beyond.conclusionGate(5)).toBe(PayoutGate.LadderExhausted);
+        expect(trackerConclusion(beyond, 4)).toBeNull();
+        expect(trackerConclusion(beyond, 5)).toBe(PayoutGate.LadderExhausted);
     });
 
     it('keeps the count when it ends the account at or before a non-capping ladder', () => {
@@ -153,76 +192,152 @@ describe('Plan.lifetimeConclusion is the one lifetime-conclusion rule', () => {
             });
             expect(plan.isAccountConcluded(count - 1)).toBe(false);
             expect(plan.isAccountConcluded(count)).toBe(true);
-            expect(
-                accountConclusionGate(plan.lifetimeConclusion, count, 0),
-            ).toBe(PayoutGate.AccountConcluded);
+            expect(plan.conclusionGate(count - 1)).toBeNull();
+            expect(plan.conclusionGate(count)).toBe(
+                PayoutGate.AccountConcluded,
+            );
+            expect(trackerConclusion(plan, count)).toBe(
+                PayoutGate.AccountConcluded,
+            );
         }
     });
 
-    it('describes the count limit, the binding ladder and the dollar cap', () => {
-        const dollarCap = dollars(100_000);
-        expect(
-            lucidDirect.withOverrides({
-                maxLifetimePayoutDollars: dollarCap,
-                maxLifetimePayouts: 8,
-                payoutLadder: exhaustingLadder,
-            }).lifetimeConclusion,
-        ).toStrictEqual({
-            maxLifetimePayoutDollars: dollarCap,
-            maxLifetimePayouts: null,
+    it('names the dollar cap before the payout count', () => {
+        const plan = lucidDirect.withOverrides({
+            maxLifetimePayoutDollars: dollars(1000),
+            maxLifetimePayouts: 3,
             payoutLadder: exhaustingLadder,
         });
-        expect(
-            lucidDirect.withOverrides({
-                maxLifetimePayouts: 3,
-                payoutLadder: exhaustingLadder,
-            }).lifetimeConclusion,
-        ).toStrictEqual({
-            maxLifetimePayoutDollars: null,
-            maxLifetimePayouts: 3,
-            payoutLadder: null,
-        });
-        expect(
-            lucidDirect.withMaxLifetimePayouts(null).lifetimeConclusion,
-        ).toStrictEqual({
-            maxLifetimePayoutDollars: null,
-            maxLifetimePayouts: null,
-            payoutLadder: null,
-        });
+        expect(plan.conclusionGate(0, 999.99)).toBeNull();
+        expect(plan.conclusionGate(0, 1000)).toBe(
+            PayoutGate.LifetimeDollarCapReached,
+        );
+        expect(plan.conclusionGate(3, 1000)).toBe(
+            PayoutGate.LifetimeDollarCapReached,
+        );
+        expect(plan.conclusionGate(3, 0)).toBe(PayoutGate.AccountConcluded);
+        expect(plan.isAccountConcluded(0, 1000)).toBe(true);
+        expect(plan.isAccountConcluded(2, 999.99)).toBe(false);
     });
 
-    it('agrees with accountConclusionGate on every registry plan and the synthetic shapes', () => {
-        const plans = [
-            ...ALL_FIRMS.flatMap((firm) => firm.plans),
-            lucidDirect.withOverrides({
-                maxLifetimePayouts: 8,
-                payoutLadder: exhaustingLadder,
-            }),
-            lucidDirect.withMaxLifetimePayouts(8),
+    it('carries the dollar cap scope as plan data, unconfirmed unless the plan states one checked against its source', () => {
+        const perUser = lucidDirect.withOverrides({
+            lifetimeDollarCapScope: LifetimeCapScope.PerUserAcrossVariant,
+            maxLifetimePayoutDollars: dollars(1000),
+        });
+        expect(perUser.lifetimeConclusion.dollarCapScope).toBe(
+            LifetimeCapScope.PerUserAcrossVariant,
+        );
+        expect(perUser.conclusionGate(0, 1000)).toBe(
+            PayoutGate.LifetimeDollarCapReached,
+        );
+        expect(
             lucidDirect.withOverrides({
                 maxLifetimePayoutDollars: dollars(1000),
-                payoutLadder: exhaustingLadder,
+            }).lifetimeConclusion.dollarCapScope,
+        ).toBe(LifetimeCapScope.Unconfirmed);
+        expect(
+            lucidDirect.withOverrides({
+                lifetimeDollarCapScope: LifetimeCapScope.PerAccount,
+                maxLifetimePayoutDollars: dollars(1000),
+            }).lifetimeConclusion.dollarCapScope,
+        ).toBe(LifetimeCapScope.PerAccount);
+        expect(lucidDirect.lifetimeConclusion.dollarCapScope).toBeNull();
+    });
+
+    it('rejects any cap scope on a plan with no lifetime dollar cap', () => {
+        expect(() =>
+            lucidDirect.withOverrides({
+                lifetimeDollarCapScope: LifetimeCapScope.PerUserAcrossVariant,
             }),
-        ];
-        for (const plan of plans) {
-            for (let payoutsIssued = 0; payoutsIssued <= 12; payoutsIssued++) {
-                for (const cumulativePayout of [0, 999.99, 1000, 100_000]) {
-                    expect(
-                        plan.isAccountConcluded(
-                            payoutsIssued,
-                            cumulativePayout,
-                        ),
-                        `${plan.label}: ${payoutsIssued} payouts, $${cumulativePayout}`,
-                    ).toBe(
-                        accountConclusionGate(
-                            plan.lifetimeConclusion,
-                            payoutsIssued,
-                            cumulativePayout,
-                        ) !== null,
-                    );
-                }
+        ).toThrow(
+            'lifetimeDollarCapScope per-user-across-variant needs a maxLifetimePayoutDollars cap',
+        );
+        expect(() =>
+            lucidDirect.withOverrides({
+                lifetimeDollarCapScope: LifetimeCapScope.PerAccount,
+            }),
+        ).toThrow(
+            'lifetimeDollarCapScope per-account needs a maxLifetimePayoutDollars cap',
+        );
+    });
+
+    const registryPlans = ALL_FIRMS.flatMap((firm) => firm.plans).map(
+        (plan, index) => ({ plan, title: `${index} ${plan.label}` }),
+    );
+
+    it.each(registryPlans)(
+        'carries the raw lifetime fields and leaves the count rule to lifetimePayoutCountLimit on $title',
+        ({ plan }) => {
+            const isMffPro =
+                plan.id.firm === FirmId.Mffu &&
+                plan.id.variant === MffuVariant.Pro;
+            expect(plan.lifetimeConclusion).toStrictEqual({
+                dollarCapScope: isMffPro
+                    ? LifetimeCapScope.PerUserAcrossVariant
+                    : null,
+                maxLifetimePayoutDollars: plan.maxLifetimePayoutDollars,
+                maxLifetimePayouts: plan.maxLifetimePayouts,
+                payoutLadder: plan.payoutLadder,
+            });
+        },
+    );
+
+    it.each(registryPlans)(
+        'lifetimePayoutCountLimit names the first payout count Plan.conclusionGate concludes at on $title',
+        ({ plan }) => {
+            const limit: LifetimePayoutCountLimit | null =
+                lifetimePayoutCountLimit(plan.lifetimeConclusion);
+            const firstConcluded = Array.from(
+                { length: 61 },
+                (_, count) => count,
+            ).find((count) => plan.conclusionGate(count) !== null);
+            if (limit === null) {
+                expect(firstConcluded).toBeUndefined();
+                return;
             }
-        }
+            const gate: LifetimePayoutCountGate = limit.gate;
+            expect(firstConcluded).toBe(limit.count);
+            expect(plan.conclusionGate(limit.count)).toBe(gate);
+        },
+    );
+
+    it('carries the raw fields and lets lifetimePayoutCountLimit pick the binding count, ladder or none', () => {
+        const dollarCap = dollars(100_000);
+        const beyond = lucidDirect.withOverrides({
+            maxLifetimePayoutDollars: dollarCap,
+            maxLifetimePayouts: 8,
+            payoutLadder: exhaustingLadder,
+        }).lifetimeConclusion;
+        expect(beyond).toStrictEqual({
+            dollarCapScope: LifetimeCapScope.Unconfirmed,
+            maxLifetimePayoutDollars: dollarCap,
+            maxLifetimePayouts: 8,
+            payoutLadder: exhaustingLadder,
+        });
+        expect(lifetimePayoutCountLimit(beyond)).toStrictEqual({
+            count: exhaustingLadder.steps.length,
+            gate: PayoutGate.LadderExhausted,
+        });
+        const early = lucidDirect.withOverrides({
+            maxLifetimePayouts: 3,
+            payoutLadder: exhaustingLadder,
+        }).lifetimeConclusion;
+        expect(early).toStrictEqual({
+            dollarCapScope: null,
+            maxLifetimePayoutDollars: null,
+            maxLifetimePayouts: 3,
+            payoutLadder: exhaustingLadder,
+        });
+        expect(lifetimePayoutCountLimit(early)).toStrictEqual({
+            count: 3,
+            gate: PayoutGate.AccountConcluded,
+        });
+        expect(
+            lifetimePayoutCountLimit(
+                lucidDirect.withMaxLifetimePayouts(null).lifetimeConclusion,
+            ),
+        ).toBeNull();
     });
 });
 
@@ -349,6 +464,60 @@ describe('Plan constructor: fees.undiscountableReset invariant (N-52 review)', (
                 fees: { ...lucidDirect.fees, undiscountableReset: dollars(-5) },
             }).fees.undiscountableReset,
         ).toBe(-5);
+    });
+});
+
+describe('Plan constructor: DoubleTarget consistency pairing invariant (N-79 review)', () => {
+    it('rejects a DoubleTarget violation effect paired with the default Exclusive boundary', () => {
+        expect(() =>
+            lucidDirect.withOverrides({
+                consistency: new ConsistencyRule(
+                    ConsistencyScope.Eval,
+                    fraction(0.5),
+                    ConsistencyBasis.Cycle,
+                    ConsistencyViolationEffect.DoubleTarget,
+                ),
+            }),
+        ).toThrow(/DoubleTarget/);
+    });
+
+    it('rejects a DoubleTarget violation effect explicitly paired with an Exclusive boundary', () => {
+        expect(() =>
+            lucidDirect.withOverrides({
+                consistency: new ConsistencyRule(
+                    ConsistencyScope.Eval,
+                    fraction(0.5),
+                    ConsistencyBasis.Cycle,
+                    ConsistencyViolationEffect.DoubleTarget,
+                    ConsistencyBoundary.Exclusive,
+                ),
+            }),
+        ).toThrow(/DoubleTarget/);
+    });
+
+    it('accepts a DoubleTarget violation effect paired with an Inclusive boundary', () => {
+        const consistency = new ConsistencyRule(
+            ConsistencyScope.Eval,
+            fraction(0.5),
+            ConsistencyBasis.Cycle,
+            ConsistencyViolationEffect.DoubleTarget,
+            ConsistencyBoundary.Inclusive,
+        );
+
+        expect(
+            lucidDirect.withOverrides({ consistency }).evalConsistencyRule(),
+        ).toBe(consistency);
+    });
+
+    it('accepts a non-DoubleTarget violation effect with the default Exclusive boundary', () => {
+        const consistency = new ConsistencyRule(
+            ConsistencyScope.Eval,
+            fraction(0.5),
+        );
+
+        expect(
+            lucidDirect.withOverrides({ consistency }).evalConsistencyRule(),
+        ).toBe(consistency);
     });
 });
 

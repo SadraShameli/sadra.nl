@@ -5,6 +5,7 @@ import { type z } from 'zod';
 import {
     AccountEventKind,
     AccountReadIssueKind,
+    AccountTracking,
     BankrollTransferKind,
     BustCause,
     compareText,
@@ -147,8 +148,8 @@ function camelRow(row: Record<string, unknown>): Record<string, unknown> {
 
 const CASES: readonly OutputCase[] = [
     {
-        derived: { readIssues: [] },
-        enumColumns: ['dashboardConvention', 'stage', 'status'],
+        derived: { planRulesChanged: null, readIssues: [] },
+        enumColumns: ['dashboardConvention', 'stage', 'status', 'tracking'],
         jsonbColumns: ['optIns', 'personalRules', 'tags'],
         name: 'account',
         row: accountRow({
@@ -161,8 +162,8 @@ const CASES: readonly OutputCase[] = [
         table: propAccount,
     },
     {
-        derived: { readIssues: [] },
-        enumColumns: ['dashboardConvention', 'stage', 'status'],
+        derived: { planRulesChanged: null, readIssues: [] },
+        enumColumns: ['dashboardConvention', 'stage', 'status', 'tracking'],
         jsonbColumns: ['optIns', 'personalRules', 'tags'],
         name: 'listed account',
         row: accountRow({
@@ -346,10 +347,10 @@ describe('propAccounts output schemas', () => {
         expect(parsed.data?.firmId).toBe('gone-firm');
         expectTypeOf<
             z.output<typeof propAccountOutputSchema>['firmId']
-        >().toEqualTypeOf<StoredFirmId>();
+        >().toEqualTypeOf<null | StoredFirmId>();
         expectTypeOf<
             z.output<typeof propAccountListedOutputSchema>['firmId']
-        >().toEqualTypeOf<StoredFirmId>();
+        >().toEqualTypeOf<null | StoredFirmId>();
         for (const firmId of ['', 'x'.repeat(33), 42, null]) {
             expect(
                 propAccountOutputSchema.safeParse({ ...stored, firmId })
@@ -357,6 +358,62 @@ describe('propAccounts output schemas', () => {
                 String(firmId),
             ).toBe(false);
         }
+    });
+
+    it('types the tracking column and accepts a ledger-only account at a listed or an external firm', () => {
+        expectTypeOf<
+            z.output<typeof propAccountOutputSchema>['tracking']
+        >().toEqualTypeOf<AccountTracking>();
+        const ledgerOnly = {
+            ...camelRow(accountRow()),
+            optIns: NO_PLAN_OPT_INS,
+            planLabel: 'Rapid 150K',
+            planSerial: null,
+            readIssues: [],
+            tracking: AccountTracking.LedgerOnly,
+        };
+        for (const schema of [
+            propAccountOutputSchema,
+            propAccountListedOutputSchema,
+        ]) {
+            expect(schema.safeParse(ledgerOnly).success).toBe(true);
+            expect(
+                schema.safeParse({
+                    ...ledgerOnly,
+                    externalFirmId: EXTERNAL_FIRM_ID,
+                    firmId: null,
+                }).success,
+            ).toBe(true);
+        }
+    });
+
+    it.each([
+        ['a modeled account without a plan serial', { planSerial: null }],
+        ['a modeled account with a plan label', { planLabel: 'Rapid 150K' }],
+        [
+            'a ledger-only account without a plan label',
+            { planSerial: null, tracking: AccountTracking.LedgerOnly },
+        ],
+        [
+            'a ledger-only account at both a listed and an external firm',
+            {
+                externalFirmId: EXTERNAL_FIRM_ID,
+                planLabel: 'Rapid 150K',
+                planSerial: null,
+                tracking: AccountTracking.LedgerOnly,
+            },
+        ],
+    ] as const)('rejects %s in the account outputs', (_name, overrides) => {
+        const stored = {
+            ...camelRow(accountRow()),
+            optIns: NO_PLAN_OPT_INS,
+            readIssues: [],
+            ...overrides,
+        };
+        expect(propAccountOutputSchema.safeParse(stored).success).toBe(false);
+        expect(propAccountListedOutputSchema.safeParse(stored).success).toBe(
+            false,
+        );
     });
 
     it('lets only the listed account output carry unreadable personal rules, as null', () => {
@@ -417,7 +474,9 @@ describe('propAccounts output schemas', () => {
     });
 
     it('infers types assignable to each table row type', () => {
-        expectTypeOf<PropAccountRow['firmId']>().toEqualTypeOf<StoredFirmId>();
+        expectTypeOf<
+            PropAccountRow['firmId']
+        >().toEqualTypeOf<null | StoredFirmId>();
         expectTypeOf<
             z.infer<typeof propAccountOutputSchema>
         >().toExtend<PropAccountRow>();

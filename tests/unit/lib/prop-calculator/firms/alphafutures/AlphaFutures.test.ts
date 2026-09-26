@@ -300,3 +300,18 @@ describe('Alpha Futures Qualified 40% consistency is measured on net profit sinc
         ).not.toBeNull();
     });
 });
+
+describe('Alpha Futures Qualified-stage monthly fee conflict is disclosed, engine unchanged (N-85, U28)', () => {
+    it('cites the help-center no-fee article and discloses the product-page $139/month reading', () => {
+        const note = firm.notes.find((candidate) =>
+            candidate.includes('Qualified-stage monthly fee'),
+        );
+        expect(note).toBeDefined();
+        expect(note).toContain('9492068');
+        expect(note).toContain(
+            'Qualified Traders do not pay a monthly subscription',
+        );
+        expect(note).toContain('$139/month');
+        expect(note).toContain('U28');
+    });
+});

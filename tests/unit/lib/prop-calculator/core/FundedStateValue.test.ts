@@ -1432,7 +1432,11 @@ describe('cycleBestDayProfit DP state dimension', () => {
             'point: without a horizon hazard there is no contraction ' +
             'bound and no extrapolation, so this config stops on the ' +
             '200-sweep cap, and both solvers reach 29764.196 at ' +
-            'tolerance 0.0001 with no cap',
+            'tolerance 0.0001 with no cap. N-77 (WP45) moved the $52,600 ' +
+            'pin from [200, 0, 0, 0] to [200, 200, 200, 200]: its $2,500 ' +
+            'cushion sits half a $200 step above a cell, and the policy is ' +
+            'now read by valuing each trade at the exact cushion instead ' +
+            "of reading the $2,400 cell's action",
         () => {
             const plan = rapidEodPlan();
             expect(plan.fundedConsistencyRule()).toBeNull();
@@ -1473,7 +1477,7 @@ describe('cycleBestDayProfit DP state dimension', () => {
 
             const lockedRisksByBalance: [number, number[]][] = [
                 [51_300, [200, 200, 200, 200]],
-                [52_600, [200, 0, 0, 0]],
+                [52_600, [200, 200, 200, 200]],
                 [54_100, [600, 600, 600, 600]],
             ];
             for (const [balance, expectedRisks] of lockedRisksByBalance) {

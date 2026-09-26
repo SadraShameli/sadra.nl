@@ -18,6 +18,7 @@ import {
     MffuVariant,
     newFundedCycleTracker,
     PayoutFloorEffect,
+    PayoutRequestPolicy,
     type Plan,
     type PlanOptIns,
     withPlanOptIns,
@@ -564,10 +565,112 @@ describe('FundedStateValue retained cushion on the coarse TopStep config (PT-47a
     }, 120_000);
 });
 
+describe('FundedStateValue without a payout request policy keeps its pins (PT-47b, PD-31)', () => {
+    it('omitting payoutRequestPolicy equals passing the UpToRequest default explicitly', () => {
+        const plan = payoutRequestCapToyPlan();
+        const withoutPolicy = computeFundedStateValue(
+            payoutRequestCapConfig(plan),
+        );
+        const withDefaultPolicy = computeFundedStateValue({
+            ...payoutRequestCapConfig(plan),
+            payoutRequestPolicy: PayoutRequestPolicy.UpToRequest,
+        });
+        expect(withDefaultPolicy.initialValue).toBe(withoutPolicy.initialValue);
+        expect(withoutPolicy.initialValue).toBeCloseTo(250, 10);
+    });
+});
+
+describe('FundedStateValue honours the payout request policy when the withdrawable cannot cover the whole request (PT-47b, PD-40)', () => {
+    const plan = uncappedToyPlan();
+    const requestSize = dollars(500);
+
+    it('FullRequestOnly waits for the full amount where UpToRequest settles for less, changing the solved value', () => {
+        const upToRequest = computeFundedStateValue({
+            ...payoutRequestCapConfig(plan),
+            payoutRequestSize: requestSize,
+        });
+        const fullRequestOnly = computeFundedStateValue({
+            ...payoutRequestCapConfig(plan),
+            payoutRequestPolicy: PayoutRequestPolicy.FullRequestOnly,
+            payoutRequestSize: requestSize,
+        });
+        expect(fullRequestOnly.initialValue).not.toBeCloseTo(
+            upToRequest.initialValue,
+            2,
+        );
+    });
+
+    it('a simulate() replay at winrate 1 under FullRequestOnly with the same size and seed agrees with the solved value, credit included', () => {
+        const fullRequestOnly = computeFundedStateValue({
+            ...payoutRequestCapConfig(plan),
+            payoutRequestPolicy: PayoutRequestPolicy.FullRequestOnly,
+            payoutRequestSize: requestSize,
+        });
+        const out = simulate({
+            fundedDayPolicy: fullRequestOnly.dayPolicy,
+            fundedHorizonDays: 50,
+            maxEvalDays: 1,
+            payoutRequestPolicy: PayoutRequestPolicy.FullRequestOnly,
+            payoutRequestSize: requestSize,
+            plan,
+            riskPerTrade: 100,
+            rrRatio: 1,
+            seed: 7,
+            tradesPerDay: 1,
+            trials: 100,
+            winrate: 1,
+        });
+        expect(
+            out.expectedGrossPayout + out.expectedHorizonCredit,
+        ).toBeCloseTo(fullRequestOnly.initialValue, 6);
+    }, 15_000);
+});
+
+describe('FundedStateValue sends the payout request policy to its workers (PT-47b)', () => {
+    const RESET_TAKEN: PlanOptIns = {
+        takesFundedReset: true,
+        takesOneTimeEarlyWithdrawal: false,
+    };
+
+    it('solves an opted-in registry plan with a policy and a request size on a FundedWorkerSession to exactly the single-threaded value', async () => {
+        const registry = await registryAlphaStandard();
+        const requestSize = dollars(1000);
+        const session = new FundedWorkerSession();
+        try {
+            const pooled = computeFundedStateValue(
+                {
+                    ...coarseAlphaConfig(
+                        withRegistryPlanOptIns(registry, RESET_TAKEN),
+                    ),
+                    payoutRequestPolicy: PayoutRequestPolicy.FullRequestOnly,
+                    payoutRequestSize: requestSize,
+                },
+                session,
+            );
+            const alone = computeFundedStateValue({
+                ...coarseAlphaConfig(withPlanOptIns(registry, RESET_TAKEN)),
+                payoutRequestPolicy: PayoutRequestPolicy.FullRequestOnly,
+                payoutRequestSize: requestSize,
+            });
+
+            expect(pooled.workerCount > 0).toBe(availableParallelism() > 1);
+            expect(alone.workerCount).toBe(0);
+            expect(pooled.initialValue).toBe(alone.initialValue);
+        } finally {
+            session.release();
+        }
+    }, 600_000);
+});
+
 describe('AverageRewardSolver exports its grid configs for the DP advice source (PT-47a to PT-30)', () => {
-    it('lets a caller set the funded payout request size and retained cushion, and the eval grid step', () => {
+    it('lets a caller set the funded payout request size, policy and retained cushion, and the eval grid step', () => {
         expectTypeOf<FundedGridConfig['payoutRequestSize']>().toEqualTypeOf<
             Dollars | undefined
+        >();
+        expectTypeOf<
+            FundedGridConfig['payoutRequestPolicy']
+        >().toEqualTypeOf<
+            FundedStateValueConfig['payoutRequestPolicy']
         >();
         expectTypeOf<FundedGridConfig['minRetainedCushion']>().toEqualTypeOf<
             FundedStateValueConfig['minRetainedCushion']

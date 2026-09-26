@@ -1,10 +1,12 @@
 export enum PlanAvailability {
     CallUpOnly = 'call-up-only',
+    Discontinued = 'discontinued',
     Purchasable = 'purchasable',
 }
 
 export const PLAN_AVAILABILITY_LABEL: Record<PlanAvailability, string> = {
     [PlanAvailability.CallUpOnly]: 'call-up only',
+    [PlanAvailability.Discontinued]: 'no longer sold',
     [PlanAvailability.Purchasable]: 'purchasable',
 };
 

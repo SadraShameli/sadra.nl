@@ -17,6 +17,7 @@ import {
     TradeifyVariant,
 } from '~/lib/prop-calculator';
 import {
+    AssumptionKind,
     isLiveModelApproximation,
     LiveApplicabilityKind,
     LiveApplicabilityNote,
@@ -58,6 +59,7 @@ function builder(
     note: LiveApplicabilityNote | null = null,
     approximation: LiveStateApproximation | null = null,
     documentedStart: unknown = null,
+    reconstructionDefaultAssumption: AssumptionKind | null = null,
 ): LivePlanApplicability {
     return {
         approximation,
@@ -67,6 +69,8 @@ function builder(
         isVerified,
         kind: LiveApplicabilityKind.Builder,
         note,
+        reconstructionDefault: null,
+        reconstructionDefaultAssumption,
     } as LivePlanApplicability;
 }
 
@@ -109,6 +113,7 @@ const TOPSTEP_XFA = builder(
     LiveApplicabilityNote.TopStepLfaEligibleJurisdictionAssumed,
     LiveStateApproximation.ReserveAndLfaProgressDefaulted,
     expect.any(Function),
+    AssumptionKind.TopStepLiveReserveDefaulted,
 );
 
 const SIZE = 50_000;
@@ -413,5 +418,18 @@ describe('LivePlanApplicability (F-151, PD-41, PT-04 item (i))', () => {
 
         expect(livePlanApplicability(id)).toBe(livePlanApplicability(id));
         expect(Object.isFrozen(livePlanApplicability(id))).toBe(true);
+    });
+
+    it('declares no explicit reconstruction default for any entry, so every builder falls back to its own default, with only TopStep disclosing an assumption (PT-12j)', () => {
+        for (const plan of REGISTRY_PLANS) {
+            const applicability = livePlanApplicability(plan.id);
+            if (applicability.kind !== LiveApplicabilityKind.Builder) continue;
+            expect(applicability.reconstructionDefault).toBeNull();
+            expect(applicability.reconstructionDefaultAssumption).toBe(
+                plan.id.firm === FirmId.TopStep
+                    ? AssumptionKind.TopStepLiveReserveDefaulted
+                    : null,
+            );
+        }
     });
 });

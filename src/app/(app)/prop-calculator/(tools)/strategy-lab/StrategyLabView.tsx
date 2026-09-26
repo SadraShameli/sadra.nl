@@ -39,6 +39,7 @@ export function StrategyLabView() {
                         commissionPerRoundTrip={state.commissionPerRoundTrip}
                         evalDiscountPercent={state.evalDiscountPercent}
                         fundedHorizonDays={state.fundedHorizonDays}
+                        labLink={state.labLink}
                         linkActivationDiscount={state.linkActivationDiscount}
                         maxEvalDays={state.maxEvalDays}
                         minRetainedCushion={simInputs.minRetainedCushion}

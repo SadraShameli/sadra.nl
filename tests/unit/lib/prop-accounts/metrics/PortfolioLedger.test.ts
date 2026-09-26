@@ -21,6 +21,8 @@ import {
     type LedgerAccountRow,
     type PortfolioLedger,
     roundCents,
+    sampledMean,
+    sampledRate,
     signedFeeCents,
     spendAndPayouts,
     stageFunnel,
@@ -125,6 +127,7 @@ describe('a corrupt stored row on the consumer path', () => {
         expect(portfolio.planGroups()).toEqual([]);
         expect(stageFunnel(portfolio)).toEqual({
             byFirm: [],
+            ledgerOnlyAccounts: 0,
             unresolvedAccounts: 1,
         });
         expect(costAnalytics(portfolio, new Map()).unresolvedSpend).toBe(7000);
@@ -778,5 +781,62 @@ describe('lifecycle readings', () => {
             [[AccountEventKind.Busted, '2026-09-05']],
         );
         expect(hasUnreversedFundedBust(evalBust)).toBe(false);
+    });
+});
+
+describe('sampledRate', () => {
+    it('attaches a 95% Wilson interval', () => {
+        const zero = sampledRate(0, 10);
+        expect(zero?.interval?.lower).toBeCloseTo(0, 6);
+        expect(zero?.interval?.upper).toBeCloseTo(0.277533, 6);
+
+        const three = sampledRate(3, 10);
+        expect(three?.interval?.lower).toBeCloseTo(0.107791, 6);
+        expect(three?.interval?.upper).toBeCloseTo(0.603222, 6);
+
+        const ten = sampledRate(10, 10);
+        expect(ten?.interval?.lower).toBeCloseTo(0.722467, 6);
+        expect(ten?.interval?.upper).toBeCloseTo(1, 6);
+    });
+
+    it('is null at n = 0, leaving value and standardError unchanged', () => {
+        expect(sampledRate(0, 0)).toBeNull();
+    });
+
+    it('keeps the existing value and standard error behaviour', () => {
+        const rate = sampledRate(3, 10);
+        expect(rate?.n).toBe(10);
+        expect(rate?.value).toBe(0.3);
+        expect(rate?.standardError).not.toBeNull();
+
+        const degenerate = sampledRate(0, 10);
+        expect(degenerate?.standardError).toBeNull();
+        expect(degenerate?.interval).not.toBeNull();
+    });
+});
+
+describe('sampledMean', () => {
+    it('attaches value plus or minus 1.96 SE when n >= 2', () => {
+        const estimate = sampledMean([10, 20, 30]);
+        const se = estimate?.standardError ?? 0;
+        expect(estimate?.interval?.lower).toBeCloseTo(
+            (estimate?.value ?? 0) - 1.959964 * se,
+            6,
+        );
+        expect(estimate?.interval?.upper).toBeCloseTo(
+            (estimate?.value ?? 0) + 1.959964 * se,
+            6,
+        );
+    });
+
+    it('is null below n = 2, leaving value unchanged', () => {
+        const single = sampledMean([10]);
+        expect(single?.value).toBe(10);
+        expect(single?.standardError).toBeNull();
+        expect(single?.interval).toBeNull();
+    });
+
+    it('is null for an empty array', () => {
+        expect(sampledMean([])).toBeNull();
     });
 });

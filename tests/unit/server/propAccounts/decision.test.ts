@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { AccountStage } from '~/lib/prop-accounts';
+import { PropMutationRejection } from '~/lib/schemas/propAccountOutputs';
 
 import {
     assertUserScopedWhere,
@@ -10,9 +11,13 @@ import {
 import {
     callerFor,
     defined,
+    errorShapeOf,
     IDS,
     insertsInto,
+    ledgerOnlyAccountRow,
+    mutationRejection,
     propWrites,
+    rejectionOf,
     SIGNED_IN,
     tableResponder,
     TABLES,
@@ -43,6 +48,29 @@ const DECISION = {
 };
 
 describe('propAccounts.decision', () => {
+    it('create refuses a ledger-only account, which has no plan rules to size from, and writes nothing', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            tableResponder({ [TABLES.account]: [ledgerOnlyAccountRow()] }),
+        );
+        const shape = errorShapeOf(
+            await rejectionOf(caller.decision.create(DECISION)),
+        );
+        expect(shape.data.code).toBe('BAD_REQUEST');
+        expect(shape.message).toContain('"Ledger one"');
+        expect(shape.data.propRejection).toEqual(
+            mutationRejection(PropMutationRejection.NotModeledForOperation),
+        );
+        const load = queries.find(
+            (query) => readTable(query) === TABLES.account,
+        );
+        assertUserScopedWhere(defined(load), USER_ID);
+        expect(
+            queries.filter((query) => readTable(query) === TABLES.snapshot),
+        ).toHaveLength(0);
+        expect(propWrites(queries)).toHaveLength(0);
+    });
+
     it('create rejects a foreign snapshot id with NOT_FOUND and writes nothing', async () => {
         const { caller, queries } = callerFor(
             SIGNED_IN,

@@ -3,17 +3,24 @@ import { describe, expect, it, vi } from 'vitest';
 import {
     AccountEventKind,
     AccountStage,
+    BankrollTransferKind,
     compareText,
     FeeKind,
+    FirmEngagementReason,
+    FirmEngagementStatus,
     PayoutStatus,
+    ReportedPayoutBasis,
+    RuleViolationKind,
     SnapshotSource,
 } from '~/lib/prop-accounts';
+import { FirmId } from '~/lib/prop-calculator';
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 import { propAccountsRouter } from '~/server/api/routers/propAccounts';
 
 import {
     assertInsertedForUser,
     assertUserScopedWhere,
+    type FakeRow,
     type IssuedQuery,
     readTable,
     writeTable,
@@ -27,8 +34,10 @@ import {
     propWrites,
     SIGNED_IN,
     tableResponder,
+    TABLES,
     USER_ID,
 } from './propRouterHarness';
+import { VIDEO_IDS, VIDEO_TABLES } from './videoRecordFixtures';
 
 vi.mock('~/environment', () => ({ environment: { NODE_ENV: 'test' } }));
 vi.mock('~/server/db', () => ({ db: {} }));
@@ -54,6 +63,24 @@ const VALID_INPUTS: Readonly<Record<string, unknown>> = {
     'account.remove': { id: IDS.account },
     'account.unarchive': { id: IDS.account },
     'account.update': accountUpdateInput({ label: 'Renamed' }),
+    'account.upgradeToModeled': {
+        ...planKeyFieldsOf(accountUpdateInput()),
+        id: IDS.account,
+    },
+    'bankroll.create': {
+        amountCents: 500_000,
+        kind: BankrollTransferKind.Deposit,
+        occurredOn: '2026-09-01',
+    },
+    'bankroll.list': undefined,
+    'bankroll.remove': { id: VIDEO_IDS.bankrollTransfer },
+    'bankroll.update': {
+        amountCents: 120_000,
+        id: VIDEO_IDS.bankrollTransfer,
+        kind: BankrollTransferKind.Withdrawal,
+        note: null,
+        occurredOn: '2026-09-15',
+    },
     'copyGroup.assign': {
         accountId: IDS.account,
         copyGroupId: IDS.copyGroup,
@@ -82,6 +109,14 @@ const VALID_INPUTS: Readonly<Record<string, unknown>> = {
         kind: AccountEventKind.Busted,
         occurredOn: '2026-09-21',
     },
+    'externalFirm.create': { name: 'Hola Prime' },
+    'externalFirm.list': undefined,
+    'externalFirm.remove': { id: VIDEO_IDS.externalFirm },
+    'externalFirm.update': {
+        id: VIDEO_IDS.externalFirm,
+        name: 'Hola Prime Futures',
+        notes: null,
+    },
     'fee.create': {
         accountId: IDS.account,
         amountCents: 16_500,
@@ -96,6 +131,29 @@ const VALID_INPUTS: Readonly<Record<string, unknown>> = {
         kind: FeeKind.Refund,
         note: null,
         paidOn: '2026-09-02',
+    },
+    'firmEngagement.list': undefined,
+    'firmEngagement.remove': { id: VIDEO_IDS.firmEngagement },
+    'firmEngagement.set': {
+        firmId: FirmId.Mffu,
+        reason: FirmEngagementReason.RulesChanged,
+        sinceOn: '2026-09-22',
+        status: FirmEngagementStatus.Paused,
+    },
+    'firmStatement.create': {
+        asOf: '2026-09-21',
+        basis: ReportedPayoutBasis.Gross,
+        externalFirmId: VIDEO_IDS.externalFirm,
+        reportedPayoutCents: 1_250_000,
+    },
+    'firmStatement.list': undefined,
+    'firmStatement.remove': { id: VIDEO_IDS.firmStatement },
+    'firmStatement.update': {
+        asOf: '2026-09-22',
+        basis: ReportedPayoutBasis.Net,
+        id: VIDEO_IDS.firmStatement,
+        note: null,
+        reportedPayoutCents: 1_125_000,
     },
     'payout.create': {
         accountId: IDS.account,
@@ -113,6 +171,23 @@ const VALID_INPUTS: Readonly<Record<string, unknown>> = {
         paidOn: '2026-09-10',
         requestedOn: '2026-09-08',
         status: PayoutStatus.Paid,
+    },
+    'round.close': { closedOn: '2026-09-30', id: VIDEO_IDS.round },
+    'round.create': {
+        externalFirmId: VIDEO_IDS.externalFirm,
+        label: 'Hola round',
+        openedOn: '2026-09-01',
+    },
+    'round.list': undefined,
+    'round.remove': { id: VIDEO_IDS.round },
+    'round.update': {
+        budgetCents: 150_000,
+        externalFirmId: VIDEO_IDS.externalFirm,
+        firmId: null,
+        id: VIDEO_IDS.round,
+        label: 'Hola round',
+        notes: null,
+        openedOn: '2026-09-01',
     },
     'rulebook.get': undefined,
     'rulebook.reset': undefined,
@@ -145,6 +220,37 @@ const VALID_INPUTS: Readonly<Record<string, unknown>> = {
     'snapshot.latestForAll': undefined,
     'snapshot.listForAccount': { id: IDS.account },
     'snapshot.remove': { id: IDS.snapshot },
+    'violation.create': {
+        accountId: IDS.account,
+        costCents: 25_000,
+        decisionId: IDS.decision,
+        kind: RuleViolationKind.Oversize,
+        occurredOn: '2026-09-21',
+    },
+    'violation.list': { accountId: IDS.account },
+    'violation.remove': { id: VIDEO_IDS.violation },
+    'violation.update': {
+        costCents: -12_000,
+        decisionId: IDS.decision,
+        id: VIDEO_IDS.violation,
+        kind: RuleViolationKind.ChasedLoss,
+        note: null,
+        occurredOn: '2026-09-22',
+    },
+};
+
+const UNREFERENCED: Readonly<Record<string, FakeRow[]>> = {
+    [TABLES.account]: [],
+    [VIDEO_TABLES.firmEngagement]: [],
+    [VIDEO_TABLES.firmStatement]: [],
+    [VIDEO_TABLES.round]: [],
+};
+
+const SCOPED_ROWS: Readonly<
+    Record<string, Readonly<Record<string, FakeRow[]>>>
+> = {
+    'externalFirm.remove': UNREFERENCED,
+    'round.remove': { [TABLES.account]: [] },
 };
 
 const MUTATIONS_BY_ID = [
@@ -152,22 +258,36 @@ const MUTATIONS_BY_ID = [
     'account.remove',
     'account.unarchive',
     'account.update',
+    'account.upgradeToModeled',
+    'bankroll.remove',
+    'bankroll.update',
     'copyGroup.assign',
     'copyGroup.remove',
     'copyGroup.update',
     'decision.create',
     'decision.recordActual',
     'event.record',
+    'externalFirm.remove',
+    'externalFirm.update',
     'fee.create',
     'fee.remove',
     'fee.update',
+    'firmEngagement.remove',
+    'firmStatement.remove',
+    'firmStatement.update',
     'payout.create',
     'payout.remove',
     'payout.update',
+    'round.close',
+    'round.remove',
+    'round.update',
     'scenario.remove',
     'snapshot.bulkCreate',
     'snapshot.create',
     'snapshot.remove',
+    'violation.create',
+    'violation.remove',
+    'violation.update',
 ];
 
 const PROCEDURE_PATHS = Object.keys(
@@ -193,6 +313,15 @@ function assertScoped(queries: readonly IssuedQuery[]): void {
 
 function isUserOwnedTable(table: string): boolean {
     return table.startsWith('sadranl_prop_') || table === JOURNAL_TABLE;
+}
+
+function planKeyFieldsOf(input: Record<string, unknown>) {
+    return {
+        accountSize: input.accountSize,
+        firmId: input.firmId,
+        optIns: input.optIns,
+        planSerial: input.planSerial,
+    };
 }
 
 function procedureAt(caller: unknown, path: string): Procedure {
@@ -224,7 +353,10 @@ describe('propAccounts user scoping', () => {
     it.each(PROCEDURE_PATHS)(
         '%s scopes every prop select, update and delete by the session user',
         async (path) => {
-            const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
+            const { caller, queries } = callerFor(
+                SIGNED_IN,
+                tableResponder(SCOPED_ROWS[path]),
+            );
             await procedureAt(caller, path)(VALID_INPUTS[path]);
             assertScoped(queries);
         },

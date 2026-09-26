@@ -2,6 +2,7 @@ import {
     AccountEventKind,
     AccountStage,
     AccountStatus,
+    AccountTracking,
     type FeeKind,
     PayoutStatus,
     usdCents,
@@ -20,6 +21,7 @@ import {
     serializePlanId,
     type TradingFirm,
 } from '~/lib/prop-calculator';
+import { NINETY_FIVE_PERCENT_Z } from '~/lib/prop-calculator/stats';
 
 const USER_ID = 'user-a';
 export const OTHER_USER_ID = 'user-b';
@@ -53,6 +55,12 @@ export const INSTANT_PLAN = firstEntry((entry) => entry.plan.isInstantFunded);
 export const FUNDED_RESET_PLAN = firstEntry(
     (entry) => !entry.plan.isInstantFunded && entry.plan.fundedReset !== null,
 );
+export const SAME_FIRM_SECOND_EVAL_PLAN = firstEntry(
+    (entry) =>
+        !entry.plan.isInstantFunded &&
+        entry.firm.id === EVAL_PLAN.firm.id &&
+        entry.serial !== EVAL_PLAN.serial,
+);
 
 const sequence = { value: 0 };
 
@@ -63,11 +71,14 @@ export function account(
     return {
         accountSize: entry.plan.id.accountSize,
         archivedAt: null,
+        copyGroupId: null,
+        externalFirmId: null,
         firmId: entry.firm.id,
         fundedOn: null,
         id: nextId('account'),
         label: nextId('label'),
         optIns: {},
+        planLabel: null,
         planSerial: entry.serial,
         purchasedOn: '2026-09-01',
         readIssues: [],
@@ -76,6 +87,7 @@ export function account(
             ? AccountStage.Funded
             : AccountStage.Eval,
         status: AccountStatus.Active,
+        tracking: AccountTracking.Modeled,
         userId: USER_ID,
         ...overrides,
     };
@@ -125,10 +137,23 @@ export function ledger(rows: Partial<PortfolioLedgerRows>): PortfolioLedger {
     });
 }
 
+export function meanInterval(
+    value: number,
+    standardError: null | number,
+): null | { readonly lower: number; readonly upper: number } {
+    return standardError === null
+        ? null
+        : {
+              lower: value - NINETY_FIVE_PERCENT_Z * standardError,
+              upper: value + NINETY_FIVE_PERCENT_Z * standardError,
+          };
+}
+
 export function payout(
     owner: LedgerAccountRow,
     grossCents: number,
     options: {
+        readonly approvedOn?: null | string;
         readonly netCents?: null | number;
         readonly paidOn?: null | string;
         readonly requestedOn?: string;
@@ -140,6 +165,7 @@ export function payout(
     const netCents = options.netCents ?? null;
     return {
         accountId: owner.id,
+        approvedOn: options.approvedOn ?? null,
         grossCents: usdCents(grossCents),
         id: nextId('payout'),
         netCents: netCents === null ? null : usdCents(netCents),

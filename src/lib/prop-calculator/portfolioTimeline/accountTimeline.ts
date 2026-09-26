@@ -8,6 +8,7 @@ import {
     policySizingOf,
 } from '../core/DayPolicy';
 import { dollars, fraction } from '../core/lib/units';
+import { LifetimeCapScope } from '../core/Plan';
 import { resolvePositionSizing } from '../core/PositionSizing';
 import { TradingPhase } from '../core/TradingPhase';
 import {
@@ -24,6 +25,10 @@ import {
 } from './types';
 
 const MAX_CARDS_PER_TIMELINE = 2000;
+
+export interface SharedPayoutBudget {
+    remaining: number;
+}
 
 class DatedChargeCursor {
     private index = 0;
@@ -46,6 +51,7 @@ class DatedChargeCursor {
 
 export function runAccountTimeline(
     inputs: AccountTimelineInputs,
+    sharedPayoutBudget?: SharedPayoutBudget,
 ): AccountTimelineResult {
     const {
         commissionPerRoundTrip = SIM_DEFAULTS.commissionPerRoundTrip,
@@ -56,6 +62,7 @@ export function runAccountTimeline(
         instrument,
         maxEvalDays,
         minRetainedCushion,
+        payoutRequestPolicy,
         payoutRequestSize,
         plan,
         rng,
@@ -64,6 +71,7 @@ export function runAccountTimeline(
         stopPoints,
         winrate: winrateInput,
     } = inputs;
+    const payoutBudget = resolvePayoutBudget(inputs, sharedPayoutBudget);
     const commission = dollars(commissionPerRoundTrip);
     const cushion = plan.resolveRetainedCushion(minRetainedCushion);
     const positionSizing = resolvePositionSizing(instrument, stopPoints);
@@ -116,6 +124,7 @@ export function runAccountTimeline(
             maxEvalDays,
             maxFundedDays: remainingDays,
             minRetainedCushion: cushion,
+            payoutRequestPolicy,
             payoutRequestSize: requestSize,
             plan,
             positionSizing,
@@ -158,7 +167,16 @@ export function runAccountTimeline(
                 payoutIndex < card.payouts.length &&
                 card.payouts[payoutIndex]?.dayOffset === d
             ) {
-                payoutSoFar += card.payouts[payoutIndex]?.amount ?? 0;
+                const rawAmount = card.payouts[payoutIndex]?.amount ?? 0;
+                const amount =
+                    payoutBudget === null
+                        ? rawAmount
+                        : Math.max(
+                              0,
+                              Math.min(rawAmount, payoutBudget.remaining),
+                          );
+                payoutSoFar += amount;
+                if (payoutBudget !== null) payoutBudget.remaining -= amount;
                 payoutIndex += 1;
             }
             const absoluteDay = cardStart + d;
@@ -209,4 +227,16 @@ function phaseDayPolicy(
     }
     assertDeclaredSizingMatchesPhase(inputs, declared, phase);
     return declared;
+}
+
+function resolvePayoutBudget(
+    inputs: AccountTimelineInputs,
+    sharedPayoutBudget: SharedPayoutBudget | undefined,
+): null | SharedPayoutBudget {
+    const cap = inputs.plan.maxLifetimePayoutDollars;
+    return cap === null ||
+        inputs.plan.lifetimeConclusion.dollarCapScope !==
+            LifetimeCapScope.PerUserAcrossVariant
+        ? null
+        : (sharedPayoutBudget ?? { remaining: cap });
 }

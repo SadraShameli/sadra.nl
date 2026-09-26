@@ -1,16 +1,21 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    contractLimitAt,
     ContractLimitKind,
     FirmId,
     FundedNextVariant,
     initialEvalFee,
+    INSTRUMENTS,
+    InstrumentSymbol,
     newFundedCycleTracker,
     percent,
+    PlanAvailability,
     resetFee,
     retryFee,
     RetryKind,
     retryPath,
+    tierContextFromProfits,
 } from '~/lib/prop-calculator/core';
 import { TradingPhase } from '~/lib/prop-calculator/core/TradingPhase';
 import { FundedNext } from '~/lib/prop-calculator/firms/fundednext/FundedNext';
@@ -107,12 +112,89 @@ describe('FundedNext Legacy/Rapid Pro contract limits (live-verified 2026-09-14)
         expect(funded.maxContracts).toBe(4);
     });
 
-    it('Rapid Daily has a confirmed flat 4 mini / 40 micro eval limit, with the funded side deliberately left unconfirmed', () => {
+    it('Rapid Daily: flat 4 minis/40 micros in both phases, the funded cap as published on fundednext.com/futures (re-fetched 2026-09-26) (N-82)', () => {
         const plan = planFor(FundedNextVariant.RapidDaily);
         expect(plan.contractLimits?.evalMinis).toBe(4);
         expect(plan.contractLimits?.evalMicros).toBe(40);
-        expect(plan.contractLimits?.fundedMinis).toBeNull();
-        expect(plan.contractLimits?.fundedMicros).toBeNull();
+        expect(plan.contractLimits?.fundedMinis).toStrictEqual({
+            kind: ContractLimitKind.Flat,
+            maxContracts: 4,
+        });
+        expect(plan.contractLimits?.fundedMicros).toStrictEqual({
+            kind: ContractLimitKind.Flat,
+            maxContracts: 40,
+        });
+    });
+
+    it('Rapid Daily sizes a funded account at no more than 4 minis or 40 micros (N-82)', () => {
+        const plan = planFor(FundedNextVariant.RapidDaily);
+        const state = plan.initialState();
+        for (const [symbol, cap] of [
+            [InstrumentSymbol.NQ, 4],
+            [InstrumentSymbol.MNQ, 40],
+        ] as const) {
+            expect(
+                contractLimitAt(
+                    plan.contractLimits,
+                    TradingPhase.Funded,
+                    INSTRUMENTS[symbol].isMicro,
+                    tierContextFromProfits(state.balance - plan.accountSize),
+                ),
+            ).toBe(cap);
+        }
+    });
+
+    it('rewrites the Rapid Daily contract-limit note to the published funded cap, with its source and fetch date (N-82)', () => {
+        const note = firm.notes.find((entry) =>
+            entry.includes("Rapid Daily's contract limits"),
+        );
+        expect(note).toBeDefined();
+        for (const fact of [
+            'fundednext.com/futures',
+            '2026-09-26',
+            '4 Mini or 40 Micro',
+            'FundedNext Account',
+        ]) {
+            expect(note).toContain(fact);
+        }
+        expect(note).not.toContain('left null');
+        expect(note).not.toContain(String.fromCodePoint(0x20_14));
+        expect(
+            firm.notes.some((entry) => entry.includes('no funded cap')),
+        ).toBe(false);
+    });
+});
+
+describe('FundedNext Live note discloses the lock-keyed contract cap and the withdrawal floor (N-81)', () => {
+    const liveNote = firm.notes.find((note) =>
+        note.includes('FundedNext Live contract cap and withdrawal floor'),
+    );
+
+    it('states the 3/30 then 6/60 cap keyed on the MLL lock, with its source and fetch date', () => {
+        expect(liveNote).toBeDefined();
+        for (const fact of [
+            '16522296',
+            '2026-09-26',
+            '3 minis / 30 micros',
+            '6 minis / 60 micros',
+            'MLL locks',
+        ]) {
+            expect(liveNote).toContain(fact);
+        }
+    });
+
+    it('states the $2,000 withdrawal floor, the $1,000 trading floor and that the article contradicts itself (U25)', () => {
+        for (const fact of [
+            'automatically liquidated',
+            'section 5',
+            'section 6',
+            '$2,000',
+            '$1,000',
+            'contradicts itself',
+        ]) {
+            expect(liveNote).toContain(fact);
+        }
+        expect(liveNote).not.toContain(String.fromCodePoint(0x20_14));
     });
 });
 
@@ -127,6 +209,11 @@ describe('FundedNext FNL:003 50K Instant Account (Labs, no Challenge phase, 20% 
         expect(plan.accountSize).toBe(50_000);
         expect(plan.fees.oneTimeEval).toBe(149.99);
         expect(plan.fees.reset).toBe(0);
+    });
+
+    it('is marked discontinued: fundednext.com/labs shows FNL:003 50K Instant as Expired with no buy button (PT-71, 2026-09-26)', () => {
+        expect(plan.availability).toBe(PlanAvailability.Discontinued);
+        expect(plan.isPurchasable).toBe(false);
     });
 
     it('has a flat 3 mini / 30 micro contract limit', () => {

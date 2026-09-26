@@ -7,11 +7,15 @@ import {
     type RungSizing,
 } from '../core/DayPolicy';
 import { type CouponDiscounts } from '../core/FeeSchedule';
-import { type FundedCycleTracker } from '../core/FundedPayoutCycle';
+import {
+    type FundedCycleSeed,
+    type FundedCycleTracker,
+} from '../core/FundedPayoutCycle';
 import { type InstrumentSymbol } from '../core/Instruments';
 import { type Dollars, type Fraction0to1 } from '../core/lib/units';
 import { type LiveAccountState } from '../core/LiveAccountState';
 import { type LivePlan } from '../core/LivePlan';
+import { type PayoutRequestPolicy } from '../core/PayoutRequestPolicy';
 import { type Plan } from '../core/Plan';
 import { type PositionSizingConfig } from '../core/PositionSizing';
 import { type ReplacementInputs } from '../core/Replacement';
@@ -75,6 +79,7 @@ export interface EvalAttemptOptions {
     rrRatio: number;
     rungSizing: RungSizing;
     shouldCaptureEquity: boolean;
+    start?: EvalAttemptStart;
     totals: TradeTotals;
     winrate: Fraction0to1;
 }
@@ -89,8 +94,19 @@ export interface EvalAttemptResult {
     streak: LossStreak;
 }
 
+export interface EvalAttemptStart {
+    dayCap: number;
+    state: AccountState;
+}
+
 export interface EvalDayRunOptions extends DayRunCommonOptions {
     phase: TradingPhase.Eval;
+}
+
+export interface EvalSimStart {
+    phase: TradingPhase.Eval;
+    state: AccountState;
+    subscriptionElapsedDays?: number;
 }
 
 export type EvalWithRetriesOptions = EvalAttemptOptions &
@@ -113,8 +129,8 @@ export interface FinishTrialArguments {
     closedForInactivity: boolean;
     cumulativeDays: number;
     daysToPass: null | number;
-    discounts: CouponDiscounts | undefined;
     equityCurve: null | number[];
+    evalCost: number;
     evalDays: number;
     evalTradesAtPass: number;
     failedAttemptDays: number[];
@@ -123,12 +139,37 @@ export interface FinishTrialArguments {
     fundedResetFeesPaid: number;
     fundedResetsUsed: number;
     horizonCredit: number;
+    isAliveAtHorizon: boolean;
     outcome: TrialOutcome;
     payoutCount: number;
-    plan: Plan;
     resetFeesPaid: number;
     totalPayout: number;
     totals: TradeTotals;
+}
+
+export interface FromStateSimEstimates extends Omit<
+    SimEstimates,
+    'expectedMonthlyNet' | 'expectedMonthlyRealizedNet'
+> {
+    fromStateExpectedCash: UncertainValue;
+    fromStateExpectedRealizedCash: UncertainValue;
+}
+
+export interface FromStateSimInputs extends SimInputs {
+    start: SimStart;
+}
+
+export interface FromStateSimOutputs extends Omit<
+    SimOutputs,
+    | 'costBreakdown'
+    | 'estimates'
+    | 'expectedMonthlyNet'
+    | 'expectedMonthlyRealizedNet'
+> {
+    estimates: FromStateSimEstimates;
+    fromStateExpectedCash: number;
+    fromStateExpectedRealizedCash: number;
+    fromStateWindowDays: number;
 }
 
 export interface FundedDayRunOptions extends DayRunCommonOptions {
@@ -152,6 +193,17 @@ export interface FundedDayStepOptions {
     winrate: Fraction0to1;
 }
 
+export interface FundedFromStateOptions extends Omit<
+    FundedHorizonOptions,
+    'attempt'
+> {
+    equityCurve: null | number[];
+    initialTracker?: FundedCycleTracker;
+    priorFundedResetsUsed?: number;
+    state: AccountState;
+    stats: PhaseStats;
+}
+
 export interface FundedHorizonOptions {
     attempt: EvalAttemptResult;
     commission: Dollars;
@@ -161,6 +213,7 @@ export interface FundedHorizonOptions {
     idleDayProbability?: number;
     intradayPathStepsPerR?: number;
     minRetainedCushion: Dollars;
+    payoutRequestPolicy?: PayoutRequestPolicy;
     payoutRequestSize: Dollars | undefined;
     plan: Plan;
     positionSizing: null | PositionSizingConfig;
@@ -177,9 +230,16 @@ export interface FundedHorizonResult {
     fundedResetFeesPaid: number;
     fundedResetsUsed: number;
     horizonCredit: number;
+    isAliveAtHorizon: boolean;
     isBustedFunded: boolean;
     payoutCount: number;
     totalPayout: number;
+}
+
+export interface FundedSimStart {
+    phase: TradingPhase.Funded;
+    seed: FundedCycleSeed;
+    state: AccountState;
 }
 
 export interface LiveDayRunOptions {
@@ -238,7 +298,6 @@ export interface MultiAccountResult {
     perAccountFundedSurvival: number;
     perAccountPass: number;
     pHitDDLimit: number;
-    theoreticalPassProb: number;
 }
 
 export interface PortfolioSimInputs extends SimInputs {
@@ -285,6 +344,7 @@ export interface SimInputs {
     maxAttempts?: number;
     maxEvalDays: number;
     minRetainedCushion?: number;
+    payoutRequestPolicy?: PayoutRequestPolicy;
     payoutRequestSize?: number;
     plan: Plan;
     rebuyLagDays?: number;
@@ -366,6 +426,8 @@ export interface SimOutputs {
     tradesPerSuccessfulAttempt: number;
 }
 
+export type SimStart = EvalSimStart | FundedSimStart;
+
 export interface TrialOptions {
     commission: Dollars;
     discounts: CouponDiscounts | undefined;
@@ -378,6 +440,7 @@ export interface TrialOptions {
     maxAttempts: number;
     maxEvalDays: number;
     minRetainedCushion: Dollars;
+    payoutRequestPolicy?: PayoutRequestPolicy;
     payoutRequestSize: Dollars | undefined;
     plan: Plan;
     positionSizing: null | PositionSizingConfig;
@@ -385,6 +448,7 @@ export interface TrialOptions {
     rrRatio: number;
     rungSizing: RungSizing;
     shouldCaptureEquity: boolean;
+    start?: TrialStart;
     winrate: Fraction0to1;
 }
 
@@ -410,6 +474,7 @@ export interface TrialResult {
     had5LossStreak: boolean;
     had10LossStreak: boolean;
     horizonCredit: number;
+    isAliveAtHorizon: boolean;
     maxDrawdown: number;
     maxLosingStreak: number;
     net: number;
@@ -420,6 +485,14 @@ export interface TrialResult {
     totalCost: number;
     tradesTaken: number;
 }
+
+export type TrialStart =
+    | FundedSimStart
+    | {
+          attempt: EvalAttemptStart;
+          phase: TradingPhase.Eval;
+          sunkSubscriptionDays: number;
+      };
 
 interface DayRunCommonOptions {
     commission: Dollars;

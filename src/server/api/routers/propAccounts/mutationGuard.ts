@@ -8,13 +8,18 @@ import {
     AccountEventKind,
     AccountStage,
     accountStageLabel,
+    AccountTracking,
     describeUnresolvedPlan,
     hasMixedStages,
     impliedEvalPassOn,
+    isLedgerOnlyPlanKey,
+    LEDGER_ONLY_SNAPSHOT_FIELD_LIST,
+    type LedgerOnlyPlanKey,
     type LifecycleRejection,
     liveStartEntryIssues,
     type PlanKeyInput,
     PlanKeyResolutionKind,
+    type PlanLifecycleFacts,
     resolvePlanKey,
     type SnapshotEntryAccount,
     stageCountsOf,
@@ -38,6 +43,12 @@ import {
 } from '~/lib/schemas/propAccountOutputs';
 import { type accountUpdateSchema } from '~/lib/schemas/propAccounts';
 import { protectedProcedure } from '~/server/api/trpc';
+
+export enum ModeledOperation {
+    CopyGroup = 'copy-group',
+    PlanRules = 'plan-rules',
+    PlanSnapshotFields = 'plan-snapshot-fields',
+}
 
 export enum PropRouterBucket {
     Account = 'account',
@@ -76,7 +87,10 @@ interface DatabaseErrorFields {
     readonly constraint: null | string;
 }
 
-type ValidatedAccountUpdate = z.output<typeof accountUpdateSchema>;
+type ModeledAccountUpdate = Extract<
+    z.output<typeof accountUpdateSchema>,
+    { readonly tracking: AccountTracking.Modeled }
+>;
 
 export class PropMutationRejectionError
     extends Error
@@ -101,6 +115,14 @@ export class PropMutationRejectionError
         };
     }
 }
+
+const MODELED_OPERATION_TEXT: Readonly<Record<ModeledOperation, string>> = {
+    [ModeledOperation.CopyGroup]:
+        'cannot join a copy group, since a copy group sizes modeled accounts together',
+    [ModeledOperation.PlanRules]:
+        'cannot take a change that needs its plan rules',
+    [ModeledOperation.PlanSnapshotFields]: `takes only ${LEDGER_ONLY_SNAPSHOT_FIELD_LIST} in a snapshot; the other fields feed plan rules it does not have`,
+};
 
 const RATE_LIMIT_BUCKET_PREFIX = 'prop-accounts';
 const MAX_CAUSE_DEPTH = 5;
@@ -167,6 +189,35 @@ export async function assertCopyGroupAcceptsStages(
     );
 }
 
+const EXTERNAL_FIRM_NOT_OWNED = 'The firm you picked is not one of your firms';
+
+export async function assertExternalFirmOwned(
+    repo: PropAccountRepo,
+    externalFirmIds: null | ReadonlySet<string> | string,
+): Promise<void> {
+    if (externalFirmIds === null) return;
+    const ids =
+        typeof externalFirmIds === 'string'
+            ? [externalFirmIds]
+            : [...externalFirmIds];
+    const [firstId, ...restIds] = ids;
+    if (firstId === undefined) return;
+    if (restIds.length === 0) {
+        await ownedReferenceOrThrow(
+            () => repo.loadOwnedExternalFirmOrThrow(firstId),
+            EXTERNAL_FIRM_NOT_OWNED,
+        );
+        return;
+    }
+    const firms = await repo.listExternalFirms();
+    const owned = new Set(firms.map((firm) => firm.id));
+    if (ids.every((id) => owned.has(id))) return;
+    throw new PropMutationRejectionError(
+        PropMutationRejection.ReferenceNotOwned,
+        EXTERNAL_FIRM_NOT_OWNED,
+    );
+}
+
 export function assertLiveStartsDocumented(
     entries: readonly LiveStartEntry[],
 ): void {
@@ -190,17 +241,42 @@ export function assertLiveStartsDocumented(
     );
 }
 
+export function assertModeledForOperation(
+    account: { readonly label: string; readonly tracking: AccountTracking },
+    operation: ModeledOperation,
+): void {
+    if (account.tracking === AccountTracking.Modeled) return;
+    throw notModeledError(account.label, operation);
+}
+
 export async function impliedPassBound(
     repo: PropAccountRepo,
     account: Pick<OwnedAccount, 'fundedOn' | 'id' | 'purchasedOn' | 'stage'>,
-    plan: Plan,
+    facts: Pick<PlanLifecycleFacts, 'isInstantFunded'>,
 ): Promise<null | string> {
-    if (impliedEvalPassOn(account, plan, false) === null) return null;
+    if (impliedEvalPassOn(account, facts, false) === null) return null;
     const hasRecordedPass = await repo.hasEventOfKind(
         account.id,
         AccountEventKind.EvalPassed,
     );
-    return impliedEvalPassOn(account, plan, hasRecordedPass)?.on ?? null;
+    return impliedEvalPassOn(account, facts, hasRecordedPass)?.on ?? null;
+}
+
+export async function ownedReferenceOrThrow<Row>(
+    load: () => Promise<Row>,
+    message: string,
+): Promise<Row> {
+    try {
+        return await load();
+    } catch (error) {
+        if (error instanceof PropRecordNotFoundError) {
+            throw new PropMutationRejectionError(
+                PropMutationRejection.ReferenceNotOwned,
+                message,
+            );
+        }
+        throw error;
+    }
 }
 
 export function propMutationProcedure(bucket: PropRouterBucket) {
@@ -229,11 +305,13 @@ export function propRateLimitedProcedure(
 }
 
 export function resolvedPlanOrThrow(
-    key: PlanKeyInput | ValidatedAccountUpdate,
+    key: LedgerOnlyPlanKey | ModeledAccountUpdate | PlanKeyInput,
 ): Plan {
-    const resolution = resolvePlanKey(
-        'readIssues' in key ? key : { ...key, readIssues: [] },
-    );
+    if (isLedgerOnlyPlanKey(key)) {
+        throw notModeledError(null, ModeledOperation.PlanRules);
+    }
+    const planKey = 'readIssues' in key ? key : { ...key, readIssues: [] };
+    const resolution = resolvePlanKey(planKey);
     switch (resolution.kind) {
         case PlanKeyResolutionKind.Resolved: {
             return resolution.plan;
@@ -241,7 +319,7 @@ export function resolvedPlanOrThrow(
         case PlanKeyResolutionKind.Unresolved: {
             throw new PropMutationRejectionError(
                 PropMutationRejection.UnresolvablePlan,
-                describeUnresolvedPlan(key, resolution.reason),
+                describeUnresolvedPlan(planKey, resolution.reason),
             );
         }
     }
@@ -324,6 +402,7 @@ function fromRejection(error: PropMutationRejectionError): TRPCError {
         case PropMutationRejection.ImplausibleSnapshot:
         case PropMutationRejection.LifecycleTransition:
         case PropMutationRejection.MissingSnapshotField:
+        case PropMutationRejection.NotModeledForOperation:
         case PropMutationRejection.OutOfOrderEvent:
         case PropMutationRejection.StageNotOfferedByPlan:
         case PropMutationRejection.UnresolvablePlan: {
@@ -338,7 +417,9 @@ function fromRejection(error: PropMutationRejectionError): TRPCError {
         case PropMutationRejection.MixedStageCopyGroup:
         case PropMutationRejection.RecordInUse:
         case PropMutationRejection.RoundBudgetExceeded:
-        case PropMutationRejection.RoundClosed: {
+        case PropMutationRejection.RoundClosed:
+        case PropMutationRejection.TrackingChange:
+        case PropMutationRejection.UpgradeChangesAccount: {
             return new TRPCError({
                 cause: error,
                 code: 'CONFLICT',
@@ -359,6 +440,20 @@ function isPostgresErrorCode(value: unknown): value is PostgresErrorCode {
     return (
         typeof value === 'string' &&
         (Object.values(PostgresErrorCode) as string[]).includes(value)
+    );
+}
+
+function notModeledError(
+    label: null | string,
+    operation: ModeledOperation,
+): PropMutationRejectionError {
+    const subject =
+        label === null
+            ? 'This ledger-only account'
+            : `Ledger-only account "${label}"`;
+    return new PropMutationRejectionError(
+        PropMutationRejection.NotModeledForOperation,
+        `${subject} ${MODELED_OPERATION_TEXT[operation]}. Upgrade it to a modeled plan first, once its plan is modeled.`,
     );
 }
 

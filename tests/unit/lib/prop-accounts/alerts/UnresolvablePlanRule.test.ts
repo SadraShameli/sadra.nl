@@ -14,7 +14,13 @@ import {
 import { type FirmId, NO_PLAN_OPT_INS } from '~/lib/prop-calculator';
 import { type PropAccountRow } from '~/server/db/schemas/prop';
 
-import { accountFor, alertsOf, ANY_EVAL_PLAN } from './alertFixtures';
+import {
+    accountFor,
+    alertsOf,
+    ANY_EVAL_PLAN,
+    EXTERNAL_FIRM_ID,
+    ledgerOnlyAccountFor,
+} from './alertFixtures';
 
 const rule = new UnresolvablePlanRule();
 
@@ -22,6 +28,20 @@ describe('UnresolvablePlanRule', () => {
     it('is silent for a resolvable plan', () => {
         expect(
             alertsOf(rule, { accounts: [accountFor(ANY_EVAL_PLAN)] }),
+        ).toEqual([]);
+    });
+
+    it('is silent for a ledger-only account at a listed or an external firm, which has no plan to resolve', () => {
+        expect(
+            alertsOf(rule, {
+                accounts: [
+                    ledgerOnlyAccountFor(ANY_EVAL_PLAN),
+                    ledgerOnlyAccountFor(ANY_EVAL_PLAN, {
+                        externalFirmId: EXTERNAL_FIRM_ID,
+                        firmId: null,
+                    }),
+                ],
+            }),
         ).toEqual([]);
     });
 

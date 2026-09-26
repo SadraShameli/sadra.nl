@@ -17,6 +17,10 @@ Final status of the 129 items:
 | fixed and verified after the reruns | 5 | N-71, N-72, N-73 (found by the post-audit rerun; fixed in WP39, WP39b to WP39d, WP40 and WP41, text in WP43 and WP43b to WP43h; confirmed by the follow-up rerun, gate D11 passed), N-74 (found by the follow-up rerun; fixed in WP39e, leftovers in WP39f and WP39g; confirmed by the stop-point rerun) and N-76 (found by the last santa: `prop live` without a stop sized percent risk fractionally; fixed in WP44 and WP44b). All five verified 2 of 2 by independent santa pairs |
 | explained, not a defect | 1 | N-75 (MFF Pro's published 5-micro funded cap makes every MNQ flat of $100 or more at 10 points one policy; WP42 made the `optimize funded` labels show the capped placement; U22 asks whether 5 micros is right) |
 
+**Found after this report (2026-09-26 evening), being fixed:**
+- **N-77.** The funded DP rounds post-trade cushions down onto its grid, so a win smaller than one grid step vanishes while a loss costs a full step. It is latent for whole-contract sizing, since no production caller sets it: on TopStep with ES at a 2-point stop the DP sits out and values the account at 0. A milder bias applies whenever a trade is not a whole number of grid steps. Fix WP45, with gate D11 re-checked.
+- **N-78.** The CLI silently ignores unknown flags: `optimize dp --stop-points ... --instrument ...` prints unsized results. Fix WP46.
+
 What the audit fixed, in short:
 
 - Cost figures. One formula now prices cost per funded account everywhere (D1). Retries use the cheaper of reset and re-buy. The bundle discount reaches every figure. Firm fees follow the no-code checkout price (T4).

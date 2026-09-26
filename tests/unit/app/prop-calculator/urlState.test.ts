@@ -6,7 +6,11 @@ import type {
     PortfolioEntry,
 } from '~/app/(app)/prop-calculator/_components/types';
 
-import { SizingMode } from '~/app/(app)/prop-calculator/_components/types';
+import {
+    LabLinkStatus,
+    LinkParameter,
+    SizingMode,
+} from '~/app/(app)/prop-calculator/_components/types';
 import {
     decodeState,
     encodeState,
@@ -48,8 +52,14 @@ function fallbackState(): CalculatorState {
         fundedHorizonDays: 60,
         idleDayProbability: 0,
         instrument: null,
+        labLink: { status: LabLinkStatus.Absent },
         labScenarios: [],
         linkActivationDiscount: false,
+        linkParameters: {
+            [LinkParameter.DayStop]: { status: LabLinkStatus.Absent },
+            [LinkParameter.EvalDayPolicy]: { status: LabLinkStatus.Absent },
+            [LinkParameter.Portfolio]: { status: LabLinkStatus.Absent },
+        },
         maxAttempts: 1,
         maxEvalDays: 60,
         monthlySubscriptionDiscountPercent: 0,
@@ -266,6 +276,78 @@ describe('per-surface contract-limit enforcement round-trips through the "lab"/"
         expect(decoded.labScenarios[0]?.instrument).toBe(InstrumentSymbol.MNQ);
         expect(decoded.labScenarios[0]?.stopPoints).toBe(8);
     });
+
+    it.each([0, -300])(
+        'drops a shared lab blob whose scenario risks %s per trade and keeps the fallback scenarios',
+        (riskPerTrade) => {
+            const { firm, plan } = apexEod();
+            const scenario: LabScenario = {
+                accounts: 1,
+                correlation: CorrelationMode.Copy,
+                dayStop: { kind: DayStopRuleKind.None },
+                groups: 1,
+                id: 'sc-1',
+                instrument: null,
+                label: 'Test',
+                riskPerTrade,
+                rrRatio: 2,
+                stopPoints: null,
+                tradesPerDay: 2,
+                winrate: 0.5,
+            };
+            const parameters = encodeState({
+                ...fallbackState(),
+                firm,
+                labScenarios: [scenario],
+                plan,
+            });
+            expect(parameters.has('lab')).toBe(true);
+
+            const decoded = decodeState(parameters, ALL_FIRMS, fallbackState());
+
+            expect(decoded.labScenarios).toStrictEqual([]);
+        },
+    );
+
+    it.each<Partial<LabScenario>>([
+        { winrate: 1.5 },
+        { winrate: 0 },
+        { rrRatio: -1 },
+        { rrRatio: 0 },
+        { tradesPerDay: 0 },
+        { tradesPerDay: 2.5 },
+    ])(
+        'drops a shared lab blob whose scenario carries %j and keeps the fallback scenarios',
+        (override) => {
+            const { firm, plan } = apexEod();
+            const scenario: LabScenario = {
+                accounts: 1,
+                correlation: CorrelationMode.Copy,
+                dayStop: { kind: DayStopRuleKind.None },
+                groups: 1,
+                id: 'sc-1',
+                instrument: null,
+                label: 'Test',
+                riskPerTrade: 300,
+                rrRatio: 2,
+                stopPoints: null,
+                tradesPerDay: 2,
+                winrate: 0.5,
+                ...override,
+            };
+            const parameters = encodeState({
+                ...fallbackState(),
+                firm,
+                labScenarios: [scenario],
+                plan,
+            });
+            expect(parameters.has('lab')).toBe(true);
+
+            const decoded = decodeState(parameters, ALL_FIRMS, fallbackState());
+
+            expect(decoded.labScenarios).toStrictEqual([]);
+        },
+    );
 
     it('round-trips a Portfolio entry carrying its own instrument + stopPoints override', () => {
         const { firm, plan } = apexEod();

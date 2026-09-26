@@ -26,12 +26,17 @@ import {
     AccountReadIssueKind,
     AccountStage,
     AccountStatus,
+    AccountTracking,
     AlertKind,
     AlertSeverity,
     AlertSubjectKind,
     compareText,
     describeAccountReadIssue,
     describeUnresolvedPlan,
+    type FirmKey,
+    FirmKeyKind,
+    type LedgerOnlyAccountRow,
+    type ModeledAccountRow,
     PlanKeyResolutionKind,
     type StoredFirmId,
     UnresolvedPlanReason,
@@ -59,29 +64,66 @@ const topStepPlan = firstPlanOf(FirmId.TopStep);
 
 function account(
     id: string,
-    overrides: Partial<AccountListAccount> = {},
-): AccountListAccount {
+    overrides: Partial<ModeledAccountRow<AccountListAccount>> = {},
+): ModeledAccountRow<AccountListAccount> {
     return {
         accountSize: apexPlan.id.accountSize,
         archivedAt: null,
         copyGroupId: null,
+        externalFirmId: null,
         firmId: FirmId.Apex,
         id,
         label: id,
         notes: null,
         optIns: NO_PLAN_OPT_INS,
+        planLabel: null,
         planSerial: serializePlanId(apexPlan.id),
         purchasedOn: '2026-09-01',
         readIssues: [],
         stage: AccountStage.Eval,
         status: AccountStatus.Active,
         tags: [],
+        tracking: AccountTracking.Modeled,
         ...overrides,
     };
 }
 
+function externalFirmKey(externalFirmId: string): FirmKey {
+    return { externalFirmId, kind: FirmKeyKind.External };
+}
+
 function ids(rows: readonly AccountListRow[]): readonly string[] {
     return rows.map((row) => row.account.id);
+}
+
+function ledgerAccount(
+    id: string,
+    overrides: Partial<LedgerOnlyAccountRow<AccountListAccount>> = {},
+): LedgerOnlyAccountRow<AccountListAccount> {
+    return {
+        accountSize: 150_000,
+        archivedAt: null,
+        copyGroupId: null,
+        externalFirmId: null,
+        firmId: FirmId.Apex,
+        id,
+        label: id,
+        notes: null,
+        optIns: NO_PLAN_OPT_INS,
+        planLabel: 'Rapid 150K',
+        planSerial: null,
+        purchasedOn: '2026-09-01',
+        readIssues: [],
+        stage: AccountStage.Funded,
+        status: AccountStatus.Active,
+        tags: [],
+        tracking: AccountTracking.LedgerOnly,
+        ...overrides,
+    } as LedgerOnlyAccountRow<AccountListAccount>;
+}
+
+function modeledFirmKey(firmId: FirmId): FirmKey {
+    return { firmId, kind: FirmKeyKind.Modeled };
 }
 
 function snapshot(
@@ -376,12 +418,12 @@ describe('buildAccountListRows with read issues', () => {
         expect(
             filterAccountRows(rows, {
                 ...DEFAULT_ACCOUNT_LIST_FILTERS,
-                firmId: FirmId.Apex,
+                firmKey: modeledFirmKey(FirmId.Apex),
             }),
         ).toEqual([]);
         expectTypeOf<
             AccountListAccount['firmId']
-        >().toEqualTypeOf<StoredFirmId>();
+        >().toEqualTypeOf<null | StoredFirmId>();
         expectTypeOf<AccountListAccount['readIssues']>().toEqualTypeOf<
             readonly AccountReadIssue[]
         >();
@@ -547,8 +589,14 @@ describe('filterAccountRows', () => {
 
     it('filters by firm, stage, status, copy group and tag', () => {
         const base = DEFAULT_ACCOUNT_LIST_FILTERS;
+        const topStepKey = modeledFirmKey(FirmId.TopStep);
         expect(
-            ids(filterAccountRows(ROWS, { ...base, firmId: FirmId.TopStep })),
+            ids(
+                filterAccountRows(ROWS, {
+                    ...base,
+                    firmKey: topStepKey,
+                }),
+            ),
         ).toEqual(['bravo']);
         expect(
             ids(
@@ -575,12 +623,48 @@ describe('filterAccountRows', () => {
         ]);
     });
 
+    it('filters a ledger-only account at one of your firms the same as a listed firm', () => {
+        const externalFirmId = '5d1e2f3a-4b5c-4d6e-8f70-81a2b3c4d5e6';
+        const rows = buildAccountListRows(
+            [
+                ledgerAccount('hola-account', {
+                    externalFirmId,
+                    firmId: null,
+                }),
+                ledgerAccount('apex-ledger', {
+                    externalFirmId: null,
+                    firmId: FirmId.Apex,
+                }),
+            ],
+            [],
+        );
+        const holaKey = externalFirmKey(externalFirmId);
+        const apexKey = modeledFirmKey(FirmId.Apex);
+        expect(
+            ids(
+                filterAccountRows(rows, {
+                    ...DEFAULT_ACCOUNT_LIST_FILTERS,
+                    firmKey: holaKey,
+                }),
+            ),
+        ).toEqual(['hola-account']);
+        expect(
+            ids(
+                filterAccountRows(rows, {
+                    ...DEFAULT_ACCOUNT_LIST_FILTERS,
+                    firmKey: apexKey,
+                }),
+            ),
+        ).toEqual(['apex-ledger']);
+    });
+
     it('combines filters with AND', () => {
+        const apexKey = modeledFirmKey(FirmId.Apex);
         expect(
             ids(
                 filterAccountRows(ROWS, {
                     ...DEFAULT_ACCOUNT_LIST_FILTERS,
-                    firmId: FirmId.Apex,
+                    firmKey: apexKey,
                     tag: 'nq',
                 }),
             ),

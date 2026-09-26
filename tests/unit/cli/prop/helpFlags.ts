@@ -2,6 +2,14 @@ import { type ArgsDef, type CommandDef, renderUsage } from 'citty';
 
 const NAMED_FLAG = /(?<![\w-])--([a-z][\w-]*[a-z\d])/g;
 
+export async function acceptedFlags<T extends ArgsDef>(
+    command: CommandDef<T>,
+): Promise<string[]> {
+    return Object.keys(await acceptedArguments(command)).toSorted((a, b) =>
+        a.localeCompare(b),
+    );
+}
+
 export async function flagsNamedButNotAccepted<T extends ArgsDef>(
     command: CommandDef<T>,
 ): Promise<string[]> {

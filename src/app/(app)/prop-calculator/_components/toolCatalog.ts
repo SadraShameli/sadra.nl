@@ -138,7 +138,7 @@ const TOOL_DEFINITIONS = {
     [ToolId.Live]: calculatorTool({
         blurb: 'Simulates the live stage for plans with a modeled live account, and says so where the model is only a firm-level approximation.',
         group: ToolGroup.Simulate,
-        hasPage: false,
+        hasPage: true,
         icon: Radio,
         label: 'Live account',
         route: routes.propCalculator.live,

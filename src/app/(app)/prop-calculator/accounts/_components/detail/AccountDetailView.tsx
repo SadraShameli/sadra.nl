@@ -9,6 +9,8 @@ import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
+import { Checkbox } from '~/components/ui/Checkbox';
+import { Label } from '~/components/ui/Label';
 import { Skeleton } from '~/components/ui/Skeleton';
 import {
     Table,
@@ -21,9 +23,10 @@ import {
 import { errorMessage } from '~/lib/errorMessage';
 import {
     accountStageLabel,
-    findStoredFirm,
+    AccountTracking,
+    type ExternalFirmName,
     formatUsdCents,
-    type PlanKeyResolution,
+    LEDGER_ONLY_LIFECYCLE_FACTS,
     PlanKeyResolutionKind,
     PortfolioLedger,
     RebuyLagBasis,
@@ -31,6 +34,10 @@ import {
     replacementStats,
     resolvePlanKey,
     todayIsoDate,
+    trackedAccountOf,
+    type TrackedAccountRow,
+    upgradeChanges,
+    upgradeChangeText,
 } from '~/lib/prop-accounts';
 import {
     PropRecord,
@@ -43,10 +50,17 @@ import { api, type RouterOutputs } from '~/trpc/react';
 
 import {
     ACCOUNT_LIST_INPUT,
+    accountFirmLabel,
+    accountPlanLabel,
     accountStatusLabel,
     readIssuesOf,
     readOnlyAccountNotice,
 } from '../accountListFilters';
+import {
+    type AccountPlanSelection,
+    upgradePlanSelection,
+} from '../accountPlanOptions';
+import { AccountPlanPicker } from '../AccountPlanPicker';
 import { ArchiveAccountButton } from '../AccountsTable';
 import { DeleteAccountDialog } from '../DeleteAccountDialog';
 import { AlertsCenter } from '../overview/AlertsCenter';
@@ -67,8 +81,9 @@ import {
 } from './DetailParts';
 import { EventsSection } from './EventsSection';
 import { FeesSection } from './FeesSection';
+import { LedgerOnlySnapshotForm } from './LedgerOnlySnapshotForm';
 import { PayoutsSection } from './PayoutsSection';
-import { PlanRulesSummary } from './PlanRulesSummary';
+import { LedgerOnlyPlanSummary, PlanRulesSummary } from './PlanRulesSummary';
 import { SnapshotHistoryChart } from './SnapshotHistoryChart';
 import { snapshotSeries } from './snapshotSeries';
 
@@ -95,7 +110,9 @@ interface ReplacementView {
 type SnapshotRow =
     RouterOutputs['propAccounts']['snapshot']['listForAccount'][number];
 
-type StoredAccount = RouterOutputs['propAccounts']['account']['get'];
+type StoredAccount = TrackedAccountRow<
+    RouterOutputs['propAccounts']['account']['get']
+>;
 
 interface StoredRecordIssue {
     readonly message: string;
@@ -128,6 +145,7 @@ export function AccountDetailView({
     const latestSnapshotsQuery =
         api.propAccounts.snapshot.latestForAll.useQuery();
     const rulebookQuery = api.propAccounts.rulebook.get.useQuery();
+    const externalFirmsQuery = api.propAccounts.externalFirm.list.useQuery();
     const [storedIssue, setStoredIssue] = useState<null | StoredRecordIssue>(
         null,
     );
@@ -143,7 +161,10 @@ export function AccountDetailView({
         toast.error(errorMessage(error));
     }, []);
 
-    const account = accountQuery.data;
+    const account =
+        accountQuery.data === undefined
+            ? undefined
+            : trackedAccountOf(accountQuery.data);
     const alerts = useMemo<OverviewAlerts>(
         () =>
             accountAlerts({
@@ -209,14 +230,18 @@ export function AccountDetailView({
         resolution.kind === PlanKeyResolutionKind.Resolved
             ? resolution.plan
             : null;
-    const isReadOnly = plan === null || issues.length > 0;
+    const isLedgerOnly = account.tracking === AccountTracking.LedgerOnly;
+    const isReadOnly = (plan === null && !isLedgerOnly) || issues.length > 0;
+    const externalFirms = externalFirmsQuery.data ?? [];
+    const firmName = accountFirmLabel(account, externalFirms);
+    const lifecycleFacts = isLedgerOnly ? LEDGER_ONLY_LIFECYCLE_FACTS : plan;
 
     return (
         <div className="flex flex-col gap-8">
             <AccountHeader
                 account={account}
+                firmName={firmName}
                 isReadOnly={isReadOnly}
-                resolution={resolution}
             />
             {accountQuery.error !== null && (
                 <Alert variant="warning">
@@ -224,6 +249,16 @@ export function AccountDetailView({
                     <AlertTitle>The account could not be refreshed</AlertTitle>
                     <AlertDescription>
                         {accountQuery.error.message}
+                    </AlertDescription>
+                </Alert>
+            )}
+            {externalFirmsQuery.isError && account.externalFirmId !== null && (
+                <Alert variant="warning">
+                    <TriangleAlert />
+                    <AlertTitle>Your firms could not be loaded</AlertTitle>
+                    <AlertDescription>
+                        {externalFirmsQuery.error.message} This account shows
+                        it as an unlisted firm until your firms load.
                     </AlertDescription>
                 </Alert>
             )}
@@ -246,17 +281,28 @@ export function AccountDetailView({
                 />
             )}
             <DetailSection id="rules" title="Plan rules">
-                {plan === null ? (
+                {account.tracking === AccountTracking.LedgerOnly ? (
+                    <>
+                        <LedgerOnlyPlanSummary
+                            accountSize={account.accountSize}
+                            firmName={firmName}
+                            planLabel={account.planLabel}
+                        />
+                        {issues.length === 0 && (
+                            <UpgradeToModeled
+                                account={account}
+                                externalFirms={externalFirms}
+                            />
+                        )}
+                    </>
+                ) : plan === null ? (
                     <p className="text-sm text-muted-foreground">
                         The plan rules cannot be shown because the stored plan
                         cannot be resolved.
                     </p>
                 ) : (
                     <PlanRulesSummary
-                        firmName={
-                            findStoredFirm(account.firmId)?.displayName ??
-                            account.firmId
-                        }
+                        firmName={firmName}
                         optIns={account.optIns}
                         plan={plan}
                     />
@@ -271,6 +317,12 @@ export function AccountDetailView({
                     onFailure={reportFailure}
                     query={snapshotsQuery}
                 />
+                {isLedgerOnly && !isReadOnly && (
+                    <LedgerOnlySnapshotForm
+                        accountId={account.id}
+                        onFailure={reportFailure}
+                    />
+                )}
             </DetailSection>
             <DetailSection id="payouts" title="Payouts">
                 <PayoutsSection
@@ -293,9 +345,10 @@ export function AccountDetailView({
                 <EventsSection
                     accountId={account.id}
                     onFailure={reportFailure}
-                    plan={isReadOnly ? null : plan}
+                    plan={isReadOnly ? null : lifecycleFacts}
                     query={eventsQuery}
                     state={account}
+                    tracking={account.tracking}
                 />
             </DetailSection>
             <DetailSection id="replacement" title="Replacement chain">
@@ -330,19 +383,14 @@ function AccountAlerts({ alerts }: { readonly alerts: OverviewAlerts }) {
 
 function AccountHeader({
     account,
+    firmName,
     isReadOnly,
-    resolution,
 }: {
     readonly account: StoredAccount;
+    readonly firmName: string;
     readonly isReadOnly: boolean;
-    readonly resolution: PlanKeyResolution;
 }) {
     const router = useRouter();
-    const firm = findStoredFirm(account.firmId);
-    const planLabel =
-        resolution.kind === PlanKeyResolutionKind.Resolved
-            ? resolution.plan.label
-            : account.planSerial;
     return (
         <header className="flex flex-wrap items-end justify-between gap-4">
             <div className="flex flex-col gap-2">
@@ -356,7 +404,7 @@ function AccountHeader({
                     {account.label}
                 </h1>
                 <p className="text-sm text-muted-foreground sm:text-base">
-                    {firm?.displayName ?? account.firmId} {planLabel}
+                    {firmName} {accountPlanLabel(account)}
                     {account.externalAlias === null
                         ? ''
                         : `, dashboard name ${account.externalAlias}`}
@@ -370,6 +418,9 @@ function AccountHeader({
                     </Badge>
                     {account.archivedAt !== null && (
                         <Badge variant="outline">Archived</Badge>
+                    )}
+                    {account.tracking === AccountTracking.LedgerOnly && (
+                        <Badge variant="outline">Ledger only</Badge>
                     )}
                     {account.tags.map((tag) => (
                         <Badge key={tag} variant="secondary">
@@ -410,6 +461,8 @@ function measuredLag(
     account: StoredAccount,
     userId: string,
 ): LagLine | null {
+    if (account.tracking === AccountTracking.LedgerOnly) return null;
+    const { planSerial } = account;
     const computed = ledgerOrDateFailure(() =>
         rebuyLagDefault(
             replacementStats(
@@ -420,7 +473,7 @@ function measuredLag(
                     payouts: [],
                 }),
             ),
-            account.planSerial,
+            planSerial,
         ),
     );
     if (computed.kind === OverviewSectionStatus.Failed) {
@@ -678,11 +731,17 @@ function StoredRecordActions({
                 </div>
             ) : null;
         }
+        case PropRecord.BankrollTransfer:
         case PropRecord.CopyGroup:
         case PropRecord.Decision:
         case PropRecord.Event:
+        case PropRecord.ExternalFirm:
+        case PropRecord.FirmEngagement:
+        case PropRecord.FirmStatement:
+        case PropRecord.Round:
         case PropRecord.Rulebook:
-        case PropRecord.Scenario: {
+        case PropRecord.Scenario:
+        case PropRecord.Violation: {
             return null;
         }
         case PropRecord.Fee: {
@@ -767,5 +826,99 @@ function StoredRecordRemoval({
                 triggerShowsLabel
             />
         </div>
+    );
+}
+
+function UpgradeToModeled({
+    account,
+    externalFirms,
+}: {
+    readonly account: StoredAccount;
+    readonly externalFirms: readonly ExternalFirmName[];
+}) {
+    const utilities = api.useUtils();
+    const upgrade = api.propAccounts.account.upgradeToModeled.useMutation();
+    const [selection, setSelection] = useState<AccountPlanSelection>(() =>
+        upgradePlanSelection(account.firmId, account.accountSize),
+    );
+    const [isConfirmed, setConfirmed] = useState(false);
+    const changes = upgradeChanges(account, selection).map(
+        (change) => `This changes ${upgradeChangeText(change, externalFirms)}.`,
+    );
+    const requiresConfirmation = changes.length > 0;
+    const changesId = 'account-upgrade-changes';
+    const submit = async () => {
+        try {
+            await upgrade.mutateAsync({
+                ...selection,
+                confirmSizeOrFirmChange: requiresConfirmation,
+                id: account.id,
+            });
+            toast.success(`${account.label} now follows a modeled plan`);
+            await utilities.propAccounts.invalidate();
+        } catch (error) {
+            toast.error(errorMessage(error));
+        }
+    };
+    return (
+        <form
+            className="flex flex-col gap-4"
+            noValidate
+            onSubmit={(event) => {
+                event.preventDefault();
+                void submit();
+            }}
+        >
+            <h3 className="text-sm font-medium">Upgrade to a modeled plan</h3>
+            <p className="text-sm text-muted-foreground">
+                Once its firm and size are modeled, pick the plan. The account
+                keeps its fees, payouts and events, its plan name is replaced by
+                the plan, and its stage must be one the plan offers.
+            </p>
+            <AccountPlanPicker
+                errors={[]}
+                onChange={(next) => {
+                    setSelection(next);
+                    setConfirmed(false);
+                }}
+                value={selection}
+            />
+            <div
+                className="flex flex-col gap-2 text-sm"
+                id={changesId}
+                role="status"
+            >
+                {changes.map((change) => (
+                    <p key={change}>{change}</p>
+                ))}
+            </div>
+            {requiresConfirmation && (
+                <div className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                        aria-describedby={changesId}
+                        checked={isConfirmed}
+                        id="account-upgrade-confirm"
+                        onCheckedChange={(checked) => {
+                            setConfirmed(checked === true);
+                        }}
+                    />
+                    <Label htmlFor="account-upgrade-confirm">
+                        I confirm this change
+                    </Label>
+                </div>
+            )}
+            <Button
+                aria-describedby={requiresConfirmation ? changesId : undefined}
+                className="self-start"
+                disabled={
+                    upgrade.isPending || (requiresConfirmation && !isConfirmed)
+                }
+                id="account-upgrade"
+                type="submit"
+                variant="outline"
+            >
+                Upgrade
+            </Button>
+        </form>
     );
 }

@@ -18,6 +18,7 @@ import {
     event,
     INSTANT_PLAN,
     ledger,
+    meanInterval,
     OTHER_USER_ID,
     purchased,
 } from './ledgerFixtures';
@@ -79,9 +80,11 @@ describe('replacementStats', () => {
             (p) => p.planSerial === EVAL_PLAN.serial,
         );
         expect(plan?.lagSamples).toBe(2);
+        const lagSe = meanStandardError(2, 4, 2);
         expect(plan?.lagSessions).toEqual({
+            interval: meanInterval(1, lagSe),
             n: 2,
-            standardError: meanStandardError(2, 4, 2),
+            standardError: lagSe,
             value: 1,
         });
         expect(plan?.unmeasuredReplacements).toBe(2);
@@ -142,6 +145,7 @@ describe('replacementStats', () => {
             }),
         );
         expect(stats.perPlan[0]?.lagSessions).toEqual({
+            interval: null,
             n: 1,
             standardError: null,
             value: 0,
@@ -175,6 +179,7 @@ describe('replacementStats', () => {
             }),
         );
         expect(stats.perPlan[0]?.lagSessions).toEqual({
+            interval: meanInterval(9, 0),
             n: 2,
             standardError: 0,
             value: 9,

@@ -7,21 +7,50 @@ import {
     INSTRUMENTS,
     type InstrumentSpec,
     type InstrumentSymbol,
+    siblingInstrumentOf,
 } from './Instruments';
 import {
     CENT_ROUNDING_TOLERANCE_IN_CENTS,
     CENTS_PER_DOLLAR,
     type ContractCount,
     contracts,
+    floorToWholeCents,
     points,
     type Points,
 } from './lib/units';
 import { type TierProfitContext } from './TierBasis';
 import { TradingPhase } from './TradingPhase';
 
+export enum MismatchSeverity {
+    ExceedsPlannedRisk = 'exceedsPlannedRisk',
+    ExceedsRoom = 'exceedsRoom',
+    None = 'none',
+}
+
+export interface ContractsAtStopResult {
+    readonly contracts: ContractCount;
+    readonly fittingContracts: ContractCount;
+    readonly isCapped: boolean;
+    readonly leftover: number;
+    readonly placedRisk: number;
+}
+
 export interface PositionSizingConfig {
     instrument: InstrumentSpec;
     stopPoints: Points;
+}
+
+export interface SiblingInstrumentRiskInput {
+    readonly contracts: ContractCount;
+    readonly instrument: InstrumentSpec;
+    readonly room: number;
+    readonly stopPoints: Points;
+}
+
+export interface SiblingInstrumentRiskResult {
+    readonly severity: MismatchSeverity;
+    readonly sibling: InstrumentSpec | null;
+    readonly siblingRisk: null | number;
 }
 
 export function capRiskToContractLimit(
@@ -57,6 +86,27 @@ export function contractLimitAt(
             );
         }
     }
+}
+
+export function contractsAtStop(
+    risk: number,
+    positionSizing: PositionSizingConfig,
+    maxContracts: ContractCount | null,
+): ContractsAtStopResult {
+    const fittingContracts = wholeContractCount(risk, positionSizing);
+    const isCapped = maxContracts !== null && fittingContracts > maxContracts;
+    const placedContracts = isCapped
+        ? contracts(Math.max(0, maxContracts))
+        : fittingContracts;
+    const riskPerContract = oneContractRisk(positionSizing);
+    const placedRisk = floorToWholeCents(placedContracts * riskPerContract);
+    return {
+        contracts: placedContracts,
+        fittingContracts,
+        isCapped,
+        leftover: floorToWholeCents(risk - placedRisk),
+        placedRisk,
+    };
 }
 
 export function evalContractLimit(
@@ -102,6 +152,25 @@ export function resolvePositionSizing(
               instrument: INSTRUMENTS[instrument],
               stopPoints: points(stopPoints),
           };
+}
+
+export function siblingInstrumentRisk(
+    input: SiblingInstrumentRiskInput,
+): SiblingInstrumentRiskResult {
+    const { contracts: contractCount, instrument, room, stopPoints } = input;
+    const sibling = siblingInstrumentOf(instrument.symbol);
+    if (sibling === null) {
+        return { severity: MismatchSeverity.None, sibling: null, siblingRisk: null };
+    }
+    const plannedRisk = contractCount * instrument.pointValue * stopPoints;
+    const siblingRisk = contractCount * sibling.pointValue * stopPoints;
+    const severity =
+        siblingRisk > room
+            ? MismatchSeverity.ExceedsRoom
+            : siblingRisk > plannedRisk
+              ? MismatchSeverity.ExceedsPlannedRisk
+              : MismatchSeverity.None;
+    return { severity, sibling, siblingRisk };
 }
 
 export function wholeContractCount(

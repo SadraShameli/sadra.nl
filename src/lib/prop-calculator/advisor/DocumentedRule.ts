@@ -40,13 +40,22 @@ export const SHARED_ASSUMPTIONS: readonly SizingAssumption[] = [
     SizingAssumption.WinsAddNoLossRoom,
 ];
 
-export abstract class DocumentedRule<
-    TContext extends RuleContext = RuleContext,
-> {
+export abstract class RulebookRule<TContext> {
     protected constructor(
         readonly rulebook: RulebookParameters,
-        private readonly contextSchema: z.ZodType<TContext>,
+        protected readonly contextSchema: z.ZodType<TContext>,
     ) {}
+}
+
+export abstract class DocumentedRule<
+    TContext extends RuleContext = RuleContext,
+> extends RulebookRule<TContext> {
+    protected constructor(
+        rulebook: RulebookParameters,
+        contextSchema: z.ZodType<TContext>,
+    ) {
+        super(rulebook, contextSchema);
+    }
 
     nextTrade(context: TContext, day: DayProgress): NextTrade {
         const parsed = this.contextSchema.parse(context);

@@ -22,6 +22,8 @@ import {
 import {
     accountFirmOptions,
     accountOptInOptions,
+    AccountPlanIntent,
+    AccountPlanMode,
     accountPlanOptions,
     type AccountPlanSelection,
     accountSizeOptions,
@@ -34,6 +36,8 @@ const PLAN_ERRORS_ID = 'account-plan-errors';
 interface AccountPlanPickerProperties {
     readonly disabled?: boolean;
     readonly errors: readonly string[];
+    readonly intent?: AccountPlanIntent;
+    readonly mode?: AccountPlanMode;
     readonly onChange: (next: AccountPlanSelection) => void;
     readonly value: AccountPlanSelection;
 }
@@ -41,17 +45,22 @@ interface AccountPlanPickerProperties {
 export function AccountPlanPicker({
     disabled = false,
     errors,
+    intent = AccountPlanIntent.ExistingAccount,
+    mode = AccountPlanMode.Modeled,
     onChange,
     value,
 }: AccountPlanPickerProperties) {
     const firm = findFirm(value.firmId);
     const plan = firm?.findPlanBySerial(value.planSerial) ?? null;
-    const planOptions = firm === undefined ? [] : accountPlanOptions(firm);
+    const planOptions =
+        firm === undefined ? [] : accountPlanOptions(firm, intent);
     const sizeOptions =
         firm === undefined || plan === null
             ? []
-            : accountSizeOptions(firm, plan);
-    const optInOptions = plan === null ? [] : accountOptInOptions(plan);
+            : accountSizeOptions(firm, plan, mode);
+    const isLedgerOnly = mode === AccountPlanMode.LedgerOnly;
+    const optInOptions =
+        plan === null || isLedgerOnly ? [] : accountOptInOptions(plan);
     const hasErrors = errors.length > 0;
     const errorProperties = hasErrors
         ? { 'aria-describedby': PLAN_ERRORS_ID, 'aria-invalid': true }
@@ -72,39 +81,53 @@ export function AccountPlanPicker({
             disabled={disabled}
         >
             <legend className="sr-only">Firm and plan</legend>
-            <div className="flex flex-col gap-2">
-                <Label htmlFor="account-firm">Firm</Label>
-                <Select
-                    onValueChange={(next) => {
-                        const firmId = parseFirmId(next);
-                        const nextFirm =
-                            firmId === undefined ? undefined : findFirm(firmId);
-                        const [first] = nextFirm?.plans ?? [];
-                        if (firmId === undefined || first === undefined) return;
-                        onChange({
-                            accountSize: first.id.accountSize,
-                            firmId,
-                            optIns: NO_PLAN_OPT_INS,
-                            planSerial: serializePlanId(first.id),
-                        });
-                    }}
-                    value={value.firmId}
-                >
-                    <SelectTrigger id="account-firm" {...errorProperties}>
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {accountFirmOptions().map((option) => (
-                            <SelectItem
-                                key={option.firmId}
-                                value={option.firmId}
-                            >
-                                {option.label}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            </div>
+            {!isLedgerOnly && (
+                <div className="flex flex-col gap-2">
+                    <Label htmlFor="account-firm">Firm</Label>
+                    <Select
+                        onValueChange={(next) => {
+                            const firmId = parseFirmId(next);
+                            const nextFirm =
+                                firmId === undefined
+                                    ? undefined
+                                    : findFirm(firmId);
+                            const [firstOption] =
+                                nextFirm === undefined
+                                    ? []
+                                    : accountPlanOptions(nextFirm, intent);
+                            const first =
+                                firstOption === undefined
+                                    ? undefined
+                                    : (nextFirm?.findPlanBySerial(
+                                          firstOption.planSerial,
+                                      ) ?? undefined);
+                            if (firmId === undefined || first === undefined)
+                                return;
+                            onChange({
+                                accountSize: first.id.accountSize,
+                                firmId,
+                                optIns: NO_PLAN_OPT_INS,
+                                planSerial: serializePlanId(first.id),
+                            });
+                        }}
+                        value={value.firmId}
+                    >
+                        <SelectTrigger id="account-firm" {...errorProperties}>
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {accountFirmOptions().map((option) => (
+                                <SelectItem
+                                    key={option.firmId}
+                                    value={option.firmId}
+                                >
+                                    {option.label}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            )}
             <div className="flex flex-col gap-2 md:col-span-2">
                 <Label htmlFor="account-plan">Plan and variant</Label>
                 <Select
@@ -151,7 +174,17 @@ export function AccountPlanPicker({
                                 ? null
                                 : (firm?.findPlanBySerial(option.planSerial) ??
                                   null);
-                        if (sibling !== null) selectPlan(sibling, value.firmId);
+                        if (sibling !== null) {
+                            selectPlan(sibling, value.firmId);
+                        } else if (
+                            isLedgerOnly &&
+                            option?.isSelectable === true
+                        ) {
+                            onChange({
+                                ...value,
+                                accountSize: option.accountSize,
+                            });
+                        }
                     }}
                     value={String(value.accountSize)}
                 >
@@ -161,7 +194,7 @@ export function AccountPlanPicker({
                     <SelectContent>
                         {sizeOptions.map((option) => (
                             <SelectItem
-                                disabled={!option.isModeled}
+                                disabled={!option.isSelectable}
                                 key={option.accountSize}
                                 value={String(option.accountSize)}
                             >
@@ -171,43 +204,45 @@ export function AccountPlanPicker({
                     </SelectContent>
                 </Select>
             </div>
-            <div className="flex flex-col gap-2 md:col-span-2">
-                <span className="text-sm font-medium">Plan options</span>
-                {optInOptions.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                        This plan offers no opt-in options.
-                    </p>
-                ) : (
-                    optInOptions.map((option) => {
-                        const id = `account-opt-in-${option.optIn}`;
-                        return (
-                            <div
-                                className="flex items-center gap-2"
-                                key={option.optIn}
-                            >
-                                <Checkbox
-                                    {...errorProperties}
-                                    checked={value.optIns[option.field]}
-                                    id={id}
-                                    onCheckedChange={(checked) => {
-                                        onChange({
-                                            ...value,
-                                            optIns: {
-                                                ...value.optIns,
-                                                [option.field]:
-                                                    checked === true,
-                                            },
-                                        });
-                                    }}
-                                />
-                                <Label htmlFor={id}>
-                                    Takes the {option.label}
-                                </Label>
-                            </div>
-                        );
-                    })
-                )}
-            </div>
+            {!isLedgerOnly && (
+                <div className="flex flex-col gap-2 md:col-span-2">
+                    <span className="text-sm font-medium">Plan options</span>
+                    {optInOptions.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                            This plan offers no opt-in options.
+                        </p>
+                    ) : (
+                        optInOptions.map((option) => {
+                            const id = `account-opt-in-${option.optIn}`;
+                            return (
+                                <div
+                                    className="flex items-center gap-2"
+                                    key={option.optIn}
+                                >
+                                    <Checkbox
+                                        {...errorProperties}
+                                        checked={value.optIns[option.field]}
+                                        id={id}
+                                        onCheckedChange={(checked) => {
+                                            onChange({
+                                                ...value,
+                                                optIns: {
+                                                    ...value.optIns,
+                                                    [option.field]:
+                                                        checked === true,
+                                                },
+                                            });
+                                        }}
+                                    />
+                                    <Label htmlFor={id}>
+                                        Takes the {option.label}
+                                    </Label>
+                                </div>
+                            );
+                        })
+                    )}
+                </div>
+            )}
             {hasErrors && (
                 <ul
                     className="text-sm text-destructive md:col-span-3"

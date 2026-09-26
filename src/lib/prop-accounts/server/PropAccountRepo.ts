@@ -21,6 +21,7 @@ import {
     type AccountReadIssue,
     AccountReadIssueKind,
     type AccountStage,
+    AccountTracking,
     compareText,
     type PersonalRules,
     PlanKeyResolutionKind,
@@ -32,6 +33,8 @@ import {
     readRulebookParameters,
     resolvePlanKey,
     todayIsoDate,
+    trackedAccountOf,
+    type TrackedAccountRow,
 } from '~/lib/prop-accounts/core';
 import {
     type FirmId,
@@ -39,6 +42,7 @@ import {
     type PlanOptIns,
 } from '~/lib/prop-calculator';
 import { type RulebookParameters } from '~/lib/prop-calculator/advisor';
+import { planRulesFingerprint } from '~/lib/prop-calculator/describe';
 import {
     PropLimitRejection,
     PropQuota,
@@ -48,6 +52,7 @@ import {
     PropStoredRecordRejection,
     STORED_DATA_OWNER_REPAIR,
 } from '~/lib/schemas/propAccountOutputs';
+import { stableJson } from '~/lib/stableJson';
 import { type db } from '~/server/db';
 import {
     propAccount,
@@ -114,15 +119,13 @@ export interface EventRange {
     readonly to: string;
 }
 
-export type ListedAccount = Omit<OwnedAccount, 'personalRules'> & {
-    readonly personalRules: null | PersonalRules;
-};
+export type ListedAccount = TrackedAccountRow<
+    ReadAccountColumns & { readonly personalRules: null | PersonalRules }
+>;
 
-export type OwnedAccount = Omit<PropAccountRow, 'optIns' | 'personalRules'> & {
-    readonly optIns: PlanOptIns;
-    readonly personalRules: PersonalRules;
-    readonly readIssues: readonly AccountReadIssue[];
-};
+export type OwnedAccount = TrackedAccountRow<
+    ReadAccountColumns & { readonly personalRules: PersonalRules }
+>;
 
 export type OwnedAccountRef = Pick<
     PropAccountRow,
@@ -143,6 +146,11 @@ export type PropDatabase = Pick<
     | 'selectDistinctOn'
     | 'update'
 >;
+
+type ReadAccountColumns = Omit<PropAccountRow, 'optIns' | 'personalRules'> & {
+    readonly optIns: PlanOptIns;
+    readonly readIssues: readonly AccountReadIssue[];
+};
 
 export class PropAccountRepo {
     constructor(
@@ -209,6 +217,17 @@ export class PropAccountRepo {
     }
 
     async isExternalFirmInUse(id: string): Promise<boolean> {
+        const [account] = await this.database
+            .select({ id: propAccount.id })
+            .from(propAccount)
+            .where(
+                and(
+                    eq(propAccount.userId, this.userId),
+                    eq(propAccount.externalFirmId, id),
+                ),
+            )
+            .limit(1);
+        if (account !== undefined) return true;
         const [round] = await this.database
             .select({ id: propRound.id })
             .from(propRound)
@@ -1077,16 +1096,18 @@ export class PropRecordNotFoundError extends Error {
 }
 
 export function readAccount(row: PropAccountRow): OwnedAccount {
-    return readStored(
-        PropRecord.Account,
-        () => ({
-            ...row,
-            optIns: readPlanOptIns(row.optIns),
-            personalRules: readPersonalRules(row.personalRules),
-            readIssues: planReadIssues(row),
-        }),
-        row.id,
-        row.label,
+    return trackedAccountOf(
+        readStored(
+            PropRecord.Account,
+            () => ({
+                ...row,
+                optIns: readPlanOptIns(row.optIns),
+                personalRules: readPersonalRules(row.personalRules),
+                readIssues: planReadIssues(row),
+            }),
+            row.id,
+            row.label,
+        ),
     );
 }
 
@@ -1098,6 +1119,20 @@ export function readEvent(row: PropAccountEventRow): OwnedEvent {
         null,
     );
     return { ...row, detail };
+}
+
+export async function withPlanRulesChanged<
+    Account extends ListedAccount | OwnedAccount,
+>(
+    accounts: readonly Account[],
+): Promise<(Account & { readonly planRulesChanged: boolean | null })[]> {
+    const cache = new Map<string, Promise<string>>();
+    return Promise.all(
+        accounts.map(async (account) => ({
+            ...account,
+            planRulesChanged: await planRulesChangedOf(account, cache),
+        })),
+    );
 }
 
 function boundedRows<Row>(
@@ -1137,7 +1172,9 @@ function narrowingHint(record: PropRecord): string {
     }
 }
 
-function planReadIssues(row: PropAccountRow): AccountReadIssue[] {
+function planReadIssues(stored: PropAccountRow): AccountReadIssue[] {
+    const row = trackedAccountOf(stored);
+    if (row.tracking === AccountTracking.LedgerOnly) return [];
     const plan = resolvePlanKey({
         accountSize: row.accountSize,
         firmId: row.firmId,
@@ -1148,6 +1185,38 @@ function planReadIssues(row: PropAccountRow): AccountReadIssue[] {
     return plan.kind === PlanKeyResolutionKind.Unresolved
         ? [{ kind: AccountReadIssueKind.UnresolvablePlan, reason: plan.reason }]
         : [];
+}
+
+async function planRulesChangedOf(
+    account: ListedAccount | OwnedAccount,
+    cache: Map<string, Promise<string>>,
+): Promise<boolean | null> {
+    if (
+        account.tracking !== AccountTracking.Modeled ||
+        account.planRulesFingerprint === null
+    ) {
+        return null;
+    }
+    const resolution = resolvePlanKey({
+        accountSize: account.accountSize,
+        firmId: account.firmId,
+        optIns: account.optIns,
+        planSerial: account.planSerial,
+        readIssues: account.readIssues,
+    });
+    if (resolution.kind !== PlanKeyResolutionKind.Resolved) return null;
+    const key = stableJson({
+        accountSize: account.accountSize,
+        firmId: account.firmId,
+        optIns: account.optIns,
+        planSerial: account.planSerial,
+    });
+    let pending = cache.get(key);
+    if (pending === undefined) {
+        pending = planRulesFingerprint(resolution.plan);
+        cache.set(key, pending);
+    }
+    return (await pending) !== account.planRulesFingerprint;
 }
 
 function readableEvents(rows: readonly PropAccountEventRow[]): OwnedEvent[] {
@@ -1175,7 +1244,7 @@ function readListedAccount(row: PropAccountRow): ListedAccount {
             tag: CORRUPT_ROW_TAG,
         });
         const personalRules = readPersonalRulesOrNull(row.personalRules);
-        return {
+        return trackedAccountOf({
             ...row,
             optIns: readPlanOptInsOrNull(row.optIns) ?? NO_PLAN_OPT_INS,
             personalRules,
@@ -1186,7 +1255,7 @@ function readListedAccount(row: PropAccountRow): ListedAccount {
                           { kind: AccountReadIssueKind.CorruptPersonalRules },
                       ]
                     : planReadIssues(row),
-        };
+        });
     }
 }
 
@@ -1197,7 +1266,7 @@ function readPlanTolerantAccount(row: PropAccountRow): OwnedAccount {
         row.id,
         row.label,
     );
-    return { ...readListedAccount(row), personalRules };
+    return trackedAccountOf({ ...readListedAccount(row), personalRules });
 }
 
 function readStored<Value>(

@@ -2,7 +2,7 @@
 
 **Firm website:** <https://takeprofittrader.com>
 **Last Verified:** 2026-09-20
-**Last Updated:** 2026-09-23
+**Last Updated:** 2026-09-26
 **Source:** see each plan's own file for plan-specific claims; the Firm-Wide Rules below are drawn from help-center articles on `takeprofittraderhelp.zendesk.com` that explicitly state a firm-wide or cross-stage scope (chiefly the Universal Trading Policies and its two linked policy articles, Rule 4, Rule 6, and the Approved Instruments/Restricted Countries/Commissions articles). Fetched directly via Zendesk's public Help Center REST API (`/api/v2/help_center/en-us/articles.json`), which was not behind the same Cloudflare block as the HTML help-center pages themselves. See SOURCES.md.
 
 ## Overview
@@ -16,7 +16,7 @@ Two mechanics change shape as a trader moves through these stages, and neither i
 
 ## Plans
 
-- **[Test → PRO](test-pro.md)** : 5 sizes ($25K/$50K/$75K/$100K/$150K). Monthly-subscription Test evaluation (no one-time eval fee), EOD trailing drawdown, 50%-best-day consistency rule (auto-doubles the profit target rather than failing the account), 3-or-5 minimum trading days depending on purchase date. PRO: intraday trailing drawdown carrying the same dollar amount, 80/20 split, day-one/daily payouts with no consistency rule, no payout scaling, and no maximum withdrawal : gated only by a one-time buffer-zone balance requirement before the first withdrawal.
+- **[Test → PRO](test-pro.md)** : 5 sizes ($25K/$50K/$75K/$100K/$150K). Monthly-subscription Test evaluation (no one-time eval fee), EOD trailing drawdown, 50%-best-day consistency rule (a violation does not fail the account; instead the required profit target rises to just over 2× the highest profit day's own net P/L, not a doubling of the original profit target), 3-or-5 minimum trading days depending on purchase date. PRO: intraday trailing drawdown carrying the same dollar amount, 80/20 split, day-one/daily payouts with no consistency rule, no payout scaling, and no maximum withdrawal : gated only by a one-time buffer-zone balance requirement before the first withdrawal.
 - **[PRO+ (Live)](pro-plus-live.md)** : TPT's live, real-capital, invite-only stage, including its PRO+ Development sub-variant. $0 starting balance, EOD drawdown carried over from the trader's originating PRO account, 90/10 split, no buffer-zone requirement per TPT's own materials (see that file's own engine cross-check flag). $5,000 of the originating PRO account's profit is frozen while PRO+ is active.
 
 ## Live Accounts
@@ -117,7 +117,7 @@ Per "Approved Instruments & Permitted Products List." No EUREX products; no plai
 | Account Sizes        | $25K / $50K / $75K / $100K / $150K                                                                                                 | Same 5 PRO-origin sizes; only $50K has a confirmed dollar drawdown figure, see `pro-plus-live.md`           |
 | Eval Cost            | Monthly subscription, no dollar figure confirmed at any size except an unconfirmed $170/month derived for $50K (see `test-pro.md`) | Not applicable : no separate PRO+ purchase exists                                                      |
 | Profit Target        | $1,500 / $3,000 / $4,500 / $6,000 / $9,000 (Test)                                                                                  | Not applicable : entry is a discretionary upgrade, not a pass/fail test                                |
-| Eval Consistency     | 50% best-day rule (Test); auto-doubles the profit target rather than failing                                                       | Unconfirmed : no fixed numeric rule stated; discretionary "Sustainable Trading Policy" review instead  |
+| Eval Consistency     | 50% best-day rule (Test); on violation, required profit rises to just over 2× the highest profit day's net P/L rather than failing (not a doubling of the original profit target) | Unconfirmed : no fixed numeric rule stated; discretionary "Sustainable Trading Policy" review instead  |
 | Min Eval Days        | 3 days (accounts purchased "from August 17th onward", year inferred as 2026) / 5 days (earlier accounts and their resets)          | Not applicable                                                                                         |
 | Funded Drawdown Type | EOD (Test) → Intraday (PRO), same dollar amount carried over                                                                       | EOD, anchored to a $0 start, dollar amount unconfirmed except at $50K ($2,000)                         |
 | DLL (Funded)         | Unconfirmed / not stated (PRO)                                                                                                     | Unconfirmed / not stated (standard PRO+); PRO+ Development has its own confirmed soft-breach DLL table |

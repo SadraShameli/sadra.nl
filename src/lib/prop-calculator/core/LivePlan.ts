@@ -11,6 +11,10 @@ import {
     resolveDailyLossLimit,
 } from './DailyLossLimit';
 import { DrawdownKind, type DrawdownStrategy } from './DrawdownStrategy';
+import {
+    assertValidCalendarWeekInactivityRule,
+    type CalendarWeekInactivityRule,
+} from './InactivityRule';
 import { type InstrumentSpec } from './Instruments';
 import {
     type ContractCount,
@@ -45,6 +49,7 @@ export interface LiveCushionPercent {
 }
 
 export interface LivePlanInit {
+    calendarWeekInactivity?: CalendarWeekInactivityRule;
     contractLimits?: LiveContractLimits;
     cushionPercent: LiveCushionPercent;
     label: string;
@@ -92,6 +97,8 @@ export interface ReserveLivePlanInit extends LivePlanInit {
 }
 
 export class LivePlan {
+    readonly calendarWeekInactivity: CalendarWeekInactivityRule | null;
+
     protected readonly contractLimits: LiveContractLimits | null;
 
     readonly cushionPercent: LiveCushionPercent;
@@ -121,6 +128,13 @@ export class LivePlan {
     readonly winningDayPayoutGate: LiveWinningDayPayoutGate | null;
 
     constructor(init: LivePlanInit) {
+        this.calendarWeekInactivity = init.calendarWeekInactivity ?? null;
+        if (this.calendarWeekInactivity !== null) {
+            assertValidCalendarWeekInactivityRule(
+                this.calendarWeekInactivity,
+                init.label,
+            );
+        }
         this.contractLimits = init.contractLimits ?? null;
         if (this.contractLimits !== null) {
             if (hasEmptyTiers(this.contractLimits.minis)) {
@@ -146,6 +160,14 @@ export class LivePlan {
         ) {
             throw new Error(
                 `${this.label}: maxConsecutiveIdleDays must be a positive integer or omitted, got ${this.maxConsecutiveIdleDays}`,
+            );
+        }
+        if (
+            this.calendarWeekInactivity !== null &&
+            this.maxConsecutiveIdleDays !== null
+        ) {
+            throw new Error(
+                `${this.label}: calendarWeekInactivity and maxConsecutiveIdleDays both close the account for inactivity; set only one`,
             );
         }
         this.minPayoutRequest = init.minPayoutRequest ?? dollars(0);

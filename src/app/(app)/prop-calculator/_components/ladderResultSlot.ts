@@ -60,6 +60,7 @@ const LADDER_KEY_OMITTED_FIELDS: readonly SimInputsKeyField[] = [
     SimInputsKeyField.IntradayPathStepsPerR,
     SimInputsKeyField.Attempts,
     SimInputsKeyField.MinRetainedCushion,
+    SimInputsKeyField.PayoutRequestPolicy,
     SimInputsKeyField.PayoutRequestSize,
     SimInputsKeyField.RebuyLagDays,
 ];

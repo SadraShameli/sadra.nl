@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import {
     AccountStage,
+    AccountTracking,
     DashboardBalanceConvention,
+    isLedgerOnlySnapshotField,
+    LEDGER_ONLY_SNAPSHOT_FIELD_LIST,
+    SnapshotField,
     SnapshotSource,
     usdCents,
 } from '~/lib/prop-accounts';
@@ -14,6 +18,7 @@ import {
     CsvTableKind,
     previewSnapshotCsv,
     REQUIRED_SNAPSHOT_CSV_COLUMNS,
+    SNAPSHOT_CSV_COLUMNS,
     type SnapshotCsvAccount,
     SnapshotCsvColumn,
     type SnapshotCsvStored,
@@ -38,6 +43,8 @@ const OLD_ID = '33333333-3333-4333-8333-333333333333';
 const ZERO_ID = '44444444-4444-4444-8444-444444444444';
 const GONE_ID = '55555555-5555-4555-8555-555555555555';
 const LIVE_ID = '66666666-6666-4666-8666-666666666666';
+const LEDGER_ONLY_ID = '77777777-7777-4777-8777-777777777777';
+const LEDGER_ONLY_FIELD_MESSAGE = `a ledger-only account takes only ${LEDGER_ONLY_SNAPSHOT_FIELD_LIST}; this field feeds plan rules it does not have`;
 
 const FIFTY_K_PLAN = findPlan(
     (plan) =>
@@ -55,16 +62,19 @@ function accountOf(
         accountSize: FIFTY_K_PLAN.id.accountSize,
         archivedAt: null,
         dashboardConvention: DashboardBalanceConvention.Nominal,
+        externalFirmId: null,
         firmId: FIFTY_K_PLAN.id.firm,
         fundedOn: null,
         id,
         label,
         liveStartBalanceCents: null,
         optIns: NO_PLAN_OPT_INS,
+        planLabel: null,
         planSerial: serializePlanId(FIFTY_K_PLAN.id),
         purchasedOn: '2026-01-01',
         readIssues: [],
         stage: AccountStage.Eval,
+        tracking: AccountTracking.Modeled,
         ...overrides,
     };
 }
@@ -487,6 +497,113 @@ describe('previewSnapshotCsv', () => {
                     'the plan cannot be resolved, so the balances cannot be checked: Unknown prop firm "gone-firm"',
                 rowNumber: 2,
             },
+        ]);
+        expect(csvCommitPayload(preview)).toBeNull();
+    });
+
+    it('takes a balance and a floor for a ledger-only account without plan checks, even one far above any modeled size', () => {
+        const ledgerOnly = accountOf(LEDGER_ONLY_ID, 'Ledger', {
+            accountSize: 150_000,
+            planLabel: 'Rapid 150K',
+            planSerial: null,
+            tracking: AccountTracking.LedgerOnly,
+        });
+        const preview = previewSnapshotCsv(
+            'account,asOf,balance,dashboardFloor\nLedger,2026-09-25,2400,145500',
+            [ledgerOnly],
+            NO_STORED_SNAPSHOTS,
+        );
+        expect(csvIssues(preview)).toEqual([]);
+        expect(snapshotCsvWarnings(preview, [ledgerOnly])).toEqual([]);
+        expect(csvCommitPayload(preview)?.[0]).toMatchObject({
+            accountId: LEDGER_ONLY_ID,
+            balanceCents: 240_000,
+            dashboardFloorCents: 14_550_000,
+        });
+    });
+
+    it('takes the payout totals for a ledger-only account, which the payout mismatch rules read without a plan', () => {
+        const ledgerOnly = accountOf(LEDGER_ONLY_ID, 'Ledger', {
+            accountSize: 150_000,
+            planLabel: 'Rapid 150K',
+            planSerial: null,
+            tracking: AccountTracking.LedgerOnly,
+        });
+        const preview = previewSnapshotCsv(
+            'account,asOf,balance,payoutsTaken,cumulativePayout\nLedger,2026-09-25,151000,3,9000',
+            [ledgerOnly],
+            NO_STORED_SNAPSHOTS,
+        );
+        expect(csvIssues(preview)).toEqual([]);
+        expect(csvCommitPayload(preview)?.[0]).toMatchObject({
+            accountId: LEDGER_ONLY_ID,
+            cumulativePayoutCents: 900_000,
+            payoutsTaken: 3,
+        });
+    });
+
+    it.each(
+        SNAPSHOT_CSV_COLUMNS.filter(
+            (column) =>
+                !REQUIRED_SNAPSHOT_CSV_COLUMNS.includes(column) &&
+                column !== SnapshotCsvColumn.LastPayoutOn &&
+                column !== SnapshotCsvColumn.LastTradedOn,
+        ),
+    )(
+        'takes the %s column on a ledger-only row exactly when the shared ledger-only field set holds it',
+        (column) => {
+            const ledgerOnly = accountOf(LEDGER_ONLY_ID, 'Ledger', {
+                externalFirmId: '0b8c7f0e-6f3a-4f55-9a3e-8f4c1d2e3a4b',
+                firmId: null,
+                planLabel: 'Hola Prime 100K',
+                planSerial: null,
+                tracking: AccountTracking.LedgerOnly,
+            });
+            const preview = previewSnapshotCsv(
+                `account,asOf,balance,${column}\nLedger,2026-09-25,101000,1`,
+                [ledgerOnly],
+                NO_STORED_SNAPSHOTS,
+            );
+            const fieldKeys: readonly string[] = Object.values(SnapshotField);
+            const candidates: readonly string[] = [column, `${column}Cents`];
+            const field = candidates.find((key) => fieldKeys.includes(key));
+            expect(field).toBeDefined();
+            expect(csvIssues(preview).map((issue) => issue.column)).toEqual(
+                isLedgerOnlySnapshotField(field ?? '') ? [] : [column],
+            );
+        },
+    );
+
+    it('blocks plan-rule fields on a ledger-only account row, each on its own column', () => {
+        const ledgerOnly = accountOf(LEDGER_ONLY_ID, 'Ledger', {
+            externalFirmId: '0b8c7f0e-6f3a-4f55-9a3e-8f4c1d2e3a4b',
+            firmId: null,
+            planLabel: 'Hola Prime 100K',
+            planSerial: null,
+            tracking: AccountTracking.LedgerOnly,
+        });
+        const preview = previewSnapshotCsv(
+            'account,asOf,balance,highestEodBalance,tradingDays\nLedger,2026-09-25,101000,101500,4',
+            [ledgerOnly],
+            NO_STORED_SNAPSHOTS,
+        );
+        expect(
+            csvIssues(preview).map((issue) => [
+                issue.column,
+                issue.kind,
+                issue.message,
+            ]),
+        ).toEqual([
+            [
+                SnapshotCsvColumn.HighestEodBalance,
+                CsvIssueKind.Plausibility,
+                LEDGER_ONLY_FIELD_MESSAGE,
+            ],
+            [
+                SnapshotCsvColumn.TradingDays,
+                CsvIssueKind.Plausibility,
+                LEDGER_ONLY_FIELD_MESSAGE,
+            ],
         ]);
         expect(csvCommitPayload(preview)).toBeNull();
     });

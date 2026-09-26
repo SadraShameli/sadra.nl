@@ -14,6 +14,7 @@ import {
     type PortfolioLedger,
     signedFeeCents,
 } from './PortfolioLedger';
+import { payoutMultiple } from './PortfolioRoi';
 import {
     ledgerFees,
     ledgerPayouts,
@@ -21,6 +22,11 @@ import {
     monthlyCash,
     summarizeCash,
 } from './SpendAndPayouts';
+
+export const MONTHLY_MULTIPLE_CAVEAT =
+    'calendar months mix purchase cohorts; see By purchase cohort';
+
+const TRAILING_MULTIPLE_MONTHS = 3;
 
 export enum TimelineEntryKind {
     Event = 'event',
@@ -32,10 +38,21 @@ export interface MonthlyStatement {
     readonly months: readonly StatementMonth[];
 }
 
+export interface MonthlyStatementTargets {
+    readonly monthlyPayoutTargetCents: null | number;
+    readonly targetMonthlyMultiple: null | number;
+}
+
 export interface StatementMonth extends MonthlyCash {
     readonly cumulativeNet: UsdCents;
     readonly events: Readonly<Partial<Record<AccountEventKind, number>>>;
     readonly feesByKind: Readonly<Record<FeeKind, UsdCents>>;
+    readonly isPartial: boolean;
+    readonly meetsMultipleTarget: boolean | null;
+    readonly meetsPayoutTarget: boolean | null;
+    readonly multiple: null | number;
+    readonly payoutGrowth: null | number;
+    readonly trailingThreeMonthMultiple: null | number;
 }
 
 export type TimelineEntry =
@@ -62,6 +79,22 @@ interface TimelineEntryBase {
     readonly on: string;
 }
 
+export function earliestActivityMonth(ledger: PortfolioLedger): null | string {
+    const dates = ledger.accounts.map((entry) => entry.row.purchasedOn);
+    return dates.length === 0
+        ? null
+        : isoMonthOf(dates.toSorted(compareText)[0] ?? dates[0] ?? '');
+}
+
+export function filledMonths(
+    earliestMonth: null | string,
+    asOfMonth: string,
+): readonly string[] {
+    return earliestMonth === null || compareText(earliestMonth, asOfMonth) > 0
+        ? []
+        : monthsBetween(earliestMonth, asOfMonth);
+}
+
 export function ledgerTimeline(
     ledger: PortfolioLedger,
 ): readonly TimelineEntry[] {
@@ -75,13 +108,15 @@ export function ledgerTimeline(
         );
 }
 
-export function monthlyStatement(ledger: PortfolioLedger): MonthlyStatement {
+export function monthlyStatement(
+    ledger: PortfolioLedger,
+    asOf: string,
+    targets: MonthlyStatementTargets,
+): MonthlyStatement {
     const fees = ledgerFees(ledger);
+    const payouts = ledgerPayouts(ledger);
     const cashByMonth = new Map(
-        monthlyCash(fees, ledgerPayouts(ledger)).map((cash) => [
-            cash.month,
-            cash,
-        ]),
+        monthlyCash(fees, payouts).map((cash) => [cash.month, cash]),
     );
     const eventsByMonth = new Map<
         string,
@@ -94,26 +129,73 @@ export function monthlyStatement(ledger: PortfolioLedger): MonthlyStatement {
         counts[event.kind] = (counts[event.kind] ?? 0) + 1;
         eventsByMonth.set(month, counts);
     }
+    const asOfMonth = isoMonthOf(asOf);
+    const months = filledMonths(earliestActivityMonth(ledger), asOfMonth);
     let cumulativeNet = 0;
+    const trailingSpend: number[] = [];
+    const trailingPayouts: number[] = [];
+    let previousPayouts: null | number = null;
     return {
-        months: [...new Set([...cashByMonth.keys(), ...eventsByMonth.keys()])]
-            .toSorted(compareText)
-            .map((month) => {
-                const cash = cashByMonth.get(month) ?? {
-                    month,
-                    ...summarizeCash([], []),
-                };
-                cumulativeNet += cash.net;
-                return {
-                    ...cash,
-                    cumulativeNet: usdCents(cumulativeNet),
-                    events: eventsByMonth.get(month) ?? {},
-                    feesByKind: feesByKind(
-                        fees.filter((fee) => isoMonthOf(fee.paidOn) === month),
-                    ),
-                };
-            }),
+        months: months.map((month) => {
+            const cash: MonthlyCash =
+                cashByMonth.get(month) ?? { month, ...summarizeCash([], []) };
+            cumulativeNet += cash.net;
+            trailingSpend.push(cash.spend);
+            trailingPayouts.push(cash.payouts);
+            if (trailingSpend.length > TRAILING_MULTIPLE_MONTHS) {
+                trailingSpend.shift();
+                trailingPayouts.shift();
+            }
+            const growth =
+                previousPayouts === null || previousPayouts === 0
+                    ? null
+                    : (cash.payouts - previousPayouts) / previousPayouts;
+            previousPayouts = cash.payouts;
+            return {
+                ...cash,
+                cumulativeNet: usdCents(cumulativeNet),
+                events: eventsByMonth.get(month) ?? {},
+                feesByKind: feesByKind(
+                    fees.filter((fee) => isoMonthOf(fee.paidOn) === month),
+                ),
+                isPartial: month === asOfMonth,
+                meetsMultipleTarget: meetsMultipleTarget(
+                    payoutMultiple(cash.payouts, cash.spend),
+                    cash.payouts,
+                    targets.targetMonthlyMultiple,
+                ),
+                meetsPayoutTarget: meetsPayoutTarget(
+                    cash.payouts,
+                    targets.monthlyPayoutTargetCents,
+                ),
+                multiple: payoutMultiple(cash.payouts, cash.spend),
+                payoutGrowth: growth,
+                trailingThreeMonthMultiple: payoutMultiple(
+                    usdCents(sum(trailingPayouts)),
+                    usdCents(sum(trailingSpend)),
+                ),
+            };
+        }),
     };
+}
+
+export function monthsBetween(from: string, to: string): readonly string[] {
+    const [fromYear = 0, fromMonth = 1] = from.split('-').map(Number);
+    const [toYear = 0, toMonth = 1] = to.split('-').map(Number);
+    const months: string[] = [];
+    let year = fromYear;
+    let month = fromMonth;
+    while (year < toYear || (year === toYear && month <= toMonth)) {
+        months.push(`${year}-${String(month).padStart(2, '0')}`);
+        month += 1;
+        if (!(month > 12)) {
+            continue;
+        }
+
+        month = 1;
+        year += 1;
+    }
+    return months;
 }
 
 function accountTimeline(entry: LedgerAccount): TimelineEntry[] {
@@ -144,6 +226,29 @@ function accountTimeline(entry: LedgerAccount): TimelineEntry[] {
             status: payout.status,
         })),
     ];
+}
+
+function meetsMultipleTarget(
+    multiple: null | number,
+    payouts: UsdCents,
+    target: null | number,
+): boolean | null {
+    return target === null
+        ? null
+        : multiple === null
+          ? payouts > 0
+          : multiple >= target;
+}
+
+function meetsPayoutTarget(
+    payouts: UsdCents,
+    target: null | number,
+): boolean | null {
+    return target === null ? null : payouts >= target;
+}
+
+function sum(values: readonly number[]): number {
+    return values.reduce((total, value) => total + value, 0);
 }
 
 function timelineRank(kind: TimelineEntryKind): number {

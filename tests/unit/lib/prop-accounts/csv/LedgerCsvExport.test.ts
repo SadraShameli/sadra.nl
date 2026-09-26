@@ -1,7 +1,12 @@
 import Papa from 'papaparse';
 import { describe, expect, it } from 'vitest';
 
-import { FeeKind, PayoutStatus, usdCents } from '~/lib/prop-accounts';
+import {
+    AccountTracking,
+    FeeKind,
+    PayoutStatus,
+    usdCents,
+} from '~/lib/prop-accounts';
 import {
     buildLedgerEntries,
     DEFAULT_LEDGER_FILTERS,
@@ -21,27 +26,39 @@ import {
     type LedgerExportFee,
     type LedgerExportPayout,
 } from '~/lib/prop-accounts/csv';
-import { FirmId } from '~/lib/prop-calculator';
+import { findFirm, FirmId } from '~/lib/prop-calculator';
 
 const USER_ID = 'user-a';
 const ALPHA_ID = '11111111-1111-4111-8111-111111111111';
 const BRAVO_ID = '22222222-2222-4222-8222-222222222222';
 
+const EXTERNAL_FIRM_ID = '0b8c7f0e-6f3a-4f55-9a3e-8f4c1d2e3a4b';
+const CHARLIE_ID = '33333333-3333-4333-8333-333333333333';
+const DELTA_ID = '44444444-4444-4444-8444-444444444444';
+
 const ALPHA: LedgerAccount = {
     archivedAt: null,
+    externalFirmId: null,
     firmId: FirmId.Mffu,
     id: ALPHA_ID,
     label: 'Alpha',
+    planLabel: null,
     planSerial: 'mffu-50000-rapid',
+    tracking: AccountTracking.Modeled,
 };
 
 const BRAVO: LedgerAccount = {
     archivedAt: null,
+    externalFirmId: null,
     firmId: FirmId.TopStep,
     id: BRAVO_ID,
     label: 'Bravo',
+    planLabel: null,
     planSerial: 'topstep-50000-standard',
+    tracking: AccountTracking.Modeled,
 };
+
+const MFFU_LABEL = findFirm(FirmId.Mffu)?.displayName ?? '';
 
 function fee(
     overrides: Partial<LedgerExportFee> & Pick<LedgerExportFee, 'id'>,
@@ -69,6 +86,7 @@ function payout(
 ): LedgerExportPayout {
     return {
         accountId: ALPHA_ID,
+        approvedOn: null,
         grossCents: usdCents(100_000),
         netCents: usdCents(90_000),
         note: null,
@@ -97,14 +115,14 @@ describe('ledgerCsv', () => {
         const text = ledgerCsv(entries);
 
         expect(text.split('\r\n', 1)[0]).toBe(
-            'date,account,firm,plan,entry,kind,status,requestedOn,paidOn,gross,net,amount,cashFlow,note,accountId',
+            'date,account,firm,plan,entry,kind,status,requestedOn,paidOn,gross,net,amount,cashFlow,note,accountId,approvedOn',
         );
         expect(parseRows(text)).toEqual([
             LEDGER_CSV_COLUMNS,
             [
                 '2026-09-10',
                 'Alpha',
-                FirmId.Mffu,
+                MFFU_LABEL,
                 'mffu-50000-rapid',
                 LedgerEntryKind.Payout,
                 '',
@@ -117,11 +135,12 @@ describe('ledgerCsv', () => {
                 LedgerCashFlow.In,
                 '',
                 ALPHA_ID,
+                '',
             ],
             [
                 '2026-09-01',
                 'Alpha',
-                FirmId.Mffu,
+                MFFU_LABEL,
                 'mffu-50000-rapid',
                 LedgerEntryKind.Fee,
                 FeeKind.EvalPurchase,
@@ -134,8 +153,19 @@ describe('ledgerCsv', () => {
                 LedgerCashFlow.Out,
                 '',
                 ALPHA_ID,
+                '',
             ],
         ]);
+    });
+
+    it('carries the payout approval date in its own column', () => {
+        const entries = buildLedgerEntries(
+            [ALPHA],
+            [payout({ approvedOn: '2026-09-09', id: 'p1' })],
+            [],
+        );
+        const [, payoutRow] = parseRows(ledgerCsv(entries));
+        expect(payoutRow?.[15]).toBe('2026-09-09');
     });
 
     it('writes whole dollars without a fraction and keeps every cent', () => {
@@ -231,6 +261,52 @@ describe('ledgerCsv', () => {
         expect(rows.map((row) => [row[1], row[14]])).toEqual([
             ['Alpha', ALPHA_ID],
             ['Alpha (archived)', BRAVO_ID],
+        ]);
+    });
+
+    it('writes a ledger-only account with its firm label and plan label, an external firm by its own name', () => {
+        const charlie: LedgerAccount = {
+            archivedAt: null,
+            externalFirmId: null,
+            firmId: FirmId.Mffu,
+            id: CHARLIE_ID,
+            label: 'Charlie',
+            planLabel: 'Rapid 150K',
+            planSerial: null,
+            tracking: AccountTracking.LedgerOnly,
+        };
+        const delta: LedgerAccount = {
+            archivedAt: null,
+            externalFirmId: EXTERNAL_FIRM_ID,
+            firmId: null,
+            id: DELTA_ID,
+            label: 'Delta',
+            planLabel: 'Hola 100K',
+            planSerial: null,
+            tracking: AccountTracking.LedgerOnly,
+        };
+        const entries = buildLedgerEntries(
+            [charlie, delta],
+            [],
+            [
+                fee({
+                    accountId: CHARLIE_ID,
+                    id: 'f-charlie',
+                    paidOn: '2026-09-02',
+                }),
+                fee({
+                    accountId: DELTA_ID,
+                    id: 'f-delta',
+                    paidOn: '2026-09-01',
+                }),
+            ],
+        );
+        const rows = parseRows(
+            ledgerCsv(entries, [{ id: EXTERNAL_FIRM_ID, name: 'Hola Prime' }]),
+        ).slice(1);
+        expect(rows.map((row) => row.slice(1, 4))).toEqual([
+            ['Charlie', MFFU_LABEL, 'Rapid 150K'],
+            ['Delta', 'Hola Prime', 'Hola 100K'],
         ]);
     });
 
@@ -392,6 +468,7 @@ describe('buildLedgerEntries and filterLedgerEntries', () => {
             LedgerCsvColumn.CashFlow,
             LedgerCsvColumn.Note,
             LedgerCsvColumn.AccountId,
+            LedgerCsvColumn.ApprovedOn,
         ]);
     });
 });

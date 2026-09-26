@@ -14,17 +14,16 @@ const rebuyOnlyPlans = ALL_FIRMS.flatMap((firm) =>
 );
 
 describe('N-12 (WP35): the re-buy-only plans the retry copy names are the plans the engine forces onto the re-buy path', () => {
-    it('are the Apex plans and MFF Builder only', () => {
+    it('are the Apex plans and MFF Builder and Rapid only', () => {
         expect(
             new Set(rebuyOnlyPlans.map((plan) => plan.firmId)),
         ).toStrictEqual(new Set([FirmId.Apex, FirmId.Mffu]));
         const mffRebuyOnly = rebuyOnlyPlans.filter(
             (plan) => plan.firmId === FirmId.Mffu,
         );
-        expect(mffRebuyOnly.length).toBeGreaterThan(0);
-        for (const plan of mffRebuyOnly) {
-            expect(plan.label).toContain('Builder');
-        }
+        expect(new Set(mffRebuyOnly.map((plan) => plan.label))).toStrictEqual(
+            new Set(['$50K · Builder', '$50K · Rapid']),
+        );
     });
 });
 
@@ -49,9 +48,9 @@ describe('N-12 (WP35): the Cash Flow popover discloses how the timeline bills bu
         );
     });
 
-    it('says re-buy-only plans retry at the re-buy, naming only the plans the engine treats that way', () => {
+    it('says re-buy-only plans retry at the re-buy, naming no firm (WP52b)', () => {
         expect(text).toContain(
-            'or at the re-buy when the plan has no reset or every retry on it is a re-buy (Apex, MFF Builder)',
+            'or at the re-buy when the plan has no reset or every retry on it is a re-buy,',
         );
     });
 
@@ -69,13 +68,13 @@ describe('N-12 (WP35): the fees KPI is right for plans where every retry is a re
         );
     });
 
-    it('names the re-buy for re-buy-only plans and the cheaper path for the rest', () => {
+    it('names the re-buy for re-buy-only plans and the cheaper path for the rest, naming no firm (WP52b)', () => {
         expect(text).toContain(
-            'a re-buy on plans where every retry is a re-buy (Apex, MFF Builder), otherwise the cheaper of a reset and a re-buy',
+            'a re-buy on plans where every retry is a re-buy, otherwise the cheaper of a reset and a re-buy',
         );
     });
 
-    it('does not claim every MFF plan retries at the eval price, since non-Builder MFF plans take the cheaper path', () => {
+    it('does not claim every MFF plan retries at the eval price, since MFF Pro and Rapid EOD take the cheaper path', () => {
         expect(text).not.toContain('(Apex, MFF)');
         expect(text).not.toContain('a re-buy at the eval price');
     });

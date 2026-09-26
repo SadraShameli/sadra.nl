@@ -22,4 +22,5 @@ export {
     PropRecordNotFoundError,
     readAccount,
     readEvent,
+    withPlanRulesChanged,
 } from './PropAccountRepo';

@@ -19,7 +19,9 @@ import {
     MffuVariant,
     newFundedCycleTrackerAfterReset,
     PayoutDayGateBasis,
+    PayoutEvaluationKind,
     PayoutFloorEffect,
+    PayoutGate,
     type Plan,
     profitShareMultiplier,
     sessionDaysForCalendarDays,
@@ -1826,5 +1828,85 @@ describe('Lucid Daily EOD 50K payout pins: request-all is a reflecting barrier, 
                 state,
             }),
         ).toBeCloseTo(target.payoutFromProfit(60_000 - BARRIER, 0), 9);
+    });
+});
+
+describe('conclusionGate delegates entirely to plan.conclusionGate, dropping the old ladderStepLookup fallback (PT-46b review finding)', () => {
+    it('cannot construct the capsAtLastStep-with-empty-steps ladder the fallback used to guard, since Plan itself rejects an empty payoutLadder.steps', () => {
+        expect(() =>
+            plan(MffuVariant.RapidEod).withOverrides({
+                payoutLadder: {
+                    capsAtLastStep: true,
+                    minRequestAmount: dollars(1),
+                    steps: [],
+                },
+            }),
+        ).toThrow(/payoutLadder\.steps must not be empty/);
+    });
+
+    it('keeps paying at the last step of a capsAtLastStep ladder well past its step count, never reporting LadderExhausted', () => {
+        const target = plan(MffuVariant.RapidEod).withOverrides({
+            minPayoutProfit: dollars(0),
+            minPayoutProfitPerCycle: dollars(0),
+            minPayoutRequest: dollars(1),
+            payoutLadder: {
+                capsAtLastStep: true,
+                minRequestAmount: dollars(1),
+                steps: [100],
+            },
+        });
+        const state = fundedState(3000, 50_100);
+        const tracker = newFundedCycleTracker(state);
+        tracker.lastPayoutBalance = state.startingBalance;
+        tracker.qualifyingDaysAtLastPayout = 0;
+        tracker.payoutsIssued = 50;
+
+        const evaluation = tracker.evaluatePayout({
+            minRetainedCushion: 0,
+            payoutRequestSize: undefined,
+            plan: target,
+            state,
+        });
+
+        expect(evaluation.kind).toBe(PayoutEvaluationKind.Eligible);
+        if (evaluation.kind !== PayoutEvaluationKind.Eligible) return;
+        expect(evaluation.debited).toBeGreaterThan(0);
+
+        expect(
+            tracker.closeoutCredit({
+                minRetainedCushion: 0,
+                plan: target,
+                state,
+            }),
+        ).toBeGreaterThan(0);
+    });
+
+    it('still blocks with LadderExhausted for a non-capping ladder once every step is spent, matching the dropped fallback exactly', () => {
+        const target = plan(MffuVariant.RapidEod).withOverrides({
+            minPayoutProfit: dollars(0),
+            minPayoutProfitPerCycle: dollars(0),
+            minPayoutRequest: dollars(1),
+            payoutLadder: {
+                minRequestAmount: dollars(1),
+                steps: [100],
+            },
+        });
+        const state = fundedState(3000, 50_100);
+        const tracker = newFundedCycleTracker(state);
+        tracker.lastPayoutBalance = state.startingBalance;
+        tracker.qualifyingDaysAtLastPayout = 0;
+        tracker.payoutsIssued = 1;
+
+        const evaluation = tracker.evaluatePayout({
+            minRetainedCushion: 0,
+            payoutRequestSize: undefined,
+            plan: target,
+            state,
+        });
+
+        expect(evaluation).toStrictEqual({
+            gate: PayoutGate.LadderExhausted,
+            kind: PayoutEvaluationKind.Blocked,
+        });
     });
 });

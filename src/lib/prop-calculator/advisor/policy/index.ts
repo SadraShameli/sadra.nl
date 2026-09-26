@@ -3,12 +3,22 @@ export {
     documentedDayRisk,
     DocumentedPolicyDisclosure,
 } from './DocumentedDayRisk';
-export { toSimInputs } from './documentedPolicySimInputs';
+export {
+    resolveDocumentedPayoutRequestSize,
+    resolveDocumentedPlan,
+    toSimInputs,
+} from './documentedPolicySimInputs';
 export {
     type DocumentedPolicyRun,
     type DocumentedPolicySpec,
     documentedPolicySpecSchema,
 } from './DocumentedPolicySpec';
+export {
+    DOCUMENTED_POLICY_TIMELINE_GAP_TEXT,
+    DOCUMENTED_POLICY_TIMELINE_GAPS,
+    DocumentedPolicyTimelineGap,
+    documentedPolicyTimelineInputs,
+} from './documentedPolicyTimelineInputs';
 export {
     type EnginePolicy,
     enginePolicySchema,

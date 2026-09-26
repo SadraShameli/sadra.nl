@@ -27,8 +27,16 @@ export interface PortfolioRoi {
     readonly elapsedDays: number;
     readonly net: UsdCents;
     readonly netSpend: UsdCents;
+    readonly payoutMultiple: null | number;
     readonly since: null | string;
     readonly total: Roi;
+}
+
+export function payoutMultiple(
+    payouts: UsdCents,
+    spend: UsdCents,
+): null | number {
+    return spend === 0 ? null : payouts / spend;
 }
 
 export function portfolioRoi(
@@ -58,6 +66,7 @@ export function portfolioRoi(
         elapsedDays,
         net: cash.net,
         netSpend: cash.spend,
+        payoutMultiple: payoutMultiple(cash.payouts, cash.spend),
         since,
         total: totalRoiOnCost(cash.net, cash.spend),
     };

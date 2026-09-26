@@ -6,6 +6,7 @@ import {
     CENTS_PER_DOLLAR,
     type ContractCount,
     contractLimitAt,
+    contractsAtStop,
     dollars,
     type Dollars,
     formatOneContractRisk,
@@ -14,7 +15,6 @@ import {
     type InstrumentSpec,
     type InstrumentSymbol,
     minStopPoints,
-    oneContractRisk,
     type Plan,
     points,
     type Points,
@@ -24,7 +24,6 @@ import {
     type TierProfitContext,
     type TradingFirm,
     TradingPhase,
-    wholeContractCount,
 } from '~/lib/prop-calculator';
 
 export enum PositionSizeOutcome {
@@ -122,26 +121,20 @@ export function positionSizeFor(input: PositionSizeInput): PositionSizeResult {
         instrument,
         stopPoints: input.stopPoints,
     };
-    const fittingContracts = wholeContractCount(risk, positionSizing);
     const cap = contractCap(input, positionSizing);
-    const isCapped = cap !== null && fittingContracts > cap;
-    const placedContracts = isCapped ? cap : fittingContracts;
+    const sized = contractsAtStop(risk, positionSizing, cap);
+    const { contracts: placedContracts, fittingContracts, isCapped } = sized;
     const minStopAtCap = pointsOrNull(
         cap === null ? null : minStopPoints(risk, cap, instrument.pointValue),
     );
     const exactRiskStop = exactRiskStopFor(risk, placedContracts, instrument);
-    const placedRiskCents = Math.round(
-        placedContracts * oneContractRisk(positionSizing) * CENTS_PER_DOLLAR,
-    );
     const outcome = outcomeOf(fittingContracts, isCapped, phase);
     return {
         cap,
         contracts: placedContracts,
         exactRiskStop,
         fittingContracts,
-        leftover: isCapped
-            ? null
-            : dollars((wholeCents(risk) - placedRiskCents) / CENTS_PER_DOLLAR),
+        leftover: isCapped ? null : dollars(sized.leftover),
         minStopAtCap,
         notes: [
             ...belowOneContractNotes(outcome, risk, positionSizing),
@@ -156,9 +149,7 @@ export function positionSizeFor(input: PositionSizeInput): PositionSizeResult {
         ],
         oneContractRiskText: formatOneContractRisk(positionSizing),
         outcome,
-        placedRisk: isCapped
-            ? null
-            : dollars(placedRiskCents / CENTS_PER_DOLLAR),
+        placedRisk: isCapped ? null : dollars(sized.placedRisk),
         positionSizing,
         refusal:
             outcome === PositionSizeOutcome.BelowOneContractRefused

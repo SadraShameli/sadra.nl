@@ -4,6 +4,11 @@ export enum InstrumentSymbol {
     NQ = 'NQ',
 }
 
+export enum Underlying {
+    Nasdaq100 = 'nasdaq100',
+    SP500 = 'sp500',
+}
+
 export interface InstrumentSpec {
     readonly isMicro: boolean;
     readonly label: string;
@@ -11,6 +16,7 @@ export interface InstrumentSpec {
     readonly symbol: InstrumentSymbol;
     readonly tickSize: number;
     readonly tickValue: number;
+    readonly underlying: Underlying;
 }
 
 export const INSTRUMENTS: Readonly<Record<InstrumentSymbol, InstrumentSpec>> = {
@@ -21,6 +27,7 @@ export const INSTRUMENTS: Readonly<Record<InstrumentSymbol, InstrumentSpec>> = {
         symbol: InstrumentSymbol.ES,
         tickSize: 0.25,
         tickValue: 12.5,
+        underlying: Underlying.SP500,
     },
     [InstrumentSymbol.MNQ]: {
         isMicro: true,
@@ -29,6 +36,7 @@ export const INSTRUMENTS: Readonly<Record<InstrumentSymbol, InstrumentSpec>> = {
         symbol: InstrumentSymbol.MNQ,
         tickSize: 0.25,
         tickValue: 0.5,
+        underlying: Underlying.Nasdaq100,
     },
     [InstrumentSymbol.NQ]: {
         isMicro: false,
@@ -37,6 +45,7 @@ export const INSTRUMENTS: Readonly<Record<InstrumentSymbol, InstrumentSpec>> = {
         symbol: InstrumentSymbol.NQ,
         tickSize: 0.25,
         tickValue: 5,
+        underlying: Underlying.Nasdaq100,
     },
 };
 
@@ -45,3 +54,14 @@ export const ALL_INSTRUMENTS: readonly InstrumentSpec[] = [
     INSTRUMENTS[InstrumentSymbol.MNQ],
     INSTRUMENTS[InstrumentSymbol.ES],
 ];
+
+export function siblingInstrumentOf(
+    symbol: InstrumentSymbol,
+): InstrumentSpec | null {
+    const { underlying } = INSTRUMENTS[symbol];
+    return (
+        ALL_INSTRUMENTS.find(
+            (spec) => spec.symbol !== symbol && spec.underlying === underlying,
+        ) ?? null
+    );
+}

@@ -7,6 +7,7 @@ import {
     AccountReadIssueKind,
     AccountStage,
     AccountStatus,
+    BustCause,
     type LedgerEventRow,
     LifecycleRejection,
     type PlanKey,
@@ -49,12 +50,14 @@ import {
     accountUpdateInput,
     callerFor,
     defined,
+    emptyReadsOf,
     errorShapeOf,
     eventRow,
     IDS,
     insertsInto,
     INSTANT_ENTRY,
     isCount,
+    ledgerOnlyAccountRow,
     mutationRejection,
     planKeyFields,
     propWrites,
@@ -597,6 +600,264 @@ describe('propAccounts.event.record', () => {
             ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
         }
         expect(queries).toHaveLength(0);
+    });
+});
+
+function ledgerOnlyCaller(row: FakeRow = ledgerOnlyAccountRow()) {
+    return callerFor(
+        SIGNED_IN,
+        emptyReadsOf(
+            [TABLES.event],
+            tableResponder({ [TABLES.account]: [row] }),
+        ),
+    );
+}
+
+function storedDetailOf(queries: ReturnType<typeof callerFor>['queries']) {
+    const [insert] = insertsInto(queries, TABLES.event);
+    const [raw] = insertedColumnValues(defined(insert), 'detail');
+    return typeof raw === 'string' ? (JSON.parse(raw) as unknown) : raw;
+}
+
+describe('propAccounts.event.record bust cause', () => {
+    it('stores the bust cause of a Busted event in the event detail', async () => {
+        const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
+        await caller.event.record({
+            accountId: IDS.account,
+            bustCause: BustCause.DailyLossLimit,
+            kind: AccountEventKind.Busted,
+            note: 'hit the daily stop',
+            occurredOn: '2026-09-21',
+        });
+        const detail = storedDetailOf(queries);
+        expect(detail).toMatchObject({
+            bustCause: BustCause.DailyLossLimit,
+            note: 'hit the daily stop',
+        });
+        expect(readAccountEventDetail(detail).bustCause).toBe(
+            BustCause.DailyLossLimit,
+        );
+    });
+
+    it('stores no bust cause when none is given', async () => {
+        const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
+        await caller.event.record({
+            accountId: IDS.account,
+            kind: AccountEventKind.Busted,
+            occurredOn: '2026-09-21',
+        });
+        expect(storedDetailOf(queries)).not.toHaveProperty('bustCause');
+    });
+
+    it('rejects a bust cause on any other kind before touching the database', async () => {
+        const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
+        await expect(
+            caller.event.record({
+                accountId: IDS.account,
+                bustCause: BustCause.MaxDrawdown,
+                kind: AccountEventKind.EvalPassed,
+                occurredOn: '2026-09-21',
+            }),
+        ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+        expect(queries).toHaveLength(0);
+    });
+});
+
+describe('propAccounts.event.record on a ledger-only account', () => {
+    it.each([
+        {
+            kind: AccountEventKind.Busted,
+            status: AccountStatus.Busted,
+        },
+        {
+            kind: AccountEventKind.Closed,
+            status: AccountStatus.Closed,
+        },
+        {
+            kind: AccountEventKind.Concluded,
+            status: AccountStatus.Concluded,
+        },
+    ] as const)(
+        'records $kind without a plan, so the account stops counting as active',
+        async ({ kind, status }) => {
+            const { caller, queries } = ledgerOnlyCaller();
+            await caller.event.record({
+                accountId: IDS.account,
+                kind,
+                occurredOn: '2026-09-21',
+            });
+            const load = queries.find(
+                (query) =>
+                    readTable(query) === TABLES.account && !isCount(query),
+            );
+            expect(load?.text).toMatch(/ for update$/);
+            const [update] = updatesOf(queries, TABLES.account);
+            assertUserScopedWhere(defined(update), USER_ID);
+            expect(update?.params).toEqual(
+                expect.arrayContaining([status, IDS.account]),
+            );
+            const [insert] = insertsInto(queries, TABLES.event);
+            expect(insertedColumnValues(defined(insert), 'kind')).toEqual([
+                kind,
+            ]);
+            expect(insertedColumnValues(defined(insert), 'user_id')).toEqual([
+                USER_ID,
+            ]);
+            expect(transactionSteps(queries)).toEqual([
+                TransactionStep.Begin,
+                TransactionStep.Commit,
+            ]);
+        },
+    );
+
+    it('stores a bust cause on a ledger-only bust too', async () => {
+        const { caller, queries } = ledgerOnlyCaller();
+        await caller.event.record({
+            accountId: IDS.account,
+            bustCause: BustCause.MaxDrawdown,
+            kind: AccountEventKind.Busted,
+            occurredOn: '2026-09-21',
+        });
+        expect(storedDetailOf(queries)).toMatchObject({
+            bustCause: BustCause.MaxDrawdown,
+        });
+    });
+
+    it('passes an evaluation and moves a funded account live without plan checks', async () => {
+        const evaluation = ledgerOnlyCaller(
+            ledgerOnlyAccountRow({ stage: AccountStage.Eval }),
+        );
+        await evaluation.caller.event.record({
+            accountId: IDS.account,
+            kind: AccountEventKind.EvalPassed,
+            occurredOn: '2026-09-21',
+        });
+        expect(
+            updatesOf(evaluation.queries, TABLES.account)[0]?.params,
+        ).toEqual(expect.arrayContaining([AccountStage.Funded]));
+        const funded = ledgerOnlyCaller(
+            ledgerOnlyAccountRow({
+                live_start_balance_cents: UNDOCUMENTED_LIVE_START_CENTS,
+            }),
+        );
+        await funded.caller.event.record({
+            accountId: IDS.account,
+            kind: AccountEventKind.MovedLive,
+            occurredOn: '2026-09-21',
+        });
+        expect(updatesOf(funded.queries, TABLES.account)[0]?.params).toEqual(
+            expect.arrayContaining([AccountStage.Live]),
+        );
+    });
+
+    it('still applies the lifecycle: a second bust is rejected with its typed reason and writes nothing', async () => {
+        const { caller, queries } = ledgerOnlyCaller(
+            ledgerOnlyAccountRow({ status: AccountStatus.Busted }),
+        );
+        const shape = errorShapeOf(
+            await rejectionOf(
+                caller.event.record({
+                    accountId: IDS.account,
+                    kind: AccountEventKind.Busted,
+                    occurredOn: '2026-09-21',
+                }),
+            ),
+        );
+        expect(shape.data.code).toBe('BAD_REQUEST');
+        expect(shape.data.propRejection).toEqual(
+            mutationRejection(
+                PropMutationRejection.LifecycleTransition,
+                LifecycleRejection.NotActive,
+            ),
+        );
+        expect(propWrites(queries)).toHaveLength(0);
+    });
+
+    it('refuses a funded reset, which needs plan rules, and says how to record the reinstatement instead', async () => {
+        const { caller, queries } = ledgerOnlyCaller(
+            ledgerOnlyAccountRow({ status: AccountStatus.Busted }),
+        );
+        const shape = errorShapeOf(
+            await rejectionOf(
+                caller.event.record({
+                    accountId: IDS.account,
+                    kind: AccountEventKind.FundedReset,
+                    occurredOn: '2026-09-21',
+                }),
+            ),
+        );
+        expect(shape.data.code).toBe('BAD_REQUEST');
+        expect(shape.data.propRejection).toEqual(
+            mutationRejection(
+                PropMutationRejection.LifecycleTransition,
+                LifecycleRejection.FundedResetNotOffered,
+            ),
+        );
+        expect(shape.message).toMatch(/ledger-only/i);
+        expect(shape.message).toMatch(/bust reversal/);
+        expect(shape.message).not.toMatch(/This plan/);
+        expect(propWrites(queries)).toHaveLength(0);
+    });
+
+    it.each([AccountStage.Funded, AccountStage.Live])(
+        'bounds an event on a %s ledger-only account by its funded date like a modeled account, reading the recorded pass by user',
+        async (stage) => {
+            const { caller, queries } = ledgerOnlyCaller(
+                ledgerOnlyAccountRow({ funded_on: '2026-09-15', stage }),
+            );
+            const shape = errorShapeOf(
+                await rejectionOf(
+                    caller.event.record({
+                        accountId: IDS.account,
+                        kind: AccountEventKind.Busted,
+                        occurredOn: '2026-09-10',
+                    }),
+                ),
+            );
+            expect(shape.data.code).toBe('BAD_REQUEST');
+            expect(shape.message).toMatch(/2026-09-15/);
+            expect(shape.data.propRejection).toEqual(
+                mutationRejection(PropMutationRejection.OutOfOrderEvent),
+            );
+            expect(propWrites(queries)).toHaveLength(0);
+            const passQuery = queries.find(
+                (query) =>
+                    readTable(query) === TABLES.event &&
+                    query.params.includes(AccountEventKind.EvalPassed),
+            );
+            assertUserScopedWhere(defined(passQuery), USER_ID);
+            expect(passQuery?.params).toContain(IDS.account);
+        },
+    );
+
+    it('accepts an event on the funded date of a Funded ledger-only account', async () => {
+        const { caller } = ledgerOnlyCaller(
+            ledgerOnlyAccountRow({ funded_on: '2026-09-15' }),
+        );
+        await expect(
+            caller.event.record({
+                accountId: IDS.account,
+                kind: AccountEventKind.Busted,
+                occurredOn: '2026-09-15',
+            }),
+        ).resolves.toBeDefined();
+    });
+
+    it('still keeps events in date order: an event before the purchase date is rejected and writes nothing', async () => {
+        const { caller, queries } = ledgerOnlyCaller();
+        const shape = errorShapeOf(
+            await rejectionOf(
+                caller.event.record({
+                    accountId: IDS.account,
+                    kind: AccountEventKind.Busted,
+                    occurredOn: '2026-08-20',
+                }),
+            ),
+        );
+        expect(shape.data.propRejection).toEqual(
+            mutationRejection(PropMutationRejection.OutOfOrderEvent),
+        );
+        expect(propWrites(queries)).toHaveLength(0);
     });
 });
 

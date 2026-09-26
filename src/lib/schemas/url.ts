@@ -90,39 +90,6 @@ export const dayPolicySchema = z.object({
     stopRule: dayStopRuleSchema,
 });
 
-export const labScenarioSchema = z
-    .object({
-        accounts: z.number().int().positive(),
-        correlation: z.enum(CorrelationMode),
-        dayStop: dayStopRuleSchema,
-        groups: z.number().int().positive(),
-        id: z.string(),
-        instrument: z.enum(InstrumentSymbol).nullable().catch(null),
-        label: z.string(),
-        riskPerTrade: z.number(),
-        rrRatio: z.number(),
-        stopPoints: z.number().nullable().catch(null),
-        tradesPerDay: z.number(),
-        winrate: z.number(),
-    })
-    .refine((scenario) => scenario.groups <= scenario.accounts, {
-        path: ['groups'],
-    });
-
-export const portfolioEntrySchema = z.object({
-    activationDiscountPercent: z.number(),
-    count: z.number().int().positive(),
-    evalDiscountPercent: z.number(),
-    firmId: z.string(),
-    id: z.string(),
-    instrument: z.enum(InstrumentSymbol).nullable().catch(null),
-    linkActivationDiscount: z.boolean(),
-    monthlySubscriptionDiscountPercent: z.number().catch(0),
-    planId: z.string(),
-    resetDiscountPercent: z.number().catch(0),
-    stopPoints: z.number().nullable().catch(null),
-});
-
 export const savedScenarioRecordSchema = z.object({
     name: z.string(),
     params: z.string(),
@@ -171,10 +138,83 @@ export const CALCULATOR_SCALAR_BOUNDS = {
 const COPY_ACCOUNTS_URL_CEILING = bound(1, 1, 20, true);
 const RISK_DOLLARS_URL_CEILING = bound(250, 1, 1_000_000, false);
 
+export const LAB_SCENARIO_BOUNDS = {
+    accounts: COPY_ACCOUNTS_URL_CEILING,
+    riskPerTrade: RISK_DOLLARS_URL_CEILING,
+} as const satisfies Record<string, ScalarBound>;
+
+export const MAX_LAB_SCENARIOS = 20;
+
 function schemaFromBound({ fallback, isInteger, max, min }: ScalarBound) {
     const base = z.coerce.number().min(min).max(max);
     return (isInteger ? base.transform(Math.floor) : base).catch(fallback);
 }
+
+function strictSchemaFromBound({ isInteger, max, min }: ScalarBound) {
+    const base = z.number().min(min).max(max);
+    return isInteger ? base.int() : base;
+}
+
+export const INSTRUMENT_STOP_PAIR_RULE =
+    'instrument and stop points must both be set or both be empty';
+
+interface InstrumentStop {
+    instrument: InstrumentSymbol | null;
+    stopPoints: null | number;
+}
+
+function hasPairedStop({ instrument, stopPoints }: InstrumentStop): boolean {
+    return (instrument === null) === (stopPoints === null);
+}
+
+const wireInstrumentSchema = z.enum(InstrumentSymbol).nullable().default(null);
+const wireStopPointsSchema = strictSchemaFromBound(CALCULATOR_SCALAR_BOUNDS.sp)
+    .nullable()
+    .default(null);
+
+export const labScenarioSchema = z
+    .object({
+        accounts: strictSchemaFromBound(LAB_SCENARIO_BOUNDS.accounts),
+        correlation: z.enum(CorrelationMode),
+        dayStop: dayStopRuleSchema,
+        groups: z.number().int().positive(),
+        id: z.string(),
+        instrument: wireInstrumentSchema,
+        label: z.string(),
+        riskPerTrade: strictSchemaFromBound(LAB_SCENARIO_BOUNDS.riskPerTrade),
+        rrRatio: strictSchemaFromBound(CALCULATOR_SCALAR_BOUNDS.rr),
+        stopPoints: wireStopPointsSchema,
+        tradesPerDay: strictSchemaFromBound(CALCULATOR_SCALAR_BOUNDS.tpd),
+        winrate: strictSchemaFromBound(CALCULATOR_SCALAR_BOUNDS.wr),
+    })
+    .refine((scenario) => scenario.groups <= scenario.accounts, {
+        path: ['groups'],
+    })
+    .refine(hasPairedStop, { message: INSTRUMENT_STOP_PAIR_RULE });
+
+export const portfolioEntrySchema = z
+    .object({
+        activationDiscountPercent: strictSchemaFromBound(
+            CALCULATOR_SCALAR_BOUNDS.act,
+        ),
+        count: z.number().int().positive(),
+        evalDiscountPercent: strictSchemaFromBound(
+            CALCULATOR_SCALAR_BOUNDS.eval,
+        ),
+        firmId: z.string(),
+        id: z.string(),
+        instrument: wireInstrumentSchema,
+        linkActivationDiscount: z.boolean(),
+        monthlySubscriptionDiscountPercent: strictSchemaFromBound(
+            CALCULATOR_SCALAR_BOUNDS.msub,
+        ).default(0),
+        planId: z.string(),
+        resetDiscountPercent: strictSchemaFromBound(
+            CALCULATOR_SCALAR_BOUNDS.rstd,
+        ).default(0),
+        stopPoints: wireStopPointsSchema,
+    })
+    .refine(hasPairedStop, { message: INSTRUMENT_STOP_PAIR_RULE });
 
 export const calculatorScalarFieldsSchema = z.object({
     act: schemaFromBound(CALCULATOR_SCALAR_BOUNDS.act),

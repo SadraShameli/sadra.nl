@@ -12,6 +12,7 @@ import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 import {
     accountFor,
     alertsOf,
+    ledgerOnlyAccountFor,
     planWhere,
     snapshotFor,
     WEDNESDAY,
@@ -127,6 +128,20 @@ describe('EvalDayCapRule', () => {
 
     it('counts no sessions for a purchase dated after today', () => {
         expect(alertsAt(0, { purchasedOn: '2026-10-05' })).toEqual([]);
+    });
+
+    it('skips a ledger-only eval account, which has no plan cap to count against', () => {
+        const account = ledgerOnlyAccountFor(CAPPED, {
+            purchasedOn: '2026-01-05',
+            stage: AccountStage.Eval,
+        });
+        expect(
+            alertsOf(rule, {
+                accounts: [account],
+                snapshots: [snapshotFor(account, { tradingDays: 500 })],
+                today: WEDNESDAY,
+            }),
+        ).toEqual([]);
     });
 
     it('applies only to eval accounts on plans with an eval day cap', () => {

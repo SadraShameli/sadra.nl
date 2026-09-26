@@ -1,0 +1,9 @@
+ALTER TABLE "sadranl_prop_account" ALTER COLUMN "firm_id" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "sadranl_prop_account" ALTER COLUMN "plan_serial" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "sadranl_prop_account" ADD COLUMN "external_firm_id" uuid;--> statement-breakpoint
+ALTER TABLE "sadranl_prop_account" ADD COLUMN "plan_label" varchar(64);--> statement-breakpoint
+ALTER TABLE "sadranl_prop_account" ADD COLUMN "tracking" varchar(32) DEFAULT 'modeled' NOT NULL;--> statement-breakpoint
+ALTER TABLE "sadranl_prop_account" ADD CONSTRAINT "prop_account_external_firm_fk" FOREIGN KEY ("external_firm_id","user_id") REFERENCES "public"."sadranl_prop_external_firm"("id","user_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "prop_account_external_firm_idx" ON "sadranl_prop_account" USING btree ("external_firm_id","user_id") WHERE external_firm_id IS NOT NULL;--> statement-breakpoint
+ALTER TABLE "sadranl_prop_account" ADD CONSTRAINT "prop_account_tracking_shape_ck" CHECK (("sadranl_prop_account"."tracking" = 'modeled' AND "sadranl_prop_account"."firm_id" IS NOT NULL AND "sadranl_prop_account"."plan_serial" IS NOT NULL AND "sadranl_prop_account"."external_firm_id" IS NULL AND "sadranl_prop_account"."plan_label" IS NULL) OR ("sadranl_prop_account"."tracking" = 'ledger-only' AND "sadranl_prop_account"."plan_serial" IS NULL AND "sadranl_prop_account"."plan_label" IS NOT NULL AND ("sadranl_prop_account"."firm_id" IS NULL) <> ("sadranl_prop_account"."external_firm_id" IS NULL)));--> statement-breakpoint
+ALTER TABLE "sadranl_prop_account" ADD CONSTRAINT "prop_account_plan_label_ck" CHECK ("sadranl_prop_account"."plan_label" IS NULL OR char_length("sadranl_prop_account"."plan_label") > 0);

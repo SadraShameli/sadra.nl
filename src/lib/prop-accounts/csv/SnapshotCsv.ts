@@ -7,14 +7,18 @@ import type {
 
 import {
     accountStageOn,
+    AccountTracking,
     checkSnapshotEntry,
     describeUnresolvedPlan,
+    isLedgerOnlySnapshotField,
+    LEDGER_ONLY_SNAPSHOT_FIELD_LIST,
     NO_RECORDED_STAGE_STARTS,
     type PlanKeyInput,
     PlanKeyResolutionKind,
     resolvePlanKey,
     snapshotEntryIssueMessage,
     SnapshotSource,
+    trackedAccountOf,
 } from '~/lib/prop-accounts/core';
 import {
     SnapshotInputField,
@@ -63,14 +67,17 @@ export type SnapshotCsvAccount = Pick<PlanKeyInput, 'optIns' | 'readIssues'> &
         | 'accountSize'
         | 'archivedAt'
         | 'dashboardConvention'
+        | 'externalFirmId'
         | 'firmId'
         | 'fundedOn'
         | 'id'
         | 'label'
         | 'liveStartBalanceCents'
+        | 'planLabel'
         | 'planSerial'
         | 'purchasedOn'
         | 'stage'
+        | 'tracking'
     >;
 
 export type SnapshotCsvPreview = CsvPreview<
@@ -117,6 +124,8 @@ export const SNAPSHOT_CSV_COLUMNS: readonly SnapshotCsvColumn[] = [
     SnapshotCsvColumn.EvalBestDayProfit,
     SnapshotCsvColumn.LastTradedOn,
 ];
+
+const LEDGER_ONLY_FIELD_MESSAGE = `a ledger-only account takes only ${LEDGER_ONLY_SNAPSHOT_FIELD_LIST}; this field feeds plan rules it does not have`;
 
 const UNRESOLVED_PLAN_MESSAGE =
     'the plan cannot be resolved, so the balances cannot be checked';
@@ -267,6 +276,29 @@ function columnOfField(
     return match === undefined ? null : match[0];
 }
 
+function ledgerOnlyPlausibility(
+    rowNumber: number,
+    snapshot: SnapshotImportRow,
+): RowPlausibility {
+    return {
+        blocking: SNAPSHOT_CSV_COLUMNS.flatMap((column) =>
+            column === SnapshotCsvColumn.Account ||
+            isLedgerOnlySnapshotField(SNAPSHOT_FIELDS[column]) ||
+            snapshot[SNAPSHOT_FIELDS[column]] === null
+                ? []
+                : [
+                      {
+                          column,
+                          kind: CsvIssueKind.Plausibility,
+                          message: LEDGER_ONLY_FIELD_MESSAGE,
+                          rowNumber,
+                      },
+                  ],
+        ),
+        warnings: [],
+    };
+}
+
 function plausibilityCsvIssue(
     rowNumber: number,
     issue: SnapshotPlausibilityIssue,
@@ -358,9 +390,13 @@ function readSnapshotRow(
 
 function rowPlausibility(
     rowNumber: number,
-    account: SnapshotCsvAccount,
+    stored: SnapshotCsvAccount,
     snapshot: SnapshotImportRow,
 ): RowPlausibility {
+    const account = trackedAccountOf(stored);
+    if (account.tracking === AccountTracking.LedgerOnly) {
+        return ledgerOnlyPlausibility(rowNumber, snapshot);
+    }
     const resolution = resolvePlanKey(account);
     if (resolution.kind === PlanKeyResolutionKind.Unresolved) {
         return {

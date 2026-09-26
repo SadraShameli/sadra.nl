@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
     AccountStage,
+    AccountTracking,
     DashboardBalanceConvention,
     describeLifecycleRejection,
     LifecycleRejection,
@@ -22,6 +23,8 @@ import {
 } from '~/lib/prop-accounts/csv';
 import {
     ALL_FIRMS,
+    FirmId,
+    NO_PLAN_OPT_INS,
     type Plan,
     serializePlanId,
     type TradingFirm,
@@ -40,6 +43,11 @@ const REGISTRY: readonly RegistryEntry[] = ALL_FIRMS.flatMap((firm) =>
 
 const HEADER =
     'label,firm,plan,accountSize,stage,purchasedOn,fundedOn,fundedReset,dashboardConvention,tags,maxRiskPerTrade,liveStartBalance,notes';
+
+const LEDGER_HEADER = 'label,firm,plan,accountSize,stage,purchasedOn,tracking';
+
+const EXTERNAL_FIRM_ID = '0b8c7f0e-6f3a-4f55-9a3e-8f4c1d2e3a4b';
+const OTHER_EXTERNAL_FIRM_ID = '5d1e2f3a-4b5c-4d6e-8f70-81a2b3c4d5e6';
 
 function csv(...rows: string[]): string {
     return [HEADER, ...rows].join('\r\n');
@@ -134,8 +142,95 @@ describe('previewAccountCsv', () => {
                 replacesAccountId: null,
                 stage: AccountStage.Funded,
                 tags: ['copy', 'apex'],
+                tracking: AccountTracking.Modeled,
             },
         ]);
+    });
+
+    it('imports a ledger-only row: the plan column holds its plan label and any positive whole-dollar size is accepted', () => {
+        const preview = previewAccountCsv(
+            [
+                LEDGER_HEADER,
+                'Rapid 150K,MFFU,Rapid 150K,150000,funded,2026-09-01,ledger-only',
+            ].join('\r\n'),
+            [],
+        );
+        expect(issuesOf(preview)).toEqual([]);
+        expect(csvCommitPayload(preview)).toEqual([
+            {
+                accountSize: 150_000,
+                copyGroupId: null,
+                dashboardConvention: DashboardBalanceConvention.Nominal,
+                externalAlias: null,
+                externalFirmId: null,
+                firmId: FirmId.Mffu,
+                firstFundedTradeOn: null,
+                fundedOn: null,
+                label: 'Rapid 150K',
+                liveStartBalanceCents: null,
+                notes: null,
+                optIns: NO_PLAN_OPT_INS,
+                personalRules: {},
+                planLabel: 'Rapid 150K',
+                purchasedOn: '2026-09-01',
+                replacesAccountId: null,
+                stage: AccountStage.Funded,
+                tags: [],
+                tracking: AccountTracking.LedgerOnly,
+            },
+        ]);
+    });
+
+    it('resolves a ledger-only firm name to one of the caller own firms, ignoring letter case', () => {
+        const preview = previewAccountCsv(
+            [
+                LEDGER_HEADER,
+                'Hola one,hola prime,100K Flex,100000,funded,2026-09-01,ledger-only',
+            ].join('\r\n'),
+            [],
+            [
+                { id: EXTERNAL_FIRM_ID, name: 'Hola Prime' },
+                { id: OTHER_EXTERNAL_FIRM_ID, name: 'Funded Seat' },
+            ],
+        );
+        expect(issuesOf(preview)).toEqual([]);
+        expect(csvCommitPayload(preview)?.[0]).toMatchObject({
+            externalFirmId: EXTERNAL_FIRM_ID,
+            firmId: null,
+            planLabel: '100K Flex',
+            tracking: AccountTracking.LedgerOnly,
+        });
+    });
+
+    it('flags a ledger-only firm that is neither listed nor one of the caller own firms, and an opt-in on a ledger-only row', () => {
+        const preview = previewAccountCsv(
+            [
+                `${LEDGER_HEADER},fundedReset`,
+                'Unknown,Nowhere Futures,100K,100000,funded,2026-09-01,ledger-only,',
+                'Opted,apex,100K,100000,funded,2026-09-01,ledger-only,yes',
+            ].join('\r\n'),
+            [],
+            [{ id: EXTERNAL_FIRM_ID, name: 'Hola Prime' }],
+        );
+        expect(
+            issuesOf(preview).map((issue) => [
+                issue.rowNumber,
+                issue.column,
+                issue.message,
+            ]),
+        ).toEqual([
+            [
+                2,
+                AccountCsvColumn.Firm,
+                'no listed firm and none of your own firms is named "Nowhere Futures"; add the firm first',
+            ],
+            [
+                3,
+                AccountCsvColumn.FundedReset,
+                'opt-ins apply to modeled plans only; leave it empty on a ledger-only row',
+            ],
+        ]);
+        expect(csvCommitPayload(preview)).toBeNull();
     });
 
     it('reports schema errors per row with the spreadsheet row number and the column', () => {

@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
     accountFirmOptions,
     accountOptInOptions,
+    AccountPlanIntent,
+    AccountPlanMode,
     accountPlanOptions,
     AccountPlanTag,
     accountSizeOptions,
@@ -16,6 +18,7 @@ import {
     personalPayoutOverrideNotice,
     personalRulesToText,
     planTagLabel,
+    upgradePlanSelection,
     usdCentsToText,
 } from '~/app/(app)/prop-calculator/accounts/_components/accountPlanOptions';
 import * as accountPlanOptionsModule from '~/app/(app)/prop-calculator/accounts/_components/accountPlanOptions';
@@ -108,6 +111,17 @@ describe('accountPlanOptions', () => {
         expect(option?.tags).toContain(AccountPlanTag.CallUpOnly);
     });
 
+    it('tags a discontinued plan (PT-71b, FundedNext FNL:003 Expired on the Labs page) but still offers it, for an existing account', () => {
+        const { firm, plan } = findFirmPlan(
+            (p) => p.availability === PlanAvailability.Discontinued,
+        );
+        const option = accountPlanOptions(firm).find(
+            (o) => o.planSerial === serializePlanId(plan.id),
+        );
+        expect(option).toBeDefined();
+        expect(option?.tags).toContain(AccountPlanTag.Discontinued);
+    });
+
     it('tags a plan exactly by its own flags', () => {
         for (const { firm, plan } of ALL_FIRM_PLANS) {
             const option = accountPlanOptions(firm).find(
@@ -119,6 +133,9 @@ describe('accountPlanOptions', () => {
             expect(option?.tags.includes(AccountPlanTag.CallUpOnly)).toBe(
                 plan.availability === PlanAvailability.CallUpOnly,
             );
+            expect(option?.tags.includes(AccountPlanTag.Discontinued)).toBe(
+                plan.availability === PlanAvailability.Discontinued,
+            );
         }
     });
 
@@ -127,6 +144,51 @@ describe('accountPlanOptions', () => {
         expect(planTagLabel(AccountPlanTag.InstantFunded)).toBe(
             'instant funded',
         );
+        expect(planTagLabel(AccountPlanTag.Discontinued)).toBe(
+            'no longer sold',
+        );
+    });
+
+    it('leaves a discontinued plan (PT-71b, FundedNext FNL:003) out of a new purchase (PT-71e)', () => {
+        const { firm, plan } = findFirmPlan(
+            (p) => p.availability === PlanAvailability.Discontinued,
+        );
+        const options = accountPlanOptions(firm, AccountPlanIntent.NewPurchase);
+        expect(
+            options.some(
+                (option) => option.planSerial === serializePlanId(plan.id),
+            ),
+        ).toBe(false);
+    });
+
+    it('offers every other plan of the firm for a new purchase, unfiltered by any other flag', () => {
+        for (const firm of ALL_FIRMS) {
+            const newPurchase = accountPlanOptions(
+                firm,
+                AccountPlanIntent.NewPurchase,
+            );
+            const expected = firm.plans.filter(
+                (plan) => plan.availability !== PlanAvailability.Discontinued,
+            );
+            expect(newPurchase.map((option) => option.planSerial)).toEqual(
+                expected.map((plan) => serializePlanId(plan.id)),
+            );
+        }
+    });
+
+    it('keeps offering a discontinued plan for an existing account, the explicit default', () => {
+        const { firm, plan } = findFirmPlan(
+            (p) => p.availability === PlanAvailability.Discontinued,
+        );
+        const options = accountPlanOptions(
+            firm,
+            AccountPlanIntent.ExistingAccount,
+        );
+        expect(
+            options.some(
+                (option) => option.planSerial === serializePlanId(plan.id),
+            ),
+        ).toBe(true);
     });
 });
 
@@ -210,6 +272,37 @@ describe('accountSizeOptions', () => {
         }
     });
 
+    it('keeps every size the engine does not model disabled in the modeled mode', () => {
+        for (const { firm, plan } of ALL_FIRM_PLANS) {
+            for (const option of accountSizeOptions(
+                firm,
+                plan,
+                AccountPlanMode.Modeled,
+            )) {
+                expect(option.isSelectable).toBe(option.isModeled);
+            }
+        }
+    });
+
+    it('enables every size, the ones the engine does not model included, only in the ledger-only mode', () => {
+        const { firm, plan } = ALL_FIRM_PLANS[0] ?? findFirmPlan(() => true);
+        const options = accountSizeOptions(
+            firm,
+            plan,
+            AccountPlanMode.LedgerOnly,
+        );
+        expect(options.every((option) => option.isSelectable)).toBe(true);
+        const unmodeled = options.filter((option) => !option.isModeled);
+        expect(unmodeled.length).toBeGreaterThan(0);
+        for (const option of unmodeled) {
+            expect(option.label).toContain('ledger only');
+            expect(option.label).not.toContain('not modeled');
+        }
+        expect(
+            accountSizeOptions(firm, plan).map((option) => option.accountSize),
+        ).toEqual(options.map((option) => option.accountSize));
+    });
+
     it('lists each size once, ascending, including every displayed size', () => {
         for (const { firm, plan } of ALL_FIRM_PLANS) {
             const sizes = accountSizeOptions(firm, plan).map(
@@ -269,6 +362,45 @@ describe('stage labels', () => {
         expect(Object.keys(accountPlanOptionsModule)).not.toContain(
             'STAGE_LABEL',
         );
+    });
+});
+
+describe('upgradePlanSelection', () => {
+    it('starts every listed firm on its first plan of the stored size', () => {
+        for (const firm of ALL_FIRMS) {
+            const firstOfSize = new Map<number, Plan>();
+            for (const plan of firm.plans) {
+                if (!firstOfSize.has(plan.id.accountSize)) {
+                    firstOfSize.set(plan.id.accountSize, plan);
+                }
+            }
+            for (const [size, plan] of firstOfSize) {
+                expect(upgradePlanSelection(firm.id, size)).toEqual({
+                    accountSize: size,
+                    firmId: firm.id,
+                    optIns: NO_PLAN_OPT_INS,
+                    planSerial: serializePlanId(plan.id),
+                });
+            }
+        }
+    });
+
+    it('falls back to the first plan of the firm when no plan has the stored size', () => {
+        expect(upgradePlanSelection(FirmId.TopStep, 123_457)).toEqual(
+            initialPlanSelection(FirmId.TopStep, null, NO_PLAN_OPT_INS),
+        );
+    });
+
+    it('starts an account at an external firm on the first listed firm, at the stored size when that firm offers it', () => {
+        const [firstFirm] = ALL_FIRMS;
+        const [plan] = firstFirm?.plans ?? [];
+        if (firstFirm === undefined || plan === undefined) {
+            throw new Error('no listed firm');
+        }
+        expect(upgradePlanSelection(null, plan.id.accountSize)).toMatchObject({
+            accountSize: plan.id.accountSize,
+            firmId: firstFirm.id,
+        });
     });
 });
 

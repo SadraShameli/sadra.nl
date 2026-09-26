@@ -24,8 +24,15 @@ import {
     createAlertContext,
     DEFAULT_ALERT_RULES,
     diversification,
+    type ExternalFirmName,
     FeeKind,
-    findStoredFirm,
+    feeReconciliation,
+    type FirmDiscountCapture,
+    type FirmKey,
+    firmKeyId,
+    firmKeyLabel,
+    type FirmReturn,
+    firmReturns,
     type FirmShare,
     formatUsdCents,
     fundingTotals,
@@ -36,30 +43,36 @@ import {
     type LedgerFeeRow,
     type LedgerPayoutRow,
     ledgerTimeline,
+    type MonthlyStatement,
     monthlyStatement,
+    type MonthlyStatementTargets,
     paidPayoutCash,
+    payoutMultiple,
     PayoutStatus,
     PendingFeeAttribution,
     planCapUsage,
     type PlanCapUsage,
     PortfolioLedger,
     portfolioRoi,
+    type RealizedNetPerSlot,
     realizedNetPerSlot,
     realizedOutcomes,
     RebuyLagBasis,
     rebuyLagDefault,
+    repeatability,
+    type RepeatabilityStats,
     replacementStats,
     type SampledEstimate,
     spendAndPayouts,
     stageFunnel,
-    type StoredFirmId,
     type TimelineEntry,
     TimelineEntryKind,
     type UsdCents,
     usdCents,
 } from '~/lib/prop-accounts';
-import { ROI_BASIS_LABEL } from '~/lib/prop-calculator';
+import { CENTS_PER_DOLLAR, ROI_BASIS_LABEL } from '~/lib/prop-calculator';
 import { type RulebookParameters } from '~/lib/prop-calculator/advisor';
+import { NoiseVerdict } from '~/lib/prop-calculator/stats';
 import {
     type eventListSchema,
     type ledgerListSchema,
@@ -78,6 +91,7 @@ export enum KpiTone {
 export enum OverviewKpiKind {
     ExpectedNet = 'expected-net',
     Net = 'net',
+    PayoutMultiple = 'payout-multiple',
     PayoutsReceived = 'payouts-received',
     RealizedNetPerSlot = 'realized-net-per-slot',
     Roi = 'roi',
@@ -87,6 +101,7 @@ export enum OverviewKpiKind {
 
 export enum OverviewNoticeKind {
     EventWindow = 'event-window',
+    LedgerOnlyAccounts = 'ledger-only-accounts',
     ReadIssues = 'read-issues',
     RejectedEvents = 'rejected-events',
     TimelineMismatch = 'timeline-mismatch',
@@ -120,15 +135,22 @@ export interface CapUsageCardModel {
 }
 
 export interface CostCardModel {
+    readonly byAccountSize: readonly SizeCostRow[];
     readonly byFirm: readonly FirmAmountRow[];
+    readonly byFirmAttemptCost: readonly FirmAttemptCostRow[];
     readonly byKind: readonly FeeKindAmountRow[];
     readonly disclosures: readonly string[];
+    readonly discountsByFirm: readonly FirmDiscountRow[];
     readonly perPlan: readonly PlanCostRow[];
 }
 
 export interface DiversificationCardModel {
     readonly funding: readonly FirmShareRow[];
     readonly payouts: readonly FirmShareRow[];
+}
+
+export interface FirmReturnsCardModel {
+    readonly rows: readonly FirmReturnRow[];
 }
 
 export interface FirmShareRow extends FirmAmountRow {
@@ -164,6 +186,7 @@ export type OverviewAlerts =
       };
 
 export interface OverviewInputs {
+    readonly externalFirms: readonly ExternalFirmName[];
     readonly load: PortfolioLoad;
     readonly today: string;
     readonly userId: string;
@@ -173,6 +196,7 @@ export interface OverviewKpi {
     readonly detail: null | string;
     readonly kind: OverviewKpiKind;
     readonly label: string;
+    readonly note: null | string;
     readonly tone: KpiTone;
     readonly value: string;
 }
@@ -185,10 +209,12 @@ export interface OverviewLedgerCards {
     readonly capUsage: CapUsageCardModel;
     readonly cost: CostCardModel;
     readonly diversification: DiversificationCardModel;
+    readonly firmReturns: FirmReturnsCardModel;
     readonly funnel: FunnelCardModel;
     readonly kpis: readonly OverviewKpi[];
     readonly notices: readonly OverviewNotice[];
     readonly outcomes: OutcomesCardModel;
+    readonly repeatability: RepeatabilityCardModel;
     readonly replacement: ReplacementCardModel;
     readonly statement: StatementCardModel;
     readonly timeline: TimelineCardModel;
@@ -213,6 +239,7 @@ export interface PortfolioLoad {
     readonly failures: readonly PortfolioLoadIssue[];
     readonly ledger: SectionLoad<LedgerRows>;
     readonly stale: readonly PortfolioLoadIssue[];
+    readonly statementTargets: MonthlyStatementTargets;
 }
 
 export interface PortfolioLoadIssue {
@@ -235,12 +262,27 @@ export interface PortfolioRows {
     readonly [PortfolioSource.Snapshots]: readonly AlertSnapshotRow[];
 }
 
+export interface RepeatabilityCardModel {
+    readonly overall: null | RepeatabilityStatsRow;
+    readonly perSlot: null | RepeatabilityStatsRow;
+    readonly perSlotTargetCaveat: null | string;
+}
+
 export interface ReplacementCardModel {
     readonly rows: readonly ReplacementRow[];
 }
 
 export interface StatementCardModel {
+    readonly caveat: string;
+    readonly chart: readonly StatementChartPoint[];
     readonly months: readonly StatementRow[];
+    readonly targetDollars: null | number;
+}
+
+export interface StatementChartPoint {
+    readonly month: string;
+    readonly payouts: number;
+    readonly spend: number;
 }
 
 export interface TimelineCardModel {
@@ -267,6 +309,37 @@ interface FirmAmountRow {
     readonly amount: string;
     readonly firm: string;
     readonly key: string;
+}
+
+interface FirmAttemptCostRow {
+    readonly attempts: string;
+    readonly costPerAttempt: string;
+    readonly firm: string;
+    readonly key: string;
+    readonly retryFeeAttempts: string;
+}
+
+interface FirmDiscountRow {
+    readonly discount: string;
+    readonly feesChecked: string;
+    readonly firm: string;
+    readonly key: string;
+}
+
+interface FirmReturnRow {
+    readonly accounts: string;
+    readonly accountsWithPayout: string;
+    readonly attempts: string;
+    readonly firm: string;
+    readonly firstPayoutOn: string;
+    readonly fundedAccounts: string;
+    readonly key: string;
+    readonly lastPayoutOn: string;
+    readonly multiple: string;
+    readonly net: string;
+    readonly payouts: string;
+    readonly spend: string;
+    readonly verdict: string;
 }
 
 interface FunnelRow {
@@ -304,6 +377,16 @@ interface PortfolioQuery<Data> {
     readonly error: unknown;
 }
 
+interface RepeatabilityStatsRow {
+    readonly best: string;
+    readonly count: string;
+    readonly mean: string;
+    readonly shareAtOrAboveTarget: null | string;
+    readonly sharePositive: string;
+    readonly standardDeviation: string;
+    readonly worst: string;
+}
+
 interface ReplacementRow {
     readonly attempts: string;
     readonly attemptsPerFunded: string;
@@ -314,13 +397,28 @@ interface ReplacementRow {
     readonly unmeasured: string;
 }
 
+interface SizeCostRow {
+    readonly accountSize: string;
+    readonly attempts: string;
+    readonly costPerAttempt: string;
+    readonly key: string;
+    readonly spend: string;
+}
+
 interface StatementRow {
     readonly cumulativeNet: string;
+    readonly isPartial: boolean;
     readonly key: string;
+    readonly meetsMultipleTarget: boolean | null;
+    readonly meetsPayoutTarget: boolean | null;
     readonly month: string;
+    readonly multiple: string;
     readonly net: string;
+    readonly payoutCount: string;
+    readonly payoutGrowth: string;
     readonly payouts: string;
     readonly spend: string;
+    readonly trailingThreeMonthMultiple: string;
 }
 
 interface TimelineRow {
@@ -376,6 +474,12 @@ const FEE_KIND_LABEL: Readonly<Record<FeeKind, string>> = {
     [FeeKind.Subscription]: 'Subscription',
 };
 
+const NOISE_VERDICT_LABEL: Readonly<Record<NoiseVerdict, string>> = {
+    [NoiseVerdict.BeyondNoise]: 'Beyond noise (differs from the other firms)',
+    [NoiseVerdict.Unknown]: 'Unknown (not enough data)',
+    [NoiseVerdict.WithinNoise]: 'Within noise',
+};
+
 const PAYOUT_STATUS_LABEL: Readonly<Record<PayoutStatus, string>> = {
     [PayoutStatus.Cancelled]: 'Payout cancelled',
     [PayoutStatus.Denied]: 'Payout denied',
@@ -407,6 +511,7 @@ const MODELED_OUTCOMES_PENDING =
     'The modeled pass rate and survival are pending the engine cards.';
 const POOLED_CAPS_DISCLOSURE =
     'Caps are counted per plan. Firm-wide pooled caps are not modeled yet, so a firm can stop you sooner than these free slots suggest.';
+const STATEMENT_MULTIPLE_CAVEAT = 'calendar months mix purchase cohorts';
 const SENTENCE_END = /[.!?]$/u;
 
 const PORTFOLIO_EVALUATOR = new AlertEvaluator(DEFAULT_ALERT_RULES);
@@ -432,6 +537,10 @@ interface Counted {
     readonly count: number;
     readonly plural: string;
     readonly singular: string;
+}
+
+interface FirmNames {
+    of(firmKey: FirmKey): string;
 }
 
 type LedgerComputation<Result> =
@@ -490,6 +599,7 @@ export function alertsFor(
 }
 
 export function buildOverview({
+    externalFirms,
     load,
     today,
     userId,
@@ -499,7 +609,13 @@ export function buildOverview({
         hasAccounts:
             load.accounts.status === OverviewSectionStatus.Ready &&
             load.accounts.rows.length > 0,
-        ledger: overviewLedger(load.ledger, today, userId),
+        ledger: overviewLedger(
+            load.ledger,
+            today,
+            userId,
+            firmNames(externalFirms),
+            load.statementTargets,
+        ),
     };
 }
 
@@ -549,6 +665,7 @@ export function portfolioLoad(queries: PortfolioQueries): PortfolioLoad {
                 source,
                 title: `Your ${SOURCE_LABEL[source]} could not be refreshed`,
             })),
+        statementTargets: statementTargetsOf(queries),
     };
 }
 
@@ -604,17 +721,44 @@ function capUsageCard(
             plan: names.of(row.planSerial),
             used: String(row.used),
         })),
-        unresolvedNote: unresolvedNote(usage.unresolvedAccounts),
+        unresolvedNote: combinedNote(
+            unresolvedNote(usage.unresolvedAccounts),
+            ledgerOnlyCapNote(usage.ledgerOnlyAccounts),
+        ),
     };
 }
 
-function costCard(ledger: PortfolioLedger, names: PlanNames): CostCardModel {
+function combinedNote(...notes: readonly (null | string)[]): null | string {
+    const present = notes.filter((note): note is string => note !== null);
+    return present.length === 0 ? null : present.join(' ');
+}
+
+function costCard(
+    ledger: PortfolioLedger,
+    names: PlanNames,
+    firms: FirmNames,
+): CostCardModel {
     const analytics = costAnalytics(ledger, new Map());
+    const reconciliation = feeReconciliation(ledger);
     return {
+        byAccountSize: analytics.byAccountSize.map((row) => ({
+            accountSize: String(row.accountSize),
+            attempts: String(row.attempts),
+            costPerAttempt: optionalCents(row.costPerAttempt),
+            key: String(row.accountSize),
+            spend: formatUsdCents(row.spend),
+        })),
         byFirm: analytics.byFirm.map((row) => ({
             amount: formatUsdCents(row.spend),
-            firm: firmName(row.firmId),
-            key: row.firmId,
+            firm: firms.of(row.firmKey),
+            key: firmKeyId(row.firmKey),
+        })),
+        byFirmAttemptCost: analytics.byFirmAttemptCost.map((row) => ({
+            attempts: String(row.attempts),
+            costPerAttempt: optionalCents(row.costPerAttempt),
+            firm: firms.of(row.firmKey),
+            key: firmKeyId(row.firmKey),
+            retryFeeAttempts: String(row.retryFeeAttempts),
         })),
         byKind: Object.values(FeeKind)
             .filter((kind) => analytics.byKind[kind] !== 0)
@@ -631,7 +775,15 @@ function costCard(ledger: PortfolioLedger, names: PlanNames): CostCardModel {
                 : [
                       `${formatUsdCents(analytics.unresolvedSpend)} spent on ${counted({ count: analytics.unresolvedAccounts, plural: 'accounts', singular: 'account' })} with a plan that is no longer modeled is in no plan row.`,
                   ]),
+            ...(analytics.ledgerOnlyAccounts === 0
+                ? []
+                : [
+                      `${formatUsdCents(analytics.ledgerOnlySpend)} spent on ${counted({ count: analytics.ledgerOnlyAccounts, plural: 'ledger-only accounts', singular: 'ledger-only account' })} is in the firm table but in no plan row.`,
+                  ]),
         ],
+        discountsByFirm: reconciliation.byFirm
+            .filter((row) => row.discountCents !== 0)
+            .map((row) => firmDiscountRow(row, firms)),
         perPlan: analytics.perPlan.map((row) => ({
             acquisitionSpend: formatUsdCents(row.acquisitionSpend),
             costPerFunded: optionalCents(row.costPerFundedAccount),
@@ -651,16 +803,62 @@ function counted({ count, plural, singular }: Counted): string {
 
 function diversificationCard(
     ledger: PortfolioLedger,
+    firms: FirmNames,
 ): DiversificationCardModel {
     const shares = diversification(ledger);
     return {
-        funding: shares.funding.map((share) => shareRow(share)),
-        payouts: shares.payouts.map((share) => shareRow(share)),
+        funding: shares.funding.map((share) => shareRow(share, firms)),
+        payouts: shares.payouts.map((share) => shareRow(share, firms)),
     };
 }
 
-function firmName(firmId: StoredFirmId): string {
-    return findStoredFirm(firmId)?.displayName ?? firmId;
+function firmDiscountRow(
+    row: FirmDiscountCapture,
+    firms: FirmNames,
+): FirmDiscountRow {
+    return {
+        discount: formatUsdCents(row.discountCents),
+        feesChecked: String(row.feesChecked),
+        firm: firms.of(row.firmKey),
+        key: firmKeyId(row.firmKey),
+    };
+}
+
+function firmNames(externalFirms: readonly ExternalFirmName[]): FirmNames {
+    return { of: (firmKey) => firmKeyLabel(firmKey, externalFirms) };
+}
+
+function firmReturnRow(row: FirmReturn, firms: FirmNames): FirmReturnRow {
+    return {
+        accounts: String(row.accounts),
+        accountsWithPayout: String(row.accountsWithPayout),
+        attempts: String(row.attempts),
+        firm: firms.of(row.firmKey),
+        firstPayoutOn: row.firstPayoutOn ?? NOT_APPLICABLE,
+        fundedAccounts: String(row.fundedAccounts),
+        key: firmKeyId(row.firmKey),
+        lastPayoutOn: row.lastPayoutOn ?? NOT_APPLICABLE,
+        multiple: formatMultiple(row.multiple),
+        net: formatUsdCents(row.net),
+        payouts: formatUsdCents(row.payouts),
+        spend: formatUsdCents(row.spend),
+        verdict: NOISE_VERDICT_LABEL[row.verdict],
+    };
+}
+
+function firmReturnsCard(
+    ledger: PortfolioLedger,
+    firms: FirmNames,
+): FirmReturnsCardModel {
+    return {
+        rows: firmReturns(ledger).firms.map((row) =>
+            firmReturnRow(row, firms),
+        ),
+    };
+}
+
+function formatMultiple(value: null | number): string {
+    return value === null ? NOT_APPLICABLE : `${value.toFixed(2)}x`;
 }
 
 function formatRate(estimate: null | SampledEstimate): string {
@@ -678,19 +876,25 @@ function formatSessions(estimate: null | SampledEstimate): string {
     return `${estimate.value.toFixed(1)} sessions (SE ${standardError}, n = ${String(estimate.n)})`;
 }
 
-function funnelCard(ledger: PortfolioLedger): FunnelCardModel {
+function funnelCard(
+    ledger: PortfolioLedger,
+    firms: FirmNames,
+): FunnelCardModel {
     const funnel = stageFunnel(ledger);
     return {
         rows: funnel.byFirm.map((row) => ({
-            firm: firmName(row.firmId),
+            firm: firms.of(row.firmKey),
             firstPayout: String(row.firstPayout),
             funded: String(row.funded),
-            key: row.firmId,
+            key: firmKeyId(row.firmKey),
             movedLive: String(row.movedLive),
             passed: String(row.passed),
             purchased: String(row.purchased),
         })),
-        unresolvedNote: unresolvedNote(funnel.unresolvedAccounts),
+        unresolvedNote: combinedNote(
+            unresolvedNote(funnel.unresolvedAccounts),
+            ledgerOnlyFunnelNote(funnel.ledgerOnlyAccounts),
+        ),
     };
 }
 
@@ -706,12 +910,19 @@ function isStale(query: PortfolioQuery<unknown>): boolean {
     return query.data !== undefined && hasError(query.error);
 }
 
-function kpiRow(ledger: PortfolioLedger, today: string): OverviewKpi[] {
+function kpiRow(
+    ledger: PortfolioLedger,
+    today: string,
+    perSlot: RealizedNetPerSlot,
+): OverviewKpi[] {
     const cash = spendAndPayouts(ledger).allTime;
-    const perSlot = realizedNetPerSlot(ledger, today);
     const roi = portfolioRoi(ledger, today);
     const funding = fundingTotals(ledger);
     const pooled = perSlot.pooled;
+    const perSlotNote =
+        perSlot.ledgerOnlyAccounts === 0
+            ? null
+            : `${counted({ count: perSlot.ledgerOnlyAccounts, plural: 'ledger-only accounts', singular: 'ledger-only account' })} not counted`;
     return [
         {
             detail:
@@ -720,6 +931,7 @@ function kpiRow(ledger: PortfolioLedger, today: string): OverviewKpi[] {
                     : `After ${formatUsdCents(cash.refunds)} in refunds`,
             kind: OverviewKpiKind.Spend,
             label: 'Spend',
+            note: null,
             tone: KpiTone.Neutral,
             value: formatUsdCents(cash.spend),
         },
@@ -727,6 +939,7 @@ function kpiRow(ledger: PortfolioLedger, today: string): OverviewKpi[] {
             detail: paidPayoutsDetail(cash.paidPayouts, cash.grossOnlyPayouts),
             kind: OverviewKpiKind.PayoutsReceived,
             label: 'Payouts received',
+            note: null,
             tone: KpiTone.Neutral,
             value: formatUsdCents(cash.payouts),
         },
@@ -734,6 +947,7 @@ function kpiRow(ledger: PortfolioLedger, today: string): OverviewKpi[] {
             detail: 'Payouts received minus spend',
             kind: OverviewKpiKind.Net,
             label: 'Net',
+            note: null,
             tone: toneOf(cash.net),
             value: formatUsdCents(cash.net),
         },
@@ -742,6 +956,7 @@ function kpiRow(ledger: PortfolioLedger, today: string): OverviewKpi[] {
                   detail: 'No funded slot-month yet',
                   kind: OverviewKpiKind.RealizedNetPerSlot,
                   label: 'Realized net per slot per month',
+                  note: perSlotNote,
                   tone: KpiTone.Neutral,
                   value: NOT_APPLICABLE,
               }
@@ -749,6 +964,7 @@ function kpiRow(ledger: PortfolioLedger, today: string): OverviewKpi[] {
                   detail: `Pooled over ${counted({ count: perSlot.n, plural: 'months', singular: 'month' })} and ${perSlot.slotMonths.toFixed(1)} funded slot-months, SE ${optionalCents(pooled.standardError)}`,
                   kind: OverviewKpiKind.RealizedNetPerSlot,
                   label: 'Realized net per slot per month',
+                  note: perSlotNote,
                   tone: toneOf(pooled.value),
                   value: formatUsdCents(pooled.value),
               },
@@ -756,6 +972,7 @@ function kpiRow(ledger: PortfolioLedger, today: string): OverviewKpi[] {
             detail: 'Modeled monthly net per slot under your documented rule: pending the engine cards',
             kind: OverviewKpiKind.ExpectedNet,
             label: 'Expected net per slot per month',
+            note: null,
             tone: KpiTone.Pending,
             value: PENDING,
         },
@@ -766,13 +983,29 @@ function kpiRow(ledger: PortfolioLedger, today: string): OverviewKpi[] {
                     : `${ROI_BASIS_LABEL[roi.annualised.basis]}: ${formatOptionalPercent(roi.annualised.value)}`,
             kind: OverviewKpiKind.Roi,
             label: ROI_BASIS_LABEL[roi.total.basis],
+            note: null,
             tone: toneOf(roi.total.value ?? 0),
             value: formatOptionalPercent(roi.total.value),
+        },
+        {
+            detail:
+                cash.spend === 0
+                    ? 'No spend recorded yet'
+                    : 'Payouts received divided by spend',
+            kind: OverviewKpiKind.PayoutMultiple,
+            label: 'Payout multiple',
+            note: null,
+            tone:
+                cash.spend === 0
+                    ? KpiTone.Neutral
+                    : toneOf(cash.payouts - cash.spend),
+            value: formatMultiple(payoutMultiple(cash.payouts, cash.spend)),
         },
         {
             detail: `Information only: nominal account size, not money you hold. Evals in progress: ${formatUsdCents(funding.evalNominal)} across ${counted({ count: funding.byStage[AccountStage.Eval].accounts, plural: 'accounts', singular: 'account' })}.`,
             kind: OverviewKpiKind.TotalFunding,
             label: 'Total nominal funding',
+            note: null,
             tone: KpiTone.Neutral,
             value: formatUsdCents(funding.fundedNominal),
         },
@@ -786,18 +1019,31 @@ function labelsOf(accounts: readonly LedgerAccount[]): string {
 function ledgerCards(
     ledger: PortfolioLedger,
     today: string,
+    firms: FirmNames,
+    statementTargets: MonthlyStatementTargets,
 ): OverviewLedgerCards {
     const names = planNames(ledger);
+    const statement = monthlyStatement(ledger, today, statementTargets);
+    const perSlot = realizedNetPerSlot(ledger, today);
     return {
         capUsage: capUsageCard(planCapUsage(ledger), names),
-        cost: costCard(ledger, names),
-        diversification: diversificationCard(ledger),
-        funnel: funnelCard(ledger),
-        kpis: kpiRow(ledger, today),
+        cost: costCard(ledger, names, firms),
+        diversification: diversificationCard(ledger, firms),
+        firmReturns: firmReturnsCard(ledger, firms),
+        funnel: funnelCard(ledger, firms),
+        kpis: kpiRow(ledger, today, perSlot),
         notices: ledgerNotices(ledger, today),
         outcomes: outcomesCard(ledger, names),
+        repeatability: repeatabilityCard(
+            statement,
+            perSlot,
+            statementTargets.monthlyPayoutTargetCents,
+        ),
         replacement: replacementCard(ledger, names),
-        statement: statementCard(ledger),
+        statement: statementCard(
+            statement,
+            statementTargets.monthlyPayoutTargetCents,
+        ),
         timeline: timelineCard(ledger),
     };
 }
@@ -830,6 +1076,7 @@ function ledgerNotices(
         0,
     );
     const unresolved = ledger.unresolvedAccounts;
+    const { ledgerOnlyAccounts } = ledger;
     const unreadable = ledger.accounts.filter((entry) =>
         entry.row.readIssues.some(
             (issue) => issue.kind === AccountReadIssueKind.CorruptPersonalRules,
@@ -863,6 +1110,13 @@ function ledgerNotices(
         notices.push({
             kind: OverviewNoticeKind.UnresolvedAccounts,
             message: `${counted({ count: unresolved.length, plural: 'accounts', singular: 'account' })} ${isSingular ? 'has' : 'have'} a plan that is no longer modeled (${labelsOf(unresolved)}); ${isSingular ? 'its' : 'their'} fees and payouts count in the cash totals but not in realized net per slot or the per-plan cards.`,
+        });
+    }
+    if (ledgerOnlyAccounts.length > 0) {
+        const isSingular = ledgerOnlyAccounts.length === 1;
+        notices.push({
+            kind: OverviewNoticeKind.LedgerOnlyAccounts,
+            message: `${counted({ count: ledgerOnlyAccounts.length, plural: 'accounts', singular: 'account' })} ${isSingular ? 'is' : 'are'} ledger only (${labelsOf(ledgerOnlyAccounts)}); the engine does not model ${isSingular ? 'its plan' : 'their plans'}, so ${isSingular ? 'its' : 'their'} fees and payouts count in the cash totals, the firm tables and the funnel, but not in realized net per slot or the per-plan cards (cost per plan, outcomes, replacement and plan caps).`,
         });
     }
     if (unreadable.length > 0) {
@@ -906,6 +1160,18 @@ function ledgerNotices(
     return notices;
 }
 
+function ledgerOnlyCapNote(ledgerOnlyAccounts: number): null | string {
+    if (ledgerOnlyAccounts === 0) return null;
+    const isSingular = ledgerOnlyAccounts === 1;
+    return `${counted({ count: ledgerOnlyAccounts, plural: 'ledger-only accounts', singular: 'ledger-only account' })} ${isSingular ? 'is' : 'are'} not counted here; check ${isSingular ? 'it' : 'them'} against the firm's own account cap yourself.`;
+}
+
+function ledgerOnlyFunnelNote(ledgerOnlyAccounts: number): null | string {
+    if (ledgerOnlyAccounts === 0) return null;
+    const isSingular = ledgerOnlyAccounts === 1;
+    return `${counted({ count: ledgerOnlyAccounts, plural: 'ledger-only accounts', singular: 'ledger-only account' })} ${isSingular ? 'counts' : 'count'} from ${isSingular ? 'its' : 'their'} stored stage and paid payouts; whether ${isSingular ? 'it' : 'they'} passed an evaluation is not known.`;
+}
+
 function loadGap(
     queries: PortfolioQueries,
     sources: readonly PortfolioSource[],
@@ -936,6 +1202,11 @@ function outcomesCard(
                 ? []
                 : [
                       `Funded survival counts every account that reached funded; ${String(open)} still open ${isSingular ? 'is' : 'are'} counted as ${isSingular ? 'a survivor' : 'survivors'}, so the rate is an upper bound until ${isSingular ? 'it closes' : 'they close'}.`,
+                  ]),
+            ...(outcomes.ledgerOnlyAccounts === 0
+                ? []
+                : [
+                      `${counted({ count: outcomes.ledgerOnlyAccounts, plural: 'ledger-only accounts', singular: 'ledger-only account' })} ${outcomes.ledgerOnlyAccounts === 1 ? 'is' : 'are'} not counted here, since the engine does not model ${outcomes.ledgerOnlyAccounts === 1 ? 'its plan' : 'their plans'}.`,
                   ]),
             MODELED_OUTCOMES_PENDING,
         ],
@@ -972,6 +1243,8 @@ function overviewLedger(
     section: SectionLoad<LedgerRows>,
     today: string,
     userId: string,
+    firms: FirmNames,
+    statementTargets: MonthlyStatementTargets,
 ): OverviewLedger {
     switch (section.status) {
         case OverviewSectionStatus.Failed: {
@@ -984,7 +1257,13 @@ function overviewLedger(
             return { kind: OverviewSectionStatus.Pending };
         }
         case OverviewSectionStatus.Ready: {
-            return readyLedger(section.rows, today, userId);
+            return readyLedger(
+                section.rows,
+                today,
+                userId,
+                firms,
+                statementTargets,
+            );
         }
     }
 }
@@ -1020,9 +1299,16 @@ function readyLedger(
     rows: LedgerRows,
     today: string,
     userId: string,
+    firms: FirmNames,
+    statementTargets: MonthlyStatementTargets,
 ): OverviewLedger {
     const computed = ledgerOrDateFailure(() =>
-        ledgerCards(PortfolioLedger.fromRows(userId, rows), today),
+        ledgerCards(
+            PortfolioLedger.fromRows(userId, rows),
+            today,
+            firms,
+            statementTargets,
+        ),
     );
     switch (computed.kind) {
         case OverviewSectionStatus.Failed: {
@@ -1035,6 +1321,47 @@ function readyLedger(
             return { ...computed.value, kind: OverviewSectionStatus.Ready };
         }
     }
+}
+
+const PER_SLOT_TARGET_CAVEAT =
+    'More than one funded slot overlapped in some months, so the per-slot share against the portfolio-wide target may read too low.';
+
+function repeatabilityCard(
+    statement: MonthlyStatement,
+    slots: RealizedNetPerSlot,
+    target: null | number,
+): RepeatabilityCardModel {
+    const stats = repeatability(statement, slots, target);
+    const hasOverlappingSlots = slots.months.some(
+        (month) => month.slotMonths > 1,
+    );
+    return {
+        overall: repeatabilityStatsRow(stats.overall),
+        perSlot: repeatabilityStatsRow(stats.perSlot),
+        perSlotTargetCaveat:
+            target === null || !hasOverlappingSlots
+                ? null
+                : PER_SLOT_TARGET_CAVEAT,
+    };
+}
+
+function repeatabilityStatsRow(
+    stats: null | RepeatabilityStats,
+): null | RepeatabilityStatsRow {
+    return stats === null
+        ? null
+        : {
+              best: formatUsdCents(stats.best),
+              count: String(stats.count),
+              mean: formatUsdCents(stats.mean),
+              shareAtOrAboveTarget:
+                  stats.shareAtOrAboveTarget === null
+                      ? null
+                      : formatPercent(stats.shareAtOrAboveTarget),
+              sharePositive: formatPercent(stats.sharePositive),
+              standardDeviation: formatUsdCents(stats.standardDeviation),
+              worst: formatUsdCents(stats.worst),
+          };
 }
 
 function replacementCard(
@@ -1064,11 +1391,11 @@ function replacementCard(
     };
 }
 
-function shareRow(share: FirmShare): FirmShareRow {
+function shareRow(share: FirmShare, firms: FirmNames): FirmShareRow {
     return {
         amount: formatUsdCents(share.cents),
-        firm: firmName(share.firmId),
-        key: share.firmId,
+        firm: firms.of(share.firmKey),
+        key: firmKeyId(share.firmKey),
         share: formatPercent(share.share),
     };
 }
@@ -1085,17 +1412,51 @@ function sourceList(sources: readonly PortfolioSource[]): string {
         : `${labels.slice(0, -1).join(', ')} and ${last}`;
 }
 
-function statementCard(ledger: PortfolioLedger): StatementCardModel {
+function statementCard(
+    statement: MonthlyStatement,
+    monthlyPayoutTargetCents: null | number,
+): StatementCardModel {
     return {
-        months: monthlyStatement(ledger).months.map((month) => ({
-            cumulativeNet: formatUsdCents(month.cumulativeNet),
-            key: month.month,
+        caveat: STATEMENT_MULTIPLE_CAVEAT,
+        chart: statement.months.map((month) => ({
             month: month.month,
+            payouts: month.payouts / CENTS_PER_DOLLAR,
+            spend: month.spend / CENTS_PER_DOLLAR,
+        })),
+        months: statement.months.map((month) => ({
+            cumulativeNet: formatUsdCents(month.cumulativeNet),
+            isPartial: month.isPartial,
+            key: month.month,
+            meetsMultipleTarget: month.meetsMultipleTarget,
+            meetsPayoutTarget: month.meetsPayoutTarget,
+            month: month.month,
+            multiple: formatMultiple(month.multiple),
             net: formatUsdCents(month.net),
+            payoutCount: String(month.paidPayouts),
+            payoutGrowth: formatOptionalPercent(month.payoutGrowth),
             payouts: formatUsdCents(month.payouts),
             spend: formatUsdCents(month.spend),
+            trailingThreeMonthMultiple: formatMultiple(
+                month.trailingThreeMonthMultiple,
+            ),
         })),
+        targetDollars:
+            monthlyPayoutTargetCents === null
+                ? null
+                : monthlyPayoutTargetCents / CENTS_PER_DOLLAR,
     };
+}
+
+function statementTargetsOf(
+    queries: PortfolioQueries,
+): MonthlyStatementTargets {
+    const rulebook = queries[PortfolioSource.Rulebook].data;
+    return rulebook === undefined
+        ? { monthlyPayoutTargetCents: null, targetMonthlyMultiple: null }
+        : {
+              monthlyPayoutTargetCents: rulebook.review.monthlyPayoutTargetCents,
+              targetMonthlyMultiple: rulebook.review.targetMonthlyMultiple,
+          };
 }
 
 function timelineCard(ledger: PortfolioLedger): TimelineCardModel {

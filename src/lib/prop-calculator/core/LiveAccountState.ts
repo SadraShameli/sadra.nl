@@ -1,6 +1,8 @@
 export interface LiveAccountState {
     balance: number;
     bestDayProfit: number;
+    calendarWeekSessionsElapsed?: number;
+    calendarWeekSessionsTraded?: number;
     consecutiveIdleDays: number;
     peakDayCloseProfit: number;
     qualifyingDays: number;
@@ -19,6 +21,8 @@ export function createInitialLiveAccountState(
     return {
         balance: startingBalance,
         bestDayProfit: 0,
+        calendarWeekSessionsElapsed: 0,
+        calendarWeekSessionsTraded: 0,
         consecutiveIdleDays: 0,
         peakDayCloseProfit: 0,
         qualifyingDays: 0,

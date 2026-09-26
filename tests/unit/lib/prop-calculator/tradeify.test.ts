@@ -482,3 +482,29 @@ describe('Tradeify tier notes', () => {
         );
     });
 });
+
+describe('Tradeify Lightning payout basis note discloses both readings (N-85, U27)', () => {
+    it('cites the payout-policy article and the homepage 5-day field, and keeps 0', () => {
+        const note = firm.notes.find((candidate) =>
+            candidate.includes('minDaysAfterPassForPayout'),
+        );
+        expect(note).toContain('10495932');
+        expect(note).toContain('No Minimum Trading Day Count');
+        expect(note).toContain('Payout Frequency');
+        expect(note).toContain('5 Days');
+    });
+});
+
+describe('Tradeify Select consistency add-on note cites the pricing reference, not the checkout screenshot as a correction (N-85)', () => {
+    it('states $205 eval / $135 reset at 50K and keeps +$200 as a recorded conflicting observation', () => {
+        const note = firm.notes.find((candidate) =>
+            candidate.includes(
+                "40% consistency rule can be paid-upgraded",
+            ),
+        );
+        expect(note).toContain('14369021');
+        expect(note).toContain('205');
+        expect(note).toContain('135');
+        expect(note).toContain('conflicting observation');
+    });
+});

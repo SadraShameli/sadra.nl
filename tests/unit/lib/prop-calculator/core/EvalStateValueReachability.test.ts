@@ -3,8 +3,11 @@ import { describe, expect, it } from 'vitest';
 import {
     type AccountState,
     computeEvalStateValue,
+    ConsistencyBasis,
+    ConsistencyBoundary,
     ConsistencyRule,
     ConsistencyScope,
+    ConsistencyViolationEffect,
     DailyLossLimitKind,
     dollars,
     type EvalStateValueResult,
@@ -321,6 +324,84 @@ describe('computeEvalStateValue riskAtReachedState reads a pass only at day clos
         const risk = result.riskAtReachedState(midDay, MID_DAY_TRADE_INDEX);
         expect(risk).toBe(computedRisk(result, midDay, MID_DAY_TRADE_INDEX));
         expect(risk).toBeGreaterThan(0);
+    });
+
+    it('does not pass a DoubleTarget consistency violation at 2x the profit target when that is still at or below 2x the best day, and the DP agrees with Plan.isPassed (N-79)', () => {
+        const plan = toyPlan(250).withOverrides({
+            consistency: new ConsistencyRule(
+                ConsistencyScope.Eval,
+                fraction(0.5),
+                ConsistencyBasis.Cycle,
+                ConsistencyViolationEffect.DoubleTarget,
+                ConsistencyBoundary.Inclusive,
+            ),
+        });
+        const result = solveTwoTradeToy(plan);
+        const dayStart: AccountState = {
+            ...plan.initialState(),
+            balance: 1150,
+            bestDayProfit: 150,
+            elapsedDays: 1,
+            intradayHighProfit: 150,
+            peakDayCloseProfit: 150,
+            peakIntradayProfit: 150,
+            threshold: 1050,
+            tradingDays: 1,
+        };
+        const midDay = midDayOf(dayStart, 350);
+        const closedAtTwiceTarget: AccountState = {
+            ...midDay,
+            bestDayProfit: Math.max(midDay.bestDayProfit, midDay.todayPnL),
+            tradingDays: midDay.tradingDays + 1,
+        };
+        expect(closedAtTwiceTarget.bestDayProfit).toBe(350);
+        expect(midDay.balance - plan.initialState().startingBalance).toBe(500);
+
+        expect(plan.isPassed(closedAtTwiceTarget)).toBe(false);
+        expect(result.riskAtReachedState(dayStart, 0)).not.toBeNull();
+
+        const risk = result.riskAtReachedState(midDay, MID_DAY_TRADE_INDEX);
+        expect(risk).toBe(computedRisk(result, midDay, MID_DAY_TRADE_INDEX));
+        expect(risk).not.toBeNull();
+    });
+
+    it('widens the DoubleTarget ceiling to the whole untracked margin, not just the profit target, so a best day past the old too-narrow ceiling still resolves a valid table entry (N-79 EvalStateValue.ts ceiling)', () => {
+        const plan = toyPlan(100).withOverrides({
+            consistency: new ConsistencyRule(
+                ConsistencyScope.Eval,
+                fraction(0.5),
+                ConsistencyBasis.Cycle,
+                ConsistencyViolationEffect.DoubleTarget,
+                ConsistencyBoundary.Inclusive,
+            ),
+        });
+        const result = computeEvalStateValue({
+            actionStepDollars: 500,
+            cushionStepDollars: 100,
+            maxActionDollars: 500,
+            maxEvalDays: 3,
+            plan,
+            profitStepDollars: 100,
+            rrRatio: 2,
+            tradesPerDay: 2,
+            winrate: fraction(0.5),
+        });
+        const bestDayAboveOldCeiling: AccountState = {
+            ...plan.initialState(),
+            balance: plan.initialState().startingBalance + 2000,
+            bestDayProfit: 2000,
+            elapsedDays: 1,
+            intradayHighProfit: 2000,
+            peakDayCloseProfit: 2000,
+            peakIntradayProfit: 2000,
+            threshold: plan.initialState().startingBalance + 2000 - 100,
+            tradingDays: 1,
+        };
+        expect(plan.isPassed(bestDayAboveOldCeiling)).toBe(false);
+
+        expect(
+            result.riskAtReachedState(bestDayAboveOldCeiling, 0),
+        ).not.toBeNull();
     });
 
     it.each([0, MID_DAY_TRADE_INDEX])(

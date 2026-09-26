@@ -33,7 +33,20 @@ export {
     NO_RECORDED_STAGE_STARTS,
     type StagedAccount,
 } from './AccountStageOnDate';
-export { AccountStatus } from './AccountStatus';
+export { AccountStatus, isEndedStatus } from './AccountStatus';
+export {
+    type AccountRow,
+    AccountRowShapeError,
+    accountShapeProblem,
+    AccountTracking,
+    isLedgerOnlyAccount,
+    isModeledAccount,
+    type LedgerOnlyAccountRow,
+    type ModeledAccountRow,
+    trackedAccountOf,
+    type TrackedAccountRow,
+    type TrackedColumns,
+} from './AccountTracking';
 export {
     BankrollTransferKind,
     bankrollTransferKindLabel,
@@ -63,6 +76,19 @@ export {
     FirmEngagementStatus,
     firmEngagementStatusLabel,
 } from './FirmEngagementStatus';
+export {
+    compareFirmKeys,
+    type ExternalFirmName,
+    type FirmColumns,
+    type FirmKey,
+    type FirmKeyGroup,
+    firmKeyId,
+    FirmKeyKind,
+    firmKeyLabel,
+    firmKeyOf,
+    groupByFirmKey,
+    UNLISTED_FIRM_LABEL,
+} from './FirmKey';
 export {
     addCalendarYears,
     addIsoDays,
@@ -95,6 +121,15 @@ export {
     readRulebookParameters,
 } from './JsonbReaders';
 export {
+    describeLedgerOnlyLifecycleRejection,
+    isLedgerOnlySnapshotField,
+    LEDGER_ONLY_LIFECYCLE_FACTS,
+    LEDGER_ONLY_SNAPSHOT_FIELD_LIST,
+    LEDGER_ONLY_SNAPSHOT_FIELD_NAMES,
+    LEDGER_ONLY_SNAPSHOT_FIELDS,
+    type LedgerOnlySnapshotField,
+} from './LedgerOnlyRules';
+export {
     isPaidOnOrBefore,
     type PaidPayoutCash,
     paidPayoutCash,
@@ -113,7 +148,10 @@ export {
     describePlanOptIn,
     describeUnresolvedPlan,
     findStoredFirm,
+    isLedgerOnlyPlanKey,
+    type LedgerOnlyPlanKey,
     MAX_PLAN_SERIAL_LENGTH,
+    type ModeledPlanResolution,
     offeredPlanOptIns,
     type PlanKey,
     type PlanKeyInput,
@@ -136,6 +174,11 @@ export {
 export { RoundStatus, roundStatusLabel } from './RoundStatus';
 export { RuleViolationKind, ruleViolationKindLabel } from './RuleViolationKind';
 export {
+    sampleAdequacy,
+    SampleKind,
+    SampleLevel,
+} from './SampleAdequacy';
+export {
     checkSnapshotEntry,
     liveStartEntryIssues,
     type SnapshotEntryAccount,
@@ -146,6 +189,14 @@ export {
     splitSnapshotEntryIssues,
 } from './SnapshotEntryPlausibility';
 export { SnapshotSource } from './SnapshotSource';
+export {
+    type UpgradeChange,
+    UpgradeChangeKind,
+    upgradeChanges,
+    upgradeChangeText,
+    type UpgradeSource,
+    type UpgradeTarget,
+} from './UpgradeConfirmation';
 export {
     CentsDisplay,
     formatUsdCents,

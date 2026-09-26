@@ -37,9 +37,14 @@ import { errorMessage } from '~/lib/errorMessage';
 import {
     AccountStage,
     accountStageLabel,
+    AccountTracking,
     DashboardBalanceConvention,
     EntryTextKind,
+    type ExternalFirmName,
+    type FirmKey,
+    FirmKeyKind,
     liveStartEntryIssues,
+    type ModeledAccountRow,
     parseMoneyText,
     PlanKeyResolutionKind,
     planOptInsSchema,
@@ -47,9 +52,19 @@ import {
     SnapshotField,
     type SnapshotFieldRule,
     todayIsoDate,
+    trackedAccountOf,
+    type TrackedAccountRow,
+    UNLISTED_FIRM_LABEL,
     type UsdCents,
 } from '~/lib/prop-accounts';
-import { FirmId, type Plan, type PlanOptIns } from '~/lib/prop-calculator';
+import {
+    findFirm,
+    FirmId,
+    parseFirmId,
+    type Plan,
+    type PlanOptIns,
+    serializePlanId,
+} from '~/lib/prop-calculator';
 import { accountCreateSchema } from '~/lib/schemas/propAccounts';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
@@ -57,11 +72,14 @@ import { api, type RouterOutputs } from '~/trpc/react';
 
 import {
     ACCOUNT_LIST_INPUT,
+    accountFirmLabel,
+    accountPlanLabel,
     accountStatusLabel,
     readIssuesOf,
     readOnlyAccountNotice,
 } from './accountListFilters';
 import {
+    AccountPlanMode,
     type AccountPlanSelection,
     type AccountStageOption,
     accountStageOptions,
@@ -69,6 +87,7 @@ import {
     formatUsdCents,
     initialPlanSelection,
     isLiveStartBalanceShown,
+    LEDGER_ONLY_STATUS_NOTE,
     parsePersonalRulesText,
     PERSONAL_RULE_FIELDS,
     personalPayoutOverrideNotice,
@@ -81,11 +100,18 @@ import { AccountPlanPicker } from './AccountPlanPicker';
 import { ArchiveAccountButton } from './AccountsTable';
 import { DeleteAccountDialog } from './DeleteAccountDialog';
 import { nullIfBlank, parsedOrIssues } from './detail/formParsing';
+import { ledgerOnlyPlanLabel } from './externalFirmOptions';
+import {
+    type CreateExternalFirm,
+    ExternalFirmPicker,
+} from './ExternalFirmPicker';
 import { PersonalRulesFields } from './PersonalRulesFields';
 import {
     emptySnapshotFormValues,
     initialSnapshotRules,
     initialSnapshotStage,
+    ledgerOnlySnapshotRules,
+    parseSnapshotForm,
     parseTagsText,
     type SnapshotDraft,
     snapshotDraftWarnings,
@@ -105,9 +131,24 @@ type AccountFormApi = UseFormReturn<AccountFormValues>;
 
 type StoredAccount = RouterOutputs['propAccounts']['account']['get'];
 
+type TrackedStoredAccount = TrackedAccountRow<StoredAccount>;
+
+const CENTS_PER_DOLLAR = 100;
+
 const NONE = 'none';
 
 const FIX_FIELDS_MESSAGE = 'Fix the highlighted fields before saving';
+
+const LEDGER_SIZE_MESSAGE = 'Enter the account size in whole dollars';
+
+const LEDGER_ONLY_NOTE =
+    'The engine never values a ledger-only account. It counts in your spend, payouts, firm and funnel figures, but gets no sizing advice, no plan-rule alerts and no copy group. Upgrade it to a modeled plan once its plan is modeled.';
+
+const LEDGER_ISSUE_PATHS: Readonly<Record<string, string>> = {
+    accountSize: 'ledgerSize',
+    externalFirmId: 'ledgerFirmId',
+    firmId: 'ledgerFirmId',
+};
 
 const NO_SNAPSHOT_WARNINGS: SnapshotDraftWarnings = {
     fieldWarnings: [],
@@ -148,15 +189,20 @@ const accountFormSchema = z
         firstFundedTradeOn: z.string(),
         fundedOn: z.string(),
         label: z.string(),
+        ledgerExternalFirmId: z.string(),
+        ledgerFirmId: z.string(),
+        ledgerSize: z.string(),
         liveStartBalanceCents: z.string(),
         notes: z.string(),
         optIns: planOptInsSchema,
         personalRules: personalRulesTextSchema,
+        planLabel: z.string(),
         planSerial: z.string(),
         purchasedOn: z.string(),
         replacesAccountId: z.string(),
         stage: z.enum(AccountStage),
         tags: z.string(),
+        tracking: z.enum(AccountTracking),
     })
     .transform((values, context) => {
         const liveStart = parseMoneyText(values.liveStartBalanceCents);
@@ -183,33 +229,60 @@ const accountFormSchema = z
                 path: ['personalRules', key],
             });
         }
+        const isLedgerOnly = values.tracking === AccountTracking.LedgerOnly;
+        const ledgerSize = isLedgerOnly
+            ? wholeDollarsOf(values.ledgerSize)
+            : null;
+        if (isLedgerOnly && ledgerSize === null) {
+            context.addIssue({
+                code: 'custom',
+                message: LEDGER_SIZE_MESSAGE,
+                path: ['ledgerSize'],
+            });
+        }
         if (
             liveStart.kind === EntryTextKind.Invalid ||
             tags.kind === EntryTextKind.Invalid ||
-            personalRules.issues.size > 0
+            personalRules.issues.size > 0 ||
+            (isLedgerOnly && ledgerSize === null)
         ) {
             return z.NEVER;
         }
+        const plan = isLedgerOnly
+            ? {
+                  accountSize: ledgerSize,
+                  externalFirmId: nullIfBlank(values.ledgerExternalFirmId),
+                  firmId: nullIfBlank(values.ledgerFirmId),
+                  planLabel: values.planLabel,
+                  tracking: AccountTracking.LedgerOnly,
+              }
+            : {
+                  accountSize: values.accountSize,
+                  firmId: values.firmId,
+                  optIns: values.optIns,
+                  planSerial: values.planSerial,
+                  tracking: AccountTracking.Modeled,
+              };
         const parsed = accountCreateSchema.safeParse({
-            accountSize: values.accountSize,
+            ...plan,
             copyGroupId: nullIfNone(values.copyGroupId),
             dashboardConvention: values.dashboardConvention,
             externalAlias: nullIfBlank(values.externalAlias),
-            firmId: values.firmId,
             firstFundedTradeOn: nullIfBlank(values.firstFundedTradeOn),
             fundedOn: nullIfBlank(values.fundedOn),
             label: values.label,
             liveStartBalanceCents:
                 liveStart.kind === EntryTextKind.Valid ? liveStart.cents : null,
             notes: nullIfBlank(values.notes),
-            optIns: values.optIns,
             personalRules: personalRules.rules,
-            planSerial: values.planSerial,
             purchasedOn: values.purchasedOn,
             replacesAccountId: nullIfNone(values.replacesAccountId),
             stage: values.stage,
             tags: tags.tags,
         });
+        if (isLedgerOnly && !parsed.success) {
+            return ledgerOnlyIssues(parsed.error.issues, context);
+        }
         const liveStartMessage = parsed.success
             ? liveStartPlausibilityMessage(parsed.data)
             : null;
@@ -224,6 +297,7 @@ const accountFormSchema = z
 
 interface AccountFormSubmit {
     readonly includeSnapshot: boolean;
+    readonly isLedgerOnlySnapshot: boolean;
     readonly isSaving: boolean;
     readonly onSubmit: (event: BaseSyntheticEvent) => void;
     readonly setIncludeSnapshot: (isIncluded: boolean) => void;
@@ -237,6 +311,14 @@ interface AccountFormSubmit {
 
 type AccountFormValues = z.input<typeof accountFormSchema>;
 
+interface ExternalFirmSource {
+    readonly create: CreateExternalFirm;
+    readonly error: null | { readonly message: string };
+    readonly firms: readonly ExternalFirmName[] | undefined;
+    readonly isError: boolean;
+    readonly isPending: boolean;
+}
+
 export function AccountCreator({
     initialFirm,
     initialOptIns,
@@ -246,6 +328,7 @@ export function AccountCreator({
     initialOptIns: PlanOptIns;
     initialPlan: null | string;
 }) {
+    const externalFirms = useExternalFirms();
     const selection = initialPlanSelection(
         initialFirm,
         initialPlan,
@@ -254,30 +337,51 @@ export function AccountCreator({
     const plan = planOf(selection);
     const [stage] = plan === null ? [] : accountStageOptions(plan);
     return (
-        <AccountForm
-            defaults={{
-                ...selection,
-                copyGroupId: NONE,
-                dashboardConvention: DashboardBalanceConvention.Nominal,
-                externalAlias: '',
-                firstFundedTradeOn: '',
-                fundedOn: '',
-                label: '',
-                liveStartBalanceCents: '',
-                notes: '',
-                personalRules: EMPTY_PERSONAL_RULES_TEXT,
-                purchasedOn: todayIsoDate(new Date()),
-                replacesAccountId: NONE,
-                stage: stage?.stage ?? AccountStage.Funded,
-                tags: '',
-            }}
-            stored={null}
-        />
+        <>
+            {externalFirms.isError && (
+                <Alert className="mb-6" variant="warning">
+                    <TriangleAlert />
+                    <AlertTitle>Your firms could not be loaded</AlertTitle>
+                    <AlertDescription>
+                        {externalFirms.error?.message} You can still add an
+                        account at a listed firm; a firm you added will not
+                        show in the picker until this loads.
+                    </AlertDescription>
+                </Alert>
+            )}
+            <AccountForm
+                defaults={{
+                    ...selection,
+                    copyGroupId: NONE,
+                    dashboardConvention: DashboardBalanceConvention.Nominal,
+                    externalAlias: '',
+                    firstFundedTradeOn: '',
+                    fundedOn: '',
+                    label: '',
+                    ledgerExternalFirmId: '',
+                    ledgerFirmId: '',
+                    ledgerSize: '',
+                    liveStartBalanceCents: '',
+                    notes: '',
+                    personalRules: EMPTY_PERSONAL_RULES_TEXT,
+                    planLabel: '',
+                    purchasedOn: todayIsoDate(new Date()),
+                    replacesAccountId: NONE,
+                    stage: stage?.stage ?? AccountStage.Funded,
+                    tags: '',
+                    tracking: AccountTracking.Modeled,
+                }}
+                externalFirms={externalFirms.firms ?? []}
+                onCreateExternalFirm={externalFirms.create}
+                stored={null}
+            />
+        </>
     );
 }
 
 export function AccountEditor({ id }: { id: string }) {
     const accountQuery = api.propAccounts.account.get.useQuery({ id });
+    const externalFirms = useExternalFirms();
     if (accountQuery.isPending) return <Skeleton className="h-96 w-full" />;
     if (accountQuery.isError) {
         return (
@@ -290,7 +394,22 @@ export function AccountEditor({ id }: { id: string }) {
             </Alert>
         );
     }
-    const account = accountQuery.data;
+    const account = trackedAccountOf(accountQuery.data);
+    if (externalFirms.isPending && account.externalFirmId !== null) {
+        return <Skeleton className="h-96 w-full" />;
+    }
+    if (externalFirms.isError && account.externalFirmId !== null) {
+        return (
+            <Alert variant="destructive">
+                <TriangleAlert />
+                <AlertTitle>Your firms could not be loaded</AlertTitle>
+                <AlertDescription>
+                    {externalFirms.error?.message}
+                </AlertDescription>
+            </Alert>
+        );
+    }
+    const knownFirms = externalFirms.firms ?? [];
     const resolution = resolvePlanKey(account);
     const issues = readIssuesOf(account, resolution);
     if (
@@ -300,13 +419,29 @@ export function AccountEditor({ id }: { id: string }) {
         return (
             <ReadOnlyAccount
                 account={account}
+                externalFirms={knownFirms}
                 notice={readOnlyAccountNotice(account, issues)}
             />
         );
     }
+    const storedFirms =
+        account.externalFirmId === null ||
+        knownFirms.some((firm) => firm.id === account.externalFirmId)
+            ? knownFirms
+            : [
+                  ...knownFirms,
+                  { id: account.externalFirmId, name: UNLISTED_FIRM_LABEL },
+              ];
     return (
         <AccountForm
-            defaults={storedDefaults(account, resolution.plan)}
+            defaults={
+                account.tracking === AccountTracking.Modeled &&
+                resolution.kind === PlanKeyResolutionKind.Resolved
+                    ? storedDefaults(account, resolution.plan)
+                    : storedLedgerOnlyDefaults(account)
+            }
+            externalFirms={storedFirms}
+            onCreateExternalFirm={externalFirms.create}
             stored={account}
         />
     );
@@ -314,9 +449,13 @@ export function AccountEditor({ id }: { id: string }) {
 
 function AccountForm({
     defaults,
+    externalFirms,
+    onCreateExternalFirm,
     stored,
 }: {
     defaults: AccountFormValues;
+    externalFirms: readonly ExternalFirmName[];
+    onCreateExternalFirm: CreateExternalFirm | null;
     stored: null | StoredAccount;
 }) {
     const accountsQuery =
@@ -335,7 +474,8 @@ function AccountForm({
         planSerial: form.watch('planSerial'),
     };
     const personalRulesText = form.watch('personalRules');
-    const plan = planOf(selection);
+    const isLedgerOnly = form.watch('tracking') === AccountTracking.LedgerOnly;
+    const plan = isLedgerOnly ? null : planOf(selection);
     const payoutNotice =
         plan === null
             ? null
@@ -363,7 +503,9 @@ function AccountForm({
                 onSubmit={submit.onSubmit}
             >
                 <PlanCard
+                    externalFirms={externalFirms}
                     form={form}
+                    onCreateExternalFirm={onCreateExternalFirm}
                     plan={plan}
                     selection={selection}
                     stored={stored}
@@ -372,6 +514,7 @@ function AccountForm({
                 <DetailsCard
                     control={form.control}
                     groups={groupsQuery.data ?? []}
+                    isLedgerOnly={isLedgerOnly}
                     otherAccounts={otherAccounts}
                 />
 
@@ -482,10 +625,12 @@ function DateField({
 function DetailsCard({
     control,
     groups,
+    isLedgerOnly,
     otherAccounts,
 }: {
     control: Control<AccountFormValues>;
     groups: readonly { readonly id: string; readonly name: string }[];
+    isLedgerOnly: boolean;
     otherAccounts: readonly { readonly id: string; readonly label: string }[];
 }) {
     return (
@@ -540,43 +685,45 @@ function DetailsCard({
                     label="First funded trade on (optional)"
                     name="firstFundedTradeOn"
                 />
-                <FormField
-                    control={control}
-                    name="copyGroupId"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Copy group</FormLabel>
-                            <Select
-                                onValueChange={field.onChange}
-                                value={field.value}
-                            >
-                                <FormControl>
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    <SelectItem value={NONE}>
-                                        None (traded on its own)
-                                    </SelectItem>
-                                    {groups.map((group) => (
-                                        <SelectItem
-                                            key={group.id}
-                                            value={group.id}
-                                        >
-                                            {group.name}
+                {!isLedgerOnly && (
+                    <FormField
+                        control={control}
+                        name="copyGroupId"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Copy group</FormLabel>
+                                <Select
+                                    onValueChange={field.onChange}
+                                    value={field.value}
+                                >
+                                    <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value={NONE}>
+                                            None (traded on its own)
                                         </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <FormDescription>
-                                Every account in a group must be in the same
-                                stage.
-                            </FormDescription>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
+                                        {groups.map((group) => (
+                                            <SelectItem
+                                                key={group.id}
+                                                value={group.id}
+                                            >
+                                                {group.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <FormDescription>
+                                    Every account in a group must be in the same
+                                    stage.
+                                </FormDescription>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                )}
                 <FormField
                     control={control}
                     name="replacesAccountId"
@@ -646,6 +793,13 @@ function DetailsCard({
     );
 }
 
+function everyStageOption(): readonly AccountStageOption[] {
+    return Object.values(AccountStage).map((stage) => ({
+        label: accountStageLabel(stage),
+        stage,
+    }));
+}
+
 function InitialSnapshotCard({ submit }: { submit: AccountFormSubmit }) {
     return (
         <Card>
@@ -663,19 +817,252 @@ function InitialSnapshotCard({ submit }: { submit: AccountFormSubmit }) {
                         Enter today&rsquo;s balance now
                     </Label>
                 </div>
-                {submit.includeSnapshot && submit.snapshotRules !== null && (
-                    <SnapshotFields
-                        fieldWarnings={submit.snapshotWarnings.fieldWarnings}
-                        formIssues={submit.snapshotFormIssues}
-                        formWarnings={submit.snapshotWarnings.formWarnings}
-                        issues={submit.snapshotIssues}
-                        onChange={submit.setSnapshotValue}
-                        rules={submit.snapshotRules}
-                        values={submit.snapshotValues}
-                    />
+                {submit.includeSnapshot && (
+                    <InitialSnapshotFields submit={submit} />
                 )}
             </CardContent>
         </Card>
+    );
+}
+
+function InitialSnapshotFields({ submit }: { submit: AccountFormSubmit }) {
+    const entry = {
+        fieldWarnings: submit.snapshotWarnings.fieldWarnings,
+        formIssues: submit.snapshotFormIssues,
+        formWarnings: submit.snapshotWarnings.formWarnings,
+        issues: submit.snapshotIssues,
+        onChange: submit.setSnapshotValue,
+        values: submit.snapshotValues,
+    };
+    if (submit.isLedgerOnlySnapshot) {
+        return (
+            <SnapshotFields {...entry} tracking={AccountTracking.LedgerOnly} />
+        );
+    }
+    return submit.snapshotRules === null ? null : (
+        <SnapshotFields {...entry} rules={submit.snapshotRules} />
+    );
+}
+
+function ledgerFirmKeyOf(
+    firmId: string,
+    externalFirmId: string,
+): FirmKey | null {
+    if (firmId !== '') return { firmId, kind: FirmKeyKind.Modeled };
+    return externalFirmId === ''
+        ? null
+        : { externalFirmId, kind: FirmKeyKind.External };
+}
+
+function ledgerOnlyIssues(
+    issues: readonly z.core.$ZodIssue[],
+    context: z.RefinementCtx,
+): never {
+    for (const issue of issues) {
+        const [head, ...rest] = issue.path;
+        const mapped =
+            typeof head === 'string'
+                ? (LEDGER_ISSUE_PATHS[head] ?? head)
+                : head;
+        context.addIssue({
+            code: 'custom',
+            message: issue.message,
+            path: mapped === undefined ? [] : [mapped, ...rest],
+        });
+    }
+    return z.NEVER;
+}
+
+function LedgerOnlyPlanFields({
+    externalFirms,
+    form,
+    onCreateExternalFirm,
+    selection,
+}: {
+    externalFirms: readonly ExternalFirmName[];
+    form: AccountFormApi;
+    onCreateExternalFirm: CreateExternalFirm | null;
+    selection: AccountPlanSelection;
+}) {
+    const firmKey = ledgerFirmKeyOf(
+        form.watch('ledgerFirmId'),
+        form.watch('ledgerExternalFirmId'),
+    );
+    const listedFirmId =
+        firmKey?.kind === FirmKeyKind.Modeled
+            ? parseFirmId(firmKey.firmId)
+            : undefined;
+    const errors = form.formState.errors;
+    const fill = (next: AccountPlanSelection) => {
+        form.setValue('firmId', next.firmId);
+        form.setValue('planSerial', next.planSerial);
+        form.setValue('accountSize', next.accountSize);
+        form.setValue('optIns', next.optIns);
+        const nextPlan =
+            findFirm(next.firmId)?.findPlanBySerial(next.planSerial) ?? null;
+        form.setValue('ledgerSize', String(next.accountSize), {
+            shouldDirty: true,
+        });
+        if (nextPlan !== null) {
+            form.setValue(
+                'planLabel',
+                ledgerOnlyPlanLabel(nextPlan, next.accountSize),
+                { shouldDirty: true },
+            );
+        }
+    };
+    return (
+        <div className="flex flex-col gap-4">
+            <ExternalFirmPicker
+                disabled={false}
+                error={errors.ledgerFirmId?.message ?? null}
+                externalFirms={externalFirms}
+                onChange={(next) => {
+                    if (next.kind === FirmKeyKind.External) {
+                        form.setValue(
+                            'ledgerExternalFirmId',
+                            next.externalFirmId,
+                        );
+                        form.setValue('ledgerFirmId', '');
+                        return;
+                    }
+                    form.setValue('ledgerFirmId', next.firmId);
+                    form.setValue('ledgerExternalFirmId', '');
+                    const listed = parseFirmId(next.firmId);
+                    const [first] =
+                        listed === undefined
+                            ? []
+                            : (findFirm(listed)?.plans ?? []);
+                    if (listed !== undefined && first !== undefined) {
+                        fill({
+                            accountSize: first.id.accountSize,
+                            firmId: listed,
+                            optIns: selection.optIns,
+                            planSerial: serializePlanId(first.id),
+                        });
+                    }
+                }}
+                onCreate={onCreateExternalFirm}
+                value={firmKey}
+            />
+            {listedFirmId !== undefined &&
+                listedFirmId === selection.firmId && (
+                    <AccountPlanPicker
+                        errors={[]}
+                        mode={AccountPlanMode.LedgerOnly}
+                        onChange={fill}
+                        value={selection}
+                    />
+                )}
+            <div className="grid gap-4 md:grid-cols-2">
+                <FormField
+                    control={form.control}
+                    name="ledgerSize"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Account size ($)</FormLabel>
+                            <FormControl>
+                                <Input
+                                    autoComplete="off"
+                                    inputMode="numeric"
+                                    {...field}
+                                />
+                            </FormControl>
+                            <FormDescription>
+                                Any size, in whole dollars, as the firm sold it.
+                            </FormDescription>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="planLabel"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Plan</FormLabel>
+                            <FormControl>
+                                <Input autoComplete="off" {...field} />
+                            </FormControl>
+                            <FormDescription>
+                                The plan name as the firm shows it.
+                            </FormDescription>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+            </div>
+            <p className="text-sm text-muted-foreground">{LEDGER_ONLY_NOTE}</p>
+            <p className="text-sm text-muted-foreground">
+                {LEDGER_ONLY_STATUS_NOTE}
+            </p>
+        </div>
+    );
+}
+
+function LedgerOnlySwitch({
+    form,
+    isLocked,
+    onModeled,
+    plan,
+    selection,
+}: {
+    form: AccountFormApi;
+    isLocked: boolean;
+    onModeled: () => void;
+    plan: null | Plan;
+    selection: AccountPlanSelection;
+}) {
+    const isLedgerOnly = form.watch('tracking') === AccountTracking.LedgerOnly;
+    return (
+        <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+                <Switch
+                    checked={isLedgerOnly}
+                    disabled={isLocked}
+                    id="account-ledger-only"
+                    onCheckedChange={(checked) => {
+                        if (!checked) {
+                            form.setValue('tracking', AccountTracking.Modeled, {
+                                shouldDirty: true,
+                            });
+                            onModeled();
+                            return;
+                        }
+                        form.setValue('tracking', AccountTracking.LedgerOnly, {
+                            shouldDirty: true,
+                        });
+                        form.setValue('copyGroupId', NONE, {
+                            shouldDirty: true,
+                        });
+                        form.setValue('ledgerFirmId', selection.firmId);
+                        form.setValue('ledgerExternalFirmId', '');
+                        form.setValue(
+                            'ledgerSize',
+                            String(selection.accountSize),
+                        );
+                        form.setValue(
+                            'planLabel',
+                            plan === null
+                                ? ''
+                                : ledgerOnlyPlanLabel(
+                                      plan,
+                                      selection.accountSize,
+                                  ),
+                        );
+                    }}
+                />
+                <Label htmlFor="account-ledger-only">
+                    Firm not listed or size not modeled
+                </Label>
+            </div>
+            {isLocked && isLedgerOnly && (
+                <span className="text-sm text-muted-foreground">
+                    This account is ledger only. Upgrade it from its account
+                    page once its plan is modeled.
+                </span>
+            )}
+        </div>
     );
 }
 
@@ -712,7 +1099,12 @@ function liveStartCentsOf(stage: AccountStage, text: string): null | UsdCents {
 }
 
 function liveStartPlausibilityMessage(draft: AccountDraft): null | string {
-    if (draft.liveStartBalanceCents === null) return null;
+    if (
+        draft.liveStartBalanceCents === null ||
+        draft.tracking === AccountTracking.LedgerOnly
+    ) {
+        return null;
+    }
     const plan = planOf(draft);
     if (plan === null) return null;
     const issues = liveStartEntryIssues(plan, AccountStage.Live, draft);
@@ -733,18 +1125,23 @@ function overrideCentsOf(text: string): undefined | UsdCents {
 }
 
 function PlanCard({
+    externalFirms,
     form,
+    onCreateExternalFirm,
     plan,
     selection,
     stored,
 }: {
+    externalFirms: readonly ExternalFirmName[];
     form: AccountFormApi;
+    onCreateExternalFirm: CreateExternalFirm | null;
     plan: null | Plan;
     selection: AccountPlanSelection;
     stored: null | StoredAccount;
 }) {
     const errors = form.formState.errors;
     const stage = form.watch('stage');
+    const isLedgerOnly = form.watch('tracking') === AccountTracking.LedgerOnly;
     const planErrors = [
         errors.firmId?.message,
         errors.planSerial?.message,
@@ -753,7 +1150,11 @@ function PlanCard({
         errors.optIns?.takesFundedReset?.message,
         errors.optIns?.takesOneTimeEarlyWithdrawal?.message,
     ].filter((message): message is string => message !== undefined);
-    const stageOptions = plan === null ? [] : accountStageOptions(plan);
+    const stageOptions = isLedgerOnly
+        ? everyStageOption()
+        : plan === null
+          ? []
+          : accountStageOptions(plan);
 
     const setSelection = (next: AccountPlanSelection) => {
         form.setValue('firmId', next.firmId, { shouldDirty: true });
@@ -779,11 +1180,35 @@ function PlanCard({
                 <CardTitle>Firm and plan</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-                <AccountPlanPicker
-                    errors={planErrors}
-                    onChange={setSelection}
-                    value={selection}
+                <LedgerOnlySwitch
+                    form={form}
+                    isLocked={stored !== null}
+                    onModeled={() => {
+                        setSelection(
+                            initialPlanSelection(
+                                selection.firmId,
+                                selection.planSerial,
+                                selection.optIns,
+                            ),
+                        );
+                    }}
+                    plan={plan}
+                    selection={selection}
                 />
+                {isLedgerOnly ? (
+                    <LedgerOnlyPlanFields
+                        externalFirms={externalFirms}
+                        form={form}
+                        onCreateExternalFirm={onCreateExternalFirm}
+                        selection={selection}
+                    />
+                ) : (
+                    <AccountPlanPicker
+                        errors={planErrors}
+                        onChange={setSelection}
+                        value={selection}
+                    />
+                )}
                 {stored === null ? (
                     <StageField
                         form={form}
@@ -828,9 +1253,11 @@ function planOf(selection: AccountPlanSelection): null | Plan {
 
 function ReadOnlyAccount({
     account,
+    externalFirms,
     notice,
 }: {
-    account: StoredAccount;
+    account: TrackedStoredAccount;
+    externalFirms: readonly ExternalFirmName[];
     notice: string;
 }) {
     const router = useRouter();
@@ -849,9 +1276,9 @@ function ReadOnlyAccount({
                 <dt className="text-muted-foreground">Label</dt>
                 <dd>{account.label}</dd>
                 <dt className="text-muted-foreground">Firm</dt>
-                <dd>{account.firmId}</dd>
+                <dd>{accountFirmLabel(account, externalFirms)}</dd>
                 <dt className="text-muted-foreground">Plan</dt>
-                <dd>{account.planSerial}</dd>
+                <dd>{accountPlanLabel(account)}</dd>
                 <dt className="text-muted-foreground">Stage</dt>
                 <dd>{accountStageLabel(account.stage)}</dd>
                 <dt className="text-muted-foreground">Status</dt>
@@ -949,13 +1376,42 @@ function StageField({
     );
 }
 
-function storedDefaults(account: StoredAccount, plan: Plan): AccountFormValues {
+function storedDefaults(
+    account: ModeledAccountRow<StoredAccount>,
+    plan: Plan,
+): AccountFormValues {
     return {
+        ...storedDetailDefaults(account),
         accountSize: account.accountSize,
+        firmId: plan.id.firm,
+        ledgerExternalFirmId: '',
+        ledgerFirmId: '',
+        ledgerSize: '',
+        optIns: account.optIns,
+        planLabel: '',
+        planSerial: account.planSerial,
+        tracking: AccountTracking.Modeled,
+    };
+}
+
+function storedDetailDefaults(
+    account: TrackedStoredAccount,
+): Omit<
+    AccountFormValues,
+    | 'accountSize'
+    | 'firmId'
+    | 'ledgerExternalFirmId'
+    | 'ledgerFirmId'
+    | 'ledgerSize'
+    | 'optIns'
+    | 'planLabel'
+    | 'planSerial'
+    | 'tracking'
+> {
+    return {
         copyGroupId: account.copyGroupId ?? NONE,
         dashboardConvention: account.dashboardConvention,
         externalAlias: account.externalAlias ?? '',
-        firmId: plan.id.firm,
         firstFundedTradeOn: account.firstFundedTradeOn ?? '',
         fundedOn: account.fundedOn ?? '',
         label: account.label,
@@ -964,9 +1420,7 @@ function storedDefaults(account: StoredAccount, plan: Plan): AccountFormValues {
                 ? ''
                 : usdCentsToText(account.liveStartBalanceCents),
         notes: account.notes ?? '',
-        optIns: account.optIns,
         personalRules: personalRulesToText(account.personalRules),
-        planSerial: account.planSerial,
         purchasedOn: account.purchasedOn,
         replacesAccountId: account.replacesAccountId ?? NONE,
         stage: account.stage,
@@ -974,26 +1428,65 @@ function storedDefaults(account: StoredAccount, plan: Plan): AccountFormValues {
     };
 }
 
-function toUpdateInput(draft: AccountDraft, id: string) {
+function storedLedgerOnlyDefaults(
+    account: TrackedStoredAccount,
+): AccountFormValues {
+    const selection = initialPlanSelection(
+        account.firmId,
+        null,
+        account.optIns,
+    );
     return {
-        accountSize: draft.accountSize,
+        ...storedDetailDefaults(account),
+        ...selection,
+        accountSize: account.accountSize,
+        ledgerExternalFirmId: account.externalFirmId ?? '',
+        ledgerFirmId: account.firmId ?? '',
+        ledgerSize: String(account.accountSize),
+        planLabel: account.planLabel ?? '',
+        tracking: AccountTracking.LedgerOnly,
+    };
+}
+
+function toUpdateInput(draft: AccountDraft, id: string) {
+    const details = {
         copyGroupId: draft.copyGroupId,
         dashboardConvention: draft.dashboardConvention,
         externalAlias: draft.externalAlias,
-        firmId: draft.firmId,
         firstFundedTradeOn: draft.firstFundedTradeOn,
         fundedOn: draft.fundedOn,
         id,
         label: draft.label,
         liveStartBalanceCents: draft.liveStartBalanceCents,
         notes: draft.notes,
-        optIns: draft.optIns,
         personalRules: draft.personalRules,
-        planSerial: draft.planSerial,
         purchasedOn: draft.purchasedOn,
         replacesAccountId: draft.replacesAccountId,
         tags: draft.tags,
     };
+    switch (draft.tracking) {
+        case AccountTracking.LedgerOnly: {
+            return {
+                ...details,
+                accountSize: draft.accountSize,
+                externalFirmId: draft.externalFirmId,
+                firmId: draft.firmId,
+                optIns: draft.optIns,
+                planLabel: draft.planLabel,
+                tracking: draft.tracking,
+            };
+        }
+        case AccountTracking.Modeled: {
+            return {
+                ...details,
+                accountSize: draft.accountSize,
+                firmId: draft.firmId,
+                optIns: draft.optIns,
+                planSerial: draft.planSerial,
+                tracking: draft.tracking,
+            };
+        }
+    }
 }
 
 function useAccountFormSubmit({
@@ -1015,6 +1508,8 @@ function useAccountFormSubmit({
         () => emptySnapshotFormValues(todayIsoDate(new Date())),
     );
     const [isSnapshotChecked, setIsSnapshotChecked] = useState(false);
+    const isLedgerOnlySnapshot =
+        form.watch('tracking') === AccountTracking.LedgerOnly;
     const accountStage = form.watch('stage');
     const snapshotAccount = {
         fundedOn: form.watch('fundedOn'),
@@ -1022,12 +1517,13 @@ function useAccountFormSubmit({
         stage: accountStage,
     };
     const asOf = snapshotValues[SnapshotField.AsOf];
-    const snapshotRules =
-        plan === null
-            ? null
-            : initialSnapshotRules(plan, snapshotAccount, asOf);
+    const snapshotRules = isLedgerOnlySnapshot
+        ? ledgerOnlySnapshotRules()
+        : plan === null
+          ? null
+          : initialSnapshotRules(plan, snapshotAccount, asOf);
     const plausibility: null | SnapshotPlausibilityContext =
-        plan === null
+        plan === null || isLedgerOnlySnapshot
             ? null
             : {
                   account: {
@@ -1043,14 +1539,18 @@ function useAccountFormSubmit({
               };
     const isSnapshotEntered = stored === null && includeSnapshot;
 
-    const checkSnapshot = (): null | SnapshotFormResult =>
-        snapshotRules === null || plausibility === null
+    const checkSnapshot = (): null | SnapshotFormResult => {
+        if (isLedgerOnlySnapshot) {
+            return parseSnapshotForm(snapshotValues, ledgerOnlySnapshotRules());
+        }
+        return snapshotRules === null || plausibility === null
             ? null
             : validateSnapshotDraft(
                   snapshotValues,
                   snapshotRules,
                   plausibility,
               );
+    };
 
     const shownResult =
         isSnapshotChecked && isSnapshotEntered ? checkSnapshot() : null;
@@ -1127,6 +1627,7 @@ function useAccountFormSubmit({
 
     return {
         includeSnapshot,
+        isLedgerOnlySnapshot,
         isSaving:
             create.isPending || update.isPending || snapshotCreation.isPending,
         onSubmit: (event) => {
@@ -1145,4 +1646,30 @@ function useAccountFormSubmit({
         snapshotValues,
         snapshotWarnings,
     };
+}
+
+function useExternalFirms(): ExternalFirmSource {
+    const utilities = api.useUtils();
+    const listQuery = api.propAccounts.externalFirm.list.useQuery();
+    const creation = api.propAccounts.externalFirm.create.useMutation();
+    return {
+        create: async (name) => {
+            const created = await creation.mutateAsync({ name });
+            await utilities.propAccounts.externalFirm.list.invalidate();
+            return created;
+        },
+        error: listQuery.error,
+        firms: listQuery.data,
+        isError: listQuery.isError,
+        isPending: listQuery.isPending,
+    };
+}
+
+function wholeDollarsOf(text: string): null | number {
+    const parsed = parseMoneyText(text);
+    return parsed.kind === EntryTextKind.Valid &&
+        parsed.cents > 0 &&
+        parsed.cents % CENTS_PER_DOLLAR === 0
+        ? parsed.cents / CENTS_PER_DOLLAR
+        : null;
 }

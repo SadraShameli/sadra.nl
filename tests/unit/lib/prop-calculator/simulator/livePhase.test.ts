@@ -798,7 +798,7 @@ describe('runLiveHorizon drain-to-floor (retainedCushion 0) never forces a bust'
         expect(result.totalWithdrawn).toBeCloseTo(0.8 * (1999.99 + 4 * 100), 6);
     });
 
-    it('FundedNext locks $1,000 below its $2,000 start on day 20 and withdraws $2,999.99, leaving one cent above the Max Loss Limit, with no bust on days 21 and 22, which each win one $100 NQ contract (T33) and withdraw it at the 100% tier', () => {
+    it('FundedNext locks $1,000 below its $2,000 start on day 20 and withdraws $1,999.99, leaving one cent above the $2,000 deposit a withdrawal may not reach (N-81), with no bust on days 21 and 22, which each win one $100 NQ contract (T33) and withdraw it at the 100% tier', () => {
         const result = runLiveHorizon({
             commission: dollars(0),
             horizonDays: 22,
@@ -814,7 +814,7 @@ describe('runLiveHorizon drain-to-floor (retainedCushion 0) never forces a bust'
 
         expect(result.busted).toBe(false);
         expect(result.daysToFirstWithdrawal).toBe(20);
-        expect(result.totalWithdrawn).toBeCloseTo(2999.99 + 2 * 100, 6);
+        expect(result.totalWithdrawn).toBeCloseTo(1999.99 + 2 * 100, 6);
     });
 
     it('Lucid withdraws $99.99 on day 2 and survives the rest of a 20-day horizon on the one-cent cushion', () => {
@@ -1754,7 +1754,14 @@ describe('runLiveDay on TPT PRO+ numbers (no buffer-zone withdrawal gate + weekl
         expect(state.consecutiveIdleDays).toBe(0);
     });
 
-    it("closes for inactivity once 7 consecutive idle days accrue, matching the same maxConsecutiveIdleDays: 7 rule as PRO's own funded-phase weekly-trading requirement", () => {
+    it('sets no rolling maxConsecutiveIdleDays, since PRO+ follows the same 5-session calendar-week rule as PRO (N-80)', () => {
+        expect(buildTptLivePlan().maxConsecutiveIdleDays).toBeNull();
+        expect(
+            buildTptLivePlan().calendarWeekInactivity?.sessionsPerWeek,
+        ).toBe(5);
+    });
+
+    it('closes for inactivity at the end of an empty 5-session calendar week, not the 7th consecutive idle day', () => {
         const plan = buildTptLivePlan();
         const state = plan.initialState();
 
@@ -1763,7 +1770,7 @@ describe('runLiveDay on TPT PRO+ numbers (no buffer-zone withdrawal gate + weekl
             closedForInactivity: false,
             traded: false,
         };
-        for (let day = 0; day < 7; day++) {
+        for (let day = 0; day < 5; day++) {
             result = runLiveDay({
                 commission: dollars(0),
                 idleDayProbability: 1,
@@ -1775,11 +1782,35 @@ describe('runLiveDay on TPT PRO+ numbers (no buffer-zone withdrawal gate + weekl
                 tradesPerDay: 1,
                 winrate: fraction(1),
             });
+            if (day < 4) expect(result.busted).toBe(false);
         }
 
-        expect(state.consecutiveIdleDays).toBe(7);
         expect(result.busted).toBe(true);
         expect(result.closedForInactivity).toBe(true);
+    });
+
+    it('never closes a rolling 7-session idle gap spanning two calendar weeks, as long as each week has one traded session', () => {
+        const plan = buildTptLivePlan();
+        const state = plan.initialState();
+        const tradedSessions = new Set([1, 9]);
+
+        for (let session = 1; session <= 10; session++) {
+            const isTraded = tradedSessions.has(session);
+            const result = runLiveDay({
+                commission: dollars(0),
+                idleDayProbability: isTraded ? 0 : 1,
+                plan,
+                positionSizing: NQ_AT_100,
+                rng: isTraded ? alwaysWins : alwaysIdle,
+                rrRatio: 1,
+                state,
+                tradesPerDay: 1,
+                winrate: fraction(1),
+            });
+            expect(result.busted).toBe(false);
+        }
+
+        expect(state.consecutiveIdleDays).toBe(1);
     });
 
     it('resets the idle-day counter to 0 on any traded day, so an interrupted idle streak never accumulates toward closure', () => {

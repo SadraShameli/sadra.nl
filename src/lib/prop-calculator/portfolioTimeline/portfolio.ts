@@ -1,8 +1,13 @@
 import { TRADING_DAYS_PER_MONTH } from '../core/constants';
+import { LifetimeCapScope } from '../core/Plan';
 import { deriveSubSeed, mulberry32 } from '../rng';
-import { assertPositiveSafeInteger, SIM_DEFAULTS } from '../simulator';
+import {
+    assertPayoutRequestPolicy,
+    assertPositiveSafeInteger,
+    SIM_DEFAULTS,
+} from '../simulator';
 import { percentile } from '../stats';
-import { runAccountTimeline } from './accountTimeline';
+import { runAccountTimeline, type SharedPayoutBudget } from './accountTimeline';
 import {
     DEFAULT_DAY_BUDGET,
     type PortfolioTimelineInputs,
@@ -26,6 +31,7 @@ export function simulatePortfolioTimeline(
         instrument,
         maxEvalDays,
         minRetainedCushion,
+        payoutRequestPolicy,
         payoutRequestSize,
         plan,
         riskPerTrade,
@@ -42,45 +48,60 @@ export function simulatePortfolioTimeline(
     assertPositiveSafeInteger(dayBudget, 'dayBudget');
     assertPositiveSafeInteger(accounts, 'accounts');
     assertPositiveSafeInteger(maxEvalDays, 'maxEvalDays');
+    assertPayoutRequestPolicy(plan, payoutRequestPolicy, payoutRequestSize);
     const N = Math.min(accounts, plan.maxFundedAccounts);
 
     const initialPurchaseDiscounts = plan.purchaseDiscounts(discounts, N);
+
+    const pooledLifetimeCap = plan.maxLifetimePayoutDollars;
+    const isPooledScope =
+        pooledLifetimeCap !== null &&
+        plan.lifetimeConclusion.dollarCapScope ===
+            LifetimeCapScope.PerUserAcrossVariant;
 
     const perTrialSpend: Float64Array[] = [];
     const perTrialPayout: Float64Array[] = [];
     const perTrialNet: Float64Array[] = [];
     const breakEvenMonthValues: number[] = [];
     let everPositiveCount = 0;
+    let finalNetNegativeCount = 0;
 
     for (let t = 0; t < trials; t++) {
         const combinedSpend = new Float64Array(dayBudget + 1);
         const combinedPayout = new Float64Array(dayBudget + 1);
         const combinedNet = new Float64Array(dayBudget + 1);
+        const sharedPayoutBudget: SharedPayoutBudget | undefined = isPooledScope
+            ? { remaining: pooledLifetimeCap }
+            : undefined;
 
         for (let a = 0; a < N; a++) {
             const accountRng = mulberry32(deriveSubSeed(seed, t, a));
-            const account = runAccountTimeline({
-                commissionPerRoundTrip,
-                dayBudget,
-                dayStop,
-                discounts,
-                evalDayPolicy,
-                fundedDayPolicy,
-                idleDayProbability,
-                initialPurchaseDiscounts,
-                instrument,
-                maxEvalDays,
-                minRetainedCushion,
-                payoutRequestSize,
-                plan,
-                riskPerTrade,
-                rng: accountRng,
-                rrRatio,
-                rungSizing,
-                stopPoints,
-                tradesPerDay,
-                winrate,
-            });
+            const account = runAccountTimeline(
+                {
+                    commissionPerRoundTrip,
+                    dayBudget,
+                    dayStop,
+                    discounts,
+                    evalDayPolicy,
+                    fundedDayPolicy,
+                    idleDayProbability,
+                    initialPurchaseDiscounts,
+                    instrument,
+                    maxEvalDays,
+                    minRetainedCushion,
+                    payoutRequestPolicy,
+                    payoutRequestSize,
+                    plan,
+                    riskPerTrade,
+                    rng: accountRng,
+                    rrRatio,
+                    rungSizing,
+                    stopPoints,
+                    tradesPerDay,
+                    winrate,
+                },
+                sharedPayoutBudget,
+            );
 
             for (let d = 0; d <= dayBudget; d++) {
                 combinedSpend[d] =
@@ -96,6 +117,8 @@ export function simulatePortfolioTimeline(
         perTrialSpend.push(combinedSpend);
         perTrialPayout.push(combinedPayout);
         perTrialNet.push(combinedNet);
+
+        if ((combinedNet.at(-1) ?? 0) < 0) finalNetNegativeCount += 1;
 
         const breakEvenDay = firstNonNegativeDay(combinedNet);
         if (breakEvenDay === null) {
@@ -148,6 +171,7 @@ export function simulatePortfolioTimeline(
         payoutP50,
         payoutP90,
         pEverCashflowPositive: everPositiveCount / trials,
+        pFinalNetNegative: finalNetNegativeCount / trials,
         spendP10,
         spendP50,
         spendP90,

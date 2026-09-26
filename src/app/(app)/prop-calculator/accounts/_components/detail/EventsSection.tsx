@@ -32,6 +32,7 @@ import { Textarea } from '~/components/ui/Textarea';
 import {
     AccountEventKind,
     type AccountLifecycleState,
+    AccountTracking,
     type PlanLifecycleFacts,
     todayIsoDate,
 } from '~/lib/prop-accounts';
@@ -60,6 +61,9 @@ const eventFormShape = z.object({
 
 type EventFormValues = z.input<typeof eventFormShape>;
 
+const LEDGER_ONLY_EVENTS_NOTE =
+    'This account is ledger only, so no plan rules check its events: record a bust, a closure or its conclusion here to keep its status current. A funded reset needs a modeled plan; record the firm reinstating the account as a bust reversal with a note.';
+
 export function EventsSection({
     accountId,
     onFailure,
@@ -67,6 +71,7 @@ export function EventsSection({
     preview = NO_EVENT_PREVIEW,
     query,
     state,
+    tracking,
 }: {
     readonly accountId: string;
     readonly onFailure: (error: unknown) => void;
@@ -74,6 +79,7 @@ export function EventsSection({
     readonly preview?: EventPreviewer;
     readonly query: ListQuery<EventRow>;
     readonly state: AccountLifecycleState;
+    readonly tracking: AccountTracking;
 }) {
     const options = plan === null ? [] : eventOptions(plan, state);
     const [first] = options;
@@ -115,6 +121,11 @@ export function EventsSection({
                         </li>
                     ))}
                 </ol>
+            )}
+            {plan !== null && tracking === AccountTracking.LedgerOnly && (
+                <p className="text-sm text-muted-foreground">
+                    {LEDGER_ONLY_EVENTS_NOTE}
+                </p>
             )}
             {plan === null && (
                 <p className="text-sm text-muted-foreground">

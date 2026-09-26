@@ -18,6 +18,18 @@ export enum ChartType {
     PassRate = 'pass-rate',
 }
 
+export enum LabLinkStatus {
+    Absent = 'absent',
+    Accepted = 'accepted',
+    Rejected = 'rejected',
+}
+
+export enum LinkParameter {
+    DayStop = 'ds',
+    EvalDayPolicy = 'dp',
+    Portfolio = 'pf',
+}
+
 export enum SizingMode {
     Dollar = 'dollar',
     Percent = 'percent',
@@ -35,8 +47,10 @@ export interface CalculatorState {
     fundedHorizonDays: number;
     idleDayProbability: number;
     instrument: InstrumentSymbol | null;
+    labLink: LabLinkOutcome;
     labScenarios: LabScenario[];
     linkActivationDiscount: boolean;
+    linkParameters: LinkParameterOutcomes;
     maxAttempts: number;
     maxEvalDays: number;
     monthlySubscriptionDiscountPercent: number;
@@ -66,6 +80,10 @@ export interface FirmMemoryEntry {
     planId: PlanId;
 }
 
+export type LabLinkOutcome =
+    | { issue: string; status: LabLinkStatus.Rejected }
+    | { status: LabLinkStatus.Absent | LabLinkStatus.Accepted };
+
 export interface LabScenario {
     accounts: number;
     correlation: CorrelationMode;
@@ -80,6 +98,10 @@ export interface LabScenario {
     tradesPerDay: number;
     winrate: number;
 }
+
+export type LinkParameterOutcomes = Readonly<
+    Record<LinkParameter, LabLinkOutcome>
+>;
 
 export interface PortfolioEntry {
     activationDiscountPercent: number;

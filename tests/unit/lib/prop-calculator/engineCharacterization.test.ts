@@ -129,22 +129,22 @@ const CASES: readonly Characterization[] = [
     },
     {
         expected: {
-            bustProbability: 0.17,
+            bustProbability: 0.175,
             daysToPassP50: 6,
-            evalPassProbability: 0.83,
-            expectancyDollars: 200.52468399713808,
-            expectedDaysToPass: 6.771084337349397,
-            expectedFirstPayoutDay: 11.971014492753623,
-            expectedGrossPayout: 7932.8,
-            expectedMonthlyNet: 5055.917597106462,
-            expectedNet: 7654.9,
-            expectedTotalCost: 277.9,
+            evalPassProbability: 0.825,
+            expectancyDollars: 200,
+            expectedDaysToPass: 7.290909090909091,
+            expectedFirstPayoutDay: 12.507352941176471,
+            expectedGrossPayout: 7864,
+            expectedMonthlyNet: 4956.346243583761,
+            expectedNet: 7586.75,
+            expectedTotalCost: 277.25,
             finalBalanceP50: 50_000,
-            fundedBustProbability: 0.83,
+            fundedBustProbability: 0.825,
             fundedSurvivalProbability: 0,
             maxDrawdownP50: 3600,
             maxLosingStreakP95: 6,
-            profitFactor: 2.003500954805856,
+            profitFactor: 2,
             timeoutProbability: 0,
         },
         id: { accountSize: 50_000, firm: FirmId.Tpt },
@@ -218,6 +218,36 @@ describe('engine characterization: TopStep Standard XFA monthly net moved only b
                 (out.expectedNet + TOPSTEP_XFA_PRE_T32.expectedHorizonCredit),
             12,
         );
+    });
+});
+
+const TPT_PRE_N79 = {
+    bustProbability: 0.17,
+    evalPassProbability: 0.83,
+    expectedGrossPayout: 7932.8,
+    expectedNet: 7654.9,
+} as const;
+
+describe('engine characterization: TPT Test to PRO eval pass rate moved by Rule 5s real consistency boundary (N-79)', () => {
+    const out = run({ accountSize: 50_000, firm: FirmId.Tpt });
+
+    it('drops the small-sample eval pass rate from 0.83 to 0.825 (bust rate up from 0.17 to 0.175): a violated eval no longer passes merely by reaching 2x the fixed profit target, only once net P/L exceeds 2x that trials own best day', () => {
+        expect(out.evalPassProbability).toBe(0.825);
+        expect(out.evalPassProbability).toBeLessThan(
+            TPT_PRE_N79.evalPassProbability,
+        );
+        expect(out.bustProbability).toBeGreaterThan(
+            TPT_PRE_N79.bustProbability,
+        );
+    });
+
+    it('cuts gross payout and net accordingly, since fewer of the 200 trials reach a funded payout', () => {
+        expect(out.expectedGrossPayout).toBe(7864);
+        expect(out.expectedGrossPayout).toBeLessThan(
+            TPT_PRE_N79.expectedGrossPayout,
+        );
+        expect(out.expectedNet).toBe(7586.75);
+        expect(out.expectedNet).toBeLessThan(TPT_PRE_N79.expectedNet);
     });
 });
 

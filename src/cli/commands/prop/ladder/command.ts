@@ -2,10 +2,12 @@ import { type ArgsDef, defineCommand, parseArgs } from 'citty';
 
 import {
     describeStopRule,
+    edgePlausibilityNote,
     evalPolicyArguments,
     monteCarloArguments,
     planArguments,
     planResolver,
+    printEdgePlausibilityNotes,
     purchaseArguments,
     readInstrument,
     readPositiveInteger,
@@ -22,6 +24,7 @@ import {
     assertLadderGridSize,
     defaultLadderGridMax,
     evalContractLimit,
+    fraction,
     LADDER_EVAL_PASS_FLOOR,
     LADDER_IGNORED_INPUT_REASONS,
     type LadderGridConfig,
@@ -340,6 +343,12 @@ export default defineCommand({
             }
             const options = buildLadderSearchOptions(plan, context.args);
             const { grid, maxGridSize = MAX_LADDER_GRID_SIZE, score } = options;
+            printEdgePlausibilityNotes([
+                edgePlausibilityNote({
+                    rrRatio: score.rrRatio,
+                    winrate: fraction(score.winrate),
+                }),
+            ]);
             const gridSize = ladderGridSize(grid);
             const instrument = readInstrument(context.args.instrument);
             ui.muted(

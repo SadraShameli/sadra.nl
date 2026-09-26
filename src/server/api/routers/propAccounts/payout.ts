@@ -78,6 +78,7 @@ export const propPayoutRouter = createTRPCRouter({
                 const [row] = await tx
                     .update(propPayout)
                     .set({
+                        approvedOn: input.approvedOn,
                         grossCents: input.grossCents,
                         netCents: input.netCents,
                         note: input.note,

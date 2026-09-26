@@ -44,6 +44,10 @@ vi.mock('~/app/(app)/prop-calculator/_components/PropCalculatorSubnav', () => ({
     PropCalculatorSubnav: () => null,
 }));
 
+vi.mock('~/app/(app)/prop-calculator/_components/LinkParameterNotice', () => ({
+    LinkParameterNotice: () => null,
+}));
+
 describe('prop calculator tools layout', () => {
     let container: HTMLDivElement;
     let root: Root;

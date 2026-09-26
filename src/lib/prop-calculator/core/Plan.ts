@@ -4,6 +4,7 @@ import {
     resetForNewDay,
 } from './AccountState';
 import {
+    ConsistencyBoundary,
     ConsistencyRule,
     ConsistencyScope,
     ConsistencyViolationEffect,
@@ -36,6 +37,10 @@ import {
 } from './FundedPayoutCycle';
 import { type FundedResetPolicy } from './FundedReset';
 import {
+    assertValidCalendarWeekInactivityRule,
+    type CalendarWeekInactivityRule,
+} from './InactivityRule';
+import {
     type Dollars,
     dollars,
     type Fraction0to1,
@@ -57,6 +62,7 @@ import {
     payoutFloorEffectName,
 } from './PayoutFloorEffect';
 import {
+    type AccountConclusionGate,
     accountConclusionGate,
     type AccountConclusionSource,
 } from './PayoutGate';
@@ -78,6 +84,12 @@ import {
     type TrackedTierProfitContext,
 } from './TierBasis';
 import { TradingPhase } from './TradingPhase';
+
+export enum LifetimeCapScope {
+    PerAccount = 'per-account',
+    PerUserAcrossVariant = 'per-user-across-variant',
+    Unconfirmed = 'unconfirmed',
+}
 
 export interface BasketDiscount {
     basketSize: number;
@@ -101,6 +113,7 @@ export interface PlanInit {
     availability?: PlanAvailability;
     basketDiscount?: BasketDiscount;
     bulkDiscount?: { minAccounts: number; percent: Fraction0to1 };
+    calendarWeekInactivity?: CalendarWeekInactivityRule;
     consistency: ConsistencyRule | null;
     contractLimits?: ContractLimits;
     drawdown: DrawdownStrategy;
@@ -118,6 +131,7 @@ export interface PlanInit {
     id: PlanId;
     isInstantFunded?: boolean;
     label: string;
+    lifetimeDollarCapScope?: LifetimeCapScope;
     maxConsecutiveIdleDays?: number;
     maxEvalTradingDays?: number;
     maxFundedAccounts: number;
@@ -149,6 +163,10 @@ export interface PlanInit {
     takesOneTimeEarlyWithdrawal?: boolean;
 }
 
+export interface PlanLifetimeConclusion extends AccountConclusionSource {
+    readonly dollarCapScope: LifetimeCapScope | null;
+}
+
 export abstract class Plan {
     private readonly payoutCap: PayoutCapStrategy;
 
@@ -162,6 +180,8 @@ export abstract class Plan {
         minAccounts: number;
         percent: Fraction0to1;
     };
+
+    readonly calendarWeekInactivity: CalendarWeekInactivityRule | null;
 
     readonly consistency: ConsistencyRule | null;
 
@@ -191,7 +211,7 @@ export abstract class Plan {
 
     readonly label: string;
 
-    readonly lifetimeConclusion: AccountConclusionSource;
+    readonly lifetimeConclusion: PlanLifetimeConclusion;
 
     readonly maxConsecutiveIdleDays: null | number;
 
@@ -278,6 +298,17 @@ export abstract class Plan {
             }
         }
         this.consistency = init.consistency;
+
+        if (
+            this.consistency?.violationEffect ===
+                ConsistencyViolationEffect.DoubleTarget &&
+            this.consistency.boundary !== ConsistencyBoundary.Inclusive
+        ) {
+            throw new Error(
+                `${init.label}: consistency.violationEffect is DoubleTarget, which only compares correctly against Plan.isPassed's strict-greater check when boundary is ConsistencyBoundary.Inclusive; got ${this.consistency.boundary}`,
+            );
+        }
+
         this.contractLimits = init.contractLimits ?? null;
 
         for (const [key, config] of [
@@ -363,6 +394,24 @@ export abstract class Plan {
         ) {
             throw new Error(
                 `${this.label}: maxConsecutiveIdleDays must be a positive integer or omitted, got ${this.maxConsecutiveIdleDays}`,
+            );
+        }
+
+        this.calendarWeekInactivity = init.calendarWeekInactivity ?? null;
+
+        if (this.calendarWeekInactivity !== null) {
+            assertValidCalendarWeekInactivityRule(
+                this.calendarWeekInactivity,
+                this.label,
+            );
+        }
+
+        if (
+            this.calendarWeekInactivity !== null &&
+            this.maxConsecutiveIdleDays !== null
+        ) {
+            throw new Error(
+                `${this.label}: calendarWeekInactivity and maxConsecutiveIdleDays both close the funded phase for inactivity; set only one`,
             );
         }
 
@@ -513,10 +562,21 @@ export abstract class Plan {
                 `${this.label}: payoutLadder.steps must not be empty`,
             );
         }
+        if (
+            init.lifetimeDollarCapScope !== undefined &&
+            this.maxLifetimePayoutDollars === null
+        ) {
+            throw new Error(
+                `${this.label}: lifetimeDollarCapScope ${init.lifetimeDollarCapScope} needs a maxLifetimePayoutDollars cap`,
+            );
+        }
         this.lifetimeConclusion = lifetimeConclusionOf(
             this.maxLifetimePayoutDollars,
             this.maxLifetimePayouts,
             this.payoutLadder,
+            this.maxLifetimePayoutDollars === null
+                ? null
+                : (init.lifetimeDollarCapScope ?? LifetimeCapScope.Unconfirmed),
         );
 
         this.payoutMethodFee = init.payoutMethodFee ?? dollars(0);
@@ -645,10 +705,7 @@ export abstract class Plan {
     ): AffordableRoom {
         return resolveAffordableRoom(
             state.balance - state.threshold,
-            resolveDailyLossLimit(
-                this.dailyLossLimitFor(phase),
-                this.dailyLossLimitContext(state),
-            ),
+            this.resolvedDailyLossLimit(state, phase),
             state.todayPnL,
             commission,
             this.dailyLossLimitBreachFor(phase),
@@ -658,6 +715,8 @@ export abstract class Plan {
     beginFundedPhase(state: AccountState): void {
         state.balance = this.accountSize;
         state.bestDayProfit = 0;
+        state.calendarWeekSessionsElapsed = 0;
+        state.calendarWeekSessionsTraded = 0;
         state.consecutiveIdleDays = 0;
         state.intradayHighProfit = 0;
         state.peakDayCloseProfit = 0;
@@ -756,6 +815,16 @@ export abstract class Plan {
         };
     }
 
+    resolvedDailyLossLimit(
+        state: AccountState,
+        phase: TradingPhase,
+    ): null | number {
+        return resolveDailyLossLimit(
+            this.dailyLossLimitFor(phase),
+            this.dailyLossLimitContext(state),
+        );
+    }
+
     fundedContractTierBreakpoints(
         basis: TierBasis,
         isMicro: boolean,
@@ -828,14 +897,19 @@ export abstract class Plan {
         };
     }
 
-    isAccountConcluded(payoutsIssued: number, cumulativePayout = 0): boolean {
-        return (
-            accountConclusionGate(
-                this.lifetimeConclusion,
-                payoutsIssued,
-                cumulativePayout,
-            ) !== null
+    conclusionGate(
+        payoutsIssued: number,
+        cumulativePayout = 0,
+    ): AccountConclusionGate | null {
+        return accountConclusionGate(
+            this.lifetimeConclusion,
+            payoutsIssued,
+            cumulativePayout,
         );
+    }
+
+    isAccountConcluded(payoutsIssued: number, cumulativePayout = 0): boolean {
+        return this.conclusionGate(payoutsIssued, cumulativePayout) !== null;
     }
 
     isBust(state: AccountState, phase: TradingPhase): boolean {
@@ -847,10 +921,7 @@ export abstract class Plan {
     }
 
     isDayLockedOut(state: AccountState, phase: TradingPhase): boolean {
-        const limit = resolveDailyLossLimit(
-            this.dailyLossLimitFor(phase),
-            this.dailyLossLimitContext(state),
-        );
+        const limit = this.resolvedDailyLossLimit(state, phase);
         return (
             limit !== null &&
             isAtOrBelowWithinCentTolerance(state.todayPnL, -limit)
@@ -867,6 +938,14 @@ export abstract class Plan {
         return this.init.evalMaxConsecutiveIdleDays === undefined
             ? this.maxConsecutiveIdleDays
             : this.init.evalMaxConsecutiveIdleDays;
+    }
+
+    calendarWeekInactivityFor(
+        phase: TradingPhase,
+    ): CalendarWeekInactivityRule | null {
+        return phase === TradingPhase.Funded
+            ? this.calendarWeekInactivity
+            : null;
     }
 
     clampedTradingDays(state: AccountState): number {
@@ -908,7 +987,7 @@ export abstract class Plan {
             !consistency.isViolated(state.bestDayProfit, profit) ||
             (consistency.violationEffect ===
                 ConsistencyViolationEffect.DoubleTarget &&
-                profit >= 2 * this.init.profitTarget)
+                profit > 2 * state.bestDayProfit)
         );
     }
 
@@ -1061,18 +1140,12 @@ function lifetimeConclusionOf(
     maxLifetimePayoutDollars: Dollars | null,
     maxLifetimePayouts: null | number,
     payoutLadder: null | PayoutLadder,
-): AccountConclusionSource {
-    const exhaustingLadder =
-        payoutLadder === null || payoutLadder.capsAtLastStep === true
-            ? null
-            : payoutLadder;
-    const isCountBinding =
-        maxLifetimePayouts !== null &&
-        (exhaustingLadder === null ||
-            maxLifetimePayouts <= exhaustingLadder.steps.length);
+    dollarCapScope: LifetimeCapScope | null,
+): PlanLifetimeConclusion {
     return {
+        dollarCapScope,
         maxLifetimePayoutDollars,
-        maxLifetimePayouts: isCountBinding ? maxLifetimePayouts : null,
-        payoutLadder: isCountBinding ? null : exhaustingLadder,
+        maxLifetimePayouts,
+        payoutLadder,
     };
 }

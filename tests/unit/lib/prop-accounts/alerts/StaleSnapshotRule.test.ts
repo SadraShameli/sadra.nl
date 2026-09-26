@@ -19,6 +19,7 @@ import {
     alertsOf,
     ANY_EVAL_PLAN,
     FRIDAY,
+    ledgerOnlyAccountFor,
     MONDAY,
     snapshotFor,
     TUESDAY,
@@ -131,6 +132,19 @@ describe('StaleSnapshotRule', () => {
         expect(
             alertsFor(AccountStage.Live, MONDAY).alerts[0]?.message,
         ).toContain('before sizing this Live account');
+    });
+
+    it('never asks a ledger-only account for a snapshot, since its balances are optional and never valued', () => {
+        const account = ledgerOnlyAccountFor(ANY_EVAL_PLAN, {
+            stage: AccountStage.Eval,
+        });
+        expect(alertsOf(rule, { accounts: [account] })).toEqual([]);
+        expect(
+            alertsOf(rule, {
+                accounts: [account],
+                snapshots: [snapshotFor(account, { asOf: '2026-08-01' })],
+            }),
+        ).toEqual([]);
     });
 
     it('ignores accounts that are not active', () => {

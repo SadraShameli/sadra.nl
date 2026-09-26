@@ -287,7 +287,7 @@ const PINNED_PANEL_PROPS: Readonly<Record<string, readonly string[]>> = {
     ],
     StrategyAnalysis: ['baseInputs={simInputs}result={result}'],
     StrategyLabPanel: [
-        'activationDiscountPercent={state.activationDiscountPercent}commissionPerRoundTrip={state.commissionPerRoundTrip}evalDiscountPercent={state.evalDiscountPercent}fundedHorizonDays={state.fundedHorizonDays}linkActivationDiscount={state.linkActivationDiscount}maxEvalDays={state.maxEvalDays}minRetainedCushion={simInputs.minRetainedCushion}monthlySubscriptionDiscountPercent={state.monthlySubscriptionDiscountPercent}onAdd={addLabScenario}onRemove={removeLabScenario}onReset={resetLabScenarios}onUpdate={updateLabScenario}payoutRequestSize={simInputs.payoutRequestSize}plan={simInputs.plan}resetDiscountPercent={state.resetDiscountPercent}rungSizing={simInputs.rungSizing}scenarios={state.labScenarios}seed={state.seed}',
+        'activationDiscountPercent={state.activationDiscountPercent}commissionPerRoundTrip={state.commissionPerRoundTrip}evalDiscountPercent={state.evalDiscountPercent}fundedHorizonDays={state.fundedHorizonDays}labLink={state.labLink}linkActivationDiscount={state.linkActivationDiscount}maxEvalDays={state.maxEvalDays}minRetainedCushion={simInputs.minRetainedCushion}monthlySubscriptionDiscountPercent={state.monthlySubscriptionDiscountPercent}onAdd={addLabScenario}onRemove={removeLabScenario}onReset={resetLabScenarios}onUpdate={updateLabScenario}payoutRequestSize={simInputs.payoutRequestSize}plan={simInputs.plan}resetDiscountPercent={state.resetDiscountPercent}rungSizing={simInputs.rungSizing}scenarios={state.labScenarios}seed={state.seed}',
     ],
     TailRiskPanel: ['result={result}'],
 };

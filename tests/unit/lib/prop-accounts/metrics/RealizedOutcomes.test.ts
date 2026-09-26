@@ -4,11 +4,17 @@ import {
     AccountEventKind,
     AccountStage,
     AccountStatus,
+    FirmKeyKind,
+    PayoutStatus,
 } from '~/lib/prop-accounts/core';
-import { realizedOutcomes } from '~/lib/prop-accounts/metrics';
+import {
+    realizedOutcomes,
+    realizedPayoutRates,
+} from '~/lib/prop-accounts/metrics';
 import {
     binomialStandardError,
     meanStandardError,
+    wilsonInterval,
 } from '~/lib/prop-calculator/stats';
 
 import {
@@ -17,7 +23,10 @@ import {
     event,
     INSTANT_PLAN,
     ledger,
+    meanInterval,
+    payout,
     purchased,
+    SAME_FIRM_SECOND_EVAL_PLAN,
 } from './ledgerFixtures';
 
 describe('realizedOutcomes', () => {
@@ -51,6 +60,7 @@ describe('realizedOutcomes', () => {
         );
         expect(plan?.instantFunded).toBe(false);
         expect(plan?.passRate).toEqual({
+            interval: wilsonInterval(2, 4),
             n: 4,
             standardError: binomialStandardError(0.5, 4),
             value: 0.5,
@@ -61,9 +71,11 @@ describe('realizedOutcomes', () => {
         const plan = realizedOutcomes(ledger(rows)).perPlan.find(
             (p) => p.planSerial === EVAL_PLAN.serial,
         );
+        const se = meanStandardError(14, 100, 2);
         expect(plan?.sessionsToFunded).toEqual({
+            interval: meanInterval(7, se),
             n: 2,
-            standardError: meanStandardError(14, 100, 2),
+            standardError: se,
             value: 7,
         });
     });
@@ -73,6 +85,7 @@ describe('realizedOutcomes', () => {
             (p) => p.planSerial === EVAL_PLAN.serial,
         );
         expect(plan?.fundedSurvival).toEqual({
+            interval: wilsonInterval(1, 2),
             n: 2,
             standardError: binomialStandardError(0.5, 2),
             value: 0.5,
@@ -134,11 +147,13 @@ describe('realizedOutcomes', () => {
             }),
         ).perPlan[0];
         expect(plan?.passRate).toEqual({
+            interval: wilsonInterval(2, 3),
             n: 3,
             standardError: binomialStandardError(2 / 3, 3),
             value: 2 / 3,
         });
         expect(plan?.fundedSurvival).toEqual({
+            interval: wilsonInterval(2, 2),
             n: 2,
             standardError: null,
             value: 1,
@@ -163,7 +178,12 @@ describe('realizedOutcomes', () => {
             result.perPlan.find((p) => p.planSerial === INSTANT_PLAN.serial),
         ).toEqual({
             firmId: INSTANT_PLAN.firm.id,
-            fundedSurvival: { n: 1, standardError: null, value: 0 },
+            fundedSurvival: {
+                interval: wilsonInterval(0, 1),
+                n: 1,
+                standardError: null,
+                value: 0,
+            },
             instantFunded: true,
             openFundedAccounts: 0,
             passRate: null,
@@ -199,12 +219,19 @@ describe('realizedOutcomes', () => {
             }),
         ).perPlan[0];
         expect(plan?.sessionsToFunded).toEqual({
+            interval: null,
             n: 1,
             standardError: null,
             value: 8,
         });
-        expect(plan?.passRate).toEqual({ n: 3, standardError: null, value: 1 });
+        expect(plan?.passRate).toEqual({
+            interval: wilsonInterval(3, 3),
+            n: 3,
+            standardError: null,
+            value: 1,
+        });
         expect(plan?.fundedSurvival).toEqual({
+            interval: wilsonInterval(3, 3),
             n: 3,
             standardError: null,
             value: 1,
@@ -220,5 +247,288 @@ describe('realizedOutcomes', () => {
         );
         expect(result.perPlan).toEqual([]);
         expect(result.unresolvedAccounts).toBe(1);
+    });
+});
+
+describe('realizedPayoutRates', () => {
+    const AS_OF = '2026-02-01';
+    const HORIZON_DAYS = 30;
+
+    it('counts a young open account with a payout within the horizon as a success, excludes one without, and treats an old open account that reached the horizon and an ended account as failures', () => {
+        const youngPaid = account(EVAL_PLAN, { purchasedOn: '2026-01-01' });
+        const youngUnpaid = account(EVAL_PLAN, { purchasedOn: '2026-01-01' });
+        const endedNoPayout = account(EVAL_PLAN, {
+            purchasedOn: '2026-01-01',
+            status: AccountStatus.Busted,
+        });
+        const oldReachedHorizon = account(EVAL_PLAN, {
+            purchasedOn: '2025-12-01',
+        });
+        const result = realizedPayoutRates(
+            ledger({
+                accounts: [
+                    youngPaid,
+                    youngUnpaid,
+                    endedNoPayout,
+                    oldReachedHorizon,
+                ],
+                events: [
+                    purchased(youngPaid),
+                    event(youngPaid, AccountEventKind.EvalPassed, '2026-01-05'),
+                    purchased(youngUnpaid),
+                    event(
+                        youngUnpaid,
+                        AccountEventKind.EvalPassed,
+                        '2026-01-05',
+                    ),
+                    purchased(endedNoPayout),
+                    event(
+                        endedNoPayout,
+                        AccountEventKind.EvalPassed,
+                        '2026-01-05',
+                    ),
+                    event(endedNoPayout, AccountEventKind.Busted, '2026-01-10'),
+                    purchased(oldReachedHorizon),
+                    event(
+                        oldReachedHorizon,
+                        AccountEventKind.EvalPassed,
+                        '2025-12-20',
+                    ),
+                ],
+                payouts: [
+                    payout(youngPaid, 40_000, {
+                        paidOn: '2026-01-20',
+                        status: PayoutStatus.Paid,
+                    }),
+                ],
+            }),
+            AS_OF,
+            HORIZON_DAYS,
+        );
+        const plan = result.perPlan.find(
+            (p) => p.planSerial === EVAL_PLAN.serial,
+        );
+        expect(plan?.openAccounts).toBe(1);
+        expect(plan?.payoutRate).toEqual({
+            interval: wilsonInterval(1, 3),
+            n: 3,
+            standardError: binomialStandardError(1 / 3, 3),
+            value: 1 / 3,
+        });
+    });
+
+    it('merges a copy group bought on the same date into one independent sample', () => {
+        const first = account(EVAL_PLAN, {
+            copyGroupId: 'group-1',
+            purchasedOn: '2026-01-01',
+        });
+        const second = account(EVAL_PLAN, {
+            copyGroupId: 'group-1',
+            purchasedOn: '2026-01-01',
+        });
+        const result = realizedPayoutRates(
+            ledger({
+                accounts: [first, second],
+                events: [
+                    purchased(first),
+                    event(first, AccountEventKind.EvalPassed, '2026-01-05'),
+                    purchased(second),
+                    event(second, AccountEventKind.EvalPassed, '2026-01-05'),
+                ],
+                payouts: [
+                    payout(first, 40_000, {
+                        paidOn: '2026-01-10',
+                        status: PayoutStatus.Paid,
+                    }),
+                    payout(second, 40_000, {
+                        paidOn: '2026-01-11',
+                        status: PayoutStatus.Paid,
+                    }),
+                ],
+            }),
+            AS_OF,
+            HORIZON_DAYS,
+        );
+        const plan = result.perPlan.find(
+            (p) => p.planSerial === EVAL_PLAN.serial,
+        );
+        expect(plan?.payoutRate?.n).toBe(1);
+    });
+
+    it('resolves a copy group with divergent outcomes by majority vote, not by array order', () => {
+        const paidFirst = account(EVAL_PLAN, {
+            copyGroupId: 'group-2',
+            purchasedOn: '2026-01-01',
+        });
+        const paidSecond = account(EVAL_PLAN, {
+            copyGroupId: 'group-2',
+            purchasedOn: '2026-01-01',
+        });
+        const busted = account(EVAL_PLAN, {
+            copyGroupId: 'group-2',
+            purchasedOn: '2026-01-01',
+            status: AccountStatus.Busted,
+        });
+        const result = realizedPayoutRates(
+            ledger({
+                accounts: [busted, paidFirst, paidSecond],
+                events: [
+                    purchased(busted),
+                    event(busted, AccountEventKind.EvalPassed, '2026-01-05'),
+                    event(busted, AccountEventKind.Busted, '2026-01-08'),
+                    purchased(paidFirst),
+                    event(
+                        paidFirst,
+                        AccountEventKind.EvalPassed,
+                        '2026-01-05',
+                    ),
+                    purchased(paidSecond),
+                    event(
+                        paidSecond,
+                        AccountEventKind.EvalPassed,
+                        '2026-01-05',
+                    ),
+                ],
+                payouts: [
+                    payout(paidFirst, 40_000, {
+                        paidOn: '2026-01-10',
+                        status: PayoutStatus.Paid,
+                    }),
+                    payout(paidSecond, 40_000, {
+                        paidOn: '2026-01-11',
+                        status: PayoutStatus.Paid,
+                    }),
+                ],
+            }),
+            AS_OF,
+            HORIZON_DAYS,
+        );
+        const plan = result.perPlan.find(
+            (p) => p.planSerial === EVAL_PLAN.serial,
+        );
+        expect(plan?.payoutRate).toEqual({
+            interval: wilsonInterval(1, 1),
+            n: 1,
+            standardError: null,
+            value: 1,
+        });
+    });
+
+    it('resolves a tied copy group (equal successes and failures) as a failure, never overstating the rate', () => {
+        const paid = account(EVAL_PLAN, {
+            copyGroupId: 'group-3',
+            purchasedOn: '2026-01-01',
+        });
+        const busted = account(EVAL_PLAN, {
+            copyGroupId: 'group-3',
+            purchasedOn: '2026-01-01',
+            status: AccountStatus.Busted,
+        });
+        const result = realizedPayoutRates(
+            ledger({
+                accounts: [paid, busted],
+                events: [
+                    purchased(paid),
+                    event(paid, AccountEventKind.EvalPassed, '2026-01-05'),
+                    purchased(busted),
+                    event(busted, AccountEventKind.EvalPassed, '2026-01-05'),
+                    event(busted, AccountEventKind.Busted, '2026-01-08'),
+                ],
+                payouts: [
+                    payout(paid, 40_000, {
+                        paidOn: '2026-01-10',
+                        status: PayoutStatus.Paid,
+                    }),
+                ],
+            }),
+            AS_OF,
+            HORIZON_DAYS,
+        );
+        const plan = result.perPlan.find(
+            (p) => p.planSerial === EVAL_PLAN.serial,
+        );
+        expect(plan?.payoutRate).toEqual({
+            interval: wilsonInterval(0, 1),
+            n: 1,
+            standardError: null,
+            value: 0,
+        });
+    });
+
+    it('pools successes and n across a firm rollup instead of averaging per-plan rates', () => {
+        const planAWin = account(EVAL_PLAN, { purchasedOn: '2026-01-01' });
+        const planALoss = account(EVAL_PLAN, {
+            purchasedOn: '2025-12-01',
+        });
+        const planBLoss1 = account(SAME_FIRM_SECOND_EVAL_PLAN, {
+            purchasedOn: '2025-12-01',
+        });
+        const planBLoss2 = account(SAME_FIRM_SECOND_EVAL_PLAN, {
+            purchasedOn: '2025-12-01',
+        });
+        const planBLoss3 = account(SAME_FIRM_SECOND_EVAL_PLAN, {
+            purchasedOn: '2025-12-01',
+        });
+        const result = realizedPayoutRates(
+            ledger({
+                accounts: [
+                    planAWin,
+                    planALoss,
+                    planBLoss1,
+                    planBLoss2,
+                    planBLoss3,
+                ],
+                events: [
+                    purchased(planAWin),
+                    event(
+                        planAWin,
+                        AccountEventKind.EvalPassed,
+                        '2026-01-05',
+                    ),
+                    purchased(planALoss),
+                    event(
+                        planALoss,
+                        AccountEventKind.EvalPassed,
+                        '2025-12-20',
+                    ),
+                    purchased(planBLoss1),
+                    event(
+                        planBLoss1,
+                        AccountEventKind.EvalPassed,
+                        '2025-12-20',
+                    ),
+                    purchased(planBLoss2),
+                    event(
+                        planBLoss2,
+                        AccountEventKind.EvalPassed,
+                        '2025-12-20',
+                    ),
+                    purchased(planBLoss3),
+                    event(
+                        planBLoss3,
+                        AccountEventKind.EvalPassed,
+                        '2025-12-20',
+                    ),
+                ],
+                payouts: [
+                    payout(planAWin, 40_000, {
+                        paidOn: '2026-01-20',
+                        status: PayoutStatus.Paid,
+                    }),
+                ],
+            }),
+            AS_OF,
+            HORIZON_DAYS,
+        );
+        const firm = result.perFirm.find(
+            (row) => row.firmKey.kind === FirmKeyKind.Modeled,
+        );
+        expect(firm?.payoutRate).toEqual({
+            interval: wilsonInterval(1, 5),
+            n: 5,
+            standardError: binomialStandardError(1 / 5, 5),
+            value: 1 / 5,
+        });
+        expect(firm?.payoutRate?.value).not.toBe(0.25);
     });
 });

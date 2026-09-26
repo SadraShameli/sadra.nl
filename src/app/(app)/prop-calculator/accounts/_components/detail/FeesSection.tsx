@@ -34,6 +34,7 @@ import {
     TableRow,
 } from '~/components/ui/Table';
 import { Textarea } from '~/components/ui/Textarea';
+import { NOT_APPLICABLE } from '~/lib/format';
 import {
     EntryTextKind,
     FeeKind,
@@ -43,6 +44,7 @@ import {
     formatUsdCents,
     parseMoneyText,
     todayIsoDate,
+    usdCents,
     usdCentsToText,
 } from '~/lib/prop-accounts';
 import { feeCreateSchema } from '~/lib/schemas/propAccounts';
@@ -106,6 +108,12 @@ export function FeesSection({
                             <TableHead>Paid on</TableHead>
                             <TableHead>Kind</TableHead>
                             <TableHead className="text-right">Amount</TableHead>
+                            <TableHead className="text-right">
+                                List price
+                            </TableHead>
+                            <TableHead className="text-right">
+                                Difference
+                            </TableHead>
                             <TableHead>Note</TableHead>
                             <TableHead>
                                 <span className="sr-only">Actions</span>
@@ -113,50 +121,74 @@ export function FeesSection({
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {rows.map((row) => (
-                            <TableRow key={row.id}>
-                                <TableCell className="tabular-nums">
-                                    {row.paidOn}
-                                </TableCell>
-                                <TableCell>{feeKindLabel(row.kind)}</TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {formatUsdCents(row.amountCents)}
-                                </TableCell>
-                                <TableCell className="max-w-xs text-xs whitespace-pre-line text-muted-foreground">
-                                    {row.note ?? ''}
-                                </TableCell>
-                                <TableCell>
-                                    <div className="flex justify-end gap-1">
-                                        {canRecord && (
-                                            <Button
-                                                aria-label={`Edit the ${feeKindLabel(row.kind)} paid on ${row.paidOn}`}
-                                                onClick={(event) => {
-                                                    startEditing(
-                                                        row,
-                                                        event.currentTarget,
-                                                    );
+                        {rows.map((row) => {
+                            const listCents =
+                                plan === null
+                                    ? null
+                                    : feePrefillCents(plan, row.kind);
+                            const differenceCents =
+                                listCents === null
+                                    ? null
+                                    : usdCents(row.amountCents - listCents);
+                            return (
+                                <TableRow key={row.id}>
+                                    <TableCell className="tabular-nums">
+                                        {row.paidOn}
+                                    </TableCell>
+                                    <TableCell>
+                                        {feeKindLabel(row.kind)}
+                                    </TableCell>
+                                    <TableCell className="text-right tabular-nums">
+                                        {formatUsdCents(row.amountCents)}
+                                    </TableCell>
+                                    <TableCell className="text-right tabular-nums text-muted-foreground">
+                                        {listCents === null
+                                            ? NOT_APPLICABLE
+                                            : formatUsdCents(listCents)}
+                                    </TableCell>
+                                    <TableCell className="text-right tabular-nums">
+                                        {differenceCents === null
+                                            ? NOT_APPLICABLE
+                                            : formatUsdCents(differenceCents)}
+                                    </TableCell>
+                                    <TableCell className="max-w-xs text-xs whitespace-pre-line text-muted-foreground">
+                                        {row.note ?? ''}
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="flex justify-end gap-1">
+                                            {canRecord && (
+                                                <Button
+                                                    aria-label={`Edit the ${feeKindLabel(row.kind)} paid on ${row.paidOn}`}
+                                                    onClick={(event) => {
+                                                        startEditing(
+                                                            row,
+                                                            event.currentTarget,
+                                                        );
+                                                    }}
+                                                    size="icon"
+                                                    type="button"
+                                                    variant="ghost"
+                                                >
+                                                    <Pencil />
+                                                </Button>
+                                            )}
+                                            <RemoveRecordDialog
+                                                confirmText="Delete"
+                                                description="This permanently removes the fee from this account and from your totals."
+                                                isPending={remove.isPending}
+                                                onConfirm={() => {
+                                                    remove.mutate({
+                                                        id: row.id,
+                                                    });
                                                 }}
-                                                size="icon"
-                                                type="button"
-                                                variant="ghost"
-                                            >
-                                                <Pencil />
-                                            </Button>
-                                        )}
-                                        <RemoveRecordDialog
-                                            confirmText="Delete"
-                                            description="This permanently removes the fee from this account and from your totals."
-                                            isPending={remove.isPending}
-                                            onConfirm={() => {
-                                                remove.mutate({ id: row.id });
-                                            }}
-                                            title="Delete this fee?"
-                                            triggerLabel={`Delete the ${feeKindLabel(row.kind)} paid on ${row.paidOn}`}
-                                        />
-                                    </div>
-                                </TableCell>
-                            </TableRow>
-                        ))}
+                                                title="Delete this fee?"
+                                                triggerLabel={`Delete the ${feeKindLabel(row.kind)} paid on ${row.paidOn}`}
+                                            />
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            );
+                        })}
                     </TableBody>
                 </Table>
             )}

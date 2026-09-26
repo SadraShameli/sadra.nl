@@ -26,6 +26,7 @@ export { AccountAlertRule, AlertRule } from './AlertRule';
 export { AlertSeverity, alertSeverityRank } from './AlertSeverity';
 export { EvalDayCapRule } from './EvalDayCapRule';
 export { InvalidStoredDateRule } from './InvalidStoredDateRule';
+export { LifetimeDollarCapRule } from './LifetimeDollarCapRule';
 export { LifetimePayoutCountRule } from './LifetimePayoutCountRule';
 export {
     hasMixedStages,
@@ -35,6 +36,7 @@ export {
 } from './MixedStageCopyGroupRule';
 export { PayoutCountMismatchRule } from './PayoutCountMismatchRule';
 export { PayoutDollarMismatchRule } from './PayoutDollarMismatchRule';
+export { PlanRulesChangedRule } from './PlanRulesChangedRule';
 export { StaleSnapshotRule } from './StaleSnapshotRule';
 export {
     SUBSCRIPTION_CYCLE_DAYS,

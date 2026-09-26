@@ -1,6 +1,6 @@
 import { resetForNewDay } from '../core/AccountState';
 import { TRADING_DAYS_PER_YEAR } from '../core/constants';
-import { placeWholeContractTrade, RungSizing } from '../core/DayPolicy';
+import { didCalendarWeekCloseForInactivity } from '../core/InactivityRule';
 import {
     dollars,
     type Dollars,
@@ -9,11 +9,8 @@ import {
 } from '../core/lib/units';
 import { type LiveAccountState } from '../core/LiveAccountState';
 import { type LivePlan } from '../core/LivePlan';
-import {
-    resolveLiveAffordableRoom,
-    resolveLiveTradeRisk,
-} from '../core/LiveSizing';
 import { type PositionSizingConfig } from '../core/PositionSizing';
+import { resolveLiveRiskAt } from '../core/TradeRiskResolution';
 import { mulberry32, type Rng } from '../rng';
 import { median, percentile } from '../stats';
 import {
@@ -154,25 +151,11 @@ export function runLiveDay(options: LiveDayRunOptions): {
 
     if (!isIdleToday) {
         for (let index = 0; index < tradesPerDay; index++) {
-            const cushion = state.balance - state.threshold;
-            const cushionPercent = plan.cushionPercentFor(state);
-            const intendedRisk = resolveLiveTradeRisk(cushion, cushionPercent);
-            const { kind: roomKind, room } = resolveLiveAffordableRoom(
-                cushion,
-                plan.dailyLossLimitFor(state),
-                state.todayPnL,
+            const { rewardRisk, risk } = resolveLiveRiskAt({
                 commission,
-            );
-            const { rewardRisk, risk } = placeWholeContractTrade({
-                intendedRisk,
-                maxContracts: plan.maxContractsFor(
-                    state,
-                    positionSizing.instrument,
-                ),
+                plan,
                 positionSizing,
-                room,
-                roomKind,
-                rungSizing: RungSizing.CapToCushion,
+                state,
             });
             if (risk <= 0) break;
 
@@ -203,11 +186,19 @@ export function runLiveDay(options: LiveDayRunOptions): {
     } else {
         state.consecutiveIdleDays += 1;
     }
+    const wasClosedForCalendarWeekInactivity = didCalendarWeekCloseForInactivity(
+        plan.calendarWeekInactivity,
+        state,
+        isTraded,
+    );
 
     plan.liveDrawdown?.onDayClose(state);
     plan.recordDayClose(state, isTraded);
     if (plan.isBust(state)) {
         return { busted: true, closedForInactivity: false, traded: isTraded };
+    }
+    if (wasClosedForCalendarWeekInactivity) {
+        return { busted: true, closedForInactivity: true, traded: isTraded };
     }
     return plan.maxConsecutiveIdleDays !== null &&
         state.consecutiveIdleDays >= plan.maxConsecutiveIdleDays

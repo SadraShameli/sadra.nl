@@ -4,7 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { type CopyGroupAccount } from '~/app/(app)/prop-calculator/accounts/_components/copyGroups/copyGroupRows';
 import { CopyGroupsView } from '~/app/(app)/prop-calculator/accounts/copy-groups/CopyGroupsView';
-import { AccountStage, AccountStatus } from '~/lib/prop-accounts';
+import {
+    AccountStage,
+    AccountStatus,
+    AccountTracking,
+} from '~/lib/prop-accounts';
 import { ALL_FIRMS } from '~/lib/prop-calculator';
 import {
     PropLimitRejection,
@@ -153,11 +157,15 @@ function account(
     return {
         archivedAt: null,
         copyGroupId: null,
+        externalFirmId: null,
         firmId: FIRM.id,
         id,
         label: id,
+        planLabel: null,
+        planSerial: 'copy-group-plan',
         stage: AccountStage.Funded,
         status: AccountStatus.Active,
+        tracking: AccountTracking.Modeled,
         ...overrides,
     };
 }

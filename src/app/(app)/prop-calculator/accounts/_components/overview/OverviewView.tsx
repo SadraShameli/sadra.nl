@@ -22,6 +22,7 @@ import { AlertsCenter } from './AlertsCenter';
 import { CapUsageCard } from './CapUsageCard';
 import { CostCard } from './CostCard';
 import { DiversificationCard } from './DiversificationCard';
+import { FirmReturnsCard } from './FirmReturnsCard';
 import { FunnelCard } from './FunnelCard';
 import { KpiRow } from './KpiRow';
 import {
@@ -35,6 +36,7 @@ import {
     PortfolioSource,
 } from './overviewModel';
 import { RealizedOutcomesCard } from './RealizedOutcomesCard';
+import { RepeatabilityCard } from './RepeatabilityCard';
 import { ReplacementCard } from './ReplacementCard';
 import { StatementCard } from './StatementCard';
 import { TimelineCard } from './TimelineCard';
@@ -42,9 +44,17 @@ import { usePortfolioData } from './usePortfolioData';
 
 export function OverviewView({ userId }: { readonly userId: string }) {
     const load = usePortfolioData();
+    const externalFirmsQuery = api.propAccounts.externalFirm.list.useQuery();
+    const externalFirms = externalFirmsQuery.data;
     const model = useMemo(
-        () => buildOverview({ load, today: todayIsoDate(new Date()), userId }),
-        [load, userId],
+        () =>
+            buildOverview({
+                externalFirms: externalFirms ?? [],
+                load,
+                today: todayIsoDate(new Date()),
+                userId,
+            }),
+        [externalFirms, load, userId],
     );
     return (
         <>
@@ -68,6 +78,17 @@ export function OverviewView({ userId }: { readonly userId: string }) {
             <div className="flex flex-col gap-8">
                 <LoadIssues issues={load.failures} variant="destructive" />
                 <LoadIssues issues={load.stale} variant="warning" />
+                {externalFirmsQuery.isError && (
+                    <Alert variant="warning">
+                        <TriangleAlert />
+                        <AlertTitle>Your firms could not be loaded</AlertTitle>
+                        <AlertDescription>
+                            {externalFirmsQuery.error.message} Accounts at a
+                            firm you added show it as an unlisted firm in the
+                            cards below until your firms load.
+                        </AlertDescription>
+                    </Alert>
+                )}
                 {load.accounts.status === OverviewSectionStatus.Pending && (
                     <SectionSkeleton label="Loading your overview" />
                 )}
@@ -111,6 +132,9 @@ function LedgerSections({ cards }: { readonly cards: OverviewLedgerCards }) {
             <OverviewSection id="costs" title="Costs">
                 <CostCard model={cards.cost} />
             </OverviewSection>
+            <OverviewSection id="firm-returns" title="Firm returns">
+                <FirmReturnsCard model={cards.firmReturns} />
+            </OverviewSection>
             <OverviewSection id="outcomes" title="Realized outcomes">
                 <RealizedOutcomesCard model={cards.outcomes} />
             </OverviewSection>
@@ -119,6 +143,9 @@ function LedgerSections({ cards }: { readonly cards: OverviewLedgerCards }) {
             </OverviewSection>
             <OverviewSection id="statement" title="Monthly statement">
                 <StatementCard model={cards.statement} />
+            </OverviewSection>
+            <OverviewSection id="repeatability" title="Repeatability">
+                <RepeatabilityCard model={cards.repeatability} />
             </OverviewSection>
             <OverviewSection id="timeline" title="Timeline">
                 <TimelineCard model={cards.timeline} />

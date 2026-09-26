@@ -11,6 +11,8 @@ import {
     FirmId,
     LucidVariant,
     maxContractsAt,
+    PayoutEvaluationKind,
+    PayoutGate,
     PlanAvailability,
     resolveDailyLossLimit,
     tierContextFromProfits,
@@ -86,6 +88,77 @@ describe('LucidPro recurring per-cycle profit goal (support.lucidtrading.com Luc
 
         expect(payout).not.toBeNull();
         expect(payout?.debited).toBe(2500);
+    });
+});
+
+describe("LucidPro first-payout gate (N-83, support.lucidtrading.com 12890092 LucidPro Payouts, re-fetched 2026-09-26: 'There is no fixed payout window, you may request a payout any day after meeting all eligibility criteria')", () => {
+    const proNoDll = lucidPlan(LucidVariant.ProNoDll);
+
+    function evaluateFirstPayout(
+        plan: typeof pro,
+        qualifyingDays: number,
+        bestDayProfit: number,
+    ) {
+        const state = plan.initialState();
+        const tracker = newFundedCycleTracker(state);
+        state.balance = state.startingBalance + 7000;
+        state.qualifyingDays = qualifyingDays;
+        tracker.cycleBestDayProfit = bestDayProfit;
+        return tracker.evaluatePayout({
+            minRetainedCushion: 0,
+            payoutRequestSize: undefined,
+            plan,
+            state,
+        });
+    }
+
+    it.each([
+        ['Pro', pro],
+        ['ProNoDll', proNoDll],
+    ])('%s has no day gate before the first payout, like LucidDirect', (_, plan) => {
+        expect(plan.minDaysAfterPassForPayout).toBe(0);
+        expect(plan.minDaysAfterPassForPayoutPerCycle).toBeNull();
+    });
+
+    it.each([
+        ['Pro', 0, pro],
+        ['Pro', 2, pro],
+        ['ProNoDll', 0, proNoDll],
+        ['ProNoDll', 2, proNoDll],
+    ])(
+        '%s is eligible for a 2000 dollar first payout at %i qualifying days with 7000 dollars of cycle profit and a 2600 dollar (37 percent) best day',
+        (_, qualifyingDays, plan) => {
+            const evaluation = evaluateFirstPayout(plan, qualifyingDays, 2600);
+
+            expect(evaluation).toMatchObject({
+                debited: 2000,
+                kind: PayoutEvaluationKind.Eligible,
+            });
+        },
+    );
+
+    it.each([
+        ['Pro', pro],
+        ['ProNoDll', proNoDll],
+    ])(
+        '%s still blocks the first payout on the 40 percent funded consistency rule when a 3000 dollar best day is 43 percent of 7000 dollars of cycle profit',
+        (_, plan) => {
+            expect(evaluateFirstPayout(plan, 0, 3000)).toEqual({
+                gate: PayoutGate.FundedConsistency,
+                kind: PayoutEvaluationKind.Blocked,
+            });
+        },
+    );
+
+    it("records the 2026-09-14 checkout field 'Days to Payout: 3' as superseded by article 12890092", () => {
+        const note = lucid.notes.find((candidate) =>
+            candidate.startsWith("LucidPro's minDaysAfterPassForPayout"),
+        );
+
+        expect(note).toContain('12890092');
+        expect(note).toContain('There is no fixed payout window');
+        expect(note).toContain('superseded');
+        expect(note).not.toContain('Corrected to 3');
     });
 });
 

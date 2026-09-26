@@ -10,7 +10,10 @@ import {
     type DayPolicy,
     type DayStopRule,
     DayStopRuleKind,
+    DEFAULT_PAYOUT_REQUEST_POLICY,
     describeFundedResetTerms,
+    type Dollars,
+    dollars,
     findFirm,
     FirmId,
     fraction,
@@ -22,11 +25,11 @@ import {
     InstrumentSymbol,
     ladderRungSchema,
     ladderRungsSchema,
+    PayoutRequestPolicy,
     type Percent0to100,
     percentSchema,
     type Plan,
     PLAN_AVAILABILITY_LABEL,
-    PlanAvailability,
     type PlanOptIns,
     PolicySizing,
     rankablePlans,
@@ -39,6 +42,26 @@ import {
     type TradingFirm,
     withPlanOptIns,
 } from '~/lib/prop-calculator';
+import {
+    DEFAULT_RULEBOOK,
+    rulebookSchema,
+} from '~/lib/prop-calculator/advisor';
+import { MAX_INTRADAY_PATH_STEPS_PER_R } from '~/lib/prop-calculator/advisor/policy';
+import {
+    edgePlausibility,
+    PlausibilityLevel,
+    type PlausibilityThresholds,
+} from '~/lib/prop-calculator/economics';
+
+export interface BankrollArguments {
+    bankroll?: string;
+    'loss-threshold'?: string;
+}
+
+export interface BankrollInputs {
+    readonly bankroll: Dollars | null;
+    readonly lossThreshold: Fraction0to1 | null;
+}
 
 export interface CouponDiscountArguments {
     'activation-discount': string;
@@ -50,6 +73,21 @@ export interface CouponDiscountPercents {
     readonly activationDiscountPercent: Percent0to100;
     readonly evalDiscountPercent: Percent0to100;
     readonly monthlySubscriptionDiscountPercent: Percent0to100;
+}
+
+export interface EdgeInputs {
+    readonly rrRatio: number;
+    readonly winrate: Fraction0to1;
+}
+
+export interface ScreenTime {
+    readonly accountsPerSession: number;
+    readonly sessionHoursPerDay: number;
+}
+
+export interface ScreenTimeArguments {
+    'accounts-per-session'?: string;
+    'hours-per-day'?: string;
 }
 
 export interface TableColumn {
@@ -170,8 +208,12 @@ class PlanResolver {
         const plans = rankablePlans(matched, shouldIncludeCallUp);
         const excluded = matched.filter((plan) => !plans.includes(plan));
         if (plans.length === 0 && excluded.length > 0) {
+            const labels: string[] = [];
+            for (const label of groupByAvailabilityLabel(excluded).keys()) {
+                labels.push(label);
+            }
             throw new Error(
-                `--firm/--variant matched only ${PLAN_AVAILABILITY_LABEL[PlanAvailability.CallUpOnly]} plans (${excluded.map((plan) => plan.label).join(', ')}); pass --include-callup to rank them`,
+                `--firm/--variant matched only ${labels.join(', ')} plans (${excluded.map((plan) => plan.label).join(', ')}); pass --include-callup to rank them`,
             );
         }
         return { excluded, plans };
@@ -474,6 +516,15 @@ export const commissionArgument = {
     },
 } satisfies ArgsDef;
 
+export const payoutRequestPolicyArgument = {
+    'payout-policy': {
+        default: DEFAULT_PAYOUT_REQUEST_POLICY,
+        description: `How a payout request is settled once every firm gate passes: ${PayoutRequestPolicy.UpToRequest} pays min(--request-size, withdrawable), down to the plan minimum; ${PayoutRequestPolicy.FullRequestOnly} pays only the requested amount in full (or a firm cap that makes the full amount impossible, such as a payout ladder step), waiting otherwise. Needs --request-size when set to ${PayoutRequestPolicy.FullRequestOnly}`,
+        options: Object.values(PayoutRequestPolicy),
+        type: 'enum',
+    },
+} satisfies ArgsDef;
+
 export const idleDayProbabilityArgument = {
     'idle-day-probability': {
         default: '0',
@@ -528,7 +579,7 @@ export const copyAccountsArgument = {
     'copy-accounts': {
         default: '1',
         description:
-            'Number of identical accounts run together (multiplies per-account fees and P&L)',
+            'Number of identical accounts run together (multiplies per-account fees and P&L); together they are one correlated outcome and count once as pass-rate evidence',
         type: 'string',
     },
 } satisfies ArgsDef;
@@ -538,6 +589,22 @@ export const purchaseArguments = {
     ...commissionArgument,
     ...copyAccountsArgument,
 } satisfies ArgsDef;
+
+export function groupByAvailabilityLabel(
+    plans: readonly Plan[],
+): ReadonlyMap<string, Plan[]> {
+    const groups = new Map<string, Plan[]>();
+    for (const plan of plans) {
+        const label = PLAN_AVAILABILITY_LABEL[plan.availability];
+        const group = groups.get(label);
+        if (group === undefined) {
+            groups.set(label, [plan]);
+        } else {
+            group.push(plan);
+        }
+    }
+    return groups;
+}
 
 export function readCouponDiscountPercents(
     arguments_: CouponDiscountArguments,
@@ -650,7 +717,7 @@ export const tradingArguments = {
     'retain-cushion': {
         default: '0',
         description:
-            "Minimum cushion to leave in the account on payout. Floored at the plan's own full funded-drawdown amount (no real trader drains cushion to the edge on every withdrawal) -- a lower value, including the default, is clamped up to that floor; pass a higher value to model even more conservative withdrawal behavior",
+            "Minimum cushion to leave in the account on payout. Floored at the plan's own retained-cushion floor (plan.defaultRetainedCushion(), usually its full funded-drawdown amount, but overridden per plan, for example $0 on TopStep and $2,000 on FTMO): no real trader drains cushion to the edge on every withdrawal, so a lower value, including the default, is clamped up to that floor; pass a higher value to model even more conservative withdrawal behavior",
         type: 'string',
     },
     risk: {
@@ -664,10 +731,161 @@ export const includeCallUpArgument = {
     'include-callup': {
         default: false,
         description:
-            'Also rank call-up-only plans that cannot be purchased (e.g. TopStep Pro Account, LucidMaxx)',
+            'Also rank plans the firm will not sell you today: call-up-only (e.g. TopStep Pro Account, LucidMaxx) or no longer sold (e.g. FundedNext FNL:003)',
         type: 'boolean',
     },
 } satisfies ArgsDef;
+
+export const bankrollArguments = {
+    bankroll: {
+        description:
+            'Bankroll in account currency. Prints attempts affordable and P(batch net < 0) over that many attempts (also enables the P(no payout) row); omit to skip these lines',
+        type: 'string',
+    },
+    'loss-threshold': {
+        description:
+            'Loss-probability threshold (0, 0.5] for the minimum-budget line; absent means not set',
+        type: 'string',
+    },
+} satisfies ArgsDef;
+
+export const screenTimeArguments = {
+    'accounts-per-session': {
+        description:
+            'Accounts traded in one session, used with --hours-per-day for $/screen hour; a copy group counts as one account',
+        type: 'string',
+    },
+    'hours-per-day': {
+        description:
+            'Hours of screen time per trading day, used with --accounts-per-session for $/screen hour',
+        type: 'string',
+    },
+} satisfies ArgsDef;
+
+const PLAUSIBILITY_LEVEL_TEXT: Readonly<Record<PlausibilityLevel, string>> = {
+    [PlausibilityLevel.Implausible]: 'implausible edge',
+    [PlausibilityLevel.NoEdge]: 'no edge',
+    [PlausibilityLevel.Strong]: 'strong edge',
+    [PlausibilityLevel.Typical]: 'typical edge',
+};
+
+const QV20_EXPECTANCY_DISCLOSURE =
+    'while QV-20 is open: this check uses +0.20R from 40% at 1:2, the trading skill computes +0.26R from the same inputs';
+
+export function edgePlausibilityNote(
+    inputs: EdgeInputs,
+    thresholds: PlausibilityThresholds = DEFAULT_RULEBOOK.plausibility,
+): null | string {
+    const result = edgePlausibility({ ...inputs, thresholds });
+    if (result.value === null || result.value.level === PlausibilityLevel.Typical) {
+        return null;
+    }
+    const { expectancyR, level } = result.value;
+    const sign = expectancyR >= 0 ? '+' : '-';
+    const winratePercent = (inputs.winrate * 100).toFixed(0);
+    return `${PLAUSIBILITY_LEVEL_TEXT[level]}: ${sign}${Math.abs(expectancyR).toFixed(2)}R per trade at ${winratePercent}% and 1:${inputs.rrRatio} (typical up to +${thresholds.typicalMaxExpectancyR.toFixed(2)}R, strong up to +${thresholds.strongMaxExpectancyR.toFixed(2)}R); ${QV20_EXPECTANCY_DISCLOSURE}`;
+}
+
+export function printEdgePlausibilityNotes(
+    notes: readonly (null | string)[],
+): void {
+    for (const note of notes) {
+        if (note !== null) ui.warn(note);
+    }
+}
+
+export function readAccountsPerSession(raw: string | undefined): null | number {
+    return raw === undefined || raw === '' ? null : parseFlag(
+        numericFlagSchema.pipe(bankrollAccountsPerSessionSchema),
+        raw,
+        'accounts-per-session',
+        'a whole number from 1 to 200',
+    );
+}
+
+export function readBankroll(raw: string | undefined): Dollars | null {
+    return raw === undefined || raw === ''
+        ? null
+        : dollars(
+              parseFlag(
+                  bankrollDollarSchema,
+                  raw,
+                  'bankroll',
+                  'a dollar amount > 0',
+              ),
+          );
+}
+
+export function readBankrollInputs(
+    arguments_: BankrollArguments,
+): BankrollInputs {
+    return {
+        bankroll: readBankroll(arguments_.bankroll),
+        lossThreshold: readLossThreshold(arguments_['loss-threshold']),
+    };
+}
+
+export function readHoursPerDay(raw: string | undefined): null | number {
+    return raw === undefined || raw === '' ? null : parseFlag(
+        numericFlagSchema.pipe(bankrollSessionHoursPerDaySchema),
+        raw,
+        'hours-per-day',
+        'a number of hours above 0 and at most 16',
+    );
+}
+
+export function readLossThreshold(
+    raw: string | undefined,
+): Fraction0to1 | null {
+    return raw === undefined || raw === '' ? null : fraction(
+        parseFlag(
+            numericFlagSchema.pipe(bankrollLossRiskThresholdSchema),
+            raw,
+            'loss-threshold',
+            'a fraction above 0 and at most 0.5',
+        ),
+    );
+}
+
+export function readScreenTime(
+    arguments_: ScreenTimeArguments,
+): null | ScreenTime {
+    const sessionHoursPerDay = readHoursPerDay(arguments_['hours-per-day']);
+    const accountsPerSession = readAccountsPerSession(
+        arguments_['accounts-per-session'],
+    );
+    if (sessionHoursPerDay === null && accountsPerSession === null) {
+        return null;
+    }
+    if (sessionHoursPerDay === null || accountsPerSession === null) {
+        throw new TypeError(
+            '--hours-per-day and --accounts-per-session go together: pass both or neither',
+        );
+    }
+    return { accountsPerSession, sessionHoursPerDay };
+}
+
+export function tradingEdgeNotes(
+    inputs: EdgeInputs & { readonly fundedRrRatio: number | undefined },
+): string[] {
+    const notes: string[] = [];
+    const evalNote = edgePlausibilityNote({
+        rrRatio: inputs.rrRatio,
+        winrate: inputs.winrate,
+    });
+    if (evalNote !== null) notes.push(evalNote);
+    if (
+        inputs.fundedRrRatio !== undefined &&
+        inputs.fundedRrRatio !== inputs.rrRatio
+    ) {
+        const fundedNote = edgePlausibilityNote({
+            rrRatio: inputs.fundedRrRatio,
+            winrate: inputs.winrate,
+        });
+        if (fundedNote !== null) notes.push(fundedNote);
+    }
+    return notes;
+}
 
 export const planArguments = {
     firm: {
@@ -813,12 +1031,21 @@ export function readRebuyLagDays(raw: unknown): number {
     return readNonNegativeNumber(raw, 'rebuy-lag-days');
 }
 
-export const MAX_PATH_GRANULARITY = 200;
+export const MAX_PATH_GRANULARITY = MAX_INTRADAY_PATH_STEPS_PER_R;
 
 const numericFlagSchema = z.union([
     z.number(),
     z.string().trim().min(1).pipe(z.coerce.number()),
 ]);
+
+const bankrollDollarSchema = numericFlagSchema.pipe(z.number().positive());
+
+const bankrollAccountsPerSessionSchema =
+    rulebookSchema.shape.bankroll.shape.accountsPerSession.unwrap();
+const bankrollLossRiskThresholdSchema =
+    rulebookSchema.shape.bankroll.shape.lossRiskThreshold.unwrap();
+const bankrollSessionHoursPerDaySchema =
+    rulebookSchema.shape.bankroll.shape.sessionHoursPerDay.unwrap();
 
 const stopLossCountFlagSchema = z
     .string()

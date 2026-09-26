@@ -3,7 +3,11 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AccountsTable } from '~/app/(app)/prop-calculator/accounts/_components/AccountsTable';
-import { AccountStage, AccountStatus } from '~/lib/prop-accounts';
+import {
+    AccountStage,
+    AccountStatus,
+    AccountTracking,
+} from '~/lib/prop-accounts';
 import { ALL_FIRMS, serializePlanId } from '~/lib/prop-calculator';
 import { routes } from '~/lib/site/routes';
 
@@ -52,6 +56,7 @@ vi.mock('~/trpc/react', () => ({
                 unarchive: harness.mutation(),
             },
             copyGroup: { list: harness.query('copyGroup.list') },
+            externalFirm: { list: harness.query('externalFirm.list') },
             snapshot: { latestForAll: harness.query('snapshot.latestForAll') },
         },
         useUtils: () => ({
@@ -71,12 +76,14 @@ function account(id: string, label: string, planSerial?: string) {
         accountSize: PLAN.id.accountSize,
         archivedAt: null,
         copyGroupId: null,
+        externalFirmId: null,
         firmId: PLAN.id.firm,
         fundedOn: null,
         id,
         label,
         notes: null,
         optIns: {},
+        planLabel: null,
         planSerial: planSerial ?? serializePlanId(PLAN.id),
         purchasedOn: '2026-09-01',
         readIssues: [],
@@ -84,12 +91,73 @@ function account(id: string, label: string, planSerial?: string) {
         stage: PLAN.isInstantFunded ? AccountStage.Funded : AccountStage.Eval,
         status: AccountStatus.Active,
         tags: [],
+        tracking: AccountTracking.Modeled,
         userId: 'user-a',
     };
 }
 
 function answer(data: unknown): FakeQuery {
     return { data, error: null, isError: false, isPending: false };
+}
+
+function element(scope: ParentNode, selector: string): HTMLElement {
+    const found = scope.querySelector<HTMLElement>(selector);
+    if (found === null) throw new Error(`nothing matches ${selector}`);
+    return found;
+}
+
+function ledgerAccount(id: string, label: string, externalFirmId: string) {
+    return {
+        accountSize: 150_000,
+        archivedAt: null,
+        copyGroupId: null,
+        externalFirmId,
+        firmId: null,
+        fundedOn: null,
+        id,
+        label,
+        notes: null,
+        optIns: {},
+        planLabel: 'Hola 150K',
+        planSerial: null,
+        purchasedOn: '2026-09-01',
+        readIssues: [],
+        replacesAccountId: null,
+        stage: AccountStage.Funded,
+        status: AccountStatus.Active,
+        tags: [],
+        tracking: AccountTracking.LedgerOnly,
+        userId: 'user-a',
+    };
+}
+
+function offeredOptionTexts(): readonly string[] {
+    return [...document.querySelectorAll<HTMLElement>('[role="option"]')].map(
+        (option) => option.textContent.trim(),
+    );
+}
+
+async function openListbox(trigger: HTMLElement) {
+    await act(async () => {
+        trigger.focus();
+        trigger.dispatchEvent(
+            new KeyboardEvent('keydown', { bubbles: true, key: 'Enter' }),
+        );
+    });
+}
+
+async function pickOption(trigger: HTMLElement, optionText: string) {
+    await openListbox(trigger);
+    const option = [
+        ...document.querySelectorAll<HTMLElement>('[role="option"]'),
+    ].find((candidate) => candidate.textContent.trim() === optionText);
+    if (option === undefined) throw new Error(`no option ${optionText}`);
+    await act(async () => {
+        option.focus();
+        option.dispatchEvent(
+            new KeyboardEvent('keydown', { bubbles: true, key: 'Enter' }),
+        );
+    });
 }
 
 describe('AccountsTable', () => {
@@ -176,5 +244,41 @@ describe('AccountsTable', () => {
         expect(container.textContent).toContain(
             'The accounts could not be loaded',
         );
+    });
+
+    it('offers each firm you added in the firm filter', async () => {
+        const externalFirmId = '5d1e2f3a-4b5c-4d6e-8f70-81a2b3c4d5e6';
+        harness.queries.set(
+            'externalFirm.list',
+            answer([{ id: externalFirmId, name: 'Hola Prime' }]),
+        );
+        harness.queries.set(
+            'account.list',
+            answer([account(ALPHA_ID, 'Alpha')]),
+        );
+        render();
+        const trigger = element(container, '#accounts-filter-firm');
+        await openListbox(trigger);
+        expect(offeredOptionTexts()).toContain('Hola Prime');
+    });
+
+    it('filters ledger-only accounts at a firm you added the same as a listed firm', async () => {
+        const externalFirmId = '5d1e2f3a-4b5c-4d6e-8f70-81a2b3c4d5e6';
+        harness.queries.set(
+            'externalFirm.list',
+            answer([{ id: externalFirmId, name: 'Hola Prime' }]),
+        );
+        harness.queries.set(
+            'account.list',
+            answer([
+                account(ALPHA_ID, 'Alpha'),
+                ledgerAccount(BRAVO_ID, 'Bravo', externalFirmId),
+            ]),
+        );
+        render();
+        const trigger = element(container, '#accounts-filter-firm');
+        await pickOption(trigger, 'Hola Prime');
+        expect(container.textContent).toContain('Bravo');
+        expect(container.textContent).not.toContain('Alpha');
     });
 });

@@ -1,6 +1,16 @@
-import { AccountStage, PayoutStatus, PlanKeyResolutionKind } from '../core';
+import {
+    type LifetimePayoutCountGate,
+    lifetimePayoutCountLimit,
+    PayoutGate,
+} from '~/lib/prop-calculator/core';
+
+import { AccountStage, PlanKeyResolutionKind } from '../core';
 import { type AccountAlert } from './AccountAlert';
-import { isActive, type MonitoredAccount } from './AlertContext';
+import {
+    isActive,
+    type MonitoredAccount,
+    payoutsTakenOf,
+} from './AlertContext';
 import { AlertKind } from './AlertKind';
 import { AccountAlertRule } from './AlertRule';
 import { AlertSeverity } from './AlertSeverity';
@@ -18,28 +28,33 @@ export class LifetimePayoutCountRule extends AccountAlertRule {
         ) {
             return null;
         }
-        const maxPayouts = monitored.plan.plan.maxLifetimePayouts;
-        if (maxPayouts === null) return null;
-        const paidCount = monitored.payouts.filter(
-            (payout) => payout.status === PayoutStatus.Paid,
-        ).length;
-        const taken = Math.max(
-            monitored.latestSnapshot?.payoutsTaken ?? 0,
-            paidCount,
+        const limit = lifetimePayoutCountLimit(
+            monitored.plan.plan.lifetimeConclusion,
         );
-        if (taken >= maxPayouts) {
-            return this.alertFor(
-                monitored,
-                AlertSeverity.Critical,
-                `${taken} of ${maxPayouts} lifetime payouts taken; the plan allows no further payout`,
-            );
-        }
-        return taken < maxPayouts - 1
-            ? null
-            : this.alertFor(
+        const taken = payoutsTakenOf(monitored);
+        if (limit === null || taken < limit.count - 1) return null;
+        const progress = `${taken} of ${limit.count} payouts taken under ${payoutCountSource(limit.gate)}`;
+        return taken < limit.count
+            ? this.alertFor(
                   monitored,
                   AlertSeverity.Warning,
-                  `${taken} of ${maxPayouts} lifetime payouts taken; the next payout is the last one the plan allows`,
+                  `${progress}; the next payout is the last one this limit allows`,
+              )
+            : this.alertFor(
+                  monitored,
+                  AlertSeverity.Critical,
+                  `${progress}; the plan allows no further payout`,
               );
+    }
+}
+
+function payoutCountSource(gate: LifetimePayoutCountGate): string {
+    switch (gate) {
+        case PayoutGate.AccountConcluded: {
+            return "the plan's lifetime payout limit";
+        }
+        case PayoutGate.LadderExhausted: {
+            return "the plan's payout ladder, which ends at its last step";
+        }
     }
 }

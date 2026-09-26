@@ -31,6 +31,7 @@ import {
     AccountReadIssueKind,
     AccountStage,
     AccountStatus,
+    AccountTracking,
     AlertEvaluator,
     AlertKind,
     alertKindLabel,
@@ -38,6 +39,8 @@ import {
     createAlertContext,
     DEFAULT_ALERT_RULES,
     FeeKind,
+    firmKeyId,
+    FirmKeyKind,
     formatUsdCents,
     IsoDateError,
     type LedgerAccountRow,
@@ -63,6 +66,11 @@ import {
     payout,
     purchased,
 } from '../../../lib/prop-accounts/metrics/ledgerFixtures';
+
+const EVAL_FIRM_KEY = firmKeyId({
+    firmId: EVAL_PLAN.firm.id,
+    kind: FirmKeyKind.Modeled,
+});
 
 const TODAY = '2026-09-26';
 const USER_ID = 'user-a';
@@ -153,10 +161,74 @@ function inputs(
     overrides: Partial<PortfolioQueries> = {},
 ): OverviewInputs {
     return {
+        externalFirms: [],
         load: portfolioLoad({ ...answered(rowsOf(rows)), ...overrides }),
         today: TODAY,
         userId: USER_ID,
     };
+}
+
+function ledgerOnlyCards(): OverviewLedgerCards {
+    const modeled = account(EVAL_PLAN, {
+        fundedOn: '2026-09-10',
+        label: 'Modeled',
+        purchasedOn: '2026-09-01',
+        stage: AccountStage.Funded,
+    });
+    const big = account(EVAL_PLAN, {
+        accountSize: 150_000,
+        label: 'Big',
+        planLabel: 'Rapid 150K',
+        planSerial: null,
+        purchasedOn: '2026-09-01',
+        stage: AccountStage.Funded,
+        tracking: AccountTracking.LedgerOnly,
+    });
+    return cardsOf({
+        accounts: [modeled, big].map(overviewAccount),
+        events: [
+            purchased(modeled),
+            event(modeled, AccountEventKind.EvalPassed, '2026-09-10'),
+        ],
+        fees: [
+            fee(modeled, FeeKind.EvalPurchase, 10_000, '2026-09-01'),
+            fee(big, FeeKind.EvalPurchase, 30_000, '2026-09-01'),
+        ],
+    });
+}
+
+function multiSlotRows(): PortfolioRows {
+    const alpha = account(EVAL_PLAN, {
+        fundedOn: '2026-06-01',
+        label: 'Alpha',
+        purchasedOn: '2026-05-01',
+        stage: AccountStage.Funded,
+    });
+    const bravo = account(EVAL_PLAN, {
+        fundedOn: '2026-06-01',
+        label: 'Bravo',
+        purchasedOn: '2026-05-01',
+        stage: AccountStage.Funded,
+    });
+    const paid = payout(alpha, 100_000, {
+        netCents: 90_000,
+        paidOn: '2026-06-15',
+        requestedOn: '2026-06-10',
+    });
+    return rowsOf({
+        accounts: [alpha, bravo].map(overviewAccount),
+        events: [
+            purchased(alpha),
+            event(alpha, AccountEventKind.EvalPassed, '2026-06-01'),
+            purchased(bravo),
+            event(bravo, AccountEventKind.EvalPassed, '2026-06-01'),
+        ],
+        fees: [
+            fee(alpha, FeeKind.EvalPurchase, 15_000, '2026-05-01'),
+            fee(bravo, FeeKind.EvalPurchase, 15_000, '2026-05-01'),
+        ],
+        payouts: [paid],
+    });
 }
 
 function overviewAccount(row: LedgerAccountRow): OverviewAccountRow {
@@ -458,6 +530,7 @@ describe('buildOverview KPI row', () => {
             OverviewKpiKind.RealizedNetPerSlot,
             OverviewKpiKind.ExpectedNet,
             OverviewKpiKind.Roi,
+            OverviewKpiKind.PayoutMultiple,
             OverviewKpiKind.TotalFunding,
         ]);
     });
@@ -507,6 +580,12 @@ describe('buildOverview KPI row', () => {
                 label: 'ROI on cost',
                 tone: KpiTone.Positive,
                 value: '157.1%',
+            },
+            {
+                detail: 'Payouts received divided by spend',
+                label: 'Payout multiple',
+                tone: KpiTone.Positive,
+                value: '2.57x',
             },
             {
                 detail: `Information only: nominal account size, not money you hold. Evals in progress: ${cents(0)} across 0 accounts.`,
@@ -595,7 +674,7 @@ describe('buildOverview cards', () => {
             {
                 amount: cents(35_000),
                 firm: EVAL_PLAN.firm.displayName,
-                key: EVAL_PLAN.firm.id,
+                key: EVAL_FIRM_KEY,
             },
         ]);
         expect(cards.cost.byKind).toEqual([
@@ -652,7 +731,7 @@ describe('buildOverview cards', () => {
                     firm: EVAL_PLAN.firm.displayName,
                     firstPayout: '1',
                     funded: '1',
-                    key: EVAL_PLAN.firm.id,
+                    key: EVAL_FIRM_KEY,
                     movedLive: '0',
                     passed: '1',
                     purchased: '2',
@@ -665,7 +744,7 @@ describe('buildOverview cards', () => {
                 {
                     amount: cents(EVAL_PLAN.plan.id.accountSize * 100),
                     firm: EVAL_PLAN.firm.displayName,
-                    key: EVAL_PLAN.firm.id,
+                    key: EVAL_FIRM_KEY,
                     share: '100.0%',
                 },
             ],
@@ -673,7 +752,7 @@ describe('buildOverview cards', () => {
                 {
                     amount: cents(90_000),
                     firm: EVAL_PLAN.firm.displayName,
-                    key: EVAL_PLAN.firm.id,
+                    key: EVAL_FIRM_KEY,
                     share: '100.0%',
                 },
             ],
@@ -681,29 +760,69 @@ describe('buildOverview cards', () => {
         expect(cards.statement.months).toEqual([
             {
                 cumulativeNet: cents(-23_000),
+                isPartial: false,
                 key: '2026-06',
+                meetsMultipleTarget: null,
+                meetsPayoutTarget: null,
                 month: '2026-06',
+                multiple: '0.00x',
                 net: cents(-23_000),
+                payoutCount: '0',
+                payoutGrowth: 'n/a',
                 payouts: cents(0),
                 spend: cents(23_000),
+                trailingThreeMonthMultiple: '0.00x',
             },
             {
                 cumulativeNet: cents(-35_000),
+                isPartial: false,
                 key: '2026-07',
+                meetsMultipleTarget: null,
+                meetsPayoutTarget: null,
                 month: '2026-07',
+                multiple: '0.00x',
                 net: cents(-12_000),
+                payoutCount: '0',
+                payoutGrowth: 'n/a',
                 payouts: cents(0),
                 spend: cents(12_000),
+                trailingThreeMonthMultiple: '0.00x',
             },
             {
                 cumulativeNet: cents(55_000),
+                isPartial: false,
                 key: '2026-08',
+                meetsMultipleTarget: null,
+                meetsPayoutTarget: null,
                 month: '2026-08',
+                multiple: 'n/a',
                 net: cents(90_000),
+                payoutCount: '1',
+                payoutGrowth: 'n/a',
                 payouts: cents(90_000),
                 spend: cents(0),
+                trailingThreeMonthMultiple: '2.57x',
+            },
+            {
+                cumulativeNet: cents(55_000),
+                isPartial: true,
+                key: '2026-09',
+                meetsMultipleTarget: null,
+                meetsPayoutTarget: null,
+                month: '2026-09',
+                multiple: 'n/a',
+                net: cents(0),
+                payoutCount: '0',
+                payoutGrowth: '-100.0%',
+                payouts: cents(0),
+                spend: cents(0),
+                trailingThreeMonthMultiple: '7.50x',
             },
         ]);
+        expect(cards.statement.caveat).not.toContain('By purchase cohort');
+        expect(cards.statement.caveat).toBe(
+            'calendar months mix purchase cohorts',
+        );
         expect(
             cards.timeline.entries.map(
                 ({ account: label, amount, description, on }) => ({
@@ -869,6 +988,128 @@ describe('buildOverview cards', () => {
         expect(cards.timeline.hiddenEntries).toBe(6);
         expect(cards.timeline.entries[0]?.on).toBe('2026-02-27');
     });
+
+    it('shows the payout multiple, accounts and dates per firm, with a noise verdict', () => {
+        const cards = readyCards(buildOverview(pinnedFixture()).ledger);
+        expect(cards.firmReturns.rows).toEqual([
+            {
+                accounts: '2',
+                accountsWithPayout: '1',
+                attempts: '2',
+                firm: EVAL_PLAN.firm.displayName,
+                firstPayoutOn: '2026-08-15',
+                fundedAccounts: '1',
+                key: EVAL_FIRM_KEY,
+                lastPayoutOn: '2026-08-15',
+                multiple: '2.57x',
+                net: cents(55_000),
+                payouts: cents(90_000),
+                spend: cents(35_000),
+                verdict: 'Unknown (not enough data)',
+            },
+        ]);
+    });
+
+    it('shows repeatability over complete months and per funded slot', () => {
+        const cards = readyCards(buildOverview(pinnedFixture()).ledger);
+        expect(cards.repeatability.overall).toMatchObject({
+            count: '3',
+            shareAtOrAboveTarget: null,
+            sharePositive: '33.3%',
+        });
+        expect(cards.repeatability.perSlot).not.toBeNull();
+        expect(cards.repeatability.perSlotTargetCaveat).toBeNull();
+    });
+
+    it('shows a repeatability share at or above target once the rulebook sets one', () => {
+        const load = inputs(pinnedRows(), {
+            [PortfolioSource.Rulebook]: {
+                data: {
+                    ...DEFAULT_RULEBOOK,
+                    review: {
+                        ...DEFAULT_RULEBOOK.review,
+                        monthlyPayoutTargetCents: 100_000,
+                    },
+                },
+                error: null,
+            },
+        });
+        const cards = readyCards(buildOverview(load).ledger);
+        expect(cards.repeatability.overall?.shareAtOrAboveTarget).toBe('0.0%');
+    });
+
+    it('flags the per-slot target share as not comparable once more than one funded slot overlaps', () => {
+        const load = inputs(multiSlotRows(), {
+            [PortfolioSource.Rulebook]: {
+                data: {
+                    ...DEFAULT_RULEBOOK,
+                    review: {
+                        ...DEFAULT_RULEBOOK.review,
+                        monthlyPayoutTargetCents: 100_000,
+                    },
+                },
+                error: null,
+            },
+        });
+        const cards = readyCards(buildOverview(load).ledger);
+        expect(cards.repeatability.perSlot?.shareAtOrAboveTarget).not.toBeNull();
+        expect(cards.repeatability.perSlotTargetCaveat).toBe(
+            'More than one funded slot overlapped in some months, so the per-slot share against the portfolio-wide target may read too low.',
+        );
+    });
+
+    it('shows a payout month with no fees as meeting its multiple target once the rulebook sets one', () => {
+        const load = inputs(pinnedRows(), {
+            [PortfolioSource.Rulebook]: {
+                data: {
+                    ...DEFAULT_RULEBOOK,
+                    review: {
+                        ...DEFAULT_RULEBOOK.review,
+                        targetMonthlyMultiple: 2,
+                    },
+                },
+                error: null,
+            },
+        });
+        const cards = readyCards(buildOverview(load).ledger);
+        const august = cards.statement.months.find(
+            (month) => month.key === '2026-08',
+        );
+        expect(august).toMatchObject({
+            meetsMultipleTarget: true,
+            multiple: 'n/a',
+        });
+    });
+
+    it('shows cost per attempt by account size and firm, and discounts captured per firm', () => {
+        const cards = readyCards(buildOverview(pinnedFixture()).ledger);
+        expect(cards.cost.byAccountSize).toEqual([
+            {
+                accountSize: String(EVAL_PLAN.plan.id.accountSize),
+                attempts: '2',
+                costPerAttempt: cents(17_500),
+                key: String(EVAL_PLAN.plan.id.accountSize),
+                spend: cents(35_000),
+            },
+        ]);
+        expect(cards.cost.byFirmAttemptCost).toEqual([
+            {
+                attempts: '2',
+                costPerAttempt: cents(17_500),
+                firm: EVAL_PLAN.firm.displayName,
+                key: EVAL_FIRM_KEY,
+                retryFeeAttempts: '0',
+            },
+        ]);
+        expect(cards.cost.discountsByFirm).toEqual([
+            {
+                discount: cents(89_000),
+                feesChecked: '4',
+                firm: EVAL_PLAN.firm.displayName,
+                key: EVAL_FIRM_KEY,
+            },
+        ]);
+    });
 });
 
 describe('buildOverview notices', () => {
@@ -947,6 +1188,81 @@ describe('buildOverview notices', () => {
         expect(byKind.get(OverviewNoticeKind.UnmatchedRows)).toBe(
             '1 row belongs to no listed account and is left out.',
         );
+    });
+});
+
+describe('buildOverview with ledger-only accounts', () => {
+    it('says in a notice which accounts are ledger only and which figures leave them out', () => {
+        const notice = ledgerOnlyCards().notices.find(
+            (candidate) =>
+                candidate.kind === OverviewNoticeKind.LedgerOnlyAccounts,
+        );
+        expect(notice?.message).toBe(
+            '1 account is ledger only (Big); the engine does not model its plan, so its fees and payouts count in the cash totals, the firm tables and the funnel, but not in realized net per slot or the per-plan cards (cost per plan, outcomes, replacement and plan caps).',
+        );
+    });
+
+    it('says on the cost, outcomes, cap usage and funnel cards that ledger-only accounts are not in their plan rows', () => {
+        const cards = ledgerOnlyCards();
+        expect(cards.cost.disclosures).toContain(
+            `${cents(30_000)} spent on 1 ledger-only account is in the firm table but in no plan row.`,
+        );
+        expect(cards.outcomes.disclosures).toContain(
+            '1 ledger-only account is not counted here, since the engine does not model its plan.',
+        );
+        expect(cards.capUsage.unresolvedNote).toBe(
+            "1 ledger-only account is not counted here; check it against the firm's own account cap yourself.",
+        );
+        expect(cards.funnel.unresolvedNote).toBe(
+            '1 ledger-only account counts from its stored stage and paid payouts; whether it passed an evaluation is not known.',
+        );
+    });
+
+    it('names a firm of your own in the firm tables instead of an unlisted firm', () => {
+        const hola = { id: 'firm-hola', name: 'Hola Prime' };
+        const seat = account(EVAL_PLAN, {
+            accountSize: 100_000,
+            externalFirmId: hola.id,
+            firmId: null,
+            label: 'Seat',
+            planLabel: 'Hola 100K',
+            planSerial: null,
+            stage: AccountStage.Funded,
+            tracking: AccountTracking.LedgerOnly,
+        });
+        const paid = payout(seat, 50_000, {
+            netCents: 40_000,
+            paidOn: TODAY,
+            requestedOn: TODAY,
+        });
+        const purchase = fee(seat, FeeKind.EvalPurchase, 20_000, TODAY);
+        const rows = inputs({
+            accounts: [overviewAccount(seat)],
+            fees: [purchase],
+            payouts: [paid],
+        });
+        const cards = readyCards(
+            buildOverview({ ...rows, externalFirms: [hola] }).ledger,
+        );
+        const firmNames = [
+            ...cards.cost.byFirm,
+            ...cards.funnel.rows,
+            ...cards.diversification.funding,
+            ...cards.diversification.payouts,
+        ].map((row) => row.firm);
+        expect(firmNames).toHaveLength(4);
+        expect(new Set(firmNames)).toEqual(new Set([hola.name]));
+    });
+
+    it('counts the ledger-only accounts left out of realized net per slot beside that figure', () => {
+        const perSlot = ledgerOnlyCards().kpis.find(
+            (kpi) => kpi.kind === OverviewKpiKind.RealizedNetPerSlot,
+        );
+        expect(perSlot?.note).toBe('1 ledger-only account not counted');
+        const modeledOnly = readyCards(
+            buildOverview(pinnedFixture()).ledger,
+        ).kpis.find((kpi) => kpi.kind === OverviewKpiKind.RealizedNetPerSlot);
+        expect(modeledOnly?.note).toBeNull();
     });
 });
 

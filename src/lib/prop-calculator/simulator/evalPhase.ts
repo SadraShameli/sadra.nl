@@ -25,10 +25,11 @@ export function runEvalAttempt(options: EvalAttemptOptions): EvalAttemptResult {
         rrRatio,
         rungSizing,
         shouldCaptureEquity,
+        start,
         totals,
         winrate,
     } = options;
-    const state = plan.initialState();
+    const state = start ? { ...start.state } : plan.initialState();
     const streak = new LossStreak(totals);
     const stats = newPhaseStats(state.startingBalance, totals, streak);
     const equityCurve: null | number[] = shouldCaptureEquity
@@ -51,7 +52,7 @@ export function runEvalAttempt(options: EvalAttemptOptions): EvalAttemptResult {
     let days = 0;
     let outcome: AttemptOutcome = 'timed-out';
 
-    const dayCap = plan.evalDayCap(maxEvalDays);
+    const dayCap = start ? start.dayCap : plan.evalDayCap(maxEvalDays);
     const dayOptions: EvalDayRunOptions = {
         commission,
         dayPolicy,
@@ -113,6 +114,7 @@ export function runEvalWithRetries(
         rrRatio,
         rungSizing,
         shouldCaptureEquity,
+        start,
         totals,
         winrate,
     } = options;
@@ -141,6 +143,7 @@ export function runEvalWithRetries(
             rrRatio,
             rungSizing,
             shouldCaptureEquity,
+            start: attemptsUsed === 1 ? start : undefined,
             totals,
             winrate,
         });

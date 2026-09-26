@@ -126,14 +126,19 @@ export {
     type EligiblePayout,
     type FundedCycleSeed,
     fundedCycleSeedSchema,
-    type FundedCycleTracker,
+    FundedCycleTracker,
     type FundedPayoutOptions,
+    ladderStepLookup,
     newFundedCycleTracker,
     newFundedCycleTrackerAfterReset,
     type OneTimeEarlyWithdrawal,
     PayoutDayGateBasis,
     type PayoutEvaluation,
     PayoutEvaluationKind,
+    payoutPoolProfit,
+    payoutReferenceThreshold,
+    perRequestCeiling,
+    requiredDayGateDays,
     restoreFundedCycleTracker,
     sessionDaysForCalendarDays,
     withOneTimeEarlyWithdrawalTaken,
@@ -156,6 +161,8 @@ export {
     INSTRUMENTS,
     type InstrumentSpec,
     InstrumentSymbol,
+    siblingInstrumentOf,
+    Underlying,
 } from './Instruments';
 export {
     LADDER_IGNORED_INPUT_REASONS,
@@ -256,6 +263,11 @@ export {
     resolveLiveAffordableRoom,
     resolveLiveTradeRisk,
 } from './LiveSizing';
+export {
+    type LockedContractCaps,
+    LockKeyedContractCapLivePlan,
+    type LockKeyedContractCapLivePlanInit,
+} from './LockKeyedContractCapLivePlan';
 export { PayoutBuffer } from './PayoutBuffer';
 export {
     FlatPayoutCap,
@@ -276,6 +288,9 @@ export {
     accountConclusionGate,
     type AccountConclusionGate,
     type AccountConclusionSource,
+    type LifetimePayoutCountGate,
+    lifetimePayoutCountLimit,
+    type LifetimePayoutCountLimit,
     PayoutGate,
 } from './PayoutGate';
 export {
@@ -311,8 +326,10 @@ export {
 export {
     type BasketDiscount,
     type BasketPositionDiscount,
+    LifetimeCapScope,
     Plan,
     type PlanInit,
+    type PlanLifetimeConclusion,
 } from './Plan';
 export {
     PLAN_AVAILABILITY_LABEL,
@@ -337,12 +354,18 @@ export { NO_PLAN_OPT_INS, type PlanOptIns, withPlanOptIns } from './PlanOptIns';
 export {
     capRiskToContractLimit,
     contractLimitAt,
+    contractsAtStop,
+    type ContractsAtStopResult,
     evalContractLimit,
     fundedContractLimit,
     isBelowOneContract,
+    MismatchSeverity,
     oneContractRisk,
     type PositionSizingConfig,
     resolvePositionSizing,
+    siblingInstrumentRisk,
+    type SiblingInstrumentRiskInput,
+    type SiblingInstrumentRiskResult,
     wholeContractCount,
     wholeContractRisk,
 } from './PositionSizing';
@@ -385,6 +408,14 @@ export {
     simulateTradePath,
     type TradePathResult,
 } from './TradePathSimulation';
+export {
+    applyClosedTrade,
+    type LiveTradeRiskOptions,
+    resolveLiveRiskAt,
+    resolveRiskAt,
+    type TradeRiskOptions,
+    type TradeRiskResult,
+} from './TradeRiskResolution';
 export { applyTrade, closeTradingDay, recordBestDay } from './TradingDayLedger';
 export { TradingFirm } from './TradingFirm';
 export { TradingPhase } from './TradingPhase';

@@ -5,23 +5,36 @@ import {
     AccountReadIssueKind,
     AccountStage,
     AccountStatus,
+    AccountTracking,
+    FeeKind,
+    type FirmKey,
+    firmKeyId,
+    FirmKeyKind,
     PayoutStatus,
     type StoredFirmId,
     UnresolvedPlanReason,
 } from '~/lib/prop-accounts/core';
 import { type FirmFunnel, stageFunnel } from '~/lib/prop-accounts/metrics';
-import { type FirmId } from '~/lib/prop-calculator';
 
 import {
     account,
     EVAL_PLAN,
     event,
+    fee,
     INSTANT_PLAN,
     ledger,
     OTHER_FIRM_EVAL_PLAN,
     payout,
     purchased,
 } from './ledgerFixtures';
+
+function modeledFirm(firmId: StoredFirmId): FirmKey {
+    return { firmId, kind: FirmKeyKind.Modeled };
+}
+
+function modeledKeyId(firmId: StoredFirmId): string {
+    return firmKeyId({ firmId, kind: FirmKeyKind.Modeled });
+}
 
 describe('stageFunnel', () => {
     it('counts purchased, passed, funded, first payout and moved live per firm from events', () => {
@@ -57,28 +70,90 @@ describe('stageFunnel', () => {
             }),
         );
         expect(
-            result.byFirm.find((f) => f.firmId === EVAL_PLAN.firm.id),
+            result.byFirm.find(
+                (f) => firmKeyId(f.firmKey) === modeledKeyId(EVAL_PLAN.firm.id),
+            ),
         ).toEqual({
-            firmId: EVAL_PLAN.firm.id,
+            attempts: 4,
+            feesCents: 0,
+            firmKey: modeledFirm(EVAL_PLAN.firm.id),
             firstPayout: 2,
             funded: 3,
             movedLive: 1,
+            netCents: 160_000,
+            netPayoutsCents: 160_000,
             passed: 3,
             purchased: 4,
         });
         expect(
             result.byFirm.find(
-                (f) => f.firmId === OTHER_FIRM_EVAL_PLAN.firm.id,
+                (f) =>
+                    firmKeyId(f.firmKey) ===
+                    modeledKeyId(OTHER_FIRM_EVAL_PLAN.firm.id),
             ),
         ).toEqual({
-            firmId: OTHER_FIRM_EVAL_PLAN.firm.id,
+            attempts: 0,
+            feesCents: 0,
+            firmKey: modeledFirm(OTHER_FIRM_EVAL_PLAN.firm.id),
             firstPayout: 0,
             funded: 0,
             movedLive: 0,
+            netCents: 0,
+            netPayoutsCents: 0,
             passed: 0,
             purchased: 1,
         });
         expect(result.unresolvedAccounts).toBe(0);
+    });
+
+    it('counts a ledger-only account as one attempt alongside a modeled account at the same firm', () => {
+        const modeled = account(EVAL_PLAN, { stage: AccountStage.Funded });
+        const ledgerOnly = account(EVAL_PLAN, {
+            planLabel: 'Rapid 150K',
+            planSerial: null,
+            stage: AccountStage.Funded,
+            tracking: AccountTracking.LedgerOnly,
+        });
+        const result = stageFunnel(
+            ledger({
+                accounts: [modeled, ledgerOnly],
+                events: [
+                    purchased(modeled),
+                    event(modeled, AccountEventKind.EvalPassed, '2026-09-10'),
+                    purchased(ledgerOnly),
+                ],
+            }),
+        );
+        const firm = result.byFirm.find(
+            (f) => firmKeyId(f.firmKey) === modeledKeyId(EVAL_PLAN.firm.id),
+        );
+        expect(firm?.purchased).toBe(2);
+        expect(firm?.attempts).toBe(2);
+    });
+
+    it('sums fees and net paid payouts per firm, net of refunds', () => {
+        const owner = account(EVAL_PLAN, { stage: AccountStage.Funded });
+        const result = stageFunnel(
+            ledger({
+                accounts: [owner],
+                events: [
+                    purchased(owner),
+                    event(owner, AccountEventKind.EvalPassed, '2026-09-10'),
+                ],
+                fees: [
+                    fee(owner, FeeKind.EvalPurchase, 15_000, '2026-09-01'),
+                    fee(owner, FeeKind.Refund, 5000, '2026-09-02'),
+                ],
+                payouts: [payout(owner, 40_000)],
+            }),
+        );
+        const firm = result.byFirm.find(
+            (f) => firmKeyId(f.firmKey) === modeledKeyId(EVAL_PLAN.firm.id),
+        );
+        expect(firm?.feesCents).toBe(10_000);
+        expect(firm?.netPayoutsCents).toBe(40_000);
+        expect(firm?.netCents).toBe(30_000);
+        expect(firm?.attempts).toBe(1);
     });
 
     it('counts an instant-funded purchase as funded without a pass, and keeps unresolved accounts apart', () => {
@@ -92,10 +167,14 @@ describe('stageFunnel', () => {
         );
         expect(result.byFirm).toEqual([
             {
-                firmId: INSTANT_PLAN.firm.id,
+                attempts: 1,
+                feesCents: 0,
+                firmKey: modeledFirm(INSTANT_PLAN.firm.id),
                 firstPayout: 0,
                 funded: 1,
                 movedLive: 0,
+                netCents: 0,
+                netPayoutsCents: 0,
                 passed: 0,
                 purchased: 1,
             },
@@ -113,11 +192,11 @@ describe('stageFunnel', () => {
                 events: [purchased(lost), purchased(kept)],
             }),
         );
-        expect(result.byFirm.map((row) => row.firmId)).toEqual([
-            OTHER_FIRM_EVAL_PLAN.firm.id,
+        expect(result.byFirm.map((row) => firmKeyId(row.firmKey))).toEqual([
+            modeledKeyId(OTHER_FIRM_EVAL_PLAN.firm.id),
         ]);
         expect(result.unresolvedAccounts).toBe(1);
-        expectTypeOf<FirmFunnel['firmId']>().toEqualTypeOf<FirmId>();
+        expectTypeOf<FirmFunnel['firmKey']>().toEqualTypeOf<FirmKey>();
     });
 
     it('keeps counting an archived account whose only issue is unreadable personal rules, so adding it again would count it twice', () => {
@@ -158,10 +237,14 @@ describe('stageFunnel', () => {
         );
         expect(result.byFirm).toEqual([
             {
-                firmId: EVAL_PLAN.firm.id,
+                attempts: 1,
+                feesCents: 0,
+                firmKey: modeledFirm(EVAL_PLAN.firm.id),
                 firstPayout: 0,
                 funded: 1,
                 movedLive: 0,
+                netCents: 0,
+                netPayoutsCents: 0,
                 passed: 1,
                 purchased: 1,
             },

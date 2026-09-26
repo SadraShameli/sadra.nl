@@ -4,6 +4,7 @@ import { PayoutStatus } from '~/lib/prop-accounts';
 
 import {
     assertUserScopedWhere,
+    FakeDatabaseError,
     insertedColumnValues,
     readTable,
 } from '../fakeDatabase';
@@ -11,10 +12,13 @@ import {
     callerFor,
     defined,
     deletesFrom,
+    errorShapeOf,
+    failingWrite,
     IDS,
     insertsInto,
     isCount,
     propWrites,
+    rejectionOf,
     SIGNED_IN,
     tableResponder,
     TABLES,
@@ -100,4 +104,101 @@ describe('propAccounts.payout', () => {
         expect(one?.params).toContain(IDS.account);
         expect(all?.text).toMatch(/ limit \$\d+$/);
     });
+
+    it('create stores the approval date for the session user', async () => {
+        const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
+        await caller.payout.create({
+            ...PAID,
+            accountId: IDS.account,
+            approvedOn: '2026-09-09',
+        });
+        const [insert] = insertsInto(queries, TABLES.payout);
+        expect(insertedColumnValues(defined(insert), 'approved_on')).toEqual([
+            '2026-09-09',
+        ]);
+    });
+
+    it('update writes the approval date, and clears it when sent as null', async () => {
+        for (const approvedOn of ['2026-09-09', null]) {
+            const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
+            await caller.payout.update({ ...PAID, approvedOn, id: IDS.payout });
+            const [update] = updatesOf(queries, TABLES.payout);
+            assertUserScopedWhere(defined(update), USER_ID);
+            expect(update?.text).toMatch(/"approved_on" = \$\d+/);
+            if (approvedOn !== null) {
+                expect(update?.params).toContain(approvedOn);
+            }
+        }
+    });
+
+    it('update without an approval date keeps the stored one', async () => {
+        const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
+        await caller.payout.update({ ...PAID, id: IDS.payout });
+        const [update] = updatesOf(queries, TABLES.payout);
+        expect(update?.text).not.toMatch(/"approved_on" = /);
+    });
+
+    it.each([
+        {
+            approvedOn: '2026-09-07',
+            message: 'a payout cannot be approved before it was requested',
+        },
+        {
+            approvedOn: '2026-09-11',
+            message: 'a payout cannot be paid before it was approved',
+        },
+    ])(
+        'create and update reject the approval date $approvedOn out of order before touching the database',
+        async ({ approvedOn, message }) => {
+            const { caller, queries } = callerFor(SIGNED_IN, tableResponder());
+            for (const call of [
+                () =>
+                    caller.payout.create({
+                        ...PAID,
+                        accountId: IDS.account,
+                        approvedOn,
+                    }),
+                () =>
+                    caller.payout.update({
+                        ...PAID,
+                        approvedOn,
+                        id: IDS.payout,
+                    }),
+            ]) {
+                const error = await rejectionOf(call());
+                expect(errorShapeOf(error).data.code).toBe('BAD_REQUEST');
+                expect(String(error)).toContain(message);
+            }
+            expect(queries).toHaveLength(0);
+        },
+    );
+
+    it.each([
+        [
+            'prop_payout_approved_after_request_ck',
+            'A payout cannot be approved before it was requested',
+        ],
+        [
+            'prop_payout_paid_after_approval_ck',
+            'A payout cannot be paid before it was approved',
+        ],
+    ])(
+        'update maps the stored approval date failing %s to a BAD_REQUEST the user can act on',
+        async (constraint, message) => {
+            const { caller } = callerFor(
+                SIGNED_IN,
+                failingWrite(
+                    TABLES.payout,
+                    new FakeDatabaseError('23514', constraint),
+                ),
+            );
+            const shape = errorShapeOf(
+                await rejectionOf(
+                    caller.payout.update({ ...PAID, id: IDS.payout }),
+                ),
+            );
+            expect(shape.data.code).toBe('BAD_REQUEST');
+            expect(shape.message).toBe(message);
+        },
+    );
 });

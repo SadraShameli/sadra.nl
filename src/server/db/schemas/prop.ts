@@ -19,6 +19,7 @@ import type {
     AccountEventKind,
     AccountStage,
     AccountStatus,
+    AccountTracking,
     BankrollTransferKind,
     DashboardBalanceConvention,
     FeeKind,
@@ -58,6 +59,8 @@ const PAID_STATUS: `${PayoutStatus.Paid}` = 'paid';
 const CLOSED_ROUND_STATUS: `${RoundStatus.Closed}` = 'closed';
 const ACTIVE_ENGAGEMENT_STATUS: `${FirmEngagementStatus.Active}` = 'active';
 const SENT_LIVE_REASON: `${FirmEngagementReason.SentLive}` = 'sent-live';
+const MODELED_TRACKING: `${AccountTracking.Modeled}` = 'modeled';
+const LEDGER_ONLY_TRACKING: `${AccountTracking.LedgerOnly}` = 'ledger-only';
 const ACCOUNT_DATE_PATTERN =
     '^(20[0-9]{2}|2100)-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$';
 
@@ -212,9 +215,8 @@ export const propAccount = createTable(
             .$type<DashboardBalanceConvention>()
             .notNull(),
         externalAlias: varchar('external_alias', { length: LABEL_LENGTH }),
-        firmId: varchar('firm_id', { length: ENUM_LENGTH })
-            .$type<StoredFirmId>()
-            .notNull(),
+        externalFirmId: externalFirmId(),
+        firmId: firmId(),
         firstFundedTradeOn: isoDate('first_funded_trade_on'),
         fundedOn: isoDate('funded_on'),
         id: uuid('id').primaryKey().defaultRandom(),
@@ -229,12 +231,13 @@ export const propAccount = createTable(
             .$type<StoredJsonb<PersonalRules>>()
             .default(sql`'{}'::jsonb`)
             .notNull(),
+        planLabel: varchar('plan_label', { length: LABEL_LENGTH }),
         planRulesFingerprint: varchar('plan_rules_fingerprint', {
             length: LABEL_LENGTH,
         }),
         planSerial: varchar('plan_serial', {
             length: PLAN_SERIAL_LENGTH,
-        }).notNull(),
+        }),
         purchasedOn: isoDate('purchased_on').notNull(),
         replacesAccountId: uuid('replaces_account_id'),
         roundId: uuid('round_id'),
@@ -248,11 +251,20 @@ export const propAccount = createTable(
             .$type<string[]>()
             .default(sql`'[]'::jsonb`)
             .notNull(),
+        tracking: varchar('tracking', { length: ENUM_LENGTH })
+            .default(MODELED_TRACKING)
+            .$type<AccountTracking>()
+            .notNull(),
         updatedAt: updatedAt(),
         userId: ownerId(),
     },
     (t) => [
         unique('prop_account_id_user_id_uq').on(t.id, t.userId),
+        foreignKey({
+            columns: [t.externalFirmId, t.userId],
+            foreignColumns: [propExternalFirm.id, propExternalFirm.userId],
+            name: 'prop_account_external_firm_fk',
+        }).onDelete('no action'),
         foreignKey({
             columns: [t.copyGroupId, t.userId],
             foreignColumns: [propCopyGroup.id, propCopyGroup.userId],
@@ -282,6 +294,17 @@ export const propAccount = createTable(
         index('prop_account_round_idx')
             .on(t.roundId, t.userId)
             .where(sql`round_id IS NOT NULL`),
+        index('prop_account_external_firm_idx')
+            .on(t.externalFirmId, t.userId)
+            .where(sql`external_firm_id IS NOT NULL`),
+        check(
+            'prop_account_tracking_shape_ck',
+            sql`(${t.tracking} = ${sql.raw(`'${MODELED_TRACKING}'`)} AND ${t.firmId} IS NOT NULL AND ${t.planSerial} IS NOT NULL AND ${t.externalFirmId} IS NULL AND ${t.planLabel} IS NULL) OR (${t.tracking} = ${sql.raw(`'${LEDGER_ONLY_TRACKING}'`)} AND ${t.planSerial} IS NULL AND ${t.planLabel} IS NOT NULL AND (${t.firmId} IS NULL) <> (${t.externalFirmId} IS NULL))`,
+        ),
+        check(
+            'prop_account_plan_label_ck',
+            sql`${t.planLabel} IS NULL OR char_length(${t.planLabel}) > 0`,
+        ),
         nonNegative(
             'prop_account_live_start_balance_ck',
             t.liveStartBalanceCents,

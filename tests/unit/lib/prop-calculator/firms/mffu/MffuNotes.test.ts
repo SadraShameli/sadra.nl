@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { FirmId, MffuVariant } from '~/lib/prop-calculator/core';
+import {
+    FirmId,
+    LifetimeCapScope,
+    MffuVariant,
+} from '~/lib/prop-calculator/core';
 import {
     FundedDpModelGapKind,
     fundedDpModelGaps,
@@ -126,5 +130,108 @@ describe('MyFundedFutures notes match the current engine (WP26 notes audit)', ()
         expect(
             fundedDpModelGaps(mffPlan(MffuVariant.Pro)).map((gap) => gap.kind),
         ).toContain(FundedDpModelGapKind.LifetimeDollarCapIgnored);
+    });
+
+    it('marks the $100,000 cap per user and says the accounts alert pools the Pro accounts', () => {
+        const note = noteContaining("Pro's $100,000 lifetime cap");
+        expect(mffPlan(MffuVariant.Pro).lifetimeConclusion.dollarCapScope).toBe(
+            LifetimeCapScope.PerUserAcrossVariant,
+        );
+        expect(note).toContain(
+            "re-read 2026-09-26: the table row 'Maximum Payout (per user)' shows $100,000 for the 50K, 100K and 150K Pro accounts",
+        );
+        expect(note).toContain(
+            'the accounts alert LifetimeDollarCapNear pools your Pro accounts',
+        );
+    });
+
+    it('names which multi-account projections now pool the per-user cap and which still do not (PT-12h, PT-12l)', () => {
+        const note = noteContaining("Pro's $100,000 lifetime cap");
+        expect(note).not.toContain(
+            'a single-account simulation cannot pool payouts across accounts',
+        );
+        for (const consumer of [
+            'simulatePortfolioTimeline',
+            'cash-flow page',
+            'simulatePortfolio',
+            'strategy lab',
+            'copyAccounts',
+            'prop sim',
+            'prop compare',
+            'prop optimize funded',
+        ]) {
+            expect(note).toContain(consumer);
+        }
+        expect(note).toContain('now pools one shared $100,000 budget');
+        expect(note).toContain(
+            'prop sim and prop compare read simulate() directly',
+        );
+        expect(note).toContain(
+            "prop optimize funded's own DP-solved objective values",
+        );
+        expect(note).toContain('still do not apply the cap at all');
+    });
+
+    it('keeps the per-cycle versus lifetime reading of the $100,000 per-user maximum open', () => {
+        const note = noteContaining("Pro's $100,000 lifetime cap");
+        expect(note).toContain(
+            "the row reads 'Maximum Payout (per user)' and does not itself say lifetime",
+        );
+        expect(note).toContain(
+            'whether the cap also counts payouts on your other MFF plans is not stated',
+        );
+    });
+});
+
+describe('MyFundedFutures notes disclose the PT-71c findings (N-84, U24, U26)', () => {
+    it('cites the Rapid plan page FAQ for the re-buy retry and says a reset coupon does not apply', () => {
+        const note = noteContaining('There is no reset');
+
+        expect(note).toContain('myfundedfutures.com/plans/rapid');
+        expect(note).toContain(
+            "If you breach the max drawdown on a Rapid account, the account ends and you'll need to start a new evaluation. There is no reset",
+        );
+        expect(note).toContain('RetryKind.Rebuy');
+        expect(note).toContain('--eval-discount');
+        expect(note).toContain('--reset-discount');
+    });
+
+    it('discloses the Rapid 50K "start off with 2 contracts" scaling statement and its unknown schedule (U26)', () => {
+        const note = noteContaining('start off with 2 contracts');
+
+        expect(note).toContain(
+            'if you are trading a Rapid 50k sim funded plan, you start off with 2 contracts (2 minis OR 20 micros) due to the scaling plan',
+        );
+        expect(note).toContain('10244682');
+        expect(note).toContain('flat 5 mini / 50 micro');
+        expect(note).toContain('schedule');
+        expect(note).toContain('U26');
+    });
+
+    it('discloses the Pro and Rapid EOD reset prices as modeling defaults pending a dashboard answer (U24)', () => {
+        const note = noteContaining('modeling default');
+
+        expect(note).toContain('Pro 50K');
+        expect(note).toContain('$265');
+        expect(note).toContain('Rapid EOD 50K');
+        expect(note).toContain('$209');
+        expect(note).toContain(
+            'Resets will continue to work the same way for all accounts',
+        );
+        expect(note).toContain('U24');
+    });
+
+    it('discloses that no public page gives a Rapid Live daily loss limit, so the engine keeps none (U24)', () => {
+        const note = noteContaining('Rapid Live daily loss limit');
+
+        expect(note).toContain('13134718');
+        expect(note).toContain(
+            'Customizable Daily Loss Limit: You can set a daily loss limit tailored to your risk tolerance and trading style.',
+        );
+        expect(note).toContain(
+            'all Live accounts have different limits to both their position size and Daily Loss Limits (DLL)',
+        );
+        expect(note).toContain('liveDailyLossLimit null');
+        expect(note).toContain('U24');
     });
 });

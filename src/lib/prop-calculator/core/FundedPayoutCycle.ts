@@ -16,7 +16,7 @@ import {
 } from './lib/units';
 import { PayoutProfitPool } from './PayoutCap';
 import { PayoutFloorEffect } from './PayoutFloorEffect';
-import { accountConclusionGate, PayoutGate } from './PayoutGate';
+import { type AccountConclusionGate, PayoutGate } from './PayoutGate';
 import {
     DEFAULT_PAYOUT_REQUEST_POLICY,
     fullPayoutRequest,
@@ -135,18 +135,8 @@ export class FundedCycleTracker {
         this.qualifyingDaysAtLastPayout = state.qualifyingDays;
     }
 
-    private conclusionGate(plan: Plan): null | PayoutGate {
-        return (
-            accountConclusionGate(
-                plan,
-                this.payoutsIssued,
-                this.cumulativePayout,
-            ) ??
-            (ladderStepLookup(plan.payoutLadder, this.payoutsIssued).kind ===
-            'exhausted'
-                ? PayoutGate.LadderExhausted
-                : null)
-        );
+    private conclusionGate(plan: Plan): AccountConclusionGate | null {
+        return plan.conclusionGate(this.payoutsIssued, this.cumulativePayout);
     }
 
     private eligiblePayout(
@@ -222,11 +212,7 @@ export class FundedCycleTracker {
     }
 
     private hasMetDayGate(plan: Plan, state: AccountState): boolean {
-        const requiredDays =
-            this.payoutsIssued === 0
-                ? plan.minDaysAfterPassForPayout
-                : (plan.minDaysAfterPassForPayoutPerCycle ??
-                  plan.minDaysAfterPassForPayout);
+        const requiredDays = requiredDayGateDays(plan, this);
         switch (plan.payoutDayGateBasis) {
             case PayoutDayGateBasis.CalendarDaysSinceFirstTradeOrPayout: {
                 return (
@@ -480,6 +466,20 @@ export function describePayoutDayGate(plan: Plan): string {
     }
 }
 
+export function ladderStepLookup(
+    ladder: null | PayoutLadder,
+    index: number,
+): LadderStepLookup {
+    if (!ladder) return { kind: 'no-ladder' };
+    const step = ladder.steps[index];
+    if (step !== undefined) return { amount: step, kind: 'step' };
+    if (ladder.capsAtLastStep) {
+        const lastStep = ladder.steps.at(-1);
+        if (lastStep !== undefined) return { amount: lastStep, kind: 'step' };
+    }
+    return { kind: 'exhausted' };
+}
+
 export function newFundedCycleTracker(state: AccountState): FundedCycleTracker {
     return new FundedCycleTracker(state, 0);
 }
@@ -494,6 +494,107 @@ export function newFundedCycleTrackerAfterReset(
         );
     }
     return new FundedCycleTracker(state, fundedResetsUsed);
+}
+
+export function payoutPoolProfit(
+    plan: Plan,
+    state: AccountState,
+    cycleProfit: number,
+): number {
+    switch (plan.payoutProfitPool) {
+        case PayoutProfitPool.AccountProfit: {
+            return plan.accountProfit(state);
+        }
+        case PayoutProfitPool.CycleProfit: {
+            return cycleProfit;
+        }
+    }
+}
+
+export function payoutReferenceThreshold(
+    plan: Plan,
+    state: AccountState,
+): number {
+    const effect = plan.payoutFloorEffect;
+    switch (effect) {
+        case PayoutFloorEffect.LockAtPlanFloor:
+        case PayoutFloorEffect.MoveToLockedFloor:
+        case PayoutFloorEffect.None: {
+            return postPayoutThreshold(
+                plan.fundedDrawdown,
+                state,
+                effect,
+                plan.accountSize,
+            );
+        }
+        case PayoutFloorEffect.ReleaseFloor: {
+            return state.threshold;
+        }
+    }
+}
+
+export function perRequestCeiling(
+    options: PerRequestCeilingOptions,
+): RequestCeiling {
+    const {
+        deniesIfUnaffordable,
+        ladderStep,
+        payoutRequestSize,
+        poolLimit,
+        profitShareCap,
+        withdrawable,
+    } = options;
+    const ceiling =
+        profitShareCap === undefined
+            ? withdrawable
+            : Math.min(withdrawable, profitShareCap);
+
+    switch (ladderStep.kind) {
+        case 'exhausted': {
+            return { gate: PayoutGate.LadderExhausted, kind: 'blocked' };
+        }
+        case 'no-ladder': {
+            const available =
+                profitShareCap === undefined
+                    ? Math.min(poolLimit, ceiling)
+                    : ceiling;
+            return {
+                amount:
+                    payoutRequestSize === undefined
+                        ? available
+                        : Math.min(payoutRequestSize, available),
+                kind: 'amount',
+            };
+        }
+        case 'step': {
+            if (deniesIfUnaffordable && ladderStep.amount > ceiling) {
+                return {
+                    gate: PayoutGate.LadderStepUnaffordable,
+                    kind: 'blocked',
+                };
+            }
+            const stepCeiling = deniesIfUnaffordable
+                ? ladderStep.amount
+                : Math.min(ladderStep.amount, ceiling);
+            return {
+                amount:
+                    payoutRequestSize === undefined
+                        ? stepCeiling
+                        : Math.min(payoutRequestSize, stepCeiling),
+                kind: 'amount',
+            };
+        }
+    }
+}
+
+export function requiredDayGateDays(
+    plan: Plan,
+    tracker: FundedCycleTracker,
+): number {
+    return tracker.payoutsIssued === 0
+        ? plan.minDaysAfterPassForPayout
+        : (plan.minDaysAfterPassForPayoutPerCycle ??
+          plan.minDaysAfterPassForPayout);
 }
 
 export function restoreFundedCycleTracker(
@@ -555,106 +656,6 @@ function fullRequestOf(options: FundedPayoutOptions): null | number {
         }
         case PayoutRequestPolicy.UpToRequest: {
             return null;
-        }
-    }
-}
-
-function ladderStepLookup(
-    ladder: null | PayoutLadder,
-    index: number,
-): LadderStepLookup {
-    if (!ladder) return { kind: 'no-ladder' };
-    const step = ladder.steps[index];
-    if (step !== undefined) return { amount: step, kind: 'step' };
-    if (ladder.capsAtLastStep) {
-        const lastStep = ladder.steps.at(-1);
-        if (lastStep !== undefined) return { amount: lastStep, kind: 'step' };
-    }
-    return { kind: 'exhausted' };
-}
-
-function payoutPoolProfit(
-    plan: Plan,
-    state: AccountState,
-    cycleProfit: number,
-): number {
-    switch (plan.payoutProfitPool) {
-        case PayoutProfitPool.AccountProfit: {
-            return plan.accountProfit(state);
-        }
-        case PayoutProfitPool.CycleProfit: {
-            return cycleProfit;
-        }
-    }
-}
-
-function payoutReferenceThreshold(plan: Plan, state: AccountState): number {
-    const effect = plan.payoutFloorEffect;
-    switch (effect) {
-        case PayoutFloorEffect.LockAtPlanFloor:
-        case PayoutFloorEffect.MoveToLockedFloor:
-        case PayoutFloorEffect.None: {
-            return postPayoutThreshold(
-                plan.fundedDrawdown,
-                state,
-                effect,
-                plan.accountSize,
-            );
-        }
-        case PayoutFloorEffect.ReleaseFloor: {
-            return state.threshold;
-        }
-    }
-}
-
-function perRequestCeiling(options: PerRequestCeilingOptions): RequestCeiling {
-    const {
-        deniesIfUnaffordable,
-        ladderStep,
-        payoutRequestSize,
-        poolLimit,
-        profitShareCap,
-        withdrawable,
-    } = options;
-    const ceiling =
-        profitShareCap === undefined
-            ? withdrawable
-            : Math.min(withdrawable, profitShareCap);
-
-    switch (ladderStep.kind) {
-        case 'exhausted': {
-            return { gate: PayoutGate.LadderExhausted, kind: 'blocked' };
-        }
-        case 'no-ladder': {
-            const available =
-                profitShareCap === undefined
-                    ? Math.min(poolLimit, ceiling)
-                    : ceiling;
-            return {
-                amount:
-                    payoutRequestSize === undefined
-                        ? available
-                        : Math.min(payoutRequestSize, available),
-                kind: 'amount',
-            };
-        }
-        case 'step': {
-            if (deniesIfUnaffordable && ladderStep.amount > ceiling) {
-                return {
-                    gate: PayoutGate.LadderStepUnaffordable,
-                    kind: 'blocked',
-                };
-            }
-            const stepCeiling = deniesIfUnaffordable
-                ? ladderStep.amount
-                : Math.min(ladderStep.amount, ceiling);
-            return {
-                amount:
-                    payoutRequestSize === undefined
-                        ? stepCeiling
-                        : Math.min(payoutRequestSize, stepCeiling),
-                kind: 'amount',
-            };
         }
     }
 }

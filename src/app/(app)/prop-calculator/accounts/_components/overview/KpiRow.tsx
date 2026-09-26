@@ -9,13 +9,20 @@ export function KpiRow({ kpis }: { readonly kpis: readonly OverviewKpi[] }) {
                 <StatCard
                     key={kpi.kind}
                     label={kpi.label}
-                    sub={kpi.detail ?? undefined}
+                    sub={subOf(kpi)}
                     value={kpi.value}
                     valueClassName={toneClassName(kpi.tone)}
                 />
             ))}
         </div>
     );
+}
+
+function subOf(kpi: OverviewKpi): string | undefined {
+    const parts = [kpi.detail, kpi.note].filter(
+        (part): part is string => part !== null,
+    );
+    return parts.length === 0 ? undefined : parts.join('; ');
 }
 
 function toneClassName(tone: KpiTone): string | undefined {

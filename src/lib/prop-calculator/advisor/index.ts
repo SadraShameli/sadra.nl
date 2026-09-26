@@ -1,4 +1,9 @@
 export {
+    AccountReconstruction,
+    AccountReconstructionError,
+    ReconstructionErrorReason,
+} from './AccountReconstruction';
+export {
     type AccountSnapshotInput,
     accountSnapshotInputSchema,
 } from './AccountSnapshotInput';
@@ -13,12 +18,19 @@ export {
     sizingRuleAssumption,
 } from './Assumption';
 export { AssumptionKind } from './AssumptionKind';
+export {
+    type CalendarGateMissingAnchor,
+    type CalendarGateProgress,
+    calendarGateProgress,
+    CalendarGateProgressKind,
+    type CalendarGateProgressResult,
+} from './CalendarGateProgress';
 export { createDocumentedRule } from './createDocumentedRule';
 export {
     DashboardBalanceConvention,
     nominalBalanceOf,
 } from './DashboardBalanceConvention';
-export { DocumentedRule } from './DocumentedRule';
+export { DocumentedRule, RulebookRule } from './DocumentedRule';
 export {
     type CappedAmount,
     type DailyProfitCap,
@@ -53,6 +65,54 @@ export {
     type ModeledLiveBuilder,
     type ModeledLiveTransition,
 } from './LivePlanApplicability';
+export {
+    type GatePayoutBlockReason,
+    type LiveTriggerInfo,
+    type PayoutBlockReason,
+    payoutBlockReasonFromGate,
+    PayoutBlockReasonKind,
+    type PayoutPendingBlockReason,
+    payoutPendingBlockReason,
+    type WouldTriggerLiveBlockReason,
+    wouldTriggerLiveBlockReason,
+} from './PayoutBlockReason';
+export {
+    type BlockedPayoutReadiness,
+    type EligiblePayoutReadiness,
+    payoutPath,
+    type PayoutPathStep,
+    PayoutPathStepUnit,
+    payoutReadiness,
+    type PayoutReadiness,
+    PayoutReadinessKind,
+    type PayoutWait,
+    PayoutWaitBasis,
+} from './PayoutReadiness';
+export {
+    type FirmMinimumAboveRequestNotice,
+    type NotEligiblePayoutRequestDecision,
+    type PayoutRequestDecision,
+    PayoutRequestDecisionKind,
+    PayoutRequestNotice,
+    type RequestPayoutDecision,
+    RetainedCushionBasis,
+    type UnreachablePayoutRequestDecision,
+    type WaitPayoutRequestDecision,
+} from './PayoutRequestDecision';
+export {
+    type FundedPayoutRuleContext,
+    type LivePayoutRuleContext,
+    PayoutRequestRule,
+    type PayoutRuleContext,
+    retainedCushionForStage,
+    ruleCappedWithdrawable,
+} from './PayoutRequestRule';
+export {
+    type ReconstructedAccount,
+    type ReconstructedFundedOrEvalAccount,
+    type ReconstructedLiveAccount,
+    ReconstructedLiveKind,
+} from './ReconstructedAccount';
 export { RiskDisplayUnit } from './RiskDisplayUnit';
 export {
     type AlertThresholds,

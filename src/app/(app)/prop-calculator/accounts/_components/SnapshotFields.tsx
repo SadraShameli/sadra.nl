@@ -6,6 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
 import { Input } from '~/components/ui/Input';
 import { Label } from '~/components/ui/Label';
 import {
+    AccountTracking,
     type SnapshotField,
     SnapshotFieldRequirement,
     type SnapshotFieldRule,
@@ -13,19 +14,32 @@ import {
 } from '~/lib/prop-accounts';
 
 import {
+    LEDGER_ONLY_SNAPSHOT_NOTICE,
+    ledgerOnlySnapshotRules,
     type SnapshotFieldIssue,
     type SnapshotFormValues,
 } from './snapshotFieldRules';
 
-interface SnapshotFieldsProperties {
+interface SnapshotFieldsEntry {
     readonly fieldWarnings: readonly SnapshotFieldIssue[];
     readonly formIssues: readonly string[];
     readonly formWarnings: readonly string[];
     readonly issues: readonly SnapshotFieldIssue[];
     readonly onChange: (field: SnapshotField, value: string) => void;
-    readonly rules: readonly SnapshotFieldRule[];
     readonly values: SnapshotFormValues;
 }
+
+type SnapshotFieldsProperties = SnapshotFieldsEntry &
+    (
+        | {
+              readonly rules: readonly SnapshotFieldRule[];
+              readonly tracking?: AccountTracking.Modeled;
+          }
+        | {
+              readonly rules?: never;
+              readonly tracking: AccountTracking.LedgerOnly;
+          }
+    );
 
 const REQUIREMENT_NOTE: Readonly<Record<SnapshotFieldRequirement, string>> = {
     [SnapshotFieldRequirement.Hidden]: '',
@@ -34,15 +48,17 @@ const REQUIREMENT_NOTE: Readonly<Record<SnapshotFieldRequirement, string>> = {
     [SnapshotFieldRequirement.Required]: 'required',
 };
 
-export function SnapshotFields({
-    fieldWarnings,
-    formIssues,
-    formWarnings,
-    issues,
-    onChange,
-    rules,
-    values,
-}: SnapshotFieldsProperties) {
+export function SnapshotFields(properties: SnapshotFieldsProperties) {
+    const {
+        fieldWarnings,
+        formIssues,
+        formWarnings,
+        issues,
+        onChange,
+        values,
+    } = properties;
+    const isLedgerOnly = properties.tracking === AccountTracking.LedgerOnly;
+    const rules = isLedgerOnly ? ledgerOnlySnapshotRules() : properties.rules;
     const issueByField = new Map(
         issues.map((issue) => [issue.field, issue.message]),
     );
@@ -54,6 +70,11 @@ export function SnapshotFields({
     );
     return (
         <div className="app-prop-accounts__snapshot-fields grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {isLedgerOnly && (
+                <p className="text-sm text-muted-foreground sm:col-span-2 lg:col-span-3">
+                    {LEDGER_ONLY_SNAPSHOT_NOTICE}
+                </p>
+            )}
             {formIssues.length > 0 && (
                 <Alert
                     className="sm:col-span-2 lg:col-span-3"

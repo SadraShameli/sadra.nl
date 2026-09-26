@@ -2,7 +2,11 @@ import { stableJson } from '~/lib/stableJson';
 
 import { type DrawdownLockConfig, type Plan } from '../core';
 
-const DESCRIPTIVE_KEYS: ReadonlySet<string> = new Set(['label', 'notes']);
+const DESCRIPTIVE_KEYS: ReadonlySet<string> = new Set([
+    'availability',
+    'label',
+    'notes',
+]);
 
 export function serializePlanRules(plan: Plan): string {
     return stableJson(structuralValue(plan, plan.accountSize, 'plan'));

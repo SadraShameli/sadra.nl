@@ -1,9 +1,23 @@
-import { evalPhaseCost } from '../core/FeeSchedule';
+import {
+    activationFee,
+    type CouponDiscounts,
+    evalAttemptDays,
+    type EvalPhaseBilling,
+    evalPhaseCost,
+    rebuyAttemptSubscriptionFee,
+    RetryKind,
+    retryPath,
+    subscriptionFee,
+} from '../core/FeeSchedule';
+import { restoreFundedCycleTracker } from '../core/FundedPayoutCycle';
+import { type Plan } from '../core/Plan';
+import { TradingPhase } from '../core/TradingPhase';
 import { runEvalWithRetries } from './evalPhase';
-import { runFundedHorizon } from './fundedPhase';
-import { TradeTotals } from './PhaseStats';
+import { runFundedFromState, runFundedHorizon } from './fundedPhase';
+import { LossStreak, newPhaseStats, TradeTotals } from './PhaseStats';
 import {
     type FinishTrialArguments,
+    type FundedSimStart,
     type TrialOptions,
     type TrialOutcome,
     type TrialResult,
@@ -26,6 +40,7 @@ export function simulateTrial(options: TrialOptions): TrialResult {
         maxAttempts,
         maxEvalDays,
         minRetainedCushion,
+        payoutRequestPolicy,
         payoutRequestSize,
         plan,
         positionSizing,
@@ -33,9 +48,18 @@ export function simulateTrial(options: TrialOptions): TrialResult {
         rrRatio,
         rungSizing,
         shouldCaptureEquity,
+        start,
         winrate,
     } = options;
     const totals = new TradeTotals();
+
+    if (start?.phase === TradingPhase.Funded) {
+        return simulateFundedStartTrial(options, start, totals);
+    }
+
+    const evalStart = start?.phase === TradingPhase.Eval ? start.attempt : undefined;
+    const sunkSubscriptionDays =
+        start?.phase === TradingPhase.Eval ? start.sunkSubscriptionDays : 0;
 
     const retryResult = runEvalWithRetries({
         commission,
@@ -51,6 +75,7 @@ export function simulateTrial(options: TrialOptions): TrialResult {
         rrRatio,
         rungSizing,
         shouldCaptureEquity,
+        start: evalStart,
         totals,
         winrate,
     });
@@ -73,6 +98,7 @@ export function simulateTrial(options: TrialOptions): TrialResult {
             idleDayProbability,
             intradayPathStepsPerR,
             minRetainedCushion,
+            payoutRequestPolicy,
             payoutRequestSize,
             plan,
             positionSizing,
@@ -98,8 +124,13 @@ export function simulateTrial(options: TrialOptions): TrialResult {
             closedForInactivity: fundedHorizon.closedForInactivity,
             cumulativeDays,
             daysToPass: passDay,
-            discounts,
             equityCurve: lastEquityCurve,
+            evalCost: fromStateEvalCost(
+                plan,
+                { daysToPass: passDay, failedAttemptDays, resetFeesPaid },
+                discounts,
+                sunkSubscriptionDays,
+            ),
             evalDays: billableEvalDays,
             evalTradesAtPass,
             failedAttemptDays,
@@ -108,9 +139,9 @@ export function simulateTrial(options: TrialOptions): TrialResult {
             fundedResetFeesPaid: fundedHorizon.fundedResetFeesPaid,
             fundedResetsUsed: fundedHorizon.fundedResetsUsed,
             horizonCredit: fundedHorizon.horizonCredit,
+            isAliveAtHorizon: fundedHorizon.isAliveAtHorizon,
             outcome,
             payoutCount: fundedHorizon.payoutCount,
-            plan,
             resetFeesPaid,
             totalPayout: fundedHorizon.totalPayout,
             totals,
@@ -124,8 +155,13 @@ export function simulateTrial(options: TrialOptions): TrialResult {
         closedForInactivity: attempt.closedForInactivity,
         cumulativeDays,
         daysToPass: null,
-        discounts,
         equityCurve: lastEquityCurve,
+        evalCost: fromStateEvalCost(
+            plan,
+            { daysToPass: null, failedAttemptDays, resetFeesPaid },
+            discounts,
+            sunkSubscriptionDays,
+        ),
         evalDays: billableEvalDays,
         evalTradesAtPass: 0,
         failedAttemptDays,
@@ -134,9 +170,9 @@ export function simulateTrial(options: TrialOptions): TrialResult {
         fundedResetFeesPaid: 0,
         fundedResetsUsed: 0,
         horizonCredit: 0,
+        isAliveAtHorizon: false,
         outcome: finalOutcome,
         payoutCount: 0,
-        plan,
         resetFeesPaid,
         totalPayout: 0,
         totals,
@@ -149,8 +185,8 @@ function finishTrial(arguments_: FinishTrialArguments): TrialResult {
         closedForInactivity,
         cumulativeDays,
         daysToPass,
-        discounts,
         equityCurve,
+        evalCost,
         evalDays,
         evalTradesAtPass,
         failedAttemptDays,
@@ -159,20 +195,15 @@ function finishTrial(arguments_: FinishTrialArguments): TrialResult {
         fundedResetFeesPaid,
         fundedResetsUsed,
         horizonCredit,
+        isAliveAtHorizon,
         outcome,
         payoutCount,
-        plan,
         resetFeesPaid,
         totalPayout,
         totals,
     } = arguments_;
     const grossPayout = totalPayout;
-    const totalCost =
-        evalPhaseCost(
-            plan.fees,
-            { daysToPass, failedAttemptDays, resetFeesPaid },
-            discounts,
-        ) + fundedResetFeesPaid;
+    const totalCost = evalCost + fundedResetFeesPaid;
     const net = grossPayout - totalCost;
     return {
         attemptsUsed,
@@ -193,6 +224,7 @@ function finishTrial(arguments_: FinishTrialArguments): TrialResult {
         had5LossStreak: totals.maxLosingStreak >= 5,
         had10LossStreak: totals.maxLosingStreak >= 10,
         horizonCredit,
+        isAliveAtHorizon,
         maxDrawdown: totals.maxDrawdown,
         maxLosingStreak: totals.maxLosingStreak,
         net,
@@ -203,4 +235,124 @@ function finishTrial(arguments_: FinishTrialArguments): TrialResult {
         totalCost,
         tradesTaken: totals.tradesTaken,
     };
+}
+
+function fromStateEvalCost(
+    plan: Plan,
+    billing: EvalPhaseBilling,
+    discounts: CouponDiscounts | undefined,
+    sunkSubscriptionDays: number,
+): number {
+    const fees = plan.fees;
+    if (sunkSubscriptionDays <= 0) {
+        return evalPhaseCost(fees, billing, discounts);
+    }
+    const attemptDays = evalAttemptDays(billing);
+    const isRebuy = retryPath(fees, discounts) === RetryKind.Rebuy;
+    let subscriptionCost: number;
+    if (isRebuy) {
+        const [firstAttemptDays = 0, ...rebuyDays] = attemptDays;
+        const firstSubscription = Math.max(
+            0,
+            subscriptionFee(
+                fees,
+                sunkSubscriptionDays + firstAttemptDays,
+                discounts,
+            ) - subscriptionFee(fees, sunkSubscriptionDays, discounts),
+        );
+        subscriptionCost = rebuyDays.reduce(
+            (total, days) =>
+                total + rebuyAttemptSubscriptionFee(fees, days, discounts),
+            firstSubscription,
+        );
+    } else {
+        const chainDays = attemptDays.reduce((sum, days) => sum + days, 0);
+        subscriptionCost = Math.max(
+            0,
+            subscriptionFee(
+                fees,
+                sunkSubscriptionDays + chainDays,
+                discounts,
+            ) - subscriptionFee(fees, sunkSubscriptionDays, discounts),
+        );
+    }
+    const evalCost = subscriptionCost + billing.resetFeesPaid;
+    return billing.daysToPass === null
+        ? evalCost
+        : evalCost + activationFee(fees, discounts);
+}
+
+function simulateFundedStartTrial(
+    options: TrialOptions,
+    start: FundedSimStart,
+    totals: TradeTotals,
+): TrialResult {
+    const {
+        commission,
+        discounts,
+        fundedDayPolicy,
+        fundedHorizonDays,
+        fundedRrRatio,
+        idleDayProbability,
+        intradayPathStepsPerR,
+        minRetainedCushion,
+        payoutRequestPolicy,
+        payoutRequestSize,
+        plan,
+        positionSizing,
+        rng,
+        rrRatio,
+        rungSizing,
+        winrate,
+    } = options;
+    const state = { ...start.state };
+    const streak = new LossStreak(totals);
+    const stats = newPhaseStats(state.balance, totals, streak);
+    const initialTracker = restoreFundedCycleTracker(state, start.seed);
+
+    const fundedHorizon = runFundedFromState({
+        commission,
+        dayPolicy: fundedDayPolicy,
+        discounts,
+        equityCurve: null,
+        fundedHorizonDays,
+        idleDayProbability,
+        initialTracker,
+        intradayPathStepsPerR,
+        minRetainedCushion,
+        payoutRequestPolicy,
+        payoutRequestSize,
+        plan,
+        positionSizing,
+        priorFundedResetsUsed: start.seed.fundedResetsUsed,
+        rng,
+        rrRatio: fundedRrRatio ?? rrRatio,
+        rungSizing,
+        state,
+        stats,
+        winrate,
+    });
+
+    return finishTrial({
+        attemptsUsed: 1,
+        closedForInactivity: fundedHorizon.closedForInactivity,
+        cumulativeDays: fundedHorizon.daysElapsed,
+        daysToPass: 0,
+        equityCurve: null,
+        evalCost: 0,
+        evalDays: 0,
+        evalTradesAtPass: 0,
+        failedAttemptDays: [],
+        finalBalance: state.balance,
+        firstPayoutDay: fundedHorizon.firstPayoutDay,
+        fundedResetFeesPaid: fundedHorizon.fundedResetFeesPaid,
+        fundedResetsUsed: fundedHorizon.fundedResetsUsed,
+        horizonCredit: fundedHorizon.horizonCredit,
+        isAliveAtHorizon: fundedHorizon.isAliveAtHorizon,
+        outcome: fundedHorizon.isBustedFunded ? 'bust-funded' : 'pass-clean',
+        payoutCount: fundedHorizon.payoutCount,
+        resetFeesPaid: 0,
+        totalPayout: fundedHorizon.totalPayout,
+        totals,
+    });
 }

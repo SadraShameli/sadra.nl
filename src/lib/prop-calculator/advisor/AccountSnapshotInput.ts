@@ -12,6 +12,7 @@ export interface AccountSnapshotInput {
     readonly cycleBestDayProfit?: Dollars | undefined;
     readonly dashboardConvention: DashboardBalanceConvention;
     readonly dashboardFloor?: Dollars | undefined;
+    readonly elapsedDaysSinceAttemptStart?: number | undefined;
     readonly evalBestDayProfit?: Dollars | undefined;
     readonly firstFundedTradeOn?: string | undefined;
     readonly floorAtLastPayout?: Dollars | undefined;
@@ -44,6 +45,7 @@ export const accountSnapshotInputSchema = z.strictObject({
     cycleBestDayProfit: nonNegativeDollarsSchema.optional(),
     dashboardConvention: z.enum(DashboardBalanceConvention),
     dashboardFloor: dollarsSchema.optional(),
+    elapsedDaysSinceAttemptStart: countSchema.optional(),
     evalBestDayProfit: nonNegativeDollarsSchema.optional(),
     firstFundedTradeOn: isoDateSchema.optional(),
     floorAtLastPayout: dollarsSchema.optional(),

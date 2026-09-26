@@ -7,9 +7,14 @@ import type {
 } from '~/server/db/schemas/prop';
 
 import {
+    AccountTracking,
     compareText,
+    type ExternalFirmName,
     FeeKind,
+    firmKeyLabel,
+    firmKeyOf,
     paidPayoutCash,
+    trackedAccountOf,
     usdCentsToText,
 } from '~/lib/prop-accounts/core';
 import {
@@ -27,6 +32,7 @@ export enum LedgerCsvColumn {
     Account = 'account',
     AccountId = 'accountId',
     Amount = 'amount',
+    ApprovedOn = 'approvedOn',
     CashFlow = 'cashFlow',
     Date = 'date',
     Entry = 'entry',
@@ -54,7 +60,14 @@ export enum LedgerEntryKind {
 
 export type LedgerAccount = Pick<
     PropAccountRow,
-    'archivedAt' | 'firmId' | 'id' | 'label' | 'planSerial'
+    | 'archivedAt'
+    | 'externalFirmId'
+    | 'firmId'
+    | 'id'
+    | 'label'
+    | 'planLabel'
+    | 'planSerial'
+    | 'tracking'
 >;
 
 export type LedgerEntry =
@@ -98,6 +111,7 @@ export const LEDGER_CSV_COLUMNS: readonly LedgerCsvColumn[] = [
     LedgerCsvColumn.CashFlow,
     LedgerCsvColumn.Note,
     LedgerCsvColumn.AccountId,
+    LedgerCsvColumn.ApprovedOn,
 ];
 
 export const DEFAULT_LEDGER_FILTERS: LedgerFilters = {
@@ -182,12 +196,15 @@ export function ledgerCashFlow(entry: LedgerEntry): LedgerCashFlow {
     }
 }
 
-export function ledgerCsv(entries: readonly LedgerEntry[]): string {
+export function ledgerCsv(
+    entries: readonly LedgerEntry[],
+    externalFirms: readonly ExternalFirmName[] = [],
+): string {
     const text = Papa.unparse(
         [
             [...LEDGER_CSV_COLUMNS],
             ...entries.map((entry) => {
-                const row = ledgerCsvRow(entry);
+                const row = ledgerCsvRow(entry, externalFirms);
                 return LEDGER_CSV_COLUMNS.map((column) => row[column]);
             }),
         ],
@@ -224,6 +241,7 @@ export function ledgerEntryId(entry: LedgerEntry): string {
 
 function accountCells(
     entry: LedgerEntry,
+    externalFirms: readonly ExternalFirmName[],
 ): Pick<
     LedgerCsvRow,
     | LedgerCsvColumn.Account
@@ -232,14 +250,22 @@ function accountCells(
     | LedgerCsvColumn.Plan
 > {
     const accountId = ledgerEntryAccountId(entry);
+    const account =
+        entry.account === null ? null : trackedAccountOf(entry.account);
     return {
         [LedgerCsvColumn.Account]:
-            entry.account === null
-                ? accountId
-                : ledgerAccountName(entry.account),
+            account === null ? accountId : ledgerAccountName(account),
         [LedgerCsvColumn.AccountId]: accountId,
-        [LedgerCsvColumn.Firm]: entry.account?.firmId ?? '',
-        [LedgerCsvColumn.Plan]: entry.account?.planSerial ?? '',
+        [LedgerCsvColumn.Firm]:
+            account === null
+                ? ''
+                : firmKeyLabel(firmKeyOf(account), externalFirms),
+        [LedgerCsvColumn.Plan]:
+            account === null
+                ? ''
+                : account.tracking === AccountTracking.Modeled
+                  ? account.planSerial
+                  : account.planLabel,
     };
 }
 
@@ -260,9 +286,12 @@ function isInEntryFilter(
     }
 }
 
-function ledgerCsvRow(entry: LedgerEntry): LedgerCsvRow {
+function ledgerCsvRow(
+    entry: LedgerEntry,
+    externalFirms: readonly ExternalFirmName[],
+): LedgerCsvRow {
     const shared = {
-        ...accountCells(entry),
+        ...accountCells(entry, externalFirms),
         [LedgerCsvColumn.CashFlow]: ledgerCashFlow(entry),
         [LedgerCsvColumn.Date]: entry.on,
         [LedgerCsvColumn.Entry]: entry.kind,
@@ -273,6 +302,7 @@ function ledgerCsvRow(entry: LedgerEntry): LedgerCsvRow {
             return {
                 ...shared,
                 [LedgerCsvColumn.Amount]: usdCentsToText(fee.amountCents),
+                [LedgerCsvColumn.ApprovedOn]: '',
                 [LedgerCsvColumn.Gross]: '',
                 [LedgerCsvColumn.Kind]: fee.kind,
                 [LedgerCsvColumn.Net]: '',
@@ -287,6 +317,7 @@ function ledgerCsvRow(entry: LedgerEntry): LedgerCsvRow {
             return {
                 ...shared,
                 [LedgerCsvColumn.Amount]: '',
+                [LedgerCsvColumn.ApprovedOn]: payout.approvedOn ?? '',
                 [LedgerCsvColumn.Gross]: usdCentsToText(payout.grossCents),
                 [LedgerCsvColumn.Kind]: '',
                 [LedgerCsvColumn.Net]:

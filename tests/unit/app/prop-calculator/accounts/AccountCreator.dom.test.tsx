@@ -9,6 +9,7 @@ import {
 import {
     AccountStage,
     AccountStatus,
+    AccountTracking,
     DashboardBalanceConvention,
     PlanOptIn,
     SnapshotField,
@@ -73,6 +74,10 @@ vi.mock('~/trpc/react', () => ({
                 },
             },
             copyGroup: { list: { useQuery: () => harness.query([]) } },
+            externalFirm: {
+                create: { useMutation: harness.mutation },
+                list: { useQuery: () => harness.query([]) },
+            },
             snapshot: { create: { useMutation: harness.mutation } },
         },
         useUtils: () => ({
@@ -679,6 +684,7 @@ describe('AccountEditor live start on a funded account', () => {
             createdAt: new Date('2026-09-01T12:00:00Z'),
             dashboardConvention: DashboardBalanceConvention.Nominal,
             externalAlias: null,
+            externalFirmId: null,
             firmId: livePlan.firm.id,
             firstFundedTradeOn: null,
             fundedOn: '2026-09-02',
@@ -688,6 +694,7 @@ describe('AccountEditor live start on a funded account', () => {
             notes: null,
             optIns: NO_PLAN_OPT_INS,
             personalRules: {},
+            planLabel: null,
             planRulesFingerprint: null,
             planSerial: serializePlanId(livePlan.plan.id),
             purchasedOn: '2026-09-01',
@@ -696,6 +703,7 @@ describe('AccountEditor live start on a funded account', () => {
             stage: AccountStage.Funded,
             status: AccountStatus.Active,
             tags: [],
+            tracking: AccountTracking.Modeled,
             updatedAt: new Date('2026-09-01T12:00:00Z'),
             userId: 'user-1',
         });

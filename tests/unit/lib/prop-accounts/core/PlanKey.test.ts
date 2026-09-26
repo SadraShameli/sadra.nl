@@ -7,6 +7,7 @@ import {
     describeAccountReadIssue,
     describeUnresolvedPlan,
     findStoredFirm,
+    type LedgerOnlyPlanKey,
     offeredPlanOptIns,
     type PlanKey,
     type PlanKeyInput,
@@ -410,7 +411,9 @@ describe('resolvePlanKey on corrupt stored opt-ins', () => {
     });
 
     it('exports the input type it accepts, which always carries the read issues of the row', () => {
-        expectTypeOf(resolvePlanKey).parameter(0).toEqualTypeOf<PlanKeyInput>();
+        expectTypeOf(resolvePlanKey)
+            .parameter(0)
+            .toEqualTypeOf<LedgerOnlyPlanKey | PlanKeyInput>();
         expectTypeOf<PlanKeyInput['readIssues']>().toEqualTypeOf<
             readonly AccountReadIssue[]
         >();
@@ -428,7 +431,9 @@ describe('describeUnresolvedPlan', () => {
             .toEqualTypeOf<Omit<PlanKeyInput, 'readIssues'>>();
         expectTypeOf(describeAccountReadIssue)
             .parameter(0)
-            .toEqualTypeOf<Omit<PlanKeyInput, 'readIssues'>>();
+            .toEqualTypeOf<
+                LedgerOnlyPlanKey | Omit<PlanKeyInput, 'readIssues'>
+            >();
     });
 
     it('names the serial and the reason in plain words', () => {

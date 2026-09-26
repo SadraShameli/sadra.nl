@@ -1,7 +1,12 @@
 import { z } from 'zod';
 
+import { fraction } from '~/lib/prop-calculator';
 import { type StrategyAssumptions } from '~/lib/prop-calculator/advisor';
-import { binomialStandardError } from '~/lib/prop-calculator/stats';
+import { expectancyPerTradeR } from '~/lib/prop-calculator/economics';
+import {
+    binomialStandardError,
+    NOISE_STANDARD_ERRORS,
+} from '~/lib/prop-calculator/stats';
 import { accountDateSchema } from '~/lib/schemas/propAccounts';
 import { expectancyR, type LightAssessment } from '~/lib/trading/analytics';
 
@@ -15,7 +20,7 @@ export enum EdgeDrift {
     WithinNoise = 'within-noise',
 }
 
-export const DRIFT_STANDARD_ERRORS = 2;
+export const DRIFT_STANDARD_ERRORS = NOISE_STANDARD_ERRORS;
 export const MAX_EDGE_TRADES = 5000;
 export const MIN_EXPECTED_WINS_AND_LOSSES = 5;
 
@@ -97,9 +102,12 @@ export function edgeSummary(
     const isSampleEnough =
         Math.min(expectedWins, n - expectedWins) >=
         MIN_EXPECTED_WINS_AND_LOSSES;
+    const assumedExpectancyR =
+        expectancyPerTradeR(fraction(winrate), rr).value ??
+        winrate * rr - (1 - winrate);
     return {
         expectancyR: edgeMetric(
-            winrate * rr - (1 - winrate),
+            assumedExpectancyR,
             journal.avgR,
             (rr + 1) * winRateError,
             n,

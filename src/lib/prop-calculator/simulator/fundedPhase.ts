@@ -6,11 +6,13 @@ import {
     newFundedCycleTrackerAfterReset,
 } from '../core/FundedPayoutCycle';
 import { canTakeFundedReset, fundedResetFee } from '../core/FundedReset';
+import { type PayoutRequestPolicy } from '../core/PayoutRequestPolicy';
 import { TradingPhase } from '../core/TradingPhase';
 import { runDay } from './day';
 import { newPhaseStats } from './PhaseStats';
 import {
     type FundedDayStepOptions,
+    type FundedFromStateOptions,
     type FundedHorizonOptions,
     type FundedHorizonResult,
 } from './types';
@@ -28,9 +30,12 @@ export interface FundedDaysOptions extends Omit<
     dayOffsetBase: number;
     discounts: CouponDiscounts | undefined;
     equityCurve: null | number[];
+    initialTracker?: FundedCycleTracker;
     maxDays: number;
     minRetainedCushion: number;
+    payoutRequestPolicy?: PayoutRequestPolicy;
     payoutRequestSize: number | undefined;
+    priorFundedResetsUsed?: number;
     sink: PayoutSink;
 }
 
@@ -68,12 +73,15 @@ export function runFundedDays(options: FundedDaysOptions): FundedDaysResult {
         discounts,
         equityCurve,
         idleDayProbability,
+        initialTracker,
         intradayPathStepsPerR,
         maxDays,
         minRetainedCushion,
+        payoutRequestPolicy,
         payoutRequestSize,
         plan,
         positionSizing,
+        priorFundedResetsUsed = 0,
         rng,
         rrRatio,
         rungSizing,
@@ -82,7 +90,7 @@ export function runFundedDays(options: FundedDaysOptions): FundedDaysResult {
         stats,
         winrate,
     } = options;
-    let tracker = newFundedCycleTracker(state);
+    let tracker = initialTracker ?? newFundedCycleTracker(state);
     let daysElapsed = 0;
     const fundedResets: DatedCharge[] = [];
     let dayOptions = {
@@ -115,7 +123,7 @@ export function runFundedDays(options: FundedDaysOptions): FundedDaysResult {
                 canTakeFundedReset(plan, {
                     closedForInactivity,
                     payoutsIssued: tracker.payoutsIssued,
-                    resetsUsed: fundedResets.length,
+                    resetsUsed: priorFundedResetsUsed + fundedResets.length,
                 })
             ) {
                 fundedResets.push({
@@ -125,7 +133,7 @@ export function runFundedDays(options: FundedDaysOptions): FundedDaysResult {
                 plan.beginFundedPhase(state);
                 tracker = newFundedCycleTrackerAfterReset(
                     state,
-                    fundedResets.length,
+                    priorFundedResetsUsed + fundedResets.length,
                 );
                 dayOptions = { ...dayOptions, tracker };
                 continue;
@@ -141,6 +149,7 @@ export function runFundedDays(options: FundedDaysOptions): FundedDaysResult {
 
         const payout = tracker.tryPayout({
             minRetainedCushion,
+            payoutRequestPolicy,
             payoutRequestSize,
             plan,
             state,
@@ -184,33 +193,31 @@ export function runFundedDays(options: FundedDaysOptions): FundedDaysResult {
     };
 }
 
-export function runFundedHorizon(
-    options: FundedHorizonOptions,
+export function runFundedFromState(
+    options: FundedFromStateOptions,
 ): FundedHorizonResult {
     const {
-        attempt,
         commission,
         dayPolicy,
         discounts,
+        equityCurve,
         fundedHorizonDays,
         idleDayProbability,
+        initialTracker,
         intradayPathStepsPerR,
         minRetainedCushion,
+        payoutRequestPolicy,
         payoutRequestSize,
         plan,
         positionSizing,
+        priorFundedResetsUsed,
         rng,
         rrRatio,
         rungSizing,
+        state,
+        stats,
         winrate,
     } = options;
-    const { state } = attempt;
-    plan.beginFundedPhase(state);
-    const stats = newPhaseStats(
-        state.balance,
-        attempt.stats.totals,
-        attempt.streak,
-    );
     const sink = new PayoutTotals();
 
     const { closedForInactivity, daysElapsed, fundedResets, stage, tracker } =
@@ -219,14 +226,17 @@ export function runFundedHorizon(
             dayOffsetBase: 0,
             dayPolicy,
             discounts,
-            equityCurve: attempt.equityCurve,
+            equityCurve,
             idleDayProbability,
+            initialTracker,
             intradayPathStepsPerR,
             maxDays: fundedHorizonDays,
             minRetainedCushion,
+            payoutRequestPolicy,
             payoutRequestSize,
             plan,
             positionSizing,
+            priorFundedResetsUsed,
             rng,
             rrRatio,
             rungSizing,
@@ -256,10 +266,30 @@ export function runFundedHorizon(
         ),
         fundedResetsUsed: fundedResets.length,
         horizonCredit,
+        isAliveAtHorizon: stage === FundedStage.HorizonReached,
         isBustedFunded: stage === FundedStage.Busted,
         payoutCount: sink.count,
         totalPayout: sink.total,
     };
+}
+
+export function runFundedHorizon(
+    options: FundedHorizonOptions,
+): FundedHorizonResult {
+    const { attempt, ...rest } = options;
+    const { state } = attempt;
+    rest.plan.beginFundedPhase(state);
+    const stats = newPhaseStats(
+        state.balance,
+        attempt.stats.totals,
+        attempt.streak,
+    );
+    return runFundedFromState({
+        ...rest,
+        equityCurve: attempt.equityCurve,
+        state,
+        stats,
+    });
 }
 
 export function stepFundedDay(options: FundedDayStepOptions): {

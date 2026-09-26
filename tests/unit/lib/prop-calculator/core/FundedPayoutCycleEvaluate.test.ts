@@ -615,7 +615,17 @@ describe('FundedCycleTracker.tryPayout settles exactly what evaluatePayout repor
 });
 
 describe('accountConclusionGate is the one account-conclusion rule, and names why the account is closed', () => {
-    const synthetic: readonly Plan[] = [
+    const conclusionGates: ReadonlySet<PayoutGate> = new Set([
+        PayoutGate.AccountConcluded,
+        PayoutGate.LadderExhausted,
+        PayoutGate.LifetimeDollarCapReached,
+    ]);
+    const payoutCounts = Array.from({ length: 13 }, (_, count) => count);
+    const cumulativePayouts = [0, 999.99, 1000, 100_000];
+    const registry = ALL_FIRMS.flatMap((firm) => firm.plans).map(
+        (plan, index) => ({ plan, title: `${index} ${plan.label}` }),
+    );
+    const synthetic = [
         flexLikeLadderPlan(),
         flexLikeLadderPlan().withMaxLifetimePayouts(8),
         flexLikeLadderPlan().withOverrides({ maxLifetimePayouts: 8 }),
@@ -625,20 +635,40 @@ describe('accountConclusionGate is the one account-conclusion rule, and names wh
             firm: FirmId.Lucid,
             variant: LucidVariant.Pro,
         }).withOverrides({ maxLifetimePayouts: 5 }),
-    ];
-    const plans = [
-        ...ALL_FIRMS.flatMap((firm) => firm.plans),
-        ...synthetic,
-    ].map((plan, index) => ({ plan, title: `${index} ${plan.label}` }));
+    ].map((plan, index) => ({
+        plan,
+        title: `synthetic ${index} ${plan.label}`,
+    }));
 
-    it.each(plans)(
-        'agrees with Plan.isAccountConcluded on $title',
+    function trackerConclusion(
+        plan: Plan,
+        payoutsIssued: number,
+        cumulativePayout: number,
+    ): null | PayoutGate {
+        const state = plan.initialState();
+        plan.beginFundedPhase(state);
+        state.balance = state.startingBalance + 3000;
+        state.qualifyingDays = 99;
+        const tracker = newFundedCycleTracker(state);
+        tracker.lastPayoutBalance = state.startingBalance;
+        tracker.qualifyingDaysAtLastPayout = 0;
+        tracker.payoutsIssued = payoutsIssued;
+        tracker.cumulativePayout = cumulativePayout;
+        const evaluation = tracker.evaluatePayout(options(plan, state));
+        return evaluation.kind === PayoutEvaluationKind.Blocked &&
+            conclusionGates.has(evaluation.gate)
+            ? evaluation.gate
+            : null;
+    }
+
+    it.each([...registry, ...synthetic])(
+        'the funded tracker refuses with a conclusion gate exactly when Plan.isAccountConcluded on $title',
         ({ plan }) => {
-            for (let payoutsIssued = 0; payoutsIssued <= 12; payoutsIssued++) {
-                for (const cumulativePayout of [0, 999.99, 1000, 100_000]) {
+            for (const payoutsIssued of payoutCounts) {
+                for (const cumulativePayout of cumulativePayouts) {
                     expect(
-                        accountConclusionGate(
-                            plan.lifetimeConclusion,
+                        trackerConclusion(
+                            plan,
                             payoutsIssued,
                             cumulativePayout,
                         ) !== null,
@@ -653,6 +683,57 @@ describe('accountConclusionGate is the one account-conclusion rule, and names wh
             }
         },
     );
+
+    it.each([...registry, ...synthetic])(
+        'the raw plan, the tracker and Plan.conclusionGate name the same gate on $title',
+        ({ plan }) => {
+            for (const payoutsIssued of payoutCounts) {
+                for (const cumulativePayout of cumulativePayouts) {
+                    const gate = plan.conclusionGate(
+                        payoutsIssued,
+                        cumulativePayout,
+                    );
+                    const label = `${payoutsIssued} payouts, $${cumulativePayout}`;
+                    expect(
+                        accountConclusionGate(
+                            plan,
+                            payoutsIssued,
+                            cumulativePayout,
+                        ),
+                        label,
+                    ).toBe(gate);
+                    expect(
+                        trackerConclusion(
+                            plan,
+                            payoutsIssued,
+                            cumulativePayout,
+                        ),
+                        label,
+                    ).toBe(gate);
+                }
+            }
+        },
+    );
+
+    it('names the ladder when a withOverrides payout count outlives a non-capping ladder, on the raw plan and in the tracker', () => {
+        const beyond = flexLikeLadderPlan().withOverrides({
+            maxLifetimePayouts: 8,
+        });
+        expect(accountConclusionGate(beyond, 4, 0)).toBeNull();
+        expect(accountConclusionGate(beyond, 5, 0)).toBe(
+            PayoutGate.LadderExhausted,
+        );
+        expect(accountConclusionGate(beyond, 8, 0)).toBe(
+            PayoutGate.LadderExhausted,
+        );
+        expect(trackerConclusion(beyond, 4, 0)).toBeNull();
+        expect(trackerConclusion(beyond, 5, 0)).toBe(
+            PayoutGate.LadderExhausted,
+        );
+        expect(trackerConclusion(beyond, 8, 0)).toBe(
+            PayoutGate.LadderExhausted,
+        );
+    });
 
     it('reports the dollar cap before the payout count, and the count before the ladder', () => {
         const capped = flexLikeLadderPlan()

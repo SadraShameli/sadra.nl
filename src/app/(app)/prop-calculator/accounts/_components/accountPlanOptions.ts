@@ -19,6 +19,7 @@ import {
 } from '~/lib/prop-accounts';
 import {
     ALL_FIRMS,
+    findFirm,
     type FirmId,
     minimumPayoutRequest,
     NO_PLAN_OPT_INS,
@@ -31,8 +32,19 @@ import {
 
 export { formatUsdCents, usdCentsToText } from '~/lib/prop-accounts';
 
+export enum AccountPlanIntent {
+    ExistingAccount = 'existing-account',
+    NewPurchase = 'new-purchase',
+}
+
+export enum AccountPlanMode {
+    LedgerOnly = 'ledger-only',
+    Modeled = 'modeled',
+}
+
 export enum AccountPlanTag {
     CallUpOnly = 'call-up-only',
+    Discontinued = 'discontinued',
     InstantFunded = 'instant-funded',
 }
 
@@ -42,8 +54,14 @@ export const DISPLAYED_ACCOUNT_SIZES: readonly number[] = [
 
 const CENTS_FRACTION_DIGITS = 2;
 
+const UNMODELED_SIZE_NOTE: Readonly<Record<AccountPlanMode, string>> = {
+    [AccountPlanMode.LedgerOnly]: 'ledger only',
+    [AccountPlanMode.Modeled]: 'not modeled',
+};
+
 const PLAN_TAG_LABEL: Readonly<Record<AccountPlanTag, string>> = {
     [AccountPlanTag.CallUpOnly]: 'call-up only',
+    [AccountPlanTag.Discontinued]: 'no longer sold',
     [AccountPlanTag.InstantFunded]: 'instant funded',
 };
 
@@ -74,6 +92,7 @@ export interface AccountPlanSelection {
 export interface AccountSizeOption {
     readonly accountSize: number;
     readonly isModeled: boolean;
+    readonly isSelectable: boolean;
     readonly label: string;
     readonly planSerial: null | string;
 }
@@ -166,6 +185,9 @@ export const EMPTY_PERSONAL_RULES_TEXT: PersonalRulesText = {
     retainedCushionCents: '',
 };
 
+export const LEDGER_ONLY_STATUS_NOTE =
+    'Record a bust, a closure or the end of the account in its Events section on the account page; a funded reset needs a modeled plan.';
+
 export function accountFirmOptions(): readonly AccountFirmOption[] {
     return ALL_FIRMS.map((firm) => ({
         firmId: firm.id,
@@ -183,17 +205,21 @@ export function accountOptInOptions(plan: Plan): readonly AccountOptInOption[] {
 
 export function accountPlanOptions(
     firm: TradingFirm,
+    intent: AccountPlanIntent = AccountPlanIntent.ExistingAccount,
 ): readonly AccountPlanOption[] {
-    return firm.plans.map((plan) => ({
-        label: plan.label,
-        planSerial: serializePlanId(plan.id),
-        tags: planTags(plan),
-    }));
+    return firm.plans
+        .filter((plan) => isOfferedForIntent(plan, intent))
+        .map((plan) => ({
+            label: plan.label,
+            planSerial: serializePlanId(plan.id),
+            tags: planTags(plan),
+        }));
 }
 
 export function accountSizeOptions(
     firm: TradingFirm,
     plan: Plan,
+    mode = AccountPlanMode.Modeled,
 ): readonly AccountSizeOption[] {
     const family = variantKey(plan);
     const siblings = new Map<number, Plan>();
@@ -212,12 +238,14 @@ export function accountSizeOptions(
                 ? {
                       accountSize,
                       isModeled: false,
-                      label: `${sizeLabel} (not modeled)`,
+                      isSelectable: mode === AccountPlanMode.LedgerOnly,
+                      label: `${sizeLabel} (${UNMODELED_SIZE_NOTE[mode]})`,
                       planSerial: null,
                   }
                 : {
                       accountSize,
                       isModeled: true,
+                      isSelectable: true,
                       label: sizeLabel,
                       planSerial: serializePlanId(sibling.id),
                   };
@@ -334,6 +362,31 @@ export function planTagLabel(tag: AccountPlanTag): string {
     return PLAN_TAG_LABEL[tag];
 }
 
+export function upgradePlanSelection(
+    firmParameter: null | string,
+    accountSize: number,
+): AccountPlanSelection {
+    const fallback = initialPlanSelection(firmParameter, null, NO_PLAN_OPT_INS);
+    const sized = findFirm(fallback.firmId)?.plans.find(
+        (plan) => plan.id.accountSize === accountSize,
+    );
+    return sized === undefined
+        ? fallback
+        : {
+              accountSize,
+              firmId: fallback.firmId,
+              optIns: NO_PLAN_OPT_INS,
+              planSerial: serializePlanId(sized.id),
+          };
+}
+
+function isOfferedForIntent(plan: Plan, intent: AccountPlanIntent): boolean {
+    return (
+        intent === AccountPlanIntent.ExistingAccount ||
+        plan.availability !== PlanAvailability.Discontinued
+    );
+}
+
 function optionalMoneyText(cents: undefined | UsdCents): string {
     return cents === undefined ? '' : usdCentsToText(cents);
 }
@@ -342,6 +395,9 @@ function planTags(plan: Plan): readonly AccountPlanTag[] {
     const tags: AccountPlanTag[] = [];
     if (plan.availability === PlanAvailability.CallUpOnly) {
         tags.push(AccountPlanTag.CallUpOnly);
+    }
+    if (plan.availability === PlanAvailability.Discontinued) {
+        tags.push(AccountPlanTag.Discontinued);
     }
     if (plan.isInstantFunded) tags.push(AccountPlanTag.InstantFunded);
     return tags;

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import {
     AccountEventKind,
     AccountStage,
+    AccountTracking,
     addCalendarYears,
     addIsoDays,
     BankrollTransferKind,
@@ -12,6 +13,7 @@ import {
     FeeKind,
     FirmEngagementReason,
     FirmEngagementStatus,
+    INT4_MAX,
     isAccountDate,
     latestIsoDateAnywhere,
     MAX_ACCOUNT_DATE_YEAR,
@@ -20,6 +22,7 @@ import {
     nonNegativeUsdCentsSchema,
     PayoutStatus,
     personalRulesSchema,
+    type PlanKey,
     planKeyShape,
     positiveUsdCentsSchema,
     refinePlanKey,
@@ -29,7 +32,7 @@ import {
     usdCentsSchema,
     validateStageForPlan,
 } from '~/lib/prop-accounts';
-import { FirmId } from '~/lib/prop-calculator';
+import { FirmId, NO_PLAN_OPT_INS } from '~/lib/prop-calculator';
 
 export const MAX_ACCOUNT_LABEL_LENGTH = 64;
 export const MAX_ACCOUNT_TAGS = 20;
@@ -191,8 +194,11 @@ const ledgerNoteSchema = noteTextSchema(MAX_LEDGER_NOTE_LENGTH);
 const eventNoteSchema = noteTextSchema(MAX_EVENT_NOTE_LENGTH);
 const dayCountSchema = z.number().int().min(0).max(MAX_TRADING_DAYS);
 
-const accountEditableShape = {
-    ...planKeyShape,
+export const accountTagsSchema = z
+    .array(singleLineTextSchema(MAX_ACCOUNT_TAG_LENGTH))
+    .max(MAX_ACCOUNT_TAGS);
+
+const accountDetailsShape = {
     copyGroupId: idSchema.nullable(),
     dashboardConvention: z.enum(DashboardBalanceConvention),
     externalAlias: singleLineTextSchema(MAX_ACCOUNT_LABEL_LENGTH).nullable(),
@@ -204,9 +210,38 @@ const accountEditableShape = {
     personalRules: personalRulesSchema,
     purchasedOn: accountDateSchema,
     replacesAccountId: idSchema.nullable(),
-    tags: z
-        .array(singleLineTextSchema(MAX_ACCOUNT_TAG_LENGTH))
-        .max(MAX_ACCOUNT_TAGS),
+    tags: accountTagsSchema,
+};
+
+const modeledPlanShape = {
+    ...planKeyShape,
+    tracking: z
+        .literal(AccountTracking.Modeled)
+        .default(AccountTracking.Modeled),
+};
+
+const ledgerOnlyPlanShape = {
+    accountSize: z.number().int().positive().max(INT4_MAX),
+    externalFirmId: idSchema.nullable(),
+    firmId: z.enum(FirmId).nullable(),
+    optIns: planKeyShape.optIns.default(NO_PLAN_OPT_INS),
+    planLabel: singleLineTextSchema(MAX_ACCOUNT_LABEL_LENGTH),
+    tracking: z.literal(AccountTracking.LedgerOnly),
+};
+
+const accountCreateDetailsShape = {
+    ...accountDetailsShape,
+    copyGroupId: accountDetailsShape.copyGroupId.default(null),
+    externalAlias: accountDetailsShape.externalAlias.default(null),
+    firstFundedTradeOn: accountDetailsShape.firstFundedTradeOn.default(null),
+    fundedOn: accountDetailsShape.fundedOn.default(null),
+    liveStartBalanceCents:
+        accountDetailsShape.liveStartBalanceCents.default(null),
+    notes: accountDetailsShape.notes.default(null),
+    personalRules: accountDetailsShape.personalRules.default({}),
+    replacesAccountId: accountDetailsShape.replacesAccountId.default(null),
+    stage: z.enum(AccountStage),
+    tags: accountDetailsShape.tags.default([]),
 };
 
 interface AccountDateFields {
@@ -255,43 +290,54 @@ export const accountListSchema = z.object({
 });
 
 export const accountCreateSchema = z
-    .object({
-        ...accountEditableShape,
-        copyGroupId: accountEditableShape.copyGroupId.default(null),
-        externalAlias: accountEditableShape.externalAlias.default(null),
-        firstFundedTradeOn:
-            accountEditableShape.firstFundedTradeOn.default(null),
-        fundedOn: accountEditableShape.fundedOn.default(null),
-        liveStartBalanceCents:
-            accountEditableShape.liveStartBalanceCents.default(null),
-        notes: accountEditableShape.notes.default(null),
-        personalRules: accountEditableShape.personalRules.default({}),
-        replacesAccountId: accountEditableShape.replacesAccountId.default(null),
-        stage: z.enum(AccountStage),
-        tags: accountEditableShape.tags.default([]),
-    })
+    .discriminatedUnion('tracking', [
+        z.object({ ...accountCreateDetailsShape, ...modeledPlanShape }),
+        z.object({
+            ...accountCreateDetailsShape,
+            ...ledgerOnlyPlanShape,
+            externalFirmId: ledgerOnlyPlanShape.externalFirmId.default(null),
+            firmId: ledgerOnlyPlanShape.firmId.default(null),
+        }),
+    ])
     .superRefine((account, context) => {
         refineAccountDates(account, context);
-        const plan = refinePlanKey(account, context);
-        if (plan === null) return;
-        const rejection = validateStageForPlan(account.stage, plan);
-        if (rejection !== null) {
-            context.addIssue({
-                code: 'custom',
-                message: describeLifecycleRejection(rejection, {
-                    facts: plan,
-                    stage: account.stage,
-                }),
-                path: ['stage'],
-            });
+        switch (account.tracking) {
+            case AccountTracking.LedgerOnly: {
+                refineExactlyOneFirm(account, context);
+                return;
+            }
+            case AccountTracking.Modeled: {
+                refineModeledStage(account, context);
+                return;
+            }
         }
     });
 
 export const accountUpdateSchema = z
-    .strictObject({ ...accountEditableShape, id: idSchema })
+    .discriminatedUnion('tracking', [
+        z.strictObject({
+            ...accountDetailsShape,
+            ...modeledPlanShape,
+            id: idSchema,
+        }),
+        z.strictObject({
+            ...accountDetailsShape,
+            ...ledgerOnlyPlanShape,
+            id: idSchema,
+        }),
+    ])
     .superRefine((account, context) => {
         refineAccountDates(account, context);
-        refinePlanKey(account, context);
+        switch (account.tracking) {
+            case AccountTracking.LedgerOnly: {
+                refineExactlyOneFirm(account, context);
+                break;
+            }
+            case AccountTracking.Modeled: {
+                refinePlanKey(account, context);
+                break;
+            }
+        }
         if (account.replacesAccountId === account.id) {
             context.addIssue({
                 code: 'custom',
@@ -300,6 +346,35 @@ export const accountUpdateSchema = z
             });
         }
     });
+
+export const accountUpgradeSchema = z
+    .strictObject({
+        ...planKeyShape,
+        confirmSizeOrFirmChange: z.boolean().default(false),
+        id: idSchema,
+    })
+    .superRefine((key, context) => {
+        refinePlanKey(key, context);
+    });
+
+function refineModeledStage(
+    account: PlanKey & { readonly stage: AccountStage },
+    context: z.RefinementCtx,
+): void {
+    const plan = refinePlanKey(account, context);
+    if (plan === null) return;
+    const rejection = validateStageForPlan(account.stage, plan);
+    if (rejection !== null) {
+        context.addIssue({
+            code: 'custom',
+            message: describeLifecycleRejection(rejection, {
+                facts: plan,
+                stage: account.stage,
+            }),
+            path: ['stage'],
+        });
+    }
+}
 
 export const importAccountsSchema = z
     .array(accountCreateSchema)

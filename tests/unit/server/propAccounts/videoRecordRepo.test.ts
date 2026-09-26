@@ -361,6 +361,7 @@ describe('PropAccountRepo reference checks', () => {
             new Set(statements.map((statement) => readTable(statement))),
         ).toEqual(
             new Set([
+                TABLES.account,
                 VIDEO_TABLES.firmEngagement,
                 VIDEO_TABLES.firmStatement,
                 VIDEO_TABLES.round,

@@ -11,6 +11,7 @@ import {
 import {
     AccountStage,
     AccountStatus,
+    AccountTracking,
     compareText,
     createAlertContext,
     isActiveAccount,
@@ -34,11 +35,15 @@ function account(
     return {
         archivedAt: null,
         copyGroupId: null,
+        externalFirmId: null,
         firmId: FIRST_FIRM.id,
         id,
         label: id,
+        planLabel: null,
+        planSerial: 'copy-group-plan',
         stage: AccountStage.Funded,
         status: AccountStatus.Active,
+        tracking: AccountTracking.Modeled,
         ...overrides,
     };
 }
@@ -48,6 +53,40 @@ function modeledFirm(index: number) {
     if (firm === undefined) throw new Error(`no modeled firm at ${index}`);
     return firm;
 }
+
+describe('copyGroupRows with ledger-only accounts', () => {
+    it('keeps ledger-only accounts out of every group and out of the joinable accounts', () => {
+        const overview = copyGroupRows(
+            [MAIN],
+            [
+                account('modeled-member', { copyGroupId: MAIN.id }),
+                account('modeled-free'),
+                account('ledger-listed', {
+                    planLabel: 'Rapid 150K',
+                    planSerial: null,
+                    tracking: AccountTracking.LedgerOnly,
+                }),
+                account('ledger-external', {
+                    copyGroupId: MAIN.id,
+                    externalFirmId: '0b8c7f0e-6f3a-4f55-9a3e-8f4c1d2e3a4b',
+                    firmId: null,
+                    planLabel: 'Hola Prime 100K',
+                    planSerial: null,
+                    tracking: AccountTracking.LedgerOnly,
+                }),
+            ],
+        );
+        const [main] = overview.groups;
+        expect(
+            [...(main?.members ?? []), ...(main?.otherMembers ?? [])].map(
+                (member) => member.id,
+            ),
+        ).toEqual(['modeled-member']);
+        expect(overview.unassigned.map((member) => member.id)).toEqual([
+            'modeled-free',
+        ]);
+    });
+});
 
 describe('the stage-grouping predicate exported by MixedStageCopyGroupRule', () => {
     it('counts each stage present, in stage order', () => {
@@ -100,15 +139,18 @@ describe('the one active-account predicate', () => {
                     accountSize: plan.id.accountSize,
                     archivedAt: row.archivedAt,
                     copyGroupId: row.copyGroupId,
+                    externalFirmId: null,
                     firmId: row.firmId,
                     id: row.id,
                     label: row.label,
                     optIns: {},
+                    planLabel: null,
                     planSerial: serializePlanId(plan.id),
                     purchasedOn: '2026-09-01',
                     readIssues: [],
                     stage: row.stage,
                     status: row.status,
+                    tracking: AccountTracking.Modeled,
                 },
             ],
             copyGroups: [],

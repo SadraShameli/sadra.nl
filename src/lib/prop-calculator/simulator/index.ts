@@ -9,8 +9,10 @@ export {
     simInputsSizingIssue,
 } from './dayPolicyValidation';
 export {
+    fromStateCashSamples,
     FUNDED_PAYOUT_COUNT_TAIL_BUCKET,
     simulate,
+    simulateFromState,
     simulatePortfolio,
 } from './engine';
 export { runEvalAttempt, runEvalWithRetries } from './evalPhase';
@@ -36,7 +38,12 @@ export {
     TradeTotals,
 } from './PhaseStats';
 export { resolveCopyAccounts, SIM_DEFAULTS } from './SimDefaults';
-export { hasPassedEval } from './trial';
+export {
+    assertPayoutRequestPolicy,
+    payoutRequestPolicyIssue,
+    simStartIssue,
+} from './simStartValidation';
+export { hasPassedEval, simulateTrial } from './trial';
 export {
     type AttemptOutcome,
     CorrelationMode,
@@ -44,9 +51,16 @@ export {
     type DayRunOptions,
     type EvalAttemptOptions,
     type EvalAttemptResult,
+    type EvalAttemptStart,
+    type EvalSimStart,
     type EvalWithRetriesOptions,
     type EvalWithRetriesResult,
+    type FromStateSimEstimates,
+    type FromStateSimInputs,
+    type FromStateSimOutputs,
     type FundedDayStepOptions,
+    type FundedFromStateOptions,
+    type FundedSimStart,
     type LiveDayRunOptions,
     type LiveOutputs,
     type LiveSimInputs,
@@ -55,7 +69,11 @@ export {
     type SimEstimates,
     type SimInputs,
     type SimOutputs,
+    type SimStart,
+    type TrialOptions,
     type TrialOutcome,
+    type TrialResult,
+    type TrialStart,
 } from './types';
 export {
     assertNonNegativeSafeInteger,

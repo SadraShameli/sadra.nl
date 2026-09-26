@@ -1,15 +1,37 @@
 import { describe, expect, it } from 'vitest';
 
-import { fraction } from '~/lib/prop-calculator/core';
+import { dollars, fraction } from '~/lib/prop-calculator/core';
 import {
     compoundedMultiple,
     ECONOMICS_DISCLOSURE_TEXT,
+    ECONOMICS_REASON_TEXT,
     EconomicsDisclosure,
     EconomicsReason,
+    evalPace,
     expectancyPerTradeR,
     fullKellyFraction,
     kellyGrowthPerTrade,
+    MAX_WALK_CELLS,
+    MAX_WALK_RATIO_DENOMINATOR,
+    MAX_WALK_WORK,
 } from '~/lib/prop-calculator/economics';
+
+const MAX_ONE_DECIMAL_TENTHS = 100;
+const SMALLEST_LAB_RISK = dollars(50);
+const LARGEST_LAB_RISK = dollars(500);
+
+const REALISTIC_EVALS = [
+    { drawdown: dollars(2000), target: dollars(3000) },
+    { drawdown: dollars(4500), target: dollars(9000) },
+];
+
+const ONE_R_EVAL = {
+    drawdown: dollars(100),
+    riskPerTrade: dollars(100),
+    rrRatio: 2,
+    target: dollars(100),
+    winrate: fraction(0.4),
+};
 
 describe('expectancyPerTradeR', () => {
     it.each([
@@ -166,7 +188,7 @@ describe('disclosure text', () => {
                 EconomicsDisclosure.RandomWalkApproximation
             ],
         ).toBe(
-            'random-walk approximation that ignores the consistency rule, daily loss limit, daily profit cap and contract limits; the simulated pass rate and trades per pass stay authoritative',
+            'random-walk approximation with a fixed drawdown floor at the starting balance minus the drawdown, so a trailing or end-of-day drawdown is not modelled and the value is optimistic for it; it uses a flat risk per trade with no eval ladder, commissions or contract rounding, and a trade taken with less than one risk of cushion left still wins the full reward, where the simulation by default caps that trade to the remaining cushion, so the value is also optimistic when the drawdown is not a whole multiple of the risk or the reward:risk is not a whole number; it ignores the consistency rule, daily loss limit, daily profit cap, day-stop rule, trades per day and contract limits; the simulated pass rate and trades per pass stay authoritative',
         );
         expect(
             ECONOMICS_DISCLOSURE_TEXT[
@@ -190,5 +212,135 @@ describe('disclosure text', () => {
         ).toBe(
             'not a forecast: all payouts inside the cycle, constant multiple, no caps, no variance',
         );
+    });
+
+    it('says the random walk holds the drawdown floor fixed and leaves out the lab execution settings', () => {
+        const text =
+            ECONOMICS_DISCLOSURE_TEXT[
+                EconomicsDisclosure.RandomWalkApproximation
+            ];
+        expect(text).toContain('fixed drawdown floor');
+        expect(text).toContain(
+            'trailing or end-of-day drawdown is not modelled',
+        );
+        expect(text).toContain('optimistic');
+        expect(text).toContain('eval ladder');
+        expect(text).toContain('commissions');
+        expect(text).toContain('day-stop rule');
+        expect(text).toContain('trades per day');
+    });
+
+    it('says a trade with less than one risk of cushion left still wins the full reward, so a drawdown off the risk grid is optimistic', () => {
+        const text =
+            ECONOMICS_DISCLOSURE_TEXT[
+                EconomicsDisclosure.RandomWalkApproximation
+            ];
+        expect(text).toContain(
+            'a trade taken with less than one risk of cushion left still wins the full reward',
+        );
+        expect(text).toContain(
+            'the simulation by default caps that trade to the remaining cushion',
+        );
+        expect(text).toContain(
+            'optimistic when the drawdown is not a whole multiple of the risk or the reward:risk is not a whole number',
+        );
+    });
+});
+
+describe('reason text', () => {
+    it('states every reason in plain words without em dashes', () => {
+        for (const reason of Object.values(EconomicsReason)) {
+            const text = ECONOMICS_REASON_TEXT[reason];
+            expect(text.length).toBeGreaterThan(0);
+            expect(text).not.toContain(String.fromCodePoint(0x20_14));
+        }
+    });
+
+    it('gives every reason its own text', () => {
+        const texts = Object.values(EconomicsReason).map(
+            (reason) => ECONOMICS_REASON_TEXT[reason],
+        );
+        expect(new Set(texts).size).toBe(texts.length);
+    });
+
+    it('advises a one-decimal reward:risk, which the walk solves on realistic evals across the lab risk range', () => {
+        const text = ECONOMICS_REASON_TEXT[EconomicsReason.UnsupportedRatio];
+        expect(text).toContain('one decimal');
+        expect(text).toContain('1.3 instead of 1.333');
+        expect(evalPace({ ...ONE_R_EVAL, rrRatio: 1.333 }).reason).toBe(
+            EconomicsReason.UnsupportedRatio,
+        );
+        expect(
+            evalPace({
+                ...ONE_R_EVAL,
+                ...REALISTIC_EVALS[0],
+                riskPerTrade: SMALLEST_LAB_RISK,
+                rrRatio: 1.33,
+            }).reason,
+        ).toBe(EconomicsReason.WalkGridTooLarge);
+        const unsolved = REALISTIC_EVALS.flatMap((plan) =>
+            [SMALLEST_LAB_RISK, LARGEST_LAB_RISK].flatMap((riskPerTrade) =>
+                Array.from(
+                    { length: MAX_ONE_DECIMAL_TENTHS },
+                    (_, index) => (index + 1) / 10,
+                )
+                    .map((rrRatio) => ({
+                        reason: evalPace({
+                            ...ONE_R_EVAL,
+                            ...plan,
+                            riskPerTrade,
+                            rrRatio,
+                        }).reason,
+                        riskPerTrade,
+                        rrRatio,
+                        target: plan.target,
+                    }))
+                    .filter(({ reason }) => reason !== null),
+            ),
+        );
+        expect(unsolved).toEqual([]);
+    });
+
+    it('states the reward:risk denominator limit the walk actually uses', () => {
+        const text = ECONOMICS_REASON_TEXT[EconomicsReason.UnsupportedRatio];
+        expect(MAX_WALK_RATIO_DENOMINATOR).toBe(100);
+        expect(text).toContain(
+            `a denominator of at most ${String(MAX_WALK_RATIO_DENOMINATOR)}`,
+        );
+        expect(text).toContain('at most two decimals');
+        expect(evalPace({ ...ONE_R_EVAL, rrRatio: 1.33 }).reason).toBeNull();
+        expect(evalPace({ ...ONE_R_EVAL, rrRatio: 1.331 }).reason).toBe(
+            EconomicsReason.UnsupportedRatio,
+        );
+    });
+
+    it('states the work and memory limits the walk actually uses', () => {
+        const text = ECONOMICS_REASON_TEXT[EconomicsReason.WalkGridTooLarge];
+        const grouped = new Intl.NumberFormat('en-US');
+        expect(MAX_WALK_WORK).toBe(100_000_000);
+        expect(MAX_WALK_CELLS).toBe(4_000_000);
+        expect(text).toContain(`${grouped.format(MAX_WALK_WORK)} solver steps`);
+        expect(text).toContain(
+            `${grouped.format(MAX_WALK_CELLS)} stored values`,
+        );
+    });
+
+    it('names too many reward:risk decimals as the cause of a walk grid that is too large, with no advice to change risk', () => {
+        const text = ECONOMICS_REASON_TEXT[EconomicsReason.WalkGridTooLarge];
+        expect(text).toContain('too many decimals');
+        expect(text).toContain('2.4 instead of 2.37');
+        expect(text).toContain('the simulated pass rate stays authoritative');
+        expect(text).not.toMatch(
+            /(larger|raise|increase|higher|bigger|more)\s+risk/i,
+        );
+        const largeEval = {
+            ...ONE_R_EVAL,
+            ...REALISTIC_EVALS[1],
+            riskPerTrade: dollars(100),
+        };
+        expect(evalPace({ ...largeEval, rrRatio: 2.37 }).reason).toBe(
+            EconomicsReason.WalkGridTooLarge,
+        );
+        expect(evalPace({ ...largeEval, rrRatio: 2.4 }).reason).toBeNull();
     });
 });

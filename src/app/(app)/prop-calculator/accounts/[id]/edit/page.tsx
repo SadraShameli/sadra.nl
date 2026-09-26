@@ -24,6 +24,7 @@ export default async function EditPropAccountPage({
         routes.propCalculator.accounts.edit,
     );
     void api.propAccounts.copyGroup.list.prefetch();
+    void api.propAccounts.externalFirm.list.prefetch();
     return (
         <HydrateClient>
             <main

@@ -9,9 +9,49 @@ import {
 } from '~/lib/prop-accounts';
 import { type Plan, type PlanOptIns } from '~/lib/prop-calculator';
 
+import { LEDGER_ONLY_STATUS_NOTE } from '../accountPlanOptions';
+
 const NO_LIMIT = 'None';
 
 type SummaryRow = readonly [string, string];
+
+export function LedgerOnlyPlanSummary({
+    accountSize,
+    firmName,
+    planLabel,
+}: {
+    readonly accountSize: number;
+    readonly firmName: string;
+    readonly planLabel: string;
+}) {
+    const rows: readonly SummaryRow[] = [
+        ['Plan', `${firmName} ${planLabel}`],
+        ['Account size', formatCurrency(accountSize)],
+        ['Tracking', 'Ledger only'],
+    ];
+    return (
+        <div className="flex flex-col gap-4">
+            <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[max-content_1fr]">
+                {rows.map(([term, value]) => (
+                    <div className="contents" key={term}>
+                        <dt className="text-muted-foreground">{term}</dt>
+                        <dd className="tabular-nums">{value}</dd>
+                    </div>
+                ))}
+            </dl>
+            <p className="text-sm text-muted-foreground">
+                This plan is not modeled, so the engine never values this
+                account: it shows no plan rules, projections or sizing advice
+                here. Its fees and payouts still count in every cash, firm and
+                funnel figure. Upgrade it to a modeled plan once its plan is
+                modeled.
+            </p>
+            <p className="text-sm text-muted-foreground">
+                {LEDGER_ONLY_STATUS_NOTE}
+            </p>
+        </div>
+    );
+}
 
 export function PlanRulesSummary({
     firmName,

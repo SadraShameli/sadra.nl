@@ -29,25 +29,31 @@ import {
     type Plan,
     type RungSizing,
 } from '~/lib/prop-calculator';
+import {
+    ECONOMICS_DISCLOSURE_TEXT,
+    ECONOMICS_REASON_TEXT,
+    EconomicsDisclosure,
+} from '~/lib/prop-calculator/economics';
+import {
+    CALCULATOR_SCALAR_BOUNDS,
+    LAB_SCENARIO_BOUNDS,
+    MAX_LAB_SCENARIOS,
+} from '~/lib/schemas/url';
 import { cn } from '~/lib/utilities';
 
 import AccountsPassedDistributionChart from './AccountsPassedDistributionChart';
 import DayStopRulePicker from './DayStopRulePicker';
 import { DayStopRuleStyle, describeDayStopRule } from './describeDayStopRule';
 import { SimulationFailureNotice } from './SimulationFailureNotice';
-import { type LabScenario } from './types';
-import { useLabSimulation } from './useLabSimulation';
-
-type LabResult =
-    ReturnType<typeof useLabSimulation>['results'] extends Map<string, infer R>
-        ? R
-        : never;
+import { type LabLinkOutcome, LabLinkStatus, type LabScenario } from './types';
+import { type LabResult, useLabSimulation } from './useLabSimulation';
 
 interface StrategyLabPanelProperties {
     activationDiscountPercent: number;
     commissionPerRoundTrip: number;
     evalDiscountPercent: number;
     fundedHorizonDays: number;
+    labLink: LabLinkOutcome;
     linkActivationDiscount: boolean;
     maxEvalDays: number;
     minRetainedCushion: number | undefined;
@@ -71,6 +77,14 @@ interface StrategyLabRow {
     scenario: LabScenario;
 }
 
+const PERCENT = 100;
+const WINRATE_BOUNDS = CALCULATOR_SCALAR_BOUNDS.wr;
+const RR_BOUNDS = CALCULATOR_SCALAR_BOUNDS.rr;
+const TRADES_PER_DAY_BOUNDS = CALCULATOR_SCALAR_BOUNDS.tpd;
+const STOP_POINTS_BOUNDS = CALCULATOR_SCALAR_BOUNDS.sp;
+const ACCOUNTS_BOUNDS = LAB_SCENARIO_BOUNDS.accounts;
+const RISK_BOUNDS = LAB_SCENARIO_BOUNDS.riskPerTrade;
+
 const CORRELATION_LABEL: Record<CorrelationMode, string> = {
     copy: 'Copy-trade',
     grouped: 'Group-split',
@@ -82,6 +96,7 @@ export default function StrategyLabPanel({
     commissionPerRoundTrip,
     evalDiscountPercent,
     fundedHorizonDays,
+    labLink,
     linkActivationDiscount,
     maxEvalDays,
     minRetainedCushion,
@@ -181,15 +196,26 @@ export default function StrategyLabPanel({
                             </li>
                         </ul>
                         <p className="mt-2">
-                            Theoretical P(pass) is the closed-form
-                            gambler&apos;s ruin sanity check. Day-stop modifies
-                            the per-day trade loop (stop after first win, after
-                            K losses, or after a $ target). MC eval pass, P(≥k)
-                            and E[#pass] count accounts that passed the
-                            evaluation; MC survive counts accounts that also
-                            never busted the funded account. The verdict only
-                            recommends a scenario where at least half the
-                            accounts survive funded in 50% of runs.
+                            Theo is the exact pass probability of a simple
+                            random walk with a fixed drawdown floor: each trade
+                            wins RR times the risk or loses the risk until the
+                            balance reaches the profit target or falls to the
+                            starting balance minus the drawdown. It is a{' '}
+                            {
+                                ECONOMICS_DISCLOSURE_TEXT[
+                                    EconomicsDisclosure.RandomWalkApproximation
+                                ]
+                            }
+                            . When the walk cannot be solved, the cell shows{' '}
+                            {NOT_APPLICABLE} with an info button that says why.
+                            In the simulation, day-stop modifies the per-day
+                            trade loop (stop after first win, after K losses, or
+                            after a $ target). MC eval pass, P(≥k) and E[#pass]
+                            count accounts that passed the evaluation; MC
+                            survive counts accounts that also never busted the
+                            funded account. The verdict only recommends a
+                            scenario where at least half the accounts survive
+                            funded in 50% of runs.
                         </p>
                     </InfoPopover>
                     {pending && (
@@ -208,12 +234,24 @@ export default function StrategyLabPanel({
                         <RotateCcw className="size-3.5" />
                         <span className="ml-1 text-xs">Reset</span>
                     </Button>
-                    <Button onClick={onAdd} size="sm" variant="outline">
+                    <Button
+                        disabled={scenarios.length >= MAX_LAB_SCENARIOS}
+                        onClick={onAdd}
+                        size="sm"
+                        variant="outline"
+                    >
                         <Plus className="size-3.5" />
                         <span className="ml-1 text-xs">Add scenario</span>
                     </Button>
                 </div>
             </div>
+            {labLink.status === LabLinkStatus.Rejected && (
+                <Alert className="mt-3" variant="warning">
+                    <AlertDescription className="text-xs">
+                        {`The lab scenarios in this link or saved scenario were rejected (${labLink.issue}), so the scenarios shown did not come from it.`}
+                    </AlertDescription>
+                </Alert>
+            )}
             {refused.map((refusal) => (
                 <SimulationFailureNotice
                     key={refusal.item.id}
@@ -252,6 +290,11 @@ export default function StrategyLabPanel({
                                         )}
                                     </span>
                                 </div>
+                                {r.lifetimeCapPoolingGap !== null && (
+                                    <SimulationFailureNotice
+                                        message={r.lifetimeCapPoolingGap}
+                                    />
+                                )}
                                 <AccountsPassedDistributionChart
                                     distribution={r.accountsPassDistribution}
                                 />
@@ -355,10 +398,15 @@ function StrategyLabTable({
                 cell: ({ row }) => (
                     <Input
                         className="h-7 w-20 text-xs"
-                        min={1}
+                        max={RISK_BOUNDS.max}
+                        min={RISK_BOUNDS.min}
                         onChange={(event) => {
                             const n = Number(event.target.value);
-                            if (Number.isFinite(n) && n > 0)
+                            if (
+                                Number.isFinite(n) &&
+                                n >= RISK_BOUNDS.min &&
+                                n <= RISK_BOUNDS.max
+                            )
                                 onUpdate(row.original.scenario.id, {
                                     riskPerTrade: n,
                                 });
@@ -375,18 +423,24 @@ function StrategyLabTable({
                 cell: ({ row }) => (
                     <Input
                         className="h-7 w-16 text-xs"
-                        max={95}
-                        min={5}
+                        max={Math.round(WINRATE_BOUNDS.max * PERCENT)}
+                        min={Math.round(WINRATE_BOUNDS.min * PERCENT)}
                         onChange={(event) => {
-                            const n = Number(event.target.value) / 100;
-                            if (Number.isFinite(n) && n >= 0.05 && n <= 0.95)
+                            const n = Number(event.target.value) / PERCENT;
+                            if (
+                                Number.isFinite(n) &&
+                                n >= WINRATE_BOUNDS.min &&
+                                n <= WINRATE_BOUNDS.max
+                            )
                                 onUpdate(row.original.scenario.id, {
                                     winrate: n,
                                 });
                         }}
                         step={1}
                         type="number"
-                        value={Math.round(row.original.scenario.winrate * 100)}
+                        value={Math.round(
+                            row.original.scenario.winrate * PERCENT,
+                        )}
                     />
                 ),
                 header: 'WR %',
@@ -396,11 +450,15 @@ function StrategyLabTable({
                 cell: ({ row }) => (
                     <Input
                         className="h-7 w-16 text-xs"
-                        max={10}
-                        min={0.5}
+                        max={RR_BOUNDS.max}
+                        min={RR_BOUNDS.min}
                         onChange={(event) => {
                             const n = Number(event.target.value);
-                            if (Number.isFinite(n) && n >= 0.5 && n <= 10)
+                            if (
+                                Number.isFinite(n) &&
+                                n >= RR_BOUNDS.min &&
+                                n <= RR_BOUNDS.max
+                            )
                                 onUpdate(row.original.scenario.id, {
                                     rrRatio: n,
                                 });
@@ -417,11 +475,15 @@ function StrategyLabTable({
                 cell: ({ row }) => (
                     <Input
                         className="h-7 w-14 text-xs"
-                        max={20}
-                        min={1}
+                        max={TRADES_PER_DAY_BOUNDS.max}
+                        min={TRADES_PER_DAY_BOUNDS.min}
                         onChange={(event) => {
                             const n = Math.floor(Number(event.target.value));
-                            if (Number.isFinite(n) && n >= 1 && n <= 20)
+                            if (
+                                Number.isFinite(n) &&
+                                n >= TRADES_PER_DAY_BOUNDS.min &&
+                                n <= TRADES_PER_DAY_BOUNDS.max
+                            )
                                 onUpdate(row.original.scenario.id, {
                                     tradesPerDay: n,
                                 });
@@ -478,10 +540,15 @@ function StrategyLabTable({
                         <Input
                             className="h-7 w-16 text-xs"
                             disabled={sc.instrument === null}
-                            min={0.25}
+                            max={STOP_POINTS_BOUNDS.max}
+                            min={STOP_POINTS_BOUNDS.min}
                             onChange={(event) => {
                                 const n = Number(event.target.value);
-                                if (Number.isFinite(n) && n > 0)
+                                if (
+                                    Number.isFinite(n) &&
+                                    n >= STOP_POINTS_BOUNDS.min &&
+                                    n <= STOP_POINTS_BOUNDS.max
+                                )
                                     onUpdate(sc.id, { stopPoints: n });
                             }}
                             step={0.25}
@@ -499,13 +566,17 @@ function StrategyLabTable({
                     return (
                         <Input
                             className="h-7 w-14 text-xs"
-                            max={20}
-                            min={1}
+                            max={ACCOUNTS_BOUNDS.max}
+                            min={ACCOUNTS_BOUNDS.min}
                             onChange={(event) => {
                                 const n = Math.floor(
                                     Number(event.target.value),
                                 );
-                                if (Number.isFinite(n) && n >= 1 && n <= 20)
+                                if (
+                                    Number.isFinite(n) &&
+                                    n >= ACCOUNTS_BOUNDS.min &&
+                                    n <= ACCOUNTS_BOUNDS.max
+                                )
                                     onUpdate(sc.id, {
                                         accounts: n,
                                         groups: Math.min(sc.groups, n),
@@ -618,17 +689,11 @@ function StrategyLabTable({
                 id: 'mc-survive',
             },
             {
-                accessorFn: (r) => r.result?.theoreticalPassProb ?? -1,
-                cell: ({ row }) => (
-                    <ResultCell
-                        className="text-muted-foreground"
-                        value={row.original.result?.theoreticalPassProb}
-                    >
-                        {(v) => formatPercent(v)}
-                    </ResultCell>
-                ),
+                accessorFn: (r) => r.result?.theoreticalPassProb,
+                cell: ({ row }) => <TheoCell result={row.original.result} />,
                 header: 'Theo',
                 id: 'theo',
+                sortUndefined: 'last',
             },
             {
                 accessorFn: (r) => r.result?.pAtLeast.k1 ?? -1,
@@ -769,5 +834,26 @@ function StrategyLabTable({
                 'text-xs tabular-nums',
             )}
         />
+    );
+}
+
+function TheoCell({ result }: { result: LabResult | undefined }) {
+    if (result?.theoreticalPassReason !== undefined) {
+        return (
+            <span className="inline-flex items-center gap-1 font-mono text-muted-foreground">
+                {NOT_APPLICABLE}
+                <InfoPopover title="Theo not applicable">
+                    <p>{ECONOMICS_REASON_TEXT[result.theoreticalPassReason]}</p>
+                </InfoPopover>
+            </span>
+        );
+    }
+    return (
+        <ResultCell
+            className="text-muted-foreground"
+            value={result?.theoreticalPassProb}
+        >
+            {(v) => formatPercent(v)}
+        </ResultCell>
     );
 }

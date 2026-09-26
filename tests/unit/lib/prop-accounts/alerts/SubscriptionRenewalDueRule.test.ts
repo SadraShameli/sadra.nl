@@ -13,7 +13,13 @@ import {
     UnresolvedPlanReason,
 } from '~/lib/prop-accounts/core';
 
-import { accountFor, alertsOf, planWhere, WEDNESDAY } from './alertFixtures';
+import {
+    accountFor,
+    alertsOf,
+    ledgerOnlyAccountFor,
+    planWhere,
+    WEDNESDAY,
+} from './alertFixtures';
 
 const SUBSCRIBED = planWhere(
     (plan) => plan.fees.monthlySubscription > 0 && !plan.isInstantFunded,
@@ -62,6 +68,16 @@ describe('SubscriptionRenewalDueRule', () => {
     it('is silent on the purchase day and for a future purchase', () => {
         expect(alertsFor(WEDNESDAY)).toEqual([]);
         expect(alertsFor('2026-09-30')).toEqual([]);
+    });
+
+    it('prices no renewal for a ledger-only eval account, which has no plan list price', () => {
+        const account = ledgerOnlyAccountFor(SUBSCRIBED, {
+            purchasedOn: '2026-08-27',
+            stage: AccountStage.Eval,
+        });
+        expect(
+            alertsOf(rule, { accounts: [account], today: WEDNESDAY }),
+        ).toEqual([]);
     });
 
     it('applies only to eval accounts on subscription plans', () => {

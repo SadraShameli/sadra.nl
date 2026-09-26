@@ -61,6 +61,8 @@ function build() {
     return { owner, rows };
 }
 
+const NO_TARGETS = { monthlyPayoutTargetCents: null, targetMonthlyMultiple: null };
+
 function zeroFees(): Record<FeeKind, number> {
     return Object.fromEntries(
         Object.values(FeeKind).map((kind) => [kind, 0]),
@@ -71,7 +73,7 @@ describe('monthlyStatement', () => {
     it('lists each month with cash, signed fees by kind, event counts and the running net', () => {
         const { rows } = build();
         const portfolio = ledger(rows);
-        const { months } = monthlyStatement(portfolio);
+        const { months } = monthlyStatement(portfolio, '2026-11-03', NO_TARGETS);
         expect(months.map((m) => [m.month, m.net, m.cumulativeNet])).toEqual([
             ['2026-08', -16_700, -16_700],
             ['2026-09', -11_000, -27_700],
@@ -105,7 +107,127 @@ describe('monthlyStatement', () => {
     });
 
     it('is empty for an empty ledger', () => {
-        expect(monthlyStatement(ledger({})).months).toEqual([]);
+        expect(
+            monthlyStatement(ledger({}), '2026-09-28', NO_TARGETS).months,
+        ).toEqual([]);
+    });
+});
+
+describe('monthlyStatement fills and disclosures', () => {
+    it('fills every month from the first purchase to the as-of month, even with no cash, and marks the current month partial', () => {
+        const owner = account(EVAL_PLAN, { purchasedOn: '2026-06-01' });
+        const { months } = monthlyStatement(
+            ledger({
+                accounts: [owner],
+                fees: [fee(owner, FeeKind.EvalPurchase, 10_000, '2026-06-01')],
+            }),
+            '2026-08-15',
+            NO_TARGETS,
+        );
+        expect(months.map((month) => month.month)).toEqual([
+            '2026-06',
+            '2026-07',
+            '2026-08',
+        ]);
+        expect(months.map((month) => month.isPartial)).toEqual([
+            false,
+            false,
+            true,
+        ]);
+    });
+
+    it('gives the payout multiple, a trailing three-month multiple and month-over-month payout growth, null with no prior month', () => {
+        const owner = account(EVAL_PLAN, { purchasedOn: '2026-06-01' });
+        const { months } = monthlyStatement(
+            ledger({
+                accounts: [owner],
+                fees: [
+                    fee(owner, FeeKind.EvalPurchase, 10_000, '2026-06-01'),
+                    fee(owner, FeeKind.EvalPurchase, 10_000, '2026-07-01'),
+                ],
+                payouts: [
+                    payout(owner, 20_000, {
+                        netCents: 20_000,
+                        paidOn: '2026-06-15',
+                    }),
+                    payout(owner, 40_000, {
+                        netCents: 40_000,
+                        paidOn: '2026-07-15',
+                    }),
+                ],
+            }),
+            '2026-07-20',
+            NO_TARGETS,
+        );
+        expect(months[0]?.multiple).toBeCloseTo(2, 6);
+        expect(months[0]?.payoutGrowth).toBeNull();
+        expect(months[1]?.multiple).toBeCloseTo(4, 6);
+        expect(months[1]?.payoutGrowth).toBeCloseTo(1, 6);
+        expect(months[1]?.trailingThreeMonthMultiple).toBeCloseTo(3, 6);
+    });
+
+    it('flags months at or above the review targets, and leaves the flag null without a target', () => {
+        const owner = account(EVAL_PLAN, { purchasedOn: '2026-06-01' });
+        const { months } = monthlyStatement(
+            ledger({
+                accounts: [owner],
+                payouts: [
+                    payout(owner, 100_000, {
+                        netCents: 100_000,
+                        paidOn: '2026-06-15',
+                    }),
+                ],
+            }),
+            '2026-06-20',
+            NO_TARGETS,
+        );
+        expect(months[0]?.meetsPayoutTarget).toBeNull();
+        expect(months[0]?.meetsMultipleTarget).toBeNull();
+        const withTargets = monthlyStatement(
+            ledger({
+                accounts: [owner],
+                payouts: [
+                    payout(owner, 100_000, {
+                        netCents: 100_000,
+                        paidOn: '2026-06-15',
+                    }),
+                ],
+            }),
+            '2026-06-20',
+            { monthlyPayoutTargetCents: 100_000, targetMonthlyMultiple: 5 },
+        ).months;
+        expect(withTargets[0]?.meetsPayoutTarget).toBe(true);
+        expect(withTargets[0]?.meetsMultipleTarget).toBe(true);
+    });
+
+    it('treats a payout with no recorded spend as trivially meeting the multiple target, not missing it', () => {
+        const owner = account(EVAL_PLAN, { purchasedOn: '2026-06-01' });
+        const { months } = monthlyStatement(
+            ledger({
+                accounts: [owner],
+                payouts: [
+                    payout(owner, 100_000, {
+                        netCents: 100_000,
+                        paidOn: '2026-06-15',
+                    }),
+                ],
+            }),
+            '2026-06-20',
+            { monthlyPayoutTargetCents: null, targetMonthlyMultiple: 5 },
+        );
+        expect(months[0]?.multiple).toBeNull();
+        expect(months[0]?.meetsMultipleTarget).toBe(true);
+    });
+
+    it('does not meet the multiple target when there is neither spend nor a payout', () => {
+        const owner = account(EVAL_PLAN, { purchasedOn: '2026-06-01' });
+        const { months } = monthlyStatement(
+            ledger({ accounts: [owner] }),
+            '2026-06-20',
+            { monthlyPayoutTargetCents: null, targetMonthlyMultiple: 5 },
+        );
+        expect(months[0]?.multiple).toBeNull();
+        expect(months[0]?.meetsMultipleTarget).toBe(false);
     });
 });
 

@@ -10,12 +10,15 @@ import {
     withPlanOptIns,
 } from '~/lib/prop-calculator';
 
+import { AccountTracking } from './AccountTracking';
+
 export enum AccountReadIssueKind {
     CorruptPersonalRules = 'corrupt-personal-rules',
     UnresolvablePlan = 'unresolvable-plan',
 }
 
 export enum PlanKeyResolutionKind {
+    LedgerOnly = 'ledger-only',
     Resolved = 'resolved',
     Unresolved = 'unresolved',
 }
@@ -42,6 +45,17 @@ export type AccountReadIssue =
           readonly reason: UnresolvedPlanReason;
       };
 
+export interface LedgerOnlyPlanKey {
+    readonly tracking: AccountTracking.LedgerOnly;
+}
+
+export type ModeledPlanResolution =
+    | { readonly kind: PlanKeyResolutionKind.Resolved; readonly plan: Plan }
+    | {
+          readonly kind: PlanKeyResolutionKind.Unresolved;
+          readonly reason: UnresolvedPlanReason;
+      };
+
 export interface PlanKey {
     readonly accountSize: number;
     readonly firmId: FirmId;
@@ -50,11 +64,7 @@ export interface PlanKey {
 }
 
 export type PlanKeyResolution =
-    | { readonly kind: PlanKeyResolutionKind.Resolved; readonly plan: Plan }
-    | {
-          readonly kind: PlanKeyResolutionKind.Unresolved;
-          readonly reason: UnresolvedPlanReason;
-      };
+    ModeledPlanResolution | { readonly kind: PlanKeyResolutionKind.LedgerOnly };
 
 export type StoredFirmId = FirmId | (string & {});
 
@@ -120,7 +130,7 @@ export const planKeySchema = z
     });
 
 export function describeAccountReadIssue(
-    key: PlanKeyText,
+    key: LedgerOnlyPlanKey | PlanKeyText,
     issue: AccountReadIssue,
 ): string {
     switch (issue.kind) {
@@ -128,7 +138,9 @@ export function describeAccountReadIssue(
             return 'The stored personal rules of this account are not valid';
         }
         case AccountReadIssueKind.UnresolvablePlan: {
-            return describeUnresolvedPlan(key, issue.reason);
+            return isLedgerOnlyPlanKey(key)
+                ? 'This ledger-only account has no plan to resolve'
+                : describeUnresolvedPlan(key, issue.reason);
         }
     }
 }
@@ -165,6 +177,10 @@ export function findStoredFirm(firmId: StoredFirmId): TradingFirm | undefined {
     return knownFirmId === undefined ? undefined : findFirm(knownFirmId);
 }
 
+export function isLedgerOnlyPlanKey(key: object): key is LedgerOnlyPlanKey {
+    return 'tracking' in key && key.tracking === AccountTracking.LedgerOnly;
+}
+
 export function offeredPlanOptIns(plan: Plan): readonly PlanOptIn[] {
     return Object.values(PlanOptIn).filter((optIn) =>
         OPT_IN_RULES[optIn].isOffered(plan),
@@ -195,11 +211,16 @@ export function refinePlanKey(
     return null;
 }
 
-export function resolvePlanKey(key: PlanKeyInput): PlanKeyResolution {
-    const resolution = resolveDetailed(key);
-    return resolution.kind === PlanKeyResolutionKind.Resolved
-        ? resolution
-        : { kind: resolution.kind, reason: resolution.reason };
+export function resolvePlanKey(key: PlanKeyInput): ModeledPlanResolution;
+export function resolvePlanKey(
+    key: LedgerOnlyPlanKey | PlanKeyInput,
+): PlanKeyResolution;
+export function resolvePlanKey(
+    key: LedgerOnlyPlanKey | PlanKeyInput,
+): PlanKeyResolution {
+    return isLedgerOnlyPlanKey(key)
+        ? { kind: PlanKeyResolutionKind.LedgerOnly }
+        : resolveModeledPlanKey(key);
 }
 
 function flaggedPlanReason(
@@ -271,6 +292,13 @@ function resolveDetailed(key: PlanKeyInput): DetailedResolution {
         kind: PlanKeyResolutionKind.Resolved,
         plan: withPlanOptIns(plan, optIns),
     };
+}
+
+function resolveModeledPlanKey(key: PlanKeyInput): ModeledPlanResolution {
+    const resolution = resolveDetailed(key);
+    return resolution.kind === PlanKeyResolutionKind.Resolved
+        ? resolution
+        : { kind: resolution.kind, reason: resolution.reason };
 }
 
 function unresolved(

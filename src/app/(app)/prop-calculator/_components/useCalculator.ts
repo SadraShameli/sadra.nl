@@ -48,10 +48,11 @@ import { tradingInputBounds } from './tradingInputBounds';
 import {
     type CalculatorState,
     type LabScenario,
+    LinkParameter,
     type PortfolioEntry,
     SizingMode,
 } from './types';
-import { decodeState, encodeState } from './urlState';
+import { decodeState, encodeState, withSharedLab } from './urlState';
 import { useDebouncedValue } from './useDebouncedSimulation';
 
 export const SIM_DEBOUNCE_MS = 180;
@@ -318,11 +319,17 @@ export function createCalculatorActions(
 export function initialStateFromSearch(search: string): CalculatorState {
     const parameters = new URLSearchParams(search);
     const defaults = defaultCalculatorState();
-    if (!parameters.has(CalculatorUrlParameter.Firm)) return defaults;
+    if (!parameters.has(CalculatorUrlParameter.Firm)) {
+        try {
+            return withSharedLinkParameters(defaults, parameters);
+        } catch {
+            return withSharedLab(defaults, parameters);
+        }
+    }
     try {
         return decodeState(parameters, ALL_FIRMS, defaults);
     } catch {
-        return defaults;
+        return withSharedLab(defaults, parameters);
     }
 }
 
@@ -503,4 +510,38 @@ export function useCalculator(): UseCalculatorReturn {
         simInputs,
         state,
     };
+}
+
+function sharedLinkParameterField(
+    parameter: LinkParameter,
+): 'dayStop' | 'evalDayPolicy' | 'portfolio' {
+    switch (parameter) {
+        case LinkParameter.DayStop: {
+            return 'dayStop';
+        }
+        case LinkParameter.EvalDayPolicy: {
+            return 'evalDayPolicy';
+        }
+        case LinkParameter.Portfolio: {
+            return 'portfolio';
+        }
+    }
+}
+
+const SHARED_LINK_FIELDS = [
+    'labLink',
+    'labScenarios',
+    'linkParameters',
+    ...Object.values(LinkParameter).map(sharedLinkParameterField),
+] satisfies readonly (keyof CalculatorState)[];
+
+function withSharedLinkParameters(
+    defaults: CalculatorState,
+    parameters: URLSearchParams,
+): CalculatorState {
+    const decoded = decodeState(parameters, ALL_FIRMS, defaults);
+    const shared = Object.fromEntries(
+        SHARED_LINK_FIELDS.map((field) => [field, decoded[field]]),
+    ) as Pick<CalculatorState, (typeof SHARED_LINK_FIELDS)[number]>;
+    return { ...defaults, ...shared };
 }

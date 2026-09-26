@@ -120,16 +120,27 @@ function tierContext(profit: number) {
     };
 }
 
+function withoutFundedCaps(plan: Plan): Plan {
+    const limits = plan.contractLimits;
+    if (limits === null) throw new Error('plan has no contract limits');
+    const uncapped = plan.withOverrides({
+        contractLimits: { ...limits, fundedMicros: null, fundedMinis: null },
+    });
+    if (
+        startFundedCap(uncapped, false) !== null ||
+        startFundedCap(uncapped, true) !== null
+    ) {
+        throw new Error('funded caps survived the override');
+    }
+    return uncapped;
+}
+
 const TIERED_PLAN = planWhere(
     (plan) =>
         fundedTierBreakpoints(plan, false).length > 1 && !plan.isInstantFunded,
 );
-const UNCAPPED_FUNDED_PLAN = planWhere(
-    (plan) =>
-        plan.contractLimits !== null &&
-        startFundedCap(plan, false) === null &&
-        startFundedCap(plan, true) === null &&
-        !plan.isInstantFunded,
+const UNCAPPED_FUNDED_PLAN = withoutFundedCaps(
+    planWhere((plan) => plan.contractLimits !== null && !plan.isInstantFunded),
 );
 const DEFAULT_EVAL_NQ_CAP = contractLimitAt(
     DEFAULT_PLAN.contractLimits,

@@ -1,6 +1,12 @@
 import { z } from 'zod';
 
-import { CENTS_PER_DOLLAR } from '~/lib/prop-calculator/core';
+import {
+    type AccountState,
+    CENTS_PER_DOLLAR,
+    fundedCycleSeedSchema,
+    TradingPhase,
+} from '~/lib/prop-calculator/core';
+import { type SimStart } from '~/lib/prop-calculator/simulator';
 
 import {
     HARD_RULE_2_MIN_RETAINED_CUSHION_CENTS,
@@ -21,6 +27,7 @@ export interface DocumentedPolicySpec {
     readonly planSerial?: string;
     readonly rulebook: RulebookParameters;
     readonly run: DocumentedPolicyRun;
+    readonly start?: SimStart;
 }
 
 const runSchema = z.strictObject({
@@ -30,12 +37,48 @@ const runSchema = z.strictObject({
     trials: z.number().int().positive(),
 }) satisfies z.ZodType<DocumentedPolicyRun>;
 
+const accountStateSchema = z.looseObject({
+    balance: z.number(),
+    bestDayProfit: z.number(),
+    consecutiveIdleDays: z.number(),
+    elapsedDays: z.number().optional(),
+    intradayHighProfit: z.number(),
+    peakDayCloseProfit: z.number(),
+    peakIntradayProfit: z.number(),
+    qualifyingDays: z.number(),
+    startingBalance: z.number(),
+    threshold: z.number(),
+    thresholdLocked: z.boolean(),
+    todayPnL: z.number(),
+    tradingDays: z.number(),
+}) satisfies z.ZodType<AccountState>;
+
+function isAccountStateShaped(value: unknown): value is AccountState {
+    return accountStateSchema.safeParse(value).success;
+}
+
+const simStartSchema = z.custom<SimStart>((value) => {
+    if (typeof value !== 'object' || value === null) return false;
+    const candidate = value as {
+        phase?: unknown;
+        seed?: unknown;
+        state?: unknown;
+    };
+    return (
+        isAccountStateShaped(candidate.state) &&
+        (candidate.phase === TradingPhase.Eval ||
+            (candidate.phase === TradingPhase.Funded &&
+                fundedCycleSeedSchema.safeParse(candidate.seed).success))
+    );
+}, 'start must be a valid eval or funded SimStart') satisfies z.ZodType<SimStart>;
+
 export const documentedPolicySpecSchema = z
     .strictObject({
         enginePolicy: enginePolicySchema,
         planSerial: z.string().min(1).optional(),
         rulebook: rulebookSchema,
         run: runSchema,
+        start: simStartSchema.optional(),
     })
     .superRefine((spec, context) => {
         const request = spec.enginePolicy.retainedCushionRequest;

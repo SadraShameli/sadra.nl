@@ -4,6 +4,9 @@ import {
     AccountStage,
     AccountStatus,
     compareText,
+    type FirmKey,
+    firmKeyId,
+    FirmKeyKind,
     type StoredFirmId,
 } from '~/lib/prop-accounts/core';
 import { type FirmFunding, fundingTotals } from '~/lib/prop-accounts/metrics';
@@ -17,6 +20,10 @@ import {
 } from './ledgerFixtures';
 
 const ARCHIVED_AT = new Date('2026-09-25T00:00:00Z');
+
+function modeledKeyId(firmId: StoredFirmId): string {
+    return firmKeyId({ firmId, kind: FirmKeyKind.Modeled });
+}
 
 describe('fundingTotals', () => {
     it('sums nominal size in cents by stage and firm over active, non-archived accounts, evals separate', () => {
@@ -61,14 +68,18 @@ describe('fundingTotals', () => {
         });
         expect(totals.fundedNominal).toBe(3 * size + otherSize);
         expect(totals.evalNominal).toBe(size);
-        const firm = totals.byFirm.find((f) => f.firmId === EVAL_PLAN.firm.id);
+        const firm = totals.byFirm.find(
+            (f) => firmKeyId(f.firmKey) === modeledKeyId(EVAL_PLAN.firm.id),
+        );
         expect(firm?.byStage).toEqual({
             [AccountStage.Eval]: { accounts: 1, nominal: size },
             [AccountStage.Funded]: { accounts: 2, nominal: 2 * size },
             [AccountStage.Live]: { accounts: 1, nominal: size },
         });
         const other = totals.byFirm.find(
-            (f) => f.firmId === OTHER_FIRM_EVAL_PLAN.firm.id,
+            (f) =>
+                firmKeyId(f.firmKey) ===
+                modeledKeyId(OTHER_FIRM_EVAL_PLAN.firm.id),
         );
         expect(other?.byStage[AccountStage.Funded]).toEqual({
             accounts: 1,
@@ -78,10 +89,10 @@ describe('fundingTotals', () => {
             accounts: 0,
             nominal: 0,
         });
-        expect(totals.byFirm.map((f) => f.firmId)).toEqual(
-            [EVAL_PLAN.firm.id, OTHER_FIRM_EVAL_PLAN.firm.id].toSorted(
-                compareText,
-            ),
+        expect(totals.byFirm.map((f) => firmKeyId(f.firmKey))).toEqual(
+            [EVAL_PLAN.firm.id, OTHER_FIRM_EVAL_PLAN.firm.id]
+                .toSorted(compareText)
+                .map((firmId) => modeledKeyId(firmId)),
         );
     });
 
@@ -108,9 +119,11 @@ describe('fundingTotals', () => {
                 ],
             }),
         );
-        expect(totals.byFirm.map((firm) => firm.firmId)).toEqual([removed]);
+        expect(totals.byFirm.map((firm) => firm.firmKey)).toEqual([
+            { firmId: removed, kind: FirmKeyKind.Modeled },
+        ]);
         expect(totals.fundedNominal).toBe(EVAL_PLAN.plan.id.accountSize * 100);
-        expectTypeOf<FirmFunding['firmId']>().toEqualTypeOf<StoredFirmId>();
+        expectTypeOf<FirmFunding['firmKey']>().toEqualTypeOf<FirmKey>();
     });
 
     it('is all zeros for an empty ledger', () => {

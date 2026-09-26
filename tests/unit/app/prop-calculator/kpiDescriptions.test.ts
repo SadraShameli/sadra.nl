@@ -17,6 +17,7 @@ import {
     fraction,
     newFundedCycleTrackerAfterReset,
     PolicySizing,
+    RetryKind,
     SIM_DEFAULTS,
     TRADING_DAYS_PER_MONTH,
     withFundedResetTaken,
@@ -39,6 +40,35 @@ const PROP_CALCULATOR_WEB_ROOT = path.join(
     '(app)',
     'prop-calculator',
 );
+
+function namesIn(text: string, names: readonly string[]): string[] {
+    return names.filter((name) =>
+        new RegExp(String.raw`\b${name}\b`, 'i').test(text),
+    );
+}
+
+const GENERIC_FIRM_NAME_WORDS = new Set([
+    'funded',
+    'funding',
+    'futures',
+    'my',
+    'profit',
+    'take',
+    'trader',
+    'trading',
+]);
+
+function firmNameForms(displayName: string): string[] {
+    const words = displayName.split(/\s+/);
+    const prefixes = words.map((_word, index) =>
+        words.slice(0, index + 1).join(' '),
+    );
+    const initials =
+        words.length > 1 ? [words.map((word) => word[0]).join('')] : [];
+    return [...prefixes, ...words, ...initials].filter(
+        (form) => !GENERIC_FIRM_NAME_WORDS.has(form.toLowerCase()),
+    );
+}
 
 function sourceFilesUnder(directory: string): string[] {
     return readdirSync(directory, { recursive: true, withFileTypes: true })
@@ -176,5 +206,67 @@ describe('monthlyNet tooltip matches the engine for every plan and form input (T
         expect(run.tracker.fundedResetsUsed).toBe(1);
         expect(run.tracker.lastPayoutBalance).toBe(fundedStartBalance);
         expect(run.tracker.payoutsIssued).toBe(0);
+    });
+});
+
+describe('the cost and cash-flow tooltips name no re-buy firm by hand (N-84, WP52b)', () => {
+    const rebuyPlans = ALL_FIRMS.flatMap((firm) =>
+        firm.plans
+            .filter((plan) => plan.fees.retry === RetryKind.Rebuy)
+            .map((plan) => ({ firm, plan })),
+    );
+    const retryTexts = {
+        cashFlow: panelDescriptions.cashFlow,
+        totalCost: kpiDescriptions.totalCost,
+    };
+
+    it('the firm data still has plans whose every retry is a re-buy', () => {
+        expect(rebuyPlans.length).toBeGreaterThan(0);
+    });
+
+    function firmMentionsIn(text: string): string[] {
+        const firmNames = ALL_FIRMS.flatMap((firm) => [
+            firm.id,
+            ...firmNameForms(firm.displayName),
+        ]);
+        const planNames = rebuyPlans.map(({ plan }) =>
+            plan.label.replace(/^\$\d+K · /, ''),
+        );
+        const parenthesised = text.match(/\(\s*[A-Z][^)]*\)/g) ?? [];
+        return [
+            ...namesIn(text, [...firmNames, ...planNames]),
+            ...parenthesised,
+        ];
+    }
+
+    it.each([
+        'on MFF plans every retry is a re-buy',
+        'a re-buy on plans where every retry is a re-buy (MFF)',
+        'a re-buy on plans where every retry is a re-buy (Acme)',
+        'TPT and FTMO re-buy every retry',
+        'E8 plans re-buy, as do Alpha plans',
+        'Take Profit plans re-buy every retry',
+        'plans such as Rapid re-buy every retry',
+    ])('the firm-mention check flags %j', (probe) => {
+        expect(firmMentionsIn(probe)).not.toEqual([]);
+    });
+
+    it.each(Object.entries(retryTexts))(
+        '%s names no firm and no re-buy plan',
+        (_key, text) => {
+            expect(firmMentionsIn(text)).toEqual([]);
+        },
+    );
+
+    it('totalCost still says a plan whose every retry is a re-buy bills the re-buy', () => {
+        expect(kpiDescriptions.totalCost).toContain(
+            'a re-buy on plans where every retry is a re-buy, otherwise the cheaper of a reset and a re-buy.',
+        );
+    });
+
+    it('cashFlow still says the re-buy applies when the plan has no reset or every retry on it is a re-buy', () => {
+        expect(panelDescriptions.cashFlow).toContain(
+            'or at the re-buy when the plan has no reset or every retry on it is a re-buy, for as long as the timeline has days left;',
+        );
     });
 });

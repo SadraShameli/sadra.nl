@@ -17,6 +17,8 @@ import { createTRPCRouter } from '~/server/api/trpc';
 import { propSizingDecision } from '~/server/db/schemas/prop';
 
 import {
+    assertModeledForOperation,
+    ModeledOperation,
     propMutationProcedure,
     propProcedure,
     PropRouterBucket,
@@ -33,7 +35,10 @@ export const propDecisionRouter = createTRPCRouter({
             ctx.db.transaction(async (tx) => {
                 const quotas = await PropQuotaGuard.acquire(tx, ctx.userId);
                 const repo = new PropAccountRepo(tx, ctx.userId);
-                await repo.loadOwnedAccountOrThrow(input.accountId);
+                const account = await repo.loadOwnedAccountOrThrow(
+                    input.accountId,
+                );
+                assertModeledForOperation(account, ModeledOperation.PlanRules);
                 if (input.snapshotId !== null) {
                     await repo.loadOwnedSnapshotOrThrow(
                         input.snapshotId,

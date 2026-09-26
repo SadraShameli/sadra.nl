@@ -3,6 +3,7 @@ import { type AccountAlert } from './AccountAlert';
 import {
     type AlertContext,
     isActive,
+    isModeledMonitored,
     type MonitoredAccount,
 } from './AlertContext';
 import { AlertKind } from './AlertKind';
@@ -19,6 +20,7 @@ export class EvalDayCapRule extends AccountAlertRule {
     ): AccountAlert | null {
         if (
             !isActive(monitored) ||
+            !isModeledMonitored(monitored) ||
             monitored.account.stage !== AccountStage.Eval ||
             monitored.plan.kind !== PlanKeyResolutionKind.Resolved
         ) {

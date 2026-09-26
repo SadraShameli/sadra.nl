@@ -13,9 +13,11 @@ import {
     evalPace,
     type EvalPace,
     MAX_WALK_WORK,
+    type Quantity,
     requiredR,
     twoBarrierExpectedTrades,
     twoBarrierPassProbability,
+    walkPassProbability,
 } from '~/lib/prop-calculator/economics';
 
 const FORTY_AT_ONE_TO_TWO_EXPECTED_TRADES = 59.51084082420812;
@@ -461,4 +463,119 @@ describe('evalPace', () => {
             }).reason,
         ).toBe(EconomicsReason.InvalidInput);
     });
+});
+
+function fortyAtOneToTwoPassAt(drawdown: number): Fraction0to1 | null {
+    return walkPassProbability({
+        drawdown: dollars(drawdown),
+        riskPerTrade: dollars(300),
+        rrRatio: 2,
+        target: dollars(3000),
+        winrate: fraction(0.4),
+    }).value;
+}
+
+describe('walkPassProbability', () => {
+    const fiftyFiftyEval = {
+        drawdown: dollars(2000),
+        riskPerTrade: dollars(200),
+        rrRatio: 1,
+        target: dollars(3000),
+        winrate: fraction(0.5),
+    };
+
+    it('gives the pass probability of the exact walk, labelled a random-walk approximation', () => {
+        const pass = walkPassProbability(fiftyFiftyEval);
+        expect(pass.reason).toBeNull();
+        expect(pass.value).toBeCloseTo(0.4, 9);
+        expect(pass.disclosures).toStrictEqual([
+            EconomicsDisclosure.RandomWalkApproximation,
+        ]);
+    });
+
+    it('solves a drawdown between two multiples of the risk as the next multiple, the optimism its disclosure states', () => {
+        const justAboveSixRisks = fortyAtOneToTwoPassAt(1801);
+        expect(justAboveSixRisks).not.toBeNull();
+        expect(justAboveSixRisks).toBe(fortyAtOneToTwoPassAt(2100));
+        expect(fortyAtOneToTwoPassAt(1800)).toBeLessThan(
+            justAboveSixRisks ?? NaN,
+        );
+        expect(
+            ECONOMICS_DISCLOSURE_TEXT[
+                EconomicsDisclosure.RandomWalkApproximation
+            ],
+        ).toContain(
+            'optimistic when the drawdown is not a whole multiple of the risk',
+        );
+    });
+
+    it('brands the pass probability as a fraction', () => {
+        expectTypeOf(walkPassProbability).returns.toEqualTypeOf<
+            Quantity<Fraction0to1>
+        >();
+    });
+
+    it.each([
+        { name: 'the 50/50 eval', override: {} },
+        { name: '40% at 1:2', override: { rrRatio: 2, winrate: 0.4 } },
+        {
+            name: 'a two-decimal 1:1.37 at 100 risk',
+            override: { riskPerTrade: 100, rrRatio: 1.37, winrate: 0.45 },
+        },
+        {
+            name: 'a 1:0.5 negative edge',
+            override: { rrRatio: 0.5, winrate: 0.6 },
+        },
+        { name: 'a target already reached', override: { target: 0 } },
+        { name: 'a strategy that never wins', override: { winrate: 0 } },
+        { name: 'a strategy that always wins', override: { winrate: 1 } },
+        { name: 'an unrepresentable 1:pi', override: { rrRatio: Math.PI } },
+        {
+            name: 'a grid too large at 0.0001 risk',
+            override: { riskPerTrade: 0.0001 },
+        },
+        { name: 'a zero risk', override: { riskPerTrade: 0 } },
+        { name: 'a negative risk', override: { riskPerTrade: -200 } },
+        { name: 'a winrate above one', override: { winrate: 1.5 } },
+        { name: 'a zero reward:risk', override: { rrRatio: 0 } },
+        { name: 'a negative drawdown', override: { drawdown: -1 } },
+        { name: 'a negative target', override: { target: -1 } },
+        {
+            name: 'a non-finite drawdown',
+            override: { drawdown: Infinity },
+        },
+    ])(
+        'validates like evalPace and gives its pass probability or reason for $name',
+        ({ override }) => {
+            const raw = {
+                drawdown: 2000,
+                riskPerTrade: 200,
+                rrRatio: 1,
+                target: 3000,
+                winrate: 0.5,
+                ...override,
+            };
+            const inputs = {
+                drawdown: dollars(raw.drawdown),
+                riskPerTrade: dollars(raw.riskPerTrade),
+                rrRatio: raw.rrRatio,
+                target: dollars(raw.target),
+                winrate: fraction(raw.winrate),
+            };
+            const pace = evalPace(inputs);
+            expect(walkPassProbability(inputs)).toStrictEqual(
+                pace.value === null
+                    ? {
+                          disclosures: pace.disclosures,
+                          reason: pace.reason,
+                          value: null,
+                      }
+                    : {
+                          disclosures: pace.disclosures,
+                          reason: null,
+                          value: pace.value.passProbability,
+                      },
+            );
+        },
+    );
 });

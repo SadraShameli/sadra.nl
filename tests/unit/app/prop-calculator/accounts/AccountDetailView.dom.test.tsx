@@ -9,9 +9,11 @@ import {
     AccountEventKind,
     AccountStage,
     AccountStatus,
+    AccountTracking,
     DashboardBalanceConvention,
     FeeKind,
     feePrefillCents,
+    formatUsdCents,
     PayoutStatus,
     SnapshotSource,
     usdCents,
@@ -119,6 +121,9 @@ vi.mock('~/trpc/react', () => ({
                 list: harness.query('account.list'),
                 remove: harness.mutation('account.remove'),
                 unarchive: harness.mutation('account.unarchive'),
+                upgradeToModeled: harness.mutation(
+                    'account.upgradeToModeled',
+                ),
             },
             copyGroup: { list: harness.query('copyGroup.list') },
             event: {
@@ -126,6 +131,7 @@ vi.mock('~/trpc/react', () => ({
                 listForAccount: harness.query('event.listForAccount'),
                 record: harness.mutation('event.record'),
             },
+            externalFirm: { list: harness.query('externalFirm.list') },
             fee: {
                 create: harness.mutation('fee.create'),
                 list: harness.query('fee.list'),
@@ -140,6 +146,7 @@ vi.mock('~/trpc/react', () => ({
             },
             rulebook: { get: harness.query('rulebook.get') },
             snapshot: {
+                create: harness.mutation('snapshot.create'),
                 latestForAll: harness.query('snapshot.latestForAll'),
                 listForAccount: harness.query('snapshot.listForAccount'),
                 remove: harness.mutation('snapshot.remove'),
@@ -205,6 +212,7 @@ function account(
         createdAt: new Date('2026-08-01T12:00:00Z'),
         dashboardConvention: DashboardBalanceConvention.Nominal,
         externalAlias: null,
+        externalFirmId: null,
         firmId: FirmId.Apex,
         firstFundedTradeOn: null,
         fundedOn: null,
@@ -214,6 +222,7 @@ function account(
         notes: null,
         optIns: {},
         personalRules: {},
+        planLabel: null,
         planRulesFingerprint: null,
         planSerial: serializePlanId(PLAN.id),
         purchasedOn: '2026-08-03',
@@ -222,6 +231,7 @@ function account(
         stage: AccountStage.Eval,
         status: AccountStatus.Active,
         tags: [],
+        tracking: AccountTracking.Modeled,
         updatedAt: new Date('2026-08-01T12:00:00Z'),
         userId: USER_ID,
         ...overrides,
@@ -530,6 +540,31 @@ describe('AccountDetailView', () => {
         expect(container.querySelectorAll('section')).toHaveLength(0);
     });
 
+    it('warns instead of silently naming the firm of your own unlisted when the firm list fails to load', () => {
+        answerEverything({
+            'account.get': answer(
+                account(BRAVO_ID, 'Bravo', {
+                    externalFirmId: 'e1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d',
+                    firmId: null,
+                    planLabel: 'Hola 100K',
+                    planSerial: null,
+                    tracking: AccountTracking.LedgerOnly,
+                }),
+            ),
+            'externalFirm.list': {
+                data: undefined,
+                error: new Error('Failed to fetch'),
+                isError: true,
+                isPending: false,
+            },
+        });
+        render();
+        expect(container.textContent).toContain(
+            'Your firms could not be loaded',
+        );
+        expect(container.textContent).toContain('Failed to fetch');
+    });
+
     it('asks through an AlertDialog before deleting a payout, returns focus to the trigger on cancel and deletes on confirm', async () => {
         answerEverything();
         render();
@@ -619,6 +654,18 @@ describe('AccountDetailView', () => {
         await pickOption(inputLabelled(fees, 'Fee kind'), 'Activation fee');
         expect((inputLabelled(fees, 'Amount') as HTMLInputElement).value).toBe(
             '123.45',
+        );
+    });
+
+    it('shows the list price and the difference on each fee row', () => {
+        answerEverything({ 'fee.list': answer([fee({ amountCents: 47_000 })]) });
+        render();
+        const fees = sectionTitled('Fees');
+        const listPrice = feePrefillCents(PLAN, FeeKind.EvalPurchase);
+        if (listPrice === null) throw new Error('the plan has no eval price');
+        expect(fees.textContent).toContain(formatUsdCents(usdCents(listPrice)));
+        expect(fees.textContent).toContain(
+            formatUsdCents(usdCents(47_000 - listPrice)),
         );
     });
 
@@ -760,6 +807,7 @@ describe('AccountDetailView', () => {
         await flush();
         expect(harness.mutateAsyncOf('payout.create')).toHaveBeenCalledWith({
             accountId: BRAVO_ID,
+            approvedOn: null,
             grossCents: 123_456,
             netCents: null,
             note: null,
@@ -768,6 +816,24 @@ describe('AccountDetailView', () => {
             status: PayoutStatus.Requested,
         });
         expect(harness.invalidate).toHaveBeenCalled();
+    });
+
+    it('shows the approval date column and records a payout approval date', async () => {
+        answerEverything({
+            'payout.list': answer([payout({ approvedOn: '2026-09-11' })]),
+        });
+        render();
+        const payouts = sectionTitled('Payouts');
+        expect(payouts.textContent).toContain('2026-09-11');
+        typeInto(inputLabelled(payouts, 'Gross amount'), '500');
+        typeInto(inputLabelled(payouts, 'Approved on'), '2026-09-30');
+        await act(async () => {
+            buttonLabelled(payouts, 'Add payout').click();
+        });
+        await flush();
+        expect(harness.mutateAsyncOf('payout.create')).toHaveBeenCalledWith(
+            expect.objectContaining({ approvedOn: '2026-09-30' }),
+        );
     });
 
     it('offers only the lifecycle events the stored account accepts', async () => {
@@ -1006,6 +1072,7 @@ describe('AccountDetailView', () => {
         typeInto(inputLabelled(payouts, 'Net received'), '450');
         await submit(payouts, 'Save payout');
         expect(harness.mutateAsyncOf('payout.update')).toHaveBeenCalledWith({
+            approvedOn: null,
             grossCents: 50_000,
             id: PAYOUT_ID,
             netCents: 45_000,
@@ -1096,6 +1163,7 @@ describe('AccountDetailView', () => {
                         stage: AccountStage.Eval,
                         status: AccountStatus.Active,
                     }}
+                    tracking={AccountTracking.Modeled}
                 />,
             );
         });
@@ -1134,6 +1202,7 @@ describe('AccountDetailView', () => {
                         stage: AccountStage.Eval,
                         status: AccountStatus.Active,
                     }}
+                    tracking={AccountTracking.Modeled}
                 />,
             );
         });

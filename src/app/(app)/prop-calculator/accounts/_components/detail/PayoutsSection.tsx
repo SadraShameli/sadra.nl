@@ -58,6 +58,7 @@ import { useRowEditing } from './useRowEditing';
 type PayoutRow = RouterOutputs['propAccounts']['payout']['list'][number];
 
 const payoutFormShape = z.object({
+    approvedOn: z.string(),
     grossCents: z.string(),
     netCents: z.string(),
     note: z.string(),
@@ -110,6 +111,7 @@ export function PayoutsSection({
                                 <TableHead className="text-right">
                                     Received
                                 </TableHead>
+                                <TableHead>Approved on</TableHead>
                                 <TableHead>Paid on</TableHead>
                                 <TableHead>Note</TableHead>
                                 <TableHead>
@@ -133,6 +135,9 @@ export function PayoutsSection({
                                         {row.netCents === null
                                             ? 'net not entered'
                                             : formatUsdCents(row.netCents)}
+                                    </TableCell>
+                                    <TableCell className="tabular-nums">
+                                        {row.approvedOn ?? ''}
                                     </TableCell>
                                     <TableCell className="tabular-nums">
                                         {row.paidOn ?? ''}
@@ -201,7 +206,7 @@ function DateField({
 }: {
     readonly control: Control<PayoutFormValues>;
     readonly label: string;
-    readonly name: 'paidOn' | 'requestedOn';
+    readonly name: 'approvedOn' | 'paidOn' | 'requestedOn';
 }) {
     return (
         <FormField
@@ -222,6 +227,7 @@ function DateField({
 
 function emptyPayoutValues(): PayoutFormValues {
     return {
+        approvedOn: '',
         grossCents: '',
         netCents: '',
         note: '',
@@ -299,6 +305,7 @@ function PayoutForm({
                 toast.success('Payout recorded');
             } else {
                 await update.mutateAsync({
+                    approvedOn: draft.approvedOn,
                     grossCents: draft.grossCents,
                     id: editing.id,
                     netCents: draft.netCents,
@@ -364,6 +371,11 @@ function PayoutForm({
                             <FormMessage />
                         </FormItem>
                     )}
+                />
+                <DateField
+                    control={form.control}
+                    label="Approved on"
+                    name="approvedOn"
                 />
                 <DateField
                     control={form.control}
@@ -444,6 +456,7 @@ function payoutFormSchema(accountId: string) {
         }
         const parsed = payoutCreateSchema.safeParse({
             accountId,
+            approvedOn: nullIfBlank(values.approvedOn),
             grossCents: gross.cents,
             netCents: net.kind === EntryTextKind.Valid ? net.cents : null,
             note: nullIfBlank(values.note),
@@ -457,6 +470,7 @@ function payoutFormSchema(accountId: string) {
 
 function storedPayoutValues(row: PayoutRow): PayoutFormValues {
     return {
+        approvedOn: row.approvedOn ?? '',
         grossCents: usdCentsToText(row.grossCents),
         netCents: row.netCents === null ? '' : usdCentsToText(row.netCents),
         note: row.note ?? '',

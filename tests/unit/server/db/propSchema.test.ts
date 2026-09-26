@@ -353,6 +353,13 @@ describe('prop schema', () => {
                 'external_firm_id',
             ],
             [
+                account,
+                'external_firm_id,user_id',
+                EXTERNAL_FIRM_TABLE,
+                'id,user_id',
+                'external_firm_id',
+            ],
+            [
                 violation,
                 'decision_id,account_id,user_id',
                 DECISION_TABLE,
@@ -572,6 +579,7 @@ describe('prop schema', () => {
             [ACCOUNT_TABLE, 'copy_group_id,user_id'],
             [ACCOUNT_TABLE, 'replaces_account_id,user_id'],
             [ACCOUNT_TABLE, 'round_id,user_id'],
+            [ACCOUNT_TABLE, 'external_firm_id,user_id'],
             ['sadranl_prop_sizing_decision', 'snapshot_id,account_id,user_id'],
             [ROUND_TABLE, 'external_firm_id,user_id'],
             [VIOLATION_TABLE, 'decision_id,account_id,user_id'],
@@ -690,12 +698,13 @@ describe('prop schema', () => {
         expect(enumColumns).toBeGreaterThanOrEqual(19);
     });
 
-    it('gives no varchar column a DB default', () => {
+    it('gives no varchar column a DB default except the account tracking backfill', () => {
         for (const config of CONFIGS) {
             for (const column of config.columns) {
                 if (!column.getSQLType().startsWith('varchar')) continue;
-                expect(column.hasDefault, `${config.name}.${column.name}`).toBe(
-                    false,
+                const qualified = `${config.name}.${column.name}`;
+                expect(column.hasDefault, qualified).toBe(
+                    qualified === `${ACCOUNT_TABLE}.tracking`,
                 );
             }
         }
@@ -976,6 +985,221 @@ describe('prop schema: video record tables', () => {
         expect(expressions).toContain(
             'paid_on IS NULL OR approved_on IS NULL OR paid_on >= approved_on',
         );
+    });
+});
+
+type CheckRow = Readonly<Record<string, null | string>>;
+
+type CheckValue = boolean | null | string;
+
+class CheckEvaluator {
+    private position = 0;
+    private readonly tokens: readonly string[];
+
+    constructor(
+        expression: string,
+        private readonly row: CheckRow,
+    ) {
+        this.tokens =
+            expression.match(/'[^']*'|<>|[()=]|[A-Za-z_]+/g)?.map(String) ?? [];
+    }
+
+    private assertConsumed(): void {
+        if (this.position !== this.tokens.length) {
+            throw new Error(
+                `unparsed check tail at ${this.tokens[this.position] ?? ''}`,
+            );
+        }
+    }
+
+    private comparison(): CheckValue {
+        const left = this.operand();
+        if (this.peekWord('IS')) {
+            this.position += 1;
+            const isNegated = this.peekWord('NOT');
+            if (isNegated) this.position += 1;
+            this.expectWord('NULL');
+            return isNegated ? left !== null : left === null;
+        }
+        const operator = this.tokens[this.position];
+        if (operator !== '=' && operator !== '<>') return left;
+        this.position += 1;
+        const right = this.operand();
+        if (left === null || right === null) return null;
+        return operator === '=' ? left === right : left !== right;
+    }
+
+    private conjunction(): CheckValue {
+        let value = this.comparison();
+        while (this.peekWord('AND')) {
+            this.position += 1;
+            value = sqlAnd(value, this.comparison());
+        }
+        return value;
+    }
+
+    private disjunction(): CheckValue {
+        let value = this.conjunction();
+        while (this.peekWord('OR')) {
+            this.position += 1;
+            value = sqlOr(value, this.conjunction());
+        }
+        return value;
+    }
+
+    private expectWord(word: string): void {
+        if (!this.peekWord(word)) {
+            throw new Error(
+                `expected ${word} at ${this.tokens[this.position] ?? 'end'}`,
+            );
+        }
+        this.position += 1;
+    }
+
+    private operand(): CheckValue {
+        const token = this.tokens[this.position] ?? '';
+        this.position += 1;
+        if (token === '(') {
+            const value = this.disjunction();
+            this.expectWord(')');
+            return value;
+        }
+        if (token.startsWith("'")) return token.slice(1, -1);
+        if (!Object.hasOwn(this.row, token)) {
+            throw new Error(`unknown column ${token}`);
+        }
+        return this.row[token] ?? null;
+    }
+
+    private peekWord(word: string): boolean {
+        return this.tokens[this.position]?.toUpperCase() === word;
+    }
+
+    evaluate(): boolean {
+        const value = this.disjunction();
+        this.assertConsumed();
+        return value === true;
+    }
+}
+
+function isAcceptedByAccountShape(row: CheckRow): boolean {
+    const expression = checkExpressions(configNamed(ACCOUNT_TABLE)).find(
+        (candidate) => candidate.includes('tracking'),
+    );
+    if (expression === undefined) throw new Error('no tracking check');
+    return new CheckEvaluator(expression, row).evaluate();
+}
+
+function sqlAnd(left: CheckValue, right: CheckValue): CheckValue {
+    const values = [left, right];
+    if (values.includes(false)) return false;
+    return values.includes(null) ? null : values.every(Boolean);
+}
+
+function sqlOr(left: CheckValue, right: CheckValue): CheckValue {
+    const values = [left, right];
+    if (values.includes(true)) return true;
+    return values.includes(null) ? null : values.some(Boolean);
+}
+
+const MODELED_ACCOUNT: CheckRow = {
+    external_firm_id: null,
+    firm_id: 'mffu',
+    plan_label: null,
+    plan_serial: 'mffu-rapid-50000',
+    tracking: 'modeled',
+};
+
+const LEDGER_ONLY_AT_MODELED_FIRM: CheckRow = {
+    external_firm_id: null,
+    firm_id: 'mffu',
+    plan_label: 'Rapid 150K',
+    plan_serial: null,
+    tracking: 'ledger-only',
+};
+
+const LEDGER_ONLY_AT_EXTERNAL_FIRM: CheckRow = {
+    external_firm_id: '0b8c7f0e-6f3a-4f55-9a3e-8f4c1d2e3a4b',
+    firm_id: null,
+    plan_label: 'Hola Prime 100K',
+    plan_serial: null,
+    tracking: 'ledger-only',
+};
+
+describe('prop schema: ledger-only accounts', () => {
+    it('adds a tracking column that backfills every existing account as modeled', () => {
+        const tracking = columnNamed(configNamed(ACCOUNT_TABLE), 'tracking');
+        expect(tracking.getSQLType()).toBe('varchar(32)');
+        expect(tracking.notNull).toBe(true);
+        expect(tracking.default).toBe('modeled');
+    });
+
+    it('makes the firm and plan serial nullable and adds a plan label and an external firm', () => {
+        const account = configNamed(ACCOUNT_TABLE);
+        expect(columnNamed(account, 'firm_id').notNull).toBe(false);
+        expect(columnNamed(account, 'plan_serial').notNull).toBe(false);
+        expect(columnNamed(account, 'plan_label').getSQLType()).toBe(
+            'varchar(64)',
+        );
+        expect(columnNamed(account, 'plan_label').notNull).toBe(false);
+        expect(columnNamed(account, 'external_firm_id').getSQLType()).toBe(
+            'uuid',
+        );
+        expect(columnNamed(account, 'external_firm_id').notNull).toBe(false);
+        expect(checkExpressions(account)).toContain(
+            'plan_label IS NULL OR char_length(plan_label) > 0',
+        );
+    });
+
+    it('accepts a modeled row and a ledger-only row at a modeled or an external firm', () => {
+        expect(isAcceptedByAccountShape(MODELED_ACCOUNT)).toBe(true);
+        expect(isAcceptedByAccountShape(LEDGER_ONLY_AT_MODELED_FIRM)).toBe(
+            true,
+        );
+        expect(isAcceptedByAccountShape(LEDGER_ONLY_AT_EXTERNAL_FIRM)).toBe(
+            true,
+        );
+    });
+
+    it.each([
+        ['a modeled row without a firm', { ...MODELED_ACCOUNT, firm_id: null }],
+        [
+            'a modeled row without a plan serial',
+            { ...MODELED_ACCOUNT, plan_serial: null },
+        ],
+        [
+            'a modeled row with a plan label',
+            { ...MODELED_ACCOUNT, plan_label: 'Rapid 50K' },
+        ],
+        [
+            'a modeled row with an external firm',
+            {
+                ...MODELED_ACCOUNT,
+                external_firm_id: '0b8c7f0e-6f3a-4f55-9a3e-8f4c1d2e3a4b',
+            },
+        ],
+        [
+            'a ledger-only row with a plan serial',
+            { ...LEDGER_ONLY_AT_MODELED_FIRM, plan_serial: 'mffu-rapid-50000' },
+        ],
+        [
+            'a ledger-only row without a plan label',
+            { ...LEDGER_ONLY_AT_MODELED_FIRM, plan_label: null },
+        ],
+        [
+            'a ledger-only row with both firm columns',
+            { ...LEDGER_ONLY_AT_EXTERNAL_FIRM, firm_id: 'mffu' },
+        ],
+        [
+            'a ledger-only row with no firm column',
+            { ...LEDGER_ONLY_AT_EXTERNAL_FIRM, external_firm_id: null },
+        ],
+        [
+            'an unknown tracking value',
+            { ...MODELED_ACCOUNT, tracking: 'guessed' },
+        ],
+    ] as const)('rejects %s in the database', (_name, row) => {
+        expect(isAcceptedByAccountShape(row)).toBe(false);
     });
 });
 

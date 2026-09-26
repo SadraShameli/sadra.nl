@@ -254,7 +254,7 @@ function placementLabel(
         placedFundedRiskAt(dollar, positionSizing),
     );
     const placed = dollars.map((dollar) =>
-        placedFundedRiskAt(dollar, positionSizing, plan ?? undefined),
+        placedFundedRiskAt(dollar, positionSizing, plan),
     );
     const capped = placed.some((placement) => placement.isCapped)
         ? `, capped at ${fundedPlacementText(placed, positionSizing)} by ${FUNDED_START_TIER_CONTRACT_LIMIT}`

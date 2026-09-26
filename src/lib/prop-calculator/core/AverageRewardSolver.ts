@@ -68,6 +68,7 @@ export type FundedGridConfig = Pick<
     | 'maxPreLockOffsetMultiple'
     | 'minRetainedCushion'
     | 'payoutRegimeCap'
+    | 'payoutRequestPolicy'
     | 'payoutRequestSize'
     | 'positionSizing'
     | 'rungSizing'

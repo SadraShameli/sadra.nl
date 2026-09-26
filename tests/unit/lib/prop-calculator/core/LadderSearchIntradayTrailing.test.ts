@@ -221,7 +221,7 @@ describe('scoreLadder agrees with the simulator on intraday trailing plans', () 
 });
 
 describe('scoreLadder passes through Plan.isPassed', () => {
-    it('passes TPT at twice the target after a consistency violation, as the simulator does', () => {
+    it('never passes TPT within the window once a consistency violation leaves 2x that best day out of reach (Rule 5, N-79)', () => {
         const plan = new TakeProfitTrader().findPlan({
             accountSize: 50_000,
             firm: FirmId.Tpt,
@@ -236,7 +236,7 @@ describe('scoreLadder passes through Plan.isPassed', () => {
             scripted([0.1, 0.4, 0.4, 0.9]),
         );
 
-        expect(score.passRate).toBe(1);
-        expect(score.meanDaysOnPass).toBe(3);
+        expect(score.passRate).toBe(0);
+        expect(score.meanDaysOnFail).toBe(4);
     });
 });

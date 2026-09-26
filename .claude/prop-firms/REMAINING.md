@@ -1,6 +1,6 @@
 # Prop Firm Docs: Remaining Work
 
-Open work across `.claude/prop-firms/`, as of **2026-09-20**. Read
+Open work across `.claude/prop-firms/`, as of **2026-09-26**. Read
 [CONVENTIONS.md](CONVENTIONS.md) first: it is the spec this tree is held to,
 and every item below is phrased in its terms.
 
@@ -18,7 +18,7 @@ and record the result in that firm's own `SOURCES.md`, not in this file.
 | lucid        | 6          | 60                  | 173               | 4 (5th, the Trader Agreement, blocked, see item 1) | Done 2026-09-20      |
 | mffu         | 5          | 52                  | 4                 | 3               | Done 2026-09-20      |
 | topstep      | 6          | 41                  | 0                 | 5               | Done 2026-09-20      |
-| tpt          | 2          | 87 (repaired cache) | 71                | 2               | Done 2026-09-20      |
+| tpt          | 2          | 88 (repaired cache; 87 on 2026-09-20, +1 found live 2026-09-26, PT-71c) | 71                | 2               | Done 2026-09-20      |
 | tradeify     | 5          | 76 (repaired cache) | 3                 | 1 (re-read) + 3 | Done 2026-09-20      |
 | ftmo-futures | 3          | 73 (single sitemap, no separate help-center domain) | — | 1 (Global Evaluation T&C PDF) | Not run — see note below |
 
@@ -128,6 +128,14 @@ were finally read:
   (`lucidtrading.com`, `takeprofittrader.com`), worked around this pass via a
   user browser-console script (`fetch()` from an authenticated tab); the same
   approach will be needed for any future re-read of those two domains.
+  **Update, 2026-09-26 (PT-71c):** `https://takeprofittrader.com/` itself now
+  returns HTTP 200 to a direct fetch, confirming only the flat $130 PRO
+  Activation Fee and the five account-size labels; `/pricing`,
+  `/api/subscriptions/products`, `/checkout`, `/faq`, `/rules`, `/terms`, and
+  `/pro-plus` all still return 403. `lucidtrading.com` and every path under it
+  (`/`, `/checkout/`, `/pricing/`, `/lucidpro/`, `/terms-of-use/`) were
+  re-probed the same day and are all still 403. See section 8 below for the
+  still-open needs-paste pages this leaves.
 - **Product/pricing pages** (the fourth item in the original per-firm target
   list) were not systematically re-swept this pass; the legal-document sweep
   focused on Terms/Privacy/Refund/signed-agreement pages specifically, since
@@ -249,6 +257,8 @@ direction of work is unfinished.
 
 **e8futures, 2026-09-23:** a main-site re-check (`e8futures.com` pages, embedded product config and pricing code) raised `signature.md` + `zero.md` from 15 to 23 Not Confirmed bullets. It resolved some items: Signature's list prices, Zero's 80%-share list prices, and the "$7.000" cap formatting. It added more: live discount-code conflicts between E8's own pages, the NinjaTrader banner, a Best Day Rule summary-line inconsistency, and engine mismatches (Signature micro cap, list-vs-discounted eval fees, $50K-only sizes). The tree-wide total above is not recounted.
 
+**2026-09-26, PT-71/PT-71c:** the firm catalog and live-trigger recheck (section 8 below) both resolved and added Not Confirmed bullets across all 8 of apex, tpt, tradeify, fundednext, lucid, mffu, ftmo-futures, and alphafutures (new price conflicts, live-trigger conflicts, and needs-paste flags in several plan files; some prior Unconfirmed rows, e.g. FundedNext Rapid Pro's and Rapid Daily's FundedNext Account Max Contracts, were resolved outright). The tree-wide total above has not been recounted since and should be treated as stale until it is. e8futures and topstep were not touched by this pass; see section 8.
+
 Many are genuinely unresolvable because the firm does not publish the figure,
 and those should stay flagged. A subset would close with a targeted fetch, and
 items 1 and 3 above will resolve some as a side effect. Worth a dedicated pass
@@ -277,6 +287,159 @@ Note for future passes: the repo rule is that a documentation pass does not edit
 `src/`. Since `lint` carries `--fix`, prefer `bun run typecheck` and
 `bun run test` for verification during a docs pass, and run `lint` only when
 source changes are actually intended.
+
+## 8. PT-71 / PT-71c: firm catalog and live-trigger recheck, merged 2026-09-26
+
+**Done for 8 of 10 firms.** `.claude/plans/prop-tools-2026-09-25/firm-catalog-recheck.md`
+re-fetched every firm's own pages (marketing site, help center, public
+checkout/pricing APIs, terms) on 2026-09-26 with a researcher plus an
+independent verifier per firm, covering today's plan/size catalog with prices
+and every published live-transfer trigger. That research was merged into the
+doc trees for apex, tpt, tradeify, fundednext, lucid, mffu, ftmo-futures, and
+alphafutures (PT-71c), each going through five adversarial-check rounds
+before passing. **e8futures and topstep were left out of the docs merge**:
+both have an open engine-audit blocker (e8futures' N-40, on the Zero
+Performance scaling basis; topstep's N-53, on the Standard-path DLL XFA
+activation amount) that the recheck's own catalog/live-trigger rows don't
+settle, so their doc trees were not touched even though fresh 2026-09-26 rows
+for both firms exist in `firm-catalog-recheck.md`.
+
+**Needs-paste pages still open** (each already recorded as `needs-paste` or a
+sourcing gap in the affected plan/README files):
+
+- **Apex**, everything returns HTTP 403 (Cloudflare): the homepage
+  (`https://apextraderfunding.com/`), `/pricing/`,
+  `/help-center/billing/evaluation-plan-fees-and-access-explained/`, and
+  `/help-center/getting-started/apex-live-prop-trading-program-faq/`, plus
+  `/legacy-products/` (`legacy.md`'s own cited source for the
+  $167/$197/$297/$497/$597/$697 Legacy tiers). A paste settles sizes sold,
+  eval and PA activation prices, the 5-Pack bundles, the Legacy line, the
+  $199 Second Chance fee, and whether the 2026-09-23 pasted live-trigger
+  content is still current.
+- **TPT**: `https://takeprofittrader.com/pricing` and
+  `https://takeprofittrader.com/api/subscriptions/products`, both 403. A
+  paste settles the monthly Test subscription list price at every size (the
+  engine's 50K figure, $170, is derived only from two coupon pages, not read
+  directly).
+- **Lucid**: `https://lucidtrading.com/` and
+  `https://lucidtrading.com/checkout/`, both Cloudflare-challenge 403
+  (`/pricing/`, `/lucidpro/`, `/terms-of-use/` too). A paste settles every
+  non-Maxx list price (the engine's 50K prices rest on a 2026-09-23 paste),
+  whether LucidBlack is still sold, and whether the 25K LucidPro tier offers
+  a real DLL toggle at checkout.
+
+Tradeify, FundedNext, MFFU, FTMO Futures, and Alpha Futures had no
+needs-paste page left open by this pass (Tradeify's canonical
+`help.tradeify.co` is still 403, but the same pricing-reference article is
+mirrored, and was read, at `intercom.help/tradeify`).
+
+**Open live/pricing conflicts the docs now record** (per this tree's own
+rule: a firm-vs-firm conflict is recorded with both quotes, never resolved
+by inference):
+
+- **Tradeify**: `growth.md`'s 100K/150K reset-fee conflicts ($155 vs $169,
+  $215 vs $229, pricing reference vs homepage/`/select-plan`);
+  `select-daily.md`/`select-flex.md`'s Select 300K price conflict ($349,
+  "the version on sale now," vs $449, the article's own named legacy V1
+  price still shown elsewhere), with purchasability unsettled since the
+  logged-in checkout wasn't viewed; `elite-live.md`'s payout-count conflict
+  (3-on-one-account-or-10-total vs "typically 4-5" vs the comparison page's
+  "4 payouts (20 days)").
+- **FundedNext**: `live.md`/`flex.md`'s four-way Flex live-eligibility
+  conflict (15 rewards firm-journey-wide vs 5 reward cycles from one account
+  vs 5 reward journeys vs $100,000 Total Active Profits or 5 withdrawals);
+  `rapid-pro.md`'s Rapid Pro DLL Add-On 100K price conflict inside a single
+  article ($499.98 on its First Purchase table vs $449.98 on its Recurring
+  table); `fnl003-instant.md`'s and `README.md`'s purchasability conflict
+  (the Labs card is marked Expired with `hideCta:true`, but the checkout API
+  still prices it at $149.99 and its own `ctaHref` still points at a
+  purchase URL) and its DLL/cadence conflict (the Labs card states a $1,000
+  DLL and "Get Rewards In: 5 Days," neither of which appears in the
+  FNL:003-specific or firm-wide articles).
+- **Lucid**: `daily.md`'s Maximum Daily Profit live-transition conflict
+  (automatic, per the Payouts article, vs a discretionary review pool, per
+  the Live article); `live.md`'s Pro/Direct payout-count conflict ("Payout 5
+  final" vs "No simulated payout caps"); `live.md`'s and `daily.md`'s
+  0-payout evaluation-refund conflict (conditional on at least 50% of the
+  drawdown remaining, per the New Live Structure article's own 2026-09-23
+  edit, vs unconditional, per LucidDaily Live); LucidBlack's sale status
+  still unclear (see the needs-paste row above).
+- **MFFU**: `pro.md`'s live-trigger conflict (one article's unqualified
+  "Achieve 3 consecutive payouts, or [...]" vs the plan page's and another
+  article's review-gated framing); `builder.md`'s live-trigger conflict (the
+  plan page's "5th approved sim payout" vs a help article's "5 consecutive
+  payouts / reaching the $100k sim cap / discretion," where the $100k is
+  unreachable in 5 payouts of at most $2,000 each) and its Max Payout per
+  Cycle conflict at 150K ($3,500 on the plan page vs $4,500 in a dedicated
+  article, which also disagrees with its own $4,600-buffer prose); its
+  live-stage DLL conflict (tier-scaled, per the plan page's FAQ, vs "None,"
+  per three other Builder articles).
+- **Alpha Futures**: `zero.md`/`standard.md`/`advanced.md`'s Qualified-stage
+  monthly-fee conflict (the help center and a plain reading of the signed
+  Terms say no recurring fee once Qualified, but every Qualified product
+  card still shows a continuing $/month price, and the Terms' own clause
+  7.4.2(b) doesn't clearly settle it either way); `advanced.md`'s reopened
+  Advanced Qualified Maximum Loss Limit conflict ($2,000 in the signed
+  Terms' Schedule 2 vs $1,750 on the live product page, though the product
+  page may not distinguish the Eval and Qualified stages on this field at
+  all).
+- **Apex**: the 2026-09-23 pasted live-trigger content (discretionary move
+  to live, the $4,500 additional-live-account rule, the $199 Second Chance
+  fee) is not confirmed current; every Apex page, including the live FAQ, is
+  still 403 as of 2026-09-26.
+- **TPT**: no unresolved conflict, but a new rule was added this pass, the
+  PRO+ Development 30-Day Live-Capital Cooldown (article 39331980656925,
+  in `pro-plus-live.md`), which the engine does not yet model (see below).
+- **FTMO Futures**: no new conflicts; the 100K/150K Growth and Pro prices
+  and reset fees were added, sourced live.
+
+**Doc-vs-engine mismatches, tracked in the engine audit tracker.** The
+mismatch triage (`pt71c_triage.json`) fed seven new tracker entries,
+N-79 to N-85, each with its own fix work package (WP47 to WP53):
+
+- **N-79** (fix WP47): TPT's DoubleTarget eval-consistency pass condition.
+  The engine passes a violated eval at 2x the profit target; TPT's own Rule
+  5 instead requires net profit greater than 2x the best trading day.
+- **N-80** (fix WP48): TPT's weekly trading requirement is a calendar week
+  (Sunday-Friday) on the firm's own pages; the engine uses a rolling
+  7-session idle counter, undisclosed.
+- **N-81** (fix WP49): FundedNext Live has no lock-keyed contract cap (3
+  minis/30 micros before the MLL locks, 6/60 after) and no $2,000 withdrawal
+  floor; the source article contradicts itself on where that floor sits
+  ($2,000 in one section, $1,000 in another, open as user question U25).
+- **N-82** (fix WP49): FundedNext Rapid Daily's funded-phase contract cap
+  (4 minis/40 micros) is now published live; the engine leaves it null.
+- **N-83** (fix WP51): Lucid Pro and Pro-no-DLL gate the first payout behind
+  3 trading days; the dedicated payout article gives 0, matching how the
+  engine already treats Lucid Direct.
+- **N-84** (fix WP52): MFF Rapid is modeled with a chargeable reset; the
+  Rapid FAQ says "There is no reset," so a retry should be a re-buy
+  (`RetryKind.Rebuy`, as Builder already does). Also disclosed: the "start
+  off with 2 contracts" scaling statement (schedule unknown, U26) and the
+  MFF Pro/Rapid EOD reset prices and Rapid Live DLL, all needs-paste.
+- **N-85** (fix WP53): notes-only corrections, TPT's stale "403/third-party
+  citation" notes, Tradeify's Lightning payout-basis conflict (U27) and
+  Select add-on price ($205 eval/$135 reset at 50K, not "+$200"), and Alpha
+  Futures' Qualified monthly-fee conflict (U28).
+
+Two more mismatches are tracked outside N-79 to N-85: **FNL:003's
+Purchasable-vs-Expired availability** is prop-tools package **PT-71b** (a new
+`PlanAvailability` member); **TPT's PRO+ Development cooldown** is folded
+into **PT-35** (firm account-policy data) and **F-97** (live exclusivity and
+cooldowns). The needs-paste pages above are tracked as audit question
+**U24**; U25 to U28 above are the specific open questions the mismatch
+triage raised.
+
+**e8futures and topstep**: not rechecked by this pass. Both have fresh
+2026-09-26 catalog/live-trigger rows sitting in `firm-catalog-recheck.md`
+(e8futures' Signature/Zero MAX/Zero Starter pricing and its all-demo,
+no-live-transfer live rows; topstep's eight Combine variants across three
+sizes, Back2Funded reactivation fees, five Labs drops, and its discretionary,
+no-threshold XFA-to-LFA call-up rows), but neither firm's doc tree was
+touched, because audit items **N-40** (E8 Zero scaling: whether an unlocked
+tier survives a losing day) and **N-53** (Topstep: the Standard-path DLL
+XFA-activation discount amount) are still open blockers on those firms and
+were not resolved by this recheck.
 
 ## Cache-integrity traps found the hard way
 

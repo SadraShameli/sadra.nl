@@ -3,6 +3,7 @@ import { type AccountAlert } from './AccountAlert';
 import {
     type AlertContext,
     isActive,
+    isModeledMonitored,
     type MonitoredAccount,
 } from './AlertContext';
 import { AlertKind } from './AlertKind';
@@ -17,7 +18,9 @@ export class StaleSnapshotRule extends AccountAlertRule {
         monitored: MonitoredAccount,
         context: AlertContext,
     ): AccountAlert | null {
-        if (!isActive(monitored)) return null;
+        if (!isActive(monitored) || !isModeledMonitored(monitored)) {
+            return null;
+        }
         const snapshot = monitored.latestSnapshot;
         const stage = monitored.account.stage;
         if (snapshot === null) {

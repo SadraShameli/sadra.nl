@@ -1,18 +1,24 @@
 'use client';
 
-import { useMemo } from 'react';
-
+import { formatCurrency } from '~/lib/format';
 import {
     CorrelationMode,
+    dollars,
+    fraction,
+    type Fraction0to1,
+    LifetimeCapScope,
     type MultiAccountResult,
     type Plan,
     type RungSizing,
     simulatePortfolio,
 } from '~/lib/prop-calculator';
+import {
+    type EconomicsReason,
+    walkPassProbability,
+} from '~/lib/prop-calculator/economics';
 
 import { ComputationId } from './ComputationId';
 import { toCouponDiscounts } from './couponDiscounts';
-import { gamblersRuinAsymmetric } from './lab/labMath';
 import { partitionBySizing, type SizingRefusal } from './simulationFailure';
 import { type LabScenario } from './types';
 import { useDebouncedComputation } from './useDebouncedSimulation';
@@ -37,12 +43,33 @@ interface Arguments {
 const DEBOUNCE_MS = 600;
 const TRIALS_BASE = 400;
 const TRIALS_INDEPENDENT = 250;
-const EMPTY_RESULTS = new Map<string, MultiAccountResult>();
-const EMPTY_LAB_RESULTS = new Map<string, LabResult>();
+const EMPTY_RESULTS = new Map<string, LabResult>();
 
-type LabResult = Omit<MultiAccountResult, 'theoreticalPassProb'> & {
-    theoreticalPassProb: number | undefined;
-};
+export type LabResult = MultiAccountResult &
+    TheoreticalPass & { lifetimeCapPoolingGap: null | string };
+
+type TheoreticalPass =
+    | {
+          theoreticalPassProb: Fraction0to1;
+          theoreticalPassReason: undefined;
+      }
+    | {
+          theoreticalPassProb: undefined;
+          theoreticalPassReason: EconomicsReason;
+      };
+
+export function lifetimeCapPoolingGapNote(
+    plan: Plan,
+    accounts: number,
+): null | string {
+    const cap = plan.maxLifetimePayoutDollars;
+    return cap === null ||
+        accounts <= 1 ||
+        plan.lifetimeConclusion.dollarCapScope !==
+            LifetimeCapScope.PerUserAcrossVariant
+        ? null
+        : `${plan.label}'s ${formatCurrency(cap)} lifetime cap is per user; this projection pools it across your accounts, so combined payouts here never exceed ${formatCurrency(cap)}.`;
+}
 
 export function useLabSimulation(arguments_: Arguments): {
     error: null | string;
@@ -95,9 +122,7 @@ export function useLabSimulation(arguments_: Arguments): {
         key,
         DEBOUNCE_MS,
         () => {
-            const next = new Map<string, MultiAccountResult>();
-            const dd = plan.drawdown.amount;
-            const target = plan.profitTarget;
+            const next = new Map<string, LabResult>();
             for (const sc of sizing.accepted) {
                 const trials =
                     sc.correlation === CorrelationMode.Independent
@@ -132,27 +157,21 @@ export function useLabSimulation(arguments_: Arguments): {
                     trials,
                     winrate: sc.winrate,
                 });
-                const targetUnits =
-                    sc.riskPerTrade > 0 ? target / sc.riskPerTrade : 0;
-                const ddUnits = sc.riskPerTrade > 0 ? dd / sc.riskPerTrade : 0;
-                const theoretical = gamblersRuinAsymmetric(
-                    sc.winrate,
-                    sc.rrRatio,
-                    targetUnits,
-                    ddUnits,
-                );
-                next.set(sc.id, { ...r, theoreticalPassProb: theoretical });
+                next.set(sc.id, {
+                    ...r,
+                    ...theoreticalPass(plan, sc),
+                    lifetimeCapPoolingGap: lifetimeCapPoolingGapNote(
+                        plan,
+                        sc.accounts,
+                    ),
+                });
             }
             return next;
         },
         EMPTY_RESULTS,
     );
-    const labResults = useMemo(
-        () => toLabResults(computation.result),
-        [computation.result],
-    );
     const isPending = scenarios.length > 0 && computation.pending;
-    const results = scenarios.length === 0 ? EMPTY_LAB_RESULTS : labResults;
+    const results = scenarios.length === 0 ? EMPTY_RESULTS : computation.result;
 
     return {
         error: computation.error,
@@ -210,18 +229,15 @@ function buildCacheKey(fields: {
     });
 }
 
-function toLabResults(
-    computed: Map<string, MultiAccountResult>,
-): Map<string, LabResult> {
-    return new Map(
-        [...computed].map(([id, result]) => [
-            id,
-            {
-                ...result,
-                theoreticalPassProb: Number.isFinite(result.theoreticalPassProb)
-                    ? result.theoreticalPassProb
-                    : undefined,
-            },
-        ]),
-    );
+function theoreticalPass(plan: Plan, scenario: LabScenario): TheoreticalPass {
+    const pass = walkPassProbability({
+        drawdown: dollars(plan.drawdown.amount),
+        riskPerTrade: dollars(scenario.riskPerTrade),
+        rrRatio: scenario.rrRatio,
+        target: dollars(plan.profitTarget),
+        winrate: fraction(scenario.winrate),
+    });
+    return pass.value === null
+        ? { theoreticalPassProb: undefined, theoreticalPassReason: pass.reason }
+        : { theoreticalPassProb: pass.value, theoreticalPassReason: undefined };
 }

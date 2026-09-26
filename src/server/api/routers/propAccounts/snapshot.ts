@@ -8,15 +8,19 @@ import {
     accountStageLabel,
     accountStageOn,
     type AccountStageStarts,
+    AccountTracking,
     checkSnapshotEntry,
     compareText,
     fundedSince,
+    isLedgerOnlySnapshotField,
     type LedgerAccount,
     type MissingSnapshotField,
     missingSnapshotFields,
     NO_RECORDED_STAGE_STARTS,
     PortfolioLedger,
+    type SnapshotEntryAccount,
     snapshotEntryIssueMessage,
+    type SnapshotEntryValues,
     snapshotFieldRules,
 } from '~/lib/prop-accounts';
 import {
@@ -49,6 +53,8 @@ import {
 } from '~/server/db/schemas/prop';
 
 import {
+    assertModeledForOperation,
+    ModeledOperation,
     propMutationProcedure,
     PropMutationRejectionError,
     propProcedure,
@@ -70,19 +76,76 @@ interface SnapshotGap {
 type SnapshotInput = z.output<typeof snapshotCreateSchema>;
 
 interface StagedSnapshot {
-    readonly account: OwnedAccount;
+    readonly account: Pick<OwnedAccount, 'label'> & SnapshotEntryAccount;
     readonly plan: Plan;
-    readonly snapshot: SnapshotInput;
+    readonly snapshot: Pick<SnapshotInput, 'asOf'> & SnapshotEntryValues;
     readonly stage: AccountStage;
 }
 
+const NEW_SNAPSHOT_REMEDY = '';
+
+const SNAPSHOT_RECORD_KEYS: ReadonlySet<string> = new Set<keyof SnapshotInput>([
+    'accountId',
+    'source',
+]);
+
+const UPGRADE_SNAPSHOT_REMEDY =
+    '; remove that snapshot before upgrading and enter a new one once the account follows the plan';
+
 const mutation = propMutationProcedure(PropRouterBucket.Snapshot);
+
+export async function assertStoredSnapshotsFit(
+    repo: PropAccountRepo,
+    database: PropDatabase,
+    userId: string,
+    account: OwnedAccount,
+    plan: Plan,
+): Promise<void> {
+    const snapshots = await repo.listSnapshotsForAccount(account.id);
+    if (snapshots.length === 0) return;
+    const recorded = await loadStageStarts(
+        database,
+        userId,
+        new Map([[account.id, account]]),
+    );
+    const stageStarts = recorded.get(account.id) ?? NO_RECORDED_STAGE_STARTS;
+    const staged = snapshots.map((snapshot): StagedSnapshot => ({
+        account,
+        plan,
+        snapshot,
+        stage: accountStageOn(account, plan, stageStarts, snapshot.asOf),
+    }));
+    assertRequiredFields(staged, UPGRADE_SNAPSHOT_REMEDY);
+    assertPlausible(staged, UPGRADE_SNAPSHOT_REMEDY);
+}
 
 function accountLabelOf(
     accounts: ReadonlyMap<string, OwnedAccount>,
     snapshot: SnapshotInput,
 ): string {
     return accounts.get(snapshot.accountId)?.label ?? snapshot.accountId;
+}
+
+function assertLedgerOnlyFields(
+    input: readonly SnapshotInput[],
+    accounts: ReadonlyMap<string, OwnedAccount>,
+): void {
+    for (const snapshot of input) {
+        const account = accounts.get(snapshot.accountId);
+        if (account?.tracking !== AccountTracking.LedgerOnly) continue;
+        const hasPlanField = Object.entries(snapshot).some(
+            ([field, value]) =>
+                value !== null &&
+                !SNAPSHOT_RECORD_KEYS.has(field) &&
+                !isLedgerOnlySnapshotField(field),
+        );
+        if (hasPlanField) {
+            assertModeledForOperation(
+                account,
+                ModeledOperation.PlanSnapshotFields,
+            );
+        }
+    }
 }
 
 async function assertNotStored(
@@ -122,7 +185,10 @@ async function assertNotStored(
     );
 }
 
-function assertPlausible(staged: readonly StagedSnapshot[]): void {
+function assertPlausible(
+    staged: readonly StagedSnapshot[],
+    remedy: string,
+): void {
     const implausible = staged.flatMap((entry): ImplausibleEntry[] => {
         const { blocking } = checkSnapshotEntry(
             entry.plan,
@@ -143,11 +209,14 @@ function assertPlausible(staged: readonly StagedSnapshot[]): void {
             : '';
     throw new PropMutationRejectionError(
         PropMutationRejection.ImplausibleSnapshot,
-        `The snapshot for "${account.label}" on ${snapshot.asOf} does not fit the account in the ${accountStageLabel(stage)} stage: ${first.issues.map(snapshotEntryIssueMessage).join(' ')}${others}`,
+        `The snapshot for "${account.label}" on ${snapshot.asOf} does not fit the account in the ${accountStageLabel(stage)} stage: ${first.issues.map(snapshotEntryIssueMessage).join(' ')}${others}${remedy}`,
     );
 }
 
-function assertRequiredFields(staged: readonly StagedSnapshot[]): void {
+function assertRequiredFields(
+    staged: readonly StagedSnapshot[],
+    remedy: string,
+): void {
     const gaps = staged.flatMap((entry): SnapshotGap[] => {
         const missing = missingFieldLabels(
             missingSnapshotFields(
@@ -166,7 +235,7 @@ function assertRequiredFields(staged: readonly StagedSnapshot[]): void {
             : '';
     throw new PropMutationRejectionError(
         PropMutationRejection.MissingSnapshotField,
-        `The snapshot for "${account.label}" on ${snapshot.asOf} needs what its plan requires in the ${accountStageLabel(stage)} stage: ${first.missing.join('; ')}${others}`,
+        `The snapshot for "${account.label}" on ${snapshot.asOf} needs what its plan requires in the ${accountStageLabel(stage)} stage: ${first.missing.join('; ')}${others}${remedy}`,
     );
 }
 
@@ -176,9 +245,10 @@ async function assertStorable(
     input: readonly SnapshotInput[],
     accounts: ReadonlyMap<string, OwnedAccount>,
 ): Promise<void> {
+    assertLedgerOnlyFields(input, accounts);
     const staged = await stagedSnapshots(database, userId, input, accounts);
-    assertRequiredFields(staged);
-    assertPlausible(staged);
+    assertRequiredFields(staged, NEW_SNAPSHOT_REMEDY);
+    assertPlausible(staged, NEW_SNAPSHOT_REMEDY);
 }
 
 function ledgerStageStarts(entry: LedgerAccount): AccountStageStarts {
@@ -264,7 +334,7 @@ async function stagedSnapshots(
     const stageStarts = await loadStageStarts(database, userId, accounts);
     return input.flatMap((snapshot): StagedSnapshot[] => {
         const account = accounts.get(snapshot.accountId);
-        if (account === undefined) return [];
+        if (account?.tracking !== AccountTracking.Modeled) return [];
         const plan = resolvedPlanOrThrow(account);
         const stage = accountStageOn(
             account,

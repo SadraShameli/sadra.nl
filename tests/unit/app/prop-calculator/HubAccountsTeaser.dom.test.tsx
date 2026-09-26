@@ -8,6 +8,7 @@ import { portfolioAlerts } from '~/app/(app)/prop-calculator/accounts/_component
 import {
     AccountStage,
     AccountStatus,
+    AccountTracking,
     FeeKind,
     formatUsdCents,
     type LedgerAccountRow,
@@ -127,6 +128,7 @@ function paidPayout(
 ): LedgerPayoutRow {
     return {
         accountId: 'active-a',
+        approvedOn: null,
         grossCents: usdCents(grossCents),
         id,
         netCents: netCents === null ? null : usdCents(netCents),
@@ -145,12 +147,14 @@ function teaserAccount(
         accountSize: plan.id.accountSize,
         archivedAt: null,
         copyGroupId: null,
+        externalFirmId: null,
         firmId: firm.id,
         fundedOn: null,
         id,
         label: id,
         notes: null,
         optIns: {},
+        planLabel: null,
         planSerial: serializePlanId(plan.id),
         purchasedOn: '2026-09-01',
         readIssues: [],
@@ -158,6 +162,7 @@ function teaserAccount(
         stage: AccountStage.Eval,
         status: AccountStatus.Active,
         tags: [],
+        tracking: AccountTracking.Modeled,
         userId: USER_ID,
         ...overrides,
     };

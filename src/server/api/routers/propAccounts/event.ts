@@ -5,9 +5,12 @@ import { z } from 'zod';
 import {
     type AccountEventChange,
     AccountStage,
+    AccountTracking,
     applyLifecycleEvent,
     compareText,
+    describeLedgerOnlyLifecycleRejection,
     describeLifecycleRejection,
+    LEDGER_ONLY_LIFECYCLE_FACTS,
     LifecycleOutcomeKind,
 } from '~/lib/prop-accounts';
 import {
@@ -16,6 +19,7 @@ import {
     PropQuotaGuard,
     readEvent,
 } from '~/lib/prop-accounts/server';
+import { type Plan } from '~/lib/prop-calculator';
 import {
     propAccountEventOutputSchema,
     PropMutationRejection,
@@ -71,19 +75,26 @@ export const propEventRouter = createTRPCRouter({
                     input.accountId,
                     true,
                 );
-                const plan = resolvedPlanOrThrow(stored);
-                const outcome = applyLifecycleEvent(plan, stored, input.kind);
+                const plan = lifecyclePlanOf(stored);
+                const facts = plan ?? LEDGER_ONLY_LIFECYCLE_FACTS;
+                const outcome = applyLifecycleEvent(facts, stored, input.kind);
                 if (outcome.kind === LifecycleOutcomeKind.Rejected) {
                     throw new PropMutationRejectionError(
                         PropMutationRejection.LifecycleTransition,
-                        describeLifecycleRejection(outcome.reason, {
-                            facts: plan,
-                            stage: stored.stage,
-                        }),
+                        plan === null
+                            ? describeLedgerOnlyLifecycleRejection(
+                                  outcome.reason,
+                                  stored.stage,
+                              )
+                            : describeLifecycleRejection(outcome.reason, {
+                                  facts: plan,
+                                  stage: stored.stage,
+                              }),
                         outcome.reason,
                     );
                 }
                 if (
+                    plan !== null &&
                     outcome.state.stage === AccountStage.Live &&
                     stored.stage !== AccountStage.Live
                 ) {
@@ -94,7 +105,7 @@ export const propEventRouter = createTRPCRouter({
                 assertInOrder(
                     stored,
                     await repo.latestLifecycleEventOn(stored.id),
-                    await impliedPassBound(repo, stored, plan),
+                    await impliedPassBound(repo, stored, facts),
                     input.occurredOn,
                 );
                 await quotas.assertWithin(PropQuota.Events, 1);
@@ -129,7 +140,11 @@ export const propEventRouter = createTRPCRouter({
                     .insert(propAccountEvent)
                     .values({
                         accountId: stored.id,
-                        detail: { changes, note: input.note },
+                        detail: {
+                            bustCause: input.bustCause,
+                            changes,
+                            note: input.note,
+                        },
                         kind: input.kind,
                         occurredOn: input.occurredOn,
                         userId: ctx.userId,
@@ -163,5 +178,16 @@ function assertInOrder(
             PropMutationRejection.OutOfOrderEvent,
             `The event date ${occurredOn} is before the funded date ${impliedPassOn}, where the account passed its evaluation; pick a date on or after it, or fix the funded date first`,
         );
+    }
+}
+
+function lifecyclePlanOf(stored: OwnedAccount): null | Plan {
+    switch (stored.tracking) {
+        case AccountTracking.LedgerOnly: {
+            return null;
+        }
+        case AccountTracking.Modeled: {
+            return resolvedPlanOrThrow(stored);
+        }
     }
 }

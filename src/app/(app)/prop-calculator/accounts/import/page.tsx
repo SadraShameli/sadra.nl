@@ -23,6 +23,7 @@ export default async function PropAccountsImportPage() {
         redirect(loginRedirectFor(routes.propCalculator.accounts.import));
     }
     void api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT);
+    void api.propAccounts.externalFirm.list.prefetch();
     return (
         <HydrateClient>
             <main

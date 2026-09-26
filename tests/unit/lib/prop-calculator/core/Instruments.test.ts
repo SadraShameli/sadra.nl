@@ -5,6 +5,8 @@ import {
     ALL_INSTRUMENTS,
     INSTRUMENTS,
     InstrumentSymbol,
+    siblingInstrumentOf,
+    Underlying,
 } from '~/lib/prop-calculator/core/Instruments';
 
 describe('CME contract specifications', () => {
@@ -32,6 +34,33 @@ describe('CME contract specifications', () => {
                 10,
             );
         }
+    });
+});
+
+describe('underlying and its sibling instrument', () => {
+    it('pins every instrument to its underlying index', () => {
+        expect(INSTRUMENTS[InstrumentSymbol.NQ].underlying).toBe(
+            Underlying.Nasdaq100,
+        );
+        expect(INSTRUMENTS[InstrumentSymbol.MNQ].underlying).toBe(
+            Underlying.Nasdaq100,
+        );
+        expect(INSTRUMENTS[InstrumentSymbol.ES].underlying).toBe(
+            Underlying.SP500,
+        );
+    });
+
+    it('pairs NQ with MNQ and MNQ with NQ, the only Nasdaq-100 pair modeled', () => {
+        expect(siblingInstrumentOf(InstrumentSymbol.NQ)?.symbol).toBe(
+            InstrumentSymbol.MNQ,
+        );
+        expect(siblingInstrumentOf(InstrumentSymbol.MNQ)?.symbol).toBe(
+            InstrumentSymbol.NQ,
+        );
+    });
+
+    it('gives ES no sibling until a modeled S&P 500 micro exists', () => {
+        expect(siblingInstrumentOf(InstrumentSymbol.ES)).toBeNull();
     });
 });
 

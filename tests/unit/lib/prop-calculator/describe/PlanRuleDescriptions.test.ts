@@ -7,6 +7,7 @@ import {
     ApexVariant,
     dollars,
     FirmId,
+    LifetimeCapScope,
     MffuVariant,
     type Plan,
     type PlanId,
@@ -169,7 +170,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
         'target $3,000 | eval drawdown $2,000 eod-trailing, locks at +$2,100 to +$100 | min days 0',
         'funded drawdown $2,000 eod-trailing, locks at +$2,100 to +$100 or on 1st payout',
         'eval DLL $1000 | funded DLL $1000 | consistency eval none | funded none',
-        'contracts 4 mini / 40 micro | funded unpublished',
+        'contracts 4 mini / 40 micro | funded 4 mini / 40 micro',
         'fees eval $300 | activation $0 | monthly $0 | reset $190',
         'payout split 90% | first $2,600 | per cycle $500 | min request $250 | day gate 0 qualifying days | any day counts',
         'payout buffer: EOD balance must clear $52,100',
@@ -268,7 +269,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
         'eval DLL $1200 | funded DLL $1200 -> 60% peak | consistency eval none | funded 40%',
         'contracts 4 mini / 40 micro | funded 4 mini / 40 micro',
         'fees eval $167 | activation $0 | monthly $0 | reset $115',
-        'payout split 90% | first $500 | per cycle $500 | min request $500 | day gate 3 qualifying days | any day counts',
+        'payout split 90% | first $500 | per cycle $500 | min request $500 | day gate 0 qualifying days | any day counts',
         'payout buffer: EOD balance must clear $52,100',
         'payout ladder [2000, 2500] min request $500',
     ],
@@ -277,7 +278,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
         'eval DLL none | funded DLL none | consistency eval none | funded 40%',
         'contracts 4 mini / 40 micro | funded 4 mini / 40 micro',
         'fees eval $192 | activation $0 | monthly $0 | reset $140',
-        'payout split 90% | first $500 | per cycle $500 | min request $500 | day gate 3 qualifying days | any day counts',
+        'payout split 90% | first $500 | per cycle $500 | min request $500 | day gate 0 qualifying days | any day counts',
         'payout buffer: EOD balance must clear $52,100',
         'payout ladder [2000, 2500] min request $500',
     ],
@@ -395,7 +396,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
     'tpt/': [
         'target $3,000 | eval drawdown $2,000 eod-trailing, locks at +$2,000 to breakeven | min days 3',
         'funded drawdown $2,000 intraday-trailing, locks at +$2,000 to breakeven',
-        'eval DLL none | funded DLL none | consistency eval 50% | funded none',
+        'eval DLL none | funded DLL none | consistency eval 50% (inclusive) | funded none',
         'contracts 6 mini / 60 micro | funded 6 mini / 60 micro',
         'fees eval $0 | activation $130 | monthly $170 | reset $99',
         'payout split 80% | first $2,000 | min request $0 | day gate 0 qualifying days | any day counts',
@@ -469,8 +470,8 @@ const PINNED_ON_BREACH_LINES: Readonly<Record<string, string>> = {
     'lucid/pro': `on breach: eval reset $115 | funded ${NO_FUNDED_RESET} | ${NO_LIFETIME_LIMIT}`,
     'lucid/pro-no-dll': `on breach: eval reset $140 | funded ${NO_FUNDED_RESET} | ${NO_LIFETIME_LIMIT}`,
     'mffu/builder': `on breach: eval rebuy $153 | funded ${NO_FUNDED_RESET} | account concludes after 5 payouts`,
-    'mffu/pro': `on breach: eval reset $265 | funded ${NO_FUNDED_RESET} | account concludes at $100,000 in lifetime payouts`,
-    'mffu/rapid': `on breach: eval reset $209 | funded ${NO_FUNDED_RESET} | ${NO_LIFETIME_LIMIT}`,
+    'mffu/pro': `on breach: eval reset $265 | funded ${NO_FUNDED_RESET} | account concludes at $100,000 in lifetime payouts (per user across all Pro accounts)`,
+    'mffu/rapid': `on breach: eval rebuy $209 | funded ${NO_FUNDED_RESET} | ${NO_LIFETIME_LIMIT}`,
     'mffu/rapid-eod': `on breach: eval reset $209 | funded ${NO_FUNDED_RESET} | ${NO_LIFETIME_LIMIT}`,
     'topstep/no-fee-consistency': `on breach: eval reset $95 | funded ${NO_FUNDED_RESET} | ${NO_LIFETIME_LIMIT}`,
     'topstep/no-fee-consistency-dll': `on breach: eval rebuy $85 | funded ${NO_FUNDED_RESET} | ${NO_LIFETIME_LIMIT}`,
@@ -600,6 +601,50 @@ describe('describePlanRules: on breach (F-V30)', () => {
         expect(renderedLines(tpt).at(-1)).toBe(PINNED_ON_BREACH_LINES['tpt/']);
     });
 
+    it('states the cap scope on a per-user cap (PT-12h, F-110 REV-10)', () => {
+        expect(segmentOf(mffPro, PlanRuleSegmentKind.Conclusion).value).toBe(
+            'account concludes at $100,000 in lifetime payouts (per user across all Pro accounts)',
+        );
+    });
+
+    it('states the cap scope on a per-account cap', () => {
+        const plan = mffPro.withOverrides({
+            lifetimeDollarCapScope: LifetimeCapScope.PerAccount,
+        });
+        expect(segmentOf(plan, PlanRuleSegmentKind.Conclusion).value).toBe(
+            'account concludes at $100,000 in lifetime payouts (per account)',
+        );
+    });
+
+    it('states the cap scope as not stated by the firm when unconfirmed', () => {
+        const plan = mffPro.withOverrides({
+            lifetimeDollarCapScope: LifetimeCapScope.Unconfirmed,
+        });
+        expect(segmentOf(plan, PlanRuleSegmentKind.Conclusion).value).toBe(
+            'account concludes at $100,000 in lifetime payouts (scope not stated by the firm)',
+        );
+    });
+
+    it('defaults a dollar cap with no declared scope to not stated by the firm', () => {
+        const plan = apexEod.withOverrides({
+            maxLifetimePayoutDollars: dollars(100_000),
+            maxLifetimePayouts: undefined,
+            payoutLadder: undefined,
+        });
+        expect(segmentOf(plan, PlanRuleSegmentKind.Conclusion).value).toBe(
+            'account concludes at $100,000 in lifetime payouts (scope not stated by the firm)',
+        );
+    });
+
+    it('title-cases a multi-word kebab variant using the firm’s own acronym (PT-12h review)', () => {
+        const plan = mffPro.withOverrides({
+            id: { accountSize: 50_000, firm: FirmId.Mffu, variant: MffuVariant.RapidEod },
+        });
+        expect(segmentOf(plan, PlanRuleSegmentKind.Conclusion).value).toBe(
+            'account concludes at $100,000 in lifetime payouts (per user across all Rapid EOD accounts)',
+        );
+    });
+
     it('prints the Alpha Futures Standard Qualified Reset terms before the closed-account fallback', () => {
         const plan = planFor({
             accountSize: 50_000,
@@ -665,7 +710,7 @@ describe('describePlanRules: on breach (F-V30)', () => {
                 PlanRuleSegmentKind.Conclusion,
             ).value,
         ).toBe(
-            'account concludes after 5 payouts or at $100,000 in lifetime payouts',
+            'account concludes after 5 payouts or at $100,000 in lifetime payouts (per user across all Pro accounts)',
         );
     });
 
@@ -680,13 +725,14 @@ describe('describePlanRules: on breach (F-V30)', () => {
         expect(plan.isAccountConcluded(0, 100_000)).toBe(true);
         expect(plan.isAccountConcluded(2, 99_999)).toBe(false);
         expect(segmentOf(plan, PlanRuleSegmentKind.Conclusion).value).toBe(
-            'account concludes after the 3-step payout ladder or at $100,000 in lifetime payouts',
+            'account concludes after the 3-step payout ladder or at $100,000 in lifetime payouts (per user across all Pro accounts)',
         );
     });
 
     it.each([
         {
-            expected: 'account concludes at $100,000 in lifetime payouts',
+            expected:
+                'account concludes at $100,000 in lifetime payouts (per user across all Pro accounts)',
             name: 'a dollar cap alone',
             plan: mffPro,
         },
@@ -697,7 +743,7 @@ describe('describePlanRules: on breach (F-V30)', () => {
         },
         {
             expected:
-                'account concludes after the 2-step payout ladder or at $100,000 in lifetime payouts',
+                'account concludes after the 2-step payout ladder or at $100,000 in lifetime payouts (per user across all Pro accounts)',
             name: 'a payout count beyond the end of an uncapped ladder, with a dollar cap',
             plan: mffPro.withOverrides({
                 maxLifetimePayouts: 4,

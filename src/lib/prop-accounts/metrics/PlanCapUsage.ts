@@ -15,6 +15,7 @@ export interface PlanCapRow {
 }
 
 export interface PlanCapUsage {
+    readonly ledgerOnlyAccounts: number;
     readonly plans: readonly PlanCapRow[];
     readonly pooledCapsModeled: false;
     readonly unresolvedAccounts: number;
@@ -22,6 +23,7 @@ export interface PlanCapUsage {
 
 export function planCapUsage(ledger: PortfolioLedger): PlanCapUsage {
     return {
+        ledgerOnlyAccounts: ledger.ledgerOnlyAccounts.length,
         plans: ledger
             .planGroups()
             .filter((group) =>

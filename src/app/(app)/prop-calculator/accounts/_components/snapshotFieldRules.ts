@@ -7,6 +7,8 @@ import {
     type CountText,
     EntryTextKind,
     isAccountDate,
+    LEDGER_ONLY_SNAPSHOT_FIELDS,
+    type LedgerOnlySnapshotField,
     type MissingSnapshotField,
     missingSnapshotFields,
     MONEY_ENTRY_MESSAGE,
@@ -23,7 +25,7 @@ import {
 } from '~/lib/prop-accounts';
 import { type Plan } from '~/lib/prop-calculator';
 import {
-    accountCreateSchema,
+    accountTagsSchema,
     snapshotCreateSchema,
 } from '~/lib/schemas/propAccounts';
 
@@ -76,6 +78,11 @@ export type TagsText =
     | { readonly kind: EntryTextKind.Invalid; readonly message: string }
     | { readonly kind: EntryTextKind.Valid; readonly tags: readonly string[] };
 
+type LedgerOnlyFieldText = Pick<
+    SnapshotFieldRule,
+    'hint' | 'input' | 'label' | 'requirement'
+>;
+
 type ParsedValue = null | number | string;
 
 type SnapshotDraftField = Exclude<keyof SnapshotDraft, 'source'>;
@@ -87,7 +94,55 @@ const NO_DRAFT_WARNINGS: SnapshotDraftWarnings = {
 
 const SNAPSHOT_DRAFT_SCHEMA = snapshotCreateSchema.omit({ accountId: true });
 
-const TAGS_SCHEMA = accountCreateSchema.shape.tags;
+export const LEDGER_ONLY_SNAPSHOT_NOTICE =
+    'This account is ledger-only, so no plan plausibility check runs on this snapshot: it is stored as you enter it. A modeled plan needs fields a ledger-only snapshot cannot hold, such as trading days, so remove its snapshots before you upgrade it to a modeled plan.';
+
+const LEDGER_ONLY_FIELD_TEXT: Readonly<
+    Record<LedgerOnlySnapshotField, LedgerOnlyFieldText>
+> = {
+    asOf: {
+        hint: null,
+        input: SnapshotInputKind.Date,
+        label: 'Snapshot date',
+        requirement: SnapshotFieldRequirement.Required,
+    },
+    balanceCents: {
+        hint: 'As the firm dashboard shows it, in this account’s dashboard convention.',
+        input: SnapshotInputKind.Money,
+        label: 'Balance',
+        requirement: SnapshotFieldRequirement.Required,
+    },
+    cumulativePayoutCents: {
+        hint: 'What you were paid, after the profit split, not the gross amount debited.',
+        input: SnapshotInputKind.Money,
+        label: 'Cumulative payouts received after split',
+        requirement: SnapshotFieldRequirement.Optional,
+    },
+    dashboardFloorCents: {
+        hint: 'The max loss level the firm dashboard shows, stored as you enter it.',
+        input: SnapshotInputKind.Money,
+        label: 'Drawdown floor on the dashboard',
+        requirement: SnapshotFieldRequirement.Optional,
+    },
+    payoutsTaken: {
+        hint: null,
+        input: SnapshotInputKind.Count,
+        label: 'Payouts taken',
+        requirement: SnapshotFieldRequirement.Optional,
+    },
+};
+
+const SNAPSHOT_FIELD_BY_KEY: ReadonlyMap<string, SnapshotField> = new Map(
+    Object.values(SnapshotField).map((field) => [field, field]),
+);
+
+const LEDGER_ONLY_SNAPSHOT_RULES: readonly SnapshotFieldRule[] =
+    LEDGER_ONLY_SNAPSHOT_FIELDS.flatMap((key) => {
+        const field = SNAPSHOT_FIELD_BY_KEY.get(key);
+        return field === undefined
+            ? []
+            : [{ ...LEDGER_ONLY_FIELD_TEXT[key], alternative: null, field }];
+    });
 
 export function emptySnapshotFormValues(asOf: string): SnapshotFormValues {
     const values = {} as Record<SnapshotField, string>;
@@ -122,6 +177,10 @@ export function initialSnapshotStage(
         NO_RECORDED_STAGE_STARTS,
         asOf,
     );
+}
+
+export function ledgerOnlySnapshotRules(): readonly SnapshotFieldRule[] {
+    return LEDGER_ONLY_SNAPSHOT_RULES;
 }
 
 export function parseSnapshotForm(
@@ -180,7 +239,7 @@ export function parseTagsText(text: string): TagsText {
                 .filter((tag) => tag !== ''),
         ),
     ];
-    const result = TAGS_SCHEMA.safeParse(tags);
+    const result = accountTagsSchema.safeParse(tags);
     if (result.success) return { kind: EntryTextKind.Valid, tags: result.data };
     const [issue] = result.error.issues;
     const [index] = issue?.path ?? [];

@@ -264,8 +264,9 @@ describe.each(ALL_PLANS)(
 
         for (const phase of [TradingPhase.Eval, TradingPhase.Funded]) {
             const limit = plan.maxConsecutiveIdleDaysFor(phase);
+            const calendarWeek = plan.calendarWeekInactivityFor(phase);
 
-            if (limit === null) {
+            if (limit === null && calendarWeek === null) {
                 it(`phase=${phase}: has no inactivity rule, so it is never closed no matter how many idle days accumulate`, () => {
                     const state = plan.initialState();
                     if (phase === TradingPhase.Funded) {
@@ -291,7 +292,42 @@ describe.each(ALL_PLANS)(
                         expect(result.closedForInactivity).toBe(false);
                     }
                 });
-            } else {
+            } else if (calendarWeek !== null) {
+                it(`phase=${phase}: declares a ${calendarWeek.sessionsPerWeek}-session calendar-week inactivity rule, so it closes on exactly the ${calendarWeek.sessionsPerWeek}th consecutive idle session`, () => {
+                    const state = plan.initialState();
+                    if (phase === TradingPhase.Funded) {
+                        plan.beginFundedPhase(state);
+                    }
+                    const stats = freshStats(state.startingBalance);
+                    let lastResult: ReturnType<typeof runDay> | undefined;
+                    for (
+                        let day = 1;
+                        day <= calendarWeek.sessionsPerWeek;
+                        day++
+                    ) {
+                        lastResult = runDay(
+                            dayRunOptionsFor(phase, {
+                                commission: dollars(0),
+                                dayPolicy: idleDayPolicy,
+                                idleDayProbability: 1,
+                                plan,
+                                positionSizing: null,
+                                rng: () => 0,
+                                rrRatio: 2,
+                                rungSizing: RungSizing.CapToCushion,
+                                state,
+                                stats,
+                                winrate: fraction(0.4),
+                            }),
+                        );
+                        if (day < calendarWeek.sessionsPerWeek) {
+                            expect(lastResult.busted).toBe(false);
+                        }
+                    }
+                    expect(lastResult?.busted).toBe(true);
+                    expect(lastResult?.closedForInactivity).toBe(true);
+                });
+            } else if (limit !== null) {
                 it(`phase=${phase}: declares a ${limit}-day inactivity rule, so it closes on exactly the ${limit}th consecutive idle day`, () => {
                     const state = plan.initialState();
                     if (phase === TradingPhase.Funded) {

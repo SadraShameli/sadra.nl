@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { InstrumentSymbol } from '~/lib/prop-calculator';
+import {
+    createInitialState,
+    type FundedCycleSeed,
+    InstrumentSymbol,
+    TradingPhase,
+} from '~/lib/prop-calculator';
 import {
     DEFAULT_RULEBOOK,
     HARD_RULE_2_MIN_RETAINED_CUSHION_CENTS,
@@ -344,5 +349,119 @@ describe('DocumentedPolicySpec schema (PT-48a, PD-39)', () => {
         expect(issuePaths({ ...BASE_SPEC, planSerial: '' })).toEqual([
             'planSerial',
         ]);
+    });
+});
+
+const FUNDED_SEED: FundedCycleSeed = {
+    calendarDayGateProgress: 3,
+    cumulativePayout: 500,
+    cycleBestDayProfit: 400,
+    fundedResetsUsed: 0,
+    lastPayoutBalance: 51_000,
+    payoutsIssued: 1,
+    qualifyingDaysAtLastPayout: 5,
+};
+
+describe('DocumentedPolicySpec.start (PT-48b, F-148)', () => {
+    it('accepts an optional eval start and survives structuredClone unchanged', () => {
+        const spec: DocumentedPolicySpec = {
+            ...BASE_SPEC,
+            start: {
+                phase: TradingPhase.Eval,
+                state: createInitialState(50_000, 48_000),
+            },
+        };
+
+        const parsed = documentedPolicySpecSchema.parse(spec);
+        expect(parsed.start).toEqual(spec.start);
+        expect(structuredClone(parsed).start).toEqual(spec.start);
+    });
+
+    it('accepts an optional funded start with its cycle seed', () => {
+        const spec: DocumentedPolicySpec = {
+            ...BASE_SPEC,
+            start: {
+                phase: TradingPhase.Funded,
+                seed: FUNDED_SEED,
+                state: createInitialState(50_000, 48_000),
+            },
+        };
+
+        const parsed = documentedPolicySpecSchema.parse(spec);
+        expect(parsed.start).toEqual(spec.start);
+        expect(structuredClone(parsed)).toEqual(parsed);
+    });
+
+    it('leaves start unset when the spec has no start', () => {
+        expect(documentedPolicySpecSchema.parse(BASE_SPEC).start).toBeUndefined();
+    });
+
+    it('rejects a start with a state that has no finite balance', () => {
+        expect(
+            issuePaths({
+                ...BASE_SPEC,
+                start: {
+                    phase: TradingPhase.Eval,
+                    state: { ...createInitialState(50_000, 48_000), balance: NaN },
+                },
+            }),
+        ).toEqual(['start']);
+    });
+
+    it('rejects a funded start whose cycle seed is malformed', () => {
+        expect(
+            issuePaths({
+                ...BASE_SPEC,
+                start: {
+                    phase: TradingPhase.Funded,
+                    seed: { ...FUNDED_SEED, fundedResetsUsed: -1 },
+                    state: createInitialState(50_000, 48_000),
+                },
+            }),
+        ).toEqual(['start']);
+    });
+
+    it('rejects a start with neither a recognised eval nor funded phase', () => {
+        expect(
+            issuePaths({
+                ...BASE_SPEC,
+                start: {
+                    phase: 'live',
+                    state: createInitialState(50_000, 48_000),
+                },
+            }),
+        ).toEqual(['start']);
+    });
+
+    it('rejects a start whose state is missing a required AccountState field', () => {
+        const fullState = createInitialState(50_000, 48_000);
+        const stateWithoutTodayPnL: Partial<typeof fullState> = {
+            ...fullState,
+        };
+        delete stateWithoutTodayPnL.todayPnL;
+        expect(
+            issuePaths({
+                ...BASE_SPEC,
+                start: {
+                    phase: TradingPhase.Eval,
+                    state: stateWithoutTodayPnL,
+                },
+            }),
+        ).toEqual(['start']);
+    });
+
+    it('rejects a start whose state has consecutiveIdleDays as the wrong type', () => {
+        expect(
+            issuePaths({
+                ...BASE_SPEC,
+                start: {
+                    phase: TradingPhase.Eval,
+                    state: {
+                        ...createInitialState(50_000, 48_000),
+                        consecutiveIdleDays: '0',
+                    },
+                },
+            }),
+        ).toEqual(['start']);
     });
 });

@@ -38,6 +38,7 @@ export interface MonthlySlotNet {
 }
 
 export interface RealizedNetPerSlot {
+    readonly ledgerOnlyAccounts: number;
     readonly months: readonly MonthlySlotNet[];
     readonly n: number;
     readonly pooled: CentsEstimate | null;
@@ -96,6 +97,7 @@ export function realizedNetPerSlot(
         });
     }
     return {
+        ledgerOnlyAccounts: ledger.ledgerOnlyAccounts.length,
         months,
         n: months.length,
         pooled: pooledEstimate(months),

@@ -8,22 +8,30 @@ import {
     AccountReadIssueKind,
     type AccountStage,
     AccountStatus,
+    AccountTracking,
     AlertEvaluator,
     AlertSubjectKind,
     compareText,
     createAlertContext,
     describeAccountReadIssue,
+    type ExternalFirmName,
+    type FirmKey,
+    firmKeyId,
+    firmKeyLabel,
+    firmKeyOf,
+    type LedgerOnlyPlanKey,
     type PlanKeyInput,
     type PlanKeyResolution,
     PlanKeyResolutionKind,
     resolvePlanKey,
-    type StoredFirmId,
+    trackedAccountOf,
+    type TrackedAccountRow,
+    type TrackedColumns,
     UnresolvablePlanRule,
     UnresolvedPlanReason,
     type UsdCents,
     usdCents,
 } from '~/lib/prop-accounts';
-import { type FirmId } from '~/lib/prop-calculator';
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 import {
     type propAccountSnapshotOutputSchema,
@@ -51,23 +59,26 @@ export type AccountListAccount = Pick<
     | 'accountSize'
     | 'archivedAt'
     | 'copyGroupId'
+    | 'externalFirmId'
+    | 'firmId'
     | 'id'
     | 'label'
     | 'notes'
     | 'optIns'
+    | 'planLabel'
     | 'planSerial'
     | 'purchasedOn'
     | 'stage'
     | 'status'
     | 'tags'
+    | 'tracking'
 > & {
-    readonly firmId: StoredFirmId;
     readonly readIssues: readonly AccountReadIssue[];
 };
 
 export interface AccountListFilters {
     readonly copyGroupId: null | string;
-    readonly firmId: FirmId | null;
+    readonly firmKey: FirmKey | null;
     readonly includeArchived: boolean;
     readonly stage: AccountStage | null;
     readonly status: AccountStatus | null;
@@ -75,8 +86,9 @@ export interface AccountListFilters {
 }
 
 export interface AccountListRow {
-    readonly account: AccountListAccount;
+    readonly account: TrackedAccountRow<AccountListAccount>;
     readonly cushionCents: null | UsdCents;
+    readonly isLedgerOnly: boolean;
     readonly isReadOnly: boolean;
     readonly latestSnapshot: AccountListSnapshot | null;
     readonly plan: PlanKeyResolution;
@@ -95,11 +107,14 @@ export interface AccountListSort {
     readonly key: AccountSortKey;
 }
 
+export type PlanLabelColumns = Pick<PropAccountRow, 'accountSize' | 'optIns'> &
+    TrackedColumns & { readonly readIssues: readonly AccountReadIssue[] };
+
 export const ACCOUNT_LIST_INPUT = { includeArchived: true } as const;
 
 export const DEFAULT_ACCOUNT_LIST_FILTERS: AccountListFilters = {
     copyGroupId: null,
-    firmId: null,
+    firmKey: null,
     includeArchived: false,
     stage: null,
     status: null,
@@ -129,6 +144,25 @@ const UNRESOLVABLE_PLAN_EVALUATOR = new AlertEvaluator([
 ]);
 
 const LABEL_COLLATOR = new Intl.Collator('en', { sensitivity: 'base' });
+
+export function accountFirmLabel(
+    account: TrackedAccountRow<Pick<PropAccountRow, keyof TrackedColumns>>,
+    externalFirms: readonly ExternalFirmName[],
+): string {
+    return firmKeyLabel(firmKeyOf(account), externalFirms);
+}
+
+export function accountPlanLabel<Row extends PlanLabelColumns>(
+    account: TrackedAccountRow<Row>,
+): string {
+    if (account.tracking === AccountTracking.LedgerOnly) {
+        return account.planLabel;
+    }
+    const resolution = resolvePlanKey(account);
+    return resolution.kind === PlanKeyResolutionKind.Resolved
+        ? resolution.plan.label
+        : account.planSerial;
+}
 
 export function accountStatusLabel(status: AccountStatus): string {
     return STATUS_LABEL[status];
@@ -174,13 +208,15 @@ export function buildAccountListRows(
             latest.set(snapshot.accountId, snapshot);
         }
     }
-    return accounts.map((account) => {
+    return accounts.map((stored) => {
+        const account = trackedAccountOf(stored);
         const plan = resolvePlanKey(account);
         const issues = readIssuesOf(account, plan);
         const latestSnapshot = latest.get(account.id) ?? null;
         return {
             account,
             cushionCents: cushionOf(latestSnapshot),
+            isLedgerOnly: account.tracking === AccountTracking.LedgerOnly,
             isReadOnly: issues.length > 0,
             latestSnapshot,
             plan,
@@ -208,7 +244,8 @@ export function filterAccountRows(
     return rows.filter(({ account }) =>
         [
             filters.includeArchived || account.archivedAt === null,
-            filters.firmId === null || account.firmId === filters.firmId,
+            filters.firmKey === null ||
+                firmKeyId(firmKeyOf(account)) === firmKeyId(filters.firmKey),
             filters.stage === null || account.stage === filters.stage,
             filters.status === null || account.status === filters.status,
             filters.copyGroupId === null ||
@@ -237,7 +274,7 @@ export function readIssuesOf(
 }
 
 export function readOnlyAccountNotice(
-    key: PlanKeyInput,
+    key: LedgerOnlyPlanKey | PlanKeyInput,
     issues: readonly AccountReadIssue[],
 ): string {
     return [

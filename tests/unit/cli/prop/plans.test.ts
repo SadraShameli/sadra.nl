@@ -5,6 +5,7 @@ import { planResolver } from '~/cli/commands/prop/shared';
 import {
     AlphaFuturesVariant,
     ApexVariant,
+    contracts,
     dollars,
     E8FuturesVariant,
     FirmId,
@@ -354,11 +355,20 @@ describe('planRuleLines: contract caps', () => {
     });
 
     it('keeps "funded unpublished" when a plan records eval caps but no funded caps', () => {
-        const lines = linesFor({
-            accountSize: 50_000,
-            firm: FirmId.FundedNext,
-            variant: FundedNextVariant.RapidDaily,
-        });
+        const lines = planRuleLines(
+            planFor({
+                accountSize: 50_000,
+                firm: FirmId.FundedNext,
+                variant: FundedNextVariant.RapidDaily,
+            }).withOverrides({
+                contractLimits: {
+                    evalMicros: contracts(40),
+                    evalMinis: contracts(4),
+                    fundedMicros: null,
+                    fundedMinis: null,
+                },
+            }),
+        );
         expect(
             lines.some((line) =>
                 line.includes(

@@ -1,6 +1,6 @@
 import { describeUnresolvedPlan, PlanKeyResolutionKind } from '../core';
 import { type AccountAlert } from './AccountAlert';
-import { type MonitoredAccount } from './AlertContext';
+import { isModeledMonitored, type MonitoredAccount } from './AlertContext';
 import { AlertKind } from './AlertKind';
 import { AccountAlertRule } from './AlertRule';
 import { AlertSeverity } from './AlertSeverity';
@@ -12,7 +12,8 @@ export class UnresolvablePlanRule extends AccountAlertRule {
         monitored: MonitoredAccount,
     ): AccountAlert | null {
         const resolution = monitored.plan;
-        return resolution.kind === PlanKeyResolutionKind.Resolved
+        return !isModeledMonitored(monitored) ||
+            resolution.kind !== PlanKeyResolutionKind.Unresolved
             ? null
             : this.alertFor(
                   monitored,

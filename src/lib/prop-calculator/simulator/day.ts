@@ -1,31 +1,23 @@
 import { resetForNewDay } from '../core/AccountState';
 import {
-    type AffordableRoom,
     computedDayPolicy,
     type DayPolicy,
     DayStopRuleKind,
     flatDayPolicy,
-    placeWholeContractTrade,
-    PolicySizing,
     policySizingOf,
     resolveFundedTradeRisk,
-    resolveTradeRisk,
-    type RungSizing,
     shouldStopDay,
-    type SizedTrade,
 } from '../core/DayPolicy';
 import { IntradayTrailingDrawdown } from '../core/DrawdownStrategy';
-import { type ContractCount } from '../core/lib/units';
-import {
-    capRiskToContractLimit,
-    contractLimitAt,
-    type PositionSizingConfig,
-} from '../core/PositionSizing';
 import {
     calibrateStepProbability,
     simulateTradePath,
 } from '../core/TradePathSimulation';
-import { applyTrade, closeTradingDay } from '../core/TradingDayLedger';
+import {
+    applyClosedTrade,
+    resolveRiskAt,
+} from '../core/TradeRiskResolution';
+import { closeTradingDay } from '../core/TradingDayLedger';
 import { TradingPhase } from '../core/TradingPhase';
 import {
     assertDeclaredSizingMatchesPhase,
@@ -36,15 +28,6 @@ import { SIM_DEFAULTS } from './SimDefaults';
 import { type DayRunOptions, type SimInputs } from './types';
 
 const MAX_INTRADAY_PATH_STEPS = 100_000;
-
-interface TradeSizingOptions {
-    affordable: AffordableRoom;
-    intendedRisk: number;
-    maxContracts: ContractCount | null;
-    positionSizing: PositionSizingConfig;
-    rungSizing: RungSizing;
-    sizing: PolicySizing;
-}
 
 export function resolveDayPolicy(
     inputs: SimInputs,
@@ -135,29 +118,16 @@ export function runDay(options: DayRunOptions): {
                 dayPolicy.computeRisk?.(state, index, fundedCycle) ??
                 dayPolicy.ladder[index] ??
                 0;
-            const affordable = plan.affordableRoom(state, phase, commission);
-            const { rewardRisk, risk } =
-                positionSizing === null
-                    ? unsizedTrade(
-                          resolveTradeRisk(
-                              intendedRisk,
-                              affordable.room,
-                              rungSizing,
-                          ),
-                      )
-                    : sizeTrade({
-                          affordable,
-                          intendedRisk,
-                          maxContracts: contractLimitAt(
-                              plan.contractLimits,
-                              phase,
-                              positionSizing.instrument.isMicro,
-                              plan.tierProfitContext(state),
-                          ),
-                          positionSizing,
-                          rungSizing,
-                          sizing: dayPolicy.sizing,
-                      });
+            const { rewardRisk, risk } = resolveRiskAt({
+                commission,
+                intendedRisk,
+                phase,
+                plan,
+                positionSizing,
+                rungSizing,
+                sizing: dayPolicy.sizing,
+                state,
+            });
             if (!Number.isFinite(risk)) {
                 throw new TypeError(
                     `runDay: computed a non-finite risk (${risk})`,
@@ -182,7 +152,7 @@ export function runDay(options: DayRunOptions): {
             }
             const tradeGross = isWon ? rrRatio * rewardRisk : -risk;
             const pnl = tradeGross - commission;
-            applyTrade(plan, phase, state, pnl, peakPnL);
+            applyClosedTrade(state, plan, phase, pnl, peakPnL);
             isTraded = true;
             stats.recordTrade(isWon, pnl, state.balance, risk);
             if (!isWon) lossesToday += 1;
@@ -209,52 +179,15 @@ export function runDay(options: DayRunOptions): {
         }
     }
 
-    closeTradingDay(plan, phase, state, isTraded);
+    const dayCloseResult = closeTradingDay(plan, phase, state, isTraded);
     if (plan.isBust(state, phase)) {
         return { busted: true, closedForInactivity: false, traded: isTraded };
+    }
+    if (dayCloseResult.closedForCalendarWeekInactivity) {
+        return { busted: true, closedForInactivity: true, traded: isTraded };
     }
     return maxConsecutiveIdleDays !== null &&
         state.consecutiveIdleDays >= maxConsecutiveIdleDays
         ? { busted: true, closedForInactivity: true, traded: isTraded }
         : { busted: false, closedForInactivity: false, traded: isTraded };
-}
-
-function sizeTrade(options: TradeSizingOptions): SizedTrade {
-    const {
-        affordable,
-        intendedRisk,
-        maxContracts,
-        positionSizing,
-        rungSizing,
-        sizing,
-    } = options;
-    switch (sizing) {
-        case PolicySizing.ContractCapped: {
-            return unsizedTrade(
-                resolveTradeRisk(
-                    capRiskToContractLimit(
-                        intendedRisk,
-                        positionSizing,
-                        maxContracts,
-                    ),
-                    affordable.room,
-                    rungSizing,
-                ),
-            );
-        }
-        case PolicySizing.WholeContracts: {
-            return placeWholeContractTrade({
-                intendedRisk,
-                maxContracts,
-                positionSizing,
-                room: affordable.room,
-                roomKind: affordable.kind,
-                rungSizing,
-            });
-        }
-    }
-}
-
-function unsizedTrade(risk: number): SizedTrade {
-    return { rewardRisk: risk, risk };
 }

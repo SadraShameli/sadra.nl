@@ -1,7 +1,9 @@
 import {
-    compareText,
+    compareFirmKeys,
+    type FirmKey,
+    firmKeyOf,
+    groupByFirmKey,
     paidPayoutCash,
-    type StoredFirmId,
     sumUsdCents,
     type UsdCents,
 } from '~/lib/prop-accounts/core';
@@ -16,38 +18,36 @@ export interface Diversification {
 
 export interface FirmShare {
     readonly cents: UsdCents;
-    readonly firmId: StoredFirmId;
+    readonly firmKey: FirmKey;
     readonly share: number;
 }
 
 interface FirmAmount {
     readonly cents: UsdCents;
-    readonly firmId: StoredFirmId;
+    readonly firmKey: FirmKey;
 }
 
 export function diversification(ledger: PortfolioLedger): Diversification {
-    const firmIds = [
-        ...new Set(ledger.accounts.map((entry) => entry.row.firmId)),
-    ];
     return {
         funding: sharesOf(
             fundingTotals(ledger).byFirm.map((firm) => ({
                 cents: fundedNominalOf(firm.byStage),
-                firmId: firm.firmId,
+                firmKey: firm.firmKey,
             })),
         ),
         payouts: sharesOf(
-            firmIds.map((firmId) => ({
+            groupByFirmKey(ledger.accounts, (entry) =>
+                firmKeyOf(entry.row),
+            ).map(({ firmKey, items }) => ({
                 cents: sumUsdCents(
-                    ledger.accounts
-                        .filter((entry) => entry.row.firmId === firmId)
+                    items
                         .flatMap((entry) => entry.payouts)
                         .flatMap((payout) => {
                             const cash = paidPayoutCash(payout);
                             return cash === null ? [] : [cash.cents];
                         }),
                 ),
-                firmId,
+                firmKey,
             })),
         ),
     };
@@ -59,6 +59,7 @@ function sharesOf(amounts: readonly FirmAmount[]): readonly FirmShare[] {
     return positive
         .map((amount) => ({ ...amount, share: amount.cents / total }))
         .toSorted(
-            (a, b) => b.cents - a.cents || compareText(a.firmId, b.firmId),
+            (a, b) =>
+                b.cents - a.cents || compareFirmKeys(a.firmKey, b.firmKey),
         );
 }

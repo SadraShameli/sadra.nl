@@ -23,6 +23,7 @@ export default async function PropAccountsLedgerPage() {
         redirect(loginRedirectFor(routes.propCalculator.accounts.ledger));
     }
     void api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT);
+    void api.propAccounts.externalFirm.list.prefetch();
     void api.propAccounts.payout.list.prefetch({});
     void api.propAccounts.fee.list.prefetch({});
     return (

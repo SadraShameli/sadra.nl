@@ -19,6 +19,16 @@ export {
     type CompoundingCycle,
 } from './BankrollCompounding';
 export {
+    BankrollLeverKind,
+    BankrollLeverLabel,
+    type BankrollLeverOutputs,
+    type BankrollLeverRow,
+    bankrollLevers,
+    type BankrollLeverVariant,
+    type EmpiricalPayingStats,
+    empiricalPayingStatsOf,
+} from './BankrollLevers';
+export {
     cohortOutcome,
     type CohortOutcome,
     MAX_COHORT_SAMPLES,
@@ -26,6 +36,7 @@ export {
 export {
     compoundedMultiple,
     ECONOMICS_DISCLOSURE_TEXT,
+    ECONOMICS_REASON_TEXT,
     EconomicsDisclosure,
     type EconomicsEstimate,
     EconomicsReason,
@@ -45,11 +56,10 @@ export {
     evalPace,
     type EvalPace,
     type EvalPaceInputs,
-    MAX_WALK_RATIO_DENOMINATOR,
-    MAX_WALK_WORK,
     requiredR,
     twoBarrierExpectedTrades,
     twoBarrierPassProbability,
+    walkPassProbability,
 } from './EvalPace';
 export {
     type ConversionEvInputs,
@@ -84,3 +94,8 @@ export {
     noPayoutProbability,
 } from './LossRisk';
 export { netPerScreenHour, type ScreenHourInputs } from './TimeEfficiency';
+export {
+    MAX_WALK_CELLS,
+    MAX_WALK_RATIO_DENOMINATOR,
+    MAX_WALK_WORK,
+} from './WalkLimits';

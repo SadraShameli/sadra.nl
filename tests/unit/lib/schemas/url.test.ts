@@ -4,9 +4,11 @@ import { readLadder, readStopRule } from '~/cli/commands/prop/shared';
 import { InstrumentSymbol } from '~/lib/prop-calculator';
 import {
     authErrorSearchSchema,
+    CALCULATOR_SCALAR_BOUNDS,
     dayPolicySchema,
     dayStopRuleSchema,
     forgotPasswordSearchSchema,
+    INSTRUMENT_STOP_PAIR_RULE,
     labScenarioSchema,
     loginSearchSchema,
     portfolioEntrySchema,
@@ -255,18 +257,95 @@ describe('dayPolicySchema ladder bounds match the CLI --ladder reader (N-20)', (
 });
 
 describe('N-13: labScenarioSchema only accepts an account count the engine accepts', () => {
-    it.each([0, -3, 2.5, 2 ** 53])('rejects accounts %s', (accounts) => {
-        expect(
-            labScenarioSchema.safeParse({ ...LEGACY_LAB_SCENARIO, accounts })
-                .success,
-        ).toBe(false);
-    });
+    it.each([0, -3, 2.5, 21, 1_000_000, 2 ** 53])(
+        'rejects accounts %s',
+        (accounts) => {
+            expect(
+                labScenarioSchema.safeParse({
+                    ...LEGACY_LAB_SCENARIO,
+                    accounts,
+                }).success,
+            ).toBe(false);
+        },
+    );
 
     it.each([1, 20])('accepts accounts %s', (accounts) => {
         expect(
             labScenarioSchema.safeParse({ ...LEGACY_LAB_SCENARIO, accounts })
                 .success,
         ).toBe(true);
+    });
+});
+
+describe('labScenarioSchema only accepts a risk per trade the lab can size', () => {
+    it.each([0, -0.01, -250, 0.01, 0.5, 1_000_001])(
+        'rejects a shared lab scenario with risk per trade %s at parse',
+        (riskPerTrade) => {
+            expect(
+                labScenarioSchema.safeParse({
+                    ...LEGACY_LAB_SCENARIO,
+                    riskPerTrade,
+                }).success,
+            ).toBe(false);
+        },
+    );
+
+    it.each([1, 300, 1_000_000])(
+        'accepts risk per trade %s',
+        (riskPerTrade) => {
+            expect(
+                labScenarioSchema.safeParse({
+                    ...LEGACY_LAB_SCENARIO,
+                    riskPerTrade,
+                }).success,
+            ).toBe(true);
+        },
+    );
+});
+
+describe('labScenarioSchema only accepts a winrate, reward:risk and trades per day inside the calculator bounds', () => {
+    it.each([
+        { field: 'winrate', value: -0.1 },
+        { field: 'winrate', value: 0 },
+        { field: 'winrate', value: CALCULATOR_SCALAR_BOUNDS.wr.min - 0.01 },
+        { field: 'winrate', value: CALCULATOR_SCALAR_BOUNDS.wr.max + 0.01 },
+        { field: 'winrate', value: 1 },
+        { field: 'winrate', value: 1.5 },
+        { field: 'rrRatio', value: -1 },
+        { field: 'rrRatio', value: 0 },
+        { field: 'rrRatio', value: CALCULATOR_SCALAR_BOUNDS.rr.min - 0.01 },
+        { field: 'rrRatio', value: CALCULATOR_SCALAR_BOUNDS.rr.max + 0.01 },
+        { field: 'tradesPerDay', value: -1 },
+        { field: 'tradesPerDay', value: 0 },
+        { field: 'tradesPerDay', value: 2.5 },
+        { field: 'tradesPerDay', value: CALCULATOR_SCALAR_BOUNDS.tpd.max + 1 },
+    ])(
+        'rejects a shared lab scenario with $field $value at parse',
+        ({ field, value }) => {
+            expect(
+                labScenarioSchema.safeParse({
+                    ...LEGACY_LAB_SCENARIO,
+                    [field]: value,
+                }).success,
+            ).toBe(false);
+        },
+    );
+
+    it.each([
+        { field: 'winrate', value: CALCULATOR_SCALAR_BOUNDS.wr.min },
+        { field: 'winrate', value: CALCULATOR_SCALAR_BOUNDS.wr.max },
+        { field: 'rrRatio', value: CALCULATOR_SCALAR_BOUNDS.rr.min },
+        { field: 'rrRatio', value: 1.37 },
+        { field: 'rrRatio', value: CALCULATOR_SCALAR_BOUNDS.rr.max },
+        { field: 'tradesPerDay', value: CALCULATOR_SCALAR_BOUNDS.tpd.min },
+        { field: 'tradesPerDay', value: CALCULATOR_SCALAR_BOUNDS.tpd.max },
+    ])('accepts $field $value unchanged', ({ field, value }) => {
+        const parsed = labScenarioSchema.safeParse({
+            ...LEGACY_LAB_SCENARIO,
+            [field]: value,
+        });
+        expect(parsed.success).toBe(true);
+        expect(parsed.data).toMatchObject({ [field]: value });
     });
 });
 
@@ -289,13 +368,53 @@ describe('labScenarioSchema instrument/stopPoints (E15 extension to Strategy Lab
         expect(r.data?.stopPoints).toBeNull();
     });
 
-    it('falls back an unrecognized instrument symbol to null rather than rejecting the whole scenario', () => {
+    it.each(['NOT-A-REAL-SYMBOL', 5, true])(
+        'rejects a shared scenario with instrument %j instead of silently dropping it (PT-53f)',
+        (instrument) => {
+            const r = labScenarioSchema.safeParse({
+                ...LEGACY_LAB_SCENARIO,
+                instrument,
+                stopPoints: 8,
+            });
+            expect(r.success).toBe(false);
+            expect(r.error?.issues[0]?.path).toEqual(['instrument']);
+        },
+    );
+
+    it.each([0, -1, 0.2, 10_001, '8', true])(
+        'rejects a shared scenario with stopPoints %j outside the calculator bounds (PT-53f)',
+        (stopPoints) => {
+            const r = labScenarioSchema.safeParse({
+                ...LEGACY_LAB_SCENARIO,
+                instrument: InstrumentSymbol.MNQ,
+                stopPoints,
+            });
+            expect(r.success).toBe(false);
+            expect(r.error?.issues[0]?.path).toEqual(['stopPoints']);
+        },
+    );
+
+    it.each([0.25, 10_000])(
+        'accepts stopPoints %s on the calculator bounds (PT-53f)',
+        (stopPoints) => {
+            const r = labScenarioSchema.safeParse({
+                ...LEGACY_LAB_SCENARIO,
+                instrument: InstrumentSymbol.MNQ,
+                stopPoints,
+            });
+            expect(r.data?.stopPoints).toBe(stopPoints);
+        },
+    );
+
+    it('keeps an explicit null instrument and stopPoints', () => {
         const r = labScenarioSchema.safeParse({
             ...LEGACY_LAB_SCENARIO,
-            instrument: 'NOT-A-REAL-SYMBOL',
+            instrument: null,
+            stopPoints: null,
         });
         expect(r.success).toBe(true);
         expect(r.data?.instrument).toBeNull();
+        expect(r.data?.stopPoints).toBeNull();
     });
 });
 
@@ -364,5 +483,109 @@ describe('portfolioEntrySchema monthlySubscriptionDiscountPercent/resetDiscountP
         expect(r.success).toBe(true);
         expect(r.data?.monthlySubscriptionDiscountPercent).toBe(0);
         expect(r.data?.resetDiscountPercent).toBe(0);
+    });
+});
+
+describe('portfolioEntrySchema refuses a field it cannot use instead of silently rewriting it (PT-53g)', () => {
+    it.each(['XYZ', 7, ''])(
+        'refuses an entry whose instrument is %j',
+        (instrument) => {
+            const r = portfolioEntrySchema.safeParse({
+                ...LEGACY_PORTFOLIO_ENTRY,
+                instrument,
+                stopPoints: 10,
+            });
+            expect(r.success).toBe(false);
+            expect(r.error?.issues[0]?.path).toEqual(['instrument']);
+        },
+    );
+
+    it.each([0, -1, 0.1, 10_001, NaN, '10'])(
+        'refuses an entry whose stop points are %j',
+        (stopPoints) => {
+            const r = portfolioEntrySchema.safeParse({
+                ...LEGACY_PORTFOLIO_ENTRY,
+                instrument: InstrumentSymbol.NQ,
+                stopPoints,
+            });
+            expect(r.success).toBe(false);
+            expect(r.error?.issues[0]?.path).toEqual(['stopPoints']);
+        },
+    );
+
+    it.each([
+        CALCULATOR_SCALAR_BOUNDS.sp.min,
+        CALCULATOR_SCALAR_BOUNDS.sp.max,
+    ])('accepts stop points %s on the calculator bounds', (stopPoints) => {
+        const r = portfolioEntrySchema.safeParse({
+            ...LEGACY_PORTFOLIO_ENTRY,
+            instrument: InstrumentSymbol.NQ,
+            stopPoints,
+        });
+        expect(r.data?.stopPoints).toBe(stopPoints);
+    });
+
+    it.each([
+        'activationDiscountPercent',
+        'evalDiscountPercent',
+        'monthlySubscriptionDiscountPercent',
+        'resetDiscountPercent',
+    ])('refuses a negative, non-numeric or over 100 %s', (field) => {
+        for (const value of [-5, 'abc', 101, null]) {
+            const r = portfolioEntrySchema.safeParse({
+                ...LEGACY_PORTFOLIO_ENTRY,
+                [field]: value,
+            });
+            expect(r.success).toBe(false);
+            expect(r.error?.issues[0]?.path).toEqual([field]);
+        }
+    });
+});
+
+describe('an instrument and its stop points are set together (PT-53g)', () => {
+    it.each<[string, Record<string, unknown>]>([
+        ['an instrument without stop points', { instrument: InstrumentSymbol.MNQ }],
+        [
+            'an instrument with null stop points',
+            { instrument: InstrumentSymbol.MNQ, stopPoints: null },
+        ],
+        ['stop points without an instrument', { stopPoints: 8 }],
+        [
+            'stop points with a null instrument',
+            { instrument: null, stopPoints: 8 },
+        ],
+    ])('refuses a lab scenario with %s', (_name, pair) => {
+        const r = labScenarioSchema.safeParse({
+            ...LEGACY_LAB_SCENARIO,
+            ...pair,
+        });
+        expect(r.success).toBe(false);
+        expect(r.error?.issues[0]?.message).toBe(INSTRUMENT_STOP_PAIR_RULE);
+    });
+
+    it.each<[string, Record<string, unknown>]>([
+        ['an instrument without stop points', { instrument: InstrumentSymbol.NQ }],
+        [
+            'an instrument with null stop points',
+            { instrument: InstrumentSymbol.NQ, stopPoints: null },
+        ],
+        ['stop points without an instrument', { stopPoints: 10 }],
+        [
+            'stop points with a null instrument',
+            { instrument: null, stopPoints: 10 },
+        ],
+    ])('refuses a portfolio entry with %s', (_name, pair) => {
+        const r = portfolioEntrySchema.safeParse({
+            ...LEGACY_PORTFOLIO_ENTRY,
+            ...pair,
+        });
+        expect(r.success).toBe(false);
+        expect(r.error?.issues[0]?.message).toBe(INSTRUMENT_STOP_PAIR_RULE);
+    });
+
+    it('states the rule in plain words', () => {
+        expect(INSTRUMENT_STOP_PAIR_RULE).toBe(
+            'instrument and stop points must both be set or both be empty',
+        );
     });
 });

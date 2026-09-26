@@ -8,10 +8,13 @@ import {
     AccountEventKind,
     AccountStage,
     AccountStatus,
+    AccountTracking,
     FeeKind,
     type LedgerAccountRow,
     type LedgerEventRow,
     type LedgerFeeRow,
+    type LedgerPayoutRow,
+    PayoutStatus,
     usdCents,
 } from '~/lib/prop-accounts';
 import { ALL_FIRMS, serializePlanId } from '~/lib/prop-calculator';
@@ -77,6 +80,7 @@ vi.mock('~/trpc/react', () => ({
             },
             copyGroup: { list: harness.query('copyGroup.list') },
             event: { list: harness.query('event.list') },
+            externalFirm: { list: harness.query('externalFirm.list') },
             fee: { list: harness.query('fee.list') },
             payout: { list: harness.query('payout.list') },
             rulebook: { get: harness.query('rulebook.get') },
@@ -104,9 +108,11 @@ const CARD_HEADINGS = [
     'Stage funnel',
     'Diversification',
     'Costs',
+    'Firm returns',
     'Realized outcomes',
     'Replacement',
     'Monthly statement',
+    'Repeatability',
     'Timeline',
 ];
 
@@ -170,12 +176,14 @@ function overviewAccount(
         accountSize: plan.id.accountSize,
         archivedAt: null,
         copyGroupId: null,
+        externalFirmId: null,
         firmId: firm.id,
         fundedOn: null,
         id,
         label: id,
         notes: null,
         optIns: {},
+        planLabel: null,
         planSerial: serializePlanId(plan.id),
         purchasedOn: '2026-09-01',
         readIssues: [],
@@ -183,6 +191,7 @@ function overviewAccount(
         stage: AccountStage.Eval,
         status: AccountStatus.Active,
         tags: [],
+        tracking: AccountTracking.Modeled,
         userId: USER_ID,
         ...overrides,
     };
@@ -272,6 +281,38 @@ describe('OverviewView', () => {
             'Account events are loaded for the last 3 years only',
         );
         expect(container.textContent).toContain('Unresolvable plan');
+    });
+
+    it('shows the payout multiple KPI beside ROI and the firm returns and repeatability cards', () => {
+        const alpha = overviewAccount('alpha', {
+            fundedOn: '2026-09-05',
+            purchasedOn: '2026-06-01',
+            stage: AccountStage.Funded,
+        });
+        answerEverything([alpha]);
+        const paidPayout: LedgerPayoutRow = {
+            accountId: alpha.id,
+            approvedOn: null,
+            grossCents: usdCents(30_000),
+            id: 'payout-alpha',
+            netCents: usdCents(30_000),
+            paidOn: '2026-09-10',
+            requestedOn: '2026-09-05',
+            status: PayoutStatus.Paid,
+            userId: USER_ID,
+        };
+        harness.queries.set('payout.list', answer([paidPayout]));
+        render();
+        expect(container.textContent).toContain('Payout multiple');
+        expect(container.textContent).toContain('2.00x');
+        const firmSection = labelledSections().find(
+            (section) => headingOf(section)?.textContent === 'Firm returns',
+        );
+        expect(firmSection?.textContent).toContain(firm.displayName);
+        const repeatabilitySection = labelledSections().find(
+            (section) => headingOf(section)?.textContent === 'Repeatability',
+        );
+        expect(repeatabilitySection?.textContent).not.toBe('');
     });
 
     it('shows one readable error and no table error or skeleton when the accounts cannot be loaded', () => {
@@ -405,6 +446,17 @@ describe('OverviewView', () => {
                 .map((section) => headingOf(section)?.textContent)
                 .slice(0, CARD_HEADINGS.length),
         ).toEqual(CARD_HEADINGS);
+    });
+
+    it('warns instead of silently naming firms of your own unlisted when the firm list fails to load', () => {
+        answerEverything([overviewAccount('alpha')]);
+        harness.queries.set('externalFirm.list', failure('Failed to fetch'));
+        render();
+        const alerts = [...container.querySelectorAll('[role="alert"]')].filter(
+            (alert) =>
+                alert.textContent.includes('Your firms could not be loaded'),
+        );
+        expect(alerts).toHaveLength(2);
     });
 
     it('shows no card and the accounts table empty state when there are no accounts', () => {

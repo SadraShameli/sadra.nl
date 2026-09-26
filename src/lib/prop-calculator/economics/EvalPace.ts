@@ -8,13 +8,17 @@ import {
     type Quantity,
     quantityOf,
 } from './EdgeMath';
-
-export const MAX_WALK_RATIO_DENOMINATOR = 100;
-export const MAX_WALK_WORK = 100_000_000;
-
-const MAX_WALK_CELLS = 4_000_000;
+import {
+    MAX_WALK_CELLS,
+    MAX_WALK_RATIO_DENOMINATOR,
+    MAX_WALK_WORK,
+} from './WalkLimits';
 
 const WALK_TOLERANCE = 1e-9;
+
+const WALK_DISCLOSURES: readonly EconomicsDisclosure[] = [
+    EconomicsDisclosure.RandomWalkApproximation,
+];
 
 enum WalkValue {
     PassProbability = 'pass-probability',
@@ -35,6 +39,12 @@ export interface EvalPaceInputs {
     winrate: Fraction0to1;
 }
 
+interface Walk {
+    drawdownR: number;
+    grid: WalkGrid;
+    targetR: number;
+}
+
 interface WalkGrid {
     ddUnits: number;
     downUnits: number;
@@ -43,37 +53,24 @@ interface WalkGrid {
 }
 
 export function evalPace(inputs: EvalPaceInputs): Quantity<EvalPace> {
-    const { drawdown, riskPerTrade, rrRatio, target, winrate } = inputs;
-    const required = requiredR(target, riskPerTrade);
-    if (
-        required.value === null ||
-        !isNonNegativeAmount(drawdown) ||
-        !isProbability(winrate)
-    ) {
-        return missingQuantity(EconomicsReason.InvalidInput);
-    }
-    const ddUnits = drawdown / riskPerTrade;
-    const grid = walkGrid(rrRatio, required.value, ddUnits);
-    if (grid.value === null) return grid;
+    const walk = walkOf(inputs);
+    if (walk.value === null) return walk;
+    const { drawdownR, grid, targetR } = walk.value;
+    const { rrRatio, winrate } = inputs;
     return quantityOf(
         {
             expectedTradesUntilPassOrBust: twoBarrierExpectedTrades(
                 winrate,
                 rrRatio,
-                required.value,
-                ddUnits,
+                targetR,
+                drawdownR,
             ),
             passProbability: fraction(
-                twoBarrierPassProbability(
-                    winrate,
-                    rrRatio,
-                    required.value,
-                    ddUnits,
-                ),
+                passProbabilityOn(winrate, targetR, drawdownR, grid),
             ),
-            requiredR: required.value,
+            requiredR: targetR,
         },
-        [EconomicsDisclosure.RandomWalkApproximation],
+        WALK_DISCLOSURES,
     );
 }
 
@@ -106,17 +103,35 @@ export function twoBarrierPassProbability(
     target: number,
     dd: number,
 ): number {
-    if (p <= 0) return 0;
-    if (p >= 1 || target <= 0) return 1;
-    if (dd <= 0) return 0;
-    const grid = walkGrid(rr, target, dd);
-    return grid.value === null
-        ? NaN
-        : solveWalk(p, grid.value, WalkValue.PassProbability);
+    return passProbabilityOn(p, target, dd, walkGrid(rr, target, dd).value);
+}
+
+export function walkPassProbability(
+    inputs: EvalPaceInputs,
+): Quantity<Fraction0to1> {
+    const walk = walkOf(inputs);
+    if (walk.value === null) return walk;
+    const { drawdownR, grid, targetR } = walk.value;
+    return quantityOf(
+        fraction(passProbabilityOn(inputs.winrate, targetR, drawdownR, grid)),
+        WALK_DISCLOSURES,
+    );
 }
 
 function barrierUnits(distance: number, unitsPerR: number): number {
     return Math.max(1, Math.ceil(distance * unitsPerR - WALK_TOLERANCE));
+}
+
+function passProbabilityOn(
+    p: number,
+    target: number,
+    dd: number,
+    grid: null | WalkGrid,
+): number {
+    if (p <= 0) return 0;
+    if (p >= 1 || target <= 0) return 1;
+    if (dd <= 0) return 0;
+    return grid === null ? NaN : solveWalk(p, grid, WalkValue.PassProbability);
 }
 
 function solveWalk(p: number, grid: WalkGrid, kind: WalkValue): number {
@@ -207,4 +222,21 @@ function walkGrid(rr: number, target: number, dd: number): Quantity<WalkGrid> {
             : quantityOf(grid);
     }
     return missingQuantity(EconomicsReason.UnsupportedRatio);
+}
+
+function walkOf(inputs: EvalPaceInputs): Quantity<Walk> {
+    const { drawdown, riskPerTrade, rrRatio, target, winrate } = inputs;
+    const targetR = requiredR(target, riskPerTrade);
+    if (
+        targetR.value === null ||
+        !isNonNegativeAmount(drawdown) ||
+        !isProbability(winrate)
+    ) {
+        return missingQuantity(EconomicsReason.InvalidInput);
+    }
+    const drawdownR = drawdown / riskPerTrade;
+    const grid = walkGrid(rrRatio, targetR.value, drawdownR);
+    return grid.value === null
+        ? grid
+        : quantityOf({ drawdownR, grid: grid.value, targetR: targetR.value });
 }

@@ -7,6 +7,7 @@ import {
     AccountEventKind,
     AccountStage,
     AccountStatus,
+    AccountTracking,
     DashboardBalanceConvention,
     FeeKind,
     type LifecycleRejection,
@@ -27,12 +28,22 @@ import { createCallerFactory } from '~/server/api/trpc';
 
 import {
     createFakeDatabase,
+    type FakeDatabaseError,
     type FakeRow,
     type IssuedQuery,
     readTable,
     writeTable,
 } from '../fakeDatabase';
 import './resetModulesAfterFile';
+import {
+    bankrollTransferRow,
+    externalFirmRow,
+    firmEngagementRow,
+    firmStatementRow,
+    roundRow,
+    VIDEO_TABLES,
+    violationRow,
+} from './videoRecordFixtures';
 
 export interface RegistryEntry {
     readonly firm: TradingFirm;
@@ -118,6 +129,7 @@ export function accountRow(overrides: FakeRow = {}): FakeRow {
         created_at: CREATED_AT,
         dashboard_convention: DashboardBalanceConvention.Nominal,
         external_alias: null,
+        external_firm_id: null,
         firm_id: key.firmId,
         first_funded_trade_on: null,
         funded_on: null,
@@ -127,6 +139,7 @@ export function accountRow(overrides: FakeRow = {}): FakeRow {
         notes: null,
         opt_ins: {},
         personal_rules: {},
+        plan_label: null,
         plan_rules_fingerprint: null,
         plan_serial: key.planSerial,
         purchased_on: '2026-09-01',
@@ -135,6 +148,7 @@ export function accountRow(overrides: FakeRow = {}): FakeRow {
         stage: AccountStage.Eval,
         status: AccountStatus.Active,
         tags: [],
+        tracking: AccountTracking.Modeled,
         updated_at: CREATED_AT,
         user_id: USER_ID,
         ...overrides,
@@ -220,6 +234,18 @@ export function feeRow(overrides: FakeRow = {}): FakeRow {
         user_id: USER_ID,
         ...overrides,
     };
+}
+
+export function ledgerOnlyAccountRow(overrides: FakeRow = {}): FakeRow {
+    return accountRow({
+        account_size: 150_000,
+        label: 'Ledger one',
+        plan_label: 'Rapid 150K',
+        plan_serial: null,
+        stage: AccountStage.Funded,
+        tracking: AccountTracking.LedgerOnly,
+        ...overrides,
+    });
 }
 
 export function payoutRow(overrides: FakeRow = {}): FakeRow {
@@ -308,6 +334,12 @@ const DEFAULT_ROWS: Readonly<Record<string, () => FakeRow>> = {
     [TABLES.rulebook]: rulebookRow,
     [TABLES.scenario]: scenarioRow,
     [TABLES.snapshot]: snapshotRow,
+    [VIDEO_TABLES.bankrollTransfer]: bankrollTransferRow,
+    [VIDEO_TABLES.externalFirm]: externalFirmRow,
+    [VIDEO_TABLES.firmEngagement]: firmEngagementRow,
+    [VIDEO_TABLES.firmStatement]: firmStatementRow,
+    [VIDEO_TABLES.round]: roundRow,
+    [VIDEO_TABLES.violation]: violationRow,
 };
 
 export function callerFor(session: Session, responder: Responder) {
@@ -334,6 +366,16 @@ export function deletesFrom(
     );
 }
 
+export function emptyReadsOf(
+    tables: readonly string[],
+    responder: Responder = tableResponder(),
+): Responder {
+    return (query) =>
+        !isCount(query) && tables.includes(readTable(query) ?? '')
+            ? []
+            : responder(query);
+}
+
 export function errorShapeOf(
     error: unknown,
     router: RouterWithConfig = propAccountsRouter,
@@ -346,6 +388,17 @@ export function errorShapeOf(
         path: undefined,
         type: 'unknown',
     });
+}
+
+export function failingWrite(
+    table: string,
+    error: FakeDatabaseError,
+    responder: Responder = tableResponder(),
+): Responder {
+    return (query) => {
+        if (writeTable(query) === table) throw error;
+        return responder(query);
+    };
 }
 
 export function insertsInto(

@@ -108,6 +108,7 @@ export const indexableRoutes: readonly string[] = [
     routes.propCalculator.planner,
     routes.propCalculator.positionSize,
     routes.propCalculator.rules,
+    routes.propCalculator.live,
     routes.contact,
     routes.legal.privacy,
     routes.legal.terms,

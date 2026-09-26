@@ -20,7 +20,12 @@ import {
 } from '~/components/ui/Table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
 import { Textarea } from '~/components/ui/Textarea';
-import { AccountStage, DashboardBalanceConvention } from '~/lib/prop-accounts';
+import {
+    AccountStage,
+    AccountTracking,
+    DashboardBalanceConvention,
+    type ExternalFirmName,
+} from '~/lib/prop-accounts';
 import {
     ACCOUNT_CSV_COLUMNS,
     AccountCsvColumn,
@@ -117,7 +122,7 @@ const ACCOUNT_COLUMN_HINTS: Readonly<Record<AccountCsvColumn, string>> = {
     [AccountCsvColumn.DashboardConvention]: `${Object.values(DashboardBalanceConvention).join(' or ')}; empty means ${DashboardBalanceConvention.Nominal}.`,
     [AccountCsvColumn.ExternalAlias]:
         'The account name the firm shows. Never paste a password or login.',
-    [AccountCsvColumn.Firm]: `One of: ${Object.values(FirmId).join(', ')}.`,
+    [AccountCsvColumn.Firm]: `One of: ${Object.values(FirmId).join(', ')}. On a ${AccountTracking.LedgerOnly} row it can also be the name of one of your own firms.`,
     [AccountCsvColumn.FirstFundedTradeOn]: DATE_HINT,
     [AccountCsvColumn.FundedOn]: DATE_HINT,
     [AccountCsvColumn.FundedReset]:
@@ -133,13 +138,14 @@ const ACCOUNT_COLUMN_HINTS: Readonly<Record<AccountCsvColumn, string>> = {
         'yes or no; only on plans that offer it.',
     [AccountCsvColumn.PayoutRequestOverride]:
         'Optional personal payout request in dollars; the plan minimum still applies.',
-    [AccountCsvColumn.Plan]: 'The plan serial from the plan list below.',
+    [AccountCsvColumn.Plan]: `The plan serial from the plan list below; on a ${AccountTracking.LedgerOnly} row, the plan name as the firm shows it.`,
     [AccountCsvColumn.PurchasedOn]: DATE_HINT,
     [AccountCsvColumn.RetainedCushion]:
         'Optional personal retained cushion in dollars.',
     [AccountCsvColumn.Stage]: `${Object.values(AccountStage).join(', ')}.`,
     [AccountCsvColumn.Tags]:
         'Comma separated; wrap the cell in quotes when it holds a comma.',
+    [AccountCsvColumn.Tracking]: `${Object.values(AccountTracking).join(' or ')}; empty means ${AccountTracking.Modeled}. A ${AccountTracking.LedgerOnly} account takes any firm, size and plan name, counts in your cash and firm figures, and is never valued by the engine.`,
 };
 
 const SNAPSHOT_COLUMN_HINTS: Readonly<Record<SnapshotCsvColumn, string>> = {
@@ -219,7 +225,7 @@ export function ImportView() {
                 </TabsTrigger>
             </TabsList>
             <TabsContent value={ImportKind.Accounts}>
-                <AccountImport accounts={accountsQuery.data} />
+                <AccountImportTab accounts={accountsQuery.data} />
             </TabsContent>
             <TabsContent value={ImportKind.Snapshots}>
                 <SnapshotImport accounts={accountsQuery.data} />
@@ -230,8 +236,10 @@ export function ImportView() {
 
 function AccountImport({
     accounts,
+    externalFirms,
 }: {
     accounts: readonly ExistingAccountLabel[];
+    externalFirms: readonly ExternalFirmName[];
 }) {
     const { clearCommitted, markCommitted, setText, text } = useImportText();
     const deferredText = useDeferredValue(text);
@@ -247,8 +255,8 @@ function AccountImport({
         () =>
             deferredText.trim() === ''
                 ? null
-                : previewAccountCsv(deferredText, accounts),
-        [deferredText, accounts],
+                : previewAccountCsv(deferredText, accounts, externalFirms),
+        [deferredText, accounts, externalFirms],
     );
 
     return (
@@ -277,6 +285,34 @@ function AccountImport({
             />
             <PlanReference />
         </div>
+    );
+}
+
+function AccountImportTab({
+    accounts,
+}: {
+    accounts: readonly ExistingAccountLabel[];
+}) {
+    const externalFirmsQuery = api.propAccounts.externalFirm.list.useQuery();
+    if (externalFirmsQuery.data !== undefined) {
+        return (
+            <AccountImport
+                accounts={accounts}
+                externalFirms={externalFirmsQuery.data}
+            />
+        );
+    }
+    return externalFirmsQuery.isError ? (
+        <Alert variant="destructive">
+            <TriangleAlert />
+            <AlertTitle>Your firms could not be loaded</AlertTitle>
+            <AlertDescription>
+                {externalFirmsQuery.error.message} Account import needs them to
+                check firm names, so it is paused.
+            </AlertDescription>
+        </Alert>
+    ) : (
+        <Skeleton className="h-64 w-full" />
     );
 }
 

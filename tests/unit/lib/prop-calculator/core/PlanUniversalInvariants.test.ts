@@ -252,6 +252,7 @@ describe.each(ALL_PLANS)(
             );
             const newFundedValue = fundedIdle === null ? 5 : fundedIdle + 1;
             const twin = plan.withOverrides({
+                calendarWeekInactivity: undefined,
                 evalMaxConsecutiveIdleDays: evalIdle,
                 maxConsecutiveIdleDays: newFundedValue,
             });

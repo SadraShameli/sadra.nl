@@ -28,6 +28,7 @@ export default async function PropAccountDetailPage({
         params,
         routes.propCalculator.accounts.detail,
     );
+    void api.propAccounts.externalFirm.list.prefetch();
     void api.propAccounts.snapshot.listForAccount.prefetch({ id });
     void api.propAccounts.payout.list.prefetch({ accountId: id });
     void api.propAccounts.fee.list.prefetch({ accountId: id });

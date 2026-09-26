@@ -36,4 +36,10 @@ describe('advisor shared definitions', () => {
             'RuleContext.ts',
         ]);
     });
+
+    it('resolves the retained cushion in exactly one exported function', () => {
+        expect(
+            definitionsOf(/export function retainedCushionForStage\b/),
+        ).toEqual(['PayoutRequestRule.ts']);
+    });
 });

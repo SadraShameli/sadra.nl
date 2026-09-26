@@ -1,4 +1,9 @@
-import { SIM_DEFAULTS, type SimInputs } from '~/lib/prop-calculator';
+import {
+    DEFAULT_PAYOUT_REQUEST_POLICY,
+    SIM_DEFAULTS,
+    type SimInputs,
+    type SimStart,
+} from '~/lib/prop-calculator';
 
 export enum SimInputsKeyField {
     ActivationDiscount = 'act',
@@ -23,6 +28,7 @@ export enum SimInputsKeyField {
     MaxEvalDays = 'max',
     MinRetainedCushion = 'minCushion',
     MonthlyDiscount = 'monthly',
+    PayoutRequestPolicy = 'payoutPolicy',
     PayoutRequestSize = 'payoutRequest',
     PlanId = 'planId',
     RebuyLagDays = 'rebuyLag',
@@ -31,6 +37,7 @@ export enum SimInputsKeyField {
     RrRatio = 'rr',
     RungSizing = 'rungSizing',
     Seed = 'seed',
+    Start = 'start',
     StopPoints = 'stopPoints',
     TradesPerDay = 'tpd',
     Trials = 'trials',
@@ -41,7 +48,9 @@ type KeyInputs = Omit<
     SimInputs,
     'fundedHorizonDays' | 'plan' | 'riskPerTrade'
 > &
-    Partial<Pick<SimInputs, 'fundedHorizonDays' | 'plan' | 'riskPerTrade'>>;
+    Partial<Pick<SimInputs, 'fundedHorizonDays' | 'plan' | 'riskPerTrade'>> & {
+        start?: SimStart;
+    };
 
 export function simInputsCacheKey(
     inputs: KeyInputs,
@@ -88,6 +97,8 @@ export function simInputsCacheKey(
             inputs.minRetainedCushion ?? null,
         [SimInputsKeyField.MonthlyDiscount]:
             inputs.discounts?.monthlySubscriptionPercent ?? 0,
+        [SimInputsKeyField.PayoutRequestPolicy]:
+            inputs.payoutRequestPolicy ?? DEFAULT_PAYOUT_REQUEST_POLICY,
         [SimInputsKeyField.PayoutRequestSize]: inputs.payoutRequestSize ?? null,
         [SimInputsKeyField.PlanId]: inputs.plan?.id ?? null,
         [SimInputsKeyField.RebuyLagDays]:
@@ -97,6 +108,7 @@ export function simInputsCacheKey(
         [SimInputsKeyField.RrRatio]: inputs.rrRatio,
         [SimInputsKeyField.RungSizing]: inputs.rungSizing ?? null,
         [SimInputsKeyField.Seed]: inputs.seed,
+        [SimInputsKeyField.Start]: inputs.start ?? null,
         [SimInputsKeyField.StopPoints]: inputs.stopPoints ?? null,
         [SimInputsKeyField.TradesPerDay]: inputs.tradesPerDay,
         [SimInputsKeyField.Trials]: inputs.trials,

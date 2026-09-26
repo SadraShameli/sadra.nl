@@ -16,6 +16,7 @@ import {
     PlanKeyResolutionKind,
     readAccountEventDetail,
     resolvePlanKey,
+    trackedAccountOf,
     UnresolvedPlanReason,
 } from '~/lib/prop-accounts';
 import { PropInvalidStoredRecordError } from '~/lib/prop-accounts/server';
@@ -778,7 +779,11 @@ describe('propAccounts.account', () => {
         expect(byId.get(UNREADABLE_IDS.unknownSerial)?.planSerial).toBe(
             'retired-plan',
         );
-        expect(listed.map((account) => resolvePlanKey(account).kind)).toEqual([
+        expect(
+            listed.map(
+                (account) => resolvePlanKey(trackedAccountOf(account)).kind,
+            ),
+        ).toEqual([
             PlanKeyResolutionKind.Resolved,
             PlanKeyResolutionKind.Unresolved,
             PlanKeyResolutionKind.Unresolved,
@@ -823,7 +828,12 @@ describe('propAccounts.account', () => {
         expect(rows.map((row) => row.planIssue)).toEqual(
             listed.map((account) =>
                 account.readIssues
-                    .map((issue) => describeAccountReadIssue(account, issue))
+                    .map((issue) =>
+                        describeAccountReadIssue(
+                            trackedAccountOf(account),
+                            issue,
+                        ),
+                    )
                     .join('; '),
             ),
         );
@@ -840,7 +850,7 @@ describe('propAccounts.account', () => {
             const account = await caller.account.get({ id: String(row.id) });
             expect(account.id).toBe(row.id);
             expect(account.readIssues).toEqual(readIssues);
-            expect(resolvePlanKey(account).kind).toBe(
+            expect(resolvePlanKey(trackedAccountOf(account)).kind).toBe(
                 PlanKeyResolutionKind.Unresolved,
             );
         },
@@ -880,9 +890,8 @@ describe('propAccounts.account', () => {
             tableResponder({ [TABLES.account]: [row] }),
         );
         const listed = await caller.account.list({});
-        expect(resolvePlanKey(defined(listed[0])).kind).toBe(
-            PlanKeyResolutionKind.Resolved,
-        );
+        const first = trackedAccountOf(defined(listed[0]));
+        expect(resolvePlanKey(first).kind).toBe(PlanKeyResolutionKind.Resolved);
         const pending = caller.account.get({ id: String(row.id) });
         const shape = errorShapeOf(await rejectionOf(pending));
         expect(shape.data.code).toBe('PRECONDITION_FAILED');
@@ -916,7 +925,8 @@ describe('propAccounts.account', () => {
             },
         ]);
         expect(listed?.optIns).toEqual(NO_PLAN_OPT_INS);
-        expect(resolvePlanKey(defined(listed)).kind).toBe(
+        const tracked = trackedAccountOf(defined(listed));
+        expect(resolvePlanKey(tracked).kind).toBe(
             PlanKeyResolutionKind.Unresolved,
         );
     });
@@ -938,7 +948,9 @@ describe('propAccounts.account', () => {
             ...UNREADABLE_CASES.map(() => true),
         ]);
         expect(rows.map((row) => row.planIssue)).toEqual(
-            listed.map((account) => describedReadIssues(account)),
+            listed.map((account) =>
+                describedReadIssues(trackedAccountOf(account)),
+            ),
         );
         const alerted = unresolvablePlanAlerts(listed, '2026-09-25').map(
             (alert) => alert.subject,

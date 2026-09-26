@@ -6,6 +6,7 @@ export enum SnapshotInputField {
     CycleBestDayProfit = 'cycleBestDayProfit',
     DashboardConvention = 'dashboardConvention',
     DashboardFloor = 'dashboardFloor',
+    ElapsedDaysSinceAttemptStart = 'elapsedDaysSinceAttemptStart',
     EvalBestDayProfit = 'evalBestDayProfit',
     FirstFundedTradeOn = 'firstFundedTradeOn',
     FloorAtLastPayout = 'floorAtLastPayout',

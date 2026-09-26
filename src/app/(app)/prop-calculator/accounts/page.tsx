@@ -28,6 +28,7 @@ export default async function PropAccountsPage() {
         redirect(loginRedirectFor(routes.propCalculator.accounts.index));
     }
     void api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT);
+    void api.propAccounts.externalFirm.list.prefetch();
     void api.propAccounts.snapshot.latestForAll.prefetch();
     void api.propAccounts.copyGroup.list.prefetch();
     void api.propAccounts.rulebook.get.prefetch();

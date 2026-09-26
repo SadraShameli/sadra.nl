@@ -25,6 +25,8 @@ import { propAccount, propCopyGroup } from '~/server/db/schemas/prop';
 
 import {
     assertCopyGroupAcceptsStages,
+    assertModeledForOperation,
+    ModeledOperation,
     propMutationProcedure,
     propProcedure,
     PropRouterBucket,
@@ -47,6 +49,10 @@ export const propCopyGroupRouter = createTRPCRouter({
                 );
                 if (input.copyGroupId === stored.copyGroupId) return stored;
                 if (input.copyGroupId !== null) {
+                    assertModeledForOperation(
+                        stored,
+                        ModeledOperation.CopyGroup,
+                    );
                     await assertCopyGroupAcceptsStages(
                         repo,
                         input.copyGroupId,

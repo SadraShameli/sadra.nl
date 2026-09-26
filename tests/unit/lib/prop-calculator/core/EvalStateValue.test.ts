@@ -307,7 +307,7 @@ describe(
                     1,
                 );
                 expect(ladderOut.evalPassProbability).toBeCloseTo(0.429, 2);
-                expect(dpOut.evalPassProbability).toBeCloseTo(0.588, 2);
+                expect(dpOut.evalPassProbability).toBeCloseTo(0.662, 2);
                 expect(
                     dpOut.evalPassProbability - ladderOut.evalPassProbability,
                 ).toBeGreaterThan(ADOPT_THRESHOLD_PP);

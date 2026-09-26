@@ -1,6 +1,11 @@
 import { type AccountState } from './AccountState';
+import { didCalendarWeekCloseForInactivity } from './InactivityRule';
 import { type Plan } from './Plan';
 import { TradingPhase } from './TradingPhase';
+
+export interface TradingDayCloseResult {
+    closedForCalendarWeekInactivity: boolean;
+}
 
 export function applyTrade(
     plan: Plan,
@@ -20,7 +25,7 @@ export function closeTradingDay(
     phase: TradingPhase,
     state: AccountState,
     isTraded: boolean,
-): void {
+): TradingDayCloseResult {
     const isEval = phase === TradingPhase.Eval;
     if (isEval) {
         state.elapsedDays = (state.elapsedDays ?? 0) + 1;
@@ -36,8 +41,16 @@ export function closeTradingDay(
     } else {
         state.consecutiveIdleDays += 1;
     }
+    const wasClosedForCalendarWeekInactivity = didCalendarWeekCloseForInactivity(
+        plan.calendarWeekInactivityFor(phase),
+        state,
+        isTraded,
+    );
     plan.drawdownFor(phase).onDayClose(state);
     plan.recordDayClosePeak(state);
+    return {
+        closedForCalendarWeekInactivity: wasClosedForCalendarWeekInactivity,
+    };
 }
 
 export function recordBestDay(state: AccountState): void {

@@ -4,6 +4,8 @@ import {
     emptySnapshotFormValues,
     initialSnapshotRules,
     initialSnapshotStage,
+    LEDGER_ONLY_SNAPSHOT_NOTICE,
+    ledgerOnlySnapshotRules,
     parseSnapshotForm,
     parseTagsText,
     type SnapshotDraft,
@@ -20,8 +22,10 @@ import {
     compareText,
     DashboardBalanceConvention,
     EntryTextKind,
+    LEDGER_ONLY_SNAPSHOT_FIELDS,
     missingSnapshotFields,
     SnapshotField,
+    SnapshotFieldRequirement,
     snapshotFieldRules,
     SnapshotSource,
 } from '~/lib/prop-accounts';
@@ -509,6 +513,132 @@ describe('validateSnapshotDraft', () => {
             contextFor(DashboardBalanceConvention.Nominal),
         );
         expect(issueFields(result)).toEqual([SnapshotField.TradingDays]);
+    });
+});
+
+describe('ledgerOnlySnapshotRules', () => {
+    const LEDGER_ONLY_FIELDS = [
+        SnapshotField.AsOf,
+        SnapshotField.Balance,
+        SnapshotField.CumulativePayout,
+        SnapshotField.DashboardFloor,
+        SnapshotField.PayoutsTaken,
+    ];
+
+    it('offers only the date, balance, dashboard floor, payouts taken and cumulative payouts, and requires only the date and balance', () => {
+        const rules = ledgerOnlySnapshotRules();
+        expect(rules.map((rule) => rule.field).toSorted(compareText)).toEqual(
+            LEDGER_ONLY_FIELDS.toSorted(compareText),
+        );
+        expect(
+            rules.some(
+                (rule) => rule.requirement === SnapshotFieldRequirement.Hidden,
+            ),
+        ).toBe(false);
+        expect(requiredLabels(rules)).toEqual(['Snapshot date', 'Balance']);
+        expect(rules.every((rule) => rule.alternative === null)).toBe(true);
+    });
+
+    it('offers the shared ledger-only field set, in its order', () => {
+        expect(ledgerOnlySnapshotRules().map((rule) => rule.field)).toEqual(
+            LEDGER_ONLY_SNAPSHOT_FIELDS,
+        );
+    });
+
+    it('labels each offered field as the modeled snapshot form does', () => {
+        const modeled = new Map(
+            snapshotFieldRules(eodPlan, AccountStage.Funded).map((rule) => [
+                rule.field,
+                rule,
+            ]),
+        );
+        for (const rule of ledgerOnlySnapshotRules()) {
+            expect(rule.label).toBe(modeled.get(rule.field)?.label);
+            expect(rule.input).toBe(modeled.get(rule.field)?.input);
+        }
+    });
+
+    it('never says the dashboard floor decides a plan floor, since no plan runs', () => {
+        const floor = ledgerOnlySnapshotRules().find(
+            (rule) => rule.field === SnapshotField.DashboardFloor,
+        );
+        expect(floor?.hint).not.toContain('peak');
+    });
+
+    it('builds a ledger-only snapshot with only the offered fields and nulls every other one', () => {
+        const result = parseSnapshotForm(
+            valuesWith({
+                [SnapshotField.Balance]: '151,000',
+                [SnapshotField.CumulativePayout]: '9,000',
+                [SnapshotField.DashboardFloor]: '145,500',
+                [SnapshotField.HighestEodBalance]: '152,000',
+                [SnapshotField.LastTradedOn]: '2026-09-24',
+                [SnapshotField.PayoutsTaken]: '3',
+                [SnapshotField.TradingDays]: '12',
+            }),
+            ledgerOnlySnapshotRules(),
+        );
+        expect(result).toEqual({
+            kind: SnapshotFormResultKind.Valid,
+            snapshot: {
+                asOf: AS_OF,
+                balanceAtLastPayoutCents: null,
+                balanceCents: 15_100_000,
+                cumulativePayoutCents: 900_000,
+                cycleBestDayProfitCents: null,
+                dashboardFloorCents: 14_550_000,
+                evalBestDayProfitCents: null,
+                floorAtLastPayoutCents: null,
+                highestEodBalanceCents: null,
+                highestIntradayBalanceCents: null,
+                lastPayoutOn: null,
+                lastTradedOn: null,
+                payoutsTaken: 3,
+                qualifyingDaysSinceLastPayout: null,
+                source: SnapshotSource.Manual,
+                tradingDays: null,
+            },
+        });
+    });
+
+    it('accepts a balance alone and still reports a missing balance', () => {
+        expect(
+            parseSnapshotForm(
+                valuesWith({ [SnapshotField.Balance]: '1' }),
+                ledgerOnlySnapshotRules(),
+            ).kind,
+        ).toBe(SnapshotFormResultKind.Valid);
+        const empty = parseSnapshotForm(
+            valuesWith({}),
+            ledgerOnlySnapshotRules(),
+        );
+        expect(issueFields(empty)).toEqual([SnapshotField.Balance]);
+    });
+
+    it('has a notice saying no plan plausibility check runs', () => {
+        expect(LEDGER_ONLY_SNAPSHOT_NOTICE).toContain(
+            'no plan plausibility check runs',
+        );
+        expect(LEDGER_ONLY_SNAPSHOT_NOTICE).not.toContain('\u{2014}');
+    });
+
+    it('warns that its snapshots have to be removed before an upgrade to a modeled plan', () => {
+        expect(LEDGER_ONLY_SNAPSHOT_NOTICE).toContain(
+            'remove its snapshots before you upgrade it to a modeled plan',
+        );
+    });
+
+    it('is right that every modeled plan requires a field a ledger-only snapshot cannot hold', () => {
+        expect(
+            ledgerOnlySnapshotRules().map((rule) => rule.field),
+        ).not.toContain(SnapshotField.TradingDays);
+        for (const plan of ALL_PLANS) {
+            for (const stage of Object.values(AccountStage)) {
+                expect(
+                    requiredLabels(snapshotFieldRules(plan, stage)),
+                ).toContain('Trading days');
+            }
+        }
     });
 });
 

@@ -12,12 +12,16 @@ import {
     type RungSizing,
     type TradingFirm,
 } from '~/lib/prop-calculator';
-import { CALCULATOR_SCALAR_BOUNDS } from '~/lib/schemas/url';
+import { CALCULATOR_SCALAR_BOUNDS, MAX_LAB_SCENARIOS } from '~/lib/schemas/url';
 
 import { clampInt, clampNumber, clampStateToPlan } from './clamp';
 import {
     type CalculatorState,
+    type LabLinkOutcome,
+    LabLinkStatus,
     type LabScenario,
+    LinkParameter,
+    type LinkParameterOutcomes,
     type PortfolioEntry,
     SizingMode,
 } from './types';
@@ -35,6 +39,14 @@ const DEFAULT_PLAN: Plan = required(
     DEFAULT_FIRM.plans.find((p) => p.accountSize === 50_000),
     'Prop calculator: default $50K plan missing from Apex',
 );
+
+const NO_LAB_LINK: LabLinkOutcome = { status: LabLinkStatus.Absent };
+
+const NO_LINK_PARAMETERS: LinkParameterOutcomes = {
+    [LinkParameter.DayStop]: NO_LAB_LINK,
+    [LinkParameter.EvalDayPolicy]: NO_LAB_LINK,
+    [LinkParameter.Portfolio]: NO_LAB_LINK,
+};
 
 export enum CalculatorActionType {
     AddLabScenario = 'add-lab-scenario',
@@ -226,8 +238,10 @@ export function defaultCalculatorState(): CalculatorState {
         fundedHorizonDays: 60,
         idleDayProbability: 0,
         instrument: null,
+        labLink: NO_LAB_LINK,
         labScenarios: buildDefaultLabScenarios(),
         linkActivationDiscount: false,
+        linkParameters: NO_LINK_PARAMETERS,
         maxAttempts: 1,
         maxEvalDays: 60,
         monthlySubscriptionDiscountPercent: 0,
@@ -315,11 +329,16 @@ function reduceCalculator(
 ): CalculatorState {
     switch (action.type) {
         case CalculatorActionType.AddLabScenario: {
+            if (state.labScenarios.length >= MAX_LAB_SCENARIOS) return state;
             const last = state.labScenarios.at(-1);
             const base: LabScenario = last
                 ? { ...last, id: freshId(), label: `${last.label} copy` }
                 : defaultLabScenario();
-            return { ...state, labScenarios: [...state.labScenarios, base] };
+            return {
+                ...state,
+                labLink: NO_LAB_LINK,
+                labScenarios: [...state.labScenarios, base],
+            };
         }
         case CalculatorActionType.ApplyState: {
             return clampStateToPlan(action.state);
@@ -327,6 +346,7 @@ function reduceCalculator(
         case CalculatorActionType.RemoveLabScenario: {
             return {
                 ...state,
+                labLink: NO_LAB_LINK,
                 labScenarios: state.labScenarios.filter(
                     (sc) => sc.id !== action.id,
                 ),
@@ -346,7 +366,11 @@ function reduceCalculator(
             };
         }
         case CalculatorActionType.ResetLabScenarios: {
-            return { ...state, labScenarios: buildDefaultLabScenarios() };
+            return {
+                ...state,
+                labLink: NO_LAB_LINK,
+                labScenarios: buildDefaultLabScenarios(),
+            };
         }
         case CalculatorActionType.SetActivationDiscountPercent: {
             return {
@@ -386,10 +410,19 @@ function reduceCalculator(
             };
         }
         case CalculatorActionType.SetDayStop: {
-            return { ...state, dayStop: action.rule };
+            return {
+                ...withLinkParameterCleared(state, LinkParameter.DayStop),
+                dayStop: action.rule,
+            };
         }
         case CalculatorActionType.SetEvalDayPolicy: {
-            return { ...state, evalDayPolicy: action.policy };
+            return {
+                ...withLinkParameterCleared(
+                    state,
+                    LinkParameter.EvalDayPolicy,
+                ),
+                evalDayPolicy: action.policy,
+            };
         }
         case CalculatorActionType.SetEvalDiscountPercent: {
             return {
@@ -459,7 +492,11 @@ function reduceCalculator(
             return { ...state, instrument: action.instrument };
         }
         case CalculatorActionType.SetLabScenarios: {
-            return { ...state, labScenarios: action.entries };
+            return {
+                ...state,
+                labLink: NO_LAB_LINK,
+                labScenarios: action.entries,
+            };
         }
         case CalculatorActionType.SetLinkActivationDiscount: {
             return { ...state, linkActivationDiscount: action.isLinked };
@@ -527,7 +564,10 @@ function reduceCalculator(
             };
         }
         case CalculatorActionType.SetPortfolio: {
-            return { ...state, portfolio: action.entries };
+            return {
+                ...withLinkParameterCleared(state, LinkParameter.Portfolio),
+                portfolio: action.entries,
+            };
         }
         case CalculatorActionType.SetResetDiscountPercent: {
             return {
@@ -658,10 +698,21 @@ function reduceCalculator(
         case CalculatorActionType.UpdateLabScenario: {
             return {
                 ...state,
+                labLink: NO_LAB_LINK,
                 labScenarios: state.labScenarios.map((sc) =>
                     sc.id === action.id ? { ...sc, ...action.patch } : sc,
                 ),
             };
         }
     }
+}
+
+function withLinkParameterCleared(
+    state: CalculatorState,
+    parameter: LinkParameter,
+): CalculatorState {
+    return {
+        ...state,
+        linkParameters: { ...state.linkParameters, [parameter]: NO_LAB_LINK },
+    };
 }

@@ -12,6 +12,7 @@ import {
     NO_PLAN_OPT_INS,
     type PayoutTier,
     type Plan,
+    PlanAvailability,
     type PlanId,
     withPlanOptIns,
 } from '~/lib/prop-calculator';
@@ -146,6 +147,15 @@ describe('serializePlanRules: canonical structural JSON of the rule values (PT-4
         expect(serializedWithDrawdown(eod)).not.toBe(
             serializedWithDrawdown(intraday),
         );
+    });
+
+    it('does not change when only availability changes (PT-71b, retiring a plan must not flip the fingerprint)', () => {
+        const unchanged = serializePlanRules(alphaStandard.withOverrides({}));
+        const discontinued = alphaStandard.withOverrides({
+            availability: PlanAvailability.Discontinued,
+        });
+        expect(serializePlanRules(discontinued)).toBe(unchanged);
+        expect(unchanged).not.toContain('"availability"');
     });
 
     it('fails loud on a rule value it cannot serialize', () => {

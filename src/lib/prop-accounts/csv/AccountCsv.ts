@@ -4,7 +4,9 @@ import type { PropAccountRow } from '~/server/db/schemas/prop';
 
 import {
     AccountStage,
+    AccountTracking,
     DashboardBalanceConvention,
+    type ExternalFirmName,
     liveStartEntryIssues,
     type PersonalRules,
     PlanKeyResolutionKind,
@@ -53,6 +55,7 @@ export enum AccountCsvColumn {
     RetainedCushion = 'retainedCushion',
     Stage = 'stage',
     Tags = 'tags',
+    Tracking = 'tracking',
 }
 
 export type AccountCsvPreview = CsvPreview<AccountCsvColumn, AccountImportRow>;
@@ -93,6 +96,7 @@ const PERSONAL_MONEY_RULES = Object.keys(
 
 export const ACCOUNT_CSV_COLUMNS: readonly AccountCsvColumn[] = [
     ...REQUIRED_ACCOUNT_CSV_COLUMNS,
+    AccountCsvColumn.Tracking,
     AccountCsvColumn.FundedOn,
     AccountCsvColumn.FirstFundedTradeOn,
     ...Object.values(PlanOptIn).map((optIn) => OPT_IN_COLUMNS[optIn]),
@@ -110,6 +114,7 @@ const SCHEMA_PATH_COLUMNS: SchemaPathColumns<AccountCsvColumn> = [
     [AccountCsvColumn.DashboardConvention, ['dashboardConvention']],
     [AccountCsvColumn.ExternalAlias, ['externalAlias']],
     [AccountCsvColumn.Firm, ['firmId']],
+    [AccountCsvColumn.Firm, ['externalFirmId']],
     [AccountCsvColumn.FirstFundedTradeOn, ['firstFundedTradeOn']],
     [AccountCsvColumn.FundedOn, ['fundedOn']],
     [AccountCsvColumn.Label, ['label']],
@@ -117,9 +122,11 @@ const SCHEMA_PATH_COLUMNS: SchemaPathColumns<AccountCsvColumn> = [
     [AccountCsvColumn.MaxTradesPerDay, ['personalRules', 'maxTradesPerDay']],
     [AccountCsvColumn.Notes, ['notes']],
     [AccountCsvColumn.Plan, ['planSerial']],
+    [AccountCsvColumn.Plan, ['planLabel']],
     [AccountCsvColumn.PurchasedOn, ['purchasedOn']],
     [AccountCsvColumn.Stage, ['stage']],
     [AccountCsvColumn.Tags, ['tags']],
+    [AccountCsvColumn.Tracking, ['tracking']],
     ...Object.values(PlanOptIn).map(
         (optIn) =>
             [OPT_IN_COLUMNS[optIn], ['optIns', planOptInField(optIn)]] as const,
@@ -133,6 +140,7 @@ const SCHEMA_PATH_COLUMNS: SchemaPathColumns<AccountCsvColumn> = [
 export function previewAccountCsv(
     text: string,
     existing: readonly ExistingAccountLabel[],
+    externalFirms: readonly ExternalFirmName[] = [],
 ): AccountCsvPreview {
     const preview = buildCsvPreview(
         parseCsvTable(
@@ -143,13 +151,25 @@ export function previewAccountCsv(
             },
             MAX_IMPORT_ROWS,
         ),
-        readAccountRow,
+        (reader) => readAccountRow(reader, externalFirms),
         REQUIRED_ACCOUNT_CSV_COLUMNS,
     );
     return appendCsvIssues(preview, [
         ...labelIssues(preview, existing),
         ...liveStartIssues(preview),
     ]);
+}
+
+function flagLedgerOnlyOptIns(reader: CsvRowReader<AccountCsvColumn>): void {
+    for (const optIn of Object.values(PlanOptIn)) {
+        if (reader.flag(OPT_IN_COLUMNS[optIn]) === true) {
+            reader.addIssue(
+                OPT_IN_COLUMNS[optIn],
+                CsvIssueKind.Cell,
+                'opt-ins apply to modeled plans only; leave it empty on a ledger-only row',
+            );
+        }
+    }
 }
 
 function labelIssues(
@@ -188,7 +208,7 @@ function labelIssues(
 function liveStartIssues(preview: AccountCsvPreview): readonly CsvIssue[] {
     if (preview.kind === CsvTableKind.Failed) return [];
     return preview.rows.flatMap(({ rowNumber, value }) => {
-        if (value === null) return [];
+        if (value?.tracking !== AccountTracking.Modeled) return [];
         const resolution = resolvePlanKey({ ...value, readIssues: [] });
         if (resolution.kind === PlanKeyResolutionKind.Unresolved) return [];
         return liveStartEntryIssues(
@@ -206,16 +226,29 @@ function liveStartIssues(preview: AccountCsvPreview): readonly CsvIssue[] {
 
 function readAccountRow(
     reader: CsvRowReader<AccountCsvColumn>,
+    externalFirms: readonly ExternalFirmName[],
 ): AccountImportRow | undefined {
+    const tracking =
+        reader.choice(AccountCsvColumn.Tracking, AccountTracking) ??
+        AccountTracking.Modeled;
     const label = reader.text(AccountCsvColumn.Label);
-    const firmId = reader.choice(AccountCsvColumn.Firm, FirmId);
-    const planSerial = reader.text(AccountCsvColumn.Plan);
+    const plan =
+        tracking === AccountTracking.Modeled
+            ? {
+                  firmId: reader.choice(AccountCsvColumn.Firm, FirmId),
+                  optIns: readOptIns(reader),
+                  planSerial: reader.text(AccountCsvColumn.Plan),
+              }
+            : {
+                  ...readLedgerOnlyFirm(reader, externalFirms),
+                  planLabel: reader.text(AccountCsvColumn.Plan),
+              };
     const accountSize = reader.count(AccountCsvColumn.AccountSize);
     const stage = reader.choice(AccountCsvColumn.Stage, AccountStage);
     const purchasedOn = reader.date(AccountCsvColumn.PurchasedOn);
     const fundedOn = reader.date(AccountCsvColumn.FundedOn);
     const firstFundedTradeOn = reader.date(AccountCsvColumn.FirstFundedTradeOn);
-    const optIns = readOptIns(reader);
+    if (tracking === AccountTracking.LedgerOnly) flagLedgerOnlyOptIns(reader);
     const dashboardConvention =
         reader.choice(
             AccountCsvColumn.DashboardConvention,
@@ -229,26 +262,48 @@ function readAccountRow(
     const notes = reader.text(AccountCsvColumn.Notes);
     const personalRules = readPersonalRules(reader);
     const candidate = {
+        ...plan,
         accountSize,
         dashboardConvention,
         externalAlias,
-        firmId,
         firstFundedTradeOn,
         fundedOn,
         label,
         liveStartBalanceCents,
         notes,
-        optIns,
         personalRules,
-        planSerial,
         purchasedOn,
         stage,
         tags,
+        tracking,
     };
     const parsed = accountCreateSchema.safeParse(candidate);
     if (parsed.success) return parsed.data;
     reader.addSchemaIssues(parsed.error.issues, SCHEMA_PATH_COLUMNS);
     return undefined;
+}
+
+function readLedgerOnlyFirm(
+    reader: CsvRowReader<AccountCsvColumn>,
+    externalFirms: readonly ExternalFirmName[],
+): { readonly externalFirmId?: string; readonly firmId?: FirmId } {
+    const name = reader.text(AccountCsvColumn.Firm);
+    if (name === undefined) return {};
+    const lowered = name.toLowerCase();
+    const listed = Object.values(FirmId).find(
+        (firmId) => firmId.toLowerCase() === lowered,
+    );
+    if (listed !== undefined) return { firmId: listed };
+    const own = externalFirms.find(
+        (firm) => firm.name.toLowerCase() === lowered,
+    );
+    if (own !== undefined) return { externalFirmId: own.id };
+    reader.addIssue(
+        AccountCsvColumn.Firm,
+        CsvIssueKind.Cell,
+        `no listed firm and none of your own firms is named "${name}"; add the firm first`,
+    );
+    return {};
 }
 
 function readOptIns(reader: CsvRowReader<AccountCsvColumn>): PlanOptIns {

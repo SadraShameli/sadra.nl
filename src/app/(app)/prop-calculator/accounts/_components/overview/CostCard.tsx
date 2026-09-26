@@ -131,6 +131,119 @@ export function CostCard({ model }: { readonly model: CostCardModel }) {
                     </Table>
                 )}
             </div>
+            {model.byAccountSize.length > 0 && (
+                <div className="flex flex-col gap-2">
+                    <h3 className="text-sm font-medium text-white">
+                        Attempts and cost per attempt by account size
+                    </h3>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Account size</TableHead>
+                                <TableHead className="text-right">
+                                    Attempts
+                                </TableHead>
+                                <TableHead className="text-right">
+                                    Cost per attempt
+                                </TableHead>
+                                <TableHead className="text-right">
+                                    Decided spend
+                                </TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {model.byAccountSize.map((row) => (
+                                <TableRow key={row.key}>
+                                    <TableCell className="tabular-nums">
+                                        {row.accountSize}
+                                    </TableCell>
+                                    <TableCell className="text-right tabular-nums">
+                                        {row.attempts}
+                                    </TableCell>
+                                    <TableCell className="text-right tabular-nums">
+                                        {row.costPerAttempt}
+                                    </TableCell>
+                                    <TableCell className="text-right tabular-nums">
+                                        {row.spend}
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
+            )}
+            {model.byFirmAttemptCost.length > 0 && (
+                <div className="flex flex-col gap-2">
+                    <h3 className="text-sm font-medium text-white">
+                        Attempts and cost per attempt by firm
+                    </h3>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Firm</TableHead>
+                                <TableHead className="text-right">
+                                    Attempts
+                                </TableHead>
+                                <TableHead className="text-right">
+                                    Cost per attempt
+                                </TableHead>
+                                <TableHead className="text-right">
+                                    Resets and rebuys
+                                </TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {model.byFirmAttemptCost.map((row) => (
+                                <TableRow key={row.key}>
+                                    <TableCell>{row.firm}</TableCell>
+                                    <TableCell className="text-right tabular-nums">
+                                        {row.attempts}
+                                    </TableCell>
+                                    <TableCell className="text-right tabular-nums">
+                                        {row.costPerAttempt}
+                                    </TableCell>
+                                    <TableCell className="text-right tabular-nums">
+                                        {row.retryFeeAttempts}
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
+            )}
+            {model.discountsByFirm.length > 0 && (
+                <div className="flex flex-col gap-2">
+                    <h3 className="text-sm font-medium text-white">
+                        Discounts captured by firm
+                    </h3>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Firm</TableHead>
+                                <TableHead className="text-right">
+                                    Discount vs list price
+                                </TableHead>
+                                <TableHead className="text-right">
+                                    Fees checked
+                                </TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {model.discountsByFirm.map((row) => (
+                                <TableRow key={row.key}>
+                                    <TableCell>{row.firm}</TableCell>
+                                    <TableCell className="text-right tabular-nums">
+                                        {row.discount}
+                                    </TableCell>
+                                    <TableCell className="text-right tabular-nums">
+                                        {row.feesChecked}
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
+            )}
             <Disclosures items={model.disclosures} />
         </div>
     );

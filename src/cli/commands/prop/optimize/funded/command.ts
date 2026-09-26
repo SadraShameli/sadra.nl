@@ -4,11 +4,13 @@ import { z } from 'zod';
 import {
     planArguments,
     planResolver,
+    printEdgePlausibilityNotes,
     readLadder,
     readNumberList,
     singlePathGranularityArgument,
     TablePrinter,
     tradingArguments,
+    tradingEdgeNotes,
     TradingInputs,
 } from '~/cli/commands/prop/shared';
 import { ui } from '~/cli/ui';
@@ -87,6 +89,13 @@ export default defineCommand({
         try {
             const plan = planResolver.resolveOne(context.args);
             const inputs = TradingInputs.parse(context.args);
+            printEdgePlausibilityNotes(
+                tradingEdgeNotes({
+                    fundedRrRatio: inputs.fundedRrRatio,
+                    rrRatio: inputs.rrRatio,
+                    winrate: inputs.winrate,
+                }),
+            );
             const base = inputs.toSimInputs(plan);
             const sort = z.enum(FundedSortKey).parse(context.args.sort);
             const positionSizing = resolvePositionSizing(

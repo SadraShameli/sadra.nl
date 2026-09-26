@@ -6,8 +6,10 @@ import {
     AccountEventKind,
     type AccountReadIssue,
     AccountReadIssueKind,
+    accountShapeProblem,
     AccountStage,
     AccountStatus,
+    AccountTracking,
     BankrollTransferKind,
     DashboardBalanceConvention,
     FeeKind,
@@ -24,6 +26,7 @@ import {
     RuleViolationKind,
     SnapshotSource,
     type StoredFirmId,
+    type TrackedColumns,
     UnresolvedPlanReason,
     usdCentsSchema,
     ViolationSource,
@@ -59,13 +62,16 @@ export enum PropMutationRejection {
     LifecycleTransition = 'lifecycle-transition',
     MissingSnapshotField = 'missing-snapshot-field',
     MixedStageCopyGroup = 'mixed-stage-copy-group',
+    NotModeledForOperation = 'not-modeled-for-operation',
     OutOfOrderEvent = 'out-of-order-event',
     RecordInUse = 'record-in-use',
     ReferenceNotOwned = 'reference-not-owned',
     RoundBudgetExceeded = 'round-budget-exceeded',
     RoundClosed = 'round-closed',
     StageNotOfferedByPlan = 'stage-not-offered-by-plan',
+    TrackingChange = 'tracking-change',
     UnresolvablePlan = 'unresolvable-plan',
+    UpgradeChangesAccount = 'upgrade-changes-account',
 }
 
 export enum PropQuota {
@@ -177,7 +183,21 @@ const accountReadIssueSchema = z.discriminatedUnion('kind', [
     }),
 ]) satisfies z.ZodType<AccountReadIssue>;
 
-export const propAccountOutputSchema = createSelectSchema(propAccount, {
+function refineTrackedShape(
+    account: TrackedColumns,
+    context: z.RefinementCtx,
+): void {
+    const problem = accountShapeProblem(account);
+    if (problem !== null) {
+        context.addIssue({
+            code: 'custom',
+            message: `the stored account ${problem}`,
+            path: ['tracking'],
+        });
+    }
+}
+
+const propAccountStoredSchema = createSelectSchema(propAccount, {
     dashboardConvention: z.enum(DashboardBalanceConvention),
     firmId: storedFirmIdOf,
     liveStartBalanceCents: nullableNonNegativeCents,
@@ -186,13 +206,20 @@ export const propAccountOutputSchema = createSelectSchema(propAccount, {
     stage: z.enum(AccountStage),
     status: z.enum(AccountStatus),
     tags: z.array(z.string()),
-}).extend({ readIssues: z.array(accountReadIssueSchema).readonly() });
-
-export const propAccountListedOutputSchema = propAccountOutputSchema.extend({
-    personalRules: personalRulesSchema.nullable(),
+    tracking: z.enum(AccountTracking),
+}).extend({
+    planRulesChanged: z.boolean().nullable().default(null),
+    readIssues: z.array(accountReadIssueSchema).readonly(),
 });
 
-export const propAccountArchiveOutputSchema = propAccountOutputSchema.pick({
+export const propAccountOutputSchema =
+    propAccountStoredSchema.superRefine(refineTrackedShape);
+
+export const propAccountListedOutputSchema = propAccountStoredSchema
+    .extend({ personalRules: personalRulesSchema.nullable() })
+    .superRefine(refineTrackedShape);
+
+export const propAccountArchiveOutputSchema = propAccountStoredSchema.pick({
     archivedAt: true,
     id: true,
 });

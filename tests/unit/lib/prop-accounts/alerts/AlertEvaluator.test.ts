@@ -63,10 +63,12 @@ function alertOf(
 const DEFAULT_KINDS = [
     AlertKind.EvalDayCapNear,
     AlertKind.InvalidStoredDate,
+    AlertKind.LifetimeDollarCapNear,
     AlertKind.LifetimePayoutCountNear,
     AlertKind.MixedStageCopyGroup,
     AlertKind.PayoutCountMismatch,
     AlertKind.PayoutDollarMismatch,
+    AlertKind.PlanRulesChanged,
     AlertKind.StaleSnapshot,
     AlertKind.SubscriptionRenewalDue,
     AlertKind.UnresolvablePlan,

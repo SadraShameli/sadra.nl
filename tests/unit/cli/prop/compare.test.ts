@@ -1,36 +1,47 @@
 import type { ArgsDef } from 'citty';
 
 import { parseArgs } from 'citty';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import compare, {
     compareColumns,
     compareOutputs,
+    compareRow,
     compareRowCells,
     CompareSortKey,
     describeColumnBasis,
+    describeEconomicsColumns,
     describeExcludedPlans,
     rankRows,
+    requireScreenTimeForSort,
     SORT_KEYS,
 } from '~/cli/commands/prop/compare/command';
 import {
+    edgePlausibilityNote,
     planResolver,
     planVariant,
     singlePathGranularityArgument,
 } from '~/cli/commands/prop/shared';
-import { formatCurrency, formatFiniteCurrency } from '~/lib/format';
+import {
+    formatCurrency,
+    formatFiniteCurrency,
+    formatPercent,
+} from '~/lib/format';
 import {
     FirmId,
+    fraction,
+    FundedNextVariant,
     LucidVariant,
     MffuVariant,
     type Plan,
     type SimOutputs,
     simulate,
     TopStepVariant,
+    TRADING_DAYS_PER_MONTH,
 } from '~/lib/prop-calculator';
 import { findFirm } from '~/lib/prop-calculator/firms';
 
-import { flagsNamedButNotAccepted } from './helpFlags';
+import { acceptedFlags, flagsNamedButNotAccepted } from './helpFlags';
 
 function rapidEodPlan(): Plan {
     const plan = findFirm(FirmId.Mffu)?.findPlan({
@@ -75,11 +86,12 @@ const NEVER_PASSES: Partial<SimOutputs> = {
 };
 
 describe('compare --sort keys', () => {
-    it('lists every CompareSortKey member: cost, days, net, pass and spend', () => {
+    it('lists every CompareSortKey member: cost, days, hour, net, pass and spend', () => {
         expect(SORT_KEYS).toStrictEqual(Object.values(CompareSortKey));
         expect(SORT_KEYS).toStrictEqual([
             'cost',
             'days',
+            'hour',
             'net',
             'pass',
             'spend',
@@ -281,6 +293,7 @@ describe("the 'best by' plan is the first ranked row for every key (TG-2)", () =
     const expectedBest: Record<CompareSortKey, string> = {
         [CompareSortKey.Cost]: 'best pass',
         [CompareSortKey.Days]: 'fastest',
+        [CompareSortKey.Hour]: 'best net',
         [CompareSortKey.Net]: 'best net',
         [CompareSortKey.Pass]: 'best pass',
         [CompareSortKey.Spend]: 'lowest spend',
@@ -310,7 +323,7 @@ describe('compare table cells (D2 and TG-2)', () => {
         );
         expect(cells[3]).toBe(formatCurrency(1234));
         expect(cells[4]).toBe(formatCurrency(420));
-        expect(cells).toHaveLength(8);
+        expect(cells).toHaveLength(9);
     });
 
     it("prints 'n/a' cost per funded account when no eval ever passed", () => {
@@ -351,6 +364,7 @@ describe('compare table cells (D2 and TG-2)', () => {
 describe('compare column basis at --copy-accounts (R1-2 review)', () => {
     it('keeps the plain headers for a single account and prints no legend', () => {
         expect(compareColumns(1).map((column) => column.label)).toStrictEqual([
+            'firm',
             'plan',
             'eval pass',
             'survive',
@@ -360,6 +374,7 @@ describe('compare column basis at --copy-accounts (R1-2 review)', () => {
             'payout',
             'monthly',
             'bustF',
+            'P(no payout)',
         ]);
         expect(describeColumnBasis(1)).toBeNull();
     });
@@ -367,6 +382,7 @@ describe('compare column basis at --copy-accounts (R1-2 review)', () => {
     it('marks the columns that total every copy at 5 copies and explains the per-account ones', () => {
         const columns = compareColumns(5);
         expect(columns.map((column) => column.label)).toStrictEqual([
+            'firm',
             'plan',
             'eval pass',
             'survive',
@@ -376,12 +392,13 @@ describe('compare column basis at --copy-accounts (R1-2 review)', () => {
             'payout x5',
             'monthly x5',
             'bustF',
+            'P(no payout)',
         ]);
         for (const column of columns) {
             expect(column.width).toBeGreaterThanOrEqual(column.label.length);
         }
         expect(describeColumnBasis(5)).toBe(
-            'spend, payout and monthly total all 5 copies; eval pass, survive, days, $/funded and bustF are per account',
+            'spend, payout and monthly total all 5 copies; eval pass, survive, days, $/funded, bustF and P(no payout) are per account',
         );
     });
 });
@@ -458,6 +475,64 @@ describe('call-up-only plans in compare (R1-34, D3)', () => {
     });
 });
 
+describe('discontinued plans in compare (PT-71b, FNL:003 Expired on fundednext.com/labs)', () => {
+    it('excludes FNL:003 from FundedNext by default and reports it', () => {
+        const { excluded, plans } = planResolver.resolveRankable(
+            { firm: FirmId.FundedNext },
+            false,
+        );
+        expect(plans.some((plan) => !plan.isPurchasable)).toBe(false);
+        expect(excluded.map((plan) => planVariant(plan))).toStrictEqual([
+            FundedNextVariant.Fnl003,
+        ]);
+    });
+
+    it('ranks FNL:003 with --include-callup', () => {
+        const { excluded, plans } = planResolver.resolveRankable(
+            { firm: FirmId.FundedNext },
+            true,
+        );
+        expect(plans.map((plan) => planVariant(plan))).toContain(
+            FundedNextVariant.Fnl003,
+        );
+        expect(excluded).toStrictEqual([]);
+    });
+
+    it('fails loud when the selection matched only FNL:003', () => {
+        expect(() =>
+            planResolver.resolveRankable(
+                {
+                    firm: FirmId.FundedNext,
+                    variant: FundedNextVariant.Fnl003,
+                },
+                false,
+            ),
+        ).toThrow(/matched only no longer sold plans/);
+    });
+
+    it('describes FNL:003 as no longer sold, distinctly from call-up-only exclusions', () => {
+        const { excluded } = planResolver.resolveRankable(
+            { firm: FirmId.FundedNext },
+            false,
+        );
+        const [fnl003] = excluded;
+        if (!fnl003) throw new Error('FNL:003 not excluded');
+        expect(describeExcludedPlans(excluded)).toBe(
+            `excluded 1 no longer sold plan(s): ${fnl003.label} (pass --include-callup to rank them)`,
+        );
+    });
+
+    it('groups a mixed exclusion (call-up-only and no-longer-sold) into one line', () => {
+        const { excluded } = planResolver.resolveRankable({}, false);
+        const variants = excluded.map((plan) => planVariant(plan));
+        expect(variants).toContain(TopStepVariant.ProAccount);
+        expect(variants).toContain(FundedNextVariant.Fnl003);
+        const description = describeExcludedPlans(excluded);
+        expect(description).toContain('call-up only plan(s):');
+        expect(description).toContain('no longer sold plan(s):');
+    });
+});
+
 describe('compare --path-granularity (WP11 handoff)', () => {
     it('declares the single-granularity flag explicitly', async () => {
         const arguments_ = await compareArguments();
@@ -478,5 +553,195 @@ async function compareArguments(): Promise<ArgsDef> {
 describe('prop compare --help names only flags prop compare accepts (WP43d)', () => {
     it('names no flag prop compare lacks, such as --percent or --funded-ladder', async () => {
         expect(await flagsNamedButNotAccepted(compare)).toStrictEqual([]);
+    });
+});
+
+const SCREEN_TIME = { accountsPerSession: 3, sessionHoursPerDay: 2 } as const;
+
+function perScreenHour(monthlyNet: number): number {
+    return (monthlyNet * 3) / (TRADING_DAYS_PER_MONTH * 2);
+}
+
+describe('compare firm, P(no payout) and $/screen hour columns (PT-54, F-V8, F-V25)', () => {
+    it('leads each row with the firm, then the plan label', () => {
+        const plan = rapidEodPlan();
+        const cells = compareRow(plan, BASE);
+        expect(cells[0]).toBe(plan.id.firm);
+        expect(cells[1]).toBe(plan.label);
+        expect(cells.slice(2)).toStrictEqual(compareRowCells(BASE));
+    });
+
+    it('sizes the firm column to the longest firm id', () => {
+        const firm = compareColumns(1)[0];
+        expect(firm?.align).toBe('left');
+        for (const id of Object.values(FirmId)) {
+            expect(firm?.width).toBeGreaterThanOrEqual(id.length);
+        }
+    });
+
+    it('prints P(no payout) as the share of funded trials with zero payouts', () => {
+        const cells = compareRowCells(
+            row('x', {
+                fundedPayoutCountDistribution: [
+                    0.35, 0.4, 0.25, 0, 0, 0, 0, 0, 0, 0, 0,
+                ],
+            }).out,
+        );
+        expect(cells[8]).toBe(formatPercent(0.35));
+    });
+
+    it("prints 'n/a' P(no payout) when no trial reached funded", () => {
+        const cells = compareRowCells(
+            row('never', { ...NEVER_PASSES, fundedPayoutCountDistribution: [] })
+                .out,
+        );
+        expect(cells[8]).toBe('n/a');
+    });
+
+    it('adds a $/screen hour column only with the screen time', () => {
+        expect(
+            compareColumns(1, SCREEN_TIME).map((column) => column.label),
+        ).toStrictEqual([
+            ...compareColumns(1).map((column) => column.label),
+            '$/screen hour',
+        ]);
+        const cells = compareRowCells(
+            row('x', { expectedMonthlyNet: 2100 }).out,
+            SCREEN_TIME,
+        );
+        expect(cells).toHaveLength(10);
+        expect(cells[9]).toBe(formatCurrency(perScreenHour(2100)));
+        expect(cells[9]).toBe('$150');
+    });
+
+    it('explains the new columns, with the trading days constant and the copy group rule', () => {
+        expect(describeEconomicsColumns(null)).toStrictEqual([
+            'P(no payout) = share of trials that reached funded and took no payout within the funded horizon',
+        ]);
+        expect(describeEconomicsColumns(SCREEN_TIME)).toStrictEqual([
+            'P(no payout) = share of trials that reached funded and took no payout within the funded horizon',
+            `$/screen hour = monthly net x 3 accounts per session / (${TRADING_DAYS_PER_MONTH} trading days x 2 h per day); a copy group counts as one account`,
+        ]);
+    });
+});
+
+describe('compare --sort hour (PT-54, F-V25)', () => {
+    it('ranks by $/screen hour, highest first', () => {
+        const rows = [
+            row('100', { expectedMonthlyNet: 100 }),
+            row('300', { expectedMonthlyNet: 300 }),
+            row('200', { expectedMonthlyNet: 200 }),
+        ];
+        const ranked = rankRows(rows, CompareSortKey.Hour);
+        expect(labels(ranked)).toStrictEqual(['300', '200', '100']);
+        const hourly = ranked.map((entry) =>
+            perScreenHour(entry.out.expectedMonthlyNet),
+        );
+        expect(hourly).toStrictEqual(hourly.toSorted((a, b) => b - a));
+    });
+
+    it('keeps the existing sort keys unchanged', () => {
+        expect(CompareSortKey.Net).toBe('net');
+        expect(CompareSortKey.Cost).toBe('cost');
+        expect(CompareSortKey.Spend).toBe('spend');
+        expect(CompareSortKey.Pass).toBe('pass');
+        expect(CompareSortKey.Days).toBe('days');
+    });
+
+    it('needs the screen time, naming both flags', () => {
+        expect(() =>
+            requireScreenTimeForSort(CompareSortKey.Hour, null),
+        ).toThrow(
+            /--sort hour needs --hours-per-day and --accounts-per-session/,
+        );
+        expect(() =>
+            requireScreenTimeForSort(CompareSortKey.Hour, SCREEN_TIME),
+        ).not.toThrow();
+        expect(() =>
+            requireScreenTimeForSort(CompareSortKey.Net, null),
+        ).not.toThrow();
+    });
+
+    it('names hour in the --sort help and accepts both screen-time flags', async () => {
+        const arguments_ = await compareArguments();
+        expect(arguments_.sort?.description).toContain(
+            'hour (monthly net per screen hour',
+        );
+        expect(await acceptedFlags(compare)).toEqual(
+            expect.arrayContaining(['accounts-per-session', 'hours-per-day']),
+        );
+    });
+});
+
+async function capturedCompareRun(argv: string[]): Promise<string> {
+    const arguments_ = await compareArguments();
+    const written: string[] = [];
+    const write = vi
+        .spyOn(process.stdout, 'write')
+        .mockImplementation((chunk: string | Uint8Array) => {
+            written.push(String(chunk));
+            return true;
+        });
+    const writeError = vi
+        .spyOn(process.stderr, 'write')
+        .mockImplementation(() => true);
+    const exitCode = process.exitCode;
+    try {
+        await compare.run?.({
+            args: parseArgs(argv, arguments_) as never,
+            cmd: compare,
+            rawArgs: argv,
+        });
+    } finally {
+        write.mockRestore();
+        writeError.mockRestore();
+        process.exitCode = exitCode;
+    }
+    return written.join('');
+}
+
+const SMALL_COMPARE = [
+    '--firm',
+    'mffu',
+    '--variant',
+    'rapid-eod',
+    '--trials',
+    '20',
+    '--eval-days',
+    '10',
+    '--funded-days',
+    '10',
+];
+
+describe('prop compare run (PT-54)', () => {
+    it('prints the firm column, P(no payout) and $/screen hour, sorted by hour', async () => {
+        const stdout = await capturedCompareRun([
+            ...SMALL_COMPARE,
+            '--hours-per-day',
+            '2',
+            '--accounts-per-session',
+            '3',
+            '--sort',
+            'hour',
+        ]);
+        expect(stdout).toContain('firm');
+        expect(stdout).toContain('P(no payout)');
+        expect(stdout).toContain('$/screen hour');
+        expect(stdout).toContain('sorted by hour');
+        expect(stdout).not.toMatch(/\b(?:implausible|no|strong|typical) edge\b/);
+    });
+
+    it('flags an implausible edge', async () => {
+        const stdout = await capturedCompareRun([
+            ...SMALL_COMPARE,
+            '--winrate',
+            '0.7',
+            '--rr',
+            '1',
+        ]);
+        expect(stdout).toContain(
+            edgePlausibilityNote({ rrRatio: 1, winrate: fraction(0.7) }) ??
+                'missing note',
+        );
     });
 });

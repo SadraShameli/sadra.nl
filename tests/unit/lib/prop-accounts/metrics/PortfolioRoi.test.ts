@@ -82,6 +82,23 @@ describe('portfolioRoi', () => {
         expect(result.elapsedDays).toBe(1);
     });
 
+    it('gives the payout multiple as payouts over spend, in the video style (3.51x)', () => {
+        const result = portfolioRoi(
+            ledger({
+                accounts: [owner],
+                fees: [fee(owner, FeeKind.EvalPurchase, 55_000_000, '2026-07-01')],
+                payouts: [
+                    payout(owner, 193_100_000, {
+                        netCents: 193_100_000,
+                        paidOn: '2026-09-01',
+                    }),
+                ],
+            }),
+            '2026-09-28',
+        );
+        expect(result.payoutMultiple).toBeCloseTo(3.51, 2);
+    });
+
     it('is n/a at zero spend and when refunds cover every fee', () => {
         const zero = portfolioRoi(
             ledger({ accounts: [owner], payouts: [payout(owner, 5000)] }),
@@ -89,6 +106,7 @@ describe('portfolioRoi', () => {
         );
         expect(zero.total.value).toBeNull();
         expect(zero.annualised.value).toBeNull();
+        expect(zero.payoutMultiple).toBeNull();
         const refunded = portfolioRoi(
             ledger({
                 accounts: [owner],

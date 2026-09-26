@@ -12,6 +12,7 @@ import {
 import {
     AccountStage,
     AccountStatus,
+    AccountTracking,
     PayoutStatus,
     usdCents,
 } from '~/lib/prop-accounts/core';
@@ -51,10 +52,13 @@ export function accountFor(
         accountSize: entry.plan.id.accountSize,
         archivedAt: null,
         copyGroupId: null,
+        externalFirmId: null,
         firmId: entry.firmId,
         id: `00000000-0000-4000-8000-${String(nextId).padStart(12, '0')}`,
         label: `Account ${nextId}`,
         optIns: {},
+        planLabel: null,
+        planRulesChanged: null,
         planSerial: serializePlanId(entry.plan.id),
         purchasedOn: '2026-09-01',
         readIssues: [],
@@ -62,6 +66,7 @@ export function accountFor(
             ? AccountStage.Funded
             : AccountStage.Eval,
         status: AccountStatus.Active,
+        tracking: AccountTracking.Modeled,
         ...overrides,
     };
 }
@@ -129,3 +134,18 @@ export function snapshotFor(
 }
 
 export const ANY_EVAL_PLAN = planWhere((plan) => !plan.isInstantFunded);
+
+export const EXTERNAL_FIRM_ID = '0b8c7f0e-6f3a-4f55-9a3e-8f4c1d2e3a4b';
+
+export function ledgerOnlyAccountFor(
+    entry: PlanEntry,
+    overrides: Partial<AlertAccountRow> = {},
+): AlertAccountRow {
+    return accountFor(entry, {
+        accountSize: 150_000,
+        planLabel: 'Ledger only 150K',
+        planSerial: null,
+        tracking: AccountTracking.LedgerOnly,
+        ...overrides,
+    });
+}

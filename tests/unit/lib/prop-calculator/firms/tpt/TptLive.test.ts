@@ -80,6 +80,18 @@ describe.each([
     });
 });
 
+describe.each([
+    { build: buildTptLivePlan, name: 'PRO+' },
+    { build: buildTptLiveDevelopmentPlan, name: 'PRO+ Development' },
+])('TPT $name inactivity closure (N-80)', ({ build }) => {
+    it('sets no rolling maxConsecutiveIdleDays and declares a 5-session calendar-week rule instead', () => {
+        const plan = build();
+
+        expect(plan.maxConsecutiveIdleDays).toBeNull();
+        expect(plan.calendarWeekInactivity?.sessionsPerWeek).toBe(5);
+    });
+});
+
 describe('buildTptLiveDevelopmentPlan contract limits', () => {
     it('caps the 50K tier at the confirmed 2 minis / 20 micros', () => {
         const plan = buildTptLiveDevelopmentPlan();

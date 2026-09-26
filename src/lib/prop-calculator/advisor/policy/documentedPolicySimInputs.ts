@@ -1,8 +1,11 @@
 import {
     CENTS_PER_DOLLAR,
     computedDayPolicy,
+    type DayPolicy,
     DayStopRuleKind,
+    effectivePayoutRequest,
     flatDayPolicy,
+    PayoutRequestPolicy,
     type Plan,
     policySizingOf,
     RungSizing,
@@ -15,13 +18,78 @@ import {
     simInputsSizingIssue,
 } from '~/lib/prop-calculator/simulator';
 
-import { fundedStopRuleToDayStopRule } from '../Rulebook';
+import {
+    fundedStopRuleToDayStopRule,
+    type PayoutParameters,
+    type RulebookParameters,
+} from '../Rulebook';
 import { SizingStage } from '../SizingStage';
 import { documentedDayRisk } from './DocumentedDayRisk';
 import {
     type DocumentedPolicySpec,
     documentedPolicySpecSchema,
 } from './DocumentedPolicySpec';
+import { type EnginePolicy } from './EnginePolicy';
+
+export interface DocumentedDayPolicies {
+    evalDayPolicy: DayPolicy;
+    fundedDayPolicy: DayPolicy;
+}
+
+export function buildDocumentedDayPolicies(
+    plan: Plan,
+    rulebook: RulebookParameters,
+    enginePolicy: EnginePolicy,
+): DocumentedDayPolicies {
+    const { funded, strategy } = rulebook;
+    const fundedRisk = funded.riskCents / CENTS_PER_DOLLAR;
+    return {
+        evalDayPolicy: computedDayPolicy(
+            documentedDayRisk(plan, SizingStage.Eval, rulebook, enginePolicy),
+            strategy.tradesPerDayMax,
+            { kind: DayStopRuleKind.None },
+            policySizingOf(TradingPhase.Eval),
+        ),
+        fundedDayPolicy: flatDayPolicy(
+            fundedRisk,
+            funded.tradesPerDayMax,
+            fundedStopRuleToDayStopRule(funded.stopRule),
+            policySizingOf(TradingPhase.Funded),
+        ),
+    };
+}
+
+export function resolveDocumentedPayoutRequestSize(
+    plan: Plan,
+    enginePolicy: EnginePolicy,
+    payout: PayoutParameters,
+): number {
+    return effectivePayoutRequest(
+        plan,
+        enginePolicy.payoutRequestOverride ??
+            payout.requestCents / CENTS_PER_DOLLAR,
+    );
+}
+
+export function resolveDocumentedPlan(
+    plan: Plan,
+    enginePolicy: EnginePolicy,
+): Plan {
+    const lifetimeCap = enginePolicy.lifetimePayoutCapOverride;
+    return lifetimeCap === null
+        ? plan
+        : plan.withMaxLifetimePayouts(lifetimeCap);
+}
+
+export function resolveDocumentedRetainedCushion(
+    enginePolicy: EnginePolicy,
+    payout: PayoutParameters,
+): number {
+    return (
+        enginePolicy.retainedCushionRequest ??
+        payout.retainedCushionCents / CENTS_PER_DOLLAR
+    );
+}
 
 export function toSimInputs(plan: Plan, spec: DocumentedPolicySpec): SimInputs {
     const { enginePolicy, planSerial, rulebook, run } =
@@ -41,40 +109,32 @@ export function toSimInputs(plan: Plan, spec: DocumentedPolicySpec): SimInputs {
         stopPoints,
     });
     if (issue !== null) throw new Error(`${SIM_INPUTS_REFUSAL_PREFIX}${issue}`);
-    const lifetimeCap = enginePolicy.lifetimePayoutCapOverride;
-    const simulatedPlan =
-        lifetimeCap === null ? plan : plan.withMaxLifetimePayouts(lifetimeCap);
+    const simulatedPlan = resolveDocumentedPlan(plan, enginePolicy);
+    const { evalDayPolicy, fundedDayPolicy } = buildDocumentedDayPolicies(
+        simulatedPlan,
+        rulebook,
+        enginePolicy,
+    );
     return {
         commissionPerRoundTrip: enginePolicy.commissionPerRoundTrip,
-        evalDayPolicy: computedDayPolicy(
-            documentedDayRisk(
-                simulatedPlan,
-                SizingStage.Eval,
-                rulebook,
-                enginePolicy,
-            ),
-            strategy.tradesPerDayMax,
-            { kind: DayStopRuleKind.None },
-            policySizingOf(TradingPhase.Eval),
-        ),
-        fundedDayPolicy: flatDayPolicy(
-            fundedRisk,
-            funded.tradesPerDayMax,
-            fundedStopRuleToDayStopRule(funded.stopRule),
-            policySizingOf(TradingPhase.Funded),
-        ),
+        evalDayPolicy,
+        fundedDayPolicy,
         fundedHorizonDays: enginePolicy.fundedHorizonDays,
         fundedRrRatio: funded.takeProfitCents / funded.riskCents,
         instrument,
         intradayPathStepsPerR: enginePolicy.intradayPathStepsPerR,
         maxAttempts: run.maxAttempts,
         maxEvalDays: run.maxEvalDays,
-        minRetainedCushion:
-            enginePolicy.retainedCushionRequest ??
-            payout.retainedCushionCents / CENTS_PER_DOLLAR,
-        payoutRequestSize:
-            enginePolicy.payoutRequestOverride ??
-            payout.requestCents / CENTS_PER_DOLLAR,
+        minRetainedCushion: resolveDocumentedRetainedCushion(
+            enginePolicy,
+            payout,
+        ),
+        payoutRequestPolicy: PayoutRequestPolicy.FullRequestOnly,
+        payoutRequestSize: resolveDocumentedPayoutRequestSize(
+            simulatedPlan,
+            enginePolicy,
+            payout,
+        ),
         plan: simulatedPlan,
         rebuyLagDays: enginePolicy.rebuyLagDays,
         riskPerTrade: fundedRisk,

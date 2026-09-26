@@ -1,10 +1,12 @@
 import {
     AccountEventKind,
     AccountStage,
-    AccountStatus,
     compareText,
     FeeKind,
-    type StoredFirmId,
+    type FirmKey,
+    firmKeyOf,
+    groupByFirmKey,
+    isEndedStatus,
     sumUsdCents,
     type UsdCents,
     usdCents,
@@ -12,6 +14,7 @@ import {
 } from '~/lib/prop-accounts/core';
 import { type FirmId, type ReplacementEconomics } from '~/lib/prop-calculator';
 
+import { attemptsOf } from './Attempts';
 import {
     finalState,
     fundedSince,
@@ -27,18 +30,36 @@ export enum PendingFeeAttribution {
     PaidOnOrAfterOpenAttemptStart = 'paid-on-or-after-open-attempt-start',
 }
 
+export interface AccountSizeCost {
+    readonly accountSize: number;
+    readonly attempts: number;
+    readonly costPerAttempt: null | UsdCents;
+    readonly spend: UsdCents;
+}
+
 export interface CostAnalytics {
+    readonly byAccountSize: readonly AccountSizeCost[];
     readonly byFirm: readonly FirmSpend[];
+    readonly byFirmAttemptCost: readonly FirmAttemptCost[];
     readonly byKind: Readonly<Record<FeeKind, UsdCents>>;
     readonly byMonth: readonly MonthlySpend[];
+    readonly ledgerOnlyAccounts: number;
+    readonly ledgerOnlySpend: UsdCents;
     readonly pendingFeeAttribution: PendingFeeAttribution;
     readonly perPlan: readonly PlanFundedCost[];
     readonly unresolvedAccounts: number;
     readonly unresolvedSpend: UsdCents;
 }
 
+export interface FirmAttemptCost {
+    readonly attempts: number;
+    readonly costPerAttempt: null | UsdCents;
+    readonly firmKey: FirmKey;
+    readonly retryFeeAttempts: number;
+}
+
 export interface FirmSpend {
-    readonly firmId: StoredFirmId;
+    readonly firmKey: FirmKey;
     readonly spend: UsdCents;
 }
 
@@ -49,6 +70,8 @@ export interface MonthlySpend {
 
 export interface PlanFundedCost {
     readonly acquisitionSpend: UsdCents;
+    readonly attempts: number;
+    readonly costPerAttempt: null | UsdCents;
     readonly costPerFundedAccount: null | UsdCents;
     readonly firmId: FirmId;
     readonly fundedAccounts: number;
@@ -57,6 +80,7 @@ export interface PlanFundedCost {
     readonly pendingEvalAccounts: number;
     readonly planSerial: string;
     readonly realizedMinusModeled: null | UsdCents;
+    readonly retryFeeAttempts: number;
 }
 
 export function costAnalytics(
@@ -64,53 +88,60 @@ export function costAnalytics(
     modeled: ReadonlyMap<string, ReplacementEconomics>,
 ): CostAnalytics {
     const fees = ledgerFees(ledger);
-    const firmIds = [
-        ...new Set(
-            ledger.accounts
-                .filter((entry) => entry.fees.length > 0)
-                .map((entry) => entry.row.firmId),
-        ),
-    ].toSorted(compareText);
     return {
-        byFirm: firmIds.map((firmId) => ({
-            firmId,
-            spend: netSpendOf(
-                ledger.accounts.filter((entry) => entry.row.firmId === firmId),
-            ),
+        byAccountSize: accountSizeCosts(ledger.resolvedAccounts),
+        byFirm: groupByFirmKey(
+            ledger.accounts.filter((entry) => entry.fees.length > 0),
+            (entry) => firmKeyOf(entry.row),
+        ).map(({ firmKey, items }) => ({
+            firmKey,
+            spend: netSpendOf(items),
+        })),
+        byFirmAttemptCost: groupByFirmKey(
+            ledger.resolvedAccounts,
+            (entry) => firmKeyOf(entry.row),
+        ).map(({ firmKey, items }) => ({
+            firmKey,
+            ...attemptCostOf(items),
         })),
         byKind: feesByKind(fees),
         byMonth: monthlyCash(fees, []).map(({ month, spend }) => ({
             month,
             spend,
         })),
+        ledgerOnlyAccounts: ledger.ledgerOnlyAccounts.length,
+        ledgerOnlySpend: netSpendOf(ledger.ledgerOnlyAccounts),
         pendingFeeAttribution:
             PendingFeeAttribution.PaidOnOrAfterOpenAttemptStart,
         perPlan: ledger.planGroups().map((group) => {
             const fundedAccounts = group.accounts.filter(
                 (entry) => fundedSince(entry) !== null,
             ).length;
-            const decidedFees: LedgerFeeRow[] = [];
-            const pendingFees: LedgerFeeRow[] = [];
             let pendingEvalAccounts = 0;
             for (const entry of group.accounts) {
-                const openSince = openEvalAttemptSince(entry);
-                if (openSince !== null) pendingEvalAccounts += 1;
-                for (const fee of entry.fees) {
-                    if (!isAcquisitionFee(fee.kind)) continue;
-                    const isPending =
-                        openSince !== null &&
-                        compareText(fee.paidOn, openSince) >= 0;
-                    (isPending ? pendingFees : decidedFees).push(fee);
+                if (openEvalAttemptSince(entry) !== null) {
+                    pendingEvalAccounts += 1;
                 }
             }
+            const { decided: decidedFees, pending: pendingFees } =
+                partitionAcquisitionFees(group.accounts);
             const acquisitionSpend = netSpendOfFees(decidedFees);
             const costPerFundedAccount =
                 fundedAccounts === 0
                     ? null
                     : roundCents(acquisitionSpend / fundedAccounts);
             const modeledCost = modeledCostCents(modeled.get(group.planSerial));
+            const attempts = group.accounts.reduce(
+                (sum, entry) => sum + attemptsOf(entry),
+                0,
+            );
             return {
                 acquisitionSpend,
+                attempts,
+                costPerAttempt:
+                    attempts === 0
+                        ? null
+                        : roundCents(acquisitionSpend / attempts),
                 costPerFundedAccount,
                 firmId: group.firmId,
                 fundedAccounts,
@@ -122,6 +153,7 @@ export function costAnalytics(
                     costPerFundedAccount === null || modeledCost === null
                         ? null
                         : usdCents(costPerFundedAccount - modeledCost),
+                retryFeeAttempts: retryFeeAttemptsOf(group.accounts),
             };
         }),
         unresolvedAccounts: ledger.unresolvedAccounts.length,
@@ -150,6 +182,51 @@ export function feesByKind(
     };
 }
 
+function accountSizeCosts(
+    accounts: readonly LedgerAccount[],
+): readonly AccountSizeCost[] {
+    const bySize = new Map<number, LedgerAccount[]>();
+    for (const entry of accounts) {
+        const size = entry.row.accountSize;
+        const list = bySize.get(size);
+        if (list === undefined) {
+            bySize.set(size, [entry]);
+        } else {
+            list.push(entry);
+        }
+    }
+    return [...bySize]
+        .toSorted(([a], [b]) => a - b)
+        .map(([accountSize, items]) => {
+            const { attempts, costPerAttempt } = attemptCostOf(items);
+            const { decided } = partitionAcquisitionFees(items);
+            return {
+                accountSize,
+                attempts,
+                costPerAttempt,
+                spend: netSpendOfFees(decided),
+            };
+        });
+}
+
+function attemptCostOf(accounts: readonly LedgerAccount[]): {
+    readonly attempts: number;
+    readonly costPerAttempt: null | UsdCents;
+    readonly retryFeeAttempts: number;
+} {
+    const attempts = accounts.reduce(
+        (sum, entry) => sum + attemptsOf(entry),
+        0,
+    );
+    const { decided } = partitionAcquisitionFees(accounts);
+    const spend = netSpendOfFees(decided);
+    return {
+        attempts,
+        costPerAttempt: attempts === 0 ? null : roundCents(spend / attempts),
+        retryFeeAttempts: retryFeeAttemptsOf(accounts),
+    };
+}
+
 function isAcquisitionFee(kind: FeeKind): boolean {
     switch (kind) {
         case FeeKind.Activation:
@@ -165,6 +242,10 @@ function isAcquisitionFee(kind: FeeKind): boolean {
             return false;
         }
     }
+}
+
+function isRetryFee(kind: FeeKind): boolean {
+    return kind === FeeKind.Reset || kind === FeeKind.Rebuy;
 }
 
 function modeledCostCents(
@@ -187,9 +268,9 @@ function netSpendOfFees(fees: readonly LedgerFeeRow[]): UsdCents {
 function openEvalAttemptSince(account: LedgerAccount): null | string {
     const state = finalState(account);
     const isOpenEval =
-        state?.stage === AccountStage.Eval &&
-        (state.status === AccountStatus.Active ||
-            state.status === AccountStatus.Suspended);
+        state !== null &&
+        state.stage === AccountStage.Eval &&
+        !isEndedStatus(state.status);
     return isOpenEval
         ? (account.transitions.findLast(
               (transition) =>
@@ -197,4 +278,30 @@ function openEvalAttemptSince(account: LedgerAccount): null | string {
                   transition.kind === AccountEventKind.Reopened,
           )?.on ?? null)
         : null;
+}
+
+function partitionAcquisitionFees(accounts: readonly LedgerAccount[]): {
+    readonly decided: readonly LedgerFeeRow[];
+    readonly pending: readonly LedgerFeeRow[];
+} {
+    const decided: LedgerFeeRow[] = [];
+    const pending: LedgerFeeRow[] = [];
+    for (const entry of accounts) {
+        const openSince = openEvalAttemptSince(entry);
+        for (const fee of entry.fees) {
+            if (!isAcquisitionFee(fee.kind)) continue;
+            const isPending =
+                openSince !== null && compareText(fee.paidOn, openSince) >= 0;
+            (isPending ? pending : decided).push(fee);
+        }
+    }
+    return { decided, pending };
+}
+
+function retryFeeAttemptsOf(accounts: readonly LedgerAccount[]): number {
+    return accounts.reduce(
+        (sum, entry) =>
+            sum + entry.fees.filter((fee) => isRetryFee(fee.kind)).length,
+        0,
+    );
 }

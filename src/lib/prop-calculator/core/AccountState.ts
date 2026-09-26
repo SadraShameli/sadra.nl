@@ -1,6 +1,8 @@
 export interface AccountState {
     balance: number;
     bestDayProfit: number;
+    calendarWeekSessionsElapsed?: number;
+    calendarWeekSessionsTraded?: number;
     consecutiveIdleDays: number;
     elapsedDays?: number;
     intradayHighProfit: number;
@@ -21,6 +23,8 @@ export function createInitialState(
     return {
         balance: startingBalance,
         bestDayProfit: 0,
+        calendarWeekSessionsElapsed: 0,
+        calendarWeekSessionsTraded: 0,
         consecutiveIdleDays: 0,
         elapsedDays: 0,
         intradayHighProfit: 0,

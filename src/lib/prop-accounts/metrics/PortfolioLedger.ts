@@ -11,14 +11,18 @@ import {
     type AccountReadIssue,
     AccountStage,
     AccountStatus,
+    AccountTracking,
     applyLifecycleEvent,
     compareText,
     FeeKind,
     findStoredFirm,
     impliedEvalPassOn,
+    type LedgerOnlyAccountRow,
     LifecycleOutcomeKind,
+    type ModeledAccountRow,
     PlanKeyResolutionKind,
     resolvePlanKey,
+    trackedAccountOf,
     type UnresolvedPlanReason,
     usdCents,
     type UsdCents,
@@ -32,6 +36,9 @@ import {
 import {
     binomialStandardError,
     meanStandardError,
+    NINETY_FIVE_PERCENT_Z,
+    wilsonInterval,
+    type WilsonInterval,
 } from '~/lib/prop-calculator/stats';
 
 export enum TransitionProvenance {
@@ -51,32 +58,26 @@ export interface FundedSince {
     readonly provenance: TransitionProvenance;
 }
 
-export interface LedgerAccount {
-    readonly events: readonly LedgerEventRow[];
-    readonly fees: readonly LedgerFeeRow[];
-    readonly payouts: readonly LedgerPayoutRow[];
-    readonly plan: LedgerPlan | null;
-    readonly rejectedEvents: number;
-    readonly row: LedgerAccountRow;
-    readonly timelineMatchesRow: boolean;
-    readonly transitions: readonly LifecycleTransition[];
-    readonly unresolvedReason: null | UnresolvedPlanReason;
-}
+export type LedgerAccount = LedgerOnlyLedgerAccount | ModeledLedgerAccount;
 
 export type LedgerAccountRow = Pick<
     PropAccountRow,
     | 'accountSize'
     | 'archivedAt'
+    | 'copyGroupId'
+    | 'externalFirmId'
     | 'firmId'
     | 'fundedOn'
     | 'id'
     | 'label'
     | 'optIns'
+    | 'planLabel'
     | 'planSerial'
     | 'purchasedOn'
     | 'replacesAccountId'
     | 'stage'
     | 'status'
+    | 'tracking'
     | 'userId'
 > & { readonly readIssues: readonly AccountReadIssue[] };
 
@@ -90,9 +91,16 @@ export type LedgerFeeRow = Pick<
     'accountId' | 'amountCents' | 'id' | 'kind' | 'paidOn' | 'userId'
 >;
 
+export interface LedgerOnlyLedgerAccount extends LedgerAccountEntries {
+    readonly plan: null;
+    readonly row: LedgerOnlyAccountRow<LedgerAccountRow>;
+    readonly unresolvedReason: null;
+}
+
 export type LedgerPayoutRow = Pick<
     PropPayoutRow,
     | 'accountId'
+    | 'approvedOn'
     | 'grossCents'
     | 'id'
     | 'netCents'
@@ -116,8 +124,14 @@ export interface LifecycleTransition {
     readonly to: AccountLifecycleState;
 }
 
+export interface ModeledLedgerAccount extends LedgerAccountEntries {
+    readonly plan: LedgerPlan | null;
+    readonly row: ModeledAccountRow<LedgerAccountRow>;
+    readonly unresolvedReason: null | UnresolvedPlanReason;
+}
+
 export interface PlanGroup extends LedgerPlan {
-    readonly accounts: readonly LedgerAccount[];
+    readonly accounts: readonly ModeledLedgerAccount[];
     readonly firmId: FirmId;
 }
 
@@ -129,6 +143,7 @@ export interface PortfolioLedgerRows {
 }
 
 export interface SampledEstimate {
+    readonly interval: null | WilsonInterval;
     readonly n: number;
     readonly standardError: null | number;
     readonly value: number;
@@ -139,6 +154,15 @@ export interface UnmatchedRows {
     readonly events: number;
     readonly fees: number;
     readonly payouts: number;
+}
+
+interface LedgerAccountEntries {
+    readonly events: readonly LedgerEventRow[];
+    readonly fees: readonly LedgerFeeRow[];
+    readonly payouts: readonly LedgerPayoutRow[];
+    readonly rejectedEvents: number;
+    readonly timelineMatchesRow: boolean;
+    readonly transitions: readonly LifecycleTransition[];
 }
 
 export const AVERAGE_DAYS_PER_MONTH = 365.25 / 12;
@@ -200,20 +224,24 @@ export class PortfolioLedger {
         };
     }
 
-    get resolvedAccounts(): readonly LedgerAccount[] {
-        return this.accounts.filter((entry) => entry.plan !== null);
+    get ledgerOnlyAccounts(): readonly LedgerOnlyLedgerAccount[] {
+        return this.accounts.filter(isLedgerOnlyEntry);
     }
 
-    get unresolvedAccounts(): readonly LedgerAccount[] {
-        return this.accounts.filter((entry) => entry.plan === null);
+    get resolvedAccounts(): readonly ModeledLedgerAccount[] {
+        return modeledEntries(this).filter((entry) => entry.plan !== null);
+    }
+
+    get unresolvedAccounts(): readonly ModeledLedgerAccount[] {
+        return modeledEntries(this).filter((entry) => entry.plan === null);
     }
 
     planGroups(): readonly PlanGroup[] {
         const groups = new Map<
             string,
-            { accounts: LedgerAccount[]; plan: LedgerPlan }
+            { accounts: ModeledLedgerAccount[]; plan: LedgerPlan }
         >();
-        for (const entry of this.accounts) {
+        for (const entry of modeledEntries(this)) {
             if (entry.plan === null) continue;
             const group = groups.get(entry.plan.planSerial);
             if (group === undefined) {
@@ -316,6 +344,12 @@ export function isTransitionDateKnown(
     }
 }
 
+export function modeledEntries(
+    ledger: Pick<PortfolioLedger, 'accounts'>,
+): readonly ModeledLedgerAccount[] {
+    return ledger.accounts.filter(isModeledEntry);
+}
+
 export function roundCents(value: number): UsdCents {
     if (!Number.isFinite(value)) {
         throw new RangeError(`Cannot round a non-finite cent amount: ${value}`);
@@ -333,13 +367,20 @@ export function sampledMean(values: readonly number[]): null | SampledEstimate {
         sum += value;
         squaredSum += value * value;
     }
+    const value = sum / n;
+    const standardError =
+        n < MIN_SAMPLES_FOR_SE ? null : meanStandardError(sum, squaredSum, n);
     return {
-        n,
-        standardError:
-            n < MIN_SAMPLES_FOR_SE
+        interval:
+            standardError === null
                 ? null
-                : meanStandardError(sum, squaredSum, n),
-        value: sum / n,
+                : {
+                      lower: value - NINETY_FIVE_PERCENT_Z * standardError,
+                      upper: value + NINETY_FIVE_PERCENT_Z * standardError,
+                  },
+        n,
+        standardError,
+        value,
     };
 }
 
@@ -352,6 +393,7 @@ export function sampledRate(
     const isDegenerate =
         n < MIN_SAMPLES_FOR_SE || successes === 0 || successes === n;
     return {
+        interval: wilsonInterval(successes, n),
         n,
         standardError: isDegenerate ? null : binomialStandardError(value, n),
         value,
@@ -365,12 +407,26 @@ export function signedFeeCents(fee: LedgerFeeRow): UsdCents {
 }
 
 function buildAccount(
-    row: LedgerAccountRow,
+    stored: LedgerAccountRow,
     events: readonly LedgerEventRow[],
     fees: readonly LedgerFeeRow[],
     payouts: readonly LedgerPayoutRow[],
 ): LedgerAccount {
     const sortedEvents = events.toSorted(compareEvents);
+    const row = trackedAccountOf(stored);
+    if (row.tracking === AccountTracking.LedgerOnly) {
+        return {
+            events: sortedEvents,
+            fees,
+            payouts,
+            plan: null,
+            rejectedEvents: 0,
+            row,
+            timelineMatchesRow: false,
+            transitions: [],
+            unresolvedReason: null,
+        };
+    }
     const resolution = resolvePlanKey({
         accountSize: row.accountSize,
         firmId: row.firmId,
@@ -451,6 +507,16 @@ function groupOwnedRows<Row extends OwnedRow>(
     return { byAccount, unmatched };
 }
 
+function isLedgerOnlyEntry(
+    entry: LedgerAccount,
+): entry is LedgerOnlyLedgerAccount {
+    return entry.row.tracking === AccountTracking.LedgerOnly;
+}
+
+function isModeledEntry(entry: LedgerAccount): entry is ModeledLedgerAccount {
+    return entry.row.tracking === AccountTracking.Modeled;
+}
+
 function isReversed(
     transitions: readonly LifecycleTransition[],
     index: number,
@@ -466,7 +532,7 @@ function isSameState(
 }
 
 function lifecycleSteps(
-    row: LedgerAccountRow,
+    row: ModeledAccountRow<LedgerAccountRow>,
     plan: Plan,
     events: readonly LedgerEventRow[],
 ): LifecycleStep[] {

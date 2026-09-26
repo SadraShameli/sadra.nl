@@ -604,10 +604,10 @@ describe('no other firm changes consistency behavior', () => {
     });
 
     it.each(rules)(
-        '$label passes a best day at exactly its share and on non-positive profit',
+        '$label follows its declared boundary at exactly its share and passes on non-positive profit',
         ({ rule }) => {
             expect(rule.isViolated(rule.maxBestDayShare * 1000, 1000)).toBe(
-                false,
+                rule.boundary === ConsistencyBoundary.Inclusive,
             );
             expect(rule.isViolated(rule.maxBestDayShare * 1000 + 1, 1000)).toBe(
                 true,

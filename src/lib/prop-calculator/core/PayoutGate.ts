@@ -17,9 +17,7 @@ export enum PayoutGate {
 }
 
 export type AccountConclusionGate =
-    | PayoutGate.AccountConcluded
-    | PayoutGate.LadderExhausted
-    | PayoutGate.LifetimeDollarCapReached;
+    LifetimePayoutCountGate | PayoutGate.LifetimeDollarCapReached;
 
 export interface AccountConclusionSource {
     readonly maxLifetimePayoutDollars: Dollars | null;
@@ -28,6 +26,14 @@ export interface AccountConclusionSource {
         PayoutLadder,
         'capsAtLastStep' | 'steps'
     >;
+}
+
+export type LifetimePayoutCountGate =
+    PayoutGate.AccountConcluded | PayoutGate.LadderExhausted;
+
+export interface LifetimePayoutCountLimit {
+    readonly count: number;
+    readonly gate: LifetimePayoutCountGate;
 }
 
 export function accountConclusionGate(
@@ -41,15 +47,30 @@ export function accountConclusionGate(
     ) {
         return PayoutGate.LifetimeDollarCapReached;
     }
-    if (source.maxLifetimePayouts !== null) {
-        return payoutsIssued >= source.maxLifetimePayouts
-            ? PayoutGate.AccountConcluded
-            : null;
-    }
-    const ladder = source.payoutLadder;
-    return ladder !== null &&
-        ladder.capsAtLastStep !== true &&
-        payoutsIssued >= ladder.steps.length
-        ? PayoutGate.LadderExhausted
+    const countLimit = lifetimePayoutCountLimit(source);
+    return countLimit !== null && payoutsIssued >= countLimit.count
+        ? countLimit.gate
         : null;
+}
+
+export function lifetimePayoutCountLimit(
+    source: AccountConclusionSource,
+): LifetimePayoutCountLimit | null {
+    const ladderLength =
+        source.payoutLadder === null ||
+        source.payoutLadder.capsAtLastStep === true
+            ? null
+            : source.payoutLadder.steps.length;
+    if (
+        source.maxLifetimePayouts !== null &&
+        (ladderLength === null || source.maxLifetimePayouts <= ladderLength)
+    ) {
+        return {
+            count: source.maxLifetimePayouts,
+            gate: PayoutGate.AccountConcluded,
+        };
+    }
+    return ladderLength === null
+        ? null
+        : { count: ladderLength, gate: PayoutGate.LadderExhausted };
 }

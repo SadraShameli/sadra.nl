@@ -9,8 +9,11 @@ import {
     findStoredFirm,
     hasMixedStages,
     isActiveAccount,
+    isModeledAccount,
+    type ModeledAccountRow,
     type StageCount,
     stageCountsOf,
+    trackedAccountOf,
 } from '~/lib/prop-accounts';
 import {
     copyGroupCreateSchema,
@@ -26,11 +29,15 @@ export type CopyGroupAccount = Pick<
     AccountListAccount,
     | 'archivedAt'
     | 'copyGroupId'
+    | 'externalFirmId'
     | 'firmId'
     | 'id'
     | 'label'
+    | 'planLabel'
+    | 'planSerial'
     | 'stage'
     | 'status'
+    | 'tracking'
 >;
 
 export interface CopyGroupMember {
@@ -92,6 +99,8 @@ export function copyGroupRows(
     accounts: readonly CopyGroupAccount[],
 ): CopyGroupOverview {
     const entries = accounts
+        .map((account) => trackedAccountOf(account))
+        .filter((account) => isModeledAccount(account))
         .map((account): CopyGroupEntry => ({
             copyGroupId: account.copyGroupId,
             isActive: isActiveAccount(account),
@@ -165,7 +174,9 @@ function groupRow(
     };
 }
 
-function memberOf(account: CopyGroupAccount): CopyGroupMember {
+function memberOf(
+    account: ModeledAccountRow<CopyGroupAccount>,
+): CopyGroupMember {
     return {
         firmName: findStoredFirm(account.firmId)?.displayName ?? account.firmId,
         id: account.id,

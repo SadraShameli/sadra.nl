@@ -39,19 +39,20 @@ import {
     AccountStage,
     accountStageLabel,
     AccountStatus,
-    findStoredFirm,
-    PlanKeyResolutionKind,
+    type ExternalFirmName,
+    firmKeyId,
 } from '~/lib/prop-accounts';
-import { findFirm, FirmId } from '~/lib/prop-calculator';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 import { api } from '~/trpc/react';
 
 import {
     ACCOUNT_LIST_INPUT,
+    accountFirmLabel,
     type AccountListFilters,
     type AccountListRow,
     type AccountListSort,
+    accountPlanLabel,
     AccountSortKey,
     accountStatusLabel,
     accountTagOptions,
@@ -65,6 +66,11 @@ import {
 } from './accountListFilters';
 import { formatUsdCents } from './accountPlanOptions';
 import { DeleteAccountDialog } from './DeleteAccountDialog';
+import {
+    firmKeyOfOption,
+    type LedgerOnlyFirmOption,
+    ledgerOnlyFirmOptions,
+} from './externalFirmOptions';
 
 const ALL = 'all';
 
@@ -86,7 +92,7 @@ interface FilterOption {
 }
 
 interface FilterOptions {
-    readonly firms: readonly FilterOption[];
+    readonly firms: readonly LedgerOnlyFirmOption[];
     readonly groups: readonly FilterOption[];
     readonly stages: readonly FilterOption[];
     readonly statuses: readonly FilterOption[];
@@ -98,6 +104,7 @@ export function AccountsTable() {
         api.propAccounts.account.list.useQuery(ACCOUNT_LIST_INPUT);
     const snapshotsQuery = api.propAccounts.snapshot.latestForAll.useQuery();
     const groupsQuery = api.propAccounts.copyGroup.list.useQuery();
+    const externalFirmsQuery = api.propAccounts.externalFirm.list.useQuery();
     const [filters, setFilters] = useState<AccountListFilters>(
         DEFAULT_ACCOUNT_LIST_FILTERS,
     );
@@ -158,10 +165,7 @@ export function AccountsTable() {
     }
 
     const filterOptions: FilterOptions = {
-        firms: Object.values(FirmId).map((firmId) => ({
-            label: findFirm(firmId)?.displayName ?? firmId,
-            value: firmId,
-        })),
+        firms: ledgerOnlyFirmOptions(externalFirmsQuery.data ?? []),
         groups: (groupsQuery.data ?? []).map((group) => ({
             label: group.name,
             value: group.id,
@@ -207,6 +211,17 @@ export function AccountsTable() {
                     </AlertDescription>
                 </Alert>
             )}
+            {externalFirmsQuery.isError && (
+                <Alert variant="warning">
+                    <TriangleAlert />
+                    <AlertTitle>Your firms could not be loaded</AlertTitle>
+                    <AlertDescription>
+                        {externalFirmsQuery.error.message} Accounts at a firm
+                        you added show it as an unlisted firm until your firms
+                        load.
+                    </AlertDescription>
+                </Alert>
+            )}
             <AccountListFilterBar
                 filters={filters}
                 onFiltersChange={setFilters}
@@ -248,6 +263,7 @@ export function AccountsTable() {
                     <TableBody>
                         {visible.map((row) => (
                             <AccountRow
+                                externalFirms={externalFirmsQuery.data ?? []}
                                 groupName={
                                     row.account.copyGroupId === null
                                         ? null
@@ -337,11 +353,18 @@ function AccountListFilterBar({
                     onChange={(value) => {
                         onFiltersChange({
                             ...filters,
-                            firmId: parseEnum(FirmId, value),
+                            firmKey:
+                                value === null
+                                    ? null
+                                    : firmKeyOfOption(options.firms, value),
                         });
                     }}
                     options={options.firms}
-                    value={filters.firmId}
+                    value={
+                        filters.firmKey === null
+                            ? null
+                            : firmKeyId(filters.firmKey)
+                    }
                 />
                 <FilterSelect
                     id="accounts-filter-stage"
@@ -452,19 +475,16 @@ function AccountListFilterBar({
 }
 
 function AccountRow({
+    externalFirms,
     groupName,
     row,
 }: {
+    externalFirms: readonly ExternalFirmName[];
     groupName: null | string;
     row: AccountListRow;
 }) {
     const { account, latestSnapshot } = row;
     const isArchived = account.archivedAt !== null;
-    const firm = findStoredFirm(account.firmId);
-    const planLabel =
-        row.plan.kind === PlanKeyResolutionKind.Resolved
-            ? row.plan.plan.label
-            : account.planSerial;
 
     return (
         <TableRow className={cn(isArchived && 'opacity-60')}>
@@ -496,8 +516,15 @@ function AccountRow({
                 )}
             </TableCell>
             <TableCell className="align-top">
-                <div>{firm?.displayName ?? account.firmId}</div>
-                <div className="text-xs text-muted-foreground">{planLabel}</div>
+                <div>{accountFirmLabel(account, externalFirms)}</div>
+                <div className="text-xs text-muted-foreground">
+                    {accountPlanLabel(account)}
+                </div>
+                {row.isLedgerOnly && (
+                    <Badge className="mt-1" variant="outline">
+                        Ledger only
+                    </Badge>
+                )}
                 {row.planIssue !== null && (
                     <p className="mt-1 flex items-start gap-1 text-xs text-amber-400">
                         <TriangleAlert className="mt-0.5 size-3 shrink-0" />

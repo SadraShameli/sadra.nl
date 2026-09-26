@@ -24,11 +24,21 @@ import {
     TableHeader,
     TableRow,
 } from '~/components/ui/Table';
+import { NOT_APPLICABLE } from '~/lib/format';
 import {
     compareText,
+    dayNumberOf,
+    type ExternalFirmName,
+    firmKeyId,
+    firmKeyLabel,
+    firmKeyOf,
     formatUsdCents,
+    groupByFirmKey,
+    type SampledEstimate,
+    sampledMean,
     summarizeCash,
     todayIsoDate,
+    trackedAccountOf,
 } from '~/lib/prop-accounts';
 import {
     buildLedgerEntries,
@@ -45,6 +55,7 @@ import {
     LedgerEntryFilter,
     ledgerEntryId,
     LedgerEntryKind,
+    type LedgerExportPayout,
     type LedgerFilters,
 } from '~/lib/prop-accounts/csv';
 import { cn } from '~/lib/utilities';
@@ -82,12 +93,21 @@ interface AccountFilterOption {
     readonly value: string;
 }
 
+interface PayoutLagRow {
+    readonly firm: string;
+    readonly key: string;
+    readonly requestToApproval: string;
+    readonly requestToPaid: string;
+}
+
 export function LedgerView() {
     const accountsQuery =
         api.propAccounts.account.list.useQuery(ACCOUNT_LIST_INPUT);
     const payoutsQuery =
         api.propAccounts.payout.list.useQuery(LEDGER_LIST_INPUT);
     const feesQuery = api.propAccounts.fee.list.useQuery(LEDGER_LIST_INPUT);
+    const externalFirmsQuery = api.propAccounts.externalFirm.list.useQuery();
+    const externalFirms = externalFirmsQuery.data;
     const [filters, setFilters] = useState<LedgerFilters>(
         DEFAULT_LEDGER_FILTERS,
     );
@@ -95,6 +115,10 @@ export function LedgerView() {
     const accounts = accountsQuery.data;
     const payouts = payoutsQuery.data;
     const fees = feesQuery.data;
+    const payoutLagRows = useMemo(
+        () => payoutLagByFirm(accounts ?? [], payouts ?? [], externalFirms ?? []),
+        [accounts, externalFirms, payouts],
+    );
     const entries = useMemo(
         () =>
             accounts === undefined ||
@@ -158,11 +182,14 @@ export function LedgerView() {
             <LedgerTotals entries={visible} />
             <div className="flex flex-wrap items-center gap-3">
                 <Button
-                    disabled={visible.length === 0}
+                    disabled={
+                        visible.length === 0 || externalFirms === undefined
+                    }
                     onClick={() => {
+                        if (externalFirms === undefined) return;
                         const today = todayIsoDate(new Date());
                         downloadCsv(
-                            ledgerCsv(visible),
+                            ledgerCsv(visible, externalFirms),
                             ledgerCsvFileName(today),
                         );
                     }}
@@ -173,6 +200,12 @@ export function LedgerView() {
                     Export {visible.length}{' '}
                     {visible.length === 1 ? 'row' : 'rows'} as CSV
                 </Button>
+                {externalFirmsQuery.isError && externalFirms === undefined && (
+                    <p className="text-xs text-destructive">
+                        Your firms could not be loaded, so the export is paused
+                        until they load: {externalFirmsQuery.error.message}
+                    </p>
+                )}
                 <p className="text-xs text-muted-foreground">
                     Amounts are exact decimal dollars; refunds carry the kind
                     refund and cash flow in. Cells that a spreadsheet could run
@@ -187,6 +220,7 @@ export function LedgerView() {
             ) : (
                 <LedgerTable entries={visible} />
             )}
+            <PayoutLagCard rows={payoutLagRows} />
         </section>
     );
 }
@@ -244,6 +278,24 @@ function EntryAmount({ entry }: { entry: LedgerEntry }) {
             );
         }
     }
+}
+
+function formatLagDays(estimate: null | SampledEstimate): string {
+    if (estimate === null) return NOT_APPLICABLE;
+    const standardError =
+        estimate.standardError === null
+            ? NOT_APPLICABLE
+            : estimate.standardError.toFixed(1);
+    return `${estimate.value.toFixed(1)} days (SE ${standardError}, n = ${String(estimate.n)})`;
+}
+
+function lagDaysOf(
+    payout: LedgerExportPayout,
+    on: null | string,
+): readonly number[] {
+    return on === null
+        ? []
+        : [dayNumberOf(on) - dayNumberOf(payout.requestedOn)];
 }
 
 function LedgerFilterBar({
@@ -361,6 +413,7 @@ function LedgerTable({ entries }: { entries: readonly LedgerEntry[] }) {
                     <TableHead>Account</TableHead>
                     <TableHead>Entry</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
+                    <TableHead>Approved on</TableHead>
                     <TableHead>Cash flow</TableHead>
                     <TableHead>Note</TableHead>
                 </TableRow>
@@ -391,6 +444,11 @@ function LedgerTable({ entries }: { entries: readonly LedgerEntry[] }) {
                             </TableCell>
                             <TableCell className="text-right align-top tabular-nums">
                                 <EntryAmount entry={entry} />
+                            </TableCell>
+                            <TableCell className="align-top tabular-nums">
+                                {entry.kind === LedgerEntryKind.Payout
+                                    ? (entry.payout.approvedOn ?? '')
+                                    : ''}
                             </TableCell>
                             <TableCell
                                 className={cn(
@@ -465,6 +523,73 @@ function LedgerTotals({ entries }: { entries: readonly LedgerEntry[] }) {
                 </div>
             </dl>
             <GrossOnlyPayoutsNote count={cash.grossOnlyPayouts} />
+        </div>
+    );
+}
+
+function payoutLagByFirm(
+    accounts: readonly LedgerAccount[],
+    payouts: readonly LedgerExportPayout[],
+    externalFirms: readonly ExternalFirmName[],
+): readonly PayoutLagRow[] {
+    const byAccountId = new Map(accounts.map((account) => [account.id, account]));
+    const withFirm = payouts.flatMap((payout) => {
+        const account = byAccountId.get(payout.accountId);
+        return account === undefined ? [] : [{ account, payout }];
+    });
+    return groupByFirmKey(withFirm, ({ account }) =>
+        firmKeyOf(trackedAccountOf(account)),
+    ).map(
+        ({ firmKey, items }) => ({
+            firm: firmKeyLabel(firmKey, externalFirms),
+            key: firmKeyId(firmKey),
+            requestToApproval: formatLagDays(
+                sampledMean(
+                    items.flatMap(({ payout }) =>
+                        lagDaysOf(payout, payout.approvedOn),
+                    ),
+                ),
+            ),
+            requestToPaid: formatLagDays(
+                sampledMean(
+                    items.flatMap(({ payout }) =>
+                        lagDaysOf(payout, payout.paidOn),
+                    ),
+                ),
+            ),
+        }),
+    );
+}
+
+function PayoutLagCard({ rows }: { readonly rows: readonly PayoutLagRow[] }) {
+    if (rows.length === 0) return null;
+    return (
+        <div className="flex flex-col gap-2">
+            <h3 className="text-sm font-medium text-white">
+                Payout lag by firm
+            </h3>
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Firm</TableHead>
+                        <TableHead>Request to approval</TableHead>
+                        <TableHead>Request to paid</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {rows.map((row) => (
+                        <TableRow key={row.key}>
+                            <TableCell>{row.firm}</TableCell>
+                            <TableCell className="tabular-nums">
+                                {row.requestToApproval}
+                            </TableCell>
+                            <TableCell className="tabular-nums">
+                                {row.requestToPaid}
+                            </TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
         </div>
     );
 }

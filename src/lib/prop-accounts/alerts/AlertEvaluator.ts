@@ -8,10 +8,12 @@ import { type AlertRule } from './AlertRule';
 import { alertSeverityRank } from './AlertSeverity';
 import { EvalDayCapRule } from './EvalDayCapRule';
 import { InvalidStoredDateRule } from './InvalidStoredDateRule';
+import { LifetimeDollarCapRule } from './LifetimeDollarCapRule';
 import { LifetimePayoutCountRule } from './LifetimePayoutCountRule';
 import { MixedStageCopyGroupRule } from './MixedStageCopyGroupRule';
 import { PayoutCountMismatchRule } from './PayoutCountMismatchRule';
 import { PayoutDollarMismatchRule } from './PayoutDollarMismatchRule';
+import { PlanRulesChangedRule } from './PlanRulesChangedRule';
 import { StaleSnapshotRule } from './StaleSnapshotRule';
 import { SubscriptionRenewalDueRule } from './SubscriptionRenewalDueRule';
 import { UnresolvablePlanRule } from './UnresolvablePlanRule';
@@ -23,11 +25,13 @@ export const DEFAULT_ALERT_RULES: readonly AlertRule[] = [
     new WeeklyReviewDueRule(),
     new EvalDayCapRule(),
     new LifetimePayoutCountRule(),
+    new LifetimeDollarCapRule(),
     new UnresolvablePlanRule(),
     new PayoutCountMismatchRule(),
     new PayoutDollarMismatchRule(),
     new MixedStageCopyGroupRule(),
     new SubscriptionRenewalDueRule(),
+    new PlanRulesChangedRule(),
 ];
 
 const SORT_LOCALE = 'en';

@@ -18,12 +18,15 @@ import {
     describeFundedResetTerms,
     describePayoutDayGate,
     type DrawdownStrategy,
+    LifetimeCapScope,
+    lifetimePayoutCountLimit,
     type PayoutCapRegime,
     type PayoutCapSchedule,
     PayoutCapScheduleKind,
     type PayoutCountTieredPayoutSplit,
     PayoutDayGateBasis,
     PayoutFloorEffect,
+    PayoutGate,
     type Plan,
     retryPath,
     TradingPhase,
@@ -423,11 +426,12 @@ function consistencyShareLabel(
 
 function describeConclusion(plan: Plan): string {
     const conclusion = plan.lifetimeConclusion;
+    const dollarCap = conclusion.maxLifetimePayoutDollars;
     const limits = [
         describePayoutCountLimit(conclusion),
-        conclusion.maxLifetimePayoutDollars === null
+        dollarCap === null || conclusion.dollarCapScope === null
             ? null
-            : `at ${formatCurrency(conclusion.maxLifetimePayoutDollars)} in lifetime payouts`,
+            : `at ${formatCurrency(dollarCap)} in lifetime payouts (${dollarCapScopeNote(plan, conclusion.dollarCapScope)})`,
     ].filter((limit) => limit !== null);
     return limits.length === 0
         ? NO_LIFETIME_LIMIT
@@ -515,13 +519,16 @@ function describePayoutCapRegime(regime: PayoutCapRegime): string {
 function describePayoutCountLimit(
     conclusion: AccountConclusionSource,
 ): null | string {
-    if (conclusion.maxLifetimePayouts !== null) {
-        return `after ${conclusion.maxLifetimePayouts} payouts`;
+    const limit = lifetimePayoutCountLimit(conclusion);
+    if (limit === null) return null;
+    switch (limit.gate) {
+        case PayoutGate.AccountConcluded: {
+            return `after ${limit.count} payouts`;
+        }
+        case PayoutGate.LadderExhausted: {
+            return `after the ${limit.count}-step payout ladder`;
+        }
     }
-    const ladder = conclusion.payoutLadder;
-    return ladder === null || ladder.capsAtLastStep === true
-        ? null
-        : `after the ${ladder.steps.length}-step payout ladder`;
 }
 
 function describePayoutFloorEffect(effect: PayoutFloorEffect): string {
@@ -537,6 +544,20 @@ function describePayoutFloorEffect(effect: PayoutFloorEffect): string {
         }
         case PayoutFloorEffect.ReleaseFloor: {
             return ', floor reset to breakeven on each payout';
+        }
+    }
+}
+
+function dollarCapScopeNote(plan: Plan, scope: LifetimeCapScope): string {
+    switch (scope) {
+        case LifetimeCapScope.PerAccount: {
+            return 'per account';
+        }
+        case LifetimeCapScope.PerUserAcrossVariant: {
+            return `per user across all ${variantAccountsLabel(plan)}`;
+        }
+        case LifetimeCapScope.Unconfirmed: {
+            return 'scope not stated by the firm';
         }
     }
 }
@@ -595,4 +616,23 @@ function segment(
     value: string,
 ): PlanRuleSegment {
     return { kind, term, value };
+}
+
+const KEBAB_SEGMENT_ACRONYMS = new Set(['dll', 'eod']);
+
+function titleCaseFromKebab(value: string): string {
+    return value
+        .split('-')
+        .map((word) =>
+            KEBAB_SEGMENT_ACRONYMS.has(word)
+                ? word.toUpperCase()
+                : `${word.charAt(0).toUpperCase()}${word.slice(1)}`,
+        )
+        .join(' ');
+}
+
+function variantAccountsLabel(plan: Plan): string {
+    return 'variant' in plan.id
+        ? `${titleCaseFromKebab(plan.id.variant)} accounts`
+        : 'accounts on this plan';
 }

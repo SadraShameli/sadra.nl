@@ -4,6 +4,9 @@ import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { liveArguments } from '~/cli/commands/prop/live/command';
 import optimizeFunded from '~/cli/commands/prop/optimize/funded/command';
 import {
+    bankrollArguments,
+    type BankrollInputs,
+    edgePlausibilityNote,
     pathGranularityComparisonArgument,
     planArguments,
     planResolver,
@@ -15,6 +18,8 @@ import simCommand, {
     granularityComparison,
     granularityTableRow,
     simArguments,
+    simBankrollRows,
+    simEconomicsRows,
     simHeaderLines,
     simSpinnerLabel,
     simSummaryRows,
@@ -25,6 +30,7 @@ import {
     formatPercent,
 } from '~/lib/format';
 import {
+    ALL_FIRMS,
     ApexVariant,
     buildApexLivePlan,
     DailyLossLimitBreachEffect,
@@ -50,7 +56,7 @@ import {
 import { findFirm } from '~/lib/prop-calculator/firms';
 import { runLiveDay } from '~/lib/prop-calculator/simulator';
 
-import { flagsNamedButNotAccepted } from './helpFlags';
+import { acceptedFlags, flagsNamedButNotAccepted } from './helpFlags';
 
 function apexEodPlan(): Plan {
     const plan = findFirm(FirmId.Apex)?.findPlan({
@@ -628,6 +634,7 @@ describe('sim --path-granularity help (R1-26)', () => {
                     ...planArguments,
                     ...tradingArguments,
                     ...pathGranularityComparisonArgument,
+                    ...bankrollArguments,
                 }),
             ),
         );
@@ -648,6 +655,488 @@ describe('prop sim spinner label (WP24)', () => {
         );
         expect(simSpinnerLabel('$50K · Zero', 5000).split(' · ')).toHaveLength(
             2,
+        );
+    });
+});
+
+const EXISTING_SUMMARY_LABELS = [
+    'eval pass',
+    'funded survive',
+    'bust in eval',
+    'bust when funded',
+    'inactivity closure',
+    'timeout',
+    'days to pass (p50)',
+    'days to pass (p95)',
+    'expected attempts',
+    'total cost',
+    'cost / funded acct',
+    'cost / drawdown $',
+    'gross payout',
+    'payouts / account',
+    'payout / funded acct',
+    'net',
+    'monthly net',
+    'ROI on cost',
+    'expectancy per trade',
+    'max drawdown (p95)',
+    'loss streak (p95)',
+];
+
+const FUNDED_VALUE_LABEL = 'funded value (engine, 20 funded days, credit-free)';
+const EV_PER_ATTEMPT_LABEL =
+    'EV per attempt (ignores time; not the ranking objective)';
+const WALK_LABEL = 'P(pass) and expected trades (random-walk approximation)';
+
+const ECONOMICS_LABELS = [
+    'eval pass per attempt',
+    'P(payout | funded)',
+    'payouts per funded account',
+    'P(k payouts | funded)',
+    FUNDED_VALUE_LABEL,
+    EV_PER_ATTEMPT_LABEL,
+    'breakeven pass rate',
+    'funded value / attempt cost',
+    'net R to pass',
+    WALK_LABEL,
+    'attempt pays (any payout)',
+];
+
+const ECONOMICS_ARGV = [
+    '--funded-days',
+    '20',
+    '--risk',
+    '200',
+    '--winrate',
+    '0.5',
+    '--rr',
+    '1',
+];
+
+function economicsFixture(overrides: Partial<SimOutputs> = {}): SimOutputs {
+    return fixture({
+        anyPayoutGivenFundedProbability: 0.5,
+        attemptPassProbability: 0.25,
+        attemptPaysProbability: 0.1,
+        copyAccounts: 1,
+        costPerAttempt: 100,
+        drawdownAmount: 2000,
+        estimates: {
+            ...BASE.estimates,
+            anyPayoutGivenFundedProbability: {
+                standardError: 0.02,
+                value: 0.5,
+            },
+            attemptPassProbability: { standardError: 0.01, value: 0.25 },
+            attemptPaysProbability: { standardError: 0.005, value: 0.1 },
+            costPerAttempt: { standardError: 2, value: 100 },
+            expectedNetPerAttempt: { standardError: 10, value: 150 },
+            expectedPayoutPerFundedAccount: { standardError: 50, value: 1000 },
+            payoutsPerFundedAccount: { standardError: 0.1, value: 1.5 },
+        },
+        expectedNetPerAttempt: 150,
+        expectedPayoutPerFundedAccount: 1000,
+        fundedPayoutCountDistribution: [
+            0.5, 0.25, 0.25, 0, 0, 0, 0, 0, 0, 0, 0,
+        ],
+        payoutsPerFundedAccount: 1.5,
+        profitTarget: 3000,
+        tradesPerSuccessfulAttempt: 120,
+        ...overrides,
+    });
+}
+
+function economicsValue(
+    rows: readonly (readonly [string, string])[],
+    label: string,
+): string | undefined {
+    return rows.find(([rowLabel]) => rowLabel === label)?.[1];
+}
+
+describe('sim attempt economics lines (PT-54, F-V8, F-V9, F-V22)', () => {
+    const inputs = parseSimInputs(ECONOMICS_ARGV);
+    const rows = simEconomicsRows(economicsFixture(), inputs, apexEodPlan());
+
+    it('keeps every existing summary line, in order, so monthly net stays ahead of EV per attempt (VD-28)', () => {
+        expect(simSummaryRows(BASE).map(([label]) => label)).toStrictEqual(
+            EXISTING_SUMMARY_LABELS,
+        );
+    });
+
+    it('adds the attempt economics lines in the documented order', () => {
+        expect(rows.map(([label]) => label)).toStrictEqual(ECONOMICS_LABELS);
+    });
+
+    it('prints each per-attempt rate with its standard error', () => {
+        expect(economicsValue(rows, 'eval pass per attempt')).toBe(
+            '25.0% (SE 1.0%)',
+        );
+        expect(economicsValue(rows, 'P(payout | funded)')).toBe(
+            '50.0% (SE 2.0%)',
+        );
+        expect(economicsValue(rows, 'payouts per funded account')).toBe(
+            '1.50 (SE 0.10)',
+        );
+        expect(economicsValue(rows, 'attempt pays (any payout)')).toBe(
+            '10.0% (SE 0.5%)',
+        );
+    });
+
+    it('prints the payouts per funded account distribution with a 10+ tail', () => {
+        expect(economicsValue(rows, 'P(k payouts | funded)')).toBe(
+            '0: 50.0% | 1: 25.0% | 2: 25.0% | 3: 0.0% | 4: 0.0% | 5: 0.0% | 6: 0.0% | 7: 0.0% | 8: 0.0% | 9: 0.0% | 10+: 0.0%',
+        );
+    });
+
+    it('says no trial reached funded when the distribution is empty', () => {
+        const empty = simEconomicsRows(
+            economicsFixture({ fundedPayoutCountDistribution: [] }),
+            inputs,
+            apexEodPlan(),
+        );
+        expect(economicsValue(empty, 'P(k payouts | funded)')).toBe(
+            'n/a (no trial reached funded)',
+        );
+    });
+
+    it('prints the funded value, EV per attempt, breakeven and funded value / attempt cost from the one EV definition', () => {
+        expect(economicsValue(rows, FUNDED_VALUE_LABEL)).toBe('$1,000 (SE $50)');
+        expect(economicsValue(rows, EV_PER_ATTEMPT_LABEL)).toBe(
+            '$150 (SE $10)',
+        );
+        expect(economicsValue(rows, 'breakeven pass rate')).toBe('10.0%');
+        expect(economicsValue(rows, 'funded value / attempt cost')).toBe(
+            '10.00x (net 9:1)',
+        );
+    });
+
+    it('totals the funded value over the copy group like the EV per attempt', () => {
+        const copied = simEconomicsRows(
+            economicsFixture({ copyAccounts: 3 }),
+            inputs,
+            apexEodPlan(),
+        );
+        expect(economicsValue(copied, FUNDED_VALUE_LABEL)).toBe(
+            '$3,000 (SE $150)',
+        );
+    });
+
+    it('explains a missing breakeven with the typed reason', () => {
+        const noValue = simEconomicsRows(
+            economicsFixture({
+                estimates: {
+                    ...economicsFixture().estimates,
+                    expectedPayoutPerFundedAccount: {
+                        standardError: null,
+                        value: 0,
+                    },
+                },
+                expectedNetPerAttempt: -100,
+                expectedPayoutPerFundedAccount: 0,
+            }),
+            inputs,
+            apexEodPlan(),
+        );
+        expect(economicsValue(noValue, 'breakeven pass rate')).toBe(
+            'n/a: the funded account has no positive expected value',
+        );
+    });
+
+    it('shows the funded value row as n/a with a reason when the decomposition itself is invalid, not a bare amount (PT-54 review F-V8)', () => {
+        const invalid = simEconomicsRows(
+            economicsFixture({ expectedNetPerAttempt: NaN }),
+            inputs,
+            apexEodPlan(),
+        );
+        const reason = economicsValue(invalid, EV_PER_ATTEMPT_LABEL);
+        expect(reason).toMatch(/^n\/a: /);
+        expect(economicsValue(invalid, FUNDED_VALUE_LABEL)).toBe(reason);
+    });
+
+    it('prints the net R to pass and the two-barrier walk beside the simulated trades per pass (the 50/50 fixture: 40% in 150 trades)', () => {
+        expect(economicsValue(rows, 'net R to pass')).toBe('15.0R');
+        expect(economicsValue(rows, WALK_LABEL)).toBe(
+            '40.0% pass, 150.0 trades to pass or bust (simulated trades per pass 120.0)',
+        );
+    });
+
+    it('says no positive edge instead of a walk when the expectancy is not positive', () => {
+        const noEdge = simEconomicsRows(
+            economicsFixture(),
+            parseSimInputs([
+                '--funded-days',
+                '20',
+                '--winrate',
+                '0.3',
+                '--rr',
+                '2',
+            ]),
+            apexEodPlan(),
+        );
+        expect(economicsValue(noEdge, WALK_LABEL)).toBe('no positive edge');
+    });
+
+    it('does not invent a single risk for a ladder run', () => {
+        const ladder = simEconomicsRows(
+            economicsFixture(),
+            parseSimInputs([...ECONOMICS_ARGV, '--ladder', '400,600']),
+            apexEodPlan(),
+        );
+        expect(economicsValue(ladder, 'net R to pass')).toBe(
+            'n/a (an eval ladder has no single risk per trade)',
+        );
+        expect(economicsValue(ladder, WALK_LABEL)).toBe(
+            'n/a (an eval ladder has no single risk per trade)',
+        );
+    });
+
+    it('prints no eval pace for an instant-funded plan', () => {
+        const instant = ALL_FIRMS.flatMap((firm) => [...firm.plans]).find(
+            (plan) => plan.isInstantFunded,
+        );
+        if (!instant) throw new Error('no instant-funded plan registered');
+        const instantRows = simEconomicsRows(
+            economicsFixture(),
+            inputs,
+            instant,
+        );
+        expect(economicsValue(instantRows, 'net R to pass')).toBe(
+            'n/a (instant funded: no eval)',
+        );
+        expect(economicsValue(instantRows, WALK_LABEL)).toBe(
+            'n/a (instant funded: no eval)',
+        );
+    });
+});
+
+const TWO_POINT_NETS: number[] = Array.from({ length: 1000 }, (_, index) =>
+    index % 5 === 0 ? 900 : -100,
+);
+
+function bankrollInputs(
+    bankroll: null | number,
+    lossThreshold: null | number,
+): BankrollInputs {
+    return {
+        bankroll: bankroll === null ? null : dollars(bankroll),
+        lossThreshold: lossThreshold === null ? null : fraction(lossThreshold),
+    };
+}
+
+function percentIn(text: string | undefined): number {
+    const match = /^(-?\d+(?:\.\d+)?)%/.exec(text ?? '');
+    if (!match?.[1]) throw new Error(`no percent in "${String(text)}"`);
+    return Number(match[1]) / 100;
+}
+
+function twoPointFixture(overrides: Partial<SimOutputs> = {}): SimOutputs {
+    return economicsFixture({
+        attemptPaysProbability: 0.2,
+        costPerAttempt: 100,
+        expectedNetPerAttempt: 100,
+        expectedTotalCost: 100,
+        netValues: TWO_POINT_NETS,
+        ...overrides,
+    });
+}
+
+describe('sim bankroll lines (PT-54, F-V13)', () => {
+    const inputs = parseSimInputs(['--seed', '42']);
+
+    it('prints nothing without --bankroll or --loss-threshold', () => {
+        expect(
+            simBankrollRows(twoPointFixture(), inputs, bankrollInputs(null, null)),
+        ).toStrictEqual([]);
+    });
+
+    it('prints attempts affordable, the batch loss headline, the no-payout row and an unset threshold, in that order', () => {
+        const rows = simBankrollRows(
+            twoPointFixture(),
+            inputs,
+            bankrollInputs(5000, null),
+        );
+        expect(rows.map(([label]) => label)).toStrictEqual([
+            'attempts affordable',
+            'P(batch net < 0) over 50 attempts',
+            'P(no payout from 50 attempts)',
+            'minimum budget for the loss target',
+        ]);
+        expect(economicsValue(rows, 'attempts affordable')).toBe(
+            '50 at $100 per attempt',
+        );
+        expect(
+            economicsValue(rows, 'minimum budget for the loss target'),
+        ).toBe('threshold not set');
+    });
+
+    it('computes P(batch net < 0) from the run nets: within 3 SE of the exact 0.018502 for the p 0.2, value 1,000, cost 100 two-point case', () => {
+        const rows = simBankrollRows(
+            twoPointFixture(),
+            inputs,
+            bankrollInputs(5000, null),
+        );
+        const text = economicsValue(rows, 'P(batch net < 0) over 50 attempts');
+        const standardError = Math.sqrt((0.018502 * (1 - 0.018502)) / 10_000);
+        expect(Math.abs(percentIn(text) - 0.018502)).toBeLessThan(
+            3 * standardError + 0.0005,
+        );
+        expect(text).toMatch(/\(SE \d+\.\d%\)$/);
+    });
+
+    it('prints the no-payout probability only as a secondary row with its meaning', () => {
+        const rows = simBankrollRows(
+            twoPointFixture(),
+            inputs,
+            bankrollInputs(5000, null),
+        );
+        expect(economicsValue(rows, 'P(no payout from 50 attempts)')).toBe(
+            '0.001% (ignores payout size)',
+        );
+    });
+
+    it('prints the minimum budget for the loss target on P(batch net < 0), near the exact 44 attempts', () => {
+        const rows = simBankrollRows(
+            twoPointFixture(),
+            inputs,
+            bankrollInputs(5000, 0.05),
+        );
+        const text =
+            economicsValue(rows, 'minimum budget for the loss target') ?? '';
+        const match =
+            /^\$([\d,]+) \((\d+) attempts, P\(batch net < 0\) at or below 5\.0% from there up to 1000 attempts\)$/.exec(
+                text,
+            );
+        expect(match).not.toBeNull();
+        const attempts = Number(match?.[2]);
+        expect(attempts).toBeGreaterThanOrEqual(43);
+        expect(attempts).toBeLessThanOrEqual(45);
+        expect(Number(match?.[1]?.replaceAll(',', ''))).toBe(attempts * 100);
+    });
+
+    it('says no positive edge when the EV per attempt is not positive', () => {
+        const rows = simBankrollRows(
+            twoPointFixture({
+                expectedNetPerAttempt: -100,
+                netValues: [-100],
+            }),
+            inputs,
+            bankrollInputs(5000, 0.05),
+        );
+        expect(
+            economicsValue(rows, 'minimum budget for the loss target'),
+        ).toBe('no positive edge');
+        expect(
+            percentIn(
+                economicsValue(rows, 'P(batch net < 0) over 50 attempts'),
+            ),
+        ).toBe(1);
+    });
+
+    it('prints only the minimum budget when a threshold is given without a bankroll', () => {
+        const rows = simBankrollRows(
+            twoPointFixture({ netValues: [100] }),
+            inputs,
+            bankrollInputs(null, 0.05),
+        );
+        expect(rows).toStrictEqual([
+            [
+                'minimum budget for the loss target',
+                '$100 (1 attempt, P(batch net < 0) at or below 5.0% from there up to 1000 attempts)',
+            ],
+        ]);
+    });
+
+    it('samples whole trials, priced at the spend per trial, when a trial can hold several attempts', () => {
+        const rows = simBankrollRows(
+            twoPointFixture({ expectedTotalCost: 250 }),
+            parseSimInputs(['--seed', '42', '--max-attempts', '3']),
+            bankrollInputs(5000, null),
+        );
+        expect(rows.map(([label]) => label)).toStrictEqual([
+            'attempts affordable',
+            'P(batch net < 0) over 20 trials of up to 3 attempts',
+            'P(no payout from 50 attempts)',
+            'minimum budget for the loss target',
+        ]);
+    });
+});
+
+async function capturedSimRun(argv: string[]): Promise<string> {
+    const written: string[] = [];
+    const write = vi
+        .spyOn(process.stdout, 'write')
+        .mockImplementation((chunk: string | Uint8Array) => {
+            written.push(String(chunk));
+            return true;
+        });
+    const writeError = vi
+        .spyOn(process.stderr, 'write')
+        .mockImplementation(() => true);
+    const exitCode = process.exitCode;
+    try {
+        await simCommand.run?.({
+            args: parseArgs<typeof simArguments>(argv, simArguments),
+            cmd: simCommand,
+            rawArgs: argv,
+        });
+    } finally {
+        write.mockRestore();
+        writeError.mockRestore();
+        process.exitCode = exitCode;
+    }
+    return written.join('');
+}
+
+const SMALL_SIM = [
+    '--firm',
+    'mffu',
+    '--variant',
+    'rapid-eod',
+    '--trials',
+    '40',
+    '--eval-days',
+    '20',
+    '--funded-days',
+    '20',
+];
+
+describe('prop sim prints the economics after the existing lines (PT-54)', () => {
+    it('accepts --bankroll and --loss-threshold and names them in its help', async () => {
+        expect(await acceptedFlags(simCommand)).toEqual(
+            expect.arrayContaining(['bankroll', 'loss-threshold']),
+        );
+        expect(await flagsNamedButNotAccepted(simCommand)).toStrictEqual([]);
+    });
+
+    it('prints monthly net first, then the attempt economics and the bankroll lines', async () => {
+        const stdout = await capturedSimRun([
+            ...SMALL_SIM,
+            '--bankroll',
+            '5000',
+            '--loss-threshold',
+            '0.05',
+        ]);
+        const monthly = stdout.indexOf('monthly net');
+        const evPerAttempt = stdout.indexOf(EV_PER_ATTEMPT_LABEL);
+        expect(monthly).toBeGreaterThanOrEqual(0);
+        expect(evPerAttempt).toBeGreaterThan(monthly);
+        expect(stdout).toContain('attempts affordable');
+        expect(stdout).toContain('P(no payout from');
+        expect(stdout).toContain('minimum budget for the loss target');
+        expect(stdout).not.toMatch(/\b(?:implausible|no|strong|typical) edge\b/);
+    });
+
+    it('prints the plausibility note for 70% at 1:1', async () => {
+        const stdout = await capturedSimRun([
+            ...SMALL_SIM,
+            '--winrate',
+            '0.7',
+            '--rr',
+            '1',
+        ]);
+        expect(stdout).toContain(
+            edgePlausibilityNote({ rrRatio: 1, winrate: fraction(0.7) }) ??
+                'missing note',
         );
     });
 });

@@ -6,7 +6,6 @@ import { describe, expect, it, vi } from 'vitest';
 import optimizeDp, {
     bundleRenewalNote,
     dpArguments,
-    dpPayoutRequestBelowMinimumWarning,
     dpPayoutSettingsLine,
     dpSolverConfig,
     EMPIRICAL_MAX_ATTEMPTS,
@@ -25,17 +24,19 @@ import optimizeDp, {
 } from '~/cli/commands/prop/optimize/dp/command';
 import {
     commonSimArguments,
+    payoutRequestPolicyArgument,
     tradingArguments,
 } from '~/cli/commands/prop/shared';
-import { formatCurrency } from '~/lib/format';
 import {
     ApexVariant,
     type DayPolicy,
     dollars,
     E8FuturesVariant,
+    effectivePayoutRequest,
     FirmId,
     MffuVariant,
     minimumPayoutRequest,
+    PayoutRequestPolicy,
     type Plan,
     PolicySizing,
     type SimOutputs,
@@ -350,16 +351,14 @@ function resolvedDpPlan(argv: string[]): Plan {
     return resolveDpPlan(parseArgs<typeof dpArguments>(argv, dpArguments));
 }
 
-const SHARED_RETAIN_CUSHION_FLAG = 'retain-cushion';
-
 describe('optimize dp prose uses no double-hyphen dash (WP24)', () => {
-    it('writes the funded gap warnings and every flag description it owns without a -- dash (the shared --retain-cushion description lives in shared.ts, whose wording PT-47b rewrites)', async () => {
+    it('writes the funded gap warnings and every flag description it owns without a -- dash', async () => {
         const arguments_ = await resolveArguments();
         const texts = [
             fundedDpModelGapWarning(mffProPlan()) ?? '',
-            ...Object.entries(arguments_)
-                .filter(([name]) => name !== SHARED_RETAIN_CUSHION_FLAG)
-                .map(([, argument]) => argument.description ?? ''),
+            ...Object.values(arguments_).map(
+                (argument) => argument.description ?? '',
+            ),
         ];
 
         expect(texts[0]).not.toBe('');
@@ -544,6 +543,7 @@ describe('optimize dp flag bounds', () => {
             maxEvalDays: 40,
             maxSolves: 12,
             minRetainedCushion: 0,
+            payoutRequestPolicy: PayoutRequestPolicy.UpToRequest,
             payoutRequestSize: undefined,
             rebuyLagDays: 0,
             rrRatio: 2,
@@ -625,6 +625,33 @@ describe('optimize dp takes the shared --retain-cushion and --request-size flags
         ).toBeUndefined();
     });
 
+    it('applies effectivePayoutRequest to the solver config and the empirical sim inputs, raising a request below the plan minimum (MFF Pro 50K with 500 receives its $1,000 plan minimum)', () => {
+        const plan = mffProPlan();
+        expect(minimumPayoutRequest(plan)).toBe(1000);
+        const inputs = parseDpInputs(['--request-size=500']);
+        expect(inputs.payoutRequestSize).toBe(500);
+
+        const objective = renewalObjective(inputs, plan);
+        const config = dpSolverConfig(inputs, objective);
+        expect(config.fundedGrid?.payoutRequestSize).toBe(
+            effectivePayoutRequest(plan, 500),
+        );
+        expect(config.fundedGrid?.payoutRequestSize).toBe(1000);
+
+        const simInputs = empiricalSimInputs(inputs, plan, {
+            evalDayPolicy: policy,
+            fundedDayPolicy: policy,
+        });
+        expect(simInputs.payoutRequestSize).toBe(1000);
+    });
+
+    it('leaves the request size untouched when it already meets the plan minimum', () => {
+        const plan = topStepNoFeeStandardPlan();
+        const inputs = parseDpInputs(['--request-size=500']);
+        const config = dpSolverConfig(inputs, renewalObjective(inputs, plan));
+        expect(config.fundedGrid?.payoutRequestSize).toBe(500);
+    });
+
     it('names the resolved retained cushion and the request size in one line', () => {
         const plan = resolvedDpPlan([
             '--firm',
@@ -690,112 +717,55 @@ describe('optimize dp takes the shared --retain-cushion and --request-size flags
     }, 600_000);
 });
 
-function belowMinimumWarningText(plan: Plan, requested: number): string {
-    const minimum = formatCurrency(minimumPayoutRequest(plan));
-    return `${plan.label}: --request-size ${formatCurrency(requested)} is below the plan's minimum payout request of ${minimum}, so the DP and the empirical run never take a regular payout at this size. Both still credit up to ${formatCurrency(requested)} of the withdrawable balance at every horizon exit, because that closeout credit does not check the minimum, so the funded value below comes only from the horizon credit. Use --request-size ${minimum} or more, or leave the flag out to request the whole withdrawable amount.`;
-}
+describe('optimize dp takes the shared --payout-policy flag into the solve and the empirical run (PT-47b, F-150)', () => {
+    const policy: DayPolicy = {
+        ladder: [200],
+        maxLossesPerDay: null,
+        sizing: PolicySizing.ContractCapped,
+        stopRule: { kind: DayStopRuleKind.None },
+    };
 
-describe('optimize dp warns when --request-size is below the plan minimum payout request (PT-47a review)', () => {
-    it('names the plan minimum and the horizon-credit-only value for MFF Pro 50K at one dollar below its minimum', () => {
-        const plan = mffProPlan();
-        const minimum = minimumPayoutRequest(plan);
-        expect(minimum).toBeGreaterThan(1);
-        const requested = minimum - 1;
-
-        expect(
-            dpPayoutRequestBelowMinimumWarning(
-                plan,
-                parseDpInputs([`--request-size=${requested}`]),
-            ),
-        ).toBe(belowMinimumWarningText(plan, requested));
+    it('reuses the shared flag definition, defaulting to up-to-request', () => {
+        expect(dpArguments['payout-policy']).toBe(
+            payoutRequestPolicyArgument['payout-policy'],
+        );
+        expect(payoutRequestPolicyArgument['payout-policy'].default).toBe(
+            PayoutRequestPolicy.UpToRequest,
+        );
+        expect(payoutRequestPolicyArgument['payout-policy'].options).toStrictEqual(
+            Object.values(PayoutRequestPolicy),
+        );
     });
 
-    it('stays silent at the plan minimum, above it, and without --request-size', () => {
-        const plan = mffProPlan();
-        const minimum = minimumPayoutRequest(plan);
-
+    it('reads the flag into the inputs, defaulting without it', () => {
+        expect(parseDpInputs([]).payoutRequestPolicy).toBe(
+            PayoutRequestPolicy.UpToRequest,
+        );
         expect(
-            dpPayoutRequestBelowMinimumWarning(
-                plan,
-                parseDpInputs([`--request-size=${minimum}`]),
-            ),
-        ).toBeNull();
-        expect(
-            dpPayoutRequestBelowMinimumWarning(
-                plan,
-                parseDpInputs([`--request-size=${minimum + 500}`]),
-            ),
-        ).toBeNull();
-        expect(
-            dpPayoutRequestBelowMinimumWarning(plan, parseDpInputs([])),
-        ).toBeNull();
+            parseDpInputs(['--payout-policy=full-request-only'])
+                .payoutRequestPolicy,
+        ).toBe(PayoutRequestPolicy.FullRequestOnly);
     });
 
-    it('reads the payout ladder minimum before the plan minimum, like the payout gate', () => {
-        const plan = mffBuilderPlan();
-        const ladderMinimum = plan.payoutLadder?.minRequestAmount;
-        expect(ladderMinimum).toBeGreaterThan(1);
-        expect(minimumPayoutRequest(plan)).toBe(ladderMinimum);
-        const requested = (ladderMinimum ?? 0) - 1;
-
-        expect(
-            dpPayoutRequestBelowMinimumWarning(
-                plan,
-                parseDpInputs([`--request-size=${requested}`]),
-            ),
-        ).toBe(belowMinimumWarningText(plan, requested));
-    });
-
-    it('writes the warning without a -- dash or an em dash', () => {
-        const plan = mffProPlan();
-        const warning =
-            dpPayoutRequestBelowMinimumWarning(
-                plan,
-                parseDpInputs(['--request-size=1']),
-            ) ?? '';
-
-        expect(warning).not.toBe('');
-        expect(warning).not.toContain(' -- ');
-        expect(warning).not.toContain('\u{2014}');
-    });
-
-    it('run() prints the warning before solving when the request is below the plan minimum', async () => {
-        const plan = resolvedDpPlan([
-            '--firm',
-            'mffu',
-            '--variant',
-            'rapid-eod',
+    it('hands the policy to the funded grid of the solver config and the empirical simulate() inputs', () => {
+        const plan = topStepNoFeeStandardPlan();
+        const inputs = parseDpInputs([
+            '--payout-policy=full-request-only',
+            '--request-size=500',
         ]);
-        const minimum = minimumPayoutRequest(plan);
-        expect(minimum).toBeGreaterThan(1);
-        const requested = minimum - 1;
-        const argv = [
-            '--firm',
-            'mffu',
-            '--variant',
-            'rapid-eod',
-            '--request-size',
-            String(requested),
-            '--eval-days',
-            '2',
-            '--funded-days',
-            '2',
-            '--iterations',
-            '1',
-            '--trials',
-            '10',
-        ];
-
-        const { stdout } = await capturedRun(argv);
-
-        const warningAt = stdout.indexOf(
-            belowMinimumWarningText(plan, requested),
+        const config = dpSolverConfig(inputs, renewalObjective(inputs, plan));
+        expect(config.fundedGrid?.payoutRequestPolicy).toBe(
+            PayoutRequestPolicy.FullRequestOnly,
         );
-        expect(warningAt).toBeGreaterThanOrEqual(0);
-        expect(warningAt).toBeLessThan(
-            stdout.indexOf('DP-predicted average reward'),
+
+        const simInputs = empiricalSimInputs(inputs, plan, {
+            evalDayPolicy: policy,
+            fundedDayPolicy: policy,
+        });
+        expect(simInputs.payoutRequestPolicy).toBe(
+            PayoutRequestPolicy.FullRequestOnly,
         );
-    }, 600_000);
+    });
 });
 
 describe('optimize dp empirical summary (D2)', () => {

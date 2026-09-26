@@ -11,6 +11,7 @@ import optimizeFunded, {
     readFundedCandidates,
 } from '~/cli/commands/prop/optimize/funded/command';
 import {
+    edgePlausibilityNote,
     planResolver,
     readNumberList,
     singlePathGranularityArgument,
@@ -1199,5 +1200,38 @@ describe('the monthly sort note names both payout pool branches and the copy-acc
             'ranked by steady-state expected net per month for 3 copy-traded account slots together (the per-cycle net, horizon credit and monthly figures are one slot x 3):',
         );
         expect(description).not.toContain('for one account slot');
+    });
+});
+
+describe('optimize funded prints the plausibility note (PT-54 step 4, F-V22)', () => {
+    it('flags 70% at 1:1 with the shared note text', async () => {
+        const note = edgePlausibilityNote({
+            rrRatio: 1,
+            winrate: fraction(0.7),
+        });
+        expect(note).not.toBeNull();
+        const { stdout } = await capturedRun([
+            ...SMALL_RUN,
+            '--winrate',
+            '0.7',
+            '--rr',
+            '1',
+        ]);
+        expect(stdout).toContain(note ?? '');
+    });
+
+    it('flags a funded reward:risk whose edge is implausible even when the eval one is typical', async () => {
+        const note = edgePlausibilityNote({
+            rrRatio: 3,
+            winrate: fraction(0.4),
+        });
+        expect(note).not.toBeNull();
+        const { stdout } = await capturedRun([...SMALL_RUN, '--funded-rr', '3']);
+        expect(stdout).toContain(note ?? '');
+    });
+
+    it('stays silent at the typical 40% at 1:2', async () => {
+        const { stdout } = await capturedRun(SMALL_RUN);
+        expect(stdout).not.toMatch(/\b(?:implausible|no|strong|typical) edge\b/);
     });
 });

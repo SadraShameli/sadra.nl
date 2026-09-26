@@ -1,20 +1,32 @@
 import type { ArgsDef } from 'citty';
 
 import { parseArgs } from 'citty';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
+import ladderCommand, {
+    ladderArguments,
+} from '~/cli/commands/prop/ladder/command';
+import optimizeDp, { dpArguments } from '~/cli/commands/prop/optimize/dp/command';
 import {
+    bankrollArguments,
+    copyAccountsArgument,
     describeStopRule,
+    edgePlausibilityNote,
     formatDaysToPass,
     hasEvalPass,
     MAX_PATH_GRANULARITY,
     planArguments,
     planResolver,
+    readAccountsPerSession,
+    readBankroll,
+    readBankrollInputs,
     readFraction,
     readGranularityList,
+    readHoursPerDay,
     readInteger,
     readLadder,
+    readLossThreshold,
     readMaxLifetimePayouts,
     readNonNegativeInteger,
     readNonNegativeNumber,
@@ -24,9 +36,12 @@ import {
     readPositiveInteger,
     readPositiveNumber,
     readRebuyLagDays,
+    readScreenTime,
     readStopRule,
+    screenTimeArguments,
     singlePathGranularityArgument,
     tradingArguments,
+    tradingEdgeNotes,
     TradingInputs,
 } from '~/cli/commands/prop/shared';
 import * as sharedModule from '~/cli/commands/prop/shared';
@@ -52,11 +67,27 @@ import {
     type PlanId,
 } from '~/lib/prop-calculator';
 import {
+    DEFAULT_RULEBOOK,
+    rulebookSchema,
+} from '~/lib/prop-calculator/advisor';
+import { solveAverageRewardPolicy } from '~/lib/prop-calculator/core/AverageRewardSolver';
+import {
     ContractUnit,
     describeDll,
     describeFundedContracts,
     describeShare,
 } from '~/lib/prop-calculator/describe';
+
+vi.mock(
+    import('~/lib/prop-calculator/core/AverageRewardSolver'),
+    async (importOriginal) => {
+        const actual = await importOriginal();
+        return {
+            ...actual,
+            solveAverageRewardPolicy: vi.fn(actual.solveAverageRewardPolicy),
+        };
+    },
+);
 
 const ARGS = {
     ...planArguments,
@@ -688,5 +719,375 @@ describe('describeDll prints a no-limit tier (WP22b)', () => {
                 true,
             ),
         ).toBe('$2000, none on some tiers (hard)');
+    });
+});
+
+describe('bankroll and screen-time flags (PT-54, F-V13, F-V25)', () => {
+    it('declares --bankroll and --loss-threshold as optional strings with no default, so absent means not set', () => {
+        for (const flag of Object.values(bankrollArguments)) {
+            expect(flag.type).toBe('string');
+            expect(flag).not.toHaveProperty('default');
+        }
+        expect(
+            Object.keys(bankrollArguments).toSorted((a, b) => a.localeCompare(b)),
+        ).toStrictEqual([
+            'bankroll',
+            'loss-threshold',
+        ]);
+    });
+
+    it('declares --hours-per-day and --accounts-per-session as optional strings with no default', () => {
+        for (const flag of Object.values(screenTimeArguments)) {
+            expect(flag.type).toBe('string');
+            expect(flag).not.toHaveProperty('default');
+        }
+        expect(
+            Object.keys(screenTimeArguments).toSorted((a, b) => a.localeCompare(b)),
+        ).toStrictEqual([
+            'accounts-per-session',
+            'hours-per-day',
+        ]);
+    });
+
+    it('says what each flag drives and that an absent threshold is not set', () => {
+        expect(bankrollArguments.bankroll.description).toContain(
+            'attempts affordable',
+        );
+        expect(bankrollArguments.bankroll.description).toContain(
+            'P(batch net < 0)',
+        );
+        expect(bankrollArguments['loss-threshold'].description).toContain(
+            'not set',
+        );
+        expect(screenTimeArguments['hours-per-day'].description).toContain(
+            '$/screen hour',
+        );
+        expect(
+            screenTimeArguments['accounts-per-session'].description,
+        ).toContain('copy group counts as one account');
+        for (const flag of [
+            ...Object.values(bankrollArguments),
+            ...Object.values(screenTimeArguments),
+        ]) {
+            expect(flag.description).not.toContain('\u{2014}');
+        }
+    });
+
+    it('reads --bankroll as dollars, null when absent or empty', () => {
+        expect(readBankroll(undefined)).toBeNull();
+        expect(readBankroll('')).toBeNull();
+        expect(readBankroll('5000')).toBe(5000);
+        expect(readBankroll('2500.5')).toBe(2500.5);
+    });
+
+    it.each(['0', '-100', 'abc', 'Infinity'])(
+        'rejects --bankroll %s with a typed error naming the flag',
+        (raw) => {
+            expect(() => readBankroll(raw)).toThrow(TypeError);
+            expect(() => readBankroll(raw)).toThrow(
+                /--bankroll must be a dollar amount > 0/,
+            );
+        },
+    );
+
+    it('reads --loss-threshold as a fraction inside the rulebook bounds, null when absent', () => {
+        expect(readLossThreshold(undefined)).toBeNull();
+        expect(readLossThreshold('')).toBeNull();
+        expect(readLossThreshold('0.05')).toBe(0.05);
+        expect(readLossThreshold('0.5')).toBe(0.5);
+    });
+
+    it.each(['0', '0.51', '1', '-0.1', 'five'])(
+        'rejects --loss-threshold %s with the rulebook bound in the message',
+        (raw) => {
+            expect(() => readLossThreshold(raw)).toThrow(TypeError);
+            expect(() => readLossThreshold(raw)).toThrow(
+                /--loss-threshold must be a fraction above 0 and at most 0\.5/,
+            );
+        },
+    );
+
+    it('reads the bankroll inputs together', () => {
+        expect(readBankrollInputs({})).toStrictEqual({
+            bankroll: null,
+            lossThreshold: null,
+        });
+        expect(
+            readBankrollInputs({ bankroll: '5000', 'loss-threshold': '0.05' }),
+        ).toStrictEqual({ bankroll: 5000, lossThreshold: 0.05 });
+    });
+
+    it('reads --hours-per-day inside the rulebook bounds (above 0, at most 16)', () => {
+        expect(readHoursPerDay(undefined)).toBeNull();
+        expect(readHoursPerDay('2')).toBe(2);
+        expect(readHoursPerDay('16')).toBe(16);
+        for (const raw of ['0', '16.5', '-1', 'x']) {
+            expect(() => readHoursPerDay(raw)).toThrow(
+                /--hours-per-day must be a number of hours above 0 and at most 16/,
+            );
+        }
+    });
+
+    it('reads --accounts-per-session as a whole number inside the rulebook bounds (1 to 200)', () => {
+        expect(readAccountsPerSession(undefined)).toBeNull();
+        expect(readAccountsPerSession('3')).toBe(3);
+        expect(readAccountsPerSession('200')).toBe(200);
+        for (const raw of ['0', '1.5', '201', 'x']) {
+            expect(() => readAccountsPerSession(raw)).toThrow(
+                /--accounts-per-session must be a whole number from 1 to 200/,
+            );
+        }
+    });
+
+    it('bounds match the rulebook schema, so the CLI and the rulebook page accept the same values', () => {
+        const bankroll = rulebookBankrollShape();
+        expect(bankroll.lossRiskThreshold.safeParse(0.5).success).toBe(true);
+        expect(bankroll.lossRiskThreshold.safeParse(0.51).success).toBe(false);
+        expect(bankroll.sessionHoursPerDay.safeParse(16).success).toBe(true);
+        expect(bankroll.sessionHoursPerDay.safeParse(16.5).success).toBe(
+            false,
+        );
+        expect(bankroll.accountsPerSession.safeParse(200).success).toBe(true);
+        expect(bankroll.accountsPerSession.safeParse(201).success).toBe(false);
+    });
+
+    it('reads the screen time only as a pair, null when both are absent', () => {
+        expect(readScreenTime({})).toBeNull();
+        expect(
+            readScreenTime({
+                'accounts-per-session': '3',
+                'hours-per-day': '2',
+            }),
+        ).toStrictEqual({ accountsPerSession: 3, sessionHoursPerDay: 2 });
+    });
+
+    it.each([
+        [{ 'hours-per-day': '2' }],
+        [{ 'accounts-per-session': '3' }],
+    ])(
+        'fails loud when only one of the pair is given (%o)',
+        (arguments_) => {
+            expect(() => readScreenTime(arguments_)).toThrow(TypeError);
+            expect(() => readScreenTime(arguments_)).toThrow(
+                /--hours-per-day and --accounts-per-session go together/,
+            );
+        },
+    );
+});
+
+function rulebookBankrollShape() {
+    const { accountsPerSession, lossRiskThreshold, sessionHoursPerDay } =
+        rulebookSchema.shape.bankroll.shape;
+    return {
+        accountsPerSession: accountsPerSession.unwrap(),
+        lossRiskThreshold: lossRiskThreshold.unwrap(),
+        sessionHoursPerDay: sessionHoursPerDay.unwrap(),
+    };
+}
+
+describe('--copy-accounts help (PT-54, F-V10)', () => {
+    it('says copied accounts are one correlated outcome that counts once as pass-rate evidence', () => {
+        const help = copyAccountsArgument['copy-accounts'].description;
+        expect(help).toContain('multiplies per-account fees and P&L');
+        expect(help).toContain('one correlated outcome');
+        expect(help).toContain('count once as pass-rate evidence');
+        expect(help).not.toContain('\u{2014}');
+    });
+});
+
+describe('edgePlausibilityNote (PT-54, F-V22)', () => {
+    it('is silent at a typical edge: 40% at 1:2 and 52% at 1:1', () => {
+        expect(
+            edgePlausibilityNote({ rrRatio: 2, winrate: fraction(0.4) }),
+        ).toBeNull();
+        expect(
+            edgePlausibilityNote({ rrRatio: 1, winrate: fraction(0.52) }),
+        ).toBeNull();
+    });
+
+    it('flags 70% at 1:1 as implausible with its expectancy and the thresholds', () => {
+        const note = edgePlausibilityNote({
+            rrRatio: 1,
+            winrate: fraction(0.7),
+        });
+        expect(note).toContain('implausible edge');
+        expect(note).toContain('+0.40R per trade at 70% and 1:1');
+        expect(note).toContain('typical up to +0.30R, strong up to +0.35R');
+    });
+
+    it('flags 50% at 1:1.64 (+0.32R) as strong', () => {
+        expect(
+            edgePlausibilityNote({ rrRatio: 1.64, winrate: fraction(0.5) }),
+        ).toContain('strong edge');
+    });
+
+    it('flags a negative expectancy as no edge', () => {
+        const note = edgePlausibilityNote({
+            rrRatio: 2,
+            winrate: fraction(0.3),
+        });
+        expect(note).toContain('no edge');
+        expect(note).toContain('-0.10R per trade at 30% and 1:2');
+    });
+
+    it('names both expectancy sources while the authoritative one is open (QV-20)', () => {
+        const note = edgePlausibilityNote({
+            rrRatio: 1,
+            winrate: fraction(0.7),
+        });
+        expect(note).toContain('+0.20R from 40% at 1:2');
+        expect(note).toContain('+0.26R');
+        expect(note).not.toContain('\u{2014}');
+    });
+
+    it('reads the thresholds passed in, defaulting to the rulebook defaults', () => {
+        expect(
+            edgePlausibilityNote(
+                { rrRatio: 2, winrate: fraction(0.4) },
+                { strongMaxExpectancyR: 0.25, typicalMaxExpectancyR: 0.15 },
+            ),
+        ).toContain('strong edge');
+        expect(DEFAULT_RULEBOOK.plausibility).toStrictEqual({
+            strongMaxExpectancyR: 0.35,
+            typicalMaxExpectancyR: 0.3,
+        });
+    });
+
+    it('checks the funded reward:risk too when it differs from the eval one', () => {
+        const notes = tradingEdgeNotes({
+            fundedRrRatio: 3,
+            rrRatio: 2,
+            winrate: fraction(0.4),
+        });
+        expect(notes).toStrictEqual([
+            edgePlausibilityNote({ rrRatio: 3, winrate: fraction(0.4) }),
+        ]);
+        expect(
+            tradingEdgeNotes({
+                fundedRrRatio: undefined,
+                rrRatio: 1,
+                winrate: fraction(0.7),
+            }),
+        ).toStrictEqual([
+            edgePlausibilityNote({ rrRatio: 1, winrate: fraction(0.7) }),
+        ]);
+        expect(
+            tradingEdgeNotes({
+                fundedRrRatio: 2,
+                rrRatio: 2,
+                winrate: fraction(0.4),
+            }),
+        ).toStrictEqual([]);
+    });
+});
+
+async function capturedStdout(run: () => Promise<unknown>): Promise<string> {
+    const written: string[] = [];
+    const write = vi
+        .spyOn(process.stdout, 'write')
+        .mockImplementation((chunk: string | Uint8Array) => {
+            written.push(String(chunk));
+            return true;
+        });
+    const writeError = vi
+        .spyOn(process.stderr, 'write')
+        .mockImplementation(() => true);
+    const exitCode = process.exitCode;
+    try {
+        await run();
+    } finally {
+        write.mockRestore();
+        writeError.mockRestore();
+        process.exitCode = exitCode;
+    }
+    return written.join('');
+}
+
+describe('the plausibility note on prop ladder and optimize dp (PT-54 step 4, one helper, one text)', () => {
+    const implausibleNote =
+        edgePlausibilityNote({ rrRatio: 1, winrate: fraction(0.7) }) ?? '';
+
+    it('prop ladder prints the note for 70% at 1:1', async () => {
+        const argv = [
+            '--firm',
+            'mffu',
+            '--variant',
+            'rapid-eod',
+            '--winrate',
+            '0.7',
+            '--rr',
+            '1',
+            '--lo',
+            '500',
+            '--max',
+            '500',
+            '--rungs',
+            '1',
+            '--trials',
+            '5',
+            '--top',
+            '1',
+        ];
+        const stdout = await capturedStdout(async () => {
+            await ladderCommand.run?.({
+                args: parseArgs<typeof ladderArguments>(argv, ladderArguments),
+                cmd: ladderCommand,
+                rawArgs: argv,
+            });
+        });
+        expect(implausibleNote).not.toBe('');
+        expect(stdout).toContain(implausibleNote);
+    });
+
+    it('prop ladder stays silent at 40% at 1:2', async () => {
+        const argv = [
+            '--firm',
+            'mffu',
+            '--variant',
+            'rapid-eod',
+            '--lo',
+            '500',
+            '--max',
+            '500',
+            '--rungs',
+            '1',
+            '--trials',
+            '5',
+            '--top',
+            '1',
+        ];
+        const stdout = await capturedStdout(async () => {
+            await ladderCommand.run?.({
+                args: parseArgs<typeof ladderArguments>(argv, ladderArguments),
+                cmd: ladderCommand,
+                rawArgs: argv,
+            });
+        });
+        expect(stdout).not.toMatch(/\b(?:implausible|no|strong|typical) edge\b/);
+    });
+
+    it('optimize dp prints the note before the solve for 70% at 1:1', async () => {
+        const argv = [
+            '--firm',
+            'alphafutures',
+            '--variant',
+            'zero',
+            '--winrate',
+            '0.7',
+            '--rr',
+            '1',
+        ];
+        vi.mocked(solveAverageRewardPolicy).mockImplementationOnce(() => {
+            throw new Error('stop after the preamble');
+        });
+        const stdout = await capturedStdout(async () => {
+            await optimizeDp.run?.({
+                args: parseArgs<typeof dpArguments>(argv, dpArguments),
+                cmd: optimizeDp,
+                rawArgs: argv,
+            });
+        });
+        expect(implausibleNote).not.toBe('');
+        expect(stdout).toContain(implausibleNote);
     });
 });
